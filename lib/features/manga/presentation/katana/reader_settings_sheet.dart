@@ -41,7 +41,7 @@ enum ReaderThemeStyle {
       case ReaderThemeStyle.oled:
         return 'OLED Black';
       case ReaderThemeStyle.plum:
-        return 'Plum Night';
+        return 'Sakura Noir';
       case ReaderThemeStyle.sepia:
         return 'Warm Sepia';
     }

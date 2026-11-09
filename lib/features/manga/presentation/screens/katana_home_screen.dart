@@ -597,14 +597,19 @@ class _TypeChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
         decoration: BoxDecoration(
-          color: selected
-              ? KatanaColors.accent.withValues(alpha: 0.18)
-              : KatanaColors.surface,
-          borderRadius: BorderRadius.circular(20),
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [KatanaColors.accent, KatanaColors.accentDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : KatanaColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(99),
           border: Border.all(
-            color: selected ? KatanaColors.accent : KatanaColors.border,
+            color: selected ? KatanaColors.accentSoft : KatanaColors.border,
           ),
         ),
         child: Row(
@@ -613,13 +618,13 @@ class _TypeChip extends StatelessWidget {
             Icon(
               icon,
               size: 15,
-              color: selected ? KatanaColors.accent : KatanaColors.textMuted,
+              color: selected ? Colors.white : KatanaColors.accentSoft,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: AppTypography.outfitBold.copyWith(
-                color: selected ? KatanaColors.accent : KatanaColors.text,
+                color: selected ? Colors.white : KatanaColors.text,
                 fontSize: 12.5,
               ),
             ),

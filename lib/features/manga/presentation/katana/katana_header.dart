@@ -145,8 +145,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: KatanaColors.surface,
-        border: Border(bottom: BorderSide(color: KatanaColors.border)),
+        color: KatanaColors.headerDark,
+        border: Border(
+          bottom: BorderSide(color: KatanaColors.borderStrong, width: 1),
+        ),
       ),
       // Top-only SafeArea: the surface color stays full-bleed behind the
       // iPhone status bar (Home Screen app and native notch alike) while
@@ -180,7 +182,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                           icon: const Icon(
                             Icons.arrow_back_ios_new_rounded,
                             size: 18,
-                            color: KatanaColors.textMuted,
+                            color: KatanaColors.accentSoft,
                           ),
                         ),
                       ),
@@ -228,7 +230,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                               icon: const Icon(
                                 Icons.arrow_back_ios_new_rounded,
                                 size: 18,
-                                color: KatanaColors.textMuted,
+                                color: KatanaColors.accentSoft,
                               ),
                             ),
                           ),
@@ -253,30 +255,45 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: _buildSuggestions(),
               ),
-            // Nav row
             Container(
               width: double.infinity,
-              color: KatanaColors.surface,
+              decoration: const BoxDecoration(
+                color: KatanaColors.surface,
+                border: Border(
+                  top: BorderSide(color: KatanaColors.border, width: 0.8),
+                ),
+              ),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 child: Row(
                   children: [
-                    _navItem(KatanaNav.home, 'Home', () => pushHome(context)),
+                    _navItem(
+                      KatanaNav.home,
+                      'Home',
+                      () => pushHome(context),
+                      icon: Icons.home_rounded,
+                    ),
                     _navItem(
                       KatanaNav.latest,
                       'Latest update',
                       () => pushDirectory(context, mode: 'latest'),
+                      icon: Icons.bolt_rounded,
                     ),
                     _navItem(
                       KatanaNav.directory,
                       'Manga Directory',
                       () => pushDirectory(context),
+                      icon: Icons.grid_view_rounded,
                     ),
                     _navItem(
                       KatanaNav.newManga,
                       'New Manga',
                       () => pushDirectory(context, mode: 'new'),
+                      icon: Icons.auto_awesome_rounded,
                     ),
                     _buildGenresNav(),
                     if (showBack)
@@ -284,15 +301,22 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                         KatanaNav.reading,
                         'Currently Reading',
                         () => pushCurrentlyReading(context),
+                        icon: Icons.auto_stories_rounded,
                       ),
                     _navItem(
                       KatanaNav.downloads,
                       'Downloads',
                       () => pushDownloads(context),
+                      icon: Icons.download_done_rounded,
                     ),
                     if (!desktop && showBack) ...[
-                      const SizedBox(width: 8),
-                      _navItem(null, 'Bookmarks', () => pushBookmarks(context)),
+                      const SizedBox(width: 4),
+                      _navItem(
+                        null,
+                        'Bookmarks',
+                        () => pushBookmarks(context),
+                        icon: Icons.bookmark_rounded,
+                      ),
                     ],
                   ],
                 ),
@@ -322,7 +346,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: KatanaColors.accentSoft.withValues(alpha: 0.5),
+              ),
             ),
             child: Icon(
               Icons.auto_awesome_rounded,
@@ -330,7 +357,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               size: narrow ? 17 : 19,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 9),
           Text.rich(
             TextSpan(
               children: [
@@ -369,13 +396,19 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       constraints: const BoxConstraints(maxWidth: 620),
       decoration: BoxDecoration(
         color: KatanaColors.background,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: KatanaColors.border),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: hasText ? KatanaColors.borderStrong : KatanaColors.border,
+        ),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 12),
-          const Icon(Icons.search, size: 19, color: KatanaColors.textLight),
+          const SizedBox(width: 14),
+          Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: hasText ? KatanaColors.accent : KatanaColors.textLight,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
@@ -423,12 +456,12 @@ class _KatanaHeaderState extends State<KatanaHeader> {
             onTap: _toggleSearchBy,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              margin: const EdgeInsets.only(right: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: KatanaColors.surface,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: KatanaColors.border),
+                color: KatanaColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: KatanaColors.borderStrong),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -437,12 +470,15 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                     _searchBy == 'm_name'
                         ? (narrow ? 'Name' : 'Manga Name')
                         : 'Author',
-                    style: KatanaType.small,
+                    style: KatanaType.small.copyWith(
+                      color: KatanaColors.accentSoft,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const Icon(
                     Icons.arrow_drop_down_rounded,
                     size: 16,
-                    color: KatanaColors.textMuted,
+                    color: KatanaColors.accentSoft,
                   ),
                 ],
               ),
@@ -453,7 +489,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
             visualDensity: VisualDensity.compact,
             tooltip: canSubmit ? 'Search' : 'Type at least 3 letters',
             style: IconButton.styleFrom(
-              minimumSize: const Size(40, 40),
+              minimumSize: const Size(38, 38),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             icon: Icon(
@@ -462,6 +498,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               color: canSubmit ? KatanaColors.accent : KatanaColors.textLight,
             ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
     );
@@ -636,12 +673,29 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     );
   }
 
-  Widget _navItem(KatanaNav? nav, String label, VoidCallback onTap) {
+  Widget _navItem(
+    KatanaNav? nav,
+    String label,
+    VoidCallback onTap, {
+    IconData? icon,
+  }) {
     final active = nav != null && nav == widget.active;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(13, 11, 13, 6),
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 5),
+        decoration: BoxDecoration(
+          color: active
+              ? KatanaColors.accent.withValues(alpha: 0.14)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: active
+                ? KatanaColors.accent.withValues(alpha: 0.45)
+                : Colors.transparent,
+          ),
+        ),
         // Stack (not Column): the label sizes the item and the
         // underline stretches to the label width. A Column would
         // hand the bar unbounded width and it would collapse.
@@ -649,20 +703,35 @@ class _KatanaHeaderState extends State<KatanaHeader> {
           alignment: Alignment.bottomCenter,
           children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 7.5),
-              child: AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                style: AppTypography.outfitBold.copyWith(
-                  color: active ? KatanaColors.accent : KatanaColors.text,
-                  fontSize: 13.5,
-                ),
-                child: Text(label),
+              padding: const EdgeInsets.only(bottom: 5.5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 14,
+                      color: active
+                          ? KatanaColors.accent
+                          : KatanaColors.textLight,
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    style: AppTypography.outfitBold.copyWith(
+                      color: active ? KatanaColors.accent : KatanaColors.text,
+                      fontSize: 13,
+                    ),
+                    child: Text(label),
+                  ),
+                ],
               ),
             ),
             Positioned(
-              left: 0,
-              right: 0,
+              left: 4,
+              right: 4,
               bottom: 0,
               child: _GlideUnderline(active: active, fromLeft: _wipeFromLeft),
             ),
@@ -673,7 +742,14 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   }
 
   Widget _buildGenresNav() {
-    return _GenresDropdown(child: _navItem(KatanaNav.genres, 'Genres', () {}));
+    return _GenresDropdown(
+      child: _navItem(
+        KatanaNav.genres,
+        'Genres',
+        () {},
+        icon: Icons.local_offer_rounded,
+      ),
+    );
   }
 }
 

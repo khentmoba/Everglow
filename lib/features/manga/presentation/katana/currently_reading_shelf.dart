@@ -377,46 +377,35 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
     // see them — no need to wait for Clair to tap a card first.
     _healMissingMeta(_bookmarks);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        KatanaSectionHeader(
-          title: 'Currently Reading',
-          trailing: GestureDetector(
-            onTap: () => pushCurrentlyReading(context),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('View all', style: KatanaType.accent),
-                const SizedBox(width: 2),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: KatanaColors.accent,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _ReadingRow(
-          label: _hasPartner ? 'You' : null,
-          items: mergedMine.take(10).toList(),
-          progressFor: _progressFor,
-          loadingSlug: _loadingSlug,
-          slugOf: katanaSlugOfItem,
-          onResume: _resume,
-          onOpen: _openDetails,
-          onRemove: _remove,
-          onCoverError: _handleCoverError,
-          emptyText: _hasPartner
-              ? 'Read anything and it lands here on its own.'
-              : null,
-        ),
-        if (_hasPartner) ...[
-          const SizedBox(height: 12),
-          _ReadingRow(
-            label: _displayName(widget.partnerName!),
+    final width = MediaQuery.sizeOf(context).width;
+    final sideBySideDesks = _hasPartner && width >= 820;
+    final myDeskLabel = _hasPartner
+        ? "${_displayName(widget.userName)}'s Desk"
+        : null;
+    final partnerDeskLabel = _hasPartner
+        ? "${_displayName(widget.partnerName!)}'s Desk"
+        : null;
+
+    final myRow = _ReadingRow(
+      label: myDeskLabel,
+      isPrimaryDesk: true,
+      items: mergedMine.take(10).toList(),
+      progressFor: _progressFor,
+      loadingSlug: _loadingSlug,
+      slugOf: katanaSlugOfItem,
+      onResume: _resume,
+      onOpen: _openDetails,
+      onRemove: _remove,
+      onCoverError: _handleCoverError,
+      emptyText: _hasPartner
+          ? 'Read anything and it lands here on its own.'
+          : null,
+    );
+
+    final partnerRow = _hasPartner
+        ? _ReadingRow(
+            label: partnerDeskLabel,
+            isPrimaryDesk: false,
             items: _partner.take(10).toList(),
             progressFor: (_) => null,
             loadingSlug: null,
@@ -425,7 +414,55 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
             onOpen: _openDetails,
             onRemove: null,
             emptyText: 'Nothing on their reading list yet.',
+          )
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        KatanaSectionHeader(
+          title: 'Currently Reading',
+          badge: _hasPartner ? 'READING NOOK' : null,
+          trailing: GestureDetector(
+            onTap: () => pushCurrentlyReading(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: KatanaColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: KatanaColors.borderStrong),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('View all', style: KatanaType.accent),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: KatanaColors.accent,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
           ),
+        ),
+        const SizedBox(height: 12),
+        if (sideBySideDesks && partnerRow != null)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: myRow),
+              const SizedBox(width: 12),
+              Expanded(child: partnerRow),
+            ],
+          )
+        else ...[
+          myRow,
+          if (partnerRow != null) ...[
+            const SizedBox(height: 12),
+            partnerRow,
+          ],
         ],
         const SizedBox(height: 20),
       ],
@@ -435,6 +472,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
 
 class _ReadingRow extends StatelessWidget {
   final String? label;
+  final bool isPrimaryDesk;
   final List<MangaItem> items;
   final KatanaBookmark? Function(MangaItem) progressFor;
   final String? loadingSlug;
@@ -452,6 +490,7 @@ class _ReadingRow extends StatelessWidget {
     required this.onResume,
     required this.onOpen,
     this.label,
+    this.isPrimaryDesk = true,
     this.loadingSlug,
     this.onRemove,
     this.onCoverError,
@@ -460,61 +499,130 @@ class _ReadingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final badgeColor = isPrimaryDesk
+        ? KatanaColors.accent
+        : KatanaColors.accentSoft;
     final header = label != null
         ? Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              label!.toUpperCase(),
-              style: KatanaType.small.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.1,
-              ),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Icon(
+                  isPrimaryDesk
+                      ? Icons.auto_awesome_rounded
+                      : Icons.favorite_rounded,
+                  size: 13,
+                  color: badgeColor,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label!.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: KatanaType.small.copyWith(
+                      color: badgeColor,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                if (items.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      '${items.length}',
+                      style: AppTypography.outfitBold.copyWith(
+                        color: badgeColor,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           )
         : const SizedBox.shrink();
 
     if (items.isEmpty) {
       if (emptyText == null) return const SizedBox.shrink();
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          header,
-          Text(emptyText!, style: KatanaType.small),
-        ],
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: KatanaColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isPrimaryDesk
+                ? KatanaColors.borderStrong
+                : KatanaColors.border,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            header,
+            Text(emptyText!, style: KatanaType.small),
+          ],
+        ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        header,
-        SizedBox(
-          height: 142,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final progress = progressFor(item);
-              final isLoading = loadingSlug == slugOf(item);
-              return _ReadingCard(
-                item: item,
-                progress: progress,
-                isLoading: isLoading,
-                onResume: () => onResume(item),
-                onOpen: () => onOpen(item),
-                onRemove:
-                    onRemove == null ? null : () => onRemove!(item),
-                onCoverError: onCoverError == null
-                    ? null
-                    : () => onCoverError!(item),
-              );
-            },
-          ),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            isPrimaryDesk ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+            KatanaColors.surface,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-      ],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isPrimaryDesk
+              ? KatanaColors.borderStrong
+              : KatanaColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          SizedBox(
+            height: 142,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final progress = progressFor(item);
+                final isLoading = loadingSlug == slugOf(item);
+                return _ReadingCard(
+                  item: item,
+                  progress: progress,
+                  isLoading: isLoading,
+                  onResume: () => onResume(item),
+                  onOpen: () => onOpen(item),
+                  onRemove: onRemove == null ? null : () => onRemove!(item),
+                  onCoverError: onCoverError == null
+                      ? null
+                      : () => onCoverError!(item),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -556,51 +664,59 @@ class _ReadingCard extends StatelessWidget {
     return GestureDetector(
       onTap: onOpen,
       child: Container(
-        width: 308,
+        width: 298,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: KatanaColors.surface,
+          color: KatanaColors.background,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: KatanaColors.border),
+          border: Border.all(color: KatanaColors.borderStrong),
           boxShadow: const [
             BoxShadow(
-              color: Colors.black45,
-              blurRadius: 10,
-              offset: Offset(0, 3),
+              color: Colors.black54,
+              blurRadius: 12,
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 76,
-                height: 118,
-                child: item.coverUrl.isEmpty
-                    ? Container(
-                        color: KatanaColors.surfaceAlt,
-                        child: const Icon(
-                          Icons.menu_book_rounded,
-                          color: KatanaColors.textLight,
-                          size: 28,
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: KatanaColors.accent.withValues(alpha: 0.45),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: SizedBox(
+                  width: 76,
+                  height: 116,
+                  child: item.coverUrl.isEmpty
+                      ? Container(
+                          color: KatanaColors.surfaceAlt,
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: KatanaColors.textLight,
+                            size: 28,
+                          ),
+                        )
+                      : KatanaNetworkImage(
+                          item.coverUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) {
+                            onCoverError?.call();
+                            return Container(
+                              color: KatanaColors.surfaceAlt,
+                              child: const Icon(
+                                Icons.broken_image_rounded,
+                                color: KatanaColors.textLight,
+                                size: 24,
+                              ),
+                            );
+                          },
                         ),
-                      )
-                    : KatanaNetworkImage(
-                        item.coverUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) {
-                          onCoverError?.call();
-                          return Container(
-                            color: KatanaColors.surfaceAlt,
-                            child: const Icon(
-                              Icons.broken_image_rounded,
-                              color: KatanaColors.textLight,
-                              size: 24,
-                            ),
-                          );
-                        },
-                      ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -618,15 +734,26 @@ class _ReadingCard extends StatelessWidget {
                       fontSize: 14.5,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _progressLine,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: KatanaType.small.copyWith(
-                      color: KatanaColors.accent,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: KatanaColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: KatanaColors.border),
+                    ),
+                    child: Text(
+                      _progressLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: KatanaType.small.copyWith(
+                        color: KatanaColors.accentSoft,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -641,8 +768,15 @@ class _ReadingCard extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: KatanaColors.accent,
-                            borderRadius: BorderRadius.circular(20),
+                            gradient: const LinearGradient(
+                              colors: [
+                                KatanaColors.accent,
+                                KatanaColors.accentDark,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(99),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,

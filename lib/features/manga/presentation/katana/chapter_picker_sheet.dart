@@ -52,6 +52,7 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
   final TextEditingController _filterController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _reversed = true; // default: newest first, like the site's dropdown
+  int? _selectedRangeBucket;
   String _query = '';
 
   @override
@@ -84,7 +85,19 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
   }
 
   List<KatanaChapter> get _filteredChapters {
-    var list = List<KatanaChapter>.from(widget.chapters);
+    final base = List<KatanaChapter>.from(widget.chapters);
+    const bucketSize = 50;
+    final bucketCount = base.isEmpty ? 0 : (base.length / bucketSize).ceil();
+    List<KatanaChapter> list;
+    if (_selectedRangeBucket != null &&
+        _selectedRangeBucket! >= 0 &&
+        _selectedRangeBucket! < bucketCount) {
+      final start = _selectedRangeBucket! * bucketSize;
+      final end = (start + bucketSize).clamp(0, base.length);
+      list = base.sublist(start, end);
+    } else {
+      list = base;
+    }
     if (_reversed) {
       list = list.reversed.toList();
     }
@@ -181,20 +194,20 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
 
           // Search / filter bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Container(
               height: 38,
               decoration: BoxDecoration(
                 color: KatanaColors.background,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(99),
                 border: Border.all(color: KatanaColors.border),
               ),
               child: Row(
                 children: [
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   const Icon(
                     Icons.search_rounded,
-                    color: KatanaColors.textLight,
+                    color: KatanaColors.accentSoft,
                     size: 17,
                   ),
                   const SizedBox(width: 8),
@@ -236,6 +249,33 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
               ),
             ),
           ),
+          if (widget.chapters.length > 50) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                children: [
+                  _buildRangePill(
+                    label: 'All',
+                    selected: _selectedRangeBucket == null,
+                    onTap: () => setState(() => _selectedRangeBucket = null),
+                  ),
+                  for (int b = 0;
+                      b < (widget.chapters.length / 50).ceil();
+                      b++) ...[
+                    const SizedBox(width: 6),
+                    _buildRangePill(
+                      label:
+                          '${b * 50 + 1}–${((b + 1) * 50).clamp(1, widget.chapters.length)}',
+                      selected: _selectedRangeBucket == b,
+                      onTap: () => setState(() => _selectedRangeBucket = b),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
 
           const Divider(height: 1, color: KatanaColors.border),
 
@@ -332,6 +372,38 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRangePill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [KatanaColors.accent, KatanaColors.accentDark],
+                )
+              : null,
+          color: selected ? null : KatanaColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected ? KatanaColors.accentSoft : KatanaColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.outfitBold.copyWith(
+            color: selected ? Colors.white : KatanaColors.accentSoft,
+            fontSize: 11,
+          ),
+        ),
       ),
     );
   }
