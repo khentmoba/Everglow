@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../data/services/anilist_service.dart';
@@ -64,6 +65,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   final LayerLink _link = LayerLink();
   final OverlayPortalController _portal = OverlayPortalController();
   bool _hover = false;
+  bool _focused = false;
   bool _popoverLeft = false;
   bool _pointerInPopover = false;
   bool _pointerInsideCard = false;
@@ -294,72 +296,103 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
           ),
         ),
       ),
-      child: MouseRegion(
-        onEnter: (_) => _enter(),
-        onExit: (_) => _onCardExit(),
-        cursor: SystemMouseCursors.click,
-        child: Listener(
-          onPointerDown: (event) {
-            if (AnimeXNavigation.isMiddleClick(event)) {
-              AnimeXNavigation.openInNewTab(item);
-            }
-          },
-          child: GestureDetector(
-            onTap: () {
+      child: FocusableActionDetector(
+        onFocusChange: (focused) {
+          if (focused) {
+            Scrollable.ensureVisible(
+              context,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            );
+          }
+          setState(() => _focused = focused);
+        },
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
               if (AnimeXNavigation.isNewTabModifierPressed()) {
                 AnimeXNavigation.openInNewTab(item);
               } else {
                 widget.onTap?.call();
               }
+              return null;
             },
-            child: SizedBox(
-            width: widget.width,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CompositedTransformTarget(
-                  link: _link,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    transform: Matrix4.translationValues(
-                      0,
-                      _hover ? -4 : 0,
-                      0,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        AnimeXTokens.radiusCard,
+          ),
+        },
+        child: MouseRegion(
+          onEnter: (_) => _enter(),
+          onExit: (_) => _onCardExit(),
+          cursor: SystemMouseCursors.click,
+          child: Listener(
+            onPointerDown: (event) {
+              if (AnimeXNavigation.isMiddleClick(event)) {
+                AnimeXNavigation.openInNewTab(item);
+              }
+            },
+            child: GestureDetector(
+              onTap: () {
+                if (AnimeXNavigation.isNewTabModifierPressed()) {
+                  AnimeXNavigation.openInNewTab(item);
+                } else {
+                  widget.onTap?.call();
+                }
+              },
+              child: SizedBox(
+              width: widget.width,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CompositedTransformTarget(
+                    link: _link,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      transform: Matrix4.translationValues(
+                        0,
+                        (_hover || _focused) ? -4 : 0,
+                        0,
                       ),
-                      border: Border.all(
-                        color: _hover
-                            ? AnimeXTokens.accent.withValues(alpha: 0.55)
-                            : Colors.white.withValues(alpha: 0.08),
-                      ),
-                      boxShadow: _hover
-                          ? [
-                              const BoxShadow(
-                                color: Color(0xB3000000),
-                                blurRadius: 28,
-                                offset: Offset(0, 14),
-                              ),
-                              BoxShadow(
-                                color: AnimeXTokens.accent.withValues(
-                                  alpha: 0.28,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(
+                          AnimeXTokens.radiusCard,
+                        ),
+                        border: Border.all(
+                          color: (_hover || _focused)
+                              ? AnimeXTokens.accent
+                              : Colors.white.withValues(alpha: 0.08),
+                          width: _focused ? 2.5 : 1,
+                        ),
+                        boxShadow: (_hover || _focused)
+                            ? [
+                                const BoxShadow(
+                                  color: AppColors.scrimStrong,
+                                  blurRadius: 28,
+                                  offset: Offset(0, 14),
                                 ),
-                                blurRadius: 28,
-                                offset: const Offset(0, 8),
-                              ),
-                            ]
-                          : const [
-                              BoxShadow(
-                                color: AppColors.scrimStrong,
-                                blurRadius: 14,
-                                offset: Offset(0, 6),
-                              ),
-                            ],
-                    ),
+                                BoxShadow(
+                                  color: AnimeXTokens.accent.withValues(
+                                    alpha: _focused ? 0.55 : 0.28,
+                                  ),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ]
+                            : const [
+                                BoxShadow(
+                                  color: AppColors.scrimStrong,
+                                  blurRadius: 14,
+                                  offset: Offset(0, 6),
+                                ),
+                              ],
+                      ),
                     child: AspectRatio(
                       aspectRatio: 2 / 3,
                       child: ClipRRect(
@@ -505,6 +538,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
           ),
         ),
       ),
+    ),
     ),
   );
   }

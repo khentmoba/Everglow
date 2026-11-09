@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../shared/widgets/shelf/media_section_menu.dart';
 import 'netflix_colors.dart';
@@ -368,37 +370,68 @@ class _TopBarLink extends StatefulWidget {
 
 class _TopBarLinkState extends State<_TopBarLink> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.active || _hovered
+    final showHighlight = widget.active || _hovered || _focused;
+    final color = showHighlight
         ? Colors.white
         : Colors.white.withValues(alpha: .72);
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: widget.active || _hovered
-                    ? NetflixColors.accent
-                    : Colors.transparent,
-                width: 2,
+    return FocusableActionDetector(
+      onFocusChange: (f) => setState(() => _focused = f),
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+      },
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
+      },
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: _focused
+                      ? NetflixColors.gold
+                      : (showHighlight
+                          ? NetflixColors.accent
+                          : Colors.transparent),
+                  width: _focused ? 2.5 : 2,
+                ),
               ),
+              boxShadow: _focused
+                  ? [
+                      BoxShadow(
+                        color: NetflixColors.gold.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
-          ),
-          child: Text(
-            widget.label,
-            style: AppTypography.outfitHeading.copyWith(
-              fontSize: 14,
-              color: color,
+            child: Text(
+              widget.label,
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: 14,
+                color: color,
+                fontWeight: _focused ? FontWeight.w700 : FontWeight.normal,
+              ),
             ),
           ),
         ),
@@ -432,6 +465,7 @@ class _ProfileButton extends StatelessWidget {
       onSelected: (value) {
         if (value == 'dashboard') onDashboardTap?.call();
         if (value == 'anime') onAnimeTap.call();
+        if (value == 'manga') GoRouter.of(context).go('/manga');
         if (value == 'logout') onLogout.call();
       },
       itemBuilder: (context) => [
@@ -439,6 +473,8 @@ class _ProfileButton extends StatelessWidget {
           const PopupMenuItem(value: 'dashboard', child: Text('Dashboard')),
         if (showAnime)
           const PopupMenuItem(value: 'anime', child: Text('Anime')),
+        if (showAnime)
+          const PopupMenuItem(value: 'manga', child: Text('MangaCelestia')),
         const PopupMenuItem(value: 'logout', child: Text('Logout')),
       ],
       child: Container(
@@ -522,14 +558,11 @@ class _MobileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The Anime entry leaves Cinema for its own section, so it never shows
-    // the active-tab white. Tint it rose so cinema-only profiles can spot
-    // their ride to /anime on the otherwise monochrome bottom bar.
     final color = active
         ? Colors.white
         : (item.isAnimeLink
-              ? NetflixColors.accent
-              : Colors.white.withValues(alpha: 0.55));
+            ? NetflixColors.accent
+            : Colors.white.withValues(alpha: 0.55));
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,

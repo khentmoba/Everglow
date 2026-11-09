@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../app_network_image.dart';
 import '../../utils/tmdb_images.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -108,12 +109,21 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
         ..scaleByDouble(scaleVal, scaleVal, scaleVal, 1.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _focused ? badgeColor : Colors.transparent,
+          width: 2.5,
+        ),
         boxShadow: _focused
             ? [
                 BoxShadow(
-                  color: badgeColor.withValues(alpha: 0.55),
-                  blurRadius: 0,
+                  color: badgeColor.withValues(alpha: 0.6),
+                  blurRadius: 18,
                   spreadRadius: 2,
+                ),
+                const BoxShadow(
+                  color: AppColors.scrimStrong,
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
                 ),
               ]
             : _hovered && !disabled && canHover
@@ -359,8 +369,33 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
       label: widget.semanticLabel ?? announcement,
       child: FocusableActionDetector(
         enabled: !disabled,
+        onFocusChange: (focused) {
+          if (focused) {
+            Scrollable.ensureVisible(
+              context,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            );
+          }
+          setState(() => _focused = focused && !disabled);
+        },
         onShowFocusHighlight: (show) =>
             setState(() => _focused = show && !disabled),
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap?.call();
+              return null;
+            },
+          ),
+        },
         mouseCursor: disabled
             ? SystemMouseCursors.basic
             : SystemMouseCursors.click,

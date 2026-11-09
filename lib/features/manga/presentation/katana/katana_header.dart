@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +12,7 @@ import './katana_nav.dart';
 import './katana_theme.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/shelf/media_section_menu.dart';
+import '../../../../shared/widgets/shelf/tv_media_nav_header.dart';
 
 enum KatanaNav { home, latest, directory, newManga, genres, reading, downloads }
 
@@ -160,6 +162,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
         right: false,
         child: Column(
           children: [
+            const TvMediaNavHeader(currentRoute: '/manga'),
             // Top area: on desktop keep back + logo + centered search +
             // bookmarks + user in one row. On phone/tablet the logo row
             // would squeeze the search field down to just the icons
@@ -680,64 +683,12 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     IconData? icon,
   }) {
     final active = nav != null && nav == widget.active;
-    return GestureDetector(
+    return _KatanaNavItem(
+      label: label,
+      active: active,
+      wipeFromLeft: _wipeFromLeft,
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 5),
-        decoration: BoxDecoration(
-          color: active
-              ? KatanaColors.accent.withValues(alpha: 0.14)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: active
-                ? KatanaColors.accent.withValues(alpha: 0.45)
-                : Colors.transparent,
-          ),
-        ),
-        // Stack (not Column): the label sizes the item and the
-        // underline stretches to the label width. A Column would
-        // hand the bar unbounded width and it would collapse.
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 5.5),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(
-                      icon,
-                      size: 14,
-                      color: active
-                          ? KatanaColors.accent
-                          : KatanaColors.textLight,
-                    ),
-                    const SizedBox(width: 5),
-                  ],
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
-                    style: AppTypography.outfitBold.copyWith(
-                      color: active ? KatanaColors.accent : KatanaColors.text,
-                      fontSize: 13,
-                    ),
-                    child: Text(label),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              left: 4,
-              right: 4,
-              bottom: 0,
-              child: _GlideUnderline(active: active, fromLeft: _wipeFromLeft),
-            ),
-          ],
-        ),
-      ),
+      icon: icon,
     );
   }
 
@@ -748,6 +699,132 @@ class _KatanaHeaderState extends State<KatanaHeader> {
         'Genres',
         () {},
         icon: Icons.local_offer_rounded,
+      ),
+    );
+  }
+}
+
+class _KatanaNavItem extends StatefulWidget {
+  final String label;
+  final bool active;
+  final bool wipeFromLeft;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  const _KatanaNavItem({
+    required this.label,
+    required this.active,
+    required this.wipeFromLeft,
+    required this.onTap,
+    this.icon,
+  });
+
+  @override
+  State<_KatanaNavItem> createState() => _KatanaNavItemState();
+}
+
+class _KatanaNavItemState extends State<_KatanaNavItem> {
+  bool _focused = false;
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.active;
+    final showHighlight = active || _focused || _hovered;
+    return FocusableActionDetector(
+      onFocusChange: (f) => setState(() => _focused = f),
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+      },
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
+      },
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 5),
+            decoration: BoxDecoration(
+              color: _focused
+                  ? KatanaColors.accent.withValues(alpha: 0.22)
+                  : (active
+                      ? KatanaColors.accent.withValues(alpha: 0.14)
+                      : Colors.transparent),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(
+                color: _focused
+                    ? KatanaColors.accent
+                    : (active
+                        ? KatanaColors.accent.withValues(alpha: 0.45)
+                        : Colors.transparent),
+                width: 1.5,
+              ),
+              boxShadow: _focused
+                  ? [
+                      BoxShadow(
+                        color: KatanaColors.accent.withValues(alpha: 0.45),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5.5),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.icon != null) ...[
+                        Icon(
+                          widget.icon,
+                          size: 14,
+                          color: showHighlight
+                              ? KatanaColors.accent
+                              : KatanaColors.textLight,
+                        ),
+                        const SizedBox(width: 5),
+                      ],
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        style: AppTypography.outfitBold.copyWith(
+                          color: showHighlight
+                              ? KatanaColors.accent
+                              : KatanaColors.text,
+                          fontSize: 13,
+                        ),
+                        child: Text(widget.label),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  left: 4,
+                  right: 4,
+                  bottom: 0,
+                  child: _GlideUnderline(
+                    active: active,
+                    fromLeft: widget.wipeFromLeft,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
