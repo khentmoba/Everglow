@@ -27,6 +27,8 @@ class AnimexStores extends ChangeNotifier {
   List<AnimexPlaylist> _playlists = [];
   bool _titleJapanese = false;
   bool _hideSpoilers = true;
+  bool _autoNext = true;
+  bool _skipIntro = true;
   final Map<String, bool> _scheduleAlerts = {};
   bool _loaded = false;
   // A username check alone misses a switch away and back to the same profile.
@@ -37,6 +39,13 @@ class AnimexStores extends ChangeNotifier {
   List<AnimexPlaylist> get playlists => List.unmodifiable(_playlists);
   bool get titleJapanese => _titleJapanese;
   bool get hideSpoilers => _hideSpoilers;
+
+  /// Lets our own web player move on when an episode ends. The player's own
+  /// "Next episode" button stays manual and always works.
+  bool get autoNext => _autoNext;
+
+  /// Uses AniSkip's intro/outro times in our own player.
+  bool get skipIntro => _skipIntro;
 
   /// Username this store is currently loaded for ('' when logged out).
   String get currentUser => _currentUser;
@@ -61,6 +70,8 @@ class AnimexStores extends ChangeNotifier {
     _playlists = [];
     _titleJapanese = false;
     _hideSpoilers = true;
+    _autoNext = true;
+    _skipIntro = true;
     _scheduleAlerts.clear();
     _loaded = false;
     notifyListeners();
@@ -141,6 +152,8 @@ class AnimexStores extends ChangeNotifier {
       final data = json.decode(prefsRaw) as Map<String, dynamic>;
       _titleJapanese = data['titleJapanese'] == true;
       _hideSpoilers = data['hideSpoilers'] != false;
+      _autoNext = data['autoNext'] != false;
+      _skipIntro = data['skipIntro'] != false;
       final alerts = data['scheduleAlerts'] as Map<String, dynamic>?;
       if (alerts != null) {
         alerts.forEach((k, v) => _scheduleAlerts[k] = v == true);
@@ -165,6 +178,8 @@ class AnimexStores extends ChangeNotifier {
       _keyFor(_prefsKeyBase, user): json.encode({
         'titleJapanese': _titleJapanese,
         'hideSpoilers': _hideSpoilers,
+        'autoNext': _autoNext,
+        'skipIntro': _skipIntro,
         'scheduleAlerts': _scheduleAlerts,
       }),
     };
@@ -314,6 +329,20 @@ class AnimexStores extends ChangeNotifier {
     await _persist();
   }
 
+  Future<void> setAutoNext(bool value) async {
+    if (_autoNext == value) return;
+    _autoNext = value;
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> setSkipIntro(bool value) async {
+    if (_skipIntro == value) return;
+    _skipIntro = value;
+    notifyListeners();
+    await _persist();
+  }
+
   Future<void> setTitleJapanese(bool value) async {
     _titleJapanese = value;
     notifyListeners();
@@ -336,6 +365,8 @@ class AnimexStores extends ChangeNotifier {
     _playlists = [];
     _titleJapanese = false;
     _hideSpoilers = true;
+    _autoNext = true;
+    _skipIntro = true;
     _scheduleAlerts.clear();
     _loaded = false;
     _currentUser = '';

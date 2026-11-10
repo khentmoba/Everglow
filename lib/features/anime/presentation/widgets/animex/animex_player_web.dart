@@ -30,6 +30,12 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final String? nextToken;
   final bool nextIsSeason;
   final VoidCallback? onNextEpisode;
+
+  /// Whether this frame may move on by itself when an episode ends. The
+  /// player's own "Next episode" button and the `n` shortcut are manual and
+  /// always work; only the automatic advance respects this switch.
+  final bool autoAdvance;
+
   final ValueChanged<String>? onAudioChanged;
 
   /// Fires when the embed changes episodes on its own (CineSrc
@@ -60,6 +66,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.nextToken,
     this.nextIsSeason = false,
     this.onNextEpisode,
+    this.autoAdvance = true,
     this.onAudioChanged,
     this.onPlayerEpisodeChanged,
     this.sandbox = true,
@@ -355,7 +362,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
                     );
                   }).toJS;
                   _videoEndedListener = ((web.Event _) {
-                    if (mounted) widget.onNextEpisode?.call();
+                    if (mounted && widget.autoAdvance) {
+                      widget.onNextEpisode?.call();
+                    }
                   }).toJS;
                   _videoErrorListener = ((web.Event _) {
                     if (mounted) {
