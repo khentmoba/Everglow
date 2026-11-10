@@ -55,6 +55,72 @@ class _AudioToggle extends StatelessWidget {
   }
 }
 
+/// Small on/off pill for a playback preference (Auto next, Skip intro).
+/// Tappable as a whole so it works with a thumb on a phone.
+class _PrefToggle extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _PrefToggle({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      toggled: value,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => onChanged(!value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: value
+                  ? AnimeXTokens.accent.withValues(alpha: 0.18)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+              border: Border.all(
+                color: value
+                    ? AnimeXTokens.accent.withValues(alpha: 0.45)
+                    : AnimeXTokens.border,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  value ? Icons.check_rounded : Icons.remove_rounded,
+                  size: 13,
+                  color: value
+                      ? AnimeXTokens.accentWarm
+                      : AnimeXTokens.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: dmSansStyle(
+                    size: 12,
+                    color: value
+                        ? AnimeXTokens.accentWarm
+                        : AnimeXTokens.textSecondary,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _InfoItem extends StatelessWidget {
   final String label;
   final String value;

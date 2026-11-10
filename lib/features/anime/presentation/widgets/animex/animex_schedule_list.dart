@@ -52,6 +52,10 @@ class AnimeXScheduleList extends StatefulWidget {
   final AnimexScheduleLoader? loadSchedule;
   final DateTime Function()? now;
 
+  /// Reports the day's raw entries after each load, so a parent can show a
+  /// "next up" summary without fetching the same day twice.
+  final void Function(List<AnimexScheduleEntry> entries)? onEntries;
+
   const AnimeXScheduleList({
     super.key,
     required this.controller,
@@ -60,6 +64,7 @@ class AnimeXScheduleList extends StatefulWidget {
     this.maxEntries,
     this.loadSchedule,
     this.now,
+    this.onEntries,
   }) : assert(weekday >= 0 && weekday < 7),
        assert(maxEntries == null || maxEntries > 0);
 
@@ -105,6 +110,7 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
           ..sort((a, b) => a.airingAt.compareTo(b.airingAt));
         _loading = false;
       });
+      widget.onEntries?.call(_entries);
     } catch (e, stack) {
       if (!mounted || request != _request) return;
       Logger.e('[AnimeXSchedule] fetch failed', error: e, stackTrace: stack);
@@ -112,6 +118,7 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
         _failed = true;
         _loading = false;
       });
+      widget.onEntries?.call(const <AnimexScheduleEntry>[]);
     }
   }
 
@@ -149,7 +156,10 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
                 child: Text(
                   'Backup schedule · Japan broadcast dates. '
                   'Episode numbers and times are unavailable.',
-                  style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+                  style: dmSansStyle(
+                    size: 12,
+                    color: AnimeXTokens.textSecondary,
+                  ),
                 ),
               ),
             if (_loading ||
@@ -180,7 +190,7 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
               _message(
                 _entries.any((entry) => !entry.hasExactTime)
                     ? 'The backup schedule cannot match every saved title. '
-                        'Choose All anime to see broadcast dates.'
+                          'Choose All anime to see broadcast dates.'
                     : library.isEmpty
                     ? 'Add anime to My List to see their broadcast dates here.'
                     : 'No airings from your list in this day’s schedule.',
@@ -298,7 +308,9 @@ class _ScheduleRow extends StatelessWidget {
                         runSpacing: 4,
                         children: [
                           AnimeXBadge(
-                            label: entry.episode == null ? 'Broadcast day' : 'EP ${entry.episode}',
+                            label: entry.episode == null
+                                ? 'Broadcast day'
+                                : 'EP ${entry.episode}',
                             kind: AnimeXBadgeKind.episodes,
                           ),
                           if (inMyList)
@@ -319,7 +331,9 @@ class _ScheduleRow extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        entry.hasExactTime ? '$time local time' : 'Time unavailable',
+                        entry.hasExactTime
+                            ? '$time local time'
+                            : 'Time unavailable',
                         style: dmSansStyle(
                           size: 11,
                           color: AnimeXTokens.textSecondary,

@@ -154,7 +154,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   bool _isFilm = false;
 
   String get _memoryKey => _item.source == 'tmdb'
-      ? PlayerMemoryService.cinemaKey(id: _item.tmdbId, mediaType: _item.mediaType, isAnime: false)
+      ? PlayerMemoryService.cinemaKey(
+          id: _item.tmdbId,
+          mediaType: _item.mediaType,
+          isAnime: false,
+        )
       : PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
   List<_ServerOption> _servers = [];
 
@@ -198,7 +202,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   String get _historyKey => _item.source == 'tmdb'
       ? 'animex-tmdb-${_item.mediaType}-${_item.tmdbId}'
       : 'animex-${_anilistId ?? _malId}';
-  int get _malId => _detail?.malId ?? (_item.source == 'tmdb' ? 0 : _item.tmdbId);
+  int get _malId =>
+      _detail?.malId ?? (_item.source == 'tmdb' ? 0 : _item.tmdbId);
   int? get _anilistId => _item.anilistId;
 
   List<AniListSeason> get _seasons => _detail?.seasons ?? const [];
@@ -238,9 +243,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _watchItem = widget.controller.watchItem!;
-    final resume = context.read<AnimexStores>().findHistory(
-      _historyKey,
-    );
+    final resume = context.read<AnimexStores>().findHistory(_historyKey);
     try {
       _auth = context.read<AuthService>();
       _owner = _auth?.currentUser ?? '';
@@ -265,18 +268,23 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
 
   Future<void> _checkOfflinePlayback() async {
     final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
-    var offlineItem = OfflineMediaService.instance
-        .getItem(OfflineMediaService.animeEpisodeId(animeId, _playerEpisode));
+    var offlineItem = OfflineMediaService.instance.getItem(
+      OfflineMediaService.animeEpisodeId(animeId, _playerEpisode),
+    );
     if (offlineItem == null && _watchItem.tmdbId > 0) {
       offlineItem = OfflineMediaService.instance.getItem(
         OfflineMediaService.animeEpisodeId(_watchItem.tmdbId, _playerEpisode),
       );
     }
     if (offlineItem != null && offlineItem.isCompleted) {
-      final url = await OfflineMediaService.instance.getPlayableUrl(offlineItem);
+      final url = await OfflineMediaService.instance.getPlayableUrl(
+        offlineItem,
+      );
       if (mounted && url != null && url.isNotEmpty) {
         if (_offlineBlobUrl != null && _offlineBlobUrl != url) {
-          unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+          unawaited(
+            OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!),
+          );
         }
         setState(() => _offlineBlobUrl = url);
         return;
@@ -345,9 +353,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     if (!mounted || (_auth != null && _currentUserName().isEmpty)) return;
     _accountProgress = saved;
     if (!_episodeChosen) {
-      final local = context.read<AnimexStores>().findHistory(
-        _historyKey,
-      );
+      final local = context.read<AnimexStores>().findHistory(_historyKey);
       final resume = AnimeXWatchPage.resolveResume(
         item: _item,
         saved: saved,
@@ -432,7 +438,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
 
   Future<void> _load() async {
     if (_item.source == 'tmdb') {
-      final data = await _tmdbService.fetchMediaDetails(_item.tmdbId, _item.mediaType);
+      final data = await _tmdbService.fetchMediaDetails(
+        _item.tmdbId,
+        _item.mediaType,
+      );
       if (!mounted) return;
       final mapped = mapTmdbAnimeDetails(_item, data ?? const {});
       _mappedTmdbId = _item.tmdbId;
@@ -442,7 +451,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
         _detail = mapped.detail;
         _episodes = _buildEpisodeList(mapped.detail);
         _servers = _buildServers();
-        _serverIndex = AnimeXWatchPage.defaultServerIndex(_servers, rememberedServer: _rememberedServer);
+        _serverIndex = AnimeXWatchPage.defaultServerIndex(
+          _servers,
+          rememberedServer: _rememberedServer,
+        );
       });
       return;
     }
@@ -1332,7 +1344,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   Widget _buildServerAndAudioRow(BuildContext context) {
-    return Wrap(
+    final failedNote = _failedServersNote();
+    final row = Wrap(
       spacing: 10,
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -1359,15 +1372,57 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
                           : AnimeXTokens.border,
                     ),
                   ),
-                  child: Text(
-                    _servers[i].name,
-                    style: dmSansStyle(
-                      size: 12,
-                      color: _serverIndex == i
-                          ? AnimeXTokens.accentWarm
-                          : AnimeXTokens.textSecondary,
-                      weight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _servers[i].name,
+                        style: dmSansStyle(
+                          size: 12,
+                          color: _failedServerIndices.contains(i)
+                              ? AnimeXTokens.textSecondary.withValues(
+                                  alpha: 0.5,
+                                )
+                              : _serverIndex == i
+                              ? AnimeXTokens.accentWarm
+                              : AnimeXTokens.textSecondary,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                      if (_servers[i].tag.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _servers[i].tag,
+                            style: dmSansStyle(
+                              size: 9,
+                              color: AnimeXTokens.textSecondary,
+                              weight: FontWeight.w600,
+                              letterSpacing: 0.03,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_failedServerIndices.contains(i)) ...[
+                        const SizedBox(width: 6),
+                        const Tooltip(
+                          message: "Didn't load for this episode",
+                          child: Icon(
+                            Icons.error_outline_rounded,
+                            size: 14,
+                            color: AnimeXTokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -1379,12 +1434,62 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
             style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
           )
         else
-          _AudioToggle(
-            audio: _audio,
-            onChanged: _setAudio,
-          ),
+          _AudioToggle(audio: _audio, onChanged: _setAudio),
       ],
     );
+    if (failedNote.isEmpty) return row;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        row,
+        const SizedBox(height: 10),
+        Text(
+          failedNote,
+          style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+        ),
+      ],
+    );
+  }
+
+  /// Auto next and Skip intro. Skip intro already runs inside our own player;
+  /// Auto next only gates the automatic advance, never the player's own Next
+  /// button. Saved per profile like Hide spoilers.
+  Widget _buildPlaybackPrefsRow(BuildContext context) {
+    final stores = context.watch<AnimexStores?>();
+    if (stores == null) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _PrefToggle(
+          label: 'Auto next',
+          value: stores.autoNext,
+          onChanged: stores.setAutoNext,
+        ),
+        _PrefToggle(
+          label: 'Skip intro',
+          value: stores.skipIntro,
+          onChanged: stores.setSkipIntro,
+        ),
+      ],
+    );
+  }
+
+  /// Says which servers failed for this episode and where playback went, so
+  /// an automatic switch is never silent. Empty when nothing failed, and when
+  /// every server failed: the error card already explains that.
+  String _failedServersNote() {
+    if (_showErrorCard || _failedServerIndices.isEmpty) return '';
+    final failed = [
+      for (final i in _failedServerIndices)
+        if (i >= 0 && i < _servers.length) _servers[i].name,
+    ];
+    if (failed.isEmpty) return '';
+    final names = failed.join(', ');
+    final current = _currentServer?.name;
+    return current == null
+        ? "$names didn't load for this episode."
+        : "$names didn't load for this episode, so we switched to $current.";
   }
 
   Widget _buildStepButtons(BuildContext context) {

@@ -215,6 +215,17 @@ void main() {
     },
   );
 
+  testWidgets('playback switches are visible on the ready page', (
+    tester,
+  ) async {
+    final controller = AnimeXController();
+    controller.watchItem = _sampleWatchItem();
+    await tester.pumpWidget(buildTestApp(controller));
+    await tester.pump();
+    expect(find.text('Auto next'), findsOneWidget);
+    expect(find.text('Skip intro'), findsOneWidget);
+  });
+
   group('AnimeXWatchPage servers', () {
     test('buildServers lists Everglow first with AniList routes', () {
       final servers = AnimeXWatchPage.buildServers(
@@ -258,6 +269,14 @@ void main() {
         servers[3].urlBuilder(1, 'sub'),
         'https://tryembed.us.cc/embed/anime/21/1/sub',
       );
+
+      // The chip tag tells Clair what she is about to open: our own resolver
+      // or shell is Ad-free, a third-party player is an Embed.
+      expect(servers[0].tag, 'Ad-free');
+      expect(servers[1].tag, 'Ad-free');
+      expect(servers[2].tag, 'Ad-free');
+      expect(servers[3].tag, 'Embed');
+      expect(servers.every((s) => s.tag.isNotEmpty), isTrue);
 
       expect(servers[4].name, 'VidCore');
       expect(servers[4].available, isTrue);

@@ -136,6 +136,12 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final String? nextToken;
   final bool nextIsSeason;
   final VoidCallback? onNextEpisode;
+
+  /// Whether this frame may move on by itself when an episode ends. Native
+  /// playback has no automatic advance today, so this only keeps the frame
+  /// API identical to the web one; manual next always works.
+  final bool autoAdvance;
+
   final ValueChanged<String>? onAudioChanged;
 
   /// Fires when the embed changes episodes on its own (CineSrc
@@ -158,6 +164,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.nextToken,
     this.nextIsSeason = false,
     this.onNextEpisode,
+    this.autoAdvance = true,
     this.onAudioChanged,
     this.onPlayerEpisodeChanged,
   });

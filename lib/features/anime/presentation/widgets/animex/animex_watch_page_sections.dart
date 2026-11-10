@@ -38,6 +38,8 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         _buildServerAndAudioRow(context),
         if (_ready) ...[
           const SizedBox(height: 12),
+          _buildPlaybackPrefsRow(context),
+          const SizedBox(height: 12),
           _buildStepButtons(context),
         ],
       ],
@@ -114,7 +116,31 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
     );
   }
 
+  /// Loading frame: the show's backdrop dimmed behind the spinner, so the wait
+  /// reads as the title instead of an empty black box.
+  Widget _buildLoadingBackdrop() {
+    final art = _item.backdropUrl;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (art.isNotEmpty)
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.3,
+              child: AppNetworkImage(imageUrl: art, fit: BoxFit.cover),
+            ),
+          ),
+        const Center(
+          child: CircularProgressIndicator(color: AnimeXTokens.accent),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlayer(BuildContext context) {
+    final stores = context.watch<AnimexStores?>();
+    final autoNext = stores?.autoNext ?? true;
+    final skipIntro = stores?.skipIntro ?? true;
     final viewportHeight = MediaQuery.sizeOf(context).height;
     // Cap height so the player never crowds out the server selector and episode
     // list on shorter screens (such as laptops or landscape tablets).
@@ -123,12 +149,7 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         .toDouble();
 
     final player = !_ready
-        ? const AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Center(
-              child: CircularProgressIndicator(color: AnimeXTokens.accent),
-            ),
-          )
+        ? AspectRatio(aspectRatio: 16 / 9, child: _buildLoadingBackdrop())
         : _showErrorCard || _playerUrl.isEmpty
         ? _buildErrorCard(context)
         : AnimeXPlayerFrame(
@@ -136,9 +157,10 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
             url: _playerUrl,
             onContentError: _handleContentError,
             onProgress: _onPlayerProgress,
-            skipTimes: _skipTimes,
+            skipTimes: skipIntro ? _skipTimes : null,
             nextToken: _nextToken,
             nextIsSeason: _nextIsSeason,
+            autoAdvance: autoNext,
             onNextEpisode: () {
               if (_selectedEpisode < _episodes.length) {
                 _stepEpisode(1);

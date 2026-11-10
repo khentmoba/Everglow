@@ -86,4 +86,29 @@ void main() {
       expect(stores.history, isEmpty);
     });
   });
+
+  group('AnimexStores playback preferences', () {
+    test('auto next and skip intro default to on', () async {
+      final stores = AnimexStores.instance;
+      await stores.load(username: 'khentsgdz');
+      expect(stores.autoNext, isTrue);
+      expect(stores.skipIntro, isTrue);
+    });
+
+    test('both choices survive a reload for the same profile', () async {
+      final stores = AnimexStores.instance;
+      await stores.load(username: 'khentsgdz');
+      await stores.setAutoNext(false);
+      await stores.setSkipIntro(false);
+
+      await stores.switchUser('clairjassen');
+      // Another profile keeps its own defaults.
+      expect(stores.autoNext, isTrue);
+      expect(stores.skipIntro, isTrue);
+
+      await stores.switchUser('khentsgdz');
+      expect(stores.autoNext, isFalse);
+      expect(stores.skipIntro, isFalse);
+    });
+  });
 }

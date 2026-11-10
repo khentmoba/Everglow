@@ -8,6 +8,11 @@ class AnimeServerOption {
   final bool supportsSeek;
   final bool supportsResume;
 
+  /// Short honest label shown on the chip: 'Ad-free' when playback goes
+  /// through our own resolver or shell, 'Embed' when it is a third-party
+  /// player page we cannot strip ads from. Empty hides the label.
+  final String tag;
+
   const AnimeServerOption({
     required this.name,
     required this.urlBuilder,
@@ -15,6 +20,7 @@ class AnimeServerOption {
     this.supportsAudioSelection = true,
     this.supportsSeek = false,
     this.supportsResume = false,
+    this.tag = '',
   });
 
   String urlFor(int episode, String audio, {int? startSeconds}) {
@@ -389,6 +395,7 @@ class AnimeXWatchPage extends StatefulWidget {
     return [
       AnimeServerOption(
         name: 'Everglow',
+        tag: 'Ad-free',
         urlBuilder: (ep, audio) => AnimeXWatchPage.megaplayProxyUrl(
           anilistId: aniId,
           malId: effectiveMal,
@@ -401,6 +408,7 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'Megavid',
+        tag: 'Ad-free',
         urlBuilder: (ep, audio) => AnimeXWatchPage.megavidProxyUrl(
           anilistId: aniId,
           malId: effectiveMal,
@@ -413,6 +421,7 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'CineSrc',
+        tag: 'Ad-free',
         urlBuilder: (ep, audio) {
           if (isMovie) {
             return 'https://everglow-1c6db.web.app/embed.html'
@@ -430,6 +439,7 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'TryEmbed',
+        tag: 'Embed',
         urlBuilder: (ep, audio) {
           if (hasAni) {
             return 'https://tryembed.us.cc/embed/anime/$aniId/$ep/$audio';
@@ -440,6 +450,7 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'VidCore',
+        tag: 'Embed',
         urlBuilder: (ep, audio) {
           if (isMovie) {
             return 'https://vidcore.org/embed/movie/$effectiveTmdb';
@@ -454,6 +465,7 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'Rive',
+        tag: 'Embed',
         urlBuilder: (ep, audio) {
           if (isMovie) {
             return 'https://rivestream.us/embed?type=movie&id=$effectiveTmdb';
@@ -468,6 +480,7 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'Fmov',
+        tag: 'Embed',
         urlBuilder: (ep, audio) {
           if (isMovie) {
             return 'https://fmov.my/embed/movie/$effectiveTmdb';

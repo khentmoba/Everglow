@@ -31,12 +31,16 @@ MediaItem _media(
   );
 }
 
-AnimexScheduleEntry _entry(MediaItem media, {DateTime? at}) =>
-    AnimexScheduleEntry(
-      media: media,
-      episode: 4,
-      airingAt: at ?? DateTime(2026, 8, 17, 10),
-    );
+AnimexScheduleEntry _entry(
+  MediaItem media, {
+  DateTime? at,
+  bool exact = true,
+}) => AnimexScheduleEntry(
+  media: media,
+  episode: 4,
+  airingAt: at ?? DateTime(2026, 8, 17, 10),
+  hasExactTime: exact,
+);
 
 class _LibraryController extends AnimeXController {
   List<MediaItem> items;
@@ -67,16 +71,29 @@ Widget _app(Widget child, {double textScale = 1}) => MaterialApp(
 );
 
 void main() {
-  testWidgets('date-only fallback never claims a time or episode number', (tester) async {
+  testWidgets('date-only fallback never claims a time or episode number', (
+    tester,
+  ) async {
     final controller = _LibraryController();
     addTearDown(controller.dispose);
-    await tester.pumpWidget(_app(AnimeXScheduleList(
-      controller: controller, weekday: 0, now: () => _now, onlyMyList: false,
-      loadSchedule: (_) async => [AnimexScheduleEntry(
-        media: _media('Backup anime', malId: 42, source: 'tmdb'),
-        episode: null, airingAt: _now, hasExactTime: false,
-      )],
-    )));
+    await tester.pumpWidget(
+      _app(
+        AnimeXScheduleList(
+          controller: controller,
+          weekday: 0,
+          now: () => _now,
+          onlyMyList: false,
+          loadSchedule: (_) async => [
+            AnimexScheduleEntry(
+              media: _media('Backup anime', malId: 42, source: 'tmdb'),
+              episode: null,
+              airingAt: _now,
+              hasExactTime: false,
+            ),
+          ],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Backup anime'), findsOneWidget);
     expect(find.text('Time unavailable'), findsOneWidget);
@@ -212,7 +229,10 @@ void main() {
 
       await tester.tap(find.text('All anime'));
       await tester.pumpAndSettle();
-      expect(find.text('Other show'), findsOneWidget);
+      // The next episode appears twice on purpose: once in the NEXT UP card
+      // and once in the day list below it.
+      expect(find.text('Other show'), findsWidgets);
+      expect(find.text('NEXT UP'), findsOneWidget);
       expect(find.textContaining('Airs tonight'), findsOneWidget);
       expect(find.text('MY LIST'), findsOneWidget);
       expect(calls, [
@@ -224,8 +244,9 @@ void main() {
       await tester.tap(find.widgetWithText(ChoiceChip, 'My List'));
       await tester.pumpAndSettle();
       expect(find.text('Saved show'), findsNothing);
-      expect(find.text('Other show'), findsOneWidget);
-      await tester.tap(find.text('Other show'));
+      expect(find.text('Other show'), findsWidgets);
+      // The hero card comes first in the tree and opens the same title.
+      await tester.tap(find.text('Other show').first);
       await tester.pump();
       expect(controller.watchItem, same(other));
       expect(controller.watchEpisode, isNot(4)); // No EP 4 playback promise.
@@ -236,6 +257,115 @@ void main() {
       expect(find.textContaining('Add anime to My List'), findsOneWidget);
     },
   );
+
+  testWidgets('opens on All anime while My List is empty, then follows it', (
+    tester,
+  ) async {
+    final controller = _LibraryController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        AnimeXSchedulePage(
+          controller: controller,
+          now: () => _now,
+          loadSchedule: (day) async => [
+            _entry(
+              _media('Open show', anilistId: 300, malId: 400),
+              at: DateTime(2026, 8, 17, 19),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Open show'), findsWidgets);
+    expect(find.text('NEXT UP'), findsOneWidget);
+    expect(find.text('New episodes from your list'), findsNothing);
+
+    controller.replaceLibrary([
+      _media('Saved show', anilistId: 100, malId: 200),
+    ]);
+    await tester.pump();
+    expect(find.text('New episodes from your list'), findsOneWidget);
+    expect(find.text('Open show'), findsNothing);
+  });
+
+  testWidgets('next up card counts down to the next unaired episode', (
+    tester,
+  ) async {
+    final controller = _LibraryController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        AnimeXSchedulePage(
+          controller: controller,
+          now: () => _now, // Monday 14:00.
+          loadSchedule: (day) async => [
+            _entry(_media('Already aired'), at: DateTime(2026, 8, 17, 10)),
+            _entry(_media('Later today'), at: DateTime(2026, 8, 17, 19)),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('NEXT UP'), findsOneWidget);
+    expect(find.text('Later today'), findsWidgets);
+    expect(find.text('in 5h 0m'), findsOneWidget);
+    expect(find.text('Already aired'), findsWidgets);
+  });
+
+  testWidgets('date-only days never promise a time in the next up card', (
+    tester,
+  ) async {
+    final controller = _LibraryController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        AnimeXSchedulePage(
+          controller: controller,
+          now: () => _now, // Monday 14:00.
+          loadSchedule: (day) async => day == 1
+              ? [
+                  _entry(
+                    _media('Backup anime'),
+                    at: DateTime(2026, 8, 18),
+                    exact: false,
+                  ),
+                ]
+              : const [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tue'));
+    await tester.pumpAndSettle();
+    // The list says the time is unknown, so the card must not count down to
+    // midnight and claim "12:00 AM".
+    expect(find.text('Time unavailable'), findsOneWidget);
+    expect(find.text('NEXT UP'), findsNothing);
+    expect(find.text('12:00 AM'), findsNothing);
+  });
+
+  testWidgets('no next up card when nothing is left to air that day', (
+    tester,
+  ) async {
+    final controller = _LibraryController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        AnimeXSchedulePage(
+          controller: controller,
+          now: () => _now,
+          loadSchedule: (day) async => [
+            _entry(_media('Already aired'), at: DateTime(2026, 8, 17, 10)),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('NEXT UP'), findsNothing);
+    expect(find.text('Already aired'), findsOneWidget);
+  });
 
   testWidgets('stale day results and errors cannot replace the latest day', (
     tester,
@@ -265,12 +395,12 @@ void main() {
       _entry(_media('Wednesday', anilistId: 2), at: DateTime(2026, 8, 19, 10)),
     ]);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('All anime'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'All anime'));
     await tester.pumpAndSettle();
-    expect(find.text('Wednesday'), findsOneWidget);
+    expect(find.text('Wednesday'), findsWidgets);
     requests[0]!.complete([_entry(_media('Stale Monday', anilistId: 1))]);
     await tester.pumpAndSettle();
-    expect(find.text('Wednesday'), findsOneWidget);
+    expect(find.text('Wednesday'), findsWidgets);
     expect(find.text('Stale Monday'), findsNothing);
   });
 
