@@ -5,56 +5,46 @@
  * so they stop being advice the model can skim. Three narrow checks, one
  * status command:
  *
- *   A. Commiting real code changes requires that this session also RAN
- *      verification (flutter analyze / flutter test / dart tool/ci/* /
- *      npm test in functions / node eval_gate.js / a flutter-run debug
- *      session). Blocked only when nothing ran at all — CI still catches
- *      failures, so we don't gate on green output.
+ *   A. Commiting real code changes requires verification that is NEWER than
+ *      the last code edit. Running the checks and then editing again leaves
+ *      the claim stale; that is how PR 584 shipped an `Analysis: passed` line
+ *      for a `flutter analyze` that had never run.
  *   B. Commands that reference tool/ci/check_*.dart or dart tool/<x>.dart
  *      for scripts that don't exist are blocked and corrected with the
  *      real guard list. (Rule 3: never invent a verification command.)
  *   C. `gh pr create` / `gh pr ready` needs a proof image written under
- *      docs/pr-proof/ during this session. (Rule 2: evidence matches the
- *      claim.)
+ *      docs/pr-proof/ during this session, and the signal behind each claim
+ *      the diff can make: `flutter analyze` + `flutter test` for Dart,
+ *      `npm run verify` for functions/. (Rule 2: evidence matches the claim.)
+ *
+ * The rules live in verify_gate_rules.ts so `node --test` can exercise them
+ * without the pi runtime.
  *
  * Design notes:
  *   - State is rebuilt from persisted session entries, so fork/resume/
  *     compaction don't erase "what ran".
  *   - Non-interactive mode (pi -p, CI) downgrades blocks to notices,
  *     except B which is mechanical and safe everywhere.
- *   - `# verify-gate allow` in a commit message is a one-shot escape
- *     hatch for the rare legitimate exception.
+ *   - `# verify-gate allow` in a command is a one-shot escape hatch.
  */
 
 import { existsSync } from "node:fs";
 import { isToolCallEventType, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import {
+	applyEntry,
+	commitBlockReason,
+	createState,
+	prBlockReason,
+	staleMainReason,
+	startsFromMain,
+	statusLines,
+	verifySignals,
+	type GateData,
+	type GateState,
+} from "./verify_gate_rules.ts";
 
 const CUSTOM_TYPE = "everglow-verify-gate";
-
-interface GateData {
-	kind: "edit" | "verify" | "proof";
-	path?: string;
-	signal?: string;
-}
-
-interface GateState {
-	edited: Set<string>;
-	verified: Set<string>;
-	proofs: Set<string>;
-}
-
-const VERIFY_PATTERNS: Array<[RegExp, string]> = [
-	[/\bflutter\s+analyze\b/, "flutter analyze"],
-	[/\bflutter\s+test\b/, "flutter test"],
-	[/\bdart\s+tool\/ci\/check_\w+\.dart\b/, "regression guard"],
-	[/\bnpm\s+(--prefix\s+\S+\s+)?(test|run\s+test)\b/, "npm test"],
-	[/\bnode\s+(--?\S+\s+)*[\w./-]*eval_gate\.js\b/, "eval_gate.js"],
-];
-
-// Files that count as "real code" for gate A. Docs, changelogs, proof
-// shots, and CI yml can be committed without a verify signal.
-const CODE_FILE = /^(lib\/.*\.dart|functions\/(?!.*\.md$).*\.js|test\/.*\.dart|tool\/.*\.dart)$/;
 
 function segments(command: string): string[] {
 	return command
@@ -73,14 +63,6 @@ function leadingCommands(command: string): string[] {
 	});
 }
 
-function verifySignals(command: string): string[] {
-	const hits: string[] = [];
-	for (const [pattern, name] of VERIFY_PATTERNS) {
-		if (pattern.test(command)) hits.push(name);
-	}
-	return hits;
-}
-
 export default function (pi: ExtensionAPI) {
 	let state: GateState | null = null;
 
@@ -97,28 +79,28 @@ export default function (pi: ExtensionAPI) {
 		return [...committed, ...pending].some(isImage);
 	}
 
-	function freshState(): GateState {
-		return { edited: new Set(), verified: new Set(), proofs: new Set() };
+	async function mainBehindOrigin(ctx: ExtensionContext): Promise<number> {
+		const r = await pi.exec("git", ["-C", ctx.cwd, "rev-list", "--count", "main..origin/main"], { timeout: 5_000 });
+		if (r.code !== 0) return 0;
+		const count = Number(r.stdout.trim());
+		return Number.isFinite(count) ? count : 0;
 	}
 
 	function getState(ctx: ExtensionContext): GateState {
 		if (state) return state;
-		state = freshState();
+		state = createState();
 		for (const entry of ctx.sessionManager.getBranch() as Array<{ type: string; customType?: string; data?: GateData }>) {
-			if (entry.type !== "custom" || entry.customType !== CUSTOM_TYPE || !entry.data) continue;
-			const { kind, path, signal } = entry.data;
-			if (kind === "edit" && path) state.edited.add(path);
-			if (kind === "proof" && path) state.proofs.add(path);
-			if (kind === "verify" && signal) state.verified.add(signal);
+			if (entry.type === "custom" && entry.customType === CUSTOM_TYPE && entry.data) {
+				applyEntry(state, entry.data);
+			} else {
+				state.seq++; // keep ordering honest against unrelated entries
+			}
 		}
 		return state;
 	}
 
 	function record(ctx: ExtensionContext, data: GateData): void {
-		const s = getState(ctx);
-		if (data.kind === "edit" && data.path) s.edited.add(data.path);
-		if (data.kind === "proof" && data.path) s.proofs.add(data.path);
-		if (data.kind === "verify" && data.signal) s.verified.add(data.signal);
+		applyEntry(getState(ctx), data);
 		pi.appendEntry<GateData>(CUSTOM_TYPE, data);
 	}
 
@@ -140,7 +122,7 @@ export default function (pi: ExtensionAPI) {
 		if (isToolCallEventType("edit", event) || isToolCallEventType("write", event)) {
 			const path = event.input.path.replace(/\\/g, "/");
 			const cwd = ctx.cwd.replace(/\\/g, "/");
-			const rel = path.toLowerCase().startsWith(cwd.toLowerCase() + "/") ? path.slice(cwd.length + 1) : path;
+			const rel = path.toLowerCase().startsWith(`${cwd.toLowerCase()}/`) ? path.slice(cwd.length + 1) : path;
 			if (rel && !s.edited.has(rel) && !path.includes("/.pi/")) {
 				record(ctx, { kind: "edit", path: rel });
 			}
@@ -152,6 +134,12 @@ export default function (pi: ExtensionAPI) {
 
 		if (isToolCallEventType("bash", event)) {
 			const command = event.input.command;
+
+			// Gate D: a branch from a stale local `main` starts on old code.
+			if (startsFromMain(command) && !/#\s*verify-gate\s+allow/i.test(command)) {
+				const reason = staleMainReason(await mainBehindOrigin(ctx));
+				if (reason) return { block: true, reason };
+			}
 
 			// Gate B: invented dart tool scripts.
 			const refs = [...command.matchAll(/\bdart\s+((?:\/\S+\/)?tool\/[\w/]+\.dart)/g)].map((m) => m[1]);
@@ -168,29 +156,26 @@ export default function (pi: ExtensionAPI) {
 
 			for (const signal of verifySignals(command)) record(ctx, { kind: "verify", signal });
 
-			// Gate A: commit requires that some verification ran.
+			// Gate A: a commit needs verification newer than the last code edit.
 			const commits = leadingCommands(command).some((c) => /^git\s+(commit|push)\b/.test(c));
 			if (commits) {
 				if (/#\s*verify-gate\s+allow/i.test(command)) return undefined;
-				const codeChanges = [...s.edited].filter((p) => CODE_FILE.test(p));
-				if (codeChanges.length > 0 && s.verified.size === 0) {
-					const msg =
-						`verify-gate: this session edited ${codeChanges.length} code file(s) ` +
-						`(e.g. ${codeChanges.slice(0, 3).join(", ")}) but ran no verification yet. ` +
-						`Run first: flutter analyze; flutter test --exclude-tags="golden,network"; dart tool/ci/check_*.dart as relevant; ` +
-						`and actually run the app (flutter run -d chrome) for UI changes. ` +
-						`Legit exception (docs-only misclassified etc.): add "# verify-gate allow" to the command.`;
+				const reason = commitBlockReason(s);
+				if (reason) {
 					if (!ctx.hasUI) {
-						ctx.ui.notify(`Blocking commit without verification (non-interactive)`, "warning");
+						ctx.ui.notify(`Blocking commit without fresh verification (non-interactive)`, "warning");
 					}
-					return { block: true, reason: msg };
+					return { block: true, reason };
 				}
 			}
 
-			// Gate C: PR creation needs session-written proof shots.
+			// Gate C: PR creation needs proof shots and the signals behind the
+			// claims the diff makes.
 			const opensPr = leadingCommands(command).some((c) => /^gh\s+pr\s+(create|ready)\b/.test(c));
 			if (opensPr) {
 				if (/#\s*verify-gate\s+allow/i.test(command)) return undefined;
+				const reason = prBlockReason(s);
+				if (reason) return { block: true, reason };
 				if (s.proofs.size === 0 && !(await branchHasProof(ctx))) {
 					const msg =
 						`verify-gate: every PR shows proof — save a screenshot of the changed screen under ` +
@@ -230,14 +215,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("verify-gate", {
 		description: "Show what this session edited, verified, and proofed (Everglow gate status)",
 		handler: async (_args, ctx) => {
-			const s = getState(ctx);
-			const code = [...s.edited].filter((p) => CODE_FILE.test(p));
-			const lines = [
-				`code files edited : ${code.length ? code.join(", ") : "none"}`,
-				`verification seen : ${s.verified.size ? [...s.verified].join(", ") : "NONE — commit gate is armed"}`,
-				`pr proofs written : ${s.proofs.size ? [...s.proofs].join(", ") : "none — gh pr create is armed"}`,
-			];
-			ctx.ui.notify(lines.join("\n"), "info");
+			ctx.ui.notify(statusLines(getState(ctx)).join("\n"), "info");
 		},
 	});
 
