@@ -28,18 +28,19 @@ const DESKTOP_UA =
  *  Order is hardsub first: our player renders `<track>` captions only as
  *  WebVTT, and YumeZone ships ASS/SRT, so a softsub server would play with no
  *  subtitles at all. The hardsub servers have them baked into the picture.
- *  `label` is deliberately neutral — the upstream name is ours to know, not
- *  something the browser needs. */
+ *  `label` is what Clair reads, so it is short, warm and light-themed to
+ *  match Everglow, and deliberately says nothing about the upstream: the
+ *  provider name is ours to know, not something the browser needs. */
 const YUME_SERVERS = [
-  { id: 'yume-1', label: 'Yume 1', provider: 'Karl - 3', hardsub: true },
-  { id: 'yume-2', label: 'Yume 2', provider: 'Goku', hardsub: true },
-  { id: 'yume-3', label: 'Yume 3', provider: 'Nexus', hardsub: true },
-  { id: 'yume-4', label: 'Yume 4', provider: 'Karl - 1', hardsub: false },
-  { id: 'yume-5', label: 'Yume 5', provider: 'Karl - 2', hardsub: false },
-  { id: 'yume-6', label: 'Yume 6', provider: 'Rin', hardsub: false },
-  { id: 'yume-7', label: 'Yume 7', provider: 'Koto', hardsub: false },
-  { id: 'yume-8', label: 'Yume 8', provider: 'Riko', hardsub: false },
-  { id: 'yume-9', label: 'Yume Multi', provider: 'Rudra (Multi)', hardsub: false },
+  { id: 'yume-1', label: 'Dawn', provider: 'Karl - 3', hardsub: true },
+  { id: 'yume-2', label: 'Ember', provider: 'Goku', hardsub: true },
+  { id: 'yume-3', label: 'Aurora', provider: 'Nexus', hardsub: true },
+  { id: 'yume-4', label: 'Lumen', provider: 'Karl - 1', hardsub: false },
+  { id: 'yume-5', label: 'Halo', provider: 'Karl - 2', hardsub: false },
+  { id: 'yume-6', label: 'Comet', provider: 'Rin', hardsub: false },
+  { id: 'yume-7', label: 'Prism', provider: 'Koto', hardsub: false },
+  { id: 'yume-8', label: 'Zenith', provider: 'Riko', hardsub: false },
+  { id: 'yume-9', label: 'Solstice', provider: 'Rudra (Multi)', hardsub: false },
 ];
 
 const YUME_SERVER_IDS = new Set(YUME_SERVERS.map((s) => s.id));

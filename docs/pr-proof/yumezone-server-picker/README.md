@@ -1,11 +1,29 @@
 # YumeZone server + in-player server picker
 
 Synthetic fixture: the real `hlsPlayerHtml` output with a public test stream
-(`test-streams.mux.dev`) and a fake nine-entry YumeZone server list. No couple
-data, no credentials, no Worker.
+(`test-streams.mux.dev`) and the real nine-entry YumeZone server list. No
+couple data, no credentials, no Worker.
+
+The nine names, in the order Clair sees them:
+
+| Label | Upstream | Subs |
+| --- | --- | --- |
+| Dawn | Karl - 3 | hardsub |
+| Ember | Goku | hardsub |
+| Aurora | Nexus | hardsub |
+| Lumen | Karl - 1 | softsub |
+| Halo | Karl - 2 | softsub |
+| Comet | Rin | softsub |
+| Prism | Koto | softsub |
+| Zenith | Riko | softsub |
+| Solstice | Rudra (Multi) | softsub |
+
+The labels are short, warm and light-themed to match Everglow, and say nothing
+about the upstream — the provider name is ours to know, not something the
+browser needs.
 
 - `shot-phone.png` / `shot-tablet.png`: the picker open on a 390×844 phone and
-  an 834×1112 tablet. Nine servers, "Yume 1" highlighted as the active one.
+  an 834×1112 tablet. Nine servers, "Dawn" highlighted as the active one.
   The chip sits in the same row as SUB/DUB/Episodes and uses the same `chip`
   style (21px tall, 10.5px label) — it is not a new visual language.
 - `shot-phone-inapp.png`: the picker at 342×192, the real size of the in-app
@@ -13,7 +31,7 @@ data, no credentials, no Worker.
   so without a cap the menu's top landed at −123px and the first four rows —
   including the current server — were clipped and untappable. With
   `max-height:calc(100vh - 76px)` the menu sits at top 18px, bottom 134px,
-  "Yume 1" is tappable, and the rest scrolls (`scrollHeight` 255).
+  "Dawn" is tappable, and the rest scrolls (`scrollHeight` 255).
 - `shot-phone-hud.png`: the same page with the menu closed, showing the
   "Servers" chip in place.
 - `shot-phone-recover.png`: a picked server died and the stalled card is up.
@@ -48,7 +66,7 @@ and `animex_progress_bridge_test.dart` pins every resolver-backed source.
 ## Live check (read-only, real fetch)
 
 `resolveYumeZone(21, 1, 'sub', …)` against the real site resolved through
-Yume 1 (Karl - 3), and the Worker then served the whole chain:
+Dawn (Karl - 3), and the Worker then served the whole chain:
 
 - master → 2 sealed variant links, no `yumezone.live` / `flixcloud` /
   `rundowncdn` anywhere in the body
@@ -61,7 +79,7 @@ a folder, not a URL, so the upstream path never appears.
 
 ## Checks
 
-`flutter analyze`, 1,948 Flutter tests (`--exclude-tags="golden,network"`), all
+`flutter analyze`, 1,955 Flutter tests (`--exclude-tags="golden,network"`), all
 16 `tool/ci/check_*.dart` guards, and 85 Worker tests passed.
 
 Local note: the edit-time analyzer reports 30 "undefined class StatefulWidget /

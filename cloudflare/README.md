@@ -59,7 +59,7 @@ when it is tapped, and the playhead is kept across the swap.
 
 Server order depends on audio. Our player renders `<track>` captions only as
 WebVTT and YumeZone ships ASS/SRT, so **subbed** audio leads with the hardsub
-servers (Yume 1–3) — a softsub server would play with no subtitles at all.
+servers (Dawn, Ember, Aurora) — a softsub server would play with no subtitles at all.
 **Dubbed** audio leads with the softsub servers, because burned-in English over
 English audio is noise. YumeZone subtitle tracks are therefore not served.
 
