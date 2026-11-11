@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../core/services/offline_media/offline_media_storage.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -203,6 +204,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   /// Same as [setState]; exists so the reader's `part` files (which cannot
   /// call the `@protected` [setState] from extensions) refresh identically.
   void _refresh(void Function() update) => setState(update);
+
+  /// One timing for every piece of the reader chrome, so the header and the
+  /// footer always start and finish together. Zero when the user asked for
+  /// less motion.
+  Duration get _chromeMotion => AppMotion.orZero(AppMotion.medium);
 
   @override
   void initState() {
@@ -935,7 +941,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                     ),
                   ),
 
-                Positioned(
+                AnimatedPositioned(
+                  duration: _chromeMotion,
+                  curve: AppMotion.drawer,
                   bottom: _showChrome
                       ? 136 + MediaQuery.paddingOf(context).bottom
                       : 26,
@@ -1006,18 +1014,29 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                     ),
                   ),
 
-                // Top Floating Chrome Header
+                // Top and bottom chrome ride one timing, so they always
+                // start and finish together: the header slides down from
+                // the top edge while the footer slides up from the bottom.
+                //
+                // The keys are load-bearing. The progress-bar child above
+                // only exists while the chrome is hidden, which shifts every
+                // later child up one slot. Without keys the Stack recycled
+                // these slots: the header's slide was rebuilt at its end
+                // offset and popped in, and the footer reused the header's
+                // slide, so it came in from the top edge ~220ms late.
                 Positioned(
+                  key: const ValueKey('reader-top-chrome'),
                   top: 0,
                   left: 0,
                   right: 0,
                   child: AnimatedSlide(
                     offset: _showChrome ? Offset.zero : const Offset(0, -1),
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeInOut,
+                    duration: _chromeMotion,
+                    curve: AppMotion.drawer,
                     child: AnimatedOpacity(
                       opacity: _showChrome ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 240),
+                      duration: _chromeMotion,
+                      curve: AppMotion.drawer,
                       child: _buildTopChrome(),
                     ),
                   ),
@@ -1025,16 +1044,18 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
                 // Bottom Floating Chrome Footer
                 Positioned(
+                  key: const ValueKey('reader-bottom-chrome'),
                   bottom: 0,
                   left: 0,
                   right: 0,
                   child: AnimatedSlide(
                     offset: _showChrome ? Offset.zero : const Offset(0, 1),
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeInOut,
+                    duration: _chromeMotion,
+                    curve: AppMotion.drawer,
                     child: AnimatedOpacity(
                       opacity: _showChrome ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 240),
+                      duration: _chromeMotion,
+                      curve: AppMotion.drawer,
                       child: _buildBottomChrome(),
                     ),
                   ),
