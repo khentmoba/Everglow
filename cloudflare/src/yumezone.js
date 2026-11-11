@@ -33,7 +33,7 @@ const DESKTOP_UA =
  *  provider name is ours to know, not something the browser needs. */
 const YUME_SERVERS = [
   { id: 'yume-1', label: 'Dawn', provider: 'Karl - 3', hardsub: true },
-  { id: 'yume-2', label: 'Ember', provider: 'Goku', hardsub: true },
+  { id: 'yume-2', label: 'Celestia', provider: 'Goku', hardsub: true },
   { id: 'yume-3', label: 'Aurora', provider: 'Nexus', hardsub: true },
   { id: 'yume-4', label: 'Lumen', provider: 'Karl - 1', hardsub: false },
   { id: 'yume-5', label: 'Halo', provider: 'Karl - 2', hardsub: false },

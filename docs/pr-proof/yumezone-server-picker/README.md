@@ -9,7 +9,7 @@ The nine names, in the order Clair sees them:
 | Label | Upstream | Subs |
 | --- | --- | --- |
 | Dawn | Karl - 3 | hardsub |
-| Ember | Goku | hardsub |
+| Celestia | Goku | hardsub |
 | Aurora | Nexus | hardsub |
 | Lumen | Karl - 1 | softsub |
 | Halo | Karl - 2 | softsub |
