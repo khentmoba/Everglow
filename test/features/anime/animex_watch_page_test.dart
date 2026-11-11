@@ -227,13 +227,29 @@ void main() {
   });
 
   group('AnimeXWatchPage servers', () {
+    AnimeServerOption byName(List<AnimeServerOption> servers, String name) =>
+        servers.firstWhere((s) => s.name == name);
+
     test('buildServers lists Everglow first with AniList routes', () {
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 7);
+      expect(servers.length, 8);
+      expect(
+        servers.map((s) => s.name),
+        [
+          'Everglow',
+          'Megavid',
+          'Yume',
+          'CineSrc',
+          'TryEmbed',
+          'VidCore',
+          'Rive',
+          'Fmov',
+        ],
+      );
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -255,47 +271,56 @@ void main() {
         '?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
-      expect(servers[2].name, 'CineSrc');
-      expect(servers[2].available, isTrue);
+      // Yume is the third resolver-backed server. It keys on AniList ids
+      // only, and its own nine upstreams live in the in-page picker.
+      final yume = byName(servers, 'Yume');
+      expect(yume.available, isTrue);
+      expect(yume.supportsSeek, isTrue);
+      expect(yume.supportsResume, isTrue);
       expect(
-        servers[2].urlBuilder(1, 'sub'),
+        yume.urlBuilder(1, 'sub'),
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
+        '?source=yumezone&anilistId=21&ep=1&audio=sub',
+      );
+
+      expect(byName(servers, 'CineSrc').available, isTrue);
+      expect(
+        byName(servers, 'CineSrc').urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
 
-      expect(servers[3].name, 'TryEmbed');
-      expect(servers[3].available, isTrue);
+      expect(byName(servers, 'TryEmbed').available, isTrue);
       expect(
-        servers[3].urlBuilder(1, 'sub'),
+        byName(servers, 'TryEmbed').urlBuilder(1, 'sub'),
         'https://tryembed.us.cc/embed/anime/21/1/sub',
       );
 
       // The chip tag tells Clair what she is about to open: our own resolver
-      // or shell is Ad-free, a third-party player is an Embed.
-      expect(servers[0].tag, 'Ad-free');
-      expect(servers[1].tag, 'Ad-free');
-      expect(servers[2].tag, 'Ad-free');
-      expect(servers[3].tag, 'Embed');
+      // or shell is Ad-free, a third-party player is an Embed. Named rather
+      // than indexed so inserting a server does not renumber the assertions.
+      expect(byName(servers, 'Everglow').tag, 'Ad-free');
+      expect(byName(servers, 'Megavid').tag, 'Ad-free');
+      expect(byName(servers, 'Yume').tag, 'Ad-free');
+      expect(byName(servers, 'CineSrc').tag, 'Ad-free');
+      expect(byName(servers, 'TryEmbed').tag, 'Embed');
       expect(servers.every((s) => s.tag.isNotEmpty), isTrue);
 
-      expect(servers[4].name, 'VidCore');
-      expect(servers[4].available, isTrue);
+      expect(byName(servers, 'VidCore').available, isTrue);
       expect(
-        servers[4].urlBuilder(1, 'sub'),
+        byName(servers, 'VidCore').urlBuilder(1, 'sub'),
         'https://vidcore.org/embed/tv/37854/1/1',
       );
 
-      expect(servers[5].name, 'Rive');
-      expect(servers[5].available, isTrue);
+      expect(byName(servers, 'Rive').available, isTrue);
       expect(
-        servers[5].urlBuilder(1, 'sub'),
+        byName(servers, 'Rive').urlBuilder(1, 'sub'),
         'https://rivestream.us/embed?type=tv&id=37854&season=1&episode=1',
       );
 
-      expect(servers[6].name, 'Fmov');
-      expect(servers[6].available, isTrue);
+      expect(byName(servers, 'Fmov').available, isTrue);
       expect(
-        servers[6].urlBuilder(1, 'sub'),
+        byName(servers, 'Fmov').urlBuilder(1, 'sub'),
         'https://fmov.my/embed/anime/37854/1/1',
       );
     });
@@ -312,6 +337,11 @@ void main() {
         'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megavid&anilistId=21&malId=21&ep=2&audio=dub',
       );
+      expect(
+        byName(servers, 'Yume').urlBuilder(2, 'dub'),
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
+        '?source=yumezone&anilistId=21&ep=2&audio=dub',
+      );
     });
 
     test('buildServers falls back to MAL routes when AniList ID is absent', () {
@@ -320,7 +350,7 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 7);
+      expect(servers.length, 8);
 
       expect(servers[0].name, 'Everglow');
       expect(
@@ -336,45 +366,52 @@ void main() {
         '?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
-      expect(servers[2].name, 'CineSrc');
+      // YumeZone keys on AniList ids only, so it is hidden without one.
+      expect(byName(servers, 'Yume').available, isFalse);
+
+      expect(byName(servers, 'CineSrc').name, 'CineSrc');
       expect(
-        servers[2].urlBuilder(3, 'sub'),
+        byName(servers, 'CineSrc').urlBuilder(3, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=209867&type=tv&s=1&e=3',
       );
 
-      expect(servers[3].name, 'TryEmbed');
+      expect(byName(servers, 'TryEmbed').name, 'TryEmbed');
       expect(
-        servers[3].urlBuilder(3, 'sub'),
+        byName(servers, 'TryEmbed').urlBuilder(3, 'sub'),
         'https://tryembed.us.cc/embed/anime/52991/3/sub?type=mal',
       );
 
-      expect(servers[4].name, 'VidCore');
+      expect(byName(servers, 'VidCore').name, 'VidCore');
       expect(
-        servers[4].urlBuilder(3, 'sub'),
+        byName(servers, 'VidCore').urlBuilder(3, 'sub'),
         'https://vidcore.org/embed/tv/209867/1/3',
       );
 
-      expect(servers[5].name, 'Rive');
+      expect(byName(servers, 'Rive').name, 'Rive');
       expect(
-        servers[5].urlBuilder(3, 'sub'),
+        byName(servers, 'Rive').urlBuilder(3, 'sub'),
         'https://rivestream.us/embed?type=tv&id=209867&season=1&episode=3',
       );
 
-      expect(servers[6].name, 'Fmov');
+      expect(byName(servers, 'Fmov').name, 'Fmov');
       expect(
-        servers[6].urlBuilder(3, 'sub'),
+        byName(servers, 'Fmov').urlBuilder(3, 'sub'),
         'https://fmov.my/embed/anime/209867/1/3',
       );
 
-      // AniList-only routes still get every AniList-keyed server.
-      expect(servers[0].available, isTrue);
-      expect(servers[1].available, isTrue);
-      expect(servers[2].available, isTrue);
-      expect(servers[3].available, isTrue);
-      expect(servers[4].available, isTrue);
-      expect(servers[5].available, isTrue);
-      expect(servers[6].available, isTrue);
+      // MAL-only routes still get every MAL-keyed server.
+      for (final name in [
+        'Everglow',
+        'Megavid',
+        'CineSrc',
+        'TryEmbed',
+        'VidCore',
+        'Rive',
+        'Fmov',
+      ]) {
+        expect(byName(servers, name).available, isTrue, reason: name);
+      }
     });
 
     test('buildServers maps multi-season episodes for TMDB-keyed players',
@@ -389,25 +426,35 @@ void main() {
         },
       );
 
+      final cineSrc = byName(servers, 'CineSrc');
       expect(
-        servers[2].urlBuilder(1, 'sub'),
+        cineSrc.urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=2&e=1',
       );
       expect(
-        servers[2].urlBuilder(2, 'sub'),
+        cineSrc.urlBuilder(2, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=2&e=2',
       );
       // Episodes without a slot fall back to season 1 and the number itself.
       expect(
-        servers[2].urlBuilder(3, 'sub'),
+        cineSrc.urlBuilder(3, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=1&e=3',
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'Megavid', 'CineSrc', 'TryEmbed', 'VidCore', 'Rive', 'Fmov'],
+        [
+          'Everglow',
+          'Megavid',
+          'Yume',
+          'CineSrc',
+          'TryEmbed',
+          'VidCore',
+          'Rive',
+          'Fmov',
+        ],
       );
     });
 
@@ -417,20 +464,12 @@ void main() {
         malId: 16498,
       );
 
-      expect(servers[0].name, 'Everglow');
-      expect(servers[0].available, isTrue);
-      expect(servers[1].name, 'Megavid');
-      expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'CineSrc');
-      expect(servers[2].available, isFalse);
-      expect(servers[3].name, 'TryEmbed');
-      expect(servers[3].available, isTrue);
-      expect(servers[4].name, 'VidCore');
-      expect(servers[4].available, isFalse);
-      expect(servers[5].name, 'Rive');
-      expect(servers[5].available, isFalse);
-      expect(servers[6].name, 'Fmov');
-      expect(servers[6].available, isFalse);
+      for (final name in ['Everglow', 'Megavid', 'Yume', 'TryEmbed']) {
+        expect(byName(servers, name).available, isTrue, reason: name);
+      }
+      for (final name in ['CineSrc', 'VidCore', 'Rive', 'Fmov']) {
+        expect(byName(servers, name).available, isFalse, reason: name);
+      }
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -449,30 +488,30 @@ void main() {
         tmdbId: 877957,
         isMovie: true,
       );
-      expect(servers.length, 7);
-      expect(servers[2].name, 'CineSrc');
-      expect(servers[2].available, isTrue);
+      expect(servers.length, 8);
+      expect(byName(servers, 'CineSrc').name, 'CineSrc');
+      expect(byName(servers, 'CineSrc').available, isTrue);
       expect(
-        servers[2].urlBuilder(1, 'sub'),
+        byName(servers, 'CineSrc').urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=877957&type=movie',
       );
-      expect(servers[4].name, 'VidCore');
-      expect(servers[4].available, isTrue);
+      expect(byName(servers, 'VidCore').name, 'VidCore');
+      expect(byName(servers, 'VidCore').available, isTrue);
       expect(
-        servers[4].urlBuilder(1, 'sub'),
+        byName(servers, 'VidCore').urlBuilder(1, 'sub'),
         'https://vidcore.org/embed/movie/877957',
       );
-      expect(servers[5].name, 'Rive');
-      expect(servers[5].available, isTrue);
+      expect(byName(servers, 'Rive').name, 'Rive');
+      expect(byName(servers, 'Rive').available, isTrue);
       expect(
-        servers[5].urlBuilder(1, 'sub'),
+        byName(servers, 'Rive').urlBuilder(1, 'sub'),
         'https://rivestream.us/embed?type=movie&id=877957',
       );
-      expect(servers[6].name, 'Fmov');
-      expect(servers[6].available, isTrue);
+      expect(byName(servers, 'Fmov').name, 'Fmov');
+      expect(byName(servers, 'Fmov').available, isTrue);
       expect(
-        servers[6].urlBuilder(1, 'sub'),
+        byName(servers, 'Fmov').urlBuilder(1, 'sub'),
         'https://fmov.my/embed/movie/877957',
       );
       // Series keep the season/episode TV endpoint by default.
@@ -482,20 +521,20 @@ void main() {
         tmdbId: 37854,
       );
       expect(
-        series[2].urlBuilder(1, 'sub'),
+        byName(series, 'CineSrc').urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
       expect(
-        series[4].urlBuilder(1, 'sub'),
+        byName(series, 'VidCore').urlBuilder(1, 'sub'),
         'https://vidcore.org/embed/tv/37854/1/1',
       );
       expect(
-        series[5].urlBuilder(1, 'sub'),
+        byName(series, 'Rive').urlBuilder(1, 'sub'),
         'https://rivestream.us/embed?type=tv&id=37854&season=1&episode=1',
       );
       expect(
-        series[6].urlBuilder(1, 'sub'),
+        byName(series, 'Fmov').urlBuilder(1, 'sub'),
         'https://fmov.my/embed/anime/37854/1/1',
       );
     });
@@ -700,6 +739,13 @@ void main() {
           servers,
           rememberedServer: 'CineSrc',
         ),
+        3,
+      );
+      expect(
+        AnimeXWatchPage.defaultServerIndex(
+          servers,
+          rememberedServer: 'Yume',
+        ),
         2,
       );
       expect(
@@ -734,9 +780,9 @@ void main() {
       );
       expect(
         AnimeXWatchPage.defaultServerIndex(tmdbOnly),
-        2,
+        3,
       );
-      expect(tmdbOnly[2].name, 'CineSrc');
+      expect(tmdbOnly[3].name, 'CineSrc');
       // Nothing available yet — index 0 until _load resolves.
       final none = AnimeXWatchPage.buildServers(
         anilistId: null,
