@@ -53,6 +53,14 @@ void main() {
       await tester.runAsync(loader.load);
     }
 
+    // A proof image is an artifact, not a fixture. Writing it under docs/
+    // would dirty every working tree that runs the suite, and the next
+    // `git add -A` would rewrite a merged PR's evidence.
+    // Sync on purpose: testWidgets runs in fake async, so real I/O futures
+    // only complete inside tester.runAsync.
+    final proofDir = Directory.systemTemp.createTempSync('everglow-proof-');
+    addTearDown(() => proofDir.deleteSync(recursive: true));
+
     final storage = OfflineMediaStorage.instance;
     final service = OfflineMediaService(storage: storage);
 
@@ -137,15 +145,11 @@ void main() {
       );
       image.dispose();
 
-      final proofFile = File('docs/pr-proof/pr-579/shot.png');
-      if (!await proofFile.parent.exists()) {
-        await proofFile.parent.create(recursive: true);
-      }
-      await proofFile.writeAsBytes(output);
+      await File('${proofDir.path}/shot.png').writeAsBytes(output);
       return output;
     });
 
     expect(png, isNotNull);
-    expect(File('docs/pr-proof/pr-579/shot.png').existsSync(), isTrue);
+    expect(File('${proofDir.path}/shot.png').existsSync(), isTrue);
   });
 }

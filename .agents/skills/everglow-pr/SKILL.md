@@ -22,8 +22,11 @@ harness-specific tools required.
 - First thing every session: run `git status --short --branch` and say
   what folder + branch you're on in your first reply.
 - Never edit on `main`. `main` auto-deploys live to Clair.
-- New task = new branch from latest `main` (`fix/...`, `feat/...`,
-  `docs/...`, `style/...`). One task per branch. If the checkout has
+- New task = new branch from `origin/main`, never the local `main`
+  ref: it goes stale and nothing fetches it (it was 381 commits behind
+  once). Run `git fetch origin && git checkout -b <branch> origin/main`.
+  Prefixes: `fix/...`, `feat/...`, `docs/...`, `style/...`.
+  One task per branch. If the checkout has
   someone else's uncommitted changes, stop and move first — don't mix.
 - Work in your own folder: if your harness supports git worktrees, use
   one per task. Before cleanup, follow `docs/WORKTREE_CLEANUP.md` and use

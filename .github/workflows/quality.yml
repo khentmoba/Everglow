@@ -38,6 +38,11 @@ jobs:
           node-version: '22'
       - run: node --test tool/ci/changes.test.mjs tool/ci/deploy_parity.test.mjs
       - run: node --test tool/ci/pr_contract.test.mjs tool/remove_worktree.test.mjs
+      # The verify gate's rules, tested without the pi runtime.
+      - name: Verify gate rules
+        run: >-
+          node --experimental-strip-types --test
+          .pi/extensions/verify_gate_rules.test.ts
       - name: Enforce ready PR evidence and verification declarations
         if: github.event_name == 'pull_request'
         run: node tool/ci/pr_contract.mjs
@@ -52,6 +57,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # check_format_churn.dart diffs the PR against HEAD^1, the base tip.
+          fetch-depth: 2
       - uses: subosito/flutter-action@v2
         with:
           flutter-version-file: pubspec.yaml
