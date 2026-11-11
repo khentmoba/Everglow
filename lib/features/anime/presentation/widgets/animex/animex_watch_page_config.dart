@@ -257,12 +257,16 @@ class AnimeXWatchPage extends StatefulWidget {
     return tmdbEpisode;
   }
 
-  /// Base URL of our ad-free anime resolver (see functions/anime.js).
+  /// Base URL of our ad-free anime resolver (see cloudflare/src/anime.js).
   /// Megavid plays through it instead of the provider's website embed:
   /// the function resolves the episode server-side and serves our own
   /// player page, so no third-party ad or tracker script ever reaches
   /// Clair's phone — and a missing episode answers with the failover
   /// marker (HTTP 502) instead of spinning its loader forever.
+  ///
+  /// Everglow, Megavid, and Yume all point here. Each names its upstream
+  /// with `source=`, and the Worker keeps every upstream URL inside a
+  /// sealed token, so the player page never learns a host.
   static const String proxyAnimeBase =
       'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime';
 
@@ -288,6 +292,21 @@ class AnimeXWatchPage extends StatefulWidget {
   }) {
     return '$proxyAnimeBase?source=megaplay'
         '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
+  }
+
+  /// Builds the YumeZone player URL via our ad-free resolver.
+  ///
+  /// YumeZone keys on AniList ids only, so there is no MAL fallback. It runs
+  /// nine upstream servers, and the player shows them as an in-page picker
+  /// instead of as nine rows in the app's server list.
+  @visibleForTesting
+  static String yumezoneProxyUrl({
+    required int anilistId,
+    required int episode,
+    required String audio,
+  }) {
+    return '$proxyAnimeBase?source=yumezone'
+        '&anilistId=$anilistId&ep=$episode&audio=$audio';
   }
 
   /// Picks the server a visit should open on: the remembered choice
@@ -416,6 +435,19 @@ class AnimeXWatchPage extends StatefulWidget {
           audio: audio,
         ),
         available: hasSource,
+        supportsSeek: true,
+        supportsResume: true,
+      ),
+      AnimeServerOption(
+        name: 'Yume',
+        // Our own Worker resolver, same as Everglow and Megavid.
+        tag: 'Ad-free',
+        urlBuilder: (ep, audio) => AnimeXWatchPage.yumezoneProxyUrl(
+          anilistId: aniId,
+          episode: ep,
+          audio: audio,
+        ),
+        available: hasAni,
         supportsSeek: true,
         supportsResume: true,
       ),

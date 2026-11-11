@@ -4,13 +4,10 @@ import vm from 'node:vm';
 
 import {
   assertPlayableHead,
-  cdnStamp,
   cinemaHeaders,
   cinemaProxyUrl,
-  scopeMessage,
   stampParts,
   megaplayProxyUrl,
-  urlScope,
   decryptMegaPlayPayload,
   failHtml,
   firstM3u8,
@@ -21,43 +18,45 @@ import {
   makeMegaPlayToken,
   MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
+  openSeal,
   playlistDuration,
   playlistUris,
   resolveCinema,
+  resolveMegavid,
   resolvePlaylistUrl,
+  resolveYumeZone,
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
+  scopedTarget,
+  sealTarget,
   selectCinemaSubtitleTracks,
-  validCdnStamp,
   validateAnimeParams,
-  verifyCinemaStream,
   verifyStream,
   CINEMA_PROVIDERS,
   FMOV_ORIGIN,
-  MEGAPLAY_ORIGIN,
   MEGAPLAY_HOSTS,
-  MEGAVID_ORIGIN,
   VIDBOLT_ORIGIN,
 } from './anime.js';
 import { handleProxyHls, handleProxyAnime } from './worker.js';
+import { yumeSig } from './yumezone.js';
 
 const KEY = 'demo-cdn-key';
 const HOST = 'https://everglow-stream.example.workers.dev';
 
-/** The upstream URL a proxy URL points at, in any shape: `u` (one-off),
- *  `d` + `r` (direct, relative to the signed folder), or `rp` + `d` + `r`
- *  (a relay endpoint fetching a URL under the signed folder). */
-function upstreamOf(proxyUrl) {
+/** The upstream URL a proxy URL points at. The token is sealed, so this opens
+ *  it with the demo key — the test can still assert on the real target even
+ *  though the transport never prints it. */
+async function upstreamOf(proxyUrl, key = KEY) {
   const u = proxyUrl instanceof URL ? proxyUrl : new URL(proxyUrl);
-  const full = u.searchParams.get('u');
-  if (full) return full;
-  const d = u.searchParams.get('d') || '';
-  const rp = u.searchParams.get('rp');
-  if (rp) {
+  const sealed = await openSeal(key, u.searchParams.get('t') || '');
+  if (!sealed) return null;
+  if (sealed.u) return sealed.u;
+  const scope = sealed.s || '';
+  if (sealed.r) {
     const rq = u.searchParams.get('rq');
-    return `${rp}?url=${encodeURIComponent(d)}${u.searchParams.get('rr') || ''}${rq ? `&${rq}` : ''}`;
+    return `${sealed.r}?url=${encodeURIComponent(scope)}${u.searchParams.get('rr') || ''}${rq ? `&${rq}` : ''}`;
   }
-  return d + (u.searchParams.get('r') || '');
+  return scope + (u.searchParams.get('r') || '');
 }
 
 /** fmov's open relay and a CDN folder it fetches from, as real films use. */
@@ -130,65 +129,70 @@ test('stampParts splits relays and refuses URLs that must never be stamped', () 
   assert.equal(stampParts('https://cdn.example/x.ts?next=https%3A%2F%2Fevil.example%2F'), null);
 });
 
-test('Cinema stamps bind provider + relay endpoint + inner folder', async () => {
+test('Cinema seals bind provider + relay endpoint + inner folder', async () => {
   const url = relayOf(`${CDN}index.m3u8`);
   const proxied = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, url, 'fmov', KEY));
-  assert.equal(upstreamOf(proxied), url);
-  assert.equal(proxied.searchParams.get('d'), CDN);
-  assert.equal(proxied.searchParams.get('rp'), RELAY);
-  const s = proxied.searchParams.get('s');
-  assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), s));
-  assert.equal(await validCdnStamp(KEY, scopeMessage('vidbolt', RELAY, CDN), s), false);
-  assert.equal(await validCdnStamp(KEY, scopeMessage('fmov', '', CDN), s), false);
-  assert.equal(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, 'https://fmov.my/api/'), s), false);
-  assert.equal(await validCdnStamp('other-key', scopeMessage('fmov', RELAY, CDN), s), false);
+  assert.equal(await upstreamOf(proxied), url);
+  // Nothing about the upstream survives in the URL itself.
+  for (const leak of ['d', 's', 'u', 'rp', 'p']) {
+    assert.equal(proxied.searchParams.get(leak), null, `no ${leak} param`);
+  }
+  assert.ok(!proxied.toString().includes('fmov.my'), 'relay host is not printed');
+  assert.ok(!proxied.toString().includes('truawk'), 'CDN host is not printed');
+
+  const sealed = await openSeal(KEY, proxied.searchParams.get('t'));
+  assert.equal(sealed.p, 'fmov');
+  assert.equal(sealed.r, RELAY);
+  assert.equal(sealed.s, CDN);
+
+  // A token from another key is refused, and so is a tampered one.
+  assert.equal(await openSeal('other-key', proxied.searchParams.get('t')), null);
+  const t = proxied.searchParams.get('t');
+  const flipped = t.slice(0, -2) + (t.endsWith('AA') ? 'BB' : 'AA');
+  assert.equal(await openSeal(KEY, flipped), null);
 });
 
-test('urlScope returns the containing directory', () => {
-  assert.equal(urlScope('https://a.example/x/y/index.m3u8'), 'https://a.example/x/y/');
-  assert.equal(urlScope('https://a.example/x/y/tiles/0.png'), 'https://a.example/x/y/tiles/');
-  assert.equal(urlScope('https://a.example/index.m3u8'), 'https://a.example/');
-});
-
-test('rewriteCinemaPlaylist stamps a whole relayed film with ONE signature', async () => {
+test('rewriteCinemaPlaylist seals a whole relayed film with ONE token', async () => {
   const segs = Array.from({ length: 400 }, (_, i) => `/api/proxy?url=${encodeURIComponent(`${CDN}seg-${i}.ts`)}`).join('\n');
   const out = await rewriteCinemaPlaylist(`#EXTM3U\n${segs}\n`, relayOf(`${CDN}index.m3u8`), `${HOST}/proxyMegavidHls`, 'fmov', KEY);
   const urls = [...out.matchAll(/https:\/\/[^?"\s]+\/proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
   assert.equal(urls.length, 400);
-  assert.equal(new Set(urls.map((u) => u.searchParams.get('s'))).size, 1);
-  urls.forEach((u, i) => {
-    assert.equal(upstreamOf(u), relayOf(`${CDN}seg-${i}.ts`));
-    assert.ok(u.searchParams.get('rr') && u.searchParams.get('rp') && !u.searchParams.get('u'), 'compact form');
-  });
-  assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), urls[0].searchParams.get('s')));
+  assert.equal(new Set(urls.map((u) => u.searchParams.get('t'))).size, 1, 'one seal for the folder');
+  for (const [i, u] of urls.entries()) {
+    assert.equal(await upstreamOf(u), relayOf(`${CDN}seg-${i}.ts`));
+    assert.ok(u.searchParams.get('rr') && !u.searchParams.get('u'), 'compact form');
+    assert.ok(!u.toString().includes('truawk'), 'no CDN host in the playlist');
+  }
 });
 
-test('vector-shaped relay segments (other folder, extra params) still use one stamp and the compact form', async () => {
+test('vector-shaped relay segments (other folder, extra params) still use one token and the compact form', async () => {
   const seg = (i) => `/api/proxy?url=${encodeURIComponent(`https://cdn2.example/content/ab/cd/page-${i}.html`)}&referer=${encodeURIComponent('https://ref.example/')}&va=1`;
   const text = `#EXTM3U\n${Array.from({ length: 50 }, (_, i) => seg(i)).join('\n')}\n`;
   const out = await rewriteCinemaPlaylist(text, relayOf('https://cdn2.example/pl/list.m3u8'), `${HOST}/proxyMegavidHls`, 'fmov', KEY);
   const urls = out.split('\n').filter((l) => l.startsWith(HOST)).map((l) => new URL(l));
   assert.equal(urls.length, 50);
-  assert.equal(new Set(urls.map((u) => u.searchParams.get('s'))).size, 1);
-  urls.forEach((u, i) => {
+  assert.equal(new Set(urls.map((u) => u.searchParams.get('t'))).size, 1);
+  for (const [i, u] of urls.entries()) {
     assert.ok(!u.searchParams.get('u'), 'compact');
-    assert.equal(upstreamOf(u), `https://fmov.my${seg(i)}`);
-    assert.equal(u.searchParams.get('d'), 'https://cdn2.example/content/ab/cd/');
-  });
+    assert.equal(await upstreamOf(u), `https://fmov.my${seg(i)}`);
+    assert.ok(!u.toString().includes('cdn2.example'), 'no CDN host in the playlist');
+  }
 });
 
-test('a direct playlist keeps api_key and stamps its own folder', async () => {
+test('a direct playlist keeps api_key and seals its own folder', async () => {
   const base = 'https://img.rousav.tech/media/a/index.m3u8?api_key=k1';
   const out = await rewriteCinemaPlaylist('#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="track_en.m3u8"\nseg0.ts\n', base, `${HOST}/proxyMegavidHls`, 'vidbolt', KEY);
   const urls = [...out.matchAll(/https:\/\/[^?"\s]+\/proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
   assert.equal(urls.length, 2);
   for (const u of urls) {
-    assert.equal(u.searchParams.get('d'), 'https://img.rousav.tech/media/a/');
-    assert.ok(upstreamOf(u).includes('api_key=k1'));
+    const sealed = await openSeal(KEY, u.searchParams.get('t'));
+    assert.equal(sealed.s, 'https://img.rousav.tech/media/a/');
+    assert.ok((await upstreamOf(u)).includes('api_key=k1'));
+    assert.ok(!u.toString().includes('rousav'), 'no CDN host in the playlist');
   }
 });
 
-test('a URI outside the playlist directory gets its own scope; a relay URI is never folder-stamped', async () => {
+test('a URI outside the playlist directory gets its own scope; a relay URI is never folder-sealed', async () => {
   const out = await rewriteCinemaPlaylist(
     '#EXTM3U\nhttps://other.example/deep/x.ts\nhttps://fmov.my/api/proxy?url=y.ts\n',
     'https://img.rousav.tech/media/a/index.m3u8',
@@ -197,30 +201,110 @@ test('a URI outside the playlist directory gets its own scope; a relay URI is ne
     KEY,
   );
   const lines = out.split('\n');
-  assert.equal(new URL(lines[1]).searchParams.get('d'), 'https://other.example/deep/');
-  assert.equal(lines[2], 'https://fmov.my/api/proxy?url=y.ts', 'left unstamped, so the proxy refuses it');
+  const sealed = await openSeal(KEY, new URL(lines[1]).searchParams.get('t'));
+  assert.equal(sealed.s, 'https://other.example/deep/');
+  // A relay URI is never folder-sealed, so it cannot be sealed at all: it is
+  // pointed at the proxy instead of being echoed upstream.
+  assert.equal(lines[2], `${HOST}/proxyMegavidHls?t=0`, 'not echoed, so the proxy refuses it');
 });
 
-test('rewritePlaylistWithHosts keeps Megavid allowlisted and stamps MegaPlay', async () => {
-  const base = 'https://megavid.buzz/v.m3u8';
+test('a URI we cannot seal is never echoed, so no upstream host reaches the browser', async () => {
+  const out = await rewriteCinemaPlaylist(
+    '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="http://fmov.my/api/proxy?url=x"\nhttp://fmov.my/api/proxy?url=y.ts\nseg0.ts\n',
+    'https://img.rousav.tech/media/a/index.m3u8',
+    `${HOST}/proxyMegavidHls`,
+    'vidbolt',
+    KEY,
+  );
+  // An absolute upstream URL used to be printed verbatim, which handed the
+  // browser a host the whole transport exists to hide.
+  assert.ok(!out.includes('fmov.my'), 'no upstream host in the rewritten playlist');
+  assert.ok(out.includes(`${HOST}/proxyMegavidHls?t=0`), 'unsealable URIs point at the proxy');
+  const lines = out.split('\n').filter(Boolean);
+  assert.equal(lines.length, 4, 'the playlist keeps its shape');
+  assert.ok(lines[3].includes('?t='), 'the sealable segment is still sealed');
+});
+
+test('one unsealable URI does not poison its sealable neighbours', async () => {
+  // A fragment makes a URI non-lossless. It used to store `null` for the
+  // shared folder group, which turned the perfectly sealable seg1.ts into
+  // ?t=0 too — the outcome depended on which line came first.
+  const out = await rewriteCinemaPlaylist(
+    '#EXTM3U\nhttps://cdn.example/a/seg0.ts#t=1\nseg1.ts\n',
+    'https://cdn.example/a/index.m3u8',
+    `${HOST}/proxyMegavidHls`,
+    'fmov',
+    KEY,
+  );
+  const links = out.split('\n').filter((l) => l.startsWith(HOST));
+  assert.equal(links.length, 2);
+  for (const link of links) {
+    const sealed = await scopedTarget(new URL(link).searchParams, KEY);
+    assert.ok(sealed, `${link} opens`);
+  }
+  // The fragment rides along in the whole-URL seal; fetch ignores it.
+  assert.ok((await upstreamOf(new URL(links[0]))).startsWith('https://cdn.example/a/seg0.ts'));
+  assert.equal(await upstreamOf(new URL(links[1])), 'https://cdn.example/a/seg1.ts');
+});
+
+test('a relay URI with a param before url= still gets a real token', async () => {
+  // `?tok=x&url=…` is not lossless, so it travels as a whole-URL seal rather
+  // than being nulled by the group it shares with the plain segments.
+  const out = await rewriteCinemaPlaylist(
+    '#EXTM3U\n/api/proxy?tok=x&url=' +
+      encodeURIComponent('https://cdn.example/a/seg0.ts') +
+      '\n',
+    'https://fmov.my/api/proxy?url=' + encodeURIComponent('https://cdn.example/a/index.m3u8'),
+    `${HOST}/proxyMegavidHls`,
+    'fmov',
+    KEY,
+  );
+  const link = out.split('\n').find((l) => l.startsWith(HOST));
+  assert.ok(link, 'the relay URI is sealed, not dropped');
+  assert.ok(!link.endsWith('?t=0'), 'a real token, not the dead one');
+  const sealed = await scopedTarget(new URL(link).searchParams, KEY);
+  assert.ok(sealed, 'the token opens');
+  assert.equal(sealed.relay, 'https://fmov.my/api/proxy');
+  assert.equal(sealed.target, 'https://fmov.my/api/proxy?tok=x&url=' +
+    encodeURIComponent('https://cdn.example/a/seg0.ts'));
+});
+
+test('a folder holding a space or a non-ASCII character still plays', async () => {
+  const base = 'https://cdn.example/a b/ëpisode/index.m3u8';
+  const out = await rewriteCinemaPlaylist('#EXTM3U\nseg0.ts\n', base, `${HOST}/proxyMegavidHls`, 'fmov', KEY);
+  const link = out.split('\n').find((l) => l.startsWith(HOST));
+  // `innerHref` is a normalized href while the sealed scope was the raw
+  // folder, so every segment 400'd on any folder with a space in it.
+  const sealed = await scopedTarget(new URL(link).searchParams, KEY);
+  assert.ok(sealed, 'the sealed link opens');
+  assert.equal(sealed.target, 'https://cdn.example/a%20b/%C3%ABpisode/seg0.ts');
+});
+
+test('rewritePlaylistWithHosts seals every host, allowlisted or not', async () => {
   const out = await rewritePlaylistWithHosts(
     '#EXTM3U\n#EXTINF:8,\nhttps://s-90.megavid.se/a.ts\nhttps://evil.example/b.ts\n',
-    base,
+    'https://megavid.buzz/v.m3u8',
     `${HOST}/proxyMegavidHls`,
-    isMegavidHost,
-    null,
+    'megaplay',
+    KEY,
   );
-  assert.ok(out.includes('s-90.megavid.se'));
-  assert.ok(out.includes('evil.example'), 'unlisted host left untouched without a stamp');
+  // The allowlisted-host shortcut is gone: both hosts leave as opaque tokens.
+  assert.ok(!out.includes('megavid.se'), 'allowlisted host is not printed');
+  assert.ok(!out.includes('evil.example'), 'unlisted host is not printed');
+  const urls = out.split('\n').filter((l) => l.startsWith(HOST)).map((l) => new URL(l));
+  assert.equal(urls.length, 2);
+  assert.equal(await upstreamOf(urls[0]), 'https://s-90.megavid.se/a.ts');
+  assert.equal(await upstreamOf(urls[1]), 'https://evil.example/b.ts');
 
   const stamped = await rewritePlaylistWithHosts(
     '#EXTM3U\n#EXTINF:8,\nhttps://wintergrove.space/a.jpg\n',
     'https://fetch.nexabloom.top/v.m3u8',
     `${HOST}/proxyMegavidHls`,
-    isMegaPlayHost,
+    'megaplay',
     KEY,
   );
-  assert.ok(stamped.includes('&s='), 'rotating MegaPlay CDN gets stamped');
+  assert.ok(stamped.includes('?t='), 'rotating MegaPlay CDN gets sealed');
+  assert.ok(!stamped.includes('wintergrove'), 'and its host stays hidden');
 });
 
 test('resolvePlaylistUrl keeps same-origin api_key and never leaks it cross-origin', () => {
@@ -402,14 +486,15 @@ test('resolveCinema resolves a movie and stamps the player + subtitles', async (
     const out = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY);
     const src = new URL(out.src);
     assert.equal(src.pathname, '/proxyMegavidHls');
-    assert.equal(src.searchParams.get('p'), 'fmov');
-    assert.equal(src.searchParams.get('d'), CDN);
-    assert.equal(src.searchParams.get('rp'), RELAY);
-    assert.equal(upstreamOf(src), relayOf(`${CDN}index.m3u8`));
-    assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), src.searchParams.get('s')));
+    assert.equal(await upstreamOf(src), relayOf(`${CDN}index.m3u8`));
+    const sealed = await openSeal(KEY, src.searchParams.get('t'));
+    assert.equal(sealed.p, 'fmov');
+    assert.equal(sealed.r, RELAY);
+    assert.equal(sealed.s, CDN);
     assert.equal(out.title, 'Movie');
     assert.equal(out.tracks.length, 1);
-    assert.equal(new URL(out.tracks[0].file).searchParams.get('d'), 'https://cache.vdrk.site/');
+    const track = new URL(out.tracks[0].file);
+    assert.equal(await upstreamOf(track), 'https://cache.vdrk.site/en.vtt');
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -452,7 +537,8 @@ test('the Worker answers format=json with the resolved stream for the watch part
     assert.equal(body.tracks[0].label, 'English');
     const src = new URL(body.src);
     assert.equal(src.pathname, '/proxyMegavidHls');
-    assert.equal(upstreamOf(src), relayOf(`${CDN}index.m3u8`));
+    assert.equal(await upstreamOf(src), relayOf(`${CDN}index.m3u8`));
+    assert.deepEqual(body.servers, [], 'cinema has one upstream, so no picker');
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -492,6 +578,244 @@ test('resolveCinema fails closed without a stamp key', async () => {
   );
 });
 
+// ─── Megavid ─────────────────────────────────────────────
+
+/** A fetch stub for the Megavid chain: the source lookup, the master, its
+ *  variant, and the first segment. */
+function mockMegavid(source, { tracks = [] } = {}) {
+  return async (url) => {
+    const u = String(url);
+    if (u.includes('/source')) {
+      return new Response(JSON.stringify({ status: 'ok', source, tracks }), { status: 200 });
+    }
+    if (u.includes('master.m3u8')) {
+      return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv.m3u8\n', { status: 200 });
+    }
+    if (u.includes('v.m3u8')) {
+      const segs = Array.from({ length: 25 }, (_, i) => `#EXTINF:6,\nseg-${i}.ts`).join('\n');
+      return new Response(`#EXTM3U\n#EXT-X-TARGETDURATION:6\n${segs}\n`, { status: 200 });
+    }
+    return new Response(new Uint8Array([0x47, 1, 2, 3]), { status: 200 });
+  };
+}
+
+test('resolveMegavid seals the stream and its subtitle tracks', async () => {
+  const realFetch = globalThis.fetch;
+  const master = 'https://megavid.buzz/stream/master.m3u8?token=t';
+  globalThis.fetch = mockMegavid(master, {
+    tracks: [{ label: 'English', file: 'https://megavid.buzz/subs/en.vtt' }],
+  });
+  try {
+    const out = await resolveMegavid(21, 21, 1, 'sub', `${HOST}/proxyMegavidHls`, KEY);
+    assert.equal(typeof out.src, 'string');
+    assert.equal(await upstreamOf(new URL(out.src)), master);
+    assert.equal(out.tracks.length, 1);
+    // A promise here survives the filter (a promise is truthy) and reaches
+    // the player as `{}`, so the track silently never loads.
+    assert.equal(typeof out.tracks[0].file, 'string', 'tracks are awaited, not promises');
+    assert.equal(await upstreamOf(new URL(out.tracks[0].file)), 'https://megavid.buzz/subs/en.vtt');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('resolveMegavid throws instead of returning a null src on a keyless Worker', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockMegavid('https://megavid.buzz/stream/master.m3u8?token=t');
+  try {
+    await assert.rejects(
+      resolveMegavid(21, 21, 1, 'sub', `${HOST}/proxyMegavidHls`, null),
+      /cannot be sealed/,
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('a keyless Worker answers with the failover marker, not a dead player page', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockMegavid('https://megavid.buzz/stream/master.m3u8?token=t');
+  try {
+    const u = new URL(`${HOST}/proxyAnime`);
+    u.searchParams.set('source', 'megavid');
+    u.searchParams.set('anilistId', '21');
+    u.searchParams.set('malId', '21');
+    u.searchParams.set('ep', '1');
+    u.searchParams.set('audio', 'sub');
+    const res = await handleProxyAnime(new Request(u.toString()), {});
+    assert.equal(res.status, 502, 'not a 200 page with var src=null');
+    const body = await res.text();
+    assert.ok(body.includes(NO_SOURCE_MARKER), 'the app probe can advance');
+    assert.ok(!body.includes('var src=null'), 'no dead player page');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+// ─── YumeZone ────────────────────────────────────────────
+
+/** Encrypts a payload the way YumeZone does, so the resolver's real decrypt
+ *  path runs instead of a stubbed one. */
+function yumeEncrypt(payload, sig) {
+  const key = new TextEncoder().encode(sig);
+  const json = new TextEncoder().encode(JSON.stringify(payload));
+  const out = new Uint8Array(json.length);
+  for (let i = 0; i < json.length; i++) out[i] = json[i] ^ key[i % key.length] ^ ((i * 3) % 256);
+  return btoa(String.fromCharCode(...out));
+}
+
+const YUME_TS = 1767225600;
+const YUME_MASTER = 'https://yumezone.live/p/abc/master.m3u8?pk=t';
+
+/** A fetch stub for the whole YumeZone chain: the signed source lookup, the
+ *  master, its variant, and the first segment. `answers` maps a provider name
+ *  to a payload, or to 'fail' for a dead server. */
+function mockYume(answers, { calls = [] } = {}) {
+  return async (url, init) => {
+    const u = String(url);
+    calls.push(u);
+    if (u === 'https://yumezone.live/api/yume/watch/sources') {
+      const body = JSON.parse(init.body);
+      const answer = answers[body.provider];
+      if (answer === undefined || answer === 'fail') return new Response('nope', { status: 500 });
+      const sig = await yumeSig(body.anime_id, body.episode_number, body.ts);
+      return new Response(JSON.stringify({ ct: yumeEncrypt(answer, sig) }), { status: 200 });
+    }
+    if (u.includes('master.m3u8')) {
+      return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv.m3u8\n', { status: 200 });
+    }
+    if (u.includes('v.m3u8')) {
+      const segs = Array.from({ length: 25 }, (_, i) => `#EXTINF:6,\nseg-${i}.ts`).join('\n');
+      return new Response(`#EXTM3U\n#EXT-X-TARGETDURATION:6\n${segs}\n`, { status: 200 });
+    }
+    return new Response(new Uint8Array([0x47, 1, 2, 3]), { status: 200 });
+  };
+}
+
+function yumeAnswer(overrides = {}) {
+  return { available: true, source_type: 'hls', hls_sources: [{ url: YUME_MASTER }], ...overrides };
+}
+
+test('validateAnimeParams accepts yumezone and rejects an unknown server', () => {
+  const ok = validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '3', audio: 'sub' });
+  assert.equal(ok.source, 'yumezone');
+  assert.equal(ok.anilistId, 21);
+  assert.equal(ok.ep, 3);
+  assert.equal(ok.server, '');
+
+  const picked = validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'yume-5' });
+  assert.equal(picked.server, 'yume-5');
+
+  assert.match(validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'evil' }).error, /unknown server/);
+  assert.match(validateAnimeParams({ source: 'nope', anilistId: '21', ep: '1' }).error, /source must be/);
+});
+
+test('resolveYumeZone seals the master and hands the player its server list', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const calls = [];
+  globalThis.fetch = mockYume({ 'Karl - 3': yumeAnswer() }, { calls });
+  try {
+    const out = await resolveYumeZone(21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY);
+    assert.equal(out.server, 'yume-1', 'hardsub server wins for subbed audio');
+    const src = new URL(out.src);
+    assert.equal(src.pathname, '/proxyMegavidHls');
+    assert.equal(await upstreamOf(src), YUME_MASTER);
+    const sealed = await openSeal(KEY, src.searchParams.get('t'));
+    assert.equal(sealed.p, 'yumezone');
+    assert.ok(!out.src.includes('yumezone.live'), 'the upstream never reaches the browser');
+
+    // Nine lazy links back to the Worker, hardsub first, nothing resolved yet.
+    assert.equal(out.servers.length, 9);
+    assert.deepEqual(out.servers.slice(0, 3).map((s) => s.id), ['yume-1', 'yume-2', 'yume-3']);
+    for (const server of out.servers) {
+      assert.equal(server.url.startsWith(`${HOST}/proxyAnime?source=yumezone&format=json`), true);
+      assert.ok(server.url.includes(`&server=${server.id}`));
+      assert.ok(server.label);
+    }
+    // Only the winning server was asked.
+    assert.equal(calls.filter((u) => u.includes('/api/yume/watch/sources')).length, 1);
+    assert.equal(out.tracks.length, 0, 'ASS/SRT cannot ride a <track>');
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('resolveYumeZone falls through dead servers, in order', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const calls = [];
+  globalThis.fetch = mockYume(
+    { 'Karl - 3': 'fail', Goku: { available: false }, Nexus: yumeAnswer() },
+    { calls },
+  );
+  try {
+    const out = await resolveYumeZone(21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY);
+    assert.equal(out.server, 'yume-3');
+    assert.equal(calls.filter((u) => u.includes('/api/yume/watch/sources')).length, 3);
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('a picked YumeZone server is the only one tried, so the picker cannot lie', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const calls = [];
+  globalThis.fetch = mockYume({ 'Karl - 3': yumeAnswer() }, { calls });
+  try {
+    // Yume 6 is dead here; Yume 1 would have worked. Picking 6 must fail.
+    await assert.rejects(
+      resolveYumeZone(21, 1, 'sub', 'yume-6', `${HOST}/proxyMegavidHls`, KEY),
+      /no playable stream/,
+    );
+    assert.equal(calls.filter((u) => u.includes('/api/yume/watch/sources')).length, 1);
+
+    await assert.rejects(
+      resolveYumeZone(21, 1, 'sub', 'nope', `${HOST}/proxyMegavidHls`, KEY),
+      /unknown server/,
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('resolveYumeZone fails closed without a key or an AniList id', async () => {
+  await assert.rejects(resolveYumeZone(21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, null), /seal key/);
+  await assert.rejects(resolveYumeZone(0, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY), /AniList id/);
+});
+
+test('the Worker answers format=json for yumezone with the server list', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  globalThis.fetch = mockYume({ 'Karl - 3': yumeAnswer() });
+  try {
+    const u = new URL(`${HOST}/proxyAnime`);
+    u.searchParams.set('source', 'yumezone');
+    u.searchParams.set('anilistId', '21');
+    u.searchParams.set('ep', '1');
+    u.searchParams.set('audio', 'sub');
+    u.searchParams.set('format', 'json');
+    const res = await handleProxyAnime(new Request(u.toString()), { CDN_STAMP_KEY: KEY });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.current, 'yume-1');
+    assert.equal(body.servers.length, 9);
+    assert.equal(await upstreamOf(new URL(body.src)), YUME_MASTER);
+    assert.deepEqual(body.tracks, []);
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
 // ─── Worker request handling ─────────────────────────────
 
 function hlsRequest(query) {
@@ -500,7 +824,7 @@ function hlsRequest(query) {
   return new Request(u.toString());
 }
 
-test('the Worker refuses every way of pointing a stamp at a URL we never issued', async () => {
+test('the Worker refuses every way of pointing a token at a URL we never issued', async () => {
   const realFetch = globalThis.fetch;
   const fetched = [];
   globalThis.fetch = async (url) => {
@@ -509,29 +833,33 @@ test('the Worker refuses every way of pointing a stamp at a URL we never issued'
   };
   try {
     const evilRelay = relayOf('https://example.com/');
-    // The exact attack from review: lift a real stamp from a public player page.
+    // The attack that worked against the old plaintext transport: read the
+    // folder out of a real playlist and aim it somewhere else.
     const real = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, relayOf(`${CDN}index.m3u8`), 'fmov', KEY));
-    const lifted = { p: 'fmov', d: real.searchParams.get('d'), s: real.searchParams.get('s') };
+    const token = real.searchParams.get('t');
     const relayFolder = 'https://fmov.my/api/';
     const cases = [
+      // No token at all, and the old plaintext params are simply ignored.
       { u: evilRelay },
       { u: evilRelay, p: 'fmov', d: relayFolder, s: 'f'.repeat(16) },
-      { ...lifted, u: evilRelay },
-      { ...lifted, u: relayOf(`${CDN}../../../x`) },
-      { ...lifted, rp: RELAY, rr: '..%2F..%2F..%2Fx' },
-      { ...lifted, rp: 'https://evil.example/proxy', rr: 'index.m3u8' },
-      { ...lifted, r: 'index.m3u8' },
-      { ...lifted, p: 'vidbolt', rp: RELAY, rr: 'index.m3u8' },
-      // A second url= or an unknown URL-valued param: which one does fmov honour?
-      { ...lifted, rp: RELAY, rr: 'index.m3u8', rq: `url=${encodeURIComponent('https://example.com/')}` },
-      { ...lifted, rp: RELAY, rr: 'index.m3u8', rq: `target=${encodeURIComponent('https://example.com/')}` },
-      { ...lifted, u: `${relayOf(`${CDN}index.m3u8`)}&url=${encodeURIComponent('https://example.com/')}` },
-      { ...lifted, u: relayOf(relayOf('https://example.com/')) },
-      // A folder stamp on the relay host itself, if one were ever minted.
-      { u: evilRelay, p: 'fmov', d: relayFolder, s: await cdnStamp(KEY, scopeMessage('fmov', '', relayFolder)) },
-      { u: evilRelay, p: 'fmov', d: relayFolder, s: await cdnStamp(KEY, scopeMessage('fmov', RELAY, relayFolder)) },
       { u: 'https://img.rousav.tech/media/a/index.m3u8' },
       { u: 'http://fmov.my/api/proxy' },
+      // A token we did not mint, and a tampered one.
+      { t: 'not-a-token' },
+      { t: await sealTarget('some-other-key', { p: 'fmov', u: evilRelay }) },
+      { t: token.slice(0, -4) + 'AAAA' },
+      // A genuine token, aimed elsewhere through the path params.
+      { t: token, r: '..%2F..%2F..%2Fx' },
+      { t: token, r: '/etc/passwd' },
+      { t: token, r: 'https://evil.example/x.ts' },
+      { t: token, rr: '..%2F..%2Fx' },
+      { t: token, rr: 'https://evil.example/x.ts' },
+      // A second url= or an unknown URL-valued param: which one does fmov honour?
+      { t: token, rr: 'index.m3u8', rq: `url=${encodeURIComponent('https://example.com/')}` },
+      { t: token, rr: 'index.m3u8', rq: `target=${encodeURIComponent('https://example.com/')}` },
+      // A token minted over a relay host's own folder, if one ever were.
+      { t: await sealTarget(KEY, { p: 'fmov', s: relayFolder }) },
+      { t: await sealTarget(KEY, { p: 'fmov', s: relayFolder, r: RELAY }) },
     ];
     for (const q of cases) {
       const res = await handleProxyHls(hlsRequest(q), { CDN_STAMP_KEY: KEY });
@@ -539,24 +867,40 @@ test('the Worker refuses every way of pointing a stamp at a URL we never issued'
     }
     assert.deepEqual(fetched, [], 'nothing reached an upstream');
 
-    // The genuine stamp still works, and only for the URL it was issued for.
+    // The genuine token still works, and only for the URL it was issued for.
     const ok = await handleProxyHls(new Request(real.toString()), { CDN_STAMP_KEY: KEY });
     assert.equal(ok.status, 200);
     assert.deepEqual(fetched, [relayOf(`${CDN}index.m3u8`)]);
 
-    // A genuine MegaPlay stamp for a rotating CDN still works too.
+    // Legacy params are inert: `rp` cannot aim the relay anywhere, because
+    // the relay endpoint lives inside the token.
+    fetched.length = 0;
+    const legacy = await handleProxyHls(
+      hlsRequest({ t: token, rr: 'index.m3u8', rp: 'https://evil.example/proxy' }),
+      { CDN_STAMP_KEY: KEY },
+    );
+    assert.equal(legacy.status, 200);
+    assert.deepEqual(fetched, [relayOf(`${CDN}index.m3u8`)], 'the sealed relay is used, not rp');
+
+    // A genuine MegaPlay token for a rotating CDN still works too.
     fetched.length = 0;
     const rotating = 'https://wintergrove.space/seg.jpg';
     const mp = await megaplayProxyUrl(`${HOST}/proxyMegavidHls`, rotating, KEY);
     const mpRes = await handleProxyHls(new Request(mp), { CDN_STAMP_KEY: KEY });
     assert.equal(mpRes.status, 200);
     assert.deepEqual(fetched, [rotating]);
+
+    // And a Worker with no key mints nothing and accepts nothing.
+    fetched.length = 0;
+    const noKey = await handleProxyHls(new Request(real.toString()), {});
+    assert.equal(noKey.status, 400);
+    assert.deepEqual(fetched, [], 'a keyless Worker is closed, not open');
   } finally {
     globalThis.fetch = realFetch;
   }
 });
 
-test('the Worker serves a stamped relayed playlist with that provider headers', async () => {
+test('the Worker serves a sealed relayed playlist with that provider headers', async () => {
   const realFetch = globalThis.fetch;
   let seen;
   globalThis.fetch = async (url, init) => {
@@ -574,8 +918,10 @@ test('the Worker serves a stamped relayed playlist with that provider headers', 
     assert.equal(seen.url, master);
     assert.equal(seen.headers.Origin, FMOV_ORIGIN);
     const child = new URL((await res.text()).split('\n').find((l) => l.startsWith('https://')));
-    assert.equal(upstreamOf(child), relayOf(`${CDN}seg1.ts`));
-    assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), child.searchParams.get('s')));
+    assert.equal(await upstreamOf(child), relayOf(`${CDN}seg1.ts`));
+    const sealed = await openSeal(KEY, child.searchParams.get('t'));
+    assert.equal(sealed.p, 'fmov');
+    assert.equal(sealed.s, CDN);
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -599,7 +945,7 @@ test('the Worker streams segments through with the upstream status and range', a
   }
 });
 
-test('an unstamped MegaPlay master (allowlisted host) rewrites to playable links', async () => {
+test('a sealed MegaPlay master rewrites to playable links, and nothing else is reachable', async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () =>
     new Response(
@@ -608,17 +954,26 @@ test('an unstamped MegaPlay master (allowlisted host) rewrites to playable links
     );
   try {
     const master = 'https://fetch.nexabloom.top/anime/a/b/master.m3u8?token=t';
-    const res = await handleProxyHls(hlsRequest({ u: master }), { CDN_STAMP_KEY: KEY });
+    // The old shortcut let an allowlisted host through unstamped. It is gone:
+    // an unsealed request is refused even on a host we own the allowlist for.
+    const refused = await handleProxyHls(hlsRequest({ u: master }), { CDN_STAMP_KEY: KEY });
+    assert.equal(refused.status, 400);
+
+    const sealed = await sealTarget(KEY, { p: 'megaplay', u: master });
+    const res = await handleProxyHls(hlsRequest({ t: sealed }), { CDN_STAMP_KEY: KEY });
     assert.equal(res.status, 200);
-    const links = [...(await res.text()).matchAll(/https:\/\/[^"\s]+proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
+    const text = await res.text();
+    const links = [...text.matchAll(/https:\/\/[^"\s]+proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
     assert.equal(links.length, 3);
-    // Allowlisted MegaPlay hosts: plain links, no stamp needed.
-    assert.equal(links[0].searchParams.get('u'), 'https://fetch.nexabloom.top/anime/a/b/index-f1-v1-a1.m3u8');
-    assert.equal(links[0].searchParams.get('s'), null);
-    // A rotating CDN: stamped as MegaPlay, and the stamp is real.
-    const rot = links[2];
-    assert.equal(rot.searchParams.get('p'), 'megaplay');
-    assert.ok(await validCdnStamp(KEY, scopeMessage('megaplay', '', 'https://wintergrove.space/'), rot.searchParams.get('s')));
+    assert.ok(!text.includes('wintergrove'), 'no upstream host survives in the playlist');
+    assert.ok(!text.includes('nexabloom'), 'not even the allowlisted one');
+    for (const link of links) {
+      assert.ok(link.searchParams.get('t'), 'every link is sealed');
+      const opened = await openSeal(KEY, link.searchParams.get('t'));
+      assert.equal(opened.p, 'megaplay');
+    }
+    assert.equal(await upstreamOf(links[0]), 'https://fetch.nexabloom.top/anime/a/b/index-f1-v1-a1.m3u8');
+    assert.equal(await upstreamOf(links[2]), 'https://wintergrove.space/seg.jpg');
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -671,11 +1026,13 @@ test('only the default subtitle track drives the captions (no random language)',
 });
 
 /** Runs the player script in a fake DOM and returns the handles it built. */
-function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true } = {}) {
+function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true, servers = [], current = '', fetchImpl = null } = {}) {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
     title: 'Movie',
     kind: 'cinema',
+    servers,
+    current,
     tracks: tracks.map((t) => {
       const spec = typeof t === 'string' ? { label: t } : t;
       return { file: `https://x/${spec.label}.vtt`, label: spec.label };
@@ -690,7 +1047,7 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
         getPropertyValue(k) { return this._v[k] || ''; },
       },
       hidden: false, textContent: '', children: [],
-      classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+      classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { if (v) { this._s.add(c); } else { this._s.delete(c); } }, contains(c) { return this._s.has(c); } },
       listeners: {}, addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
       dispatch(e, data) { for (const h of this.listeners[e] || []) h(data); },
       appendChild(c) { this.children.push(c); },
@@ -723,14 +1080,29 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     'btn-play': el(), 'btn-vol': el(), 'btn-speed': el(), 'btn-pip': el(), 'vol-range': el(),
     's-fill': el(), 'time-lbl': el(), scrub: el(),
     'sp-menu': Object.assign(el(), { hidden: true }),
+    'btn-sv': el(), 'sv-menu': Object.assign(el(), { hidden: true }),
     buf: Object.assign(el(), { hidden: true }) };
-  function Hls() {}
+  function Hls() {
+    this.destroyed = false;
+    instances.push(this);
+  }
   Hls.isSupported = () => true;
   Hls.Events = { ERROR: 'e', MANIFEST_PARSED: 'm' };
   Hls.ErrorTypes = {};
-  Hls.prototype.on = () => {};
-  Hls.prototype.loadSource = () => {};
+  const handlers = {};
+  const instances = [];
+  Hls.prototype.on = function (event, fn) { handlers[event] = fn; };
+  const loads = [];
+  Hls.prototype.loadSource = function (u) {
+    // Real hls.js: loadSource() on a destroyed instance is a silent no-op.
+    // Checked against 1.7.4 — no event, no throw, nothing plays.
+    if (this.destroyed) return;
+    loads.push(u);
+  };
   Hls.prototype.attachMedia = () => {};
+  Hls.prototype.destroy = function () { this.destroyed = true; };
+  Hls.prototype.startLoad = () => {};
+  Hls.prototype.recoverMediaError = () => {};
   const win = el();
   const localStorage = {
     getItem: (k) => (store.has(k) ? store.get(k) : null),
@@ -744,7 +1116,7 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     createElement: () => el(),
     pictureInPictureEnabled: true,
   };
-  const ctx = { window: win, Hls, URLSearchParams, Date, document: doc };
+  const ctx = { window: win, Hls, URLSearchParams, Date, setTimeout, clearTimeout, document: doc, fetch: fetchImpl || (() => Promise.reject(new Error('no fetch'))) };
   vm.createContext(ctx);
   new vm.Script(code).runInContext(ctx);
   for (const h of v.listeners.loadedmetadata || []) h();
@@ -758,7 +1130,7 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
       h({ source: win.parent, origin: 'https://everglow-1c6db.web.app', data });
     }
   };
-  return { els, v, html, window: win, fire, key, tap, relay };
+  return { els, v, html, window: win, fire, key, tap, relay, loads, handlers, instances, Hls };
 }
 
 /** The row that follows a section header inside the CC panel. */
@@ -767,6 +1139,259 @@ function ccRow(menu, header) {
   assert.ok(at >= 0, `CC panel has a "${header}" section`);
   return menu.children[at + 1];
 }
+
+test('the server picker appears only when there is more than one server', () => {
+  const none = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Episode 1', ep: 1 });
+  assert.match(none, /id="btn-sv"[^>]*hidden/, 'one upstream, no picker');
+
+  const one = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Episode 1',
+    ep: 1,
+    servers: [{ id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' }],
+  });
+  assert.match(one, /id="btn-sv"[^>]*hidden/, 'still one, still no picker');
+
+  const many = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Episode 1',
+    ep: 1,
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+  });
+  assert.doesNotMatch(many, /id="btn-sv"[^>]*hidden/, 'two servers, so the picker shows');
+  assert.ok(many.includes('Yume 2'), 'the labels reach the page');
+  assert.ok(!many.includes('yumezone.live'), 'no upstream host in the page');
+});
+
+test('picking a server swaps the source and keeps the playhead', async () => {
+  const asked = [];
+  const { els, v } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async (url) => {
+      asked.push(String(url));
+      return { json: async () => ({ src: 'https://w/proxyMegavidHls?t=swapped' }) };
+    },
+  });
+  v.currentTime = 42;
+
+  // Open the picker: it rebuilds from the list every time.
+  els['btn-sv'].dispatch('click');
+  assert.equal(els['sv-menu'].hidden, false);
+  assert.equal(els['sv-menu'].children.length, 2);
+
+  // Pick the second one. Rows are plain buttons with an onclick.
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.deepEqual(asked, ['https://w/proxyAnime?server=yume-2']);
+  // The picker stays open until a source actually plays: closing it here would
+  // leave the stalled card up with no reachable control if the pick never
+  // starts.
+  assert.equal(els['sv-menu'].hidden, false, 'the menu waits for a play');
+  assert.equal(els['btn-sv'].textContent, 'Servers', 'the button is not left saying Loading');
+  // A real loadSource resets the playhead, so zero it here: the restore must
+  // come from pendingSeek, not from the fake never having moved.
+  v.currentTime = 0;
+  for (const h of v.listeners.loadedmetadata || []) h();
+  assert.equal(v.currentTime, 42, 'the playhead is restored after the swap');
+});
+
+test('a failed server pick stays in the player and never condemns the server', async () => {
+  const { els, window } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async () => ({ json: async () => ({ error: 'no stream' }) }),
+  });
+  const posted = [];
+  window.parent.postMessage = (msg) => posted.push(msg);
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  // `animex-content-error` means "this whole server is dead" to the app: it
+  // moves off Yume, overwrites her remembered server, and ends the picker.
+  // One dead upstream must not do that.
+  assert.deepEqual(posted, [], 'the app is not told the server died');
+  assert.equal(els['btn-sv'].textContent, 'Server failed', 'the player says so itself');
+  assert.equal(els['sv-menu'].hidden, false, 'the menu reopens so she can try another');
+});
+
+test('the last tap wins when two server picks overlap', async () => {
+  let releaseFirst;
+  const { els, loads } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+      { id: 'yume-3', label: 'Yume 3', url: 'https://w/proxyAnime?server=yume-3' },
+    ],
+    fetchImpl: (url) => {
+      if (String(url).includes('yume-2')) {
+        return new Promise((resolve) => {
+          releaseFirst = () => resolve({ json: async () => ({ src: 'https://w/slow' }) });
+        });
+      }
+      return Promise.resolve({ json: async () => ({ src: 'https://w/fast' }) });
+    },
+  });
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick(); // Yume 2, slow
+  els['sv-menu'].hidden = false;
+  els['sv-menu'].children[2].onclick(); // Yume 3, fast
+  await new Promise((r) => setTimeout(r, 0));
+
+  // The slow answer arrives last and must not overwrite the newer pick.
+  releaseFirst();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(loads.at(-1), 'https://w/fast', 'the later tap is what plays');
+  assert.ok(!loads.includes('https://w/slow'), 'the stale response never loads');
+});
+
+test('a stream that dies after a pick does not condemn the whole server', async () => {
+  const { els, window, handlers } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async () => ({ json: async () => ({ src: 'https://w/picked' }) }),
+  });
+  const posted = [];
+  window.parent.postMessage = (msg) => posted.push(msg);
+  const die = () => {
+    for (let i = 0; i < 4; i++) handlers.e({}, { fatal: true, type: 'other' });
+  };
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(posted, [], 'a successful pick says nothing');
+
+  // The picked stream then dies. Before the guard this posted the
+  // app-level error, which moves her off Yume and overwrites her choice —
+  // even though the picker is still open and another server may work.
+  die();
+  assert.deepEqual(posted, [], 'one dead pick is not a dead source');
+  // The stalled card covers the Servers chip, so without reopening the menu
+  // the only live control is Retry → reload, which discards her pick.
+  assert.equal(els['sv-menu'].hidden, false, 'the picker is reachable again');
+  assert.equal(els['sv-menu'].children.length, 2, 'and it is rebuilt');
+});
+
+test('a working pick clears the stalled card', async () => {
+  const { els, handlers, fire } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async () => ({ json: async () => ({ src: 'https://w/picked' }) }),
+  });
+
+  // First pick dies, so the card is up and the menu is open.
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  for (let i = 0; i < 4; i++) handlers.e({}, { fatal: true, type: 'other' });
+  assert.equal(els.dead.hidden, false, 'the card is up');
+
+  // A second pick works. The card and the picker both stay up until it
+  // actually plays, so a pick that cannot start never leaves a blank frame
+  // with no reachable control.
+  els['sv-menu'].children[0].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(els.dead.hidden, false, 'card up while the pick loads');
+  assert.equal(els['sv-menu'].hidden, false, 'picker still reachable');
+  assert.equal(els.dead.style.paddingRight, '190px', 'card clear of the menu');
+  fire('playing');
+  assert.equal(els.dead.hidden, true, 'the card is gone once it plays');
+  assert.equal(els['sv-menu'].hidden, true, 'and the picker closes with it');
+  assert.equal(els.dead.style.paddingRight, '', 'the inset is cleared');
+});
+
+test('a recovery attempt that throws still kills the instance', async () => {
+  // If startLoad/recoverMediaError throws, the instance must be destroyed, not
+  // just marked dead: a live-but-dead instance keeps its handlers and shares
+  // the outer `fatal`, so it can later call giveUp() over a playing stream.
+  const { handlers, instances, Hls } = runPlayerDom({ tracks: [], trackEls: [] });
+  assert.equal(instances.length, 1, 'one instance at boot');
+  Hls.ErrorTypes.NETWORK_ERROR = 'net';
+  instances[0].startLoad = () => {
+    throw new Error('boom');
+  };
+  handlers.e({}, { fatal: true, type: 'net' });
+  assert.equal(instances[0].destroyed, true, 'the throwing instance is destroyed');
+});
+
+test('a stray play does not close a picker she opened by hand', () => {
+  // `playing` also fires when a stalled buffer resumes. Closing the menu then
+  // shuts the picker while she is choosing — on a flaky stream, the exact case
+  // it exists for.
+  const { els, fire } = runPlayerDom({ tracks: [], trackEls: [] });
+  els['btn-sv'].dispatch('click');
+  assert.equal(els['sv-menu'].hidden, false, 'she opened it');
+  fire('playing');
+  assert.equal(els['sv-menu'].hidden, false, 'and it stays open');
+});
+
+test('a pick after a dead stream really loads', async () => {
+  // hls.js cannot revive a destroyed instance, so the player must build a new
+  // one. Before this, a pick after a stall fetched fine, cleared the card, and
+  // played nothing: no boot wave, no card, no error, no way out.
+  const { els, handlers, loads } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async () => ({ json: async () => ({ src: 'https://w/picked' }) }),
+  });
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  for (let i = 0; i < 4; i++) handlers.e({}, { fatal: true, type: 'other' });
+
+  const before = loads.length;
+  els['sv-menu'].children[0].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(loads.length > before, 'the new source reached a live instance');
+  assert.equal(loads[loads.length - 1], 'https://w/picked');
+});
+
+test('a stream that dies before any pick still reports the source dead', () => {
+  const { window, handlers } = runPlayerDom({ tracks: [], trackEls: [] });
+  const posted = [];
+  window.parent.postMessage = (msg) => posted.push(msg);
+  for (let i = 0; i < 4; i++) handlers.e({}, { fatal: true, type: 'other' });
+  assert.ok(posted.includes('animex-content-error'), 'the app can advance servers');
+});
 
 test('CC is hidden when the source has no subtitles', () => {
   const none = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
@@ -1085,7 +1710,7 @@ test('the CC panel lifts the captions instead of covering them', () => {
 });
 
 test('binge scrim is hidden when both skip and next are hidden', () => {
-  const { html, window, els, fire } = runPlayerDom({ tracks: [], trackEls: [] });
+  const { html } = runPlayerDom({ tracks: [], trackEls: [] });
   assert.ok(html.includes('id="b-scrim" hidden'), 'scrim starts hidden');
   assert.ok(html.includes('#b-scrim[hidden]{display:none!important}'));
 });

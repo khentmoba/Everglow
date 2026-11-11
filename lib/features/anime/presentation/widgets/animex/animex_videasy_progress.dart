@@ -57,7 +57,8 @@ VideasyProgress? parseVideasyProgress(String origin, String data) {
 const animeXProxyOrigin =
     'https://everglow-stream.khentplaysmoba.workers.dev';
 
-/// Our Megavid and MegaPlay (Everglow) HTML implements the seek/progress protocol.
+/// Our Megavid, MegaPlay (Everglow), and YumeZone HTML implements the
+/// seek/progress protocol.
 bool isAnimeXProxyPlayerUrl(String url) {
   try {
     final uri = Uri.tryParse(url);
@@ -68,7 +69,10 @@ bool isAnimeXProxyPlayerUrl(String url) {
         uri.userInfo.isEmpty &&
         uri.origin == animeXProxyOrigin &&
         uri.path == '/proxyAnime' &&
-        (source == 'megavid' || source == 'megaplay' || source == 'everglow');
+        (source == 'megavid' ||
+            source == 'megaplay' ||
+            source == 'everglow' ||
+            source == 'yumezone');
   } on FormatException {
     return false;
   }

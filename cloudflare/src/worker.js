@@ -11,25 +11,21 @@
 import {
   failHtml,
   hlsPlayerHtml,
-  isAnimeCdnHost,
   isMegaPlayHost,
-  isMegavidHost,
   megavidHeaders,
   megaplayHeaders,
   fmovHeaders,
   vidboltHeaders,
-  proxyUrl,
   resolveCinema,
   resolveMegaPlay,
   resolveMegavid,
+  resolveYumeZone,
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
-  scopeMessage,
   scopedTarget,
-  STAMP_PROVIDERS,
-  validCdnStamp,
   validateAnimeParams,
 } from './anime.js';
+import { yumeHeaders } from './yumezone.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -89,8 +85,24 @@ async function handleProxyAnime(request, env) {
 
   try {
     let out;
-    if (params.source === 'megavid') {
-      out = await resolveMegavid(params.anilistId, params.malId, params.ep, params.audio, base);
+    if (params.source === 'yumezone') {
+      out = await resolveYumeZone(
+        params.anilistId,
+        params.ep,
+        params.audio,
+        params.server,
+        base,
+        key,
+      );
+    } else if (params.source === 'megavid') {
+      out = await resolveMegavid(
+        params.anilistId,
+        params.malId,
+        params.ep,
+        params.audio,
+        base,
+        key,
+      );
     } else if (params.source === 'megaplay' || params.source === 'everglow') {
       out = await resolveMegaPlay(
         params.anilistId,
@@ -110,6 +122,10 @@ async function handleProxyAnime(request, env) {
         key,
       );
     }
+    // A resolver that came back without a playable URL is a failure, not a
+    // page: `var src=null` leaves the boot wave spinning forever and the app's
+    // probe never sees the marker it needs to advance to the next server.
+    if (!out || !out.src) throw new Error('resolver returned no src');
     // Cinema passes the real title (the Worker has no catalog to look it up);
     // it is display text only, escaped by the player and length-capped here.
     const isCinema = params.source === 'cinema';
@@ -127,6 +143,10 @@ async function handleProxyAnime(request, env) {
           tracks: Array.isArray(out.tracks) ? out.tracks : [],
           title,
           ep: out.ep,
+          // The player's own server list. Empty for every source that has
+          // just one upstream, which keeps the picker hidden there.
+          servers: Array.isArray(out.servers) ? out.servers : [],
+          current: out.server || '',
         }),
         {
           status: 200,
@@ -146,6 +166,8 @@ async function handleProxyAnime(request, env) {
       token: query.token || '',
       ep: out.ep,
       audio: params.audio,
+      servers: Array.isArray(out.servers) ? out.servers : [],
+      current: out.server || '',
     });
     return new Response(page, {
       status: 200,
@@ -156,13 +178,14 @@ async function handleProxyAnime(request, env) {
       },
     });
   } catch (e) {
+    console.warn('[proxyAnime] resolve failed:', e && e.message);
     return sendFail('No stream found — try another server.');
   }
 }
 
 // ─── /proxyMegavidHls ────────────────────────────────────
 
-async function handleProxyHls(request, env, ctx) {
+async function handleProxyHls(request, env, _ctx) {
   if (request.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: CORS });
   }
@@ -171,44 +194,33 @@ async function handleProxyHls(request, env, ctx) {
   }
 
   const url = new URL(request.url);
-  const providerParam = url.searchParams.get('p');
-  const provider = STAMP_PROVIDERS.has(providerParam) ? providerParam : null;
-  // Stamped requests name their target through the signed scope (see
-  // scopedTarget); unstamped ones may only name an allowlisted anime CDN.
-  const scoped = provider !== null ? scopedTarget(url.searchParams) : null;
-  const target = scoped ? scoped.target : url.searchParams.get('u') || '';
-  if (!target) return jsonResponse({ error: 'Missing ?u=<media url>' }, 400);
+  // The sealed token is the only authorization. It names the provider, the
+  // relay endpoint, and the folder, and only this Worker can mint one — so
+  // there is no open-proxy path left, and nothing in the URL names a host.
+  const sealed = await scopedTarget(url.searchParams, env.CDN_STAMP_KEY || null);
+  if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400);
+  const target = sealed.target;
+  const provider = sealed.provider;
 
   let parsed;
   try {
     parsed = new URL(target);
-  } catch (_) {
+  } catch {
     return jsonResponse({ error: 'Invalid url' }, 400);
   }
-
-  // Unlisted hosts pass only with a stamp we minted ourselves, over
-  // `provider | relay endpoint | folder of the URL actually fetched`. A relay
-  // (fmov.my/api/proxy?url=…) is never covered by a folder stamp, so one stamp
-  // lifted from a public player page cannot point the relay anywhere else.
-  const stamp = url.searchParams.get('s') || '';
-  const key = stamp ? env.CDN_STAMP_KEY || null : null;
-  const stamped =
-    scoped !== null &&
-    (await validCdnStamp(key, scopeMessage(provider, scoped.relay, scoped.scope), stamp));
-  const listed = !scoped && isAnimeCdnHost(parsed.hostname);
-  if (parsed.protocol !== 'https:' || !(stamped || listed)) {
+  if (parsed.protocol !== 'https:') {
     return jsonResponse({ error: 'Host not allowed' }, 400);
   }
 
   const megaplay = provider === 'megaplay' || isMegaPlayHost(parsed.hostname);
-  const headers =
-    provider === 'vidbolt'
-      ? vidboltHeaders()
-      : megaplay
-        ? megaplayHeaders()
-        : provider === 'fmov'
-          ? fmovHeaders()
-          : megavidHeaders();
+  let headers;
+  if (provider === 'vidbolt') headers = vidboltHeaders();
+  else if (provider === 'fmov') headers = fmovHeaders();
+  // YumeZone must play back with the same headers `verifyStream` used, or a
+  // host that gates on Referer passes verification and then fails to play.
+  else if (provider === 'yumezone') headers = yumeHeaders();
+  else if (megaplay) headers = megaplayHeaders();
+  else headers = megavidHeaders();
   const range = request.headers.get('Range');
   if (range) headers.Range = range;
 
@@ -237,15 +249,13 @@ async function handleProxyHls(request, env, ctx) {
     const text = await upstream.text();
     if (text && text.includes('#EXTM3U')) {
       const base = proxyBase(request);
-      // MegaPlay is chosen by host OR stamp: its masters live on allowlisted
-      // hosts and arrive unstamped. Routing them by `provider` alone sent them
-      // to the Megavid rewriter, which has no key, so every variant came out
-      // with an empty stamp and Everglow-server anime could not play.
+      const sealKey = env.CDN_STAMP_KEY || null;
+      // MegaPlay is chosen by host OR provider: its masters live on hosts we
+      // also allowlist, and routing them by provider alone once sent them to
+      // the Megavid rewriter, which broke Everglow-server anime.
       const rewritten = megaplay
-        ? await rewritePlaylistWithHosts(text, target, base, isMegaPlayHost, env.CDN_STAMP_KEY || null)
-        : provider !== null
-          ? await rewriteCinemaPlaylist(text, target, base, provider, key)
-          : await rewritePlaylistWithHosts(text, target, base, isMegavidHost, null);
+        ? await rewritePlaylistWithHosts(text, target, base, 'megaplay', sealKey)
+        : await rewriteCinemaPlaylist(text, target, base, provider, sealKey);
       const response = new Response(rewritten, {
         status: 200,
         headers: {
@@ -265,7 +275,7 @@ async function handleProxyHls(request, env, ctx) {
   outHeaders['Cache-Control'] = 'public, max-age=3600';
   for (const h of ['accept-ranges', 'content-range', 'content-length']) {
     const v = upstream.headers.get(h);
-    if (v) outHeaders[h.replace(/(^|-)([a-z])/g, (m, a, b) => a + b.toUpperCase())] = v;
+    if (v) outHeaders[h.replace(/(^|-)([a-z])/g, (_m, a, b) => a + b.toUpperCase())] = v;
   }
   if (consumed !== null) delete outHeaders['Content-Length'];
 
@@ -291,4 +301,4 @@ export default {
   },
 };
 
-export { handleProxyAnime, handleProxyHls, proxyUrl };
+export { handleProxyAnime, handleProxyHls };

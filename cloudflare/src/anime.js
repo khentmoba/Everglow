@@ -1,22 +1,31 @@
 // Everglow streaming resolvers on Cloudflare Workers.
 //
-// Ported from functions/anime.js. Same routes, same player page, same
-// stamps — only the runtime changed: WebCrypto instead of node:crypto,
-// Response/ReadableStream instead of Express, and a Worker secret instead
-// of the Firestore stamp key.
+// Ported from functions/anime.js. Same routes and same player page — the
+// runtime changed (WebCrypto instead of node:crypto, Response/ReadableStream
+// instead of Express, a Worker secret instead of the Firestore stamp key) and
+// so did the transport: every upstream URL now travels inside an AES-GCM
+// sealed token, so a playlist names no host at all.
 //
 // Deliberately NOT ported:
 //   - AnimePahe (needs a self-hosted API base; the app no longer offers it)
 //   - proxyAnimeSegment (Kwik only, same reason)
 //   - Firebase ID-token verification (optional before, and the app never
 //     sends a token to these routes)
-//   - DNS-based SSRF checks (no resolver in Workers; the signed stamps and
+//   - DNS-based SSRF checks (no resolver in Workers; the seal and the
 //     host allowlists already pin every URL to one we handed out)
 //   - per-IP rate limiting (two viewers; add Durable Objects if that changes)
 
 // The player page is shared with the Firebase functions so the two cannot
 // drift (they already did once: #571 landed on Firebase only).
 import { hlsPlayerHtml } from '../../functions/hls_player.js';
+import {
+  YUME_SERVER_IDS,
+  yumeHeaders,
+  yumeMasterUrl,
+  yumeServer,
+  yumeServerOrder,
+  yumeSources,
+} from './yumezone.js';
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -45,9 +54,6 @@ const MEGAPLAY_HOSTS = new Set([
 
 const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt']);
 
-/** Every provider whose URLs must carry a stamp. */
-const STAMP_PROVIDERS = new Set(['fmov', 'vidbolt', 'megaplay']);
-
 const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
 const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
@@ -56,6 +62,9 @@ const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
  *  has not loaded in 15 s as dead and moves to CineSrc, so a slow-but-healthy
  *  answer after that is wasted. Every source races inside this budget. */
 const CINEMA_BUDGET_MS = 10000;
+/** One budget for the whole YumeZone server walk, so nine dead servers fail
+ *  inside the app's load timer instead of past it. */
+const YUME_BUDGET_MS = 12000;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -80,10 +89,6 @@ async function fetchT(url, init, ms, outer) {
   }
 }
 
-function bytesToHex(buf) {
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 function bytesToBase64Url(buf) {
   const bytes = new Uint8Array(buf);
   let bin = '';
@@ -98,16 +103,6 @@ function base64UrlToBytes(str) {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
-}
-
-/** Constant-time compare for equal-length hex strings. */
-function safeEqualHex(a, b) {
-  const x = String(a || '');
-  const y = String(b || '');
-  if (x.length !== y.length || x.length === 0) return false;
-  let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
-  return diff === 0;
 }
 
 async function hmacSha256(secret, message) {
@@ -210,33 +205,85 @@ function cinemaHeaders(provider, extra) {
 function streamHostPrefix(url) {
   try {
     if (isMegaPlayHost(new URL(url).hostname)) return 'megaplay';
-  } catch (_) {}
+  } catch {}
   return 'megavid';
 }
 
-// ─── Stamps ──────────────────────────────────────────────
+// ─── Sealed transport ────────────────────────────────────
+//
+// Every media URL the browser receives is an opaque sealed token: AES-GCM
+// ciphertext over {provider, relay endpoint, folder}, never a host, a path,
+// or a query string. The GCM tag is also the MAC, so a token cannot be forged,
+// re-scoped, or replayed under another provider.
+//
+// This replaced a plaintext `?d=<folder>&s=<hmac>` pair. The HMAC proved the
+// scope was ours, but the scope itself was readable — anyone who opened a
+// playlist learned the upstream CDN and could fetch it directly. Sealing keeps
+// the same one-token-per-folder cost and removes the disclosure.
 
-/** Signs one string. [key] is the CDN_STAMP_KEY Worker secret.
- *
- *  Truncated to 16 hex characters (64 bits): the stamp is repeated once per
- *  segment, so a full 64-character digest added ~50 KB to every film's
- *  playlist. 64 bits is ample — forging one means guessing a MAC for a scope
- *  we never issued, and a wrong guess is simply refused. */
-async function cdnStamp(key, message) {
-  return bytesToHex(await hmacSha256(key, message)).slice(0, 16);
+const SEAL_AAD = 'everglow.seal.v1';
+const sealCiphers = new Map();
+
+/** Derives the AES-GCM key from the CDN_STAMP_KEY secret. Cached because a
+ *  single playlist seals one token per folder, and a film has several. */
+async function sealCipher(key) {
+  const raw = String(key || '');
+  if (!raw) return null;
+  let cipher = sealCiphers.get(raw);
+  if (!cipher) {
+    const digest = await crypto.subtle.digest('SHA-256', enc.encode(raw));
+    cipher = crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, [
+      'encrypt',
+      'decrypt',
+    ]);
+    sealCiphers.set(raw, cipher);
+  }
+  return cipher;
 }
 
-async function validCdnStamp(key, message, stamp) {
-  if (!key || !/^[a-f0-9]{16}$/.test(String(stamp || ''))) return false;
-  return safeEqualHex(await cdnStamp(key, message), stamp);
+/** Seals one payload into a URL-safe token, or '' when no key is configured. */
+async function sealTarget(key, payload) {
+  const cipher = await sealCipher(key);
+  if (!cipher) return '';
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const body = enc.encode(JSON.stringify(payload));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv, additionalData: enc.encode(SEAL_AAD) },
+      await cipher,
+      body,
+    ),
+  );
+  const out = new Uint8Array(iv.length + ct.length);
+  out.set(iv, 0);
+  out.set(ct, iv.length);
+  return bytesToBase64Url(out);
 }
 
-/** The URL scope a stamp covers: the containing directory, trailing slash
- *  included. Every URL under it inherits the stamp, so a 1,000-segment
- *  playlist costs one signature instead of a thousand. */
-function urlScope(absUrl) {
-  const u = new URL(absUrl);
-  return `${u.origin}${u.pathname.replace(/[^/]*$/, '')}`;
+/** Opens a sealed token. Null for anything we did not mint, including a token
+ *  lifted from another provider's playlist and replayed here. */
+async function openSeal(key, token) {
+  const cipher = await sealCipher(key);
+  if (!cipher || !token) return null;
+  let raw;
+  try {
+    raw = base64UrlToBytes(token);
+  } catch {
+    return null;
+  }
+  // 12-byte IV, 16-byte tag, and at least one byte of body.
+  if (raw.length < 29) return null;
+  try {
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: raw.subarray(0, 12), additionalData: enc.encode(SEAL_AAD) },
+      await cipher,
+      raw.subarray(12),
+    );
+    const obj = JSON.parse(dec.decode(plain));
+    return obj && typeof obj === 'object' ? obj : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Hosts that run an open "fetch anything" relay. A folder stamp on them
@@ -273,7 +320,7 @@ function stampParts(absUrl) {
     if (urls.length === 1) {
       try {
         inner = decodeURIComponent(urls[0].slice(4));
-      } catch (_) {
+      } catch {
         return null;
       }
     }
@@ -296,96 +343,104 @@ function stampParts(absUrl) {
   let host = '';
   try {
     host = new URL(clean).hostname;
-  } catch (_) {
+  } catch {
     return null;
   }
   if (isRelayHost(host) || hasUrlParam(clean)) return null;
   return { relay: '', inner: clean };
 }
 
-/** What a stamp signs. The provider is part of the message, so a VidBolt
- *  stamp can never switch a URL to Fmov's headers, and the relay endpoint is
- *  part of it, so a stamp for one relay can never be replayed on another. */
-function scopeMessage(provider, relay, scope) {
-  return `${provider}|${relay}|${scope}`;
+/** True when a path remainder cannot climb out of its sealed folder.
+ *  Decoded first, so `..%2F..%2Fx` is caught as well as `../x`. */
+function safeRemainder(rel) {
+  if (!rel) return null;
+  let decoded;
+  try {
+    decoded = decodeURIComponent(rel);
+  } catch {
+    return null;
+  }
+  if (decoded[0] === '/' || decoded.includes('://')) return null;
+  if (decoded.split(/[/\\]/).some((seg) => seg === '..' || seg === '.')) return null;
+  return rel;
 }
 
-/** Builds our same-origin proxy URL for one upstream file. Token-free on
- *  purpose: the player sends identity as a header, never in media URLs. */
-function proxyUrl(proxyBase, absUrl) {
-  return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
-}
-
-/** Proxy URL covered by a stamp over [scope] (the inner URL's folder) and
- *  [parts.relay]. Compact form when lossless: the inner URL travels as a path
- *  relative to the scope (`r`) plus the relay endpoint (`rp`), not as a full
- *  443-character URL; otherwise the whole upstream URL goes in `u`. */
-function scopedProxyUrl(proxyBase, absUrl, parts, provider, scope, stamp) {
-  const tail = `&p=${provider}&d=${encodeURIComponent(scope)}&s=${stamp}`;
-  const rel = parts.inner.startsWith(scope) ? parts.inner.slice(scope.length) : '';
-  const relOk = rel && rel[0] !== '/' && !rel.includes('..');
-  if (relOk && !parts.relay && parts.inner === absUrl) {
-    return `${proxyBase}?r=${encodeURIComponent(rel)}${tail}`;
+/** Builds a sealed proxy URL for one upstream file. The whole target travels
+ *  inside the token, so a master playlist or a subtitle track costs one seal
+ *  and the browser learns nothing but the token. */
+async function sealedUrl(proxyBase, absUrl, provider, key) {
+  const parts = stampParts(absUrl);
+  if (!parts) return null;
+  const sp = splitForTransport(absUrl);
+  if (!sp) {
+    // No folder to scope. A relay URL is refused here because this path is
+    // used by resolvers, where the relay endpoint comes from a provider and
+    // sealing it whole would vouch for a URL we did not choose. The playlist
+    // rewriter (`emit`) does seal one whole, and that is fine: the token pins
+    // exactly one URL and `scopedTarget` re-vets it with `stampParts`.
+    if (parts.relay) return null;
+    const whole = await sealTarget(key, { p: provider, u: parts.inner });
+    return whole ? `${proxyBase}?t=${whole}` : null;
   }
-  if (relOk && parts.relay) {
-    const sp = splitForTransport(absUrl);
-    if (sp && sp.relay === parts.relay && sp.lossless && decodeURIComponent(sp.encFolder) === scope) {
-      return (
-        `${proxyBase}?rp=${encodeURIComponent(sp.relay)}&rr=${encodeURIComponent(sp.rr)}` +
-        `${sp.rq ? `&rq=${encodeURIComponent(sp.rq)}` : ''}${tail}`
-      );
-    }
+  let scope;
+  try {
+    scope = sp.relay ? decodeURIComponent(sp.encFolder) : sp.folder;
+  } catch {
+    return null;
   }
-  return `${proxyUrl(proxyBase, absUrl)}${tail}`;
+  const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '' });
+  if (!token) return null;
+  if (sp.relay) {
+    return (
+      `${proxyBase}?t=${token}&rr=${encodeURIComponent(sp.rr)}` +
+      `${sp.rq ? `&rq=${encodeURIComponent(sp.rq)}` : ''}`
+    );
+  }
+  return `${proxyBase}?t=${token}&r=${encodeURIComponent(sp.r)}`;
 }
 
 /** Proxy URL for a single file a provider pointed us at (a master playlist,
- *  a subtitle track). Null when the URL may never be stamped. */
+ *  a subtitle track). Null when the URL may never be sealed. */
 async function scopedUrl(proxyBase, absUrl, provider, key) {
-  const parts = stampParts(absUrl);
-  if (!parts) return null;
-  const scope = urlScope(parts.inner);
-  const stamp = await cdnStamp(key, scopeMessage(provider, parts.relay, scope));
-  return scopedProxyUrl(proxyBase, absUrl, parts, provider, scope, stamp);
+  return sealedUrl(proxyBase, absUrl, provider, key);
 }
 
-/** Proxy URL for a file a Cinema provider pointed us at. Always stamped:
- *  Cinema has no host allowlist, so an unstamped URL is refused. */
+/** Proxy URL for a file a Cinema provider pointed us at. */
 function cinemaProxyUrl(proxyBase, absUrl, provider, key) {
   return scopedUrl(proxyBase, absUrl, provider, key);
 }
 
-/** Proxy URL for a file MegaPlay pointed us at: plain for listed hosts,
- *  stamped for its rotating CDNs. */
+/** Proxy URL for a file MegaPlay pointed us at. Sealed like everything else:
+ *  the allowlisted-host shortcut only saved a signature, and it printed the
+ *  CDN host into the playlist. */
 async function megaplayProxyUrl(proxyBase, absUrl, key) {
-  const url = proxyUrl(proxyBase, absUrl);
-  let host = '';
-  try {
-    host = new URL(absUrl).hostname;
-  } catch (_) {}
-  if (!key || isAnimeCdnHost(host)) return url;
-  return (await scopedUrl(proxyBase, absUrl, 'megaplay', key)) || url;
+  return scopedUrl(proxyBase, absUrl, 'megaplay', key);
 }
 
-/** Reconstructs the upstream URL a proxy request names, and checks it is
- *  covered by the scope the stamp signs. Returns the target, or null. The
- *  caller still verifies the stamp over scopeMessage(provider, relay, scope). */
-function scopedTarget(params) {
-  const scope = params.get('d') || '';
-  if (!scope.startsWith('https://') || !scope.endsWith('/')) return null;
-  let target = params.get('u') || '';
+/** Reconstructs the upstream URL a proxy request names from its sealed token.
+ *  Returns {provider, target, relay, scope}, or null. The seal is the only
+ *  authorization: a token we did not mint cannot be opened, and one we did
+ *  mint is re-checked against `stampParts` before any fetch. */
+async function scopedTarget(params, key) {
+  const sealed = await openSeal(key, params.get('t') || '');
+  if (!sealed) return null;
+  const provider = String(sealed.p || '');
+  if (!provider) return null;
+  const scope = String(sealed.s || '');
+  const relay = String(sealed.r || '');
+  let target = String(sealed.u || '');
   if (!target) {
-    const rp = params.get('rp') || '';
-    if (rp) {
+    if (!scope.startsWith('https://') || !scope.endsWith('/')) return null;
+    if (relay) {
       // Relay form: the inner URL keeps the relay's own encoding, so only the
       // part after the (encoded) scope travels, plus any extra query params.
-      const rr = params.get('rr') || '';
+      const rr = safeRemainder(params.get('rr'));
       const rq = params.get('rq') || '';
-      if (!rr) return null;
-      target = `${rp}?url=${encodeURIComponent(scope)}${rr}${rq ? `&${rq}` : ''}`;
+      if (rr === null) return null;
+      target = `${relay}?url=${encodeURIComponent(scope)}${rr}${rq ? `&${rq}` : ''}`;
     } else {
-      const rel = params.get('r') || '';
-      if (!rel || rel[0] === '/' || rel.includes('..') || rel.includes('://')) return null;
+      const rel = safeRemainder(params.get('r'));
+      if (rel === null) return null;
       target = scope + rel;
     }
   }
@@ -394,11 +449,25 @@ function scopedTarget(params) {
   let innerHref;
   try {
     innerHref = new URL(parts.inner).href;
-  } catch (_) {
+  } catch {
     return null;
   }
-  if (!innerHref.startsWith(scope)) return null;
-  return { target, relay: parts.relay, scope };
+  // The rebuilt target must still live under the folder we sealed, and a
+  // relay token must still name the relay endpoint we sealed. Both are
+  // positive checks, so no encoding trick can widen the scope.
+  if (scope && !innerHref.startsWith(normalizeHref(scope))) return null;
+  if (relay && parts.relay !== relay) return null;
+  return { provider, target, relay: parts.relay, scope };
+}
+
+/** `new URL(...).href` form of a folder, so a folder holding a space or a
+ *  non-ASCII character compares equal to the href it is checked against. */
+function normalizeHref(url) {
+  try {
+    return new URL(url).href;
+  } catch {
+    return url;
+  }
 }
 
 // ─── Playlist helpers ────────────────────────────────────
@@ -407,7 +476,12 @@ function scopedTarget(params) {
  *  playlist instead of once per URI is most of the difference between a
  *  60 ms rewrite and a 5 ms one on a 1,000-segment film. */
 function baseContext(base) {
-  const b = new URL(base);
+  let b;
+  try {
+    b = new URL(base);
+  } catch {
+    b = new URL('https://invalid.example/');
+  }
   return {
     href: b.href,
     origin: b.origin,
@@ -440,7 +514,7 @@ function resolveWithContext(ctx, ref) {
       u.searchParams.set('api_key', ctx.apiKey);
     }
     return u.toString();
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -449,7 +523,7 @@ function resolveWithContext(ctx, ref) {
 function resolvePlaylistUrl(ref, base) {
   try {
     return resolveWithContext(baseContext(base), ref);
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -501,68 +575,6 @@ function playlistDuration(text) {
 /** Minimum seconds for a playlist to plausibly be a full episode or movie. */
 const MIN_MEGAVID_SECONDS = 120;
 
-/** Maps every URI in an HLS playlist through [rewriteAbs]. Kept for callers
- *  that genuinely need per-URI async work; the hot path below is sync.
- *  A null result leaves the URI untouched. */
-async function mapPlaylistUris(text, playlistUrl, rewriteAbs) {
-  const lines = String(text || '').split(/\r?\n/);
-  const ctx = baseContext(playlistUrl);
-  const refs = [];
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t) continue;
-    if (t.startsWith('#')) {
-      for (const m of t.matchAll(/URI="([^"]+)"/g)) refs.push(m[1]);
-    } else {
-      refs.push(t);
-    }
-  }
-  const unique = [...new Set(refs)];
-  const pairs = await Promise.all(
-    unique.map(async (ref) => {
-      const abs = resolveWithContext(ctx, ref);
-      if (!abs) return [ref, null];
-      try {
-        return [ref, await rewriteAbs(abs)];
-      } catch (_) {
-        return [ref, null];
-      }
-    }),
-  );
-  const map = new Map(pairs);
-  return lines
-    .map((line) => {
-      const t = line.trim();
-      if (!t) return line;
-      if (t.startsWith('#')) {
-        if (!t.includes('URI="')) return line;
-        return line.replace(/URI="([^"]+)"/g, (m, uri) => {
-          const out = map.get(uri);
-          return out ? `URI="${out}"` : m;
-        });
-      }
-      return map.get(t) || line;
-    })
-    .join('\n');
-}
-
-/** Rebuilds a playlist from a ref→replacement map. */
-function applyReplacements(lines, map) {
-  return lines
-    .map((line) => {
-      const t = line.trim();
-      if (!t) return line;
-      if (t.startsWith('#')) {
-        if (!t.includes('URI="')) return line;
-        return line.replace(/URI="([^"]+)"/g, (m, uri) => {
-          const out = map.get(uri);
-          return out ? `URI="${out}"` : m;
-        });
-      }
-      return map.get(t) || line;
-    })
-    .join('\n');
-}
 
 /** Rewrites every URI in a playlist to a proxy URL covered by ONE stamp
  *  over the playlist's directory. URIs that escape that directory fall back
@@ -619,25 +631,18 @@ function splitForTransport(abs) {
   return { relay: '', group: `|${folder}`, folder, r: clean.slice(slash + 1), lossless: hash < 0 };
 }
 
-/** Rewrites every URI in a playlist to a stamped proxy URL. One signature
- *  per (relay endpoint, folder): a 1,043-segment film is one HMAC. */
-async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, isAllowed) {
+/** Rewrites every URI in a playlist to a sealed proxy URL. One seal per
+ *  (relay endpoint, folder): a 1,043-segment film is one AES-GCM call. */
+async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key) {
   const ctx = baseContext(playlistUrl);
   const lines = String(text || '').split(/\r?\n/);
-  const hostOf = (abs) => {
-    const end = abs.indexOf('/', 8);
-    return (end < 0 ? abs.slice(8) : abs.slice(8, end)).split(':')[0].toLowerCase();
-  };
 
-  // Pass 1: resolve every URI once and collect its stamp group.
+  // Pass 1: resolve every URI once and collect its seal group.
   const items = new Map();
   const consider = (ref) => {
     if (items.has(ref)) return;
     const abs = resolveWithContext(ctx, ref);
     if (!abs || !abs.startsWith('https://')) return items.set(ref, null);
-    if (isAllowed && isAllowed(hostOf(abs))) {
-      return items.set(ref, { plain: proxyUrl(proxyBase, abs) });
-    }
     const split = splitForTransport(abs);
     items.set(ref, split ? { abs, split } : null);
   };
@@ -651,75 +656,89 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     }
   }
 
-  // Sign each group once.
+  // Seal each group once. A group that cannot be scoped (a URL with no
+  // directory) falls back to a whole-URL seal per URI in pass 2.
   const groups = new Map();
   for (const item of items.values()) {
-    if (!item || item.plain || groups.has(item.split.group)) continue;
+    if (!item || groups.has(item.split.group)) continue;
     const sp = item.split;
+    // A member that cannot travel as a folder tail must not touch the group:
+    // storing `null` for it also nulled every sealable sibling in the same
+    // folder, so one fragment URI turned a whole playlist into ?t=0.
+    if (!sp.lossless) continue;
     let scope;
     try {
       scope = sp.relay ? decodeURIComponent(sp.encFolder) : sp.folder;
-    } catch (_) {
+    } catch {
       groups.set(sp.group, null);
       continue;
     }
-    const stamp = key ? await cdnStamp(key, scopeMessage(provider, sp.relay, scope)) : '';
-    groups.set(sp.group, {
-      tail: `&p=${provider}&d=${encodeURIComponent(scope)}&s=${stamp}`,
-      rp: sp.relay ? `?rp=${encodeURIComponent(sp.relay)}` : '',
-    });
+    const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '' });
+    groups.set(sp.group, token ? { t: token } : null);
   }
 
-  // Pass 2: emit.
-  const emit = (ref) => {
+  // Pass 2: emit. Only a bare filename or relay tail travels in the clear.
+  const emit = async (ref) => {
     const item = items.get(ref);
     if (!item) return null;
-    if (item.plain) return item.plain;
-    const g = groups.get(item.split.group);
-    if (!g) return null;
     const sp = item.split;
-    if (!sp.lossless) return `${proxyUrl(proxyBase, item.abs)}${g.tail}`;
+    const g = sp.lossless ? groups.get(sp.group) : null;
+    if (!g) {
+      // No usable group — this URI cannot ride a folder seal, so seal it whole.
+      // A relay URL is allowed here (unlike in `sealedUrl`): the token pins
+      // one exact URL, and `scopedTarget` still re-vets it with `stampParts`.
+      const token = await sealTarget(key, { p: provider, u: item.abs });
+      return token ? `${proxyBase}?t=${token}` : null;
+    }
     if (sp.relay) {
       return (
-        `${proxyBase}${g.rp}&rr=${encodeURIComponent(sp.rr)}` +
-        `${sp.rq ? `&rq=${encodeURIComponent(sp.rq)}` : ''}${g.tail}`
+        `${proxyBase}?t=${g.t}&rr=${encodeURIComponent(sp.rr)}` +
+        `${sp.rq ? `&rq=${encodeURIComponent(sp.rq)}` : ''}`
       );
     }
-    return `${proxyBase}?r=${encodeURIComponent(sp.r)}${g.tail}`;
+    return `${proxyBase}?t=${g.t}&r=${encodeURIComponent(sp.r)}`;
   };
-  return lines
-    .map((line) => {
-      const t = line.trim();
-      if (!t) return line;
-      if (t[0] === '#') {
-        if (!t.includes('URI="')) return line;
-        return line.replace(/URI="([^"]+)"/g, (m, uri) => {
-          const r = emit(uri);
-          return r ? `URI="${r}"` : m;
-        });
+
+  // A URI we could not seal must never leave as itself: an absolute upstream
+  // URL in a playlist hands the browser a host we spent this whole transport
+  // hiding, and it would be fetched directly. Point it at the proxy with an
+  // unopenable token instead — same-origin, and refused with a 400.
+  const dead = `${proxyBase}?t=0`;
+  const out = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) {
+      out.push(line);
+      continue;
+    }
+    if (t[0] === '#') {
+      let replaced = line;
+      if (t.includes('URI="')) {
+        for (const m of [...t.matchAll(/URI="([^"]+)"/g)]) {
+          const r = await emit(m[1]);
+          if (r) replaced = replaced.replace(`URI="${m[1]}"`, `URI="${r}"`);
+          else if (m[1].startsWith('http')) replaced = replaced.replace(`URI="${m[1]}"`, `URI="${dead}"`);
+        }
       }
-      return emit(t) || line;
-    })
-    .join('\n');
+      out.push(replaced);
+      continue;
+    }
+    const sealed = await emit(t);
+    if (sealed) out.push(sealed);
+    else out.push(t.startsWith('http') ? dead : t);
+  }
+  return out.join('\n');
 }
 
-/** Cinema playlists: nothing is allowlisted (fmov runs its own open relay),
- *  so every URI is stamped under the playlist's directory. */
+/** Cinema playlists: every URI is sealed under the playlist's directory. */
 function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key) {
-  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, null);
+  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key);
 }
 
-/** MegaPlay playlists: listed hosts go through plain, rotating CDNs get the
- *  scope stamp. */
-function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
-  return rewriteScopedPlaylist(
-    text,
-    playlistUrl,
-    proxyBase,
-    'megaplay',
-    stampKey,
-    isAllowed,
-  );
+/** MegaPlay playlists. The allowlisted-host shortcut is gone: it only saved a
+ *  signature and printed the CDN host into the playlist. */
+function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, provider, stampKey) {
+  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, stampKey);
 }
 
 // ─── Stream verification ─────────────────────────────────
@@ -761,7 +780,7 @@ async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(
   } finally {
     try {
       await reader.cancel();
-    } catch (_) {}
+    } catch {}
   }
 }
 
@@ -861,6 +880,7 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal) {
       if (!segment) throw new Error(`${prefix}: playlist has no segments`);
       const head = await fetchSegmentHead(segment, 10000, 'segment', headers, signal);
       assertPlayableHead(head, segment, 'segment');
+      return true;
     }),
   );
   return {
@@ -894,7 +914,11 @@ async function decryptMegaPlayPayload(encStr) {
     key,
     base64UrlToBytes(encStr),
   );
-  return JSON.parse(dec.decode(plain));
+  try {
+    return JSON.parse(dec.decode(plain));
+  } catch (e) {
+    throw new Error(`megaplay: undecryptable payload (${e.message})`);
+  }
 }
 
 async function makeMegaPlayToken(path) {
@@ -904,7 +928,7 @@ async function makeMegaPlayToken(path) {
   return `${bytesToBase64Url(enc.encode(payload))}.${bytesToBase64Url(sig)}`;
 }
 
-async function resolveMegavid(anilistId, malId, ep, audio, proxyBase) {
+async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key) {
   const isDub = audio === 'dub' ? 'dub' : 'sub';
   const url =
     anilistId > 0
@@ -919,10 +943,21 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase) {
   const data = await res.json();
   if (data.status !== 'ok' || !data.source) throw new Error('megavid: no stream');
   await verifyMegavidStream(data.source);
-  const tracks = (Array.isArray(data.tracks) ? data.tracks : [])
-    .filter((t) => t && t.file)
-    .map((t) => ({ ...t, file: proxyUrl(proxyBase, t.file) }));
-  return { src: proxyUrl(proxyBase, data.source), tracks, title: `Episode ${ep}`, ep };
+  // `sealedUrl` is async, so the map must be too: a bare promise here used to
+  // survive the filter (a promise is truthy) and reach the player as `{}`.
+  const tracks = await Promise.all(
+    (Array.isArray(data.tracks) ? data.tracks : [])
+      .filter((t) => t && t.file)
+      .map(async (t) => ({ ...t, file: await sealedUrl(proxyBase, t.file, 'megavid', key) })),
+  );
+  const src = await sealedUrl(proxyBase, data.source, 'megavid', key);
+  if (!src) throw new Error('megavid: stream cannot be sealed');
+  return {
+    src,
+    tracks: tracks.filter((t) => t.file),
+    title: `Episode ${ep}`,
+    ep,
+  };
 }
 
 async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key) {
@@ -964,7 +999,105 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key) {
       .filter((t) => t && t.file)
       .map(async (t) => ({ ...t, file: await megaplayProxyUrl(proxyBase, t.file, key) })),
   );
-  return { src: proxyUrl(proxyBase, masterUrl), tracks, title: `Episode ${ep}`, ep };
+  return {
+    src: await sealedUrl(proxyBase, masterUrl, 'megaplay', key),
+    tracks: tracks.filter((t) => t.file),
+    title: `Episode ${ep}`,
+    ep,
+  };
+}
+
+/** The player's in-page server list for YumeZone.
+ *
+ *  Each entry is a URL the player can fetch to switch to that server without
+ *  reloading the page. They are lazy on purpose: resolving all nine up front
+ *  would cost nine API calls and nine verifications for the one she watches. */
+function yumeServerLinks(proxyBase, anilistId, ep, audio) {
+  let origin;
+  try {
+    origin = new URL(proxyBase).origin;
+  } catch {
+    return [];
+  }
+  const language = audio === 'dub' ? 'dub' : 'sub';
+  return yumeServerOrder(audio).map((server) => ({
+    id: server.id,
+    label: server.label,
+    url:
+      `${origin}/proxyAnime?source=yumezone&format=json` +
+      `&anilistId=${anilistId}&ep=${ep}&audio=${language}&server=${server.id}`,
+  }));
+}
+
+/** Resolves one YumeZone server to our sealed proxy URL.
+ *
+ *  With [serverId] only that server is tried — the player's picker must not
+ *  quietly play something other than what she tapped. Without it, the servers
+ *  are tried in [yumeServerOrder] and the first playable one wins.
+ *
+ *  No subtitle tracks are returned: YumeZone ships ASS and SRT, and a `<track>`
+ *  element only renders WebVTT. The hardsub servers carry them in the picture,
+ *  which is why they lead the order for subbed audio. */
+async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, opts = {}) {
+  if (!anilistId || anilistId <= 0) throw new Error('yumezone: needs an AniList id');
+  if (!key) throw new Error('yumezone: seal key unavailable');
+  let order = yumeServerOrder(audio);
+  if (serverId) {
+    const picked = yumeServer(serverId);
+    if (!picked) throw new Error(`yumezone: unknown server ${serverId}`);
+    order = [picked];
+  }
+  // Nine servers tried in order, each with a 9 s lookup and a verification
+  // behind it, would run far past the app's own 15 s load timer and show the
+  // stalled card instead of reaching the first live server. One budget covers
+  // the whole walk, like Cinema's.
+  const budgetMs = opts.budgetMs || YUME_BUDGET_MS;
+  const deadline = Date.now() + budgetMs;
+  const ctrl = new AbortController();
+  const budgetTimer = setTimeout(() => ctrl.abort(), budgetMs);
+  let lastError = null;
+  try {
+    for (const server of order) {
+      if (Date.now() >= deadline) {
+        lastError = new Error('yumezone: out of time');
+        break;
+      }
+      try {
+        const payload = await yumeSources({
+          animeId: anilistId,
+          episode: ep,
+          language: audio,
+          provider: server.provider,
+          signal: ctrl.signal,
+        });
+        if (!payload || payload.available === false) {
+          lastError = new Error(payload && payload.message ? payload.message : 'no sources');
+          continue;
+        }
+        const master = yumeMasterUrl(payload);
+        if (!master) {
+          lastError = new Error('no master playlist');
+          continue;
+        }
+        await verifyStream(master, yumeHeaders(), ctrl.signal);
+        const src = await sealedUrl(proxyBase, master, 'yumezone', key);
+        if (!src) throw new Error('yumezone: master URL cannot be sealed');
+        return {
+          src,
+          tracks: [],
+          title: `Episode ${ep}`,
+          ep,
+          server: server.id,
+          servers: yumeServerLinks(proxyBase, anilistId, ep, audio),
+        };
+      } catch (e) {
+        lastError = e;
+      }
+    }
+  } finally {
+    clearTimeout(budgetTimer);
+  }
+  throw new Error('yumezone: no playable stream', { cause: lastError });
 }
 
 /**
@@ -1020,7 +1153,7 @@ async function firstPlayable(masterUrls, provider, signal) {
     try {
       await verifyCinemaStream(masterUrl, provider, signal);
       return masterUrl;
-    } catch (_) {}
+    } catch {}
   }
   throw new Error(`cinema ${provider}: no playable source`);
 }
@@ -1210,9 +1343,10 @@ function validateAnimeParams(query) {
     source !== 'megavid' &&
     source !== 'megaplay' &&
     source !== 'everglow' &&
-    source !== 'cinema'
+    source !== 'cinema' &&
+    source !== 'yumezone'
   ) {
-    return { error: 'source must be megavid, megaplay, everglow, or cinema' };
+    return { error: 'source must be megavid, megaplay, everglow, cinema, or yumezone' };
   }
   if (source === 'cinema') {
     const mediaType = String(query.type || 'movie').toLowerCase();
@@ -1254,7 +1388,11 @@ function validateAnimeParams(query) {
   if (audio !== 'sub' && audio !== 'dub') {
     return { error: 'audio must be sub or dub' };
   }
-  return { source, anilistId, malId, ep, audio };
+  const rawServer = String(query.server || '').trim();
+  if (rawServer && !YUME_SERVER_IDS.has(rawServer)) {
+    return { error: 'unknown server' };
+  }
+  return { source, anilistId, malId, ep, audio, server: rawServer };
 }
 
 export {
@@ -1287,19 +1425,15 @@ export {
   FMOV_ORIGIN,
   VIDBOLT_ORIGIN,
   CINEMA_PROVIDERS,
-  STAMP_PROVIDERS,
-  proxyUrl,
-  scopedProxyUrl,
+  sealTarget,
+  openSeal,
+  sealedUrl,
   scopedUrl,
-  urlScope,
-  scopeMessage,
   stampParts,
   scopedTarget,
   isRelayHost,
   cinemaProxyUrl,
   megaplayProxyUrl,
-  cdnStamp,
-  validCdnStamp,
   rewritePlaylistWithHosts,
   rewriteCinemaPlaylist,
   assertPlayableHead,
@@ -1312,5 +1446,6 @@ export {
   selectCinemaSubtitleTracks,
   resolveMegavid,
   resolveMegaPlay,
+  resolveYumeZone,
   resolveCinema,
 };

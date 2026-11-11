@@ -25,8 +25,15 @@ function escHtml(s) {
  *  page for a dead one. */
 /** [kind] is 'anime' (default) or 'cinema'. Cinema has no sub/dub choice and
  *  no episode drawer of ours, so those controls are left out entirely. */
-function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
+function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, current }) {
   const isCinema = kind === 'cinema';
+  // The in-page server list. A resolver that has more than one upstream hands
+  // us `{id, label, url}` per server; the player fetches one only when it is
+  // picked, so a nine-server source costs nothing until she tries a second one.
+  const serverList = (Array.isArray(servers) ? servers : [])
+    .filter((s) => s && s.id && s.url)
+    .map((s) => ({ id: String(s.id), label: String(s.label || s.id), url: String(s.url) }));
+  const currentServer = serverList.some((s) => s.id === current) ? current : serverList[0]?.id || '';
   // When the page was loaded with a login token, hls.js sends it back as
   // an Authorization header — never inside media URLs (which land in
   // browser history and request logs). Native-HLS Safari keeps using the
@@ -195,7 +202,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '.eg-w{font-family:"Bebas Neue",Impact,sans-serif;font-size:16px;letter-spacing:.06em;line-height:1}' +
     '.eg-w b{color:#f8f8f8;font-weight:400}' +
     '.eg-w i{color:#c2185b;font-style:normal;text-shadow:0 2px 10px rgba(194,24,91,.65)}' +
-    '#q-menu,#cc-menu,#sp-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
+    '#q-menu,#cc-menu,#sp-menu,#sv-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
     'backdrop-filter:blur(18px);border:1px solid rgba(240,230,255,.18);border-radius:10px;' +
     'padding:6px;z-index:12;box-shadow:0 14px 32px rgba(0,0,0,.65)}' +
     '.qi{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;' +
@@ -203,6 +210,10 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'font-weight:600;cursor:pointer;font-family:inherit;text-align:left}' +
     '.qi.on{background:rgba(194,24,91,.28);color:#fff5f5}' +
     '#cc-menu{width:238px;max-height:56vh;overflow-y:auto}' +
+    // Nine servers is 257px tall, and the in-app phone player is a 16:9 box
+    // only 192px high: uncapped, the menu's top lands above the frame and the
+    // first rows — including the current server — are clipped and untappable.
+    '#sv-menu{max-height:calc(100vh - 76px);overflow-y:auto}' +
     '.cc-h{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;' +
     'color:#b795a2;padding:8px 8px 3px}' +
     '.cc-row{display:flex;gap:4px;align-items:center;padding:0 4px 4px}' +
@@ -225,6 +236,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '<div class="h-top">' +
     '<span id="hud-title">' + displayTitle + '</span>' +
     '<div class="h-top-r">' +
+    '<button type="button" class="chip" id="btn-sv" aria-haspopup="true"' +
+    (serverList.length > 1 ? '' : ' hidden') + '>Servers</button>' +
     (isCinema
       ? ''
       : '<div class="sd-box">' +
@@ -292,6 +305,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '<div id="q-menu" hidden></div>\n' +
     '<div id="cc-menu" hidden></div>\n' +
     '<div id="sp-menu" hidden></div>\n' +
+    '<div id="sv-menu" hidden></div>\n' +
     '<div id="buf" hidden><div class="buf-ring"></div></div>\n' +
     '<div class="ov" id="boot"><div class="eg-wave" aria-label="Everglow loading">' +
     '<span class="wc e">E</span><span class="wc e">V</span><span class="wc e">E</span><span class="wc e">R</span>' +
@@ -307,6 +321,10 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>\n' +
     '<script>(function(){var src=' + JSON.stringify(src) + ';var v=' +
     'document.getElementById("v");' +
+    'var servers=' + JSON.stringify(serverList) + ';' +
+    'var currentServer=' + JSON.stringify(currentServer) + ';' +
+    'var btnSv=document.getElementById("btn-sv");' +
+    'var svMenu=document.getElementById("sv-menu");' +
     'var boot=document.getElementById("boot");' +
     'var tapw=document.getElementById("tapw");' +
     'var tap=document.getElementById("tap");' +
@@ -346,7 +364,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var nextTok=document.getElementById("next-tok");' +
     'var nextFill=document.getElementById("next-fill");' +
     'var episode=' + JSON.stringify(epNum) + ';' +
-    'var opRange=null,edRange=null,activeSkipEnd=null,hlsInst=null;' +
+    'var opRange=null,edRange=null,activeSkipEnd=null,hlsInst=null,hlsDead=false,makeHls=null,picking=false;' +
     // Player habits that must survive an episode change: captions on/off,
     // the picked track, the subtitle delay she tuned, text size, volume.
     'var prefs={cc:true,lang:0,delay:0,size:1,vol:1,muted:false,speed:1};' +
@@ -485,12 +503,27 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
     'if(p&&p.catch){p.catch(function(err){' +
     'if(err&&(err.name==="AbortError"||err.code===20))return;showTap();});}}' +
+    // After a pick, a dead stream is one server's problem, not the source's:
+    // posting here moves her off Yume entirely and overwrites the remembered
+    // server. Reopen the picker instead — its rows sit above this overlay
+    // (z-index 12 vs 8), so she can actually choose another one.
     'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
+    'if(pickSeq>0){if(svMenu){buildSvMenu();svMenu.hidden=false;}' +
+    // The picker covers the right side of the card, including most of Retry.
+    // Shift the card's content clear so both controls stay usable.
+    'dead.style.paddingRight="190px";return;}' +
     'post("animex-content-error");}' +
     'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
     'var started=false;' +
     'v.addEventListener("playing",function(){started=true;hideBoot();tapw.hidden=true;' +
     'if(buf)buf.hidden=true;' +
+    // The stalled card comes down only once a source actually plays, so a
+    // pick that cannot start never leaves her looking at a blank frame.
+    'if(dead){dead.hidden=true;dead.style.paddingRight="";}' +
+    // Only a play that answers a pick closes the picker. `playing` also fires
+    // when a stalled buffer resumes, and shutting the menu she opened by hand
+    // mid-choice is the one thing the picker exists to prevent.
+    'if(picking){picking=false;if(svMenu)svMenu.hidden=true;}' +
     'if(playP)playP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");});' +
     'v.addEventListener("canplay",function(){if(buf)buf.hidden=true;});' +
     // Before the first frame the boot wave is the right thing to show. After
@@ -524,6 +557,48 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'if(btnSpeed&&spMenu)btnSpeed.addEventListener("click",function(){' +
     'spMenu.hidden=!spMenu.hidden;' +
     'if(!spMenu.hidden){buildSpeedMenu();if(qMenu)qMenu.hidden=true;if(ccMenu)ccMenu.hidden=true;}placeSubs();});' +
+    // The server picker swaps the source in place. It keeps the playhead, so
+    // a dead server costs a two-second reload instead of the whole episode.
+    // A failure stays here: posting `animex-content-error` tells the app the
+    // whole Yume server is dead, which moves her off it, overwrites her
+    // remembered choice, and ends the picker — the exact thing it exists for.
+    'var pickSeq=0;' +
+    'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";' +
+    'for(var i=0;i<servers.length;i++){(function(s){' +
+    'svMenu.appendChild(ccBtn(s.label,s.id===currentServer,function(){pickServer(s);}));})(servers[i]);}}' +
+    'function pickFailed(){picking=false;if(btnSv){btnSv.textContent="Server failed";' +
+    'setTimeout(function(){if(btnSv)btnSv.textContent="Servers";},2200);}' +
+    'if(svMenu)svMenu.hidden=false;}' +
+    // Tapping the server that is already playing is a retry, not a no-op: the
+    // reason she opened the menu may be that this very stream stalled.
+    'function pickServer(s){if(!s||!s.url)return;' +
+    'var seq=++pickSeq;picking=true;' +
+    // The picker stays open until a source actually plays. Closing it on the
+    // tap left the card up with no reachable control when the pick resolved
+    // but never started: the card covers the Servers chip, and Retry reloads
+    // the original URL, which does not know about the pick.
+    'if(btnSv)btnSv.textContent="Loading\u2026";' +
+    'fetch(s.url,{credentials:"omit"}).then(function(r){return r.json();}).then(function(d){' +
+    // A later tap wins: without this the slower response overwrites the
+    // server she actually picked last.
+    'if(seq!==pickSeq)return;' +
+    'if(!d||!d.src)throw new Error("no src");' +
+    'currentServer=s.id;' +
+    // Read the playhead now, not before the fetch: a 3 s resolve used to
+    // rewind her 3 s.
+    'var at=Number.isFinite(v.currentTime)?v.currentTime:0;' +
+    'pendingSeek=at>0?at:null;hasMetadata=false;' +
+    // Revive the player before handing it a new source. After a dead stream
+    // the old instance is destroyed and would swallow this silently.
+    'if(window.Hls&&Hls.isSupported()){' +
+    'if(!hlsInst||hlsDead){hlsInst=makeHls();hlsInst.attachMedia(v);}' +
+    'hlsInst.loadSource(d.src);' +
+    '}else{v.src=d.src;}' +
+    'if(btnSv)btnSv.textContent="Servers";buildSvMenu();' +
+    '}).catch(function(){if(seq!==pickSeq)return;pickFailed();});}' +
+    'if(btnSv&&svMenu)btnSv.addEventListener("click",function(){svMenu.hidden=!svMenu.hidden;' +
+    'if(!svMenu.hidden){buildSvMenu();if(qMenu)qMenu.hidden=true;' +
+    'if(ccMenu)ccMenu.hidden=true;if(spMenu)spMenu.hidden=true;}placeSubs();});' +
     // Picture-in-Picture is a browser feature, not ours: hand the element
     // over and let the OS window own it. Safari on iPad uses webkit presentation mode.
     'function pipSupported(){return !!(document.pictureInPictureEnabled||' +
@@ -553,7 +628,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'lift=Math.max(0,Math.round(ccMenu.getBoundingClientRect().height-18));}' +
     'subBox.style.setProperty("--sub-lift",lift+"px");}' +
     'function closeMenus(){if(ccMenu)ccMenu.hidden=true;if(qMenu)qMenu.hidden=true;' +
-    'if(spMenu)spMenu.hidden=true;placeSubs();}' +
+    'if(spMenu)spMenu.hidden=true;if(svMenu)svMenu.hidden=true;placeSubs();}' +
     'function fmtDelay(d){if(!d)return"0.0s";return(d>0?"+":"")+d.toFixed(1)+"s";}' +
     'function setDelay(next){if(!isFinite(next))return;' +
     'prefs.delay=Math.round(Math.max(-10,Math.min(10,next))*10)/10;' +
@@ -737,20 +812,26 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;' +
     'if(handleKey(e.key)){if(e.preventDefault)e.preventDefault();}});' +
     'if(window.Hls&&Hls.isSupported()){' +
+    'var fatal=0;' +
+    // A destroyed hls.js instance cannot be revived: loadSource() on it is a
+    // silent no-op (checked against hls.js 1.7.4 — no event, no throw), so a
+    // pick after a dead stream must build a fresh one or nothing plays and
+    // nothing reports why. Everything below is per-instance, so it lives here.
+    'makeHls=function(){' +
     (token
-      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});var fatal=0;'
-      : 'var h=new Hls({maxBufferLength:30});var fatal=0;') +
-    'hlsInst=h;' +
+      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});'
+      : 'var h=new Hls({maxBufferLength:30});') +
+    'hlsInst=h;hlsDead=false;fatal=0;' +
     'h.on(Hls.Events.ERROR,function(ev,data){' +
     'if(!data||!data.fatal){return;}fatal++;' +
-    'if(fatal>3){try{h.destroy();}catch(e){}giveUp();return;}' +
+    'if(fatal>3){hlsDead=true;try{h.destroy();}catch(e){}giveUp();return;}' +
     'var ET=Hls.ErrorTypes||{};' +
     'try{' +
     'if(data.type===ET.NETWORK_ERROR){h.startLoad();}' +
     'else if(data.type===ET.MEDIA_ERROR){h.recoverMediaError();}' +
     'else if(fatal<3){h.startLoad();}' +
-    'else{h.destroy();giveUp();}' +
-    '}catch(e){giveUp();}});' +
+    'else{hlsDead=true;h.destroy();giveUp();}' +
+    '}catch(e){hlsDead=true;try{h.destroy();}catch(x){}giveUp();}});' +
     'h.on(Hls.Events.MANIFEST_PARSED,function(){' +
     'if(qMenu&&btnQ&&Array.isArray(h.levels)&&h.levels.length>0){' +
     'qMenu.innerHTML="";var mk=function(lbl,lvl){var b=document.createElement("button");' +
@@ -758,6 +839,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'b.onclick=function(){h.currentLevel=lvl;btnQ.textContent=lvl===-1?"Auto":lbl;qMenu.hidden=true;};qMenu.appendChild(b);};' +
     'mk("Auto",-1);h.levels.forEach(function(lv,idx){if(lv&&lv.height)mk(lv.height+"p",idx);});}' +
     'tryPlay();});' +
+    'return h;};' +
+    'var h=makeHls();' +
     'h.loadSource(src);h.attachMedia(v);' +
     '}else{' +
     'v.src=src;' +
