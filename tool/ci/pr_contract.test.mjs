@@ -81,6 +81,13 @@ test('every PR records its review, or why no independent review ran', () => {
     'Review: self — delegate reviewer hit a provider quota (429)')}), []);
 });
 
+test('proof must live under docs/pr-proof/pr-<number>/', () => {
+  // A flat proof file skips the per-PR folder the skill and README require.
+  const flat = shot.replace('pr-1/shot.png', 'shot.png');
+  assert.ok(checkPrContract({...pr, body: body.replace(shot, flat)})
+    .some(error => error.includes('screenshot')));
+});
+
 test('drafts may report blockers; nonvisual PRs must explain N/A', () => {
   assert.deepEqual(checkPrContract({draft:true,paths:pr.paths}), []);
   assert.deepEqual(checkPrContract({body:body.replace(shot,'Proof: N/A — docs only'),paths:['AGENTS.md']}), []);

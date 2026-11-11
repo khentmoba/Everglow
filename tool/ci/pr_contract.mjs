@@ -15,7 +15,7 @@ export function checkPrContract({body = '', draft = false, paths = []}, exists =
   if (!/\*\*Blast radius:\*\*\s*\S/i.test(body)) errors.push('Declare **Blast radius:**.');
   if (/\*\*Door:\*\*\s*one-way\b/i.test(body) && !/^Recovery:\s*\S/im.test(body)) errors.push('One-way changes need Recovery: failure and undo steps.');
   const visual = paths.some(path => /^(lib\/.*(?:presentation\/|theme\/|widgets\/|agent_fixtures)|assets\/images\/)/.test(path));
-  const shots = [...body.matchAll(/!\[[^\]]*\]\((https:\/\/raw\.githubusercontent\.com\/khentmoba\/Everglow\/([a-f0-9]{40})\/(docs\/pr-proof\/[^)\s]+\.(?:png|jpe?g|webp)))\)/gi)];
+  const shots = [...body.matchAll(/!\[[^\]]*\]\((https:\/\/raw\.githubusercontent\.com\/khentmoba\/Everglow\/([a-f0-9]{40})\/(docs\/pr-proof\/pr-\d+\/[^)\s]+\.(?:png|jpe?g|webp)))\)/gi)];
   if (visual && shots.length === 0) errors.push('Visual changes need a SHA-pinned screenshot; capture blockers belong in a draft.');
   if (!visual && shots.length === 0 && !/Proof:\s*N\/A\s*[-—:]\s*\S/i.test(body)) errors.push('Provide proof or Proof: N/A — reason.');
   for (const shot of shots) if (!exists(shot[3], shot[2])) errors.push(`Proof is missing from its pinned commit: ${shot[3]}`);
