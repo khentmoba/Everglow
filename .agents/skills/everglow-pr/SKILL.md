@@ -49,6 +49,7 @@ harness-specific tools required.
 
 Run these in order. Red locally means don't open the PR yet:
 
+0. **Code hygiene:** Run the `no-comments` skill (load its discovered global path; fallback `C:/Users/Admin/.agents/skills/no-comments/SKILL.md`) to remove redundant comments only within the task diff. Preserve constraints and tool directives; propose behavioral changes separately.
 1. `flutter analyze`
 2. `flutter test --exclude-tags="golden,network"` (golden PNGs render
    differently per platform; network tests hit live external sites and
@@ -123,6 +124,8 @@ Use `.github/pull_request_template.md`. Quality checks its required fields
 on PR creation, code pushes, body edits, and draft changes. Keep blocked
 proof or verification in a draft; visual proof cannot be N/A because capture failed.
 
+All PR titles and bodies must follow the **unslop** skill (load its discovered global path; fallback `C:/Users/Admin/.agents/skills/unslop/SKILL.md`).
+
 ### Summary — the smallest thing that makes the change obvious
 
 Pick ONE view. Never list every file.
@@ -173,8 +176,8 @@ Match the evidence to the claim. A screenshot proves how it LOOKS, not
 that it WORKS. If you claim a tap, a scroll, or a sync works, show the
 steps or say plainly that you only proved the look. No exceptions.
 Inspect each image: it must show the changed screen, not the gateway.
-Record `Analysis:`, `Tests:`, `Guards:`, and `Browser:` as `passed — details`
-or `N/A — reason`. Record `Review:` as `independent — reviewer` or `self — why no independent review ran`. If a reviewer fails (quota, timeout), write `self` and say so; never delete the line. Include commands, counts, and applicable server/manual
+Record `Analysis:`, `Tests:`, `Guards:`, and `Browser:` as `passed - details`
+or `N/A - reason`. Record `Review:` as `independent - reviewer` or `self - why no independent review ran`. If a reviewer fails (quota, timeout), write `self` and say so; never delete the line. Include commands, counts, and applicable server/manual
 browser checks. CI validates declarations and pinned files, not their truth.
 
 ### Merge Danger — call it honestly
@@ -190,12 +193,15 @@ review fast. A one-way door needs Khent to look properly.
   `functions/` change, a released version, deleted data, a migration.
   These reach a live user on merge.
 
+Assess the **Blast radius** following the **blast-radius** skill (load its discovered global path; fallback `C:/Users/Admin/.agents/skills/blast-radius/SKILL.md`):
+do not guess or speculate. State the **one core safety fact** the change depends on. Report the verification level reached (1-5) and paste the proof, or write **Unproven**.
+
 One-liners are fine:
 
 ```markdown
 **Door:** one-way
 **Blast radius:** every couple-only note loses its old `body` field
-unless `functions/` backfills it first.
+unless `functions/` backfills it first. (Proven, level 4: migration dry-run passed)
 ```
 
 On a one-way door, add one sentence on what happens if this is wrong
@@ -238,7 +244,8 @@ rules judge honesty:
 - Finish with the result, the checks you actually ran, where the evidence is,
   and what is still unverified. Worker-reported success you did not check
   yourself is not your evidence.
-- When the same mistake keeps coming back, turn it into a lint, a CI guard,
-  or a rule here — not another review comment. The `retro` skill exists for
-  exactly this: run it at the end of a session to turn today's mistakes into
-  guards instead of prose.
+- When the same mistake keeps coming back across threads or sessions,
+  turn it into an architecture change, a type constraint, or a CI guard
+  (`tool/ci/check_<name>.dart`), not another review comment. Prose is the last resort, only when no machine check can catch it.
+  The unified `retro` skill (and `correct`) exists for exactly this: run it
+  to turn repeat mistakes into deterministic guards.
