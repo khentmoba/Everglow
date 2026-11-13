@@ -38,6 +38,7 @@ const MEGAVID_ORIGIN = 'https://megavid.buzz';
 const MEGAPLAY_ORIGIN = 'https://megaplay.buzz';
 const FMOV_ORIGIN = 'https://fmov.my';
 const VIDBOLT_ORIGIN = 'https://vidbolt.xyz';
+const VIDROCK_ORIGIN = 'https://vidrock.net';
 
 const MEGAVID_HOSTS = new Set(['megavid.buzz', 'cdn.api-webs.com', 'megavid.se']);
 const MEGAVID_EXACT_HOSTS = new Set(['cdnx.aniwatchtv.site']);
@@ -52,7 +53,60 @@ const MEGAPLAY_HOSTS = new Set([
   'emeralddrift.space',
 ]);
 
-const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt']);
+const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt', 'vidrock']);
+
+/** Cinema's fixed server table — the rows that are always offered.
+ *
+ *  `id` travels in the URL and is deliberately opaque; `label` is what she
+ *  reads, so it is short, warm, and says nothing about the upstream. Same
+ *  rule as YumeZone's table: the provider name is ours to know, not something
+ *  the browser needs.
+ *
+ *  These are the providers' own source lists, which do not change per title.
+ *  A source that has nothing for this film is still a row: it fails in about a
+ *  second, which is cheap next to hiding a row that would have worked. Vidrock
+ *  is the opposite case — see [VIDROCK_SERVERS]. */
+const CINEMA_SERVERS = [
+  { id: 'cine-1', label: 'Reel', provider: 'fmov', key: 'valence' },
+  { id: 'cine-2', label: 'Matinee', provider: 'fmov', key: 'vector' },
+  { id: 'cine-3', label: 'Marquee', provider: 'fmov', key: 'core' },
+  { id: 'cine-4', label: 'Encore', provider: 'fmov', key: 'titan' },
+  { id: 'cine-5', label: 'Premiere', provider: 'vidbolt', key: '' },
+];
+
+/** Vidrock's whole server table, in the order it lists them.
+ *
+ *  These are NOT all rows. Vidrock fills only the servers that carry the
+ *  title and leaves the rest as empty strings, and which ones are filled
+ *  changes between requests — Atlas and Orion were live for one title and
+ *  gone minutes later. A row is only listed when its server answered for this
+ *  title, because a button that can only fail is worse than no button.
+ *
+ *  Ids are positional (`cine-v1` = the first entry), so the table order is
+ *  part of the wire contract: append, never reorder. */
+const VIDROCK_SERVERS = [
+  { name: 'Nova', label: 'Cameo' },
+  { name: 'Atlas', label: 'Lumiere' },
+  { name: 'Astra', label: 'Spotlight' },
+  { name: 'Orion', label: 'Backlot' },
+  { name: 'Luna', label: 'Silhouette' },
+  { name: 'Lyra', label: 'Interlude' },
+  { name: 'Hindi', label: 'Hindi' },
+  { name: 'Tamil', label: 'Tamil' },
+  { name: 'Telugu', label: 'Telugu' },
+];
+
+const CINEMA_SERVER_IDS = new Set([
+  ...CINEMA_SERVERS.map((s) => s.id),
+  ...VIDROCK_SERVERS.map((_, i) => `cine-v${i + 1}`),
+]);
+
+/** Vidrock encrypts every URL it hands out with AES-256-GCM under a key baked
+ *  into its player bundle. It is their key, not a secret of ours: if they
+ *  rotate it every URL stops opening and the resolver simply misses, which is
+ *  the same failure a dead provider gives. */
+const VIDROCK_KEY_HEX =
+  '7f3e9c2a8b5d1f4e6a9c3b7d2e5f8a1c4b6d9e2f5a8c1b4d7e9f2a5c8b1d4e7f';
 
 const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
@@ -62,6 +116,16 @@ const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
  *  has not loaded in 15 s as dead and moves to CineSrc, so a slow-but-healthy
  *  answer after that is wasted. Every source races inside this budget. */
 const CINEMA_BUDGET_MS = 10000;
+/** A pick from the player's picker is not a page load: the player is already
+ *  up, nothing else is racing, and there is no fallback to fall back to. It is
+ *  allowed to be slower, because Vidrock's CDN pulls from origin on a cold
+ *  title and took 6-10 s the first time we asked. */
+const CINEMA_PICK_BUDGET_MS = 15000;
+const CINEMA_PICK_PLAYLIST_MS = 12000;
+/** How long the picker's extra rows may hold up a resolve that already has a
+ *  stream. Vidrock answers in ~1 s when it is healthy; past this it is a
+ *  nicety, and the app's 15 s fallback timer is the thing that matters. */
+const CINEMA_MAP_WAIT_MS = 1500;
 /** One budget for the whole YumeZone server walk, so nine dead servers fail
  *  inside the app's load timer instead of past it. */
 const YUME_BUDGET_MS = 12000;
@@ -91,6 +155,17 @@ async function fetchT(url, init, ms, outer) {
     clearTimeout(timer);
     if (outer) outer.removeEventListener('abort', onAbort);
   }
+}
+
+/** Resolves to [promise]'s value, or null if it takes longer than [ms]. The
+ *  timer is cleared either way: a leaked one keeps the isolate awake. */
+function firstWithin(promise, ms) {
+  if (!promise) return Promise.resolve(null);
+  let timer;
+  const cap = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise, cap]).finally(() => clearTimeout(timer));
 }
 
 function bytesToBase64Url(buf) {
@@ -202,8 +277,22 @@ function vidboltHeaders(extra) {
   };
 }
 
+/** Vidrock's CDN answers a bare GET with `Forbidden`; it wants the site's
+ *  Referer and Origin on the playlist and every segment. */
+function vidrockHeaders(extra) {
+  return {
+    'User-Agent': DESKTOP_UA,
+    Accept: '*/*',
+    Referer: `${VIDROCK_ORIGIN}/`,
+    Origin: VIDROCK_ORIGIN,
+    ...(extra || {}),
+  };
+}
+
 function cinemaHeaders(provider, extra) {
-  return provider === 'vidbolt' ? vidboltHeaders(extra) : fmovHeaders(extra);
+  if (provider === 'vidbolt') return vidboltHeaders(extra);
+  if (provider === 'vidrock') return vidrockHeaders(extra);
+  return fmovHeaders(extra);
 }
 
 function streamHostPrefix(url) {
@@ -875,16 +964,18 @@ function parseMediaPlaylist(text, { stopAfterSeconds = 0 } = {}) {
  *  and each variant's first segment must fetch with playable bytes. Anything
  *  dead throws, and the endpoint answers with the failover marker so the app
  *  advances to the next server instead of stalling on a spinner. */
-async function verifyStream(masterUrl, headers = megavidHeaders(), signal) {
+async function verifyStream(masterUrl, headers = megavidHeaders(), signal, opts = {}) {
   const prefix = streamHostPrefix(masterUrl);
-  const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers, signal);
+  const playlistMs = opts.playlistMs || 8000;
+  const segmentMs = opts.segmentMs || 10000;
+  const masterText = await fetchPlaylist(masterUrl, playlistMs, 'playlist', headers, signal);
   const variants = playlistUris(masterText, masterUrl, { variantsOnly: true });
   const medias =
     variants.length > 0
       ? await Promise.all(
           variants.slice(0, 1).map(async (v) => ({
             url: v,
-            text: await fetchPlaylist(v, 8000, 'variant', headers, signal),
+            text: await fetchPlaylist(v, playlistMs, 'variant', headers, signal),
           })),
         )
       : [{ url: masterUrl, text: masterText }];
@@ -895,12 +986,12 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal) {
   const keyMatch = first.text.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
   if (keyMatch) {
     const keyUrl = resolvePlaylistUrl(keyMatch[1], first.url);
-    if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key', headers, signal);
+    if (keyUrl) await fetchSegmentHead(keyUrl, segmentMs, 'key', headers, signal);
   }
   const mapMatch = first.text.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
   if (mapMatch) {
     const mapUrl = resolvePlaylistUrl(mapMatch[1], first.url);
-    if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map', headers, signal);
+    if (mapUrl) await fetchSegmentHead(mapUrl, segmentMs, 'init map', headers, signal);
   }
   await Promise.all(
     medias.map(async ({ url: mediaUrl, text: mediaText }) => {
@@ -916,7 +1007,7 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal) {
       if (!parsed.uris.length) throw new Error(`${prefix}: playlist has no segments`);
       const segment = resolvePlaylistUrl(parsed.uris[0], mediaUrl);
       if (!segment) throw new Error(`${prefix}: playlist has no segments`);
-      const head = await fetchSegmentHead(segment, 10000, 'segment', headers, signal);
+      const head = await fetchSegmentHead(segment, segmentMs, 'segment', headers, signal);
       assertPlayableHead(head, segment, 'segment');
       return true;
     }),
@@ -935,8 +1026,8 @@ function verifyMegaPlayStream(masterUrl, signal) {
   return verifyStream(masterUrl, megaplayHeaders(), signal);
 }
 
-function verifyCinemaStream(masterUrl, provider, signal) {
-  return verifyStream(masterUrl, cinemaHeaders(provider), signal);
+function verifyCinemaStream(masterUrl, provider, signal, opts) {
+  return verifyStream(masterUrl, cinemaHeaders(provider), signal, opts);
 }
 
 // ─── Upstream resolvers ──────────────────────────────────
@@ -1294,10 +1385,10 @@ function hlsCandidates(sources, kindKey, baseOrigin) {
   return out;
 }
 
-async function firstPlayable(masterUrls, provider, signal) {
+async function firstPlayable(masterUrls, provider, signal, opts) {
   for (const masterUrl of masterUrls) {
     try {
-      await verifyCinemaStream(masterUrl, provider, signal);
+      await verifyCinemaStream(masterUrl, provider, signal, opts);
       return masterUrl;
     } catch {}
   }
@@ -1364,23 +1455,176 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
   };
 }
 
+/** Vidrock's URL cipher: base64url over `iv(12) || ciphertext || tag`.
+ *
+ *  The `_` prefix on the wire is part of the base64url alphabet, not a marker:
+ *  it decodes to `/` in the first byte of the IV. Dropping it corrupts the IV
+ *  and the GCM tag check fails, so it is decoded as-is. */
+let vidrockKeyPromise = null;
+function vidrockKey() {
+  if (!vidrockKeyPromise) {
+    const bytes = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = Number.parseInt(VIDROCK_KEY_HEX.slice(i * 2, i * 2 + 2), 16);
+    }
+    vidrockKeyPromise = crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, [
+      'decrypt',
+    ]);
+  }
+  return vidrockKeyPromise;
+}
+
+async function decryptVidrockUrl(value) {
+  const raw = base64UrlToBytes(value);
+  if (raw.length < 28) throw new Error('vidrock: ciphertext too short');
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: raw.subarray(0, 12) },
+    await vidrockKey(),
+    raw.subarray(12),
+  );
+  return dec.decode(plain);
+}
+
+/** Resolves Vidrock's per-title server map to one candidate.
+ *
+ *  One fetch answers every server for the title at once, so the picker's
+ *  "only this row" filter lives in [resolveCinema] — narrowing here would
+ *  mean fetching the same map twice. A server whose URL will not open is
+ *  dropped here instead of costing a verification round trip. */
+async function resolveVidrock(mediaType, tmdbId, season, ep, signal) {
+  const path =
+    mediaType === 'tv' ? `tv/${tmdbId}/${season}/${ep}` : `movie/${tmdbId}`;
+  const res = await fetchT(
+    `${VIDROCK_ORIGIN}/api/${path}`,
+    { headers: vidrockHeaders({ Accept: 'application/json' }) },
+    6000,
+    signal,
+  );
+  if (!res.ok) throw new Error(`vidrock ${res.status}`);
+  const data = await res.json();
+  if (!data || typeof data !== 'object') throw new Error('vidrock miss');
+  const masterUrls = [];
+  const serverNames = {};
+  for (const { name } of VIDROCK_SERVERS) {
+    const row = data[name];
+    if (!row || !row.url) continue;
+    if (row.type && String(row.type).toLowerCase() !== 'hls') continue;
+    let url;
+    try {
+      url = await decryptVidrockUrl(row.url);
+    } catch {
+      continue;
+    }
+    if (!/^https:\/\//i.test(url)) continue;
+    // Two servers can point at one stream (the language mirrors do). Keeping
+    // both would spend a second verification on the same URL and give the
+    // picker two rows that play the same thing.
+    if (serverNames[url]) continue;
+    masterUrls.push(url);
+    serverNames[url] = name;
+  }
+  if (masterUrls.length === 0) throw new Error('vidrock miss');
+  return {
+    key: 'vidrock',
+    provider: 'vidrock',
+    masterUrls,
+    serverNames,
+    subtitles: [],
+    baseOrigin: VIDROCK_ORIGIN,
+  };
+}
+
+/** Fmov's four sources, in the order that answers fastest for this media
+ *  type. Display order lives in [CINEMA_SERVERS]; this is only the race. */
+function fmovSourceOrder(isTv) {
+  return isTv
+    ? ['vector', 'core', 'titan', 'valence']
+    : ['valence', 'vector', 'core', 'titan'];
+}
+
+function cinemaServer(id) {
+  const fixed = CINEMA_SERVERS.find((s) => s.id === id);
+  if (fixed) return fixed;
+  // Same list that builds the ids, so appending a server cannot leave
+  // validateAnimeParams accepting a row this function then refuses.
+  const at = VIDROCK_SERVERS.findIndex((_, i) => `cine-v${i + 1}` === id);
+  const row = at >= 0 ? VIDROCK_SERVERS[at] : null;
+  return row ? { id, label: row.label, provider: 'vidrock', key: row.name } : null;
+}
+
+/** Which picker row is playing. Vidrock needs the winning URL rather than the
+ *  candidate key, because one fetch answers several of its servers. */
+function cinemaServerId(hit, masterUrl) {
+  if (hit.provider === 'vidrock') {
+    const name = hit.serverNames && hit.serverNames[masterUrl];
+    const at = VIDROCK_SERVERS.findIndex((s) => s.name === name);
+    return at >= 0 ? `cine-v${at + 1}` : '';
+  }
+  const row = CINEMA_SERVERS.find(
+    (s) => s.provider === hit.provider && (hit.provider === 'vidbolt' || s.key === hit.key),
+  );
+  return row ? row.id : '';
+}
+
+/** The player's in-page server list for Cinema.
+ *
+ *  Every row is a lazy `format=json` URL: the player fetches one only when it
+ *  is picked, so eight servers cost nothing until she tries a second one.
+ *  Same shape as [yumeServerLinks], so the picker needs no new code.
+ *
+ *  [vidrockNames] are the Vidrock servers that answered for this title. They
+ *  are passed in rather than assumed because the provider fills a different
+ *  subset on every request; listing the rest would be rows that cannot play. */
+function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep, vidrockNames) {
+  let origin;
+  try {
+    origin = new URL(proxyBase).origin;
+  } catch {
+    return [];
+  }
+  const tail =
+    mediaType === 'tv'
+      ? `&type=tv&tmdbId=${tmdbId}&s=${season}&e=${ep}`
+      : `&type=movie&tmdbId=${tmdbId}`;
+  const live = new Set(Array.isArray(vidrockNames) ? vidrockNames : []);
+  const rows = [
+    ...CINEMA_SERVERS,
+    ...VIDROCK_SERVERS.map((s, i) => ({ ...s, id: `cine-v${i + 1}` })).filter((s) =>
+      live.has(s.name),
+    ),
+  ];
+  return rows.map((server) => ({
+    id: server.id,
+    label: server.label,
+    url: `${origin}/proxyAnime?source=cinema&format=json${tail}&server=${server.id}`,
+  }));
+}
+
 /** Resolves a TMDB movie or episode to our ad-free HLS player page.
- *  Fmov's sources and VidBolt race in parallel; the first verified stream
- *  wins. Throws (so the app moves on to CineSrc) when nothing verifies
+ *
+ *  Fmov's sources, VidBolt and Vidrock race in parallel; the first verified
+ *  stream wins. With [opts.server] only that one server is tried — the
+ *  player's picker must play the row she tapped, not whichever answered
+ *  first. Throws (so the app moves on to CineSrc) when nothing verifies
  *  within the budget or the stamp key is unavailable. */
 async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts = {}) {
   const isTv = mediaType === 'tv';
-  const budgetMs = opts.budgetMs || CINEMA_BUDGET_MS;
   if (!key) throw new Error('cinema: stamp key unavailable');
   const apiPath = isTv ? `tv/${tmdbId}/${season}/${ep}` : `movie/${tmdbId}`;
-  const fmovSources = isTv
-    ? ['vector', 'core', 'titan', 'valence']
-    : ['valence', 'vector', 'core', 'titan'];
+  const picked = opts.server ? cinemaServer(opts.server) : null;
+  if (opts.server && !picked) throw new Error('cinema: unknown server');
+  const budgetMs = opts.budgetMs || (picked ? CINEMA_PICK_BUDGET_MS : CINEMA_BUDGET_MS);
+  const verifyOpts = picked ? { playlistMs: CINEMA_PICK_PLAYLIST_MS } : undefined;
   // Every provider resolves in parallel (one fetch + one JSON parse each),
   // then only the winner is verified. Verifying inside each attempt meant
   // paying for five playlist verifications and using one, which was the
   // resolve's whole CPU bill; batching them instead doubled wall time.
-  const remaining = [...fmovSources, 'vidbolt'];
+  //
+  // Vidrock is one racer, not three: a single fetch answers all of its
+  // servers, so splitting it would pay for the same request three times.
+  const remaining = picked
+    ? [picked.provider === 'fmov' ? picked.key : picked.provider]
+    : [...fmovSourceOrder(isTv), 'vidbolt', 'vidrock'];
   let timer;
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error('cinema: timed out')), budgetMs);
@@ -1390,17 +1634,45 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   // 15 s load timer and the work was thrown away.
   const budgetCtrl = new AbortController();
   const budgetTimer = setTimeout(() => budgetCtrl.abort(), budgetMs);
+  // Vidrock answers every server for the title in one small fetch, so that
+  // same response is the picker's source of truth. A cancelled fetch would
+  // leave the picker guessing which rows exist, and Vidrock fills a different
+  // subset on every request — so it outlives the race.
+  //
+  // It is only fetched when something needs it: a pick of an Fmov or VidBolt
+  // row never looks at it, and a pick's rows are thrown away by the player
+  // (`pickServer` reads `d.src` and nothing else).
+  const needMap = !picked || picked.provider === 'vidrock';
+  // Its own controller: the map outlives the race on purpose, so it must not
+  // be tied to the budget signal that ends with it. Aborted once the rows are
+  // built, or once the resolve gives up, so no subrequest runs on after the
+  // response has been sent.
+  const mapCtrl = new AbortController();
+  const vidrockMap = needMap
+    ? resolveVidrock(mediaType, tmdbId, season, ep, mapCtrl.signal).catch(() => null)
+    : null;
   let hit = null;
   let masterUrl = null;
   let lastError = null;
   try {
     while (remaining.length > 0) {
       const losers = new AbortController();
-      const attempts = remaining.slice(0, 5).map((srcKey) =>
-        srcKey === 'vidbolt'
-          ? resolveVidBolt(mediaType, tmdbId, season, ep, losers.signal)
-          : resolveFmov(apiPath, srcKey, losers.signal),
-      );
+      const attempts = remaining.slice(0, 6).map((srcKey) => {
+        if (srcKey === 'vidbolt') {
+          return resolveVidBolt(mediaType, tmdbId, season, ep, losers.signal);
+        }
+        if (srcKey === 'vidrock') {
+          // Shares the fetch above, so the map is fetched once whether it
+          // wins the race or only feeds the picker.
+          return vidrockMap.then((map) => {
+            if (!map) throw new Error('vidrock miss');
+            if (!picked) return map;
+            const url = map.masterUrls.find((u) => map.serverNames[u] === picked.key);
+            if (!url) throw new Error('vidrock: server empty');
+            return { ...map, masterUrls: [url] };
+          });
+        }        return resolveFmov(apiPath, srcKey, losers.signal);
+      });
       let candidate;
       try {
         candidate = await Promise.race([Promise.any(attempts), deadline]);
@@ -1422,6 +1694,7 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
           candidate.masterUrls,
           candidate.provider,
           budgetCtrl.signal,
+          verifyOpts,
         );
         hit = candidate;
         break;
@@ -1437,24 +1710,45 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     clearTimeout(budgetTimer);
   }
 
-  const tracks = (
-    await Promise.all(
-      selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
-        .filter((t) => t.file.startsWith('https://'))
-        .map(async (t) => ({
-          ...t,
-          file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
-        })),
-    )
-  ).filter((t) => t.file);
-  const src = await cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key);
-  if (!src) throw new Error('cinema: master URL cannot be stamped');
-  return {
-    src,
-    tracks,
-    title: isTv ? `S${season} E${ep}` : 'Movie',
-    ep: isTv ? ep : 1,
-  };
+  // One abort site for the map, on every way out of here: a resolve that fails
+  // while stamping must not leave Vidrock's fetch running to its own timeout.
+  try {
+    const tracks = (
+      await Promise.all(
+        selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
+          .filter((t) => t.file.startsWith('https://'))
+          .map(async (t) => ({
+            ...t,
+            file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
+          })),
+      )
+    ).filter((t) => t.file);
+    const src = await cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key);
+    if (!src) throw new Error('cinema: master URL cannot be stamped');
+    // Rows are a nicety, never a reason to be late: a Vidrock API that is slow
+    // to answer costs the picker its extra rows, not the stream. The five fixed
+    // rows are always there, so the picker still works.
+    const map = picked ? null : await firstWithin(vidrockMap, CINEMA_MAP_WAIT_MS);
+    return {
+      src,
+      tracks,
+      title: isTv ? `S${season} E${ep}` : 'Movie',
+      ep: isTv ? ep : 1,
+      // The player's own picker. Lazy rows, so a resolve still costs one fetch
+      // and one verification; the rest are only paid for if she picks one.
+      servers: cinemaServerLinks(
+        proxyBase,
+        mediaType,
+        tmdbId,
+        season,
+        ep,
+        map ? Object.values(map.serverNames) : [],
+      ),
+      server: cinemaServerId(hit, masterUrl),
+    };
+  } finally {
+    mapCtrl.abort();
+  }
 }
 
 // ─── Player page ─────────────────────────────────────────
@@ -1518,7 +1812,14 @@ function validateAnimeParams(query) {
     if (!Number.isFinite(ep) || ep < 1 || ep > 5000) {
       return { error: 'e must be 1..5000' };
     }
-    return { source, mediaType, tmdbId, season, ep };
+    // The player's picker names a row from [CINEMA_SERVERS]. Anything else is
+    // refused here rather than resolved: an unknown id must not fall back to
+    // "whichever answers first", which is the opposite of what a pick means.
+    const rawServer = String(query.server || '').trim();
+    if (rawServer && !CINEMA_SERVER_IDS.has(rawServer)) {
+      return { error: 'unknown server' };
+    }
+    return { source, mediaType, tmdbId, season, ep, server: rawServer };
   }
   const anilistId = Number.parseInt(String(query.anilistId || '0'), 10) || 0;
   const malId = Number.parseInt(String(query.malId || '0'), 10) || 0;
@@ -1568,6 +1869,7 @@ export {
   megaplayHeaders,
   fmovHeaders,
   vidboltHeaders,
+  vidrockHeaders,
   cinemaHeaders,
   MEGAVID_ORIGIN,
   MEGAPLAY_ORIGIN,
@@ -1575,7 +1877,17 @@ export {
   MEGAVID_HOSTS,
   FMOV_ORIGIN,
   VIDBOLT_ORIGIN,
+  VIDROCK_ORIGIN,
   CINEMA_PROVIDERS,
+  CINEMA_SERVERS,
+  CINEMA_SERVER_IDS,
+  VIDROCK_SERVERS,
+  cinemaServer,
+  cinemaServerId,
+  cinemaServerLinks,
+  decryptVidrockUrl,
+  fmovSourceOrder,
+  resolveVidrock,
   sealTarget,
   openSeal,
   sealedUrl,

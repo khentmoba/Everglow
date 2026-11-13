@@ -14,8 +14,8 @@ import {
   isMegaPlayHost,
   megavidHeaders,
   megaplayHeaders,
-  fmovHeaders,
-  vidboltHeaders,
+  cinemaHeaders,
+  CINEMA_PROVIDERS,
   resolveCinema,
   resolveEverglow,
   resolveMegaPlay,
@@ -133,6 +133,8 @@ async function handleProxyAnime(request, env) {
         params.ep,
         base,
         key,
+        // A pick from the player's own picker resolves that row only.
+        { server: params.server },
       );
     }
     // A resolver that came back without a playable URL is a failure, not a
@@ -225,10 +227,17 @@ async function handleProxyHls(request, env, _ctx) {
     return jsonResponse({ error: 'Host not allowed' }, 400);
   }
 
-  const megaplay = provider === 'megaplay' || isMegaPlayHost(parsed.hostname);
+  // Cinema's own providers are matched by the stamp, never by host: a CDN
+  // that also appears in the anime allowlist must still play back as the
+  // provider that verified it, or it gets MegaPlay headers and answers 403.
+  const megaplay =
+    provider === 'megaplay' ||
+    (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(parsed.hostname));
   let headers;
-  if (provider === 'vidbolt') headers = vidboltHeaders();
-  else if (provider === 'fmov') headers = fmovHeaders();
+  // One table for every Cinema provider, so a new one cannot verify with its
+  // own headers and then play back with Megavid's — which is exactly how
+  // Vidrock's CDN answered `Upstream 403`.
+  if (CINEMA_PROVIDERS.has(provider)) headers = cinemaHeaders(provider);
   // YumeZone must play back with the same headers `verifyStream` used, or a
   // host that gates on Referer passes verification and then fails to play.
   else if (provider === 'yumezone') headers = yumeHeaders();
