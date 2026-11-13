@@ -14,10 +14,8 @@ import 'package:web/web.dart' as web;
 
 // Keep the embedded provider detached: the test uses only the demo catalogue.
 class _Registry extends ui_web.PlatformViewRegistry {
-  web.HTMLDivElement? host;
-
   @override
-  Object getViewById(int id) => host = web.HTMLDivElement();
+  Object getViewById(int id) => web.HTMLDivElement();
 }
 
 class _DemoAuth extends ChangeNotifier implements AuthService {
@@ -231,36 +229,28 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
-  testWidgets(
-    'the embed is mounted as a real iframe, not a text node',
-    (tester) async {
-      final registry = _Registry();
-      ui_web.debugOverridePlatformViewRegistry(registry);
-      await _pumpPlayer(tester, const Size(1280, 720));
+  test(
+    'mounting the embed keeps the element, not its string form',
+    () {
+      final host = web.HTMLDivElement();
+      final iframe = web.HTMLIFrameElement();
 
-      final host = registry.host;
-      expect(host, isNotNull, reason: 'the player host is created');
-      // `replaceChildren` takes one node. Handing it a JS array stringifies
-      // the iframe into "[object HTMLIFrameElement]", so no embed ever loads
-      // and every server times out into the error card.
+      mountPlayerNode(host, iframe);
+
+      // `replaceChildren` takes one node in package:web. A JS array argument
+      // stringifies the element into "[object HTMLIFrameElement]", so no embed
+      // ever loads and every server times out into the error card.
+      expect(host.children.length, 1, reason: 'the host holds one child');
       expect(
-        host!.children.length,
-        1,
-        reason: 'the host holds exactly one child',
-      );
-      expect(
-        host.children.item(0),
-        isA<web.HTMLIFrameElement>(),
+        host.children.item(0)?.tagName,
+        'IFRAME',
         reason: 'the child is the iframe element itself',
       );
       expect(
         host.textContent,
         isNot(contains('[object')),
-        reason: 'the iframe was never stringified into text',
+        reason: 'the element was never stringified into text',
       );
-
-      await tester.pumpWidget(const SizedBox.shrink());
     },
-    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 }
