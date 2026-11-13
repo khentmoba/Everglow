@@ -27,6 +27,7 @@ import {
   everglowServerList,
   resolveMegavid,
   resolvePlaylistUrl,
+  resolveVidrock,
   resolveYumeZone,
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
@@ -37,9 +38,15 @@ import {
   validateAnimeParams,
   verifyStream,
   CINEMA_PROVIDERS,
+  CINEMA_SERVERS,
+  CINEMA_SERVER_IDS,
+  cinemaServer,
+  decryptVidrockUrl,
   FMOV_ORIGIN,
   MEGAPLAY_HOSTS,
   VIDBOLT_ORIGIN,
+  VIDROCK_ORIGIN,
+  VIDROCK_SERVERS,
 } from './anime.js';
 import { handleProxyHls, handleProxyAnime } from './worker.js';
 import { yumeSig } from './yumezone.js';
@@ -111,13 +118,16 @@ test('host predicates match the Node originals', () => {
   // Cinema hosts are deliberately NOT on the open allowlist.
   assert.equal(isAnimeCdnHost('fmov.my'), false);
   assert.equal(isAnimeCdnHost('proxy.vidbolt.xyz'), false);
-  assert.deepEqual([...CINEMA_PROVIDERS].sort(), ['fmov', 'vidbolt']);
+  assert.equal(isAnimeCdnHost('vidrock.net'), false);
+  assert.deepEqual([...CINEMA_PROVIDERS].sort(), ['fmov', 'vidbolt', 'vidrock']);
 });
 
 test('headers follow the stamped provider, never the URL host', () => {
   assert.equal(cinemaHeaders('fmov').Origin, FMOV_ORIGIN);
   assert.equal(cinemaHeaders('vidbolt').Origin, VIDBOLT_ORIGIN);
+  assert.equal(cinemaHeaders('vidrock').Origin, VIDROCK_ORIGIN);
   assert.equal(cinemaHeaders('fmov').Referer, `${FMOV_ORIGIN}/`);
+  assert.equal(cinemaHeaders('vidrock').Referer, `${VIDROCK_ORIGIN}/`);
 });
 
 test('stampParts splits relays and refuses URLs that must never be stamped', () => {
@@ -542,7 +552,14 @@ test('the Worker answers format=json with the resolved stream for the watch part
     const src = new URL(body.src);
     assert.equal(src.pathname, '/proxyMegavidHls');
     assert.equal(await upstreamOf(src), relayOf(`${CDN}index.m3u8`));
-    assert.deepEqual(body.servers, [], 'cinema has one upstream, so no picker');
+    // Fmov + VidBolt rows only: this mock has no Vidrock answer, so the
+    // picker lists nothing it cannot promise.
+    assert.deepEqual(
+      body.servers.map((s) => s.label),
+      ['Reel', 'Matinee', 'Marquee', 'Encore', 'Premiere'],
+    );
+    assert.equal(body.current, 'cine-1');
+    assert.ok(body.servers.every((s) => s.url.includes('format=json')));
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -558,6 +575,229 @@ test('the Worker answers format=json errors as JSON', async () => {
   assert.match(res.headers.get('content-type'), /application\/json/);
   const body = await res.json();
   assert.ok(body.error);
+});
+
+// Real ciphertexts captured from vidrock.net's own API for TMDB 603. They are
+// static, so a key rotation shows up here as a loud failure rather than as a
+// quiet "no playable stream" in production.
+const VIDROCK_FIXTURES = {
+  Nova: '_918n45ZtR9Dbb6g9HlIDySHsfMsHcg7IChLDMehoZ1qix_m_dciEUCzYUS9aXnSIt4mzR6GGkc-9mcTOdWzMg0iNm5oldDWQEKNbp8aSo5k4rSKNx_eau6fhBvcT_54JJAbhJtyxWi29V0kKKC1AcYE8-IKHTSP',
+  Atlas:
+    'XU5GdOdF-OzjJPnmLE0M-rdArU49QjKt4fG2Qwjb_Q5BZdDDSyg5AXismg-qkvttkM5KL0HHZKZlZUHaN3T0CqIgBZI1rXfDULH5-8dpHpYPBu8_0VamKyZDyheXjPDRumwCaJhGirWvhIMj8z5fnvV5JNTB2MKeLJ22WXHZ2g',
+  Orion:
+    'T2uwo2HYl8Q7VcuSpL2jnnkBIzWaYO6rbuAhFmM2x03_RZMy1DeYS2zxNN7lxnNyGVKO9Pxf6mlcVlsikdYCYxUK6RwUYXkEorGcO03WHxmF1BDiiGb6T8hJGcebF_no77-DGH4a4q47lcQS-UVYDQPTEkTnpccxWFEzeG0WDdBIHcDoUqTKk4c',
+};
+
+test('decryptVidrockUrl opens the real ciphertexts and rejects short input', async () => {
+  assert.equal(
+    await decryptVidrockUrl(VIDROCK_FIXTURES.Atlas),
+    'https://cdn2.slowcloud.live/movie/Dyo600SWu8zYU5dxCLhu6wpI9MMiNsb__VhkJncSXrU.V4mqsQ4a/bigtits.m3u8',
+  );
+  // The leading `_` is part of the base64url alphabet, not a marker: dropping
+  // it corrupts the IV and the GCM tag check fails.
+  await assert.rejects(decryptVidrockUrl(VIDROCK_FIXTURES.Atlas.slice(1)));
+  await assert.rejects(decryptVidrockUrl('_abc'), /too short/);
+});
+
+test('resolveVidrock keeps only the servers that carry the title', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      assert.ok(u.startsWith(`${VIDROCK_ORIGIN}/api/movie/603`), u);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          Nova: { url: VIDROCK_FIXTURES.Nova, language: 'English', type: 'hls' },
+          Atlas: { url: VIDROCK_FIXTURES.Atlas, language: 'English', type: 'hls' },
+          Astra: { url: '', language: '', type: '' },
+          Orion: { url: VIDROCK_FIXTURES.Orion, language: 'English', type: 'hls' },
+          Luna: { url: '', language: '', type: '' },
+        }),
+      };
+    };
+    const all = await resolveVidrock('movie', 603, 1, 1);
+    assert.equal(all.provider, 'vidrock');
+    // Astra and Luna are empty for this title, so they never become rows.
+    assert.equal(all.masterUrls.length, 3);
+    assert.deepEqual(Object.values(all.serverNames), ['Nova', 'Atlas', 'Orion']);
+
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({}) });
+    await assert.rejects(resolveVidrock('movie', 603, 1, 1), /vidrock miss/);
+
+    // Two servers can hand back one stream (the language mirrors do). One row,
+    // not two: a second row would play the same thing and cost a second
+    // verification.
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        Nova: { url: VIDROCK_FIXTURES.Nova, type: 'hls' },
+        Hindi: { url: VIDROCK_FIXTURES.Nova, type: 'hls' },
+      }),
+    });
+    const mirrored = await resolveVidrock('movie', 603, 1, 1);
+    assert.equal(mirrored.masterUrls.length, 1);
+    assert.deepEqual(Object.values(mirrored.serverNames), ['Nova']);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('a slow Vidrock API never delays a stream another provider already found', async () => {
+  const realFetch = globalThis.fetch;
+  const segOk = { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([0x47, 0, 0, 0]).buffer };
+  try {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.startsWith(`${VIDROCK_ORIGIN}/api/`)) {
+        // Healthy Vidrock answers in ~1 s. This one never answers in time.
+        // `unref` keeps the pending timer from holding the test run open.
+        return new Promise((resolve) => {
+          const t = setTimeout(() => resolve({ ok: false, status: 504 }), 30000);
+          if (t.unref) t.unref();
+        });
+      }
+      if (u.startsWith('https://fmov.my/api/stream/movie/603')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            sources: [{ url: `/api/proxy?url=${encodeURIComponent(`${CDN}index.m3u8`)}`, type: 'hls' }],
+          }),
+        };
+      }
+      if (u.includes('index.m3u8')) {
+        return { ok: true, status: 200, text: async () => `#EXTM3U\n#EXTINF:200,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n` };
+      }
+      if (u.startsWith('https://vidbolt.xyz/')) return { ok: false, status: 502 };
+      return segOk;
+    };
+    const t0 = Date.now();
+    const out = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY);
+    const took = Date.now() - t0;
+    assert.equal(out.server, 'cine-1');
+    // The map's 1.5 s cap is the only thing Vidrock may cost this resolve.
+    assert.ok(took < 4000, `resolve took ${took} ms; rows must not hold up the stream`);
+    // Rows fall back to the fixed five when the map does not answer in time.
+    assert.equal(out.servers.length, 5);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('a picker pick resolves only that row, and reports which row is playing', async () => {
+  const realFetch = globalThis.fetch;
+  const segOk = { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([0x47, 0, 0, 0]).buffer };
+  const seen = [];
+  try {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      seen.push(u);
+      if (u.startsWith(`${VIDROCK_ORIGIN}/api/`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Nova: { url: VIDROCK_FIXTURES.Nova, type: 'hls' },
+            Atlas: { url: VIDROCK_FIXTURES.Atlas, type: 'hls' },
+            Orion: { url: VIDROCK_FIXTURES.Orion, type: 'hls' },
+          }),
+        };
+      }
+      if (u.startsWith('https://cdn2.slowcloud.live/') && u.endsWith('.m3u8')) {
+        return { ok: true, status: 200, text: async () => '#EXTM3U\n#EXTINF:200,\nhttps://cdn2.slowcloud.live/seg1.ts\n' };
+      }
+      if (u.startsWith('https://fmov.my/') || u.startsWith('https://vidbolt.xyz/')) {
+        throw new Error(`a pick must not touch ${u}`);
+      }
+      return segOk;
+    };
+    const out = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY, {
+      server: 'cine-v2',
+    });
+    assert.equal(out.server, 'cine-v2', 'the row she tapped is the row reported back');
+    // A pick's rows are discarded by the player, so only the fixed five are
+    // built — the Vidrock map is not fetched at all for a non-Vidrock row.
+    assert.deepEqual(
+      out.servers.map((s) => s.label),
+      ['Reel', 'Matinee', 'Marquee', 'Encore', 'Premiere'],
+    );
+    assert.ok(!seen.some((u) => u.startsWith('https://fmov.my/')), 'fmov was not asked');
+    assert.ok(!seen.some((u) => u.startsWith('https://vidbolt.xyz/')), 'vidbolt was not asked');
+    const sealed = await openSeal(KEY, new URL(out.src).searchParams.get('t'));
+    assert.equal(sealed.p, 'vidrock');
+
+    // An unknown row is refused instead of silently racing every provider.
+    await assert.rejects(
+      resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY, { server: 'cine-99' }),
+      /unknown server/,
+    );
+
+    // Vidrock fills a different subset per request. A row is only listed when
+    // its server answered, so the picker can never show a dead button.
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.startsWith(`${VIDROCK_ORIGIN}/api/`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Nova: { url: VIDROCK_FIXTURES.Nova, type: 'hls' },
+            Atlas: { url: '', type: '' },
+            Orion: { url: '', type: '' },
+          }),
+        };
+      }
+      if (u.startsWith('https://vercetti.org/') && u.endsWith('.m3u8')) {
+        return { ok: true, status: 200, text: async () => '#EXTM3U\n#EXTINF:200,\nhttps://vercetti.org/seg1.ts\n' };
+      }
+      return segOk;
+    };
+    const narrow = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY);
+    assert.deepEqual(
+      narrow.servers.map((s) => s.label),
+      ['Reel', 'Matinee', 'Marquee', 'Encore', 'Premiere', 'Cameo'],
+      'only the one Vidrock server that answered gets a row',
+    );
+    assert.equal(narrow.server, 'cine-v1');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('validateAnimeParams accepts a cinema picker row and refuses anything else', () => {
+  const ok = validateAnimeParams({
+    source: 'cinema',
+    type: 'tv',
+    tmdbId: '1399',
+    s: '1',
+    e: '2',
+    server: 'cine-5',
+  });
+  assert.equal(ok.error, undefined);
+  assert.equal(ok.server, 'cine-5');
+  assert.equal(ok.ep, 2);
+  assert.equal(validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603' }).server, '');
+  assert.match(
+    validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603', server: 'cine-99' }).error,
+    /unknown server/,
+  );
+  // Every row in the table is a valid pick, so the picker can never build one
+  // the Worker then refuses.
+  for (const server of [...CINEMA_SERVERS, ...VIDROCK_SERVERS.map((_, i) => ({ id: `cine-v${i + 1}` }))]) {
+    assert.equal(
+      validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603', server: server.id }).error,
+      undefined,
+      server.id,
+    );
+  }
+  assert.match(
+    validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603', server: 'cine-v10' }).error,
+    /unknown server/,
+  );
 });
 
 test('resolveCinema gives up inside its budget so the app can fall back to CineSrc', async () => {
@@ -1135,6 +1375,52 @@ test('the Worker serves a sealed relayed playlist with that provider headers', a
   }
 });
 
+test('a Vidrock-sealed URL plays back with Vidrock headers, not Megavid ones', async () => {
+  // This is the bug that shipped once already: verification used the
+  // provider's own headers and playback fell through to Megavid's, so the CDN
+  // answered `Upstream 403` for a stream that had just verified.
+  const realFetch = globalThis.fetch;
+  let seen;
+  globalThis.fetch = async (url, init) => {
+    seen = { url: String(url), headers: init.headers };
+    return new Response('#EXTM3U\n#EXTINF:8,\nhttps://cdn2.slowcloud.live/seg1.ts\n', {
+      status: 200,
+      headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+    });
+  };
+  try {
+    const master = 'https://cdn2.slowcloud.live/movie/abc/bigtits.m3u8';
+    const signed = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, master, 'vidrock', KEY);
+    const res = await handleProxyHls(new Request(signed), { CDN_STAMP_KEY: KEY });
+    assert.equal(res.status, 200);
+    assert.equal(seen.url, master);
+    assert.equal(seen.headers.Origin, VIDROCK_ORIGIN);
+    assert.equal(seen.headers.Referer, `${VIDROCK_ORIGIN}/`);
+    const sealed = await openSeal(KEY, new URL(signed).searchParams.get('t'));
+    assert.equal(sealed.p, 'vidrock');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('every Cinema provider has a picker row, so "current" can never point at nothing', () => {
+  // cinemaServerId returns '' when a provider has no row, and the player then
+  // highlights row 0 — a row that is not playing. This keeps the invariant
+  // honest for any provider added later.
+  for (const provider of CINEMA_PROVIDERS) {
+    const rows = [
+      ...CINEMA_SERVERS,
+      ...VIDROCK_SERVERS.map((s, i) => ({ id: `cine-v${i + 1}`, provider: 'vidrock' })),
+    ].filter((s) => s.provider === provider);
+    assert.ok(rows.length > 0, `${provider} has no row in the picker`);
+  }
+  // The id list and the resolver must agree, or the picker builds a row that
+  // validateAnimeParams accepts and resolveCinema then refuses.
+  for (const id of CINEMA_SERVER_IDS) {
+    assert.ok(cinemaServer(id), `${id} is a valid id with no server behind it`);
+  }
+});
+
 test('the Worker streams segments through with the upstream status and range', async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () =>
@@ -1264,6 +1550,8 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
         if (at >= 0) this.children.splice(at, 1);
         return c;
       },
+      scrolled: null,
+      scrollIntoView(opts) { this.scrolled = opts; },
       getBoundingClientRect: () => ({ x: 0, y: 0, width: 100, height: 10, left: 0 }),
       setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
     };
@@ -1401,6 +1689,15 @@ test('picking a server swaps the source and keeps the playhead', async () => {
   els['btn-sv'].dispatch('click');
   assert.equal(els['sv-menu'].hidden, false);
   assert.equal(els['sv-menu'].children.length, 2);
+  // The row that is playing is scrolled into view: the in-app phone player is
+  // a 16:9 box, and with eight rows the current one opens below the fold.
+  // Compared by value: the nodes live in the player's VM context, so their
+  // objects have a different prototype than this one.
+  assert.deepEqual(
+    els['sv-menu'].children.map((c) => (c.scrolled ? c.scrolled.block : null)),
+    ['nearest', null],
+    'only the current row is scrolled into view',
+  );
 
   // Pick the second one. Rows are plain buttons with an onclick.
   els['sv-menu'].children[1].onclick();

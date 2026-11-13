@@ -583,7 +583,13 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'buildCcMenu();syncCues();}' +
     'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";' +
     'for(var i=0;i<servers.length;i++){(function(s){' +
-    'svMenu.appendChild(ccBtn(s.label,s.id===currentServer,function(){pickServer(s);}));})(servers[i]);}}' +
+    'svMenu.appendChild(ccBtn(s.label,s.id===currentServer,function(){pickServer(s);}));})(servers[i]);}' +
+    // The menu is capped to the player's height, and the in-app phone frame is
+    // a 16:9 box: with eight rows the one that is playing opens below the
+    // fold, so the row she needs to see is scrolled into view.
+    'var on=null,k=svMenu.children||[];' +
+    'for(var j=0;j<k.length;j++){if((" "+k[j].className+" ").indexOf(" on ")>=0){on=k[j];break;}}' +
+    'if(on&&on.scrollIntoView)on.scrollIntoView({block:"nearest"});}' +
     'function pickFailed(){picking=false;if(btnSv){btnSv.textContent="Server failed";' +
     'setTimeout(function(){if(btnSv)btnSv.textContent="Servers";},2200);}' +
     'if(svMenu)svMenu.hidden=false;}' +
