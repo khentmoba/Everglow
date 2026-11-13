@@ -228,7 +228,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       }
     });
 
-    host.replaceChildren([_videoElement!].toJS);
+    mountPlayerNode(host, _videoElement!);
   }
 
   bool _tryPlayOfflineEpisode(int season, int episode) {
@@ -255,7 +255,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   void _mountOnlineIframe(web.HTMLDivElement host) {
     _isOfflinePlayback = false;
     _videoElement?.pause();
-    host.replaceChildren([_iframe].toJS);
+    mountPlayerNode(host, _iframe);
   }
 
   /// Shared embed-provider service. Sources are loaded from Firestore
@@ -1544,4 +1544,15 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   String _externalOpenUrl() {
     return _buildPlayerUrl(_activeProvider);
   }
+}
+
+/// Makes [node] the only child of [host].
+///
+/// `replaceChildren` takes one node in package:web. Handing it a JS array
+/// stringifies the element into an "[object HTMLIFrameElement]" text node, so
+/// the embed never loads, no load event fires, and every server times out into
+/// the error card. One helper so the array form cannot come back.
+@visibleForTesting
+void mountPlayerNode(web.HTMLDivElement host, web.Node node) {
+  host.replaceChildren(node);
 }

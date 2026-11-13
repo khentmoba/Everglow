@@ -504,7 +504,7 @@ class _WebOverlayPillState extends State<WebOverlayPill> {
     _element.style.background = _rgba(widget.background);
     _element.style.border = '1px solid ${_rgba(widget.borderColor)}';
     _element.style.color = _rgba(widget.textColor);
-    _element.replaceChildren(_buildChildren().toJS);
+    _replaceChildren(_element, _buildChildren());
   }
 
   @override
@@ -534,8 +534,17 @@ class _WebOverlayPillState extends State<WebOverlayPill> {
     div.style.background = _rgba(widget.background);
     div.style.border = '1px solid ${_rgba(widget.borderColor)}';
     div.style.color = _rgba(widget.textColor);
-    div.replaceChildren(_buildChildren().toJS);
+    _replaceChildren(div, _buildChildren());
     return div;
+  }
+
+  /// `replaceChildren` takes one node in package:web, so an array argument is
+  /// stringified into a text node. Clear, then append each child.
+  void _replaceChildren(web.Element element, List<web.Node> children) {
+    element.textContent = '';
+    for (final child in children) {
+      element.appendChild(child);
+    }
   }
 
   List<web.Node> _buildChildren() {

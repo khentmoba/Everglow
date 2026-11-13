@@ -228,4 +228,29 @@ void main() {
     },
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
+
+  test(
+    'mounting the embed keeps the element, not its string form',
+    () {
+      final host = web.HTMLDivElement();
+      final iframe = web.HTMLIFrameElement();
+
+      mountPlayerNode(host, iframe);
+
+      // `replaceChildren` takes one node in package:web. A JS array argument
+      // stringifies the element into "[object HTMLIFrameElement]", so no embed
+      // ever loads and every server times out into the error card.
+      expect(host.children.length, 1, reason: 'the host holds one child');
+      expect(
+        host.children.item(0)?.tagName,
+        'IFRAME',
+        reason: 'the child is the iframe element itself',
+      );
+      expect(
+        host.textContent,
+        isNot(contains('[object')),
+        reason: 'the element was never stringified into text',
+      );
+    },
+  );
 }
