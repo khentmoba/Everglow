@@ -23,6 +23,7 @@ import {
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
   scopedTarget,
+  stripAdCues,
   validateAnimeParams,
 } from './anime.js';
 import { yumeHeaders } from './yumezone.js';
@@ -268,6 +269,27 @@ async function handleProxyHls(request, env, _ctx) {
     }
     // Falls through as a plain file when the body isn't a playlist.
     consumed = text;
+  }
+
+  // Subtitles carry an advert spliced in by whoever repackaged the release,
+  // so the track is cleaned here and every player gets a clean one: the app's
+  // iframe, the watch party's <video>, and anything else that asks.
+  const looksLikeVtt =
+    upstreamCt.includes('text/vtt') ||
+    upstreamCt.includes('application/x-subrip') ||
+    parsed.pathname.toLowerCase().endsWith('.vtt');
+  if (looksLikeVtt) {
+    const text = consumed !== null ? consumed : await upstream.text();
+    const cleaned = stripAdCues(text);
+    const vttHeaders = {
+      ...CORS,
+      'Content-Type': 'text/vtt; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    };
+    if (request.method === 'HEAD') {
+      return new Response(null, { status: 200, headers: vttHeaders });
+    }
+    return new Response(cleaned, { status: 200, headers: vttHeaders });
   }
 
   const outHeaders = { ...CORS };
