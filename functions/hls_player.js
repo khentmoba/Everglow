@@ -577,9 +577,9 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'try{v.appendChild(el);}catch(e){}}' +
     // Her caption language survives a pick when the new source still has that
     // track: tapping the server she is already on is a retry, not a reason to
-    // drop her back to the first track. `prefs.lang` is left alone on purpose —
-    // a source with no captions at all must not erase the language she chose.
-    'if(subPick>=added)subPick=0;' +
+    // drop her back to the first track. Nothing is clamped or persisted here —
+    // buildCcMenu already clamps to the new list, and a source with no captions
+    // must not erase the language she chose.
     'buildCcMenu();syncCues();}' +
     'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";' +
     'for(var i=0;i<servers.length;i++){(function(s){' +
