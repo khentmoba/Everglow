@@ -1336,9 +1336,25 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// them. When the frame does have focus this listener never fires —
   /// keyboard events go to the focused document only — so nothing is
   /// handled twice.
+  static const Map<String, String> _mediaKeyAliases = {
+    'MediaPlayPause': ' ',
+    'MediaFastForward': 'l',
+    'MediaRewind': 'j',
+    'MediaTrackNext': 'n',
+  };
+
   void _installKeyForwarder() {
     _keyForwarder = ((web.KeyboardEvent event) {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
+      final rawKey = event.key;
+      if (_isFullscreen &&
+          (rawKey == 'Escape' ||
+              rawKey == 'GoBack' ||
+              rawKey == 'BrowserBack')) {
+        _toggleFullScreen();
+        event.preventDefault();
+        return;
+      }
       // Only our own HLS embed understands everglow-key. For third-party
       // embeds leave keys untouched so the browser's default behavior works.
       if (_selectedProvider.id != 'everglow-embed') return;
@@ -1358,7 +1374,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       } catch (_) {
         // Not an element; treat it as the page and carry on.
       }
-      final key = event.key;
+      final key = _mediaKeyAliases[rawKey] ?? rawKey;
       if (key.isEmpty || !_playerKeys.contains(key)) return;
       try {
         _iframe.contentWindow?.postMessage(

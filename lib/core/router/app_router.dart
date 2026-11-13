@@ -26,6 +26,7 @@ import '../../features/trip_kit/presentation/routes/trip_kit_routes.dart';
 import '../../features/tonight/presentation/routes/tonight_routes.dart';
 import '../agent/agent_mode.dart';
 import '../perf/perf_bench_route.dart';
+import '../system/tv_mode.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
 import 'route_helpers.dart';
@@ -148,7 +149,11 @@ GoRouter createAppRouter() {
     debugLogDiagnostics: false,
     routes: [
       ShellRoute(
-        builder: (context, state, child) => SelectionArea(child: child),
+        builder: (context, state, child) => ValueListenableBuilder<bool>(
+          valueListenable: TvMode.isTvMode,
+          builder: (context, isTv, _) =>
+              isTv ? child : SelectionArea(child: child),
+        ),
         routes: [
           ...gatewayRoutes,
           ...dashboardRoutes,

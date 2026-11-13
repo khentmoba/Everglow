@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 
+import '../../../../../core/system/tv_mode.dart';
 import '../../../../../core/theme/app_motion.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
@@ -574,34 +575,63 @@ class _TopTenPill extends StatelessWidget {
   }
 }
 
-class _MuteButton extends StatelessWidget {
+class _MuteButton extends StatefulWidget {
   final bool muted;
   final VoidCallback onToggle;
   const _MuteButton({required this.muted, required this.onToggle});
 
   @override
+  State<_MuteButton> createState() => _MuteButtonState();
+}
+
+class _MuteButtonState extends State<_MuteButton> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onToggle,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.5),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+    return FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      onFocusChange: (f) {
+        if (f) TvMode.ensureFocusedVisible(context);
+        setState(() => _focused = f);
+      },
+      shortcuts: TvMode.activateShortcuts,
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onToggle();
+            return null;
+          },
         ),
-        child: Icon(
-          muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-          color: Colors.white,
-          size: 18,
+      },
+      child: GestureDetector(
+        onTap: widget.onToggle,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _focused
+                  ? NetflixColors.gold
+                  : Colors.white.withValues(alpha: 0.4),
+              width: _focused ? 2.5 : 1,
+            ),
+            boxShadow: _focused ? TvMode.focusShadows() : null,
+          ),
+          child: Icon(
+            widget.muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
         ),
       ),
     );
   }
 }
 
-class _BillboardButton extends StatelessWidget {
+class _BillboardButton extends StatefulWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
@@ -620,29 +650,53 @@ class _BillboardButton extends StatelessWidget {
   }) : primary = false;
 
   @override
+  State<_BillboardButton> createState() => _BillboardButtonState();
+}
+
+class _BillboardButtonState extends State<_BillboardButton> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
-    return TextButton.icon(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        foregroundColor: primary
-            ? NetflixColors.background
-            : NetflixColors.textPrimary,
-        backgroundColor: primary
-            ? NetflixColors.textPrimary
-            : NetflixColors.textPrimary.withValues(alpha: 0.2),
-        padding: EdgeInsets.symmetric(
-          horizontal: isDesktop ? 26 : 18,
-          vertical: 12,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: _focused ? TvMode.focusShadows() : null,
+      ),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: _focused ? TvMode.focusBorder() : null,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        textStyle: AppTypography.outfitHeading.copyWith(
-          fontSize: isDesktop ? 15 : 13.5,
+        child: TextButton.icon(
+          onPressed: widget.onTap,
+          onFocusChange: (f) {
+            if (f) TvMode.ensureFocusedVisible(context);
+            setState(() => _focused = f);
+          },
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            foregroundColor: widget.primary
+                ? NetflixColors.background
+                : NetflixColors.textPrimary,
+            backgroundColor: widget.primary
+                ? NetflixColors.textPrimary
+                : NetflixColors.textPrimary.withValues(alpha: 0.2),
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 26 : 18,
+              vertical: 12,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            textStyle: AppTypography.outfitHeading.copyWith(
+              fontSize: isDesktop ? 15 : 13.5,
+            ),
+          ),
+          icon: Icon(widget.icon, size: isDesktop ? 20 : 18),
+          label: Text(widget.label),
         ),
       ),
-      icon: Icon(icon, size: isDesktop ? 20 : 18),
-      label: Text(label),
     );
   }
 }

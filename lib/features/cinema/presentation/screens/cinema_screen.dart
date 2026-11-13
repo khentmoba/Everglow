@@ -763,7 +763,14 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = AppBreakpoint.isDesktop(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: TvMode.isTvMode,
+      builder: (context, isTv, _) => _buildForTvMode(context, isTv),
+    );
+  }
+
+  Widget _buildForTvMode(BuildContext context, bool isTv) {
+    final isDesktop = AppBreakpoint.isDesktop(context) || isTv;
     final isCoupleUser = context.select<AuthService, bool>(
       (a) => a.isCoupleUser,
     );

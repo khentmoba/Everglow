@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/system/tv_mode.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -91,6 +92,19 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
         enabled: enabled,
         onShowFocusHighlight: (show) =>
             setState(() => _focused = show && enabled),
+        onFocusChange: (f) {
+          if (f && enabled) TvMode.ensureFocusedVisible(context);
+          setState(() => _focused = f && enabled);
+        },
+        shortcuts: TvMode.activateShortcuts,
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              if (enabled) widget.onTap?.call();
+              return null;
+            },
+          ),
+        },
         child: widget.tooltip != null
             ? Tooltip(
                 message: widget.tooltip!,

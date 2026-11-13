@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/services/auth_service.dart';
+import '../../../../../core/system/tv_mode.dart';
 import '../../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 import '../../../../../shared/widgets/shelf/tv_media_nav_header.dart';
 import '../../../../ai/domain/models/ai_conversation.dart';
@@ -134,8 +135,12 @@ class _AnimeXShellState extends State<AnimeXShell> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final isHeaderDesktop = size.width >= AnimeXTokens.desktopNavBreakpoint;
+    return ValueListenableBuilder<bool>(
+      valueListenable: TvMode.isTvMode,
+      builder: (context, isTv, _) {
+        final size = MediaQuery.sizeOf(context);
+        final isHeaderDesktop =
+            size.width >= AnimeXTokens.desktopNavBreakpoint || isTv;
     final isCoupleUser =
         context.select<AuthService, bool>((a) => a.isCoupleUser);
     // If the profile changed while the shell is mounted (logout/login on
@@ -250,6 +255,8 @@ class _AnimeXShellState extends State<AnimeXShell> {
           );
         },
       ),
+    );
+      },
     );
   }
 }

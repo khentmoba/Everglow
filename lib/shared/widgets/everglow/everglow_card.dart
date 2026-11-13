@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/system/tv_mode.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_elevation.dart';
@@ -76,12 +77,11 @@ class _EverglowCardState extends State<EverglowCard> {
         child: FocusableActionDetector(
           onShowHoverHighlight: (h) => setState(() => _hovered = h),
           onShowFocusHighlight: (f) => setState(() => _focused = f),
-          shortcuts: {
-            const SingleActivator(LogicalKeyboardKey.enter):
-                const ActivateIntent(),
-            const SingleActivator(LogicalKeyboardKey.space):
-                const ActivateIntent(),
+          onFocusChange: (f) {
+            if (f) TvMode.ensureFocusedVisible(context);
+            setState(() => _focused = f);
           },
+          shortcuts: TvMode.activateShortcuts,
           actions: {
             ActivateIntent: CallbackAction<ActivateIntent>(
               onInvoke: (_) {
