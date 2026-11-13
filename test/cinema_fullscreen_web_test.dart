@@ -14,8 +14,10 @@ import 'package:web/web.dart' as web;
 
 // Keep the embedded provider detached: the test uses only the demo catalogue.
 class _Registry extends ui_web.PlatformViewRegistry {
+  web.HTMLDivElement? host;
+
   @override
-  Object getViewById(int id) => web.HTMLDivElement();
+  Object getViewById(int id) => host = web.HTMLDivElement();
 }
 
 class _DemoAuth extends ChangeNotifier implements AuthService {
@@ -222,6 +224,39 @@ void main() {
         unrelated.defaultPrevented,
         isFalse,
         reason: 'only the player keys are forwarded',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    'the embed is mounted as a real iframe, not a text node',
+    (tester) async {
+      final registry = _Registry();
+      ui_web.debugOverridePlatformViewRegistry(registry);
+      await _pumpPlayer(tester, const Size(1280, 720));
+
+      final host = registry.host;
+      expect(host, isNotNull, reason: 'the player host is created');
+      // `replaceChildren` takes one node. Handing it a JS array stringifies
+      // the iframe into "[object HTMLIFrameElement]", so no embed ever loads
+      // and every server times out into the error card.
+      expect(
+        host!.children.length,
+        1,
+        reason: 'the host holds exactly one child',
+      );
+      expect(
+        host.children.item(0),
+        isA<web.HTMLIFrameElement>(),
+        reason: 'the child is the iframe element itself',
+      );
+      expect(
+        host.textContent,
+        isNot(contains('[object')),
+        reason: 'the iframe was never stringified into text',
       );
 
       await tester.pumpWidget(const SizedBox.shrink());

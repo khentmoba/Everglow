@@ -228,7 +228,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       }
     });
 
-    host.replaceChildren([_videoElement!].toJS);
+    // One node, not a list: package:web's `replaceChildren` takes a single
+    // node, and a JS array stringifies into an "[object HTMLVideoElement]"
+    // text node instead of mounting the video.
+    host.replaceChildren(_videoElement!);
   }
 
   bool _tryPlayOfflineEpisode(int season, int episode) {
@@ -255,7 +258,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   void _mountOnlineIframe(web.HTMLDivElement host) {
     _isOfflinePlayback = false;
     _videoElement?.pause();
-    host.replaceChildren([_iframe].toJS);
+    // One node, not a list: a JS array here becomes the literal text
+    // "[object HTMLIFrameElement]", so the embed never loads and every server
+    // times out into the error card.
+    host.replaceChildren(_iframe);
   }
 
   /// Shared embed-provider service. Sources are loaded from Firestore
