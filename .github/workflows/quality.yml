@@ -109,7 +109,7 @@ jobs:
             echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
           fi
       - run: dart tool/generate_sw.dart
-      # Preserve Preview's configuration while compiling the shared artifact once.
+      # Build the release web app once.
       - name: Build web
         env:
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}

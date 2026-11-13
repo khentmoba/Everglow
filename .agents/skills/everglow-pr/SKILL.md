@@ -93,12 +93,15 @@ ordinary Quality success does not prove that those browser checks passed.
   - In Agent Mode, password gates are bypassed and all couple surfaces automatically render safe in-memory demo fixtures.
   - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize button (`—`) on the HUD before snapping the proof screenshot.
 - **iPhone Home Screen changes** (status bar, bottom strip, installed
-  launch): Chrome cannot prove these. Ask Khent to open
-  `https://everglow-1c6db.web.app/screen_test.html` in Safari and follow that
-  page's install steps. Its dedicated launch page restores demo mode even with
-  fresh iOS storage; ordinary `?agent=` links do not guarantee an installed
-  launch. Until he confirms, say "unverified on iPhone" and keep the PR draft.
-  Give him only steps you have seen on that screen.
+  launch): Chrome cannot prove these. Serve the local release build on the LAN
+  (e.g. `python -m http.server 8752 --directory build/web` — note `serve()` in
+  `tool/perf/_harness.mjs` is loopback-only) and ask Khent to open
+  `http://<pc-lan-ip>:8752/screen_test.html` in Safari and follow that page's
+  install steps (the live site blocks agent mode, so it cannot be used for
+  this). Its dedicated launch page restores demo mode even with fresh iOS
+  storage; ordinary `?agent=` links do not guarantee an installed launch. Until
+  he confirms, say "unverified on iPhone" and keep the PR draft. Give him only
+  steps you have seen on that screen.
 - Embed it in the PR body with a raw URL pinned to the commit SHA
   (branches get deleted, SHAs don't):
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`

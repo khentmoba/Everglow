@@ -25,7 +25,7 @@ emulator coverage is selected from the diff. Unknown inputs and failed diff
 discovery select everything. `workflow_dispatch` also runs full verification.
 
 The guards share Flutter setup with app verification. The release web build
-runs deterministic service-worker tests and uploads its artifact once. No PR
+runs deterministic service-worker tests and builds the release web app once. No PR
 deploys a preview channel: proof screenshots come from a local release build
 (`flutter build web --release`) driven in headless Chrome, which is what the
 proof workflow in the `everglow-pr` skill does. Nothing about a PR is
