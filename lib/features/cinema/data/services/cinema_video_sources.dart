@@ -68,12 +68,8 @@ class CinemaVideoSources {
   static const Set<String> _noAdsIds = {
     'everglow-embed',
     'flux-cinesrc',
-    'videasy',
-    'movish',
-    'vidbolt',
     'vidcore',
     'vidlink',
-    '111movies',
   };
 
   static bool _isNoAds(VideoSourceConfig p) =>

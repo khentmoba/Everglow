@@ -40,20 +40,27 @@ class VideoSourceService extends ChangeNotifier {
   /// while waiting.
   static const Set<String> _noAdsIds = {
     'everglow-embed',
-    'vidbolt',
     'vidcore',
     'vidlink',
   };
 
-  /// Sources we stopped offering after the 2026-10-04 live audit, with
-  /// the upstream fact that killed each one:
+  /// Sources we stopped offering, with the upstream fact that killed each one.
   ///
+  /// 2026-10-04 audit:
   /// - `videasy` — `player.videasy.net` 301s to `player.videasy.to`,
   ///   whose certificate does not chain to a trusted root, so every
   ///   browser refuses it.
   /// - `movish` — the `/moviebox-embed/` embed paths return 404.
   /// - `111movies` — the domain no longer resolves in DNS.
   /// - `multiembed` — redirects to a Cloudflare Turnstile CAPTCHA wall.
+  ///
+  /// 2026-11-13 audit, each re-checked in a real browser against Fight Club
+  /// (TMDB 550), a title every mirror should carry:
+  /// - `vidbolt` — answers 404 for the whole catalogue.
+  /// - `vidrock` — `vidrock.ru` never completes a connection.
+  /// - `vsembed` — returns 200 with a completely empty body.
+  /// - `vidsrc` — serves a full-screen invisible clickjack overlay plus two
+  ///   ad trackers (dtscout, crwdcntrl); its player frame never attaches.
   ///
   /// The Firestore config still carries these entries, so the filter
   /// belongs where the list is resolved rather than in the fallback list
@@ -64,13 +71,17 @@ class VideoSourceService extends ChangeNotifier {
     'movish',
     '111movies',
     'multiembed',
+    'vidbolt',
+    'vidrock',
+    'vsembed',
+    'vidsrc',
   };
 
   /// Providers that stream fine but refuse to run inside a sandboxed
-  /// iframe — VidBolt answers "Playback Disabled" and VidLink answers
-  /// "Please Disable Sandbox", so `sandboxSafe: true` was exactly what
-  /// broke them. The remote config still carries that flag.
-  static const Set<String> _noSandboxIds = {'vidbolt', 'vidlink'};
+  /// iframe — VidLink answers "Please Disable Sandbox", so
+  /// `sandboxSafe: true` was exactly what broke it. The remote config still
+  /// carries that flag.
+  static const Set<String> _noSandboxIds = {'vidlink'};
 
   static bool _isNoAds(VideoSourceConfig p) =>
       p.sandboxSafe || _noAdsIds.contains(p.id);
@@ -206,8 +217,7 @@ class VideoSourceService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Hardcoded fallback defaults.
   //
-  // A live audit on 2026-10-04 removed four servers (see [_retiredIds]) and
-  // dropped the sandbox flag on VidBolt and VidLink (see [_noSandboxIds]).
+  // A live audit on 2026-11-13 removed four more servers (see [_retiredIds]).
   // Everything left here was verified to stream a real movie and TV episode
   // inside the app's iframe; re-verify before adding a new entry.
   // ---------------------------------------------------------------------------
@@ -221,15 +231,6 @@ class VideoSourceService extends ChangeNotifier {
       tvUrl: 'https://everglow-1c6db.web.app/embed.html',
       isRecommended: true,
       sandboxSafe: true,
-    ),
-    const VideoSourceConfig(
-      id: 'vidbolt',
-      name: 'VidBolt',
-      shortName: 'VidBolt',
-      desc: 'No ads, high quality, multi-server',
-      movieUrl: 'https://vidbolt.xyz/movie/',
-      tvUrl: 'https://vidbolt.xyz/tv/',
-      isRecommended: true,
     ),
     const VideoSourceConfig(
       id: 'vidcore',
@@ -248,30 +249,6 @@ class VideoSourceService extends ChangeNotifier {
       desc: 'Large library, no ads',
       movieUrl: 'https://vidlink.pro/movie/',
       tvUrl: 'https://vidlink.pro/tv/',
-    ),
-    const VideoSourceConfig(
-      id: 'vsembed',
-      name: 'VsEmbed',
-      shortName: 'VsEmbed',
-      desc: 'VidSrc network mirror',
-      movieUrl: 'https://vsembed.ru/embed/movie/',
-      tvUrl: 'https://vsembed.ru/embed/',
-    ),
-    const VideoSourceConfig(
-      id: 'vidrock',
-      name: 'VidRock',
-      shortName: 'VidRock',
-      desc: 'Has Adcash — last resort',
-      movieUrl: 'https://vidrock.ru/movie/',
-      tvUrl: 'https://vidrock.ru/tv/',
-    ),
-    const VideoSourceConfig(
-      id: 'vidsrc',
-      name: 'VidSrc',
-      shortName: 'VidSrc',
-      desc: 'Last resort, has trackers',
-      movieUrl: 'https://vidsrc.to/embed/movie/',
-      tvUrl: 'https://vidsrc.to/embed/tv/',
     ),
   ];
 }
