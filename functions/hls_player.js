@@ -569,12 +569,17 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     // picked, so the picker swaps them with the source.
     'function setTracks(list){var old=v.querySelectorAll?v.querySelectorAll("track"):[];' +
     'for(var i=old.length-1;i>=0;i--){try{v.removeChild(old[i]);}catch(e){}}' +
-    'cueList=[];cueTrack=-1;subPick=0;' +
-    'var arr=Array.isArray(list)?list:[];' +
-    'for(var k=0;k<arr.length&&k<8;k++){var t=arr[k];if(!t||!t.file)continue;' +
+    'cueList=[];cueTrack=-1;' +
+    'var arr=Array.isArray(list)?list:[],added=0;' +
+    'for(var k=0;k<arr.length&&added<8;k++){var t=arr[k];if(!t||!t.file)continue;' +
     'var el=document.createElement("track");el.kind="captions";el.src=String(t.file);' +
-    'if(t.label)el.label=String(t.label);if(k===0)el.default=true;' +
+    'if(t.label)el.label=String(t.label);if(added===0)el.default=true;added++;' +
     'try{v.appendChild(el);}catch(e){}}' +
+    // Her caption language survives a pick when the new source still has that
+    // track: tapping the server she is already on is a retry, not a reason to
+    // drop her back to the first track. Mirrored into prefs so a reload opens
+    // the language she was just shown.
+    'if(subPick>=added)subPick=0;prefs.lang=subPick;savePrefs();' +
     'buildCcMenu();syncCues();}' +
     'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";' +
     'for(var i=0;i<servers.length;i++){(function(s){' +

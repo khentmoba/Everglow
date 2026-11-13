@@ -1472,6 +1472,74 @@ test('a pick attaches the new source\'s captions', async () => {
   assert.equal(v.children[0].kind, 'captions');
 });
 
+test('a pick keeps her caption language when the new source still has it', async () => {
+  // Tapping the server she is already on is a retry, not a reason to drop
+  // her from Spanish back to the first track.
+  const store = new Map();
+  const { els, v } = runPlayerDom({
+    tracks: ['English', 'Spanish'],
+    trackEls: [],
+    store,
+    current: 'megaplay',
+    servers: [
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+      { id: 'megavid', label: 'Iris', url: 'https://w/p?server=megavid' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({
+        src: 'https://w/proxyMegavidHls?t=swapped',
+        tracks: [
+          { file: 'https://w/a.vtt', label: 'English' },
+          { file: 'https://w/b.vtt', label: 'Spanish' },
+        ],
+      }),
+    }),
+  });
+
+  els['btn-cc'].dispatch('click');
+  const spanish = els['cc-menu'].children.find((c) => c.textContent === 'Spanish');
+  assert.ok(spanish, 'the language row is there to pick');
+  spanish.onclick();
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[0].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  // syncCues enables the picked track and disables the rest, so the modes are
+  // what she would actually see after the retry.
+  assert.equal(v.textTracks[1].mode, 'hidden', 'Spanish is still the live track');
+  assert.equal(v.textTracks[0].mode, 'disabled', 'English did not take over');
+  const prefs = JSON.parse(store.get('everglow.player.prefs'));
+  assert.equal(prefs.lang, 1, 'the pick and the persisted language agree');
+});
+
+test('a pick marks default on the first caption it actually attaches', async () => {
+  // The server-rendered markup marks `default` on the first track with a
+  // file, so the swap has to skip a fileless entry the same way.
+  const { els, v } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({
+        src: 'https://w/proxyMegavidHls?t=swapped',
+        tracks: [{ label: 'Broken' }, { file: 'https://w/b.vtt', label: 'English' }],
+      }),
+    }),
+  });
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(v.children.length, 1, 'the fileless entry is skipped');
+  assert.equal(v.children[0].default, true, 'the one it attached is the default');
+});
+
 test('a failed server pick stays in the player and never condemns the server', async () => {
   const { els, window } = runPlayerDom({
     tracks: [],

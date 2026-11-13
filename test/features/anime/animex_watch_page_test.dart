@@ -650,7 +650,7 @@ void main() {
     test('resolveMappingsMalId prefers the AniList detail MAL id', () {
       // The reported bug: route carries only an AniList id (slot reads
       // 0), so mappings must use the MAL id from the AniList detail —
-      // otherwise ani.zip returns nothing and only Megavid shows.
+      // otherwise ani.zip returns nothing and only Everglow shows.
       expect(
         AnimeXWatchPage.resolveMappingsMalId(
           detailMalId: 21,
