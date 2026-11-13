@@ -91,7 +91,7 @@ it exists on `main`: run
 When available, use T3's PR watcher for PR checks rather than polling.
 These tooling checks validate the measuring tools and offline behavior;
 claims about app speed still need measurements described in `docs/PERF_NOTES.md``.
-For CI failures, runner recovery, and preview commands, see
+For CI failures and runner recovery, see
 [`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md).
 Before removing a worktree, follow [`docs/WORKTREE_CLEANUP.md`](docs/WORKTREE_CLEANUP.md).
 

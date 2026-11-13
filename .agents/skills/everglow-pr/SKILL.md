@@ -93,12 +93,15 @@ ordinary Quality success does not prove that those browser checks passed.
   - In Agent Mode, password gates are bypassed and all couple surfaces automatically render safe in-memory demo fixtures.
   - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize button (`—`) on the HUD before snapping the proof screenshot.
 - **iPhone Home Screen changes** (status bar, bottom strip, installed
-  launch): Chrome cannot prove these. Ask Khent to open
-  `<preview>/screen_test.html` in Safari and follow that page's install
-  steps. Its dedicated launch page restores demo mode even with fresh iOS
-  storage; ordinary `?agent=` links do not guarantee an installed launch.
-  Until he confirms, say "unverified on iPhone" and keep the PR draft. Give
-  him only steps you have seen on that screen.
+  launch): Chrome cannot prove these. Serve the local release build on the LAN
+  (e.g. `python -m http.server 8752 --directory build/web` — note `serve()` in
+  `tool/perf/_harness.mjs` is loopback-only) and ask Khent to open
+  `http://<pc-lan-ip>:8752/screen_test.html` in Safari and follow that page's
+  install steps (the live site blocks agent mode, so it cannot be used for
+  this). Its dedicated launch page restores demo mode even with fresh iOS
+  storage; ordinary `?agent=` links do not guarantee an installed launch. Until
+  he confirms, say "unverified on iPhone" and keep the PR draft. Give him only
+  steps you have seen on that screen.
 - Embed it in the PR body with a raw URL pinned to the commit SHA
   (branches get deleted, SHAs don't):
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
@@ -110,11 +113,12 @@ ordinary Quality success does not prove that those browser checks passed.
   the proof is actually viewable:
   `If that image does not render: this repo is private, so GitHub's image proxy cannot fetch a raw.githubusercontent.com URL. Open [docs/pr-proof/pr-<number>/shot.png](https://github.com/khentmoba/Everglow/blob/<sha>/docs/pr-proof/pr-<number>/shot.png?raw=true) while signed in to GitHub instead.`
 - Non-UI change (CI, docs, backend-only): honestly mark N/A, or add a
-  shot of the preview booting logged-out.
-- Frontend PRs get a preview from the successful web build (alive 12
-  hours). Check that link before asking Khent to review. Docs/backend-only
-  PRs can mark preview N/A. To request one explicitly, run Quality on your
-  branch with its `preview` input enabled; this selects full verification.
+  shot of the app booting logged-out from your local build.
+- **There are no PR previews.** No channel deploys and no preview link is
+  posted. Prove a frontend change from a local release build instead:
+  `flutter build web --release`, serve `build/web` on a spare port, and drive
+  it in headless Chrome with `?agent=1`. Say in the PR body that the shot came
+  from a local build, and never imply a preview proved it.
 
 ## 4. Write the PR body
 

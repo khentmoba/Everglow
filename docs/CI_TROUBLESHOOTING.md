@@ -25,17 +25,11 @@ emulator coverage is selected from the diff. Unknown inputs and failed diff
 discovery select everything. `workflow_dispatch` also runs full verification.
 
 The guards share Flutter setup with app verification. The release web build
-runs deterministic service-worker tests and uploads its artifact once;
-same-repo frontend PRs deploy that artifact as a 12-hour preview. Forks
-build without secret defines and never deploy previews. To request a preview
-on another branch (once this workflow is on `main`), run:
-
-```sh
-gh workflow run quality.yml --ref YOUR_BRANCH -f preview=true --repo khentmoba/Everglow
-```
-
-Preview waits for cache tests and release compilation, independently of the
-other selected checks. A working preview is not proof that all CI checks passed.
+runs deterministic service-worker tests and builds the release web app once. No PR
+deploys a preview channel: proof screenshots come from a local release build
+(`flutter build web --release`) driven in headless Chrome, which is what the
+proof workflow in the `everglow-pr` skill does. Nothing about a PR is
+reachable on the internet until it merges and `main` deploys.
 
 The release build also runs `node tool/agent_smoke.mjs build/web` in
 disposable Chrome. It visits every agent alias at 430px and 810px, starting
