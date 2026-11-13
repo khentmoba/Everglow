@@ -173,7 +173,11 @@ class AnimeXWatchPage extends StatefulWidget {
       case 'Server 2':
         return 'VidLink';
       case 'Server 3':
-        return 'Megavid';
+      // Megavid and Yume now live inside Everglow's in-player picker, so a
+      // remembered choice for either opens the row that holds them.
+      case 'Megavid':
+      case 'Yume':
+        return 'Everglow';
       // Prior branch names ('Mega Play', 'MegaPlay', 'Anixo') map to the
       // current spellings so remembered choices survive the rename.
       case 'Mega Play':
@@ -258,60 +262,38 @@ class AnimeXWatchPage extends StatefulWidget {
   }
 
   /// Base URL of our ad-free anime resolver (see cloudflare/src/anime.js).
-  /// Megavid plays through it instead of the provider's website embed:
+  /// The resolver plays through it instead of the provider's website embed:
   /// the function resolves the episode server-side and serves our own
   /// player page, so no third-party ad or tracker script ever reaches
   /// Clair's phone — and a missing episode answers with the failover
   /// marker (HTTP 502) instead of spinning its loader forever.
   ///
-  /// Everglow, Megavid, and Yume all point here. Each names its upstream
-  /// with `source=`, and the Worker keeps every upstream URL inside a
-  /// sealed token, so the player page never learns a host.
+  /// Every resolver-backed source points here and names its upstream with
+  /// `source=`, and the Worker keeps every upstream URL inside a sealed
+  /// token, so the player page never learns a host.
   static const String proxyAnimeBase =
       'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime';
 
-  /// Builds the Megavid player URL via our ad-free resolver.
-  @visibleForTesting
-  static String megavidProxyUrl({
-    required int anilistId,
-    required int malId,
-    required int episode,
-    required String audio,
-  }) {
-    return '$proxyAnimeBase?source=megavid'
-        '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
-  }
-
-  /// Builds the MegaPlay (Everglow) player URL via our ad-free resolver.
-  @visibleForTesting
-  static String megaplayProxyUrl({
-    required int anilistId,
-    required int malId,
-    required int episode,
-    required String audio,
-  }) {
-    return '$proxyAnimeBase?source=megaplay'
-        '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
-  }
-
-  /// Builds the YumeZone player URL via our ad-free resolver.
+  /// Builds the Everglow player URL via our ad-free resolver.
   ///
-  /// YumeZone keys on AniList ids only, so there is no MAL fallback. It runs
-  /// nine upstream servers, and the player shows them as an in-page picker
-  /// instead of as nine rows in the app's server list.
+  /// Everglow is the whole shelf: the resolver walks MegaPlay, then Megavid,
+  /// then YumeZone's nine servers under one budget, and the player shows all
+  /// eleven as an in-page picker. Nova is MegaPlay, Iris is Megavid, and the
+  /// nine YumeZone streams keep their own names.
   @visibleForTesting
-  static String yumezoneProxyUrl({
+  static String everglowProxyUrl({
     required int anilistId,
+    required int malId,
     required int episode,
     required String audio,
   }) {
-    return '$proxyAnimeBase?source=yumezone'
-        '&anilistId=$anilistId&ep=$episode&audio=$audio';
+    return '$proxyAnimeBase?source=everglow'
+        '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
   }
 
   /// Picks the server a visit should open on: the remembered choice
-  /// when it is still offered, otherwise Megavid whenever available, then
-  /// the first available server. Megavid reports progress and accepts resume.
+  /// when it is still offered, otherwise Everglow whenever available, then
+  /// the first available server. Everglow reports progress and accepts resume.
   @visibleForTesting
   static int defaultServerIndex(
     List<AnimeServerOption> servers, {
@@ -323,7 +305,7 @@ class AnimeXWatchPage extends StatefulWidget {
       if (at != -1) return at;
     }
     final tracked = servers.indexWhere(
-      (s) => s.available && s.name == 'Megavid',
+      (s) => s.available && s.name == 'Everglow',
     );
     if (tracked != -1) return tracked;
     final first = servers.indexWhere((s) => s.available);
@@ -335,13 +317,13 @@ class AnimeXWatchPage extends StatefulWidget {
   /// themselves and a working reference site) — the player frame
   /// applies them per host:
   ///
-  /// - Everglow: our ad-free resolver ([proxyAnimeBase]) backed by MegaPlay
-  ///   keyed on the AniList id (falls back to MAL). Sandboxed, in-house
-  ///   HLS player with live progress, seek, and resume support.
-  /// - Megavid: our ad-free resolver ([proxyAnimeBase]) keyed on the
-  ///   AniList id (falls back to MAL). Sandboxed, in-house HLS player. A dead
-  ///   episode answers with the failover marker so the probe advances
-  ///   to the next server instead of spinning.
+  /// - Everglow: our ad-free resolver ([proxyAnimeBase]) backed by MegaPlay,
+  ///   Megavid, and YumeZone, keyed on the AniList id (falls back to MAL).
+  ///   Sandboxed, in-house HLS player with live progress, seek, and resume
+  ///   support. All eleven upstreams live in the player's own Servers chip,
+  ///   so they cost one row here instead of eleven. A dead episode answers
+  ///   with the failover marker so the probe advances to the next server
+  ///   instead of spinning.
   /// - TryEmbed: dedicated anime embed player keyed on AniList (falls
   ///   back to MAL). Multi-server upstream with sub/dub toggle.
   /// - CineSrc: our own embed.html shell around CineSrc. TMDB-keyed,
@@ -356,7 +338,7 @@ class AnimeXWatchPage extends StatefulWidget {
   /// players cannot pass reliably — and it ships its own popunder ad
   /// tag — so it is no longer offered. VidLink's anime embeds 404
   /// sitewide since Sep 2026, so it is no longer offered either.
-  /// A remembered AniXo/VidLink choice simply falls back to Megavid
+  /// A remembered AniXo/VidLink choice simply falls back to Everglow
   /// (see [defaultServerIndex]).
   ///
   /// Picks the TMDB id for titles ani.zip can't map, via a strict
@@ -415,39 +397,13 @@ class AnimeXWatchPage extends StatefulWidget {
       AnimeServerOption(
         name: 'Everglow',
         tag: 'Ad-free',
-        urlBuilder: (ep, audio) => AnimeXWatchPage.megaplayProxyUrl(
+        urlBuilder: (ep, audio) => AnimeXWatchPage.everglowProxyUrl(
           anilistId: aniId,
           malId: effectiveMal,
           episode: ep,
           audio: audio,
         ),
         available: hasSource,
-        supportsSeek: true,
-        supportsResume: true,
-      ),
-      AnimeServerOption(
-        name: 'Megavid',
-        tag: 'Ad-free',
-        urlBuilder: (ep, audio) => AnimeXWatchPage.megavidProxyUrl(
-          anilistId: aniId,
-          malId: effectiveMal,
-          episode: ep,
-          audio: audio,
-        ),
-        available: hasSource,
-        supportsSeek: true,
-        supportsResume: true,
-      ),
-      AnimeServerOption(
-        name: 'Yume',
-        // Our own Worker resolver, same as Everglow and Megavid.
-        tag: 'Ad-free',
-        urlBuilder: (ep, audio) => AnimeXWatchPage.yumezoneProxyUrl(
-          anilistId: aniId,
-          episode: ep,
-          audio: audio,
-        ),
-        available: hasAni,
         supportsSeek: true,
         supportsResume: true,
       ),

@@ -17,7 +17,36 @@ egress; on Firebase that is ~$0.76 per movie, here it is $0.
 
 `format=json` on `/proxyAnime` answers `{src, tracks, title, ep, servers, current}`
 instead of the page. `servers` is the player's own picker list; it is empty for
-every source that has a single upstream, which is what hides the picker there.
+Cinema, which has a single upstream, and that is what hides the picker there.
+
+## Everglow (`source=everglow`)
+
+Everglow is the whole shelf: MegaPlay, Megavid, and YumeZone's nine streams,
+behind one app row and one in-page picker.
+
+| Label | Upstream | Picker id |
+| --- | --- | --- |
+| Nova | MegaPlay | `megaplay` |
+| Iris | Megavid | `megavid` |
+| Dawn … Solstice | YumeZone (nine) | `yume-1` … `yume-9` |
+
+`label` is what Clair reads, so it is short, warm and light-themed to match
+Everglow, and says nothing about the upstream — the provider name is ours to
+know, not something the browser needs.
+
+`resolveEverglow` walks that list in order under one 12 s budget, so a dead
+upstream costs a couple of seconds instead of the episode. `server=<id>` pins
+one upstream and nothing else is tried: the picker must never quietly play
+something other than what she tapped.
+
+YumeZone keys on AniList ids only, so a MAL-only title lists Nova and Iris and
+leaves the nine out — a row that can never play is worse than no row.
+
+Every resolver-backed source (`everglow`, `megaplay`, `megavid`, `yumezone`)
+returns the same picker list with its own `current`, so the chip is consistent
+whichever entry opened the page. A pick can cross providers, and each ships its
+own captions (or none), so the player swaps the `<track>` elements with the
+source instead of leaving MegaPlay's subtitles attached to a Yume stream.
 
 ## How the sealed transport works (read before touching it)
 
@@ -52,10 +81,11 @@ there, never copy it.
 cipher, server table, headers); `resolveYumeZone` in `anime.js` does the
 orchestration. YumeZone keys on AniList ids, so there is no TMDB or MAL path.
 
-It runs nine upstreams, and the player shows them as an in-page picker rather
-than as nine rows in the app's server list. The picker is lazy: each entry is a
-URL back to `/proxyAnime?source=yumezone&format=json&server=<id>`, fetched only
-when it is tapped, and the playhead is kept across the swap.
+It runs nine upstreams, and the player shows them inside the same in-page
+picker as Everglow's own two streams, rather than as nine rows in the app's
+server list. The picker is lazy: each entry is a URL back to
+`/proxyAnime?source=yumezone&format=json&server=<id>`, fetched only when it is
+tapped, and the playhead is kept across the swap.
 
 Server order depends on audio. Our player renders `<track>` captions only as
 WebVTT and YumeZone ships ASS/SRT, so **subbed** audio leads with the hardsub

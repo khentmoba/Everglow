@@ -65,6 +65,10 @@ const CINEMA_BUDGET_MS = 10000;
 /** One budget for the whole YumeZone server walk, so nine dead servers fail
  *  inside the app's load timer instead of past it. */
 const YUME_BUDGET_MS = 12000;
+/** One budget for the whole Everglow walk (MegaPlay, then Megavid, then
+ *  YumeZone's servers). Eleven upstreams share it, so a dead episode fails
+ *  inside the app's load timer instead of one 10 s timeout per server. */
+const EVERGLOW_BUDGET_MS = 12000;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -923,12 +927,12 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal) {
   };
 }
 
-function verifyMegavidStream(masterUrl) {
-  return verifyStream(masterUrl, megavidHeaders());
+function verifyMegavidStream(masterUrl, signal) {
+  return verifyStream(masterUrl, megavidHeaders(), signal);
 }
 
-function verifyMegaPlayStream(masterUrl) {
-  return verifyStream(masterUrl, megaplayHeaders());
+function verifyMegaPlayStream(masterUrl, signal) {
+  return verifyStream(masterUrl, megaplayHeaders(), signal);
 }
 
 function verifyCinemaStream(masterUrl, provider, signal) {
@@ -962,7 +966,7 @@ async function makeMegaPlayToken(path) {
   return `${bytesToBase64Url(enc.encode(payload))}.${bytesToBase64Url(sig)}`;
 }
 
-async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key) {
+async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts = {}) {
   const isDub = audio === 'dub' ? 'dub' : 'sub';
   const url =
     anilistId > 0
@@ -972,11 +976,12 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key) {
     url,
     { headers: megavidHeaders({ Accept: 'application/json' }) },
     10000,
+    opts.signal,
   );
   if (!res.ok) throw new Error(`megavid ${res.status}`);
   const data = await res.json();
   if (data.status !== 'ok' || !data.source) throw new Error('megavid: no stream');
-  await verifyMegavidStream(data.source);
+  await verifyMegavidStream(data.source, opts.signal);
   // `sealedUrl` is async, so the map must be too: a bare promise here used to
   // survive the filter (a promise is truthy) and reach the player as `{}`.
   const tracks = await Promise.all(
@@ -991,16 +996,23 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key) {
     tracks: tracks.filter((t) => t.file),
     title: `Episode ${ep}`,
     ep,
+    server: 'megavid',
+    servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
   };
 }
 
-async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key) {
+async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts = {}) {
   const isDub = audio === 'dub' ? 'dub' : 'sub';
   const pageUrl =
     anilistId > 0
       ? `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${isDub}`
       : `https://megaplay.buzz/stream/mal/${malId}/${ep}/${isDub}`;
-  const pageRes = await fetchT(pageUrl, { headers: megaplayHeaders() }, 10000);
+  const pageRes = await fetchT(
+    pageUrl,
+    { headers: megaplayHeaders() },
+    10000,
+    opts.signal,
+  );
   if (!pageRes.ok) throw new Error(`megaplay page ${pageRes.status}`);
   const html = await pageRes.text();
   const idMatch = html.match(
@@ -1013,6 +1025,7 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key) {
     `https://megaplay.buzz/stream/getSources?id=${dataId}&platform=OTHER`,
     { headers: megaplayHeaders({ 'X-Requested-With': 'XMLHttpRequest' }) },
     10000,
+    opts.signal,
   );
   if (!sourcesRes.ok) throw new Error(`megaplay sources ${sourcesRes.status}`);
   const data = await sourcesRes.json();
@@ -1026,7 +1039,7 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key) {
   const token = streamPath ? await makeMegaPlayToken(streamPath) : '';
   const masterUrl = token ? `${decrypted.file}?token=${token}` : decrypted.file;
 
-  await verifyMegaPlayStream(masterUrl);
+  await verifyMegaPlayStream(masterUrl, opts.signal);
 
   const tracks = await Promise.all(
     (Array.isArray(data.tracks) ? data.tracks : [])
@@ -1038,15 +1051,42 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key) {
     tracks: tracks.filter((t) => t.file),
     title: `Episode ${ep}`,
     ep,
+    server: 'megaplay',
+    servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
   };
 }
 
-/** The player's in-page server list for YumeZone.
+/** The player's picker list, in the order the walk tries it.
+ *
+ *  `label` is what Clair reads, so it is short, warm and light-themed to match
+ *  Everglow, and says nothing about the upstream — the provider name is ours
+ *  to know, not something the browser needs. Nova is MegaPlay, Iris is
+ *  Megavid, and the nine YumeZone streams keep the names they already had. */
+const EVERGLOW_DIRECT_SERVERS = [
+  { id: 'megaplay', label: 'Nova', source: 'megaplay' },
+  { id: 'megavid', label: 'Iris', source: 'megavid' },
+];
+
+/** Every stream the Everglow source can play, picker order.
+ *
+ *  YumeZone keys on AniList ids only, so a MAL-only title leaves its nine
+ *  streams out: a row that can never play is worse than no row. */
+function everglowServerList(audio, { anilistId = 0 } = {}) {
+  const list = EVERGLOW_DIRECT_SERVERS.map((s) => ({ ...s }));
+  if (anilistId > 0) {
+    for (const server of yumeServerOrder(audio)) {
+      list.push({ id: server.id, label: server.label, source: 'yumezone' });
+    }
+  }
+  return list;
+}
+
+/** The player's in-page server list.
  *
  *  Each entry is a URL the player can fetch to switch to that server without
- *  reloading the page. They are lazy on purpose: resolving all nine up front
- *  would cost nine API calls and nine verifications for the one she watches. */
-function yumeServerLinks(proxyBase, anilistId, ep, audio) {
+ *  reloading the page. They are lazy on purpose: resolving all eleven up front
+ *  would cost eleven upstream calls and verifications for the one she watches. */
+function everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }) {
   let origin;
   try {
     origin = new URL(proxyBase).origin;
@@ -1054,13 +1094,76 @@ function yumeServerLinks(proxyBase, anilistId, ep, audio) {
     return [];
   }
   const language = audio === 'dub' ? 'dub' : 'sub';
-  return yumeServerOrder(audio).map((server) => ({
+  return everglowServerList(audio, { anilistId }).map((server) => ({
     id: server.id,
     label: server.label,
     url:
-      `${origin}/proxyAnime?source=yumezone&format=json` +
-      `&anilistId=${anilistId}&ep=${ep}&audio=${language}&server=${server.id}`,
+      `${origin}/proxyAnime?source=${server.source}&format=json` +
+      `&anilistId=${anilistId}&malId=${malId}&ep=${ep}&audio=${language}` +
+      (server.source === 'yumezone' ? `&server=${server.id}` : ''),
   }));
+}
+
+/** Resolves the Everglow source: MegaPlay, then Megavid, then YumeZone's
+ *  servers in audio order, all under one budget.
+ *
+ *  With [serverId] only that upstream is tried — the player's picker must not
+ *  quietly play something other than what she tapped. Without it the first
+ *  playable stream wins, so one dead upstream costs a couple of seconds
+ *  instead of the whole episode. */
+async function resolveEverglow(
+  anilistId,
+  malId,
+  ep,
+  audio,
+  serverId,
+  proxyBase,
+  key,
+  opts = {},
+) {
+  const list = everglowServerList(audio, { anilistId });
+  const order = serverId ? list.filter((s) => s.id === serverId) : list;
+  if (!order.length) throw new Error(`everglow: unknown server ${serverId}`);
+  const budgetMs = opts.budgetMs || EVERGLOW_BUDGET_MS;
+  const deadline = Date.now() + budgetMs;
+  const ctrl = new AbortController();
+  const budgetTimer = setTimeout(() => ctrl.abort(), budgetMs);
+  let lastError = null;
+  try {
+    for (const server of order) {
+      if (Date.now() >= deadline) {
+        lastError = new Error('everglow: out of time');
+        break;
+      }
+      try {
+        let out;
+        if (server.source === 'yumezone') {
+          out = await resolveYumeZone(anilistId, ep, audio, server.id, proxyBase, key, {
+            signal: ctrl.signal,
+            budgetMs: Math.max(1, deadline - Date.now()),
+          });
+        } else if (server.source === 'megavid') {
+          out = await resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, {
+            signal: ctrl.signal,
+          });
+        } else {
+          out = await resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, {
+            signal: ctrl.signal,
+          });
+        }
+        if (!out || !out.src) {
+          lastError = new Error(`everglow: ${server.id} returned no src`);
+          continue;
+        }
+        return out;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+  } finally {
+    clearTimeout(budgetTimer);
+  }
+  throw new Error('everglow: no playable stream', { cause: lastError });
 }
 
 /** Resolves one YumeZone server to our sealed proxy URL.
@@ -1089,6 +1192,14 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
   const deadline = Date.now() + budgetMs;
   const ctrl = new AbortController();
   const budgetTimer = setTimeout(() => ctrl.abort(), budgetMs);
+  // An outer walk (Everglow) owns a bigger deadline: when it gives up, this
+  // walk must stop too, or it keeps fetching for a page nobody will see.
+  const outer = opts.signal;
+  const onAbort = () => ctrl.abort();
+  if (outer) {
+    if (outer.aborted) ctrl.abort();
+    else outer.addEventListener('abort', onAbort, { once: true });
+  }
   let lastError = null;
   try {
     for (const server of order) {
@@ -1122,7 +1233,7 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
           title: `Episode ${ep}`,
           ep,
           server: server.id,
-          servers: yumeServerLinks(proxyBase, anilistId, ep, audio),
+          servers: everglowServerLinks(proxyBase, { anilistId, malId: 0, ep, audio }),
         };
       } catch (e) {
         lastError = e;
@@ -1130,6 +1241,7 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
     }
   } finally {
     clearTimeout(budgetTimer);
+    if (outer) outer.removeEventListener('abort', onAbort);
   }
   throw new Error('yumezone: no playable stream', { cause: lastError });
 }
@@ -1479,6 +1591,9 @@ export {
   decryptMegaPlayPayload,
   makeMegaPlayToken,
   selectCinemaSubtitleTracks,
+  everglowServerList,
+  everglowServerLinks,
+  resolveEverglow,
   resolveMegavid,
   resolveMegaPlay,
   resolveYumeZone,

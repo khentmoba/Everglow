@@ -563,6 +563,19 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     // whole Yume server is dead, which moves her off it, overwrites her
     // remembered choice, and ends the picker — the exact thing it exists for.
     'var pickSeq=0;' +
+    // A pick can land on a different provider, and each ships its own
+    // captions (or none). Leaving the old <track> elements attached would
+    // list MegaPlay's subtitles over a Yume stream and show nothing when
+    // picked, so the picker swaps them with the source.
+    'function setTracks(list){var old=v.querySelectorAll?v.querySelectorAll("track"):[];' +
+    'for(var i=old.length-1;i>=0;i--){try{v.removeChild(old[i]);}catch(e){}}' +
+    'cueList=[];cueTrack=-1;subPick=0;' +
+    'var arr=Array.isArray(list)?list:[];' +
+    'for(var k=0;k<arr.length&&k<8;k++){var t=arr[k];if(!t||!t.file)continue;' +
+    'var el=document.createElement("track");el.kind="captions";el.src=String(t.file);' +
+    'if(t.label)el.label=String(t.label);if(k===0)el.default=true;' +
+    'try{v.appendChild(el);}catch(e){}}' +
+    'buildCcMenu();syncCues();}' +
     'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";' +
     'for(var i=0;i<servers.length;i++){(function(s){' +
     'svMenu.appendChild(ccBtn(s.label,s.id===currentServer,function(){pickServer(s);}));})(servers[i]);}}' +
@@ -594,6 +607,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(!hlsInst||hlsDead){hlsInst=makeHls();hlsInst.attachMedia(v);}' +
     'hlsInst.loadSource(d.src);' +
     '}else{v.src=d.src;}' +
+    'if(Array.isArray(d.tracks))setTracks(d.tracks);' +
     'if(btnSv)btnSv.textContent="Servers";buildSvMenu();' +
     '}).catch(function(){if(seq!==pickSeq)return;pickFailed();});}' +
     'if(btnSv&&svMenu)btnSv.addEventListener("click",function(){svMenu.hidden=!svMenu.hidden;' +
