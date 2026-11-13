@@ -1513,6 +1513,34 @@ test('a pick keeps her caption language when the new source still has it', async
   assert.equal(prefs.lang, 1, 'the pick and the persisted language agree');
 });
 
+test('a pick onto a source with no captions keeps her remembered language', async () => {
+  // YumeZone ships ASS/SRT, so its streams arrive with no <track> at all. That
+  // must not wipe the language she picked on a source that has captions.
+  const store = new Map();
+  const { els } = runPlayerDom({
+    tracks: ['English', 'Spanish'],
+    trackEls: [],
+    store,
+    current: 'megaplay',
+    servers: [
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({ src: 'https://w/proxyMegavidHls?t=swapped', tracks: [] }),
+    }),
+  });
+
+  els['btn-cc'].dispatch('click');
+  els['cc-menu'].children.find((c) => c.textContent === 'Spanish').onclick();
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  const prefs = JSON.parse(store.get('everglow.player.prefs'));
+  assert.equal(prefs.lang, 1, 'the caption-less source did not erase her language');
+});
+
 test('a pick marks default on the first caption it actually attaches', async () => {
   // The server-rendered markup marks `default` on the first track with a
   // file, so the swap has to skip a fileless entry the same way.
