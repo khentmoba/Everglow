@@ -106,18 +106,30 @@ English audio is noise. YumeZone subtitle tracks are therefore not served.
 
 ## Deploy
 
+A merge to `main` that touches `cloudflare/` (or `functions/hls_player.js`,
+which the Worker bundles) deploys it: `.github/workflows/deploy_worker.yml`
+runs the tests, `wrangler deploy`, then the smoke against the live Worker.
+Don't run `wrangler deploy` by hand.
+
+One-time setup, done by Khent:
+
+- Repository secrets `CLOUDFLARE_API_TOKEN` (a token from the "Edit Cloudflare
+  Workers" template) and `CLOUDFLARE_ACCOUNT_ID`.
+- The AES-GCM key for every sealed URL, already set on the live Worker:
+  `openssl rand -hex 32 | npx wrangler secret put CDN_STAMP_KEY`
+
+## Smoke test on the edge
+
 ```bash
 cd cloudflare
-npm ci
-
-# One-time: the AES-GCM key for every sealed URL.
-openssl rand -hex 32 | npx wrangler secret put CDN_STAMP_KEY
-
-npx wrangler deploy
+npm run smoke                                   # your branch, on Cloudflare's edge
+node scripts/smoke.mjs --url https://everglow-stream.khentplaysmoba.workers.dev
 ```
 
-Wrangler prints the Worker URL (`https://everglow-stream.<account>.workers.dev`).
-Keep it — the app needs it.
+It plays three films/episodes and two anime through `/proxyAnime`, fetches each
+playlist back, and tries every server row the picker lists. It fails when a
+title plays nothing, or when a row played none of the titles it was listed for.
+`--remote` needs `wrangler login`.
 
 ## Local development
 
@@ -137,10 +149,10 @@ http://127.0.0.1:8787/proxyAnime?source=cinema&type=movie&tmdbId=550&start=600
 
 ```bash
 cd cloudflare
-node --test "src/*.test.js"
+npm test
 ```
 
-109 tests: parameter validation, host allowlists, seal binding and scope
+The tests cover parameter validation, host allowlists, seal binding and scope
 enforcement, playlist rewriting, stream verification, the Cinema race and its
 budget, the MegaPlay AES/HMAC port (pinned against the Firebase ciphertext),
 the YumeZone wire protocol (signature, cipher, server order) and its resolver,
