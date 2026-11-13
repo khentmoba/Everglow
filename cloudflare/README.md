@@ -16,8 +16,9 @@ egress; on Firebase that is ~$0.76 per movie, here it is $0.
 | `/health` | `ok` |
 
 `format=json` on `/proxyAnime` answers `{src, tracks, title, ep, servers, current}`
-instead of the page. `servers` is the player's own picker list; it is empty for
-Cinema, which has a single upstream, and that is what hides the picker there.
+instead of the page. `servers` is the player's own picker list; an empty list is
+what hides the picker. Cinema fills it from its five fixed rows plus whichever
+Vidrock servers answered for the title, so the row count moves between films.
 
 ## Everglow (`source=everglow`)
 
@@ -139,7 +140,7 @@ cd cloudflare
 node --test "src/*.test.js"
 ```
 
-85 tests: parameter validation, host allowlists, seal binding and scope
+109 tests: parameter validation, host allowlists, seal binding and scope
 enforcement, playlist rewriting, stream verification, the Cinema race and its
 budget, the MegaPlay AES/HMAC port (pinned against the Firebase ciphertext),
 the YumeZone wire protocol (signature, cipher, server order) and its resolver,
