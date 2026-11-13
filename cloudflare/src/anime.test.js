@@ -28,6 +28,7 @@ import {
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
   scopedTarget,
+  stripAdCues,
   sealTarget,
   selectCinemaSubtitleTracks,
   validateAnimeParams,
@@ -1734,4 +1735,116 @@ test('subtitle settings survive the next episode', () => {
   assert.equal(ccRow(menu, 'Text size').children[0].className, 'qi on', 'small text kept');
   assert.equal(menu.children[0].textContent, 'Captions off', 'captions stay off');
   assert.equal(second.els['btn-cc'].classList.contains('on'), false);
+});
+
+test('stripAdCues removes the advert spliced into a subtitle track', () => {
+  // Shape taken from the real Breaking Bad S01E01 English track: the advert
+  // sits at the start and again past the runtime.
+  const vtt = [
+    'WEBVTT',
+    '',
+    '00:00:06.000 --> 00:00:12.074',
+    'Visit hoofoot.ru to watch all sports livestream and highlights for free',
+    '',
+    '00:01:09.386 --> 00:01:11.221',
+    'Oh, my god.',
+    '',
+    '00:57:13.305 --> 00:58:13.432',
+    'Visit hoofoot.ru to watch all sports livestream and highlights for free',
+    '',
+  ].join('\n');
+
+  const out = stripAdCues(vtt);
+
+  assert.equal(out.includes('hoofoot'), false, 'the advert is gone');
+  assert.equal(out.includes('Oh, my god.'), true, 'real dialogue is kept');
+  assert.equal(out.startsWith('WEBVTT'), true, 'the header survives');
+  assert.equal(out.includes('00:01:09.386 --> 00:01:11.221'), true);
+});
+
+test('stripAdCues leaves dialogue that mentions no website untouched', () => {
+  const vtt = [
+    'WEBVTT',
+    '',
+    '00:00:01.000 --> 00:00:02.000',
+    'Mr. Smith went to St. Petersburg in 1999.',
+    '',
+    '00:00:03.000 --> 00:00:04.000',
+    'It cost 3.14 dollars, e.g. about a third.',
+    '',
+  ].join('\n');
+
+  assert.equal(stripAdCues(vtt), vtt, 'no cue is dropped');
+});
+
+test('stripAdCues keeps cue identifiers and NOTE blocks', () => {
+  const vtt = [
+    'WEBVTT',
+    '',
+    'NOTE this is a note',
+    '',
+    'cue-1',
+    '00:00:01.000 --> 00:00:02.000',
+    'Hello there.',
+    '',
+    'cue-2',
+    '00:00:03.000 --> 00:00:04.000',
+    'Buy it at www.example.com now',
+    '',
+  ].join('\n');
+
+  const out = stripAdCues(vtt);
+
+  assert.equal(out.includes('NOTE this is a note'), true);
+  assert.equal(out.includes('cue-1'), true, 'the kept cue keeps its id');
+  assert.equal(out.includes('www.example.com'), false);
+  assert.equal(out.includes('Hello there.'), true);
+});
+
+test('stripAdCues returns non-VTT bodies unchanged', () => {
+  assert.equal(stripAdCues(''), '');
+  assert.equal(stripAdCues('not a subtitle'), 'not a subtitle');
+  assert.equal(stripAdCues(null), null);
+});
+
+test('handleProxyHls strips the advert from a subtitle it proxies', async () => {
+  const KEY = 'subtitle-key';
+  const HOST = 'https://everglow-stream.example.workers.dev';
+  const realFetch = globalThis.fetch;
+  const vtt = [
+    'WEBVTT',
+    '',
+    '00:00:06.000 --> 00:00:12.074',
+    'Visit hoofoot.ru to watch all sports livestream and highlights for free',
+    '',
+    '00:01:09.386 --> 00:01:11.221',
+    'Oh, my god.',
+    '',
+  ].join('\n');
+  const seen = [];
+  try {
+    globalThis.fetch = async (url) => {
+      seen.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'text/vtt' }),
+        text: async () => vtt,
+      };
+    };
+    const track = 'https://cache.vdrk.site/v1/vtt/tv/1396/1/1/English.vtt';
+    const sealed = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, track, 'fmov', KEY);
+    assert.ok(sealed, 'the track can be sealed');
+
+    const res = await handleProxyHls(new Request(sealed), { CDN_STAMP_KEY: KEY });
+
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type') || '', /text\/vtt/);
+    const body = await res.text();
+    assert.equal(body.includes('hoofoot'), false, 'the advert is gone');
+    assert.equal(body.includes('Oh, my god.'), true, 'the dialogue survives');
+    assert.deepEqual(seen, [track], 'the upstream was asked once');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
