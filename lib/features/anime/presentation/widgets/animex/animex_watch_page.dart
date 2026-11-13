@@ -468,8 +468,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     int? mappedAnilistId;
     int? mappedTmdbId;
     // ani.zip mappings are MAL-keyed — querying mal_id=0 returns nothing,
-    // which used to hide every TMDB-keyed server and leave Clair with a
-    // Megavid-only list.
+    // which used to hide every TMDB-keyed server and leave Clair with an
+    // Everglow-only list.
     final mappingsMalId = AnimeXWatchPage.resolveMappingsMalId(
       detailMalId: detail?.malId,
       routeMalId: _malId,
@@ -536,7 +536,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     }
     // ani.zip doesn't know every title (e.g. Drifting Home has no
     // themoviedb_id) — without a TMDB id every TMDB-keyed server hides
-    // and Clair is left with a Megavid-only list. Fall back to a strict
+    // and Clair is left with an Everglow-only list. Fall back to a strict
     // catalog search (exact title + kind + year, never a guess) so films
     // like that still open on Everglow.
     mappedTmdbId ??= await _searchTmdbFallback(detail);
@@ -952,7 +952,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      // Must outlast the Worker's own walk budget (EVERGLOW_BUDGET_MS, 12 s):
+      // a dead episode answers 502 only after the last upstream is tried, and
+      // a probe that gives up first leaves the failover page up with no
+      // auto-advance.
+      final response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 14));
       if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {

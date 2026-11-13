@@ -22,6 +22,9 @@ import {
   playlistDuration,
   playlistUris,
   resolveCinema,
+  resolveEverglow,
+  everglowServerLinks,
+  everglowServerList,
   resolveMegavid,
   resolvePlaylistUrl,
   resolveYumeZone,
@@ -707,6 +710,20 @@ test('validateAnimeParams accepts yumezone and rejects an unknown server', () =>
   const picked = validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'yume-5' });
   assert.equal(picked.server, 'yume-5');
 
+  // Everglow's picker can name any of the eleven, including the two direct
+  // upstreams the walk tries first. The pin has to survive validation or the
+  // documented `server=<id>` only works for nine of them.
+  for (const id of ['megaplay', 'megavid', 'yume-1']) {
+    const pin = validateAnimeParams({ source: 'everglow', anilistId: '21', ep: '1', server: id });
+    assert.equal(pin.error, undefined, id);
+    assert.equal(pin.server, id);
+  }
+  assert.match(
+    validateAnimeParams({ source: 'megaplay', anilistId: '21', ep: '1', server: 'megavid' }).error,
+    /unknown server/,
+    'a direct id belongs to Everglow only',
+  );
+
   assert.match(validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'evil' }).error, /unknown server/);
   assert.match(validateAnimeParams({ source: 'nope', anilistId: '21', ep: '1' }).error, /source must be/);
 });
@@ -727,12 +744,26 @@ test('resolveYumeZone seals the master and hands the player its server list', as
     assert.equal(sealed.p, 'yumezone');
     assert.ok(!out.src.includes('yumezone.live'), 'the upstream never reaches the browser');
 
-    // Nine lazy links back to the Worker, hardsub first, nothing resolved yet.
-    assert.equal(out.servers.length, 9);
-    assert.deepEqual(out.servers.slice(0, 3).map((s) => s.id), ['yume-1', 'yume-2', 'yume-3']);
+    // Eleven lazy links back to the Worker: MegaPlay and Megavid first,
+    // then YumeZone's hardsub servers. Nothing is resolved yet.
+    assert.equal(out.servers.length, 11);
+    assert.deepEqual(out.servers.slice(0, 4).map((s) => s.id), [
+      'megaplay',
+      'megavid',
+      'yume-1',
+      'yume-2',
+    ]);
     for (const server of out.servers) {
-      assert.equal(server.url.startsWith(`${HOST}/proxyAnime?source=yumezone&format=json`), true);
-      assert.ok(server.url.includes(`&server=${server.id}`));
+      const u = new URL(server.url);
+      assert.equal(u.origin + u.pathname, `${HOST}/proxyAnime`);
+      assert.equal(u.searchParams.get('format'), 'json');
+      if (server.id.startsWith('yume-')) {
+        assert.equal(u.searchParams.get('source'), 'yumezone');
+        assert.equal(u.searchParams.get('server'), server.id);
+      } else {
+        assert.equal(u.searchParams.get('source'), server.id);
+        assert.equal(u.searchParams.get('server'), null, 'no picker id for a direct upstream');
+      }
       assert.ok(server.label);
     }
     // Only the winning server was asked.
@@ -808,12 +839,188 @@ test('the Worker answers format=json for yumezone with the server list', async (
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.current, 'yume-1');
-    assert.equal(body.servers.length, 9);
+    assert.equal(body.servers.length, 11);
     assert.equal(await upstreamOf(new URL(body.src)), YUME_MASTER);
     assert.deepEqual(body.tracks, []);
   } finally {
     globalThis.fetch = realFetch;
     Date.now = realNow;
+  }
+});
+
+// ─── Everglow (the whole shelf) ───────────────────────────
+
+/** A fetch stub that serves MegaPlay, Megavid and YumeZone side by side, so a
+ *  walk can cross providers. `dead` names the upstreams that answer 404/500. */
+function mockShelf({ dead = [], calls = [], megavid = null, yume = null } = {}) {
+  const megavidStub = megavid || mockMegavid('https://megavid.buzz/stream/master.m3u8?token=t');
+  const yumeStub = yume || mockYume({ 'Karl - 3': yumeAnswer() }, { calls });
+  return async (url, init) => {
+    const u = String(url);
+    if (u.startsWith('https://megaplay.buzz/')) {
+      calls.push(u);
+      if (dead.includes('megaplay')) return new Response('gone', { status: 404 });
+      return new Response('no player here', { status: 200 });
+    }
+    if (u.startsWith('https://megavid.buzz/')) {
+      if (dead.includes('megavid')) {
+        calls.push(u);
+        return new Response('nope', { status: 500 });
+      }
+      return megavidStub(url, init);
+    }
+    return yumeStub(url, init);
+  };
+}
+
+test('the Everglow picker lists every stream under a warm name', () => {
+  const sub = everglowServerList('sub', { anilistId: 21 });
+  assert.deepEqual(
+    sub.slice(0, 2).map((s) => [s.id, s.label]),
+    [
+      ['megaplay', 'Nova'],
+      ['megavid', 'Iris'],
+    ],
+  );
+  assert.equal(sub.length, 11);
+  // Subbed audio leads with the hardsub Yume servers, dubbed with the
+  // softsub ones, exactly like the YumeZone walk.
+  assert.equal(sub[2].id, 'yume-1');
+  assert.equal(everglowServerList('dub', { anilistId: 21 })[2].id, 'yume-4');
+  // The provider name is ours to know: no label names an upstream.
+  for (const s of sub) assert.doesNotMatch(s.label, /mega|yume|vid/i, s.label);
+  // YumeZone keys on AniList ids only, so a MAL-only title leaves it out.
+  assert.deepEqual(
+    everglowServerList('sub', { anilistId: 0 }).map((s) => s.id),
+    ['megaplay', 'megavid'],
+  );
+});
+
+test('the Everglow picker links are lazy and point back at the Worker', () => {
+  const links = everglowServerLinks(`${HOST}/proxyMegavidHls`, {
+    anilistId: 21,
+    malId: 21,
+    ep: 3,
+    audio: 'dub',
+  });
+  assert.equal(links.length, 11);
+  assert.equal(
+    links.find((l) => l.id === 'megaplay').url,
+    `${HOST}/proxyAnime?source=megaplay&format=json&anilistId=21&malId=21&ep=3&audio=dub`,
+  );
+  assert.equal(
+    links.find((l) => l.id === 'yume-1').url,
+    `${HOST}/proxyAnime?source=yumezone&format=json&anilistId=21&malId=21&ep=3&audio=dub&server=yume-1`,
+  );
+});
+
+test('resolveEverglow walks MegaPlay, then Megavid, then YumeZone', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const calls = [];
+  globalThis.fetch = mockShelf({ dead: ['megaplay'], calls });
+  try {
+    const out = await resolveEverglow(21, 21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY);
+    assert.equal(out.server, 'megavid', 'MegaPlay is dead, so Megavid answers');
+    assert.equal(out.servers.length, 11, 'the picker still lists everything');
+    assert.equal(
+      await upstreamOf(new URL(out.src)),
+      'https://megavid.buzz/stream/master.m3u8?token=t',
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('resolveEverglow reaches YumeZone when both direct upstreams die', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const calls = [];
+  globalThis.fetch = mockShelf({ dead: ['megaplay', 'megavid'], calls });
+  try {
+    const out = await resolveEverglow(21, 21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY);
+    assert.equal(out.server, 'yume-1');
+    assert.equal(await upstreamOf(new URL(out.src)), YUME_MASTER);
+    // Only the winning Yume server was asked; the rest stay lazy.
+    assert.equal(calls.filter((u) => u.includes('/api/yume/watch/sources')).length, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('a pinned Everglow server is the only one tried, so the picker cannot lie', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const calls = [];
+  globalThis.fetch = mockShelf({ dead: ['megaplay'], calls });
+  try {
+    // MegaPlay is dead and Megavid would have answered. Pinning MegaPlay must
+    // fail instead of quietly playing Megavid.
+    await assert.rejects(
+      resolveEverglow(21, 21, 1, 'sub', 'megaplay', `${HOST}/proxyMegavidHls`, KEY),
+      /no playable stream/,
+    );
+    assert.equal(calls.filter((u) => u.includes('megavid.buzz')).length, 0);
+    await assert.rejects(
+      resolveEverglow(21, 21, 1, 'sub', 'nope', `${HOST}/proxyMegavidHls`, KEY),
+      /unknown server/,
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('resolveEverglow fails inside its budget instead of walking forever', async () => {
+  const realFetch = globalThis.fetch;
+  // A fetch that never answers but does honour the abort, like the real one.
+  globalThis.fetch = (url, init) =>
+    new Promise((_, reject) => {
+      const signal = init && init.signal;
+      if (!signal) return;
+      if (signal.aborted) reject(new Error('aborted'));
+      else signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+    });
+  try {
+    const started = Date.now();
+    await assert.rejects(
+      resolveEverglow(21, 21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY, { budgetMs: 50 }),
+      /no playable stream/,
+    );
+    assert.ok(Date.now() - started < 1000);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('the Worker answers format=json for everglow with the whole shelf', async () => {
+  const realFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = mockShelf({ dead: ['megaplay'], calls });
+  try {
+    const u = new URL(`${HOST}/proxyAnime`);
+    u.searchParams.set('source', 'everglow');
+    u.searchParams.set('anilistId', '21');
+    u.searchParams.set('malId', '21');
+    u.searchParams.set('ep', '1');
+    u.searchParams.set('audio', 'sub');
+    u.searchParams.set('format', 'json');
+    const res = await handleProxyAnime(new Request(u.toString()), { CDN_STAMP_KEY: KEY });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.current, 'megavid', 'the picker knows which one is playing');
+    assert.equal(body.servers.length, 11);
+    assert.equal(
+      await upstreamOf(new URL(body.src)),
+      'https://megavid.buzz/stream/master.m3u8?token=t',
+    );
+  } finally {
+    globalThis.fetch = realFetch;
   }
 });
 
@@ -1052,6 +1259,11 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
       listeners: {}, addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
       dispatch(e, data) { for (const h of this.listeners[e] || []) h(data); },
       appendChild(c) { this.children.push(c); },
+      removeChild(c) {
+        const at = this.children.indexOf(c);
+        if (at >= 0) this.children.splice(at, 1);
+        return c;
+      },
       getBoundingClientRect: () => ({ x: 0, y: 0, width: 100, height: 10, left: 0 }),
       setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
     };
@@ -1205,6 +1417,155 @@ test('picking a server swaps the source and keeps the playhead', async () => {
   v.currentTime = 0;
   for (const h of v.listeners.loadedmetadata || []) h();
   assert.equal(v.currentTime, 42, 'the playhead is restored after the swap');
+});
+
+test('a pick swaps the captions with the source, never leaving stale tracks', async () => {
+  // MegaPlay ships WebVTT captions; YumeZone ships ASS/SRT and has none. A
+  // pick that kept the old <track> elements would list English over a stream
+  // that cannot show it, and picking it would render nothing.
+  const oldTrack = { kind: 'captions', label: 'English', src: 'https://x/English.vtt' };
+  const { els, v } = runPlayerDom({
+    tracks: [],
+    trackEls: [oldTrack],
+    current: 'megaplay',
+    servers: [
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({ src: 'https://w/proxyMegavidHls?t=swapped', tracks: [] }),
+    }),
+  });
+  v.children.push(oldTrack);
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.deepEqual(v.children, [], 'the old captions went with the old source');
+});
+
+test('a pick attaches the new source\'s captions', async () => {
+  const { els, v } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({
+        src: 'https://w/proxyMegavidHls?t=swapped',
+        tracks: [{ file: 'https://w/proxyMegavidHls?t=sub', label: 'English' }],
+      }),
+    }),
+  });
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(v.children.length, 1, 'one track for the new source');
+  assert.equal(v.children[0].src, 'https://w/proxyMegavidHls?t=sub');
+  assert.equal(v.children[0].label, 'English');
+  assert.equal(v.children[0].kind, 'captions');
+});
+
+test('a pick keeps her caption language when the new source still has it', async () => {
+  // Tapping the server she is already on is a retry, not a reason to drop
+  // her from Spanish back to the first track.
+  const store = new Map();
+  const { els, v } = runPlayerDom({
+    tracks: ['English', 'Spanish'],
+    trackEls: [],
+    store,
+    current: 'megaplay',
+    servers: [
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+      { id: 'megavid', label: 'Iris', url: 'https://w/p?server=megavid' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({
+        src: 'https://w/proxyMegavidHls?t=swapped',
+        tracks: [
+          { file: 'https://w/a.vtt', label: 'English' },
+          { file: 'https://w/b.vtt', label: 'Spanish' },
+        ],
+      }),
+    }),
+  });
+
+  els['btn-cc'].dispatch('click');
+  const spanish = els['cc-menu'].children.find((c) => c.textContent === 'Spanish');
+  assert.ok(spanish, 'the language row is there to pick');
+  spanish.onclick();
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[0].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  // syncCues enables the picked track and disables the rest, so the modes are
+  // what she would actually see after the retry.
+  assert.equal(v.textTracks[1].mode, 'hidden', 'Spanish is still the live track');
+  assert.equal(v.textTracks[0].mode, 'disabled', 'English did not take over');
+  const prefs = JSON.parse(store.get('everglow.player.prefs'));
+  assert.equal(prefs.lang, 1, 'the pick and the persisted language agree');
+});
+
+test('a pick onto a source with no captions keeps her remembered language', async () => {
+  // YumeZone ships ASS/SRT, so its streams arrive with no <track> at all. That
+  // must not wipe the language she picked on a source that has captions.
+  const store = new Map();
+  const { els } = runPlayerDom({
+    tracks: ['English', 'Spanish'],
+    trackEls: [],
+    store,
+    current: 'megaplay',
+    servers: [
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({ src: 'https://w/proxyMegavidHls?t=swapped', tracks: [] }),
+    }),
+  });
+
+  els['btn-cc'].dispatch('click');
+  els['cc-menu'].children.find((c) => c.textContent === 'Spanish').onclick();
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  const prefs = JSON.parse(store.get('everglow.player.prefs'));
+  assert.equal(prefs.lang, 1, 'the caption-less source did not erase her language');
+});
+
+test('a pick marks default on the first caption it actually attaches', async () => {
+  // The server-rendered markup marks `default` on the first track with a
+  // file, so the swap has to skip a fileless entry the same way.
+  const { els, v } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({
+        src: 'https://w/proxyMegavidHls?t=swapped',
+        tracks: [{ label: 'Broken' }, { file: 'https://w/b.vtt', label: 'English' }],
+      }),
+    }),
+  });
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(v.children.length, 1, 'the fileless entry is skipped');
+  assert.equal(v.children[0].default, true, 'the one it attached is the default');
 });
 
 test('a failed server pick stays in the player and never condemns the server', async () => {

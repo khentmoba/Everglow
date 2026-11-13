@@ -17,6 +17,7 @@ import {
   fmovHeaders,
   vidboltHeaders,
   resolveCinema,
+  resolveEverglow,
   resolveMegaPlay,
   resolveMegavid,
   resolveYumeZone,
@@ -104,12 +105,23 @@ async function handleProxyAnime(request, env) {
         base,
         key,
       );
-    } else if (params.source === 'megaplay' || params.source === 'everglow') {
+    } else if (params.source === 'megaplay') {
       out = await resolveMegaPlay(
         params.anilistId,
         params.malId,
         params.ep,
         params.audio,
+        base,
+        key,
+      );
+    } else if (params.source === 'everglow') {
+      // The whole shelf, in one row. `server=` pins the picker's choice.
+      out = await resolveEverglow(
+        params.anilistId,
+        params.malId,
+        params.ep,
+        params.audio,
+        params.server,
         base,
         key,
       );

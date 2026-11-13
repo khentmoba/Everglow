@@ -236,13 +236,11 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 8);
+      expect(servers.length, 6);
       expect(
         servers.map((s) => s.name),
         [
           'Everglow',
-          'Megavid',
-          'Yume',
           'CineSrc',
           'TryEmbed',
           'VidCore',
@@ -258,29 +256,7 @@ void main() {
       expect(
         servers[0].urlBuilder(1, 'sub'),
         'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=megaplay&anilistId=21&malId=21&ep=1&audio=sub',
-      );
-
-      // Megavid plays through our ad-free resolver, never the
-      // provider's website embed.
-      expect(servers[1].name, 'Megavid');
-      expect(servers[1].available, isTrue);
-      expect(
-        servers[1].urlBuilder(1, 'sub'),
-        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
-      );
-
-      // Yume is the third resolver-backed server. It keys on AniList ids
-      // only, and its own nine upstreams live in the in-page picker.
-      final yume = byName(servers, 'Yume');
-      expect(yume.available, isTrue);
-      expect(yume.supportsSeek, isTrue);
-      expect(yume.supportsResume, isTrue);
-      expect(
-        yume.urlBuilder(1, 'sub'),
-        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=yumezone&anilistId=21&ep=1&audio=sub',
+        '?source=everglow&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
       expect(byName(servers, 'CineSrc').available, isTrue);
@@ -300,8 +276,6 @@ void main() {
       // or shell is Ad-free, a third-party player is an Embed. Named rather
       // than indexed so inserting a server does not renumber the assertions.
       expect(byName(servers, 'Everglow').tag, 'Ad-free');
-      expect(byName(servers, 'Megavid').tag, 'Ad-free');
-      expect(byName(servers, 'Yume').tag, 'Ad-free');
       expect(byName(servers, 'CineSrc').tag, 'Ad-free');
       expect(byName(servers, 'TryEmbed').tag, 'Embed');
       expect(servers.every((s) => s.tag.isNotEmpty), isTrue);
@@ -325,22 +299,23 @@ void main() {
       );
     });
 
-    test('buildServers points Megavid at our ad-free resolver', () {
+    test('buildServers keeps every resolver-backed stream in one row', () {
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
         tmdbId: 37854,
       );
-      // Episode and dub ride the query string the function validates.
+      // MegaPlay, Megavid and YumeZone's nine all live behind Everglow's
+      // in-player picker, so they cost one row instead of eleven. Episode
+      // and dub ride the query string the function validates.
       expect(
-        servers[1].urlBuilder(2, 'dub'),
+        byName(servers, 'Everglow').urlBuilder(2, 'dub'),
         'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=megavid&anilistId=21&malId=21&ep=2&audio=dub',
+        '?source=everglow&anilistId=21&malId=21&ep=2&audio=dub',
       );
       expect(
-        byName(servers, 'Yume').urlBuilder(2, 'dub'),
-        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=yumezone&anilistId=21&ep=2&audio=dub',
+        servers.where((s) => s.name == 'Megavid' || s.name == 'Yume'),
+        isEmpty,
       );
     });
 
@@ -350,24 +325,14 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 8);
+      expect(servers.length, 6);
 
       expect(servers[0].name, 'Everglow');
       expect(
         servers[0].urlBuilder(3, 'sub'),
         'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=megaplay&anilistId=0&malId=52991&ep=3&audio=sub',
+        '?source=everglow&anilistId=0&malId=52991&ep=3&audio=sub',
       );
-
-      expect(servers[1].name, 'Megavid');
-      expect(
-        servers[1].urlBuilder(3, 'sub'),
-        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
-      );
-
-      // YumeZone keys on AniList ids only, so it is hidden without one.
-      expect(byName(servers, 'Yume').available, isFalse);
 
       expect(byName(servers, 'CineSrc').name, 'CineSrc');
       expect(
@@ -403,7 +368,6 @@ void main() {
       // MAL-only routes still get every MAL-keyed server.
       for (final name in [
         'Everglow',
-        'Megavid',
         'CineSrc',
         'TryEmbed',
         'VidCore',
@@ -447,8 +411,6 @@ void main() {
         servers.map((s) => s.name),
         [
           'Everglow',
-          'Megavid',
-          'Yume',
           'CineSrc',
           'TryEmbed',
           'VidCore',
@@ -464,7 +426,7 @@ void main() {
         malId: 16498,
       );
 
-      for (final name in ['Everglow', 'Megavid', 'Yume', 'TryEmbed']) {
+      for (final name in ['Everglow', 'TryEmbed']) {
         expect(byName(servers, name).available, isTrue, reason: name);
       }
       for (final name in ['CineSrc', 'VidCore', 'Rive', 'Fmov']) {
@@ -488,7 +450,7 @@ void main() {
         tmdbId: 877957,
         isMovie: true,
       );
-      expect(servers.length, 8);
+      expect(servers.length, 6);
       expect(byName(servers, 'CineSrc').name, 'CineSrc');
       expect(byName(servers, 'CineSrc').available, isTrue);
       expect(
@@ -688,7 +650,7 @@ void main() {
     test('resolveMappingsMalId prefers the AniList detail MAL id', () {
       // The reported bug: route carries only an AniList id (slot reads
       // 0), so mappings must use the MAL id from the AniList detail —
-      // otherwise ani.zip returns nothing and only Megavid shows.
+      // otherwise ani.zip returns nothing and only Everglow shows.
       expect(
         AnimeXWatchPage.resolveMappingsMalId(
           detailMalId: 21,
@@ -722,7 +684,7 @@ void main() {
       );
     });
 
-    test('defaultServerIndex prefers the account-tracked Megavid player', () {
+    test('defaultServerIndex prefers the account-tracked Everglow player', () {
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
@@ -731,7 +693,7 @@ void main() {
       // Fresh visits use the player with progress and resume support.
       expect(
         AnimeXWatchPage.defaultServerIndex(servers),
-        1,
+        0,
       );
       // An explicit remembered choice still wins.
       expect(
@@ -739,21 +701,23 @@ void main() {
           servers,
           rememberedServer: 'CineSrc',
         ),
-        3,
+        1,
       );
+      // Megavid and Yume now live inside Everglow's picker, so a remembered
+      // choice for either reopens the row that holds them.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
           rememberedServer: 'Yume',
         ),
-        2,
+        0,
       );
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
           rememberedServer: 'Megavid',
         ),
-        1,
+        0,
       );
       // Saved 'MegaPlay' normalizes to 'Everglow'.
       expect(
@@ -764,13 +728,13 @@ void main() {
         0,
       );
       // A remembered server that no longer exists (AniXo, VidLink)
-      // falls back to Megavid, never to a dead entry.
+      // falls back to Everglow, never to a dead entry.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
           rememberedServer: 'AniXo',
         ),
-        1,
+        0,
       );
       // When only CineSrc is available (e.g. no AniList or MAL source):
       final tmdbOnly = AnimeXWatchPage.buildServers(
@@ -780,9 +744,9 @@ void main() {
       );
       expect(
         AnimeXWatchPage.defaultServerIndex(tmdbOnly),
-        3,
+        1,
       );
-      expect(tmdbOnly[3].name, 'CineSrc');
+      expect(tmdbOnly[1].name, 'CineSrc');
       // Nothing available yet — index 0 until _load resolves.
       final none = AnimeXWatchPage.buildServers(
         anilistId: null,
@@ -924,7 +888,7 @@ void main() {
       // Server 2 (VidLink) was removed, but old saved choices still
       // normalize here and fall back to the first available server.
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'VidLink');
-      expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
+      expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Everglow');
       // Prior spellings map forward so remembered choices survive.
       expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName('MegaPlay'), 'Everglow');
@@ -935,7 +899,10 @@ void main() {
       // so an old saved preference renders as its raw string, never as
       // a server that no longer exists.
       expect(AnimeXWatchPage.normalizeServerName('Server 4'), 'Server 4');
-      expect(AnimeXWatchPage.normalizeServerName('Megavid'), 'Megavid');
+      // Megavid and Yume are streams inside Everglow now, not rows of
+      // their own, so a remembered choice reopens Everglow.
+      expect(AnimeXWatchPage.normalizeServerName('Megavid'), 'Everglow');
+      expect(AnimeXWatchPage.normalizeServerName('Yume'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName(''), '');
       expect(AnimeXWatchPage.normalizeServerName(null), '');
     });
@@ -1069,21 +1036,24 @@ void main() {
       await tester.pump();
 
       // VidLink and AniXo were removed: VidLink 404s sitewide since
-      // Sep 2026, and AniXo is a bot-gated relay over MegaPlay.
+      // Sep 2026, and AniXo is a bot-gated relay over MegaPlay. Megavid
+      // and Yume are streams inside Everglow's own picker now, so they
+      // are not rows here either.
       expect(find.text('VidLink'), findsNothing);
       expect(find.text('AniXo'), findsNothing);
+      expect(find.text('Megavid'), findsNothing);
+      expect(find.text('Yume'), findsNothing);
       // No TMDB mapping resolves in tests, so CineSrc hides and the
-      // visible row matches the Everglow / Megavid order.
+      // visible row matches the Everglow order.
       expect(find.text('Everglow'), findsOneWidget);
-      expect(find.text('Megavid'), findsOneWidget);
       // The CineSrc wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.
       expect(find.text('CineSrc'), findsNothing);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Megavid'));
-      await tester.tap(find.text('Megavid'));
+      await tester.ensureVisible(find.text('Everglow'));
+      await tester.tap(find.text('Everglow'));
       await tester.pump();
 
       await tester.ensureVisible(find.text('DUB'));
@@ -1139,7 +1109,6 @@ void main() {
       }
 
       await expectClickCursor('Everglow');
-      await expectClickCursor('Megavid');
       await expectClickCursor('SUB');
       await expectClickCursor('DUB');
 
@@ -1715,7 +1684,7 @@ void main() {
       expect(
         servers.first.urlBuilder(1, 'sub'),
         'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
-        '?source=megaplay&anilistId=127720&malId=45576&ep=1&audio=sub',
+        '?source=everglow&anilistId=127720&malId=45576&ep=1&audio=sub',
       );
       expect(
         servers.firstWhere((s) => s.name == 'CineSrc').urlBuilder(1, 'sub'),

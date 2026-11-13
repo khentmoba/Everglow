@@ -355,7 +355,7 @@ void main() {
       tmdbId: 44,
     );
     final ownEmbed = servers.firstWhere((s) => s.name == 'CineSrc');
-    final direct = servers.firstWhere((s) => s.name == 'Megavid');
+    final direct = servers.firstWhere((s) => s.name == 'Everglow');
     final everglow = servers.firstWhere((s) => s.name == 'Everglow');
     final external = servers.firstWhere((s) => s.name == 'TryEmbed');
     expect(ownEmbed.supportsAudioSelection, false);
