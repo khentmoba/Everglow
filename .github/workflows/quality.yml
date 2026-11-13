@@ -4,11 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
   workflow_dispatch:
-    inputs:
-      preview:
-        description: Publish this branch's successful web build as a temporary preview
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -134,13 +129,6 @@ jobs:
         run: |
           "$CHROME_PATH" --version
           node tool/agent_smoke.mjs build/web
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web-${{ github.sha }}
-          path: build/web
-          if-no-files-found: error
-          retention-days: 3
-          overwrite: true
 
   functions:
     needs: changes
@@ -171,33 +159,3 @@ jobs:
           npx --yes firebase-tools@15 emulators:exec --only firestore,storage
           --config firebase.emulators.json --project demo-everglow
           "node --test functions/security_rules.emulator.test.js"
-
-  preview:
-    needs: [changes, web_build]
-    if: >-
-      needs.web_build.result == 'success' &&
-      ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'workflow_dispatch' && inputs.preview))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      checks: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-${{ github.sha }}
-          path: build/web
-      # Same-repo PRs only; forks have a keyless build but no deployment secrets.
-      - name: Deploy preview channel
-        uses: FirebaseExtended/action-hosting-deploy@v0.9.0
-        env:
-          NODE_OPTIONS: '--no-warnings'
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
-          projectId: everglow-1c6db
-          channelId: pr-${{ github.event.pull_request.number || github.run_id }}
-          expires: 12h
