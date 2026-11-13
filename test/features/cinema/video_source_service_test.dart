@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 import 'package:everglow/features/cinema/data/services/video_source_service.dart';
 
-/// A stale remote config: the four servers retired on 2026-10-04 are still
-/// listed, and VidBolt/VidLink still carry `sandboxSafe: true` — which is
-/// exactly what made them answer "Playback Disabled" / "Please Disable
-/// Sandbox" instead of streaming.
+/// A stale remote config: every retired server is still listed, and VidLink
+/// still carries `sandboxSafe: true` — which is exactly what made it answer
+/// "Please Disable Sandbox" instead of streaming.
+///
+/// `admirror` stands in for any ad-heavy provider so the ordering rule stays
+/// under test without depending on a real server that happens to be alive.
 const staleRemote = <VideoSourceConfig>[
   VideoSourceConfig(
     id: 'everglow-embed',
@@ -44,12 +46,25 @@ const staleRemote = <VideoSourceConfig>[
     sandboxSafe: true,
   ),
   VideoSourceConfig(
-    id: 'vidlink',
-    name: 'VidLink',
-    shortName: 'VidLink',
-    movieUrl: 'https://vidlink.pro/movie/',
-    tvUrl: 'https://vidlink.pro/tv/',
-    sandboxSafe: true,
+    id: 'vsembed',
+    name: 'VsEmbed',
+    shortName: 'VsEmbed',
+    movieUrl: 'https://vsembed.ru/embed/movie/',
+    tvUrl: 'https://vsembed.ru/embed/',
+  ),
+  VideoSourceConfig(
+    id: 'vidrock',
+    name: 'VidRock',
+    shortName: 'VidRock',
+    movieUrl: 'https://vidrock.ru/movie/',
+    tvUrl: 'https://vidrock.ru/tv/',
+  ),
+  VideoSourceConfig(
+    id: 'vidsrc',
+    name: 'VidSrc',
+    shortName: 'VidSrc',
+    movieUrl: 'https://vidsrc.to/embed/movie/',
+    tvUrl: 'https://vidsrc.to/embed/tv/',
   ),
   VideoSourceConfig(
     id: '111movies',
@@ -57,6 +72,21 @@ const staleRemote = <VideoSourceConfig>[
     shortName: '111Movies',
     movieUrl: 'https://111movies.com/movie/',
     tvUrl: 'https://111movies.com/tv/',
+    sandboxSafe: true,
+  ),
+  VideoSourceConfig(
+    id: 'multiembed',
+    name: 'MultiEmbed',
+    shortName: 'MultiEmbed',
+    movieUrl: 'https://multiembed.mov/?video_id=',
+    tvUrl: 'https://multiembed.mov/?video_id=',
+  ),
+  VideoSourceConfig(
+    id: 'vidlink',
+    name: 'VidLink',
+    shortName: 'VidLink',
+    movieUrl: 'https://vidlink.pro/movie/',
+    tvUrl: 'https://vidlink.pro/tv/',
     sandboxSafe: true,
   ),
   VideoSourceConfig(
@@ -69,18 +99,11 @@ const staleRemote = <VideoSourceConfig>[
     sandboxSafe: true,
   ),
   VideoSourceConfig(
-    id: 'vidsrc',
-    name: 'VidSrc',
-    shortName: 'VidSrc',
-    movieUrl: 'https://vidsrc.to/embed/movie/',
-    tvUrl: 'https://vidsrc.to/embed/tv/',
-  ),
-  VideoSourceConfig(
-    id: 'multiembed',
-    name: 'MultiEmbed',
-    shortName: 'MultiEmbed',
-    movieUrl: 'https://multiembed.mov/?video_id=',
-    tvUrl: 'https://multiembed.mov/?video_id=',
+    id: 'admirror',
+    name: 'AdMirror',
+    shortName: 'AdMirror',
+    movieUrl: 'https://admirror.example/movie/',
+    tvUrl: 'https://admirror.example/tv/',
   ),
 ];
 
@@ -91,23 +114,30 @@ void main() {
           .map((p) => p.id)
           .toList();
 
-      expect(ids, isNot(contains('videasy')));
-      expect(ids, isNot(contains('movish')));
-      expect(ids, isNot(contains('111movies')));
-      expect(ids, isNot(contains('multiembed')));
+      for (final dead in [
+        'videasy',
+        'movish',
+        '111movies',
+        'multiembed',
+        'vidbolt',
+        'vidrock',
+        'vsembed',
+        'vidsrc',
+      ]) {
+        expect(ids, isNot(contains(dead)), reason: '$dead is retired');
+      }
       expect(
         ids,
         // No-ads group first (input order kept), ad-heavy mirrors last.
-        ['everglow-embed', 'vidbolt', 'vidlink', 'vidcore', 'vidsrc'],
+        ['everglow-embed', 'vidlink', 'vidcore', 'admirror'],
       );
     });
 
-    test('clears sandboxSafe on the servers that refuse a sandbox', () {
+    test('clears sandboxSafe on the server that refuses a sandbox', () {
       final byId = {
         for (final p in VideoSourceService.currentList(staleRemote)) p.id: p,
       };
 
-      expect(byId['vidbolt']!.sandboxSafe, isFalse);
       expect(byId['vidlink']!.sandboxSafe, isFalse);
       // Untouched: VidCore and Everglow both stream fine inside a sandbox.
       expect(byId['vidcore']!.sandboxSafe, isTrue);
@@ -118,12 +148,12 @@ void main() {
       final byId = {
         for (final p in VideoSourceService.currentList(staleRemote)) p.id: p,
       };
-      final vidbolt = byId['vidbolt']!;
+      final vidcore = byId['vidcore']!;
 
-      expect(vidbolt.name, 'VidBolt');
-      expect(vidbolt.movieUrl, 'https://vidbolt.xyz/movie/');
-      expect(vidbolt.tvUrl, 'https://vidbolt.xyz/tv/');
-      expect(vidbolt.isRecommended, isTrue);
+      expect(vidcore.name, 'VidCore');
+      expect(vidcore.movieUrl, 'https://vidcore.org/embed/movie/');
+      expect(vidcore.tvUrl, 'https://vidcore.org/embed/tv/');
+      expect(vidcore.isRecommended, isTrue);
     });
 
     test('still groups no-ads providers above ad-heavy mirrors', () {
@@ -131,10 +161,10 @@ void main() {
           .map((p) => p.id)
           .toList();
 
-      // vidsrc is ad-heavy, so it sorts last even though the remote list
+      // admirror is ad-heavy, so it sorts last even though the remote list
       // placed it earlier.
-      expect(ids.last, 'vidsrc');
-      expect(ids.indexOf('vidbolt'), lessThan(ids.indexOf('vidsrc')));
+      expect(ids.last, 'admirror');
+      expect(ids.indexOf('vidcore'), lessThan(ids.indexOf('admirror')));
     });
   });
 
@@ -142,18 +172,26 @@ void main() {
     test('offers no retired server from the hardcoded fallback', () {
       final ids = VideoSourceService().providers.map((p) => p.id).toList();
 
-      expect(ids, isNot(contains('videasy')));
-      expect(ids, isNot(contains('movish')));
-      expect(ids, isNot(contains('111movies')));
-      expect(ids, isNot(contains('multiembed')));
+      for (final dead in [
+        'videasy',
+        'movish',
+        '111movies',
+        'multiembed',
+        'vidbolt',
+        'vidrock',
+        'vsembed',
+        'vidsrc',
+      ]) {
+        expect(ids, isNot(contains(dead)), reason: '$dead is retired');
+      }
+      expect(ids, ['everglow-embed', 'vidcore', 'vidlink']);
     });
 
-    test('leaves VidBolt and VidLink unsandboxed', () {
+    test('leaves VidLink unsandboxed', () {
       final byId = {
         for (final p in VideoSourceService().providers) p.id: p,
       };
 
-      expect(byId['vidbolt']!.sandboxSafe, isFalse);
       expect(byId['vidlink']!.sandboxSafe, isFalse);
     });
   });
