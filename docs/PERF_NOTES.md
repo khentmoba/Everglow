@@ -43,6 +43,18 @@ These changes do not close the real-device targets above.
   checks that phone decoration schedules no continuing animation frames and
   that tablet motion returns after resizing. These are scheduling checks, not
   measurements of battery use or iPhone presentation FPS.
+- Dashboard `DeferredSection` (`lib/features/dashboard/presentation/widgets/deferred_section.dart`)
+  supports `warmWhenIdle: true` on `DashboardScreen`, warming below-viewport
+  sections one frame at a time after `250 ms` of stillness (`16 ms` gap,
+  pausing on any scroll and skipping sections above the viewport so visible
+  content never shifts).
+  - Tradeoff: all 21 dashboard sections and their streams/tickers now mount
+    shortly after open when idle instead of staying deferred until scroll.
+  - Probe (`node tool/perf/probe_scroll.mjs`, 430x932 @3x, CPU 4x, default
+    2.5s settle, headless Chrome CanvasKit): `worstFrame` `641.4 ms -> 425.8 ms`,
+    `worstBuild` `506.6 ms -> 329.9 ms`, `worstRaster` `268.7 ms -> 211.0 ms`,
+    frames > 200 ms `20 -> 4`, `longTaskMax` `2866 ms -> 1508 ms`. Desktop
+    headless Chrome is not a phone FPS guarantee.
 - `DeferredSection` defers offscreen dashboard content, with finite lists and
   coalesced geometry checks. Tests: `test/deferred_section_test.dart` and
   `test/core/perf/scroll_jank_benchmark_test.dart`.
@@ -258,7 +270,8 @@ and photo viewers keep deliberate exceptions.
   or `CustomPaint(repaint:)`.
 - Decorative layers use `RepaintBoundary`, `ExcludeSemantics`, `IgnorePointer`,
   background pause and a reduced-motion static state.
-- Keep web blur bounded/disabled; offscreen animated sections stay deferred.
+- Keep web blur bounded/disabled; keep frame-1 offscreen sections deferred and
+  warm them one-by-one when idle (`warmWhenIdle`) rather than in a scroll burst.
 - Preserve appearance and pacing unless a device A/B supports the change.
 
 ### Live data and privacy

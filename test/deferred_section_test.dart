@@ -43,6 +43,7 @@ Widget harness({
   int sections = 20,
   int deferMs = 0,
   ScrollController? controller,
+  bool warm = false,
 }) {
   return MaterialApp(
     home: CustomScrollView(
@@ -53,6 +54,7 @@ Widget harness({
             child: DeferredSection(
               placeholderHeight: 400,
               deferMs: deferMs,
+              warmWhenIdle: warm,
               child: _Section(id: i, built: built),
             ),
           ),
@@ -545,6 +547,140 @@ void main() {
     expect(built, isNot(contains(19)));
     expect(built.length, lessThanOrEqualTo(4));
   });
+
+  testWidgets('a still page warms every section, one at a time', (
+    tester,
+  ) async {
+    final built = <int>{};
+    await tester.pumpWidget(harness(built: built, warm: true));
+    await tester.pump();
+    final visible = Set<int>.of(built);
+    expect(built, isNot(contains(19)));
+
+    await tester.pump(DeferredSection.warmIdleDelay);
+    var guard = 0;
+    while (built.length < 20 && guard++ < 60) {
+      final count = built.length;
+      await tester.pump(DeferredSection.warmGap);
+      expect(built.length - count, lessThanOrEqualTo(1));
+    }
+    expect(built.length, 20);
+    expect(built, containsAll(visible));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('scrolling pauses the warm-up until the page is still', (
+    tester,
+  ) async {
+    final built = <int>{};
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      harness(built: built, controller: controller, warm: true),
+    );
+    await tester.pump();
+    // Keep moving faster than the stillness delay for several seconds.
+    for (var i = 0; i < 12; i++) {
+      controller.jumpTo(i.isEven ? 10 : 0);
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(built, isNot(contains(19)), reason: 'no warm-up mid-scroll');
+
+    await tester.pump(DeferredSection.warmIdleDelay);
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(DeferredSection.warmGap);
+    }
+    expect(built, contains(19));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('leaving the page cancels a pending warm-up', (tester) async {
+    final built = <int>{};
+    await tester.pumpWidget(harness(built: built, warm: true));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(const SizedBox.shrink());
+    // flutter_test fails the test if a warm-up timer is still pending here.
+    await tester.pump(DeferredSection.warmIdleDelay * 2);
+    expect(built, isNot(contains(19)));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'idle warm-up skips sections above the viewport so on-screen content never shifts',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final built = <int>{};
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final keys = List.generate(20, (_) => GlobalKey());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CustomScrollView(
+            controller: controller,
+            slivers: [
+              for (var i = 0; i < 20; i++)
+                SliverToBoxAdapter(
+                  child: KeyedSubtree(
+                    key: keys[i],
+                    child: DeferredSection(
+                      placeholderHeight: 400,
+                      warmWhenIdle: true,
+                      child: SizedBox(
+                        height: 700,
+                        child: _Section(id: i, built: built),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Fling past the top sections so some sit unbuilt above the viewport.
+      (controller.position as ScrollPositionWithSingleContext).goBallistic(6000);
+      await tester.pump(const Duration(milliseconds: 200));
+      (controller.position as ScrollPositionWithSingleContext).goIdle();
+      await tester.pump();
+
+      // Pick an on-screen section and record its global top.
+      int? onScreenIndex;
+      double? beforeTop;
+      for (var i = 0; i < 20; i++) {
+        final box = keys[i].currentContext?.findRenderObject() as RenderBox?;
+        if (box != null && box.attached && box.hasSize) {
+          final dy = box.localToGlobal(Offset.zero).dy;
+          if (dy >= 0 && dy < 932) {
+            onScreenIndex = i;
+            beforeTop = dy;
+            break;
+          }
+        }
+      }
+      expect(onScreenIndex, isNotNull);
+
+      // Let idle warm-up run to completion.
+      await tester.pump(DeferredSection.warmIdleDelay);
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(DeferredSection.warmGap);
+      }
+
+      final afterBox =
+          keys[onScreenIndex!].currentContext?.findRenderObject() as RenderBox?;
+      final afterTop = afterBox!.localToGlobal(Offset.zero).dy;
+      expect(afterTop, beforeTop);
+      // Sections below the viewport still warmed.
+      expect(built, contains(19));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('a section that scrolls into range builds, and only once', (
     tester,
