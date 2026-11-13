@@ -10,7 +10,7 @@ import {
 	verifySignals,
 	type GateData,
 	type GateState,
-} from "./verify_gate_rules.ts";
+} from "./rules.ts";
 
 function run(entries: GateData[]): GateState {
 	const state = createState();

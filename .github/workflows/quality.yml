@@ -42,7 +42,7 @@ jobs:
       - name: Verify gate rules
         run: >-
           node --experimental-strip-types --test
-          .pi/extensions/verify_gate_rules.test.ts
+          .pi/extensions/everglow_verify_gate/rules.test.ts
       - name: Enforce ready PR evidence and verification declarations
         if: github.event_name == 'pull_request'
         run: node tool/ci/pr_contract.mjs

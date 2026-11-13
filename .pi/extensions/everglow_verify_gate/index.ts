@@ -17,8 +17,9 @@
  *      the diff can make: `flutter analyze` + `flutter test` for Dart,
  *      `npm run verify` for functions/. (Rule 2: evidence matches the claim.)
  *
- * The rules live in verify_gate_rules.ts so `node --test` can exercise them
- * without the pi runtime.
+ * The rules live in rules.ts so `node --test` can exercise them without the
+ * pi runtime. Keep helpers in this directory: pi loads every top-level file
+ * in `.pi/extensions/` as an extension, so a bare module there fails startup.
  *
  * Design notes:
  *   - State is rebuilt from persisted session entries, so fork/resume/
@@ -42,7 +43,7 @@ import {
 	verifySignals,
 	type GateData,
 	type GateState,
-} from "./verify_gate_rules.ts";
+} from "./rules.ts";
 
 const CUSTOM_TYPE = "everglow-verify-gate";
 

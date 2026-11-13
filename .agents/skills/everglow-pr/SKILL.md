@@ -216,7 +216,7 @@ chat reply disappears when the thread settles; the PR body stays.
 ## Definition of done — proof over confidence
 
 Pi agents get mechanical reminders of the first three rules from
-`.pi/extensions/everglow_verify_gate.ts`, but every rule below applies
+`.pi/extensions/everglow_verify_gate/index.ts`, but every rule below applies
 to every agent, with or without it. CI judges green output — these
 rules judge honesty:
 
