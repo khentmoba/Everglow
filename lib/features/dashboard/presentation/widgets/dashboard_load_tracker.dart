@@ -8,10 +8,9 @@ import 'package:flutter/foundation.dart';
 /// state. Never on a guess, a timer, or a retry that is still in flight.
 ///
 /// Honesty rule (learned from the old boot veil): 100% means "the first
-/// screen is ready". Sections below the fold load on scroll by design
-/// ([DeferredSection]) and are deliberately NOT counted — no amount of
-/// waiting can preload them, so counting them would stall the percent
-/// or force a long fake wait.
+/// screen is ready". Sections below the fold ([DeferredSection]) are excluded
+/// from the boot percentage so frame 1 stays light, even though `warmWhenIdle`
+/// warms below-viewport sections one-by-one once the page sits still.
 abstract final class DashboardLoadSignal {
   static const String auth = 'auth';
   static const String memories = 'memories';

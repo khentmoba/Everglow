@@ -319,11 +319,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       return SliverToBoxAdapter(
         child: DashboardPair(
           left: DeferredSection(
+            warmWhenIdle: true,
             placeholderHeight: placeholderHeight,
             deferMs: deferMs,
             child: child.left,
           ),
           right: DeferredSection(
+            warmWhenIdle: true,
             placeholderHeight: placeholderHeight,
             deferMs: deferMs + 60,
             child: child.right,
@@ -347,6 +349,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
     return SliverToBoxAdapter(
       child: DeferredSection(
+        warmWhenIdle: true,
         placeholderHeight: placeholderHeight,
         deferMs: deferMs,
         child: animated,
@@ -373,6 +376,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           children: [
             Expanded(
               child: DeferredSection(
+                warmWhenIdle: true,
                 placeholderHeight: leftPlaceholderHeight,
                 deferMs: leftDeferMs,
                 child: left,
@@ -381,6 +385,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(width: 12),
             Expanded(
               child: DeferredSection(
+                warmWhenIdle: true,
                 placeholderHeight: rightPlaceholderHeight,
                 deferMs: rightDeferMs,
                 child: right,
