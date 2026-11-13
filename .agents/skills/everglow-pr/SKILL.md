@@ -63,6 +63,15 @@ Run these in order. Red locally means don't open the PR yet:
 5. If you touched `functions/`: `cd functions`, then `npm ci` and
    `npm run verify` (the same lint, tests, syntax, eval, and production audit
    gate used by Quality and deployment).
+6. If you touched `cloudflare/`: `cd cloudflare`, `npm ci`, `npm test`,
+   then `npm run smoke`. Mocked tests cannot see what an upstream sends a
+   datacenter (Vidrock, #595); the smoke plays real titles on Cloudflare's
+   edge. Paste its table in Evidence. A red row caused by an upstream outage
+   is still red: say so, don't hide it.
+   Merging deploys the Worker (`deploy_worker.yml`). Never run
+   `wrangler deploy` by hand, not even after merge.
+7. Before opening a PR or marking it ready: write the body to a file and run
+   `node tool/ci/pr_contract.mjs --body <file>`. It is the same check CI runs.
 
 CI runs every deterministic deployment prerequisite on every PR: app
 analysis/tests, a release web build, Dart guards, and the shared backend
@@ -82,6 +91,8 @@ ordinary Quality success does not prove that those browser checks passed.
 
 - Save a screenshot of just the changed screen under
   `docs/pr-proof/pr-<number>/` (phone width ~430px, compressed).
+  The number exists only once the PR does, so: open the PR as a draft,
+  commit the shot under its number, push, pin that SHA, then mark it ready.
 - Treat every screenshot as if the repo were public: couple-only screens
   (chat, gallery, notes, garden, AI memories) use FAKE demo data only —
   never real couple data. The repo is private today, but a repo can be

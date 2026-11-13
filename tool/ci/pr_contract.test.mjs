@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {checkPrContract} from './pr_contract.mjs';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -93,4 +93,46 @@ test('drafts may report blockers; nonvisual PRs must explain N/A', () => {
   assert.deepEqual(checkPrContract({body:body.replace(shot,'Proof: N/A — docs only'),paths:['AGENTS.md']}), []);
   assert.ok(checkPrContract({body:body.replace(shot,''),paths:['AGENTS.md']}).length);
   assert.ok(checkPrContract({body:'<!-- '+body+' -->',paths:pr.paths}).length);
+});
+
+// #588 and #589 only learned their bodies were wrong from CI. --body runs the
+// same contract on the branch before the PR is opened or readied.
+test('--body checks a local branch and tells a visual PR to open as a draft first', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'pr-contract-local-'));
+  const git = (...args) => execFileSync('git', args, {cwd, stdio:'pipe'});
+  const cli = (bodyText) => {
+    writeFileSync(join(cwd, 'body.md'), bodyText);
+    try {
+      return {ok:true, out:execFileSync(process.execPath,
+        [fileURLToPath(new URL('./pr_contract.mjs', import.meta.url)), '--body', 'body.md', '--base', 'main'],
+        {cwd, encoding:'utf8', stdio:'pipe'})};
+    } catch (error) {return {ok:false, out:String(error.stderr)};}
+  };
+  try {
+    git('init', '-b', 'main');
+    git('config', 'user.name', 'Test');
+    git('config', 'user.email', 'test@example.com');
+    writeFileSync(join(cwd, 'README.md'), 'Base');
+    git('add', '.');
+    git('commit', '-m', 'base');
+    git('checkout', '-b', 'feature');
+    mkdirSync(join(cwd, 'lib/features/notes/presentation'), {recursive:true});
+    writeFileSync(join(cwd, 'lib/features/notes/presentation/screen.dart'), 'class NotesScreen {}');
+    git('add', '.');
+    git('commit', '-m', 'visual change');
+
+    const noShot = cli(body.replace(shot, ''));
+    assert.equal(noShot.ok, false);
+    assert.match(noShot.out, /Open the PR as a draft first/);
+    const noLines = cli(body.replace(/^Tests:.*\n/m, ''));
+    assert.match(noLines.out, /Record Tests:/);
+
+    git('checkout', 'main');
+    git('checkout', '-b', 'docs');
+    writeFileSync(join(cwd, 'README.md'), 'Docs');
+    git('commit', '-am', 'docs');
+    assert.match(cli(body.replace(shot, 'Proof: N/A — docs only')).out, /\[pr-contract\] OK/);
+  } finally {
+    rmSync(cwd, {recursive:true, force:true});
+  }
 });
