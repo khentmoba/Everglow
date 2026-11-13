@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/system/tv_mode.dart';
 import 'animex_tokens.dart';
 
 /// Shared touch, hover and keyboard-focus behavior for AnimeX actions.
@@ -19,16 +20,39 @@ class _HoverTapState extends State<_HoverTap> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: widget.onTap,
-        onHover: (value) => setState(() => _hover = value),
-        onFocusChange: (value) => setState(() => _focused = value),
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          child: widget.builder(context, _hover || _focused),
+    return ValueListenableBuilder<bool>(
+      valueListenable: TvMode.isTvMode,
+      builder: (context, isTv, _) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: (value) => setState(() => _hover = value),
+          onFocusChange: (value) {
+            if (value) TvMode.ensureFocusedVisible(context);
+            setState(() => _focused = value);
+          },
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+          child: DecoratedBox(
+            decoration: _focused && isTv
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+                    boxShadow: TvMode.focusShadows(),
+                  )
+                : const BoxDecoration(),
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: _focused && isTv
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+                      border: TvMode.focusBorder(),
+                    )
+                  : const BoxDecoration(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: widget.builder(context, _hover || _focused),
+              ),
+            ),
+          ),
         ),
       ),
     );

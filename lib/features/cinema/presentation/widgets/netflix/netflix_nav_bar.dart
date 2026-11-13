@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../../core/system/tv_mode.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../shared/widgets/shelf/media_section_menu.dart';
 import 'netflix_colors.dart';
@@ -18,7 +19,7 @@ const double kNetflixNavBarHeight = 68;
 /// Non-hero pages need to clear the overlaying desktop catalog bar.
 double cinemaTopContentInset(BuildContext context) {
   final topPad = MediaQuery.paddingOf(context).top;
-  if (MediaQuery.sizeOf(context).width >= 1024) {
+  if (MediaQuery.sizeOf(context).width >= 1024 || TvMode.isTvMode.value) {
     return topPad + kToolbarHeight + 20;
   }
   if (MediaQuery.sizeOf(context).width < 600) return topPad + 12;
@@ -278,49 +279,7 @@ class NetflixCinemaTopBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: onDashboardTap,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: const BoxDecoration(
-                        color: NetflixColors.accent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: Colors.white,
-                        size: 17,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Everglow',
-                            style: AppTypography.outfitHeading.copyWith(
-                              fontSize: 18,
-                              color: Colors.white,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '  CINEMA',
-                            style: AppTypography.outfitHeading.copyWith(
-                              fontSize: 11,
-                              color: NetflixColors.accent,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _CinemaLogoButton(onTap: onDashboardTap),
               const SizedBox(width: 30),
               Expanded(
                 child: Row(
@@ -344,6 +303,92 @@ class NetflixCinemaTopBar extends StatelessWidget {
                 onAnimeTap: onAnimeTap,
                 onDashboardTap: onDashboardTap,
                 showAnime: showAnime,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CinemaLogoButton extends StatefulWidget {
+  final VoidCallback? onTap;
+  const _CinemaLogoButton({this.onTap});
+
+  @override
+  State<_CinemaLogoButton> createState() => _CinemaLogoButtonState();
+}
+
+class _CinemaLogoButtonState extends State<_CinemaLogoButton> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusableActionDetector(
+      enabled: widget.onTap != null,
+      mouseCursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      onFocusChange: (f) => setState(() => _focused = f),
+      shortcuts: TvMode.activateShortcuts,
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: _focused ? TvMode.focusShadows(blurRadius: 10) : null,
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: _focused ? TvMode.focusBorder(width: 2) : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: const BoxDecoration(
+                  color: NetflixColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.favorite_rounded,
+                  color: Colors.white,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Everglow',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '  CINEMA',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 11,
+                        color: NetflixColors.accent,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

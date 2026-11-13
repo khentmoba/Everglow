@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/system/tv_mode.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_elevation.dart';
@@ -109,8 +110,24 @@ class _EverglowIconButtonState extends State<EverglowIconButton> {
       label: widget.semanticLabel,
       enabled: widget.enabled,
       child: FocusableActionDetector(
+        enabled: widget.enabled,
         onShowFocusHighlight: (f) => setState(() => _focused = f),
         onShowHoverHighlight: (h) => setState(() => _hovered = h),
+        onFocusChange: (f) {
+          if (f) TvMode.ensureFocusedVisible(context);
+          setState(() => _focused = f && widget.enabled);
+        },
+        shortcuts: TvMode.activateShortcuts,
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              if (!widget.enabled || widget.onPressed == null) return null;
+              HapticFeedback.selectionClick();
+              widget.onPressed!();
+              return null;
+            },
+          ),
+        },
         child: GestureDetector(
           onTapDown: (_) => setState(() => _pressed = true),
           onTapUp: (_) {

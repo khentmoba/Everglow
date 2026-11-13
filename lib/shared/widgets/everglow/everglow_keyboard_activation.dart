@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-/// Adds consistent Enter/Space activation to custom Everglow controls.
+import '../../../core/system/tv_mode.dart';
+
+/// Adds consistent Enter/Space/Select activation to custom Everglow controls.
 ///
 /// Pointer handling stays with the wrapped widget; this only supplies the
 /// keyboard equivalent and a focusable anchor for assistive navigation.
@@ -23,10 +24,7 @@ class EverglowKeyboardActivation extends StatelessWidget {
 
     return FocusableActionDetector(
       enabled: canActivate,
-      shortcuts: {
-        const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent(),
-        const SingleActivator(LogicalKeyboardKey.space): const ActivateIntent(),
-      },
+      shortcuts: TvMode.activateShortcuts,
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {

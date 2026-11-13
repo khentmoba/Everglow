@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/system/tv_mode.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -152,6 +153,19 @@ class _SeeAllChipState extends State<_SeeAllChip> {
       child: FocusableActionDetector(
         mouseCursor: SystemMouseCursors.click,
         onShowFocusHighlight: (show) => setState(() => _hovered = show),
+        onFocusChange: (f) {
+          if (f) TvMode.ensureFocusedVisible(context);
+          setState(() => _hovered = f);
+        },
+        shortcuts: TvMode.activateShortcuts,
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
+          ),
+        },
         child: Tooltip(
           message: 'See all',
           textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),

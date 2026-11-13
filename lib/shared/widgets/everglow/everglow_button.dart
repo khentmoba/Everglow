@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/system/tv_mode.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_radius.dart';
@@ -120,12 +121,11 @@ class _EverglowButtonState extends State<EverglowButton>
         enabled: widget.enabled,
         onShowHoverHighlight: (h) => setState(() => _hovered = h),
         onShowFocusHighlight: (f) => setState(() => _focused = f),
-        shortcuts: {
-          const SingleActivator(LogicalKeyboardKey.enter):
-              const ActivateIntent(),
-          const SingleActivator(LogicalKeyboardKey.space):
-              const ActivateIntent(),
+        onFocusChange: (f) {
+          if (f) TvMode.ensureFocusedVisible(context);
+          setState(() => _focused = f);
         },
+        shortcuts: TvMode.activateShortcuts,
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {

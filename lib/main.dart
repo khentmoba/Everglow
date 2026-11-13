@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'core/agent/agent_hud.dart';
@@ -23,6 +24,7 @@ import 'core/system/app_error_widget.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
 import 'core/system/tv_mode.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
 import 'core/network/network_quality_service.dart';
 import 'core/perf/device_capability.dart';
@@ -151,30 +153,71 @@ void _zoneErrorHandler(Object error, StackTrace stack) {
   }
 }
 
-class EverglowApp extends StatelessWidget {
+class EverglowApp extends StatefulWidget {
   const EverglowApp({super.key});
+
+  @override
+  State<EverglowApp> createState() => _EverglowAppState();
+}
+
+class _EverglowAppState extends State<EverglowApp> {
+  late final GoRouter _router = createAppRouter();
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: appProviders,
-      child: MaterialApp.router(
-        title: 'Everglow',
-        debugShowCheckedModeBanner: false,
-        theme: custom_theme.AppTheme.gamifiedTheme,
-        routerConfig: createAppRouter(),
-        scaffoldMessengerKey: _scaffoldMessengerKey,
-        builder: (context, child) => PerfMeterOverlay(
-          child: AgentHudOverlay(
-            child: AppUpdatePrompt(
-              // Pages get their own SelectionArea (app_router's ShellRoute).
-              // This outer one covers dialogs and sheets, which open above
-              // it; Overlay.wrap gives their Copy menu somewhere to float.
-              child: AppRoot(
-                child: Overlay.wrap(
-                  child: SelectionArea(
-                    focusNode: _popupSelectionFocus,
-                    child: child!,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: TvMode.isTvMode,
+        builder: (context, isTv, _) => MaterialApp.router(
+          title: 'Everglow',
+          debugShowCheckedModeBanner: false,
+          theme: isTv
+              ? custom_theme.AppTheme.gamifiedTheme.copyWith(
+                  focusColor: AppColors.auroraGold.withValues(alpha: 0.25),
+                )
+              : custom_theme.AppTheme.gamifiedTheme,
+          shortcuts: {
+            ...WidgetsApp.defaultShortcuts,
+            if (isTv) ...{
+              const SingleActivator(LogicalKeyboardKey.arrowUp):
+                  const DirectionalFocusIntent(TraversalDirection.up),
+              const SingleActivator(LogicalKeyboardKey.arrowDown):
+                  const DirectionalFocusIntent(TraversalDirection.down),
+              const SingleActivator(LogicalKeyboardKey.arrowLeft):
+                  const DirectionalFocusIntent(TraversalDirection.left),
+              const SingleActivator(LogicalKeyboardKey.arrowRight):
+                  const DirectionalFocusIntent(TraversalDirection.right),
+            },
+            const SingleActivator(LogicalKeyboardKey.select):
+                const ActivateIntent(),
+            const SingleActivator(LogicalKeyboardKey.numpadEnter):
+                const ActivateIntent(),
+            const SingleActivator(LogicalKeyboardKey.gameButtonA):
+                const ActivateIntent(),
+            const SingleActivator(LogicalKeyboardKey.goBack):
+                const DismissIntent(),
+            const SingleActivator(LogicalKeyboardKey.browserBack):
+                const DismissIntent(),
+            const SingleActivator(LogicalKeyboardKey.gameButtonB):
+                const DismissIntent(),
+          },
+          routerConfig: _router,
+          scaffoldMessengerKey: _scaffoldMessengerKey,
+          builder: (context, child) => PerfMeterOverlay(
+            child: AgentHudOverlay(
+              child: AppUpdatePrompt(
+                // Pages get their own SelectionArea (app_router's ShellRoute).
+                // This outer one covers dialogs and sheets, which open above
+                // it; Overlay.wrap gives their Copy menu somewhere to float.
+                child: AppRoot(
+                  child: Overlay.wrap(
+                    child: isTv
+                        ? child!
+                        : SelectionArea(
+                            focusNode: _popupSelectionFocus,
+                            child: child!,
+                          ),
                   ),
                 ),
               ),

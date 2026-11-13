@@ -20,12 +20,17 @@ class TvMode {
 
   static bool _initialized = false;
 
-  /// Initializes TV mode from persistent preference, URL parameters, or browser user agent.
+  /// Initializes TV mode from URL override, persistent preference, or browser user agent.
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
 
     try {
+      final urlOverride = TvDetector.detectUrlOverride();
+      if (urlOverride != null) {
+        isTvMode.value = urlOverride;
+        return;
+      }
       final prefs = await SharedPreferences.getInstance();
       final hasStored = prefs.containsKey(_prefKey);
       if (hasStored) {
@@ -38,6 +43,58 @@ class TvMode {
       Logger.e('TvMode init failed', error: e);
       isTvMode.value = TvDetector.detectTvBrowser();
     }
+  }
+
+  /// Detects Smart TV / Android TV browsers from [userAgent] and touch capability.
+  ///
+  /// Android TV browsers often omit "TV" from their UA string, but unlike
+  /// phones and tablets they report `maxTouchPoints == 0` in landscape.
+  static bool isTvUserAgent(
+    String userAgent, {
+    int maxTouchPoints = 1,
+    bool isLandscape = false,
+  }) {
+    final ua = userAgent.toLowerCase();
+    const tvKeywords = [
+      'tv',
+      'smarttv',
+      'googletv',
+      'android tv',
+      'leanback',
+      'shield',
+      'mibox',
+      'mi box',
+      'chromecast',
+      'nexus player',
+      'adt-',
+      'tvbro',
+      'tv bro',
+      'odin',
+      'jiopages',
+      'tizen',
+      'webos',
+      'web0s',
+      'viera',
+      'bravia',
+      'hbbtv',
+      'netcast',
+      'apple tv',
+      'appletv',
+      'roku',
+      'crkey',
+      'aft', // Amazon Fire TV (AFTM, AFTT, etc.)
+      'pov_tv',
+    ];
+    for (final kw in tvKeywords) {
+      if (ua.contains(kw)) return true;
+    }
+    if (ua.contains('android') &&
+        !ua.contains('mobile') &&
+        maxTouchPoints == 0 &&
+        isLandscape) {
+      return true;
+    }
+    return false;
   }
 
   /// Explicitly enables or disables TV mode, persisting the preference.
@@ -54,12 +111,35 @@ class TvMode {
   /// Toggles TV mode on or off.
   static Future<void> toggle() => setTvMode(!isTvMode.value);
 
+  /// Standard activation shortcuts for TV remotes (D-pad Center / Select / Enter / Space).
+  static const Map<ShortcutActivator, Intent> activateShortcuts = {
+    SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
+  };
+
+  /// Scrolls the nearest scrollable ancestor so [context] is centered on TV.
+  static void ensureFocusedVisible(BuildContext context) {
+    if (!isTvMode.value) return;
+    if (!context.mounted) return;
+    if (Scrollable.maybeOf(context) == null) return;
+    Scrollable.ensureVisible(
+      context,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   /// True if [key] acts as a primary selection / OK action on TV remotes or keyboards.
   static bool isSelectKey(LogicalKeyboardKey key) {
     return key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter ||
         key == LogicalKeyboardKey.space ||
-        key == LogicalKeyboardKey.select;
+        key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.gameButtonA;
   }
 
   /// True if [key] acts as a Back / Exit / Cancel action on TV remotes or keyboards.
@@ -67,7 +147,9 @@ class TvMode {
     return key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.backspace ||
         key == LogicalKeyboardKey.delete ||
-        key == LogicalKeyboardKey.goBack;
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.browserBack ||
+        key == LogicalKeyboardKey.gameButtonB;
   }
 
   /// Extracts a digit string ('0'..'9') if [key] is a number key on a TV remote or keyboard.
