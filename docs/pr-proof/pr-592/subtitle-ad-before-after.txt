@@ -1,0 +1,27 @@
+Subtitle track: Breaking Bad S01E01 (TMDB 1396), English.vtt
+Both sides below are the SAME upstream file, served by /proxyMegavidHls.
+BEFORE = origin/main code run locally (wrangler dev). AFTER = the live worker.
+
+=== BEFORE (origin/main) ===
+WEBVTT
+
+00:00:06.000 --> 00:00:12.074
+Visit hoofoot.ru to watch all sports livestream and highlights for free
+
+00:01:09.386 --> 00:01:11.221
+Oh, my god.
+
+...
+cues: 589   advert cues: 2
+
+=== AFTER (live worker, 2026-11-13) ===
+WEBVTT
+
+00:01:09.386 --> 00:01:11.221
+Oh, my god.
+
+00:01:11.430 --> 00:01:12.931
+Christ!
+
+...
+cues: 587   advert cues: 0
