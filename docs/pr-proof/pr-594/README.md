@@ -37,7 +37,7 @@ computed style is unchanged from the existing "Episodes" chip.
 What these prove: the picker renders on Everglow, lists all eleven streams
 under the new aliases, marks the current one, and fits the in-app player. They
 do not prove a live resolve from MegaPlay, Megavid, or YumeZone — the Worker
-tests cover the walk, and the Worker is not deployed yet (see Still to do).
+tests cover the walk, and the Worker is not deployed yet.
 
 ## App-side row
 

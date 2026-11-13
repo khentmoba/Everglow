@@ -952,7 +952,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      // Must outlast the Worker's own walk budget (EVERGLOW_BUDGET_MS, 12 s):
+      // a dead episode answers 502 only after the last upstream is tried, and
+      // a probe that gives up first leaves the failover page up with no
+      // auto-advance.
+      final response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 14));
       if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {

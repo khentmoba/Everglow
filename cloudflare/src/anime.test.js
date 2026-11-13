@@ -710,6 +710,20 @@ test('validateAnimeParams accepts yumezone and rejects an unknown server', () =>
   const picked = validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'yume-5' });
   assert.equal(picked.server, 'yume-5');
 
+  // Everglow's picker can name any of the eleven, including the two direct
+  // upstreams the walk tries first. The pin has to survive validation or the
+  // documented `server=<id>` only works for nine of them.
+  for (const id of ['megaplay', 'megavid', 'yume-1']) {
+    const pin = validateAnimeParams({ source: 'everglow', anilistId: '21', ep: '1', server: id });
+    assert.equal(pin.error, undefined, id);
+    assert.equal(pin.server, id);
+  }
+  assert.match(
+    validateAnimeParams({ source: 'megaplay', anilistId: '21', ep: '1', server: 'megavid' }).error,
+    /unknown server/,
+    'a direct id belongs to Everglow only',
+  );
+
   assert.match(validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'evil' }).error, /unknown server/);
   assert.match(validateAnimeParams({ source: 'nope', anilistId: '21', ep: '1' }).error, /source must be/);
 });

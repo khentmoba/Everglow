@@ -1535,7 +1535,12 @@ function validateAnimeParams(query) {
     return { error: 'audio must be sub or dub' };
   }
   const rawServer = String(query.server || '').trim();
-  if (rawServer && !YUME_SERVER_IDS.has(rawServer)) {
+  // The picker pins a Yume stream with `server=`; Everglow's two direct
+  // upstreams can be pinned the same way, so a deep link can name any of the
+  // eleven. A direct id on any other source is a mistake, not a shortcut.
+  const pinnedDirect =
+    source === 'everglow' && EVERGLOW_DIRECT_SERVERS.some((s) => s.id === rawServer);
+  if (rawServer && !YUME_SERVER_IDS.has(rawServer) && !pinnedDirect) {
     return { error: 'unknown server' };
   }
   return { source, anilistId, malId, ep, audio, server: rawServer };
