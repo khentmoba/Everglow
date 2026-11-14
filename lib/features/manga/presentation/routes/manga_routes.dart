@@ -9,6 +9,10 @@ import '../screens/katana_home_screen.dart' deferred as manga_lib;
 // [MangaDetailsDrawer] use the same chunk via their own deferred import.
 import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 
+/// Fetches Mangacelestia's code chunk before the first tap.
+Future<void> warmMangaLibrary() =>
+    DeferredRouteLoader.warm('Mangacelestia', manga_lib.loadLibrary);
+
 /// Routes owned by the manga feature.
 final List<GoRoute> mangaRoutes = [
   GoRoute(

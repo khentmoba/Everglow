@@ -14,6 +14,10 @@ import '../screens/our_books_screen.dart' deferred as our_books_lib;
 import '../screens/reader_screen.dart' deferred as reader_lib;
 import '../widgets/book_categories.dart';
 
+/// Fetches Books's code chunk before the first tap.
+Future<void> warmBooksLibrary() =>
+    DeferredRouteLoader.warm('Books', books_lib.loadLibrary);
+
 /// Routes owned by the books feature.
 final List<GoRoute> booksRoutes = [
   GoRoute(

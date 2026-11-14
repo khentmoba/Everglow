@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../network/network_quality_service.dart';
+import '../perf/perf_probe.dart';
+import '../perf/perf_settings.dart';
+import '../utils/logger.dart';
+
 /// Loading shell for routes split out of the initial bundle with
 /// `deferred as` imports (see docs/PERF_NOTES.md).
 ///
@@ -20,6 +25,10 @@ import 'package:flutter/material.dart';
 /// The chunk downloads on first navigation (~one small JS part file), then
 /// stays cached for the session. Shows a themed spinner while loading and a
 /// retry action if the chunk fails (offline mid-deploy, CDN hiccup).
+///
+/// [label] names the chunk: once a label has loaded, later visits build the
+/// screen on the first frame instead of flashing the loading body for one.
+/// Routes that share a label must share the same library.
 class DeferredRouteLoader extends StatefulWidget {
   /// Deferred prefix tear-off, e.g. `chessLib.loadLibrary`.
   final Future<void> Function() loadLibrary;
@@ -43,25 +52,76 @@ class DeferredRouteLoader extends StatefulWidget {
 
   @override
   State<DeferredRouteLoader> createState() => _DeferredRouteLoaderState();
+
+  static final Set<String> _loaded = <String>{};
+
+  /// Whether the chunk named [label] has finished loading this session.
+  static bool isLoaded(String label) => _loaded.contains(label);
+
+  /// Downloads a section's chunk before the first tap, so opening it does
+  /// not wait on the network or flash the loading body.
+  ///
+  /// Skipped on a slow or data-saving connection, where the download would
+  /// compete with the page Clair is actually looking at. Safe to call more
+  /// than once: a loaded chunk resolves immediately.
+  static Future<void> warm(
+    String label,
+    Future<void> Function() loadLibrary,
+  ) async {
+    if (_loaded.contains(label)) return;
+    final network = NetworkQualityService.instance;
+    if (network.isSlowConnection || network.isSaveData) return;
+    try {
+      await loadLibrary();
+      _loaded.add(label);
+    } catch (e, st) {
+      Logger.w('$label: library warm-up failed', error: e, stackTrace: st);
+    }
+  }
+
+  /// Forgets loaded chunks so widget tests start cold.
+  @visibleForTesting
+  static void debugReset() => _loaded.clear();
 }
 
 class _DeferredRouteLoaderState extends State<DeferredRouteLoader> {
-  late Future<void> _future;
+  /// Null once the chunk is known to be loaded.
+  Future<void>? _future;
 
   @override
   void initState() {
     super.initState();
-    _future = widget.loadLibrary();
+    if (!DeferredRouteLoader.isLoaded(widget.label)) _future = _load();
+  }
+
+  Future<void> _load() async {
+    await widget.loadLibrary();
+    DeferredRouteLoader._loaded.add(widget.label);
   }
 
   void _retry() {
     setState(() {
-      _future = widget.loadLibrary();
+      _future = _load();
     });
+  }
+
+  bool _marked = false;
+
+  /// With the frame meter on, records when the real screen first painted so
+  /// `tool/perf/probe_scroll.mjs --navigate` can time the tap-to-screen wait.
+  Widget _screen() {
+    if (!_marked && PerfSettings.frameMeter.value) {
+      _marked = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => recordPerfMark('route:${widget.label}'),
+      );
+    }
+    return widget.builder();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_future == null) return _screen();
     return FutureBuilder<void>(
       future: _future,
       builder: (context, snapshot) {
@@ -72,7 +132,7 @@ class _DeferredRouteLoaderState extends State<DeferredRouteLoader> {
         if (snapshot.hasError) {
           return _ErrorBody(label: widget.label, onRetry: _retry);
         }
-        return widget.builder();
+        return _screen();
       },
     );
   }
