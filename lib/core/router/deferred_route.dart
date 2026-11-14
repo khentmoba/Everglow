@@ -108,7 +108,7 @@ class _DeferredRouteLoaderState extends State<DeferredRouteLoader> {
   bool _marked = false;
 
   /// With the frame meter on, records when the real screen first painted so
-  /// `tool/perf/probe_scroll.mjs --navigate` can time the tap-to-screen wait.
+  /// `tool/perf/probe_navigation.mjs` can time the tap-to-screen wait.
   Widget _screen() {
     if (!_marked && PerfSettings.frameMeter.value) {
       _marked = true;

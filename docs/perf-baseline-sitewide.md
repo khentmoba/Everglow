@@ -93,7 +93,10 @@ are also unchanged for scrolling and stay within noise.
 - **Effect:** the first open of each media section no longer waits on a
   download (see the navigation table). Dashboard scrolling is unchanged.
 - **Cost:** about 40-280 KB of code per section before compression, fetched
-  in the background on a good connection.
+  in the background on a good connection. iPhone Safari does not report the
+  connection type, so the slow/data-saver skip cannot fire there: on Clair's
+  iPhone all four sections preload even on cellular. This was already true
+  for Cinema; it now applies to four sections.
 
 ### Cinema
 
