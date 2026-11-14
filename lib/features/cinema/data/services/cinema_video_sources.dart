@@ -60,8 +60,19 @@ class CinemaVideoSources {
     sandboxSafe: true,
   );
 
-  /// Ordered cinema-only servers verified in live testing.
+  /// Ordered cinema-only servers. Rows here are gated by [_retiredCinemaIds].
   static const List<VideoSourceConfig> cinemaOnly = [everglowEmbed, cineSrc];
+
+  /// Cinema rows we stopped offering, with the upstream fact that killed
+  /// each one. A picker row that cannot play is a button that can only fail.
+  ///
+  /// 2026-11-14: the live Worker answers `resolve 502, rows=0` for all three
+  /// cinema smoke titles. fmov.my times out and vidbolt.xyz refuses the
+  /// Cloudflare edge, so our own HLS player has no stream to resolve.
+  /// Cinema starts on CineSrc until a cinema HLS source plays again from the
+  /// edge. Remove the id here to bring the row back; its config, URL builder
+  /// and Worker code stay intact.
+  static const Set<String> _retiredCinemaIds = {'everglow-embed'};
 
   static const Set<String> _cinemaIds = {'everglow-embed', 'flux-cinesrc'};
 
@@ -98,11 +109,13 @@ class CinemaVideoSources {
 
     final byId = <String, VideoSourceConfig>{};
     for (final source in shared) {
+      if (_retiredCinemaIds.contains(source.id)) continue;
       byId[source.id] = source;
     }
 
     final merged = <VideoSourceConfig>[];
     for (final fluxSource in cinemaOnly) {
+      if (_retiredCinemaIds.contains(fluxSource.id)) continue;
       if (fluxSource.id == 'everglow-embed') {
         merged.add(everglowEmbed);
         byId.remove(fluxSource.id);

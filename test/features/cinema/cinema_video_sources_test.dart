@@ -29,12 +29,34 @@ void main() {
       );
 
       expect(providers.map((p) => p.id).toList(), [
-        'everglow-embed',
         'flux-cinesrc',
         'videasy',
         'movish',
       ]);
       expect(providers.first.isRecommended, isTrue);
+    });
+
+    test('does not offer the retired Everglow HLS row', () {
+      const remoteEverglow = VideoSourceConfig(
+        id: 'everglow-embed',
+        name: 'Everglow',
+        shortName: 'Everglow',
+        movieUrl: 'https://everglow-1c6db.web.app/embed.html',
+        tvUrl: 'https://everglow-1c6db.web.app/embed.html',
+        isRecommended: true,
+      );
+
+      final providers = CinemaVideoSources.selectable(
+        [remoteEverglow, ...sharedSources],
+        isAnime: false,
+      );
+
+      expect(providers.map((p) => p.id).toList(), [
+        'flux-cinesrc',
+        'videasy',
+        'movish',
+      ]);
+      expect(providers.any((p) => p.id == 'everglow-embed'), isFalse);
     });
 
     test('does not add cinema-only servers to anime playback', () {
@@ -68,7 +90,7 @@ void main() {
           providers.firstWhere((p) => p.id == 'flux-cinesrc').name,
           'Remote CineSrc',
         );
-        expect(providers.first.id, 'everglow-embed');
+        expect(providers.first.id, 'flux-cinesrc');
       },
     );
   });
