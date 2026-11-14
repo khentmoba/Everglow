@@ -21,10 +21,22 @@ import "dart:io";
 
 import "build_stamp.dart";
 
+/// The WebAssembly core, emitted next to main.dart.js by `--wasm` builds.
+const _wasmCoreFiles = ["main.dart.wasm", "main.dart.mjs"];
+
 Future<void> main(List<String> args) async {
-  final buildArgs = args.where((a) => a != "--").toList();
+  // WebAssembly is on by default: the build then holds both cores and the
+  // Flutter loader picks per browser (wasm on Chrome-family, JS elsewhere,
+  // including Safari). `--no-wasm` builds the JS core only.
+  final wasm = !args.contains("--no-wasm");
+  final buildArgs = args.where((a) => a != "--" && a != "--no-wasm").toList();
   final canvaskitUrl = await _resolveCanvaskitUrl();
-  final cmd = ["build", "web", ...buildArgs];
+  final cmd = [
+    "build",
+    "web",
+    if (wasm && !buildArgs.contains("--wasm")) "--wasm",
+    ...buildArgs,
+  ];
   if (canvaskitUrl != null) {
     cmd.add("--dart-define=FLUTTER_WEB_CANVASKIT_URL=$canvaskitUrl");
   } else {
@@ -73,9 +85,14 @@ void _stampVersionJson(String? canvaskitUrl) {
     }
     parts.sort();
   }
+  final wasmCore = [
+    for (final file in _wasmCoreFiles)
+      if (File('build/web/$file').existsSync()) '$file?v=$stamp',
+  ];
   final data = <String, dynamic>{
     'build': stamp,
     'core': busted,
+    if (wasmCore.length == _wasmCoreFiles.length) 'wasmCore': wasmCore,
     'canvaskit': canvaskitUrl ?? '/canvaskit/',
     'parts': parts,
   };
@@ -195,6 +212,11 @@ void _stampCoreShell() {
     final hits = '"main.dart.js"'.allMatches(src).length;
     if (hits > 0) {
       updated = updated.replaceAll('"main.dart.js"', '"$busted"');
+    }
+    // WebAssembly builds also emit main.dart.wasm + its main.dart.mjs glue;
+    // they need the same per-build URL or the worker could serve old bytes.
+    for (final file in _wasmCoreFiles) {
+      updated = updated.replaceAll('"$file"', '"$file?v=$stamp"');
     }
     if (path.endsWith("flutter_bootstrap.js")) {
       bootstrapHits = hits;

@@ -74,6 +74,18 @@ void main() {
     );
   });
 
+  test('parseCore picks the wasm module for a WebAssembly tab', () {
+    const body = '{"build": "b", "core": "main.dart.js?v=b", '
+        '"wasmCore": ["main.dart.wasm?v=b", "main.dart.mjs?v=b"]}';
+    expect(AppUpdateService.parseCore(body, wasm: true), 'main.dart.wasm?v=b');
+    expect(AppUpdateService.parseCore(body), 'main.dart.js?v=b');
+    // A JS-only deploy still warms its shell from a WebAssembly tab.
+    expect(
+      AppUpdateService.parseCore('{"core": "main.dart.js?v=b"}', wasm: true),
+      'main.dart.js?v=b',
+    );
+  });
+
   test('parseCore returns null when missing or garbage', () {
     expect(AppUpdateService.parseCore('{"build": "a"}'), isNull);
     expect(AppUpdateService.parseCore('{"core": ""}'), isNull);
