@@ -165,6 +165,24 @@ reported "a whole lot better" and he requested PR finalization. Native glide
 was left unchanged. Quantified device targets and populated-live-card timing
 remain open; subjective phone feedback does not close them.
 
+### Idle dashboard redraw (candidate)
+
+Left alone on a phone, the dashboard kept drawing frames nonstop. Screenshots
+taken seconds apart were identical. A temporary probe build listed every
+fade/scale animation whose value moved while idle. Only one was moving: the
+live seconds cell of the time-together clock. Every second its 300 ms
+`AnimatedSwitcher` swap ran about 18 frames, even while the card was off
+screen. `MetricCard` and the countdown `_TimeCapsule` now swap numbers
+instantly when `AppMotion.reduceAmbientMotion` is true. Tablets and desktops
+keep the swap. With JS release builds at 430×932 @3x and CPU 4x, the idle
+dashboard went from 25–121 frames per 5 s to 12–16 (one per tick, plus the
+occasional idle section warm-up). Scroll probe results stayed within run-to-run
+noise. The same probe found no moving animations on idle Anime, Cinema, Books
+or Manga. This saves iPhone battery and main-thread time between interactions.
+Raw rows are in `docs/pr-proof/pr-603/idle-frames.md`. It does not speed up
+scrolling itself, and it has not been measured on the
+device.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.
