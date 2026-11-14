@@ -29,12 +29,40 @@ void main() {
       );
 
       expect(providers.map((p) => p.id).toList(), [
+        'everglow-shell',
         'everglow-embed',
         'flux-cinesrc',
         'videasy',
         'movish',
       ]);
       expect(providers.first.isRecommended, isTrue);
+    });
+
+    test('keeps the HLS row when the shared list carries it too', () {
+      const remoteEverglow = VideoSourceConfig(
+        id: 'everglow-embed',
+        name: 'Everglow',
+        shortName: 'Everglow',
+        movieUrl: 'https://everglow-1c6db.web.app/embed.html',
+        tvUrl: 'https://everglow-1c6db.web.app/embed.html',
+        isRecommended: true,
+      );
+
+      final providers = CinemaVideoSources.selectable(
+        [remoteEverglow, ...sharedSources],
+        isAnime: false,
+      );
+
+      expect(
+        providers.where((p) => p.id == 'everglow-embed').length,
+        1,
+        reason: 'the cinema-only HLS config wins, no duplicate row',
+      );
+      expect(providers.first.id, 'everglow-shell');
+      expect(
+        providers.firstWhere((p) => p.id == 'everglow-embed').movieUrl,
+        CinemaVideoSources.proxyCinemaBase,
+      );
     });
 
     test('does not add cinema-only servers to anime playback', () {
@@ -68,7 +96,7 @@ void main() {
           providers.firstWhere((p) => p.id == 'flux-cinesrc').name,
           'Remote CineSrc',
         );
-        expect(providers.first.id, 'everglow-embed');
+        expect(providers.first.id, 'everglow-shell');
       },
     );
   });
@@ -97,6 +125,34 @@ void main() {
           episode: 3,
         ),
         'https://cinesrc.st/embed/tv/1399?s=2&e=3',
+      );
+    });
+
+    test('builds our player shell URLs with tmdbId and type', () {
+      expect(
+        CinemaVideoSources.buildUrl(
+          CinemaVideoSources.everglowShell,
+          mediaType: 'movie',
+          id: '603',
+          season: 1,
+          episode: 1,
+        ),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=603&type=movie',
+      );
+    });
+
+    test('builds our player shell TV URLs with season and episode', () {
+      expect(
+        CinemaVideoSources.buildUrl(
+          CinemaVideoSources.everglowShell,
+          mediaType: 'tv',
+          id: '1399',
+          season: 2,
+          episode: 3,
+        ),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1399&type=tv&s=2&e=3',
       );
     });
 
@@ -182,6 +238,37 @@ void main() {
           'null',
         ),
         isTrue,
+      );
+    });
+
+    test('trusts our player shell only from our own origin', () {
+      expect(
+        CinemaVideoSources.trustsCinesrcEpisodeEvent(
+          'everglow-shell',
+          'https://everglow-1c6db.web.app',
+        ),
+        isTrue,
+      );
+      expect(
+        CinemaVideoSources.trustsCinesrcProgressEvent(
+          'everglow-shell',
+          'https://everglow-1c6db.web.app',
+        ),
+        isTrue,
+      );
+      expect(
+        CinemaVideoSources.trustsCinesrcEpisodeEvent(
+          'everglow-shell',
+          'https://evil.example',
+        ),
+        isFalse,
+      );
+      expect(
+        CinemaVideoSources.trustsCinesrcProgressEvent(
+          'everglow-shell',
+          'https://cinesrc.st',
+        ),
+        isFalse,
       );
     });
 
