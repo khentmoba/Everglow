@@ -211,8 +211,8 @@ void main() {
         seek.defaultPrevented,
         isFalse,
         reason:
-            'the default provider is CineSrc, not our own HLS player, so '
-            'the browser keeps the key',
+            'the default provider is our own player shell, not the HLS '
+            'embed, so the browser keeps the key',
       );
 
       final unrelated = web.KeyboardEvent(

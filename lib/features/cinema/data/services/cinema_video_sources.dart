@@ -13,6 +13,8 @@ class CinemaVideoSources {
   static const String proxyCinemaOrigin =
       'https://everglow-stream.khentplaysmoba.workers.dev';
   static const String proxyCinemaBase = '$proxyCinemaOrigin/proxyAnime';
+  static const String wrapperOrigin = 'https://everglow-1c6db.web.app';
+  static const String wrapperBase = '$wrapperOrigin/embed.html';
 
   /// Builds the Cinema Everglow HLS player URL via our ad-free resolver.
   /// [title] is shown in the player's top bar; the Worker has no catalog to
@@ -34,7 +36,7 @@ class CinemaVideoSources {
     return '$proxyCinemaBase?source=cinema&type=movie&tmdbId=$id$titleParam';
   }
 
-  /// CineSrc streaming API (ShuttleTV lineage).
+  /// CineSrc embed, opened directly from its own origin.
   static const VideoSourceConfig cineSrc = VideoSourceConfig(
     id: 'flux-cinesrc',
     name: 'CineSrc',
@@ -60,23 +62,38 @@ class CinemaVideoSources {
     sandboxSafe: true,
   );
 
-  /// Ordered cinema-only servers. Rows here are gated by [_retiredCinemaIds].
-  static const List<VideoSourceConfig> cinemaOnly = [everglowEmbed, cineSrc];
+  /// Our own player shell around CineSrc. It plays from Clair's device even
+  /// when the Worker's HLS upstreams are down, and bridges the progress and
+  /// episode events the app already understands.
+  static const VideoSourceConfig everglowShell = VideoSourceConfig(
+    id: 'everglow-shell',
+    name: 'Everglow Player',
+    shortName: 'Everglow',
+    desc: 'No ads — our player',
+    movieUrl: wrapperBase,
+    tvUrl: wrapperBase,
+    isRecommended: true,
+    sandboxSafe: true,
+  );
 
-  /// Cinema rows we stopped offering, with the upstream fact that killed
-  /// each one. A picker row that cannot play is a button that can only fail.
-  ///
-  /// 2026-11-14: the live Worker answers `resolve 502, rows=0` for all three
-  /// cinema smoke titles. fmov.my times out and vidbolt.xyz refuses the
-  /// Cloudflare edge, so our own HLS player has no stream to resolve.
-  /// Cinema starts on CineSrc until a cinema HLS source plays again from the
-  /// edge. Remove the id here to bring the row back; its config, URL builder
-  /// and Worker code stay intact.
-  static const Set<String> _retiredCinemaIds = {'everglow-embed'};
+  /// The HLS row stays in the picker. Its Worker resolve is down today
+  /// (fmov.my times out, vidbolt.xyz refuses the edge), so tapping it falls
+  /// through to [everglowShell]. It starts working again on its own when a
+  /// cinema HLS upstream answers from Cloudflare's edge.
+  static const List<VideoSourceConfig> cinemaOnly = [
+    everglowShell,
+    everglowEmbed,
+    cineSrc,
+  ];
 
-  static const Set<String> _cinemaIds = {'everglow-embed', 'flux-cinesrc'};
+  static const Set<String> _cinemaIds = {
+    'everglow-shell',
+    'everglow-embed',
+    'flux-cinesrc',
+  };
 
   static const Set<String> _noAdsIds = {
+    'everglow-shell',
     'everglow-embed',
     'flux-cinesrc',
     'vidcore',
@@ -109,13 +126,11 @@ class CinemaVideoSources {
 
     final byId = <String, VideoSourceConfig>{};
     for (final source in shared) {
-      if (_retiredCinemaIds.contains(source.id)) continue;
       byId[source.id] = source;
     }
 
     final merged = <VideoSourceConfig>[];
     for (final fluxSource in cinemaOnly) {
-      if (_retiredCinemaIds.contains(fluxSource.id)) continue;
       if (fluxSource.id == 'everglow-embed') {
         merged.add(everglowEmbed);
         byId.remove(fluxSource.id);
@@ -145,6 +160,7 @@ class CinemaVideoSources {
     if (providerId == 'flux-cinesrc') {
       return origin == 'https://cinesrc.st';
     }
+    if (providerId == 'everglow-shell') return origin == wrapperOrigin;
     if (providerId == 'everglow-embed') return true;
     return false;
   }
@@ -154,8 +170,9 @@ class CinemaVideoSources {
     if (providerId == 'flux-cinesrc') {
       return origin == 'https://cinesrc.st';
     }
-    return providerId == 'everglow-embed' &&
-        origin == 'https://everglow-1c6db.web.app';
+    return (providerId == 'everglow-embed' ||
+            providerId == 'everglow-shell') &&
+        origin == wrapperOrigin;
   }
 
   /// Parses an `animex-progress` event posted by our in-house Everglow HLS
@@ -215,6 +232,12 @@ class CinemaVideoSources {
         episode: episode,
         title: title,
       );
+    }
+
+    if (provider.id == 'everglow-shell') {
+      return mediaType == 'tv'
+          ? '$wrapperBase?tmdbId=$id&type=tv&s=$season&e=$episode'
+          : '$wrapperBase?tmdbId=$id&type=movie';
     }
 
     if (mediaType == 'tv') {
