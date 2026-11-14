@@ -66,8 +66,9 @@ Run these in order. Red locally means don't open the PR yet:
 6. If you touched `cloudflare/`: `cd cloudflare`, `npm ci`, `npm test`,
    then `npm run smoke`. Mocked tests cannot see what an upstream sends a
    datacenter (Vidrock, #595); the smoke plays real titles on Cloudflare's
-   edge. Paste its table in Evidence. A red row caused by an upstream outage
-   is still red: say so, don't hide it.
+   edge and compares your branch with the live Worker. Paste its table in
+   Evidence, and copy every outage warning into Still to do: a warning is
+   not this change's fault, but it is still something Clair can't play.
    Merging deploys the Worker (`deploy_worker.yml`). Never run
    `wrangler deploy` by hand, not even after merge.
 7. Before opening a PR or marking it ready: write the body to a file and run

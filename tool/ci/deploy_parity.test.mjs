@@ -33,12 +33,13 @@ test('a merge to main deploys the streaming Worker, tested before and smoked aft
   assert.match(source, /- 'cloudflare\/\*\*'/);
   assert.match(source, /- 'functions\/hls_player\.js'/);
   assert.match(source, /cancel-in-progress: false/);
-  const order = ['run: npm ci', 'run: npm test', 'npx wrangler deploy', 'node scripts/smoke.mjs --url'].map(step => {
+  const order = ['run: npm ci', 'run: npm test', '--save "$RUNNER_TEMP/smoke-before.json"', 'npx wrangler deploy',
+    '--compare "$RUNNER_TEMP/smoke-before.json"'].map(step => {
     const at = source.indexOf(step);
     assert.ok(at >= 0, `deploy_worker.yml must run ${step}`);
     return at;
   });
-  assert.deepEqual(order, [...order].sort((a, b) => a - b), 'test, then deploy, then smoke');
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), 'test, baseline smoke, deploy, then compare');
   const {scripts} = JSON.parse(read('cloudflare/package.json'));
   assert.match(scripts.test, /src\/\*\.test\.js/);
   assert.match(read('.github/workflows/quality.yml'), /node --test "cloudflare\/src\/\*\.test\.js"/);

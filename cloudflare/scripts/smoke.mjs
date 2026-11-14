@@ -4,9 +4,17 @@
 // to a datacenter. Vidrock passed them, then handed the edge one dead decoy URL
 // for every title (#595, removed in #597). This asks the edge itself.
 //
-//   node scripts/smoke.mjs --remote          wrangler dev --remote (before merge)
-//   node scripts/smoke.mjs --url <origin>    an already deployed Worker
+//   node scripts/smoke.mjs --remote
+//       your branch on the edge, compared with the live Worker right now
+//   node scripts/smoke.mjs --url <origin> [--save <file> | --compare <file>]
+//       a deployed Worker; the deploy saves before and compares after
+//
+// Upstreams die and some answer differently per region, so an absolute check
+// stays red for reasons no change caused. Both sides of a comparison run from
+// the same place at the same time: only what the change broke fails. Titles or
+// rows that fail on both sides are printed as warnings, never hidden.
 import {spawn, execFileSync} from 'node:child_process';
+import {readFileSync, writeFileSync} from 'node:fs';
 import {pathToFileURL, fileURLToPath} from 'node:url';
 
 export const CASES = [
@@ -17,22 +25,46 @@ export const CASES = [
   {name: 'anime 21 ep1', query: {source: 'everglow', anilistId: '21', ep: '1'}},
 ];
 
+export const LIVE = 'https://everglow-stream.khentplaysmoba.workers.dev';
 const TIMEOUT_MS = 30000;
 
 // results: [{name, played, rows: [{id, played}]}]
-// A case fails when nothing plays. A picker row fails when it played none of
-// the titles it was offered for: that is a button that can only fail.
+const rowsPlayed = (results) => {
+  const rows = new Map();
+  for (const r of results) for (const row of r.rows) rows.set(row.id, rows.get(row.id) || row.played);
+  return rows;
+};
+
+// Absolute: a case fails when nothing plays; a picker row fails when it
+// played none of the titles it was offered for, a button that can only fail.
 export function judge(results) {
   const failures = [];
   for (const r of results) if (!r.played) failures.push(`${r.name}: no stream played`);
-  const rows = new Map();
-  for (const r of results) {
-    for (const row of r.rows) rows.set(row.id, (rows.get(row.id) || false) || row.played);
-  }
-  for (const [id, played] of rows) {
+  for (const [id, played] of rowsPlayed(results)) {
     if (!played) failures.push(`server ${id}: played none of the titles it was listed for`);
   }
   return failures;
+}
+
+// Relative to a baseline taken from the same place moments before. Fails on
+// what stopped playing, and on a new row that plays nothing (Vidrock, #595).
+export function compare(before, after) {
+  const failures = [];
+  const outages = [];
+  const was = new Map(before.map((r) => [r.name, r.played]));
+  for (const r of after) {
+    if (r.played) continue;
+    if (was.get(r.name)) failures.push(`${r.name}: played before, plays nothing now`);
+    else outages.push(`${r.name}: no stream played, before or after`);
+  }
+  const rowsBefore = rowsPlayed(before);
+  for (const [id, played] of rowsPlayed(after)) {
+    if (played) continue;
+    if (!rowsBefore.has(id)) failures.push(`server ${id}: new, and played none of the titles it was listed for`);
+    else if (rowsBefore.get(id)) failures.push(`server ${id}: played before, plays nothing now`);
+    else outages.push(`server ${id}: played nothing, before or after`);
+  }
+  return {failures, outages};
 }
 
 async function fetchWithTimeout(url) {
@@ -67,7 +99,7 @@ async function plays(origin, query) {
   }
 }
 
-export async function smoke(origin, log = console.log) {
+export async function collect(origin, log = console.log) {
   const results = [];
   for (const c of CASES) {
     const first = await plays(origin, c.query);
@@ -80,7 +112,7 @@ export async function smoke(origin, log = console.log) {
     }));
     results.push({name: c.name, played: first.ok, rows});
   }
-  return judge(results);
+  return results;
 }
 
 function startRemote(port) {
@@ -113,26 +145,42 @@ function startRemote(port) {
   return {ready, stop};
 }
 
+function report({failures, outages}) {
+  // GitHub turns ::warning lines into visible annotations on the run.
+  const warn = process.env.GITHUB_ACTIONS ? '::warning::' : 'warning: ';
+  for (const o of outages) console.log(`${warn}upstream outage, not this change: ${o}`);
+  if (failures.length) {
+    console.error(`\n[smoke] FAIL\n${failures.join('\n')}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`\n[smoke] OK${outages.length ? ` (${outages.length} outage warnings above)` : ''}`);
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
-  const urlAt = args.indexOf('--url');
+  const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
   let remote = null;
   try {
-    let origin;
-    if (urlAt >= 0 && args[urlAt + 1]) {
-      origin = args[urlAt + 1];
+    if (flag('--url')) {
+      const results = await collect(flag('--url'));
+      if (flag('--save')) {
+        writeFileSync(flag('--save'), JSON.stringify(results));
+        console.log(`\n[smoke] baseline saved to ${flag('--save')}`);
+      } else if (flag('--compare')) {
+        report(compare(JSON.parse(readFileSync(flag('--compare'), 'utf8')), results));
+      } else {
+        report({failures: judge(results), outages: []});
+      }
     } else if (args.includes('--remote')) {
+      console.log(`live Worker (baseline)\n`);
+      const before = await collect(LIVE);
       remote = startRemote(8799);
-      origin = await remote.ready;
+      const origin = await remote.ready;
+      console.log(`\nyour branch on the edge\n`);
+      report(compare(before, await collect(origin)));
     } else {
-      throw new Error('Usage: node scripts/smoke.mjs --remote | --url <origin>');
-    }
-    const failures = await smoke(origin);
-    if (failures.length) {
-      console.error(`\n[smoke] FAIL\n${failures.join('\n')}`);
-      process.exitCode = 1;
-    } else {
-      console.log('\n[smoke] OK — every case played, every listed server played at least once');
+      throw new Error('Usage: node scripts/smoke.mjs --remote | --url <origin> [--save <file> | --compare <file>]');
     }
   } catch (e) {
     console.error(`[smoke] ${e.message}`);
