@@ -37,6 +37,10 @@ jobs:
           cache-dependency-path: cloudflare/package-lock.json
       - run: npm ci
       - run: npm test
+      # Same runner, same minute as the after-check: region quirks and upstream
+      # outages show on both sides and become warnings, not failures.
+      - name: Smoke the live Worker before deploying
+        run: node scripts/smoke.mjs --url https://everglow-stream.khentplaysmoba.workers.dev --save "$RUNNER_TEMP/smoke-before.json"
       - name: Deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -47,7 +51,7 @@ jobs:
             exit 1
           fi
           npx wrangler deploy --message "main ${GITHUB_SHA::7}"
-      # Plays real titles on the live edge. Red here means Clair's streams
-      # are failing right now, whether from this change or an upstream.
-      - name: Smoke the live Worker
-        run: node scripts/smoke.mjs --url https://everglow-stream.khentplaysmoba.workers.dev
+      # Red only when this deploy broke something that played a minute ago,
+      # or added a server row that plays nothing.
+      - name: Smoke the live Worker after deploying
+        run: node scripts/smoke.mjs --url https://everglow-stream.khentplaysmoba.workers.dev --compare "$RUNNER_TEMP/smoke-before.json"

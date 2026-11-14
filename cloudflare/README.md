@@ -108,7 +108,8 @@ English audio is noise. YumeZone subtitle tracks are therefore not served.
 
 A merge to `main` that touches `cloudflare/` (or `functions/hls_player.js`,
 which the Worker bundles) deploys it: `.github/workflows/deploy_worker.yml`
-runs the tests, `wrangler deploy`, then the smoke against the live Worker.
+runs the tests, smokes the live Worker, runs `wrangler deploy`, then smokes it
+again and compares the two runs.
 Don't run `wrangler deploy` by hand.
 
 One-time setup, done by Khent:
@@ -122,14 +123,19 @@ One-time setup, done by Khent:
 
 ```bash
 cd cloudflare
-npm run smoke                                   # your branch, on Cloudflare's edge
-node scripts/smoke.mjs --url https://everglow-stream.khentplaysmoba.workers.dev
+npm run smoke        # live Worker, then your branch on the edge, compared
 ```
 
 It plays three films/episodes and two anime through `/proxyAnime`, fetches each
-playlist back, and tries every server row the picker lists. It fails when a
-title plays nothing, or when a row played none of the titles it was listed for.
-`--remote` needs `wrangler login`.
+playlist back, and tries every server row the picker lists.
+
+Upstreams go down and some answer differently by region (YumeZone fails from
+GitHub's US runners but plays from Asia, where Clair is). So the smoke compares
+two runs from the same place a minute apart. It fails when something that
+played before stops playing, or when a new row plays nothing (Vidrock, #595).
+What fails in both runs is printed as an outage warning.
+`--remote` needs `wrangler login`. `--url <origin>` alone gives the absolute
+result; `--save` / `--compare <file>` is what the deploy uses.
 
 ## Local development
 
