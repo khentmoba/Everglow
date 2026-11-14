@@ -373,6 +373,14 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
 
   Widget _buildRowSection(BuildContext context, _HomeRow row) {
     final empty = !row.loading && row.items.isEmpty;
+    return _KeepRowAlive(
+      key: ValueKey('anime-row-${row.id}'),
+      keepAlive: !row.loading && !empty,
+      child: _buildRowContent(context, row, empty),
+    );
+  }
+
+  Widget _buildRowContent(BuildContext context, _HomeRow row, bool empty) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 40),
       child: Column(
@@ -784,4 +792,42 @@ class _ContinueCard extends StatelessWidget {
     season = 'WINTER';
   }
   return (season, now.year);
+}
+
+/// Keeps a loaded poster row mounted after it scrolls out of the home list.
+///
+/// Without it the lazy list throws a row away a few hundred pixels off screen
+/// and rebuilds every card on the way back up, losing how far it was scrolled
+/// sideways. Only finished rows stay: the spotlight trailer, the ticker and
+/// loading shimmer still unmount so nothing animates off screen.
+class _KeepRowAlive extends StatefulWidget {
+  final bool keepAlive;
+  final Widget child;
+
+  const _KeepRowAlive({
+    super.key,
+    required this.keepAlive,
+    required this.child,
+  });
+
+  @override
+  State<_KeepRowAlive> createState() => _KeepRowAliveState();
+}
+
+class _KeepRowAliveState extends State<_KeepRowAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => widget.keepAlive;
+
+  @override
+  void didUpdateWidget(covariant _KeepRowAlive oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.keepAlive != widget.keepAlive) updateKeepAlive();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
 }
