@@ -194,7 +194,7 @@ void main() {
   });
 
   testWidgets(
-    'the app relays player keys into the frame',
+    'the app leaves player keys to the browser on the default embed',
     (tester) async {
       await _pumpPlayer(tester, const Size(1280, 720));
 
@@ -209,8 +209,10 @@ void main() {
       web.document.dispatchEvent(seek);
       expect(
         seek.defaultPrevented,
-        isTrue,
-        reason: 'the app handled the key and sent it to the player',
+        isFalse,
+        reason:
+            'the default provider is CineSrc, not our own HLS player, so '
+            'the browser keeps the key',
       );
 
       final unrelated = web.KeyboardEvent(
@@ -221,7 +223,7 @@ void main() {
       expect(
         unrelated.defaultPrevented,
         isFalse,
-        reason: 'only the player keys are forwarded',
+        reason: 'unrelated keys were never forwarded',
       );
 
       await tester.pumpWidget(const SizedBox.shrink());
