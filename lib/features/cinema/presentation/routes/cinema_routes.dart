@@ -1,27 +1,14 @@
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/network/network_quality_service.dart';
 import '../../../../core/router/deferred_route.dart';
-import '../../../../core/utils/logger.dart';
 import '../screens/cinema_screen.dart' deferred as cinema_lib;
 import '../screens/video_player_screen.dart' deferred as player_lib;
 import '../widgets/cinema_loading_shell.dart';
 
 /// Starts downloading the Cinema screen's code chunk before the first tap, so
-/// opening Cinema does not wait on a download.
-///
-/// Skipped on a slow or data-saving connection, where the download would
-/// compete with the page Clair is actually looking at. Safe to call more than
-/// once: a loaded library is reused, so later calls resolve immediately.
-Future<void> warmCinemaLibrary() async {
-  final network = NetworkQualityService.instance;
-  if (network.isSlowConnection || network.isSaveData) return;
-  try {
-    await cinema_lib.loadLibrary();
-  } catch (e, st) {
-    Logger.w('Cinema: library warm-up failed', error: e, stackTrace: st);
-  }
-}
+/// opening Cinema does not wait on a download. See [DeferredRouteLoader.warm].
+Future<void> warmCinemaLibrary() =>
+    DeferredRouteLoader.warm('Cinema', cinema_lib.loadLibrary);
 
 /// Routes owned by the cinema feature.
 final List<GoRoute> cinemaRoutes = [
