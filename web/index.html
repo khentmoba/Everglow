@@ -540,6 +540,10 @@
       if (typeof fetch === 'undefined') return;
       if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
       try {
+        // The parts are JS-core chunks; a WebAssembly boot never runs them.
+        if (performance.getEntriesByType('resource').some(function (e) {
+          return /\/main\.dart\.wasm(\?|$)/.test(e.name);
+        })) return;
         var conn = navigator.connection;
         if (conn && (conn.saveData || /(^|-)2g|3g$/.test(conn.effectiveType || ''))) return;
         if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) return;

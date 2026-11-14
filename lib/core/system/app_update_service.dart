@@ -180,7 +180,7 @@ class AppUpdateService extends ChangeNotifier {
       if (res.statusCode != 200) return null;
       final build = parseBuild(res.body);
       if (build == null) return null;
-      return (build: build, core: parseCore(res.body));
+      return (build: build, core: parseCore(res.body, wasm: kIsWasm));
     } catch (_) {
       return null;
     }
@@ -189,7 +189,26 @@ class AppUpdateService extends ChangeNotifier {
   /// Pure parse helpers, unit-tested: extract the `build` stamp and the
   /// version-busted core-shell URL.
   static String? parseBuild(String body) => _parseField(body, 'build');
-  static String? parseCore(String body) => _parseField(body, 'core');
+  ///
+  /// A WebAssembly tab warms `main.dart.wasm` (the big file) from
+  /// `wasmCore` instead; its small `.mjs` glue loads with the restart.
+  static String? parseCore(String body, {bool wasm = false}) {
+    if (wasm) {
+      try {
+        final decoded = jsonDecode(body);
+        final list =
+            decoded is Map<String, dynamic> ? decoded['wasmCore'] : null;
+        if (list is List) {
+          for (final url in list) {
+            if (url is String && url.startsWith('main.dart.wasm')) return url;
+          }
+        }
+      } catch (_) {
+        // Fall through to the JS shell field.
+      }
+    }
+    return _parseField(body, 'core');
+  }
 
   static String? _parseField(String body, String field) {
     try {

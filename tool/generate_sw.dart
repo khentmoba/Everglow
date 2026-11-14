@@ -73,10 +73,36 @@ function isNoStore(path) {
   for (const n of NO_STORE) if (path === n) return true;
   return false;
 }
+// The app ships two cores side by side: WebAssembly (main.dart.wasm plus its
+// main.dart.mjs glue) for Chrome-family browsers, and main.dart.js for the
+// rest. The Flutter loader picks one per browser; every file carries `?v=`.
+const CORE_FILES=["main.dart.js","main.dart.wasm","main.dart.mjs"];
 function isCore(path) {
   // Query-blind on purpose: URL.pathname excludes `?v=`, so every build's
   // shell URL routes here while the cache key keeps the full query.
-  return path.endsWith("main.dart.js");
+  return CORE_FILES.some((f) => path.endsWith(f));
+}
+function isCoreResponse(path, res) {
+  if (!path.endsWith(".wasm")) return isScriptResponse(res);
+  return res && res.ok && /^application\\/wasm\\b/i.test(res.headers.get("Content-Type") || "");
+}
+// Mirrors the Flutter loader: WebAssembly only on Chromium (the only engine
+// exposing userAgentData) with WasmGC support. Used to warm the right core.
+const PREFERS_WASM = (() => {
+  try {
+    return !!navigator.userAgentData &&
+      WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,95,1,120,0]));
+  } catch {
+    return false;
+  }
+})();
+function coreUrls(stamp) {
+  const files = PREFERS_WASM ? ["main.dart.wasm", "main.dart.mjs"] : ["main.dart.js"];
+  return files.map((f) => new URL(f + "?v=" + stamp, self.location.origin).href);
+}
+function stampOf(url) {
+  const version = /[?&]v=([^&]+)/.exec(url.search);
+  return version ? version[1] : "";
 }
 function isScriptResponse(res) {
   // A hosting SPA rewrite can return index.html with status 200 for a
@@ -91,17 +117,34 @@ function shellForUrl(url) {
 let currentBootstrapBuild = null;
 
 async function newestCompleteStamp() {
+  // Complete means the JS shell, or the wasm module with its glue, is cached.
+  // First pass wants the core this browser should pick (PREFERS_WASM); the
+  // second accepts either, so a wrong guess never leaves no offline boot.
+  for (const strict of [true, false]) {
+    const stamp = await newestStampWith(strict);
+    if (stamp) return stamp;
+  }
+  return null;
+}
+
+async function newestStampWith(strict) {
   try {
     const core = await caches.open(CORE);
     const names = await caches.keys();
     for (const name of names.reverse()) {
       if (!name.endsWith("-SHELL-v1")) continue;
       const stamp = name.slice(0, -"-SHELL-v1".length);
-      let main;
-      try {
-        main = await core.match(new URL("main.dart.js?v=" + stamp, self.location.origin).href);
-      } catch {}
-      if (!isScriptResponse(main)) continue;
+      const has = async (f) => {
+        try {
+          return isCoreResponse(f, await core.match(new URL(f + "?v=" + stamp, self.location.origin).href));
+        } catch {
+          return false;
+        }
+      };
+      const js = !(strict && PREFERS_WASM) && (await has("main.dart.js"));
+      const wasm = !(strict && !PREFERS_WASM) &&
+        (await has("main.dart.wasm")) && (await has("main.dart.mjs"));
+      if (!js && !wasm) continue;
       try {
         const cache = await caches.open(name);
         if (await cache.match("/flutter_bootstrap.js")) return stamp;
@@ -149,7 +192,7 @@ function isImmutable(url) {
   if (u.origin === "https://cdn.jsdelivr.net" && p.includes("/hls.js")) return true;
   if (u.origin === "https://ajax.googleapis.com" && p.includes("/model-viewer/")) return true;
   if (isNoStore(p) || isIconAsset(p)) return false;
-  if (p.endsWith(".part.js")) return false;
+  if (p.endsWith(".part.js") || isCore(p)) return false;
   if (p.startsWith("/canvaskit/")) return true;
   if (p.startsWith("/assets/") || p.startsWith("/icons/")) return true;
   return /\\.(wasm|ttf|otf|woff2|glb|gltf|bin|data|mp3)\$/.test(p);
@@ -166,21 +209,32 @@ async function trimCore() {
   try {
     const c = await caches.open(CORE);
     const keys = await c.keys();
-    const shells = keys.filter((k) => new URL(k.url).pathname.endsWith("main.dart.js"));
-    // Keep current + previous: an offline deploy-day still boots.
-    while (shells.length > 2) {
-      const old = shells.shift();
-      await c.delete(old);
-      await caches.delete(shellForUrl(new URL(old.url)));
+    const cores = keys.filter((k) => isCore(new URL(k.url).pathname));
+    // Keep the two newest builds (all their core files): an offline
+    // deploy-day still boots.
+    const order = [];
+    for (const k of cores) {
+      const s = stampOf(new URL(k.url));
+      const i = order.indexOf(s);
+      if (i >= 0) order.splice(i, 1);
+      order.push(s);
+    }
+    const keep = new Set(order.slice(-2));
+    for (const k of cores) {
+      const u = new URL(k.url);
+      if (keep.has(stampOf(u))) continue;
+      await c.delete(k);
+      await caches.delete(shellForUrl(u));
     }
   } catch {}
 }
-async function newestCoreEntry() {
+async function newestCoreEntry(path) {
+  const file = CORE_FILES.find((f) => path.endsWith(f));
   try {
     const c = await caches.open(CORE);
     const keys = await c.keys();
     for (let i = keys.length - 1; i >= 0; i--) {
-      if (new URL(keys[i].url).pathname.endsWith("main.dart.js")) return keys[i];
+      if (new URL(keys[i].url).pathname.endsWith(file)) return keys[i];
     }
   } catch {}
   return null;
@@ -201,12 +255,12 @@ async function warmCoreShell() {
   if (SAVE_DATA) return;
   try {
     const c = await caches.open(CORE);
-    const shellUrl = new URL("main.dart.js?v=$buildConst", self.location.origin).href;
-    const already = await c.match(shellUrl);
-    if (!already && navigator.onLine !== false) {
+    for (const shellUrl of coreUrls("$buildConst")) {
+      const already = await c.match(shellUrl);
+      if (already || navigator.onLine === false) continue;
       try {
         const res = await fetch(shellUrl, { cache: "no-store" });
-        if (isScriptResponse(res)) {
+        if (isCoreResponse(new URL(shellUrl).pathname, res)) {
           await c.put(shellUrl, res.clone());
           await trimCore();
         }
@@ -234,7 +288,9 @@ async function warmCoreShell() {
       const vRes = await fetch(new URL("version.json", self.location.origin).href, { cache: "no-store" });
       if (vRes && vRes.ok) {
         const vData = await vRes.json();
-        if (vData && Array.isArray(vData.parts) && vData.build) {
+        // Deferred parts and CanvasKit belong to the JS core only; a
+        // WebAssembly browser caches its skwasm renderer on first use.
+        if (!PREFERS_WASM && vData && Array.isArray(vData.parts) && vData.build) {
           const partsCache = await caches.open(vData.build + "-SHELL-v1");
           for (const part of vData.parts) {
             if (SAVE_DATA || navigator.onLine === false) break;
@@ -248,7 +304,7 @@ async function warmCoreShell() {
             } catch {}
           }
         }
-        if (vData && vData.canvaskit && !SAVE_DATA && navigator.onLine !== false) {
+        if (!PREFERS_WASM && vData && vData.canvaskit && !SAVE_DATA && navigator.onLine !== false) {
           const imm = await caches.open(IMMUTABLE);
           const cBase = vData.canvaskit.endsWith("/") ? vData.canvaskit : (vData.canvaskit + "/");
           for (const ckFile of ["canvaskit.js", "canvaskit.wasm"]) {
@@ -442,7 +498,7 @@ self.addEventListener("fetch", (e) => {
 
         try {
           const res = await fetch(e.request);
-          if (!isScriptResponse(res)) throw new Error("Invalid core script");
+          if (!isCoreResponse(path, res)) throw new Error("Invalid core script");
           if (res && res.ok) {
             const copy = res.clone();
             e.waitUntil(caches.open(CORE).then((c) => c.put(e.request, copy).then(() => trimCore())).catch(() => {}));
@@ -452,7 +508,7 @@ self.addEventListener("fetch", (e) => {
           if (url.searchParams.has("v")) return Response.error();
           let fallback;
           try {
-            fallback = await newestCoreEntry();
+            fallback = await newestCoreEntry(path);
           } catch {}
           if (fallback) {
             try {

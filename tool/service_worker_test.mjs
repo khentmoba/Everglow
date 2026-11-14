@@ -19,6 +19,9 @@ const shell = (stamp) => `${stamp}-SHELL-v1`;
 const script = (body, status = 200) => new Response(body, {
   status, headers: {'Content-Type': 'text/javascript; charset=utf-8'},
 });
+const wasmCore = (stamp) => `/main.dart.wasm?v=${stamp}`;
+const mjsCore = (stamp) => `/main.dart.mjs?v=${stamp}`;
+const wasm = (body) => new Response(body, {headers: {'Content-Type': 'application/wasm'}});
 const bootstrap = (stamp) => `window.__EVERGLOW_BUILD__ = "${stamp}";
 const mainJsPath = "main.dart.js?v=${stamp}";
 const main = document.createElement('script'); main.src = mainJsPath; document.head.append(main);`;
@@ -46,7 +49,7 @@ function generateWorker(stamp) {
 }
 const sources = new Map([A, B, C].map((stamp) => [stamp, generateWorker(stamp)]));
 
-function worker(stamp = A, stores = new Map(), {onLine = false} = {}) {
+function worker(stamp = A, stores = new Map(), {onLine = false, chromium = false} = {}) {
   const handlers = {};
   const calls = [];
   let network = async () => script('current-build');
@@ -80,7 +83,10 @@ function worker(stamp = A, stores = new Map(), {onLine = false} = {}) {
   };
   vm.runInNewContext(sources.get(stamp), {
     URL, Response, caches,
-    navigator: {onLine}, // Skip unrelated activation pre-warm by default.
+    // Skip unrelated activation pre-warm by default. `chromium` exposes what
+    // the worker checks to prefer the WebAssembly core.
+    navigator: chromium ? {onLine, userAgentData: {}} : {onLine},
+    ...(chromium ? {WebAssembly} : {}),
     self: {
       location: {origin}, clients: {async claim() {}}, skipWaiting() {},
       addEventListener: (event, handler) => { handlers[event] = handler; },
@@ -96,6 +102,8 @@ function worker(stamp = A, stores = new Map(), {onLine = false} = {}) {
       network = async (url) => {
         if (['/flutter_bootstrap.js', '/flutter.js'].includes(url.pathname)) return script(bootstrap(build));
         if (url.pathname === '/main.dart.js') return script(`main:${build}`);
+        if (url.pathname === '/main.dart.mjs') return script(`mjs:${build}`);
+        if (url.pathname === '/main.dart.wasm') return wasm(`wasm:${build}`);
         if (url.pathname.endsWith('.part.js')) return script(`part:${build}`);
         return new Response(`index:${build}`, {headers: {'Content-Type': 'text/html'}});
       };
@@ -218,6 +226,99 @@ test('two complete builds survive rotation, but an incomplete newest bootstrap i
   assert.equal(await (await w.request('/', 'navigate')).text(), `index:${B}`, 'navigation survives rotation of the old worker cache');
   assert.equal(await (await w.request('/flutter_bootstrap.js')).text(), bootstrap(C));
   assert.equal(await (await w.request(part(B))).text(), `part:${B}`);
+});
+
+async function warmWasm(w, stamp) {
+  w.online(stamp);
+  await w.request('/', 'navigate');
+  await w.request('/flutter_bootstrap.js');
+  await w.request(mjsCore(stamp));
+  await w.request(wasmCore(stamp));
+}
+
+test('WebAssembly core is versioned like main.dart.js and boots offline without the JS shell', async () => {
+  const w = worker();
+  await warmWasm(w, A);
+  assert.ok(storesContain(w, 'everglow-core-v1', wasmCore(A)));
+  assert.ok(storesContain(w, 'everglow-core-v1', mjsCore(A)));
+  assert.equal(w.stores.get('canvaskit-__ENGINE_REV__')?.has(origin + wasmCore(A)) ?? false, false,
+    'the app module is per-build, never engine-immutable');
+  await warmWasm(w, B);
+  assert.equal(await (await w.request(wasmCore(B))).text(), `wasm:${B}`, 'a new deploy fetches fresh wasm');
+  w.offline();
+  assert.equal(await (await w.request('/flutter_bootstrap.js')).text(), bootstrap(B),
+    'wasm module + glue count as a complete offline build');
+  assert.equal(await (await w.request(wasmCore(B))).text(), `wasm:${B}`);
+  assert.equal(await (await w.request(mjsCore(B))).text(), `mjs:${B}`);
+  assert.equal((await w.request(wasmCore(C))).type, 'error', 'never substitute another build');
+});
+
+test('a wasm module without its glue is not a complete offline build', async () => {
+  const w = worker();
+  await warmWasm(w, A);
+  w.online(B);
+  await w.request('/flutter_bootstrap.js');
+  await w.request(wasmCore(B)); // Glue never arrived.
+  w.offline();
+  assert.equal(await (await w.request('/flutter_bootstrap.js')).text(), bootstrap(A));
+});
+
+test('offline boot prefers a build whose cached core matches the browser, else any complete build', async () => {
+  const run = async (chromium, jsOnly = false) => {
+    const w = worker(A, new Map(), {chromium});
+    if (jsOnly) await warm(w, A); else await warmWasm(w, A);
+    await warm(w, B); // Newest build has only the JS core cached.
+    w.offline();
+    return (await w.request('/flutter_bootstrap.js')).text();
+  };
+  assert.equal(await run(true), bootstrap(A), 'Chromium boots the build it can actually run');
+  assert.equal(await run(false), bootstrap(B), 'other browsers keep the newest JS build');
+  assert.equal(await run(true, true), bootstrap(B), 'a wrong guess still finds an offline build');
+});
+
+test('an HTML SPA rewrite cannot be cached as the wasm module', async () => {
+  const w = worker();
+  w.network(async () => new Response('<html>', {headers: {'Content-Type': 'text/html'}}));
+  await w.request(wasmCore(A));
+  assert.equal(storesContain(w, 'everglow-core-v1', wasmCore(A)) ?? false, false);
+});
+
+test('rotation keeps every core file of the two newest builds', async () => {
+  const w = worker();
+  await warmWasm(w, A);
+  await warm(w, B);
+  await warmWasm(w, B);
+  await warmWasm(w, C);
+  const kept = [...w.stores.get('everglow-core-v1').keys()].map((u) => new URL(u).search).sort();
+  assert.deepEqual(kept, [`?v=${B}`, `?v=${B}`, `?v=${B}`, `?v=${C}`, `?v=${C}`]);
+  assert.equal(w.stores.has(shell(A)), false);
+});
+
+test('activation warms the WebAssembly core on Chromium and the JS shell, parts and CanvasKit elsewhere', async () => {
+  const ck = 'https://www.gstatic.com/flutter-canvaskit/rev/';
+  const run = async (chromium) => {
+    const w = worker(A, new Map(), {onLine: true, chromium});
+    w.network(async (url) => {
+      if (url.pathname === '/version.json') {
+        return new Response(JSON.stringify({build: A, core: core(A), canvaskit: ck, parts: ['main.dart.js_1.part.js']}),
+          {headers: {'Content-Type': 'application/json'}});
+      }
+      if (url.pathname === '/main.dart.js') return script(`main:${A}`);
+      if (url.pathname === '/main.dart.mjs') return script(`mjs:${A}`);
+      if (url.pathname === '/main.dart.wasm') return wasm(`wasm:${A}`);
+      if (url.pathname.endsWith('.part.js')) return script('part');
+      if (url.origin !== origin) return wasm('engine');
+      return new Response('other');
+    });
+    await w.activate();
+    return {
+      core: [...w.stores.get('everglow-core-v1').keys()].map((u) => new URL(u).pathname).sort(),
+      fetchedParts: w.calls.some((c) => c.url.includes('.part.js')),
+      fetchedCanvasKit: w.calls.some((c) => c.url.startsWith(ck)),
+    };
+  };
+  assert.deepEqual(await run(true), {core: ['/main.dart.mjs', '/main.dart.wasm'], fetchedParts: false, fetchedCanvasKit: false});
+  assert.deepEqual(await run(false), {core: ['/main.dart.js'], fetchedParts: true, fetchedCanvasKit: true});
 });
 
 test('API/auth and push/worker scripts never cache or use cached fallback', async () => {

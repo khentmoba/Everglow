@@ -165,6 +165,27 @@ reported "a whole lot better" and he requested PR finalization. Native glide
 was left unchanged. Quantified device targets and populated-live-card timing
 remain open; subjective phone feedback does not close them.
 
+### WebAssembly core for Chrome-family browsers (candidate)
+
+`tool/build_web.dart` now builds with `--wasm` (opt out with `--no-wasm`).
+The output holds both cores; Flutter's loader picks WebAssembly + skwasm on
+Chromium with WasmGC and the unchanged JS + CanvasKit core everywhere else.
+**Safari, so every iPhone/iPad browser, stays on JS**: Flutter's default
+allow-list is blink-only and Khent chose not to force it. Clair's iPhone is
+unaffected until a Safari-specific decision.
+
+Matched desktop headless comparison (430x932 @3x, CPU 4x, same commit,
+2 interleaved runs each; raw JSON in `docs/pr-proof/pr-602/raw/`):
+worst build time while scrolling fell 3–13x (dashboard 342/199 → 26/23 ms,
+Cinema 145/171 → 51/60 ms, Anime 93/113 → 29/33 ms), dashboard → section
+opens fell 2–4x (Cinema first 275/356 → 106/78 ms, Books first
+117/102 → 36/40 ms), and agent-mode first paint on a local server fell 0.3–2.2 s. Raster time
+did not improve (dashboard 126/140 → 161/128 ms). A cold first visit on
+the `fast3g` preset got slower, 28.8–29.0 s → 33.8 s, because the single
+`main.dart.wasm` (2.0 MB brotli) cannot be split into deferred chunks.
+Desktop headless Chrome is not an Android phone; real-device timing is
+unmeasured.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.
@@ -238,7 +259,9 @@ posters and stricter validation mean old tables cannot be compared as speed wins
 
 `tool/generate_sw.dart` already handles `main.dart.js?v=BUILD` cache-first with
 the **full URL as cache key**. New version URLs miss that cache. Do not replace
-that branch with blanket entrypoint cache-first behavior.
+that branch with blanket entrypoint cache-first behavior. The WebAssembly core
+(`main.dart.wasm` + `main.dart.mjs`) is stamped and cached the same way; it
+must never fall into the engine-immutable cache, which matches any `.wasm`.
 
 The cleanup adds network-first caching/fallback for the versioned boot-loader
 path so a previously warmed shell can boot when **both page and worker** cannot

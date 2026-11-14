@@ -1,0 +1,287 @@
+{
+  "webRoot": "build/web_js",
+  "screen": "dashboard",
+  "dpr": 3,
+  "throttle": 4,
+  "width": 430,
+  "height": 932,
+  "phases": [
+    {
+      "label": "first-down",
+      "freshFrames": 110,
+      "worstFrameMs": 257.4,
+      "worstBuildMs": 198.8,
+      "worstRasterMs": 140.3,
+      "over200ms": 1,
+      "fps": 24.2,
+      "avgBuildMs": 17.75,
+      "avgRasterMs": 25.79,
+      "longTaskMaxMs": 203,
+      "longTasksOver200": 1,
+      "profile": [
+        {
+          "name": "getProgramParameter @:-1",
+          "pct": 5.3
+        },
+        {
+          "name": "(program) @:-1",
+          "pct": 3.2
+        },
+        {
+          "name": "(anonymous) @canvaskit.js:109",
+          "pct": 2.8
+        },
+        {
+          "name": "bR @main.dart.js:116758",
+          "pct": 2
+        },
+        {
+          "name": "wasm-function[310] @canvaskit.wasm:0",
+          "pct": 1.2
+        },
+        {
+          "name": "dNY @main.dart.js:5320",
+          "pct": 1.2
+        },
+        {
+          "name": "aqK @main.dart.js:45384",
+          "pct": 1
+        },
+        {
+          "name": "Cb @canvaskit.js:98",
+          "pct": 1
+        },
+        {
+          "name": "getShaderParameter @:-1",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[4607] @canvaskit.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "vertexAttribPointer @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "fp @main.dart.js:116339",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[241] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[238] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-to-js @:0",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[243] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[11191] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "hj @main.dart.js:114127",
+          "pct": 0.5
+        }
+      ],
+      "appInclusive": []
+    },
+    {
+      "label": "repeat-down-1",
+      "freshFrames": 252,
+      "worstFrameMs": 84.7,
+      "worstBuildMs": 32.4,
+      "worstRasterMs": 68.3,
+      "over200ms": 0,
+      "fps": 31.75,
+      "avgBuildMs": 4.74,
+      "avgRasterMs": 13.75,
+      "longTaskMaxMs": 91,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(program) @:-1",
+          "pct": 4.2
+        },
+        {
+          "name": "getProgramParameter @:-1",
+          "pct": 2.6
+        },
+        {
+          "name": "(anonymous) @canvaskit.js:109",
+          "pct": 2
+        },
+        {
+          "name": "wasm-function[243] @canvaskit.wasm:0",
+          "pct": 1.9
+        },
+        {
+          "name": "wasm-function[310] @canvaskit.wasm:0",
+          "pct": 1.7
+        },
+        {
+          "name": "wasm-function[5277] @canvaskit.wasm:0",
+          "pct": 1.6
+        },
+        {
+          "name": "bR @main.dart.js:116758",
+          "pct": 1.5
+        },
+        {
+          "name": "dNY @main.dart.js:5320",
+          "pct": 1.3
+        },
+        {
+          "name": "aqK @main.dart.js:45384",
+          "pct": 1
+        },
+        {
+          "name": "wasm-function[238] @canvaskit.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[4607] @canvaskit.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "vertexAttribPointer @:-1",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-to-js @:0",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[5871] @canvaskit.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[7522] @canvaskit.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[2276] @canvaskit.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "getShaderParameter @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[484] @canvaskit.wasm:0",
+          "pct": 0.6
+        }
+      ],
+      "appInclusive": []
+    },
+    {
+      "label": "repeat-up",
+      "freshFrames": 227,
+      "worstFrameMs": 79.8,
+      "worstBuildMs": 51.7,
+      "worstRasterMs": 49.4,
+      "over200ms": 0,
+      "fps": 31.11,
+      "avgBuildMs": 6.9,
+      "avgRasterMs": 13.14,
+      "longTaskMaxMs": 93,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(program) @:-1",
+          "pct": 4.1
+        },
+        {
+          "name": "wasm-function[5277] @canvaskit.wasm:0",
+          "pct": 3
+        },
+        {
+          "name": "(anonymous) @canvaskit.js:109",
+          "pct": 2.2
+        },
+        {
+          "name": "wasm-function[310] @canvaskit.wasm:0",
+          "pct": 1.7
+        },
+        {
+          "name": "dNY @main.dart.js:5320",
+          "pct": 1.5
+        },
+        {
+          "name": "bR @main.dart.js:116758",
+          "pct": 1.4
+        },
+        {
+          "name": "wasm-function[2276] @canvaskit.wasm:0",
+          "pct": 1.3
+        },
+        {
+          "name": "aqK @main.dart.js:45384",
+          "pct": 1.1
+        },
+        {
+          "name": "wasm-function[243] @canvaskit.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-to-js @:0",
+          "pct": 0.9
+        },
+        {
+          "name": "B @main.dart.js:56228",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[4607] @canvaskit.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "vertexAttribPointer @:-1",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[238] @canvaskit.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[4606] @canvaskit.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "uniform4fv @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "Cb @canvaskit.js:98",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[484] @canvaskit.wasm:0",
+          "pct": 0.6
+        }
+      ],
+      "appInclusive": []
+    }
+  ],
+  "cpuThrottleRate": 4,
+  "firstPaintMs": 4957,
+  "firstDashboardPaintMs": 4957,
+  "session": {
+    "worstFrameMs": 257.4,
+    "worstBuildMs": 198.8,
+    "worstRasterMs": 140.3,
+    "over200ms": 1,
+    "sessionFrames": 589,
+    "longTaskMaxMs": 203,
+    "longTasksOver200": 1
+  },
+  "longTaskError": null
+}
