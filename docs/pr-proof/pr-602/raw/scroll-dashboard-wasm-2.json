@@ -1,0 +1,287 @@
+{
+  "webRoot": "build/web_wasm",
+  "screen": "dashboard",
+  "dpr": 3,
+  "throttle": 4,
+  "width": 430,
+  "height": 932,
+  "phases": [
+    {
+      "label": "first-down",
+      "freshFrames": 186,
+      "worstFrameMs": 131,
+      "worstBuildMs": 22.5,
+      "worstRasterMs": 128.1,
+      "over200ms": 0,
+      "fps": 62.22,
+      "avgBuildMs": 3.59,
+      "avgRasterMs": 18.46,
+      "longTaskMaxMs": 138,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "getProgramParameter @:-1",
+          "pct": 5.8
+        },
+        {
+          "name": "(program) @:-1",
+          "pct": 4.6
+        },
+        {
+          "name": "wasm-function[241] @skwasm_heavy.wasm:0",
+          "pct": 2.1
+        },
+        {
+          "name": "wasm-to-js @:0",
+          "pct": 1.4
+        },
+        {
+          "name": "getShaderParameter @:-1",
+          "pct": 1
+        },
+        {
+          "name": "wasm-function[224] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[415] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[7010] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[6908] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[1757] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[10649] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[14224] @skwasm_heavy.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[13772] @skwasm_heavy.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[5725] @skwasm_heavy.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "uniform4fv @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[14063] @skwasm_heavy.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[1095] @skwasm_heavy.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[6907] @skwasm_heavy.wasm:0",
+          "pct": 0.6
+        }
+      ],
+      "appInclusive": []
+    },
+    {
+      "label": "repeat-down-1",
+      "freshFrames": 269,
+      "worstFrameMs": 106.9,
+      "worstBuildMs": 11.9,
+      "worstRasterMs": 99.9,
+      "over200ms": 0,
+      "fps": 55.63,
+      "avgBuildMs": 1.97,
+      "avgRasterMs": 16.09,
+      "longTaskMaxMs": 111,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(program) @:-1",
+          "pct": 4.9
+        },
+        {
+          "name": "getProgramParameter @:-1",
+          "pct": 3.9
+        },
+        {
+          "name": "wasm-function[241] @skwasm_heavy.wasm:0",
+          "pct": 2.3
+        },
+        {
+          "name": "wasm-to-js @:0",
+          "pct": 1.5
+        },
+        {
+          "name": "wasm-function[224] @skwasm_heavy.wasm:0",
+          "pct": 1.2
+        },
+        {
+          "name": "wasm-function[7010] @skwasm_heavy.wasm:0",
+          "pct": 1.1
+        },
+        {
+          "name": "wasm-function[1757] @skwasm_heavy.wasm:0",
+          "pct": 1.1
+        },
+        {
+          "name": "wasm-function[415] @skwasm_heavy.wasm:0",
+          "pct": 1
+        },
+        {
+          "name": "wasm-function[5725] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[6908] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[14593] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "uniform4fv @:-1",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[14224] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[8872] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "vertexAttribPointer @:-1",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[10649] @skwasm_heavy.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[6230] @skwasm_heavy.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "getShaderParameter @:-1",
+          "pct": 0.6
+        }
+      ],
+      "appInclusive": []
+    },
+    {
+      "label": "repeat-up",
+      "freshFrames": 233,
+      "worstFrameMs": 46.1,
+      "worstBuildMs": 20.6,
+      "worstRasterMs": 39,
+      "over200ms": 0,
+      "fps": 51.06,
+      "avgBuildMs": 3.98,
+      "avgRasterMs": 17.82,
+      "longTaskMaxMs": 50,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(program) @:-1",
+          "pct": 5.4
+        },
+        {
+          "name": "wasm-function[241] @skwasm_heavy.wasm:0",
+          "pct": 2.3
+        },
+        {
+          "name": "wasm-function[5725] @skwasm_heavy.wasm:0",
+          "pct": 2.2
+        },
+        {
+          "name": "wasm-to-js @:0",
+          "pct": 1.6
+        },
+        {
+          "name": "wasm-function[7010] @skwasm_heavy.wasm:0",
+          "pct": 1.2
+        },
+        {
+          "name": "wasm-function[415] @skwasm_heavy.wasm:0",
+          "pct": 1.1
+        },
+        {
+          "name": "wasm-function[6908] @skwasm_heavy.wasm:0",
+          "pct": 1
+        },
+        {
+          "name": "wasm-function[14224] @skwasm_heavy.wasm:0",
+          "pct": 1
+        },
+        {
+          "name": "wasm-function[224] @skwasm_heavy.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "vertexAttribPointer @:-1",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[1757] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[10649] @skwasm_heavy.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[14063] @skwasm_heavy.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "uniform4fv @:-1",
+          "pct": 0.7
+        },
+        {
+          "name": "wasm-function[6907] @skwasm_heavy.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "useProgram @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[3784] @main.dart.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[6230] @skwasm_heavy.wasm:0",
+          "pct": 0.6
+        }
+      ],
+      "appInclusive": []
+    }
+  ],
+  "cpuThrottleRate": 4,
+  "firstPaintMs": 2797,
+  "firstDashboardPaintMs": 2797,
+  "session": {
+    "worstFrameMs": 131,
+    "worstBuildMs": 22.5,
+    "worstRasterMs": 128.1,
+    "over200ms": 0,
+    "sessionFrames": 688,
+    "longTaskMaxMs": 138,
+    "longTasksOver200": 0
+  },
+  "longTaskError": null
+}

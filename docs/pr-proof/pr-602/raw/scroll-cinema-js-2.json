@@ -1,0 +1,286 @@
+{
+  "webRoot": "build/web_js",
+  "screen": "cinema",
+  "dpr": 3,
+  "throttle": 4,
+  "width": 430,
+  "height": 932,
+  "phases": [
+    {
+      "label": "first-down",
+      "freshFrames": 92,
+      "worstFrameMs": 129.5,
+      "worstBuildMs": 45.4,
+      "worstRasterMs": 80.7,
+      "over200ms": 0,
+      "fps": 11.84,
+      "avgBuildMs": 9.01,
+      "avgRasterMs": 10.18,
+      "longTaskMaxMs": 160,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(idle) @:-1",
+          "pct": 38.4
+        },
+        {
+          "name": "(program) @:-1",
+          "pct": 4
+        },
+        {
+          "name": "(anonymous) @canvaskit.js:109",
+          "pct": 2.4
+        },
+        {
+          "name": "getProgramParameter @:-1",
+          "pct": 1.1
+        },
+        {
+          "name": "aqK @main.dart.js:45384",
+          "pct": 0.9
+        },
+        {
+          "name": "dNY @main.dart.js:5320",
+          "pct": 0.7
+        },
+        {
+          "name": "Cb @canvaskit.js:98",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[243] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "c1C @main.dart.js:94245",
+          "pct": 0.5
+        },
+        {
+          "name": "createImageBitmap @:-1",
+          "pct": 0.5
+        },
+        {
+          "name": "(anonymous) @main.dart.js:4494",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[310] @canvaskit.wasm:0",
+          "pct": 0.4
+        },
+        {
+          "name": "fp @main.dart.js:116339",
+          "pct": 0.4
+        },
+        {
+          "name": "KO @main.dart.js:45351",
+          "pct": 0.4
+        },
+        {
+          "name": "js-to-wasm:ii:i @canvaskit.wasm:0",
+          "pct": 0.4
+        },
+        {
+          "name": "ao @main.dart.js:45585",
+          "pct": 0.4
+        },
+        {
+          "name": "a.Picture.cullRect @canvaskit.js:58",
+          "pct": 0.4
+        },
+        {
+          "name": "wasm-function[7448] @canvaskit.wasm:0",
+          "pct": 0.3
+        }
+      ],
+      "appInclusive": []
+    },
+    {
+      "label": "repeat-down-1",
+      "freshFrames": 308,
+      "worstFrameMs": 53.3,
+      "worstBuildMs": 42.2,
+      "worstRasterMs": 13.3,
+      "over200ms": 0,
+      "fps": 25.13,
+      "avgBuildMs": 5,
+      "avgRasterMs": 5.5,
+      "longTaskMaxMs": 54,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(idle) @:-1",
+          "pct": 15.8
+        },
+        {
+          "name": "(program) @:-1",
+          "pct": 6.6
+        },
+        {
+          "name": "wasm-function[2276] @canvaskit.wasm:0",
+          "pct": 5.5
+        },
+        {
+          "name": "(anonymous) @canvaskit.js:109",
+          "pct": 4.4
+        },
+        {
+          "name": "aqK @main.dart.js:45384",
+          "pct": 1.5
+        },
+        {
+          "name": "Cb @canvaskit.js:98",
+          "pct": 1.1
+        },
+        {
+          "name": "wasm-function[310] @canvaskit.wasm:0",
+          "pct": 0.9
+        },
+        {
+          "name": "dNY @main.dart.js:5320",
+          "pct": 0.9
+        },
+        {
+          "name": "createImageBitmap @:-1",
+          "pct": 0.9
+        },
+        {
+          "name": "wasm-function[7522] @canvaskit.wasm:0",
+          "pct": 0.7
+        },
+        {
+          "name": "KO @main.dart.js:45351",
+          "pct": 0.6
+        },
+        {
+          "name": "ao @main.dart.js:45585",
+          "pct": 0.6
+        },
+        {
+          "name": "(garbage collector) @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[7448] @canvaskit.wasm:0",
+          "pct": 0.6
+        },
+        {
+          "name": "fp @main.dart.js:116339",
+          "pct": 0.5
+        },
+        {
+          "name": "fd @canvaskit.js:152",
+          "pct": 0.5
+        },
+        {
+          "name": "aTb @main.dart.js:54144",
+          "pct": 0.5
+        },
+        {
+          "name": "c1C @main.dart.js:94245",
+          "pct": 0.5
+        }
+      ],
+      "appInclusive": []
+    },
+    {
+      "label": "repeat-up",
+      "freshFrames": 187,
+      "worstFrameMs": 189.6,
+      "worstBuildMs": 171.3,
+      "worstRasterMs": 94.2,
+      "over200ms": 0,
+      "fps": 13.52,
+      "avgBuildMs": 8.7,
+      "avgRasterMs": 7.64,
+      "longTaskMaxMs": 190,
+      "longTasksOver200": 0,
+      "profile": [
+        {
+          "name": "(idle) @:-1",
+          "pct": 24
+        },
+        {
+          "name": "(program) @:-1",
+          "pct": 5.2
+        },
+        {
+          "name": "(anonymous) @canvaskit.js:109",
+          "pct": 3
+        },
+        {
+          "name": "wasm-function[2276] @canvaskit.wasm:0",
+          "pct": 1.8
+        },
+        {
+          "name": "aqK @main.dart.js:45384",
+          "pct": 1.4
+        },
+        {
+          "name": "dNY @main.dart.js:5320",
+          "pct": 1.3
+        },
+        {
+          "name": "getProgramParameter @:-1",
+          "pct": 0.9
+        },
+        {
+          "name": "Cb @canvaskit.js:98",
+          "pct": 0.8
+        },
+        {
+          "name": "wasm-function[310] @canvaskit.wasm:0",
+          "pct": 0.8
+        },
+        {
+          "name": "fp @main.dart.js:116339",
+          "pct": 0.6
+        },
+        {
+          "name": "ao @main.dart.js:45585",
+          "pct": 0.6
+        },
+        {
+          "name": "createImageBitmap @:-1",
+          "pct": 0.6
+        },
+        {
+          "name": "KO @main.dart.js:45351",
+          "pct": 0.6
+        },
+        {
+          "name": "wasm-function[7448] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "c1C @main.dart.js:94245",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[2017] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "wasm-function[7522] @canvaskit.wasm:0",
+          "pct": 0.5
+        },
+        {
+          "name": "b0 @main.dart.js:115994",
+          "pct": 0.4
+        }
+      ],
+      "appInclusive": []
+    }
+  ],
+  "cpuThrottleRate": 4,
+  "firstPaintMs": 4357,
+  "session": {
+    "worstFrameMs": 189.6,
+    "worstBuildMs": 171.3,
+    "worstRasterMs": 94.2,
+    "over200ms": 0,
+    "sessionFrames": 587,
+    "longTaskMaxMs": 190,
+    "longTasksOver200": 0
+  },
+  "longTaskError": null
+}
