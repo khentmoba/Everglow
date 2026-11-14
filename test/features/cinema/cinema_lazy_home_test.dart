@@ -5,6 +5,7 @@ import 'package:everglow/core/services/auth_service.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_nav_bar.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_home_tab.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_library_tab.dart';
 
@@ -166,4 +167,84 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('scrolling the phone home does not rebuild every rail', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final service = _Service()
+      ..items = [for (var i = 1; i <= 12; i++) _item(i)];
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthService>.value(
+        value: _Auth(),
+        child: MaterialApp(home: CinemaScreen(service: service)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final before = tester.widget<CinemaHomeTab>(find.byType(CinemaHomeTab));
+
+    // Crossing the top used to rebuild the whole screen for a flag only the
+    // desktop bar reads.
+    final home = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(CinemaHomeTab),
+            matching: find.byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first,
+    );
+    home.position.jumpTo(200);
+    await tester.pump();
+    home.position.jumpTo(0);
+    await tester.pump();
+
+    final after = tester.widget<CinemaHomeTab>(find.byType(CinemaHomeTab));
+    expect(identical(after, before), isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the desktop top bar still turns solid after scrolling', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final service = _Service()
+      ..items = [for (var i = 1; i <= 12; i++) _item(i)];
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthService>.value(
+        value: _Auth(),
+        child: MaterialApp(home: CinemaScreen(service: service)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    bool scrolled() => tester
+        .widget<NetflixCinemaTopBar>(find.byType(NetflixCinemaTopBar))
+        .scrolled;
+    expect(scrolled(), isFalse);
+    final home = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(CinemaHomeTab),
+            matching: find.byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first,
+    );
+    home.position.jumpTo(200);
+    await tester.pump();
+    expect(scrolled(), isTrue);
+    home.position.jumpTo(0);
+    await tester.pump();
+    expect(scrolled(), isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

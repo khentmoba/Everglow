@@ -57,7 +57,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
   int _browseSeed = 0;
   String? _pendingBrowseOption;
 
-  bool _desktopScrolled = false;
+  /// Only the desktop top bar reads this, so it listens on its own instead of
+  /// rebuilding every rail whenever the page crosses the top.
+  final ValueNotifier<bool> _desktopScrolled = ValueNotifier<bool>(false);
 
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
   late final AuthService _auth;
@@ -156,6 +158,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
   void dispose() {
     _auth.removeListener(_syncProfile);
     _watchlistSubscription?.cancel();
+    _desktopScrolled.dispose();
     super.dispose();
   }
 
@@ -755,9 +758,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) return false;
     final scrolled = notification.metrics.pixels > 12;
-    if (scrolled != _desktopScrolled) {
-      setState(() => _desktopScrolled = scrolled);
-    }
+    _desktopScrolled.value = scrolled;
     return false;
   }
 
@@ -968,36 +969,39 @@ class _CinemaScreenState extends State<CinemaScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const TvMediaNavHeader(currentRoute: '/cinema'),
-                  NetflixCinemaTopBar(
-                    currentIndex: _currentIndex,
-                    scrolled: _desktopScrolled,
-                    onSelect: _onNavSelect,
-                    onAnimeTap: () => GoRouter.of(context).go('/anime'),
-                    onDashboardTap: isCoupleUser
-                        ? () => GoRouter.of(context).go('/dashboard')
-                        : null,
-                    onLogout: () async {
-                      final router = GoRouter.of(context);
-                      try {
-                        await context.read<AuthService>().logout();
-                      } catch (_) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              context.read<AuthService>().lastAuthError ??
-                                  'Could not log out safely. Try again.',
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _desktopScrolled,
+                    builder: (context, scrolled, _) => NetflixCinemaTopBar(
+                      currentIndex: _currentIndex,
+                      scrolled: scrolled,
+                      onSelect: _onNavSelect,
+                      onAnimeTap: () => GoRouter.of(context).go('/anime'),
+                      onDashboardTap: isCoupleUser
+                          ? () => GoRouter.of(context).go('/dashboard')
+                          : null,
+                      onLogout: () async {
+                        final router = GoRouter.of(context);
+                        try {
+                          await context.read<AuthService>().logout();
+                        } catch (_) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                context.read<AuthService>().lastAuthError ??
+                                    'Could not log out safely. Try again.',
+                              ),
                             ),
-                          ),
-                        );
-                        return;
-                      }
-                      if (!mounted) return;
-                      router.go('/');
-                    },
-                    userName: userName,
-                    showAnime: isCinemaOnlyUser,
-                    links: navLinks,
+                          );
+                          return;
+                        }
+                        if (!mounted) return;
+                        router.go('/');
+                      },
+                      userName: userName,
+                      showAnime: isCinemaOnlyUser,
+                      links: navLinks,
+                    ),
                   ),
                 ],
               ),
