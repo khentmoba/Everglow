@@ -179,7 +179,8 @@ dashboard went from 25–121 frames per 5 s to 12–16 (one per tick, plus the
 occasional idle section warm-up). Scroll probe results stayed within run-to-run
 noise. The same probe found no moving animations on idle Anime, Cinema, Books
 or Manga. This saves iPhone battery and main-thread time between interactions.
-It does not speed up scrolling itself, and it has not been measured on the
+Raw rows are in `docs/pr-proof/pr-603/idle-frames.md`. It does not speed up
+scrolling itself, and it has not been measured on the
 device.
 
 ## Opt-in meter
