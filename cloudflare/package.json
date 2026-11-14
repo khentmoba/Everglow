@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test src/"
+    "test": "node --test \"src/*.test.js\" \"scripts/*.test.mjs\"",
+    "smoke": "node scripts/smoke.mjs --remote"
   },
   "devDependencies": {
     "wrangler": "^4.158.0"

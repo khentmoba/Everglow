@@ -24,3 +24,32 @@ test('PR and deployment use the same backend verification and locked install', (
     assert.ok(scripts.verify.split(' && ').includes(command), command);
   }
 });
+
+// The Worker is live code for Cinema and Anime. A merge must be the only way
+// it ships, tested first and played on the edge after (#592, #594, #595).
+test('a merge to main deploys the streaming Worker, tested before and smoked after', () => {
+  const source = read('.github/workflows/deploy_worker.yml');
+  assert.match(source, /push:\s*\n\s+branches: \[main\]/);
+  assert.match(source, /- 'cloudflare\/\*\*'/);
+  assert.match(source, /- 'functions\/hls_player\.js'/);
+  assert.match(source, /cancel-in-progress: false/);
+  const order = ['run: npm ci', 'run: npm test', 'npx wrangler deploy', 'node scripts/smoke.mjs --url'].map(step => {
+    const at = source.indexOf(step);
+    assert.ok(at >= 0, `deploy_worker.yml must run ${step}`);
+    return at;
+  });
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), 'test, then deploy, then smoke');
+  const {scripts} = JSON.parse(read('cloudflare/package.json'));
+  assert.match(scripts.test, /src\/\*\.test\.js/);
+  assert.match(read('.github/workflows/quality.yml'), /node --test "cloudflare\/src\/\*\.test\.js"/);
+});
+
+test('a PR body edit re-runs only the contract, never the full Quality suite', () => {
+  const quality = read('.github/workflows/quality.yml');
+  const types = quality.match(/types: \[([^\]]*)\]/)[1];
+  assert.doesNotMatch(types, /edited|ready_for_review|converted_to_draft/);
+  assert.doesNotMatch(quality, /pr_contract\.mjs/);
+  const contract = read('.github/workflows/pr_contract.yml');
+  assert.match(contract.match(/types: \[([^\]]*)\]/)[1], /edited/);
+  assert.match(contract, /run: node tool\/ci\/pr_contract\.mjs/);
+});

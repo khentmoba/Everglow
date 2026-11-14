@@ -2,7 +2,8 @@ name: Quality
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
+    # Body edits and draft toggles only re-run pr_contract.yml.
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -38,9 +39,9 @@ jobs:
         run: >-
           node --experimental-strip-types --test
           .pi/extensions/everglow_verify_gate/rules.test.ts
-      - name: Enforce ready PR evidence and verification declarations
-        if: github.event_name == 'pull_request'
-        run: node tool/ci/pr_contract.mjs
+      # Every PR runs the Worker's tests: a merge deploys it (deploy_worker.yml).
+      - name: Streaming Worker tests
+        run: node --test "cloudflare/src/*.test.js" "cloudflare/scripts/*.test.mjs"
       - id: select
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

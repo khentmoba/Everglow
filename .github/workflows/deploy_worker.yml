@@ -1,0 +1,53 @@
+name: Deploy streaming Worker
+
+# A merge to main is the only way the Worker reaches Clair. Nobody runs
+# `wrangler deploy` by hand, so the live Worker always matches main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+      - 'functions/hls_player.js'
+      - '.github/workflows/deploy_worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a deploy halfway; a newer push waits its turn.
+concurrency:
+  group: worker-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloudflare/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (cloudflare/README.md, Deploy)."
+            exit 1
+          fi
+          npx wrangler deploy --message "main ${GITHUB_SHA::7}"
+      # Plays real titles on the live edge. Red here means Clair's streams
+      # are failing right now, whether from this change or an upstream.
+      - name: Smoke the live Worker
+        run: node scripts/smoke.mjs --url https://everglow-stream.khentplaysmoba.workers.dev

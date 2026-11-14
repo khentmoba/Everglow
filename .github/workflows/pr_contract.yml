@@ -1,0 +1,29 @@
+name: PR contract
+
+# Its own workflow so a PR body edit re-checks the body in seconds instead of
+# cancelling and restarting Quality's full test run.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A PR checkout is the merge commit; its first parent is the base.
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce ready PR evidence and verification declarations
+        run: node tool/ci/pr_contract.mjs
