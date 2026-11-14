@@ -89,6 +89,16 @@ These changes do not close the real-device targets above.
 - Early DNS resolution (`web/index.html`): prefetches Google identity and
   securetoken auth origins during HTML parsing.
 
+### Media sections and navigation follow-up (candidate)
+
+Dashboard → Cinema/Anime/Mangacelestia/Books opens and each media home's
+scroll now have matched before/after desktop measurements in
+`docs/perf-baseline-sitewide.md`. Changes: section code fetched ahead from
+the dashboard (`lib/core/router/deferred_route.dart`), no one-frame loading
+flash on revisits, Anime home rows kept mounted, and Cinema no longer
+rebuilding every rail when the page crosses the top. Desktop headless
+numbers only; phone and real-network timing remain unverified.
+
 ### Listening timeline requests (candidate)
 
 Artist history now requests 200 plays per page instead of 50 and overlaps

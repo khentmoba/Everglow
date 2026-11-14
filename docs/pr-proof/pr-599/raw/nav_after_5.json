@@ -1,0 +1,64 @@
+{
+  "webRoot": "../web_after",
+  "throttle": 4,
+  "network": "fast3g",
+  "settleMs": 6000,
+  "visits": [
+    {
+      "section": "cinema",
+      "visit": "first",
+      "ms": 224,
+      "longTaskMaxMs": 285,
+      "longTasks": 1
+    },
+    {
+      "section": "anime",
+      "visit": "first",
+      "ms": 126,
+      "longTaskMaxMs": 157,
+      "longTasks": 1
+    },
+    {
+      "section": "manga",
+      "visit": "first",
+      "ms": 136,
+      "longTaskMaxMs": 162,
+      "longTasks": 1
+    },
+    {
+      "section": "books",
+      "visit": "first",
+      "ms": 68,
+      "longTaskMaxMs": 89,
+      "longTasks": 1
+    },
+    {
+      "section": "cinema",
+      "visit": "revisit",
+      "ms": 230,
+      "longTaskMaxMs": 251,
+      "longTasks": 1
+    },
+    {
+      "section": "anime",
+      "visit": "revisit",
+      "ms": 89,
+      "longTaskMaxMs": 98,
+      "longTasks": 1
+    },
+    {
+      "section": "manga",
+      "visit": "revisit",
+      "ms": 85,
+      "longTaskMaxMs": 96,
+      "longTasks": 1
+    },
+    {
+      "section": "books",
+      "visit": "revisit",
+      "ms": 52,
+      "longTaskMaxMs": 71,
+      "longTasks": 1
+    }
+  ]
+}

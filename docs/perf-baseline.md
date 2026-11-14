@@ -35,4 +35,7 @@ Notes for future comparisons:
 - Run on the same machine/browser/build flags when comparing before/after.
 - Desktop headless Chrome with `4x` CPU throttle is a regression baseline,
   not a real-phone FPS guarantee.
-
+- The per-phase long-task counts above came from a probe that counted the
+  whole session, boot included. The probe now counts each phase on its own.
+- Cinema, Anime, Mangacelestia, Books and dashboard-to-section navigation
+  have their own before/after baseline in `perf-baseline-sitewide.md`.

@@ -1,0 +1,61 @@
+{
+ "webRoot": "../web_after",
+ "screen": "manga",
+ "dpr": 3,
+ "throttle": 4,
+ "width": 430,
+ "height": 932,
+ "phases": [
+  {
+   "label": "first-down",
+   "freshFrames": 79,
+   "worstFrameMs": 88.8,
+   "worstBuildMs": 56,
+   "worstRasterMs": 44.7,
+   "over200ms": 0,
+   "fps": 15.56,
+   "avgBuildMs": 13.59,
+   "avgRasterMs": 11.11,
+   "longTaskMaxMs": 109,
+   "longTasksOver200": 0
+  },
+  {
+   "label": "repeat-down-1",
+   "freshFrames": 101,
+   "worstFrameMs": 56.6,
+   "worstBuildMs": 37.3,
+   "worstRasterMs": 17.7,
+   "over200ms": 0,
+   "fps": 61.89,
+   "avgBuildMs": 8.36,
+   "avgRasterMs": 6.69,
+   "longTaskMaxMs": 59,
+   "longTasksOver200": 0
+  },
+  {
+   "label": "repeat-up",
+   "freshFrames": 150,
+   "worstFrameMs": 47.6,
+   "worstBuildMs": 36.2,
+   "worstRasterMs": 10.8,
+   "over200ms": 0,
+   "fps": 0,
+   "avgBuildMs": 9.79,
+   "avgRasterMs": 6.29,
+   "longTaskMaxMs": 51,
+   "longTasksOver200": 0
+  }
+ ],
+ "cpuThrottleRate": 4,
+ "firstPaintMs": 5147,
+ "session": {
+  "worstFrameMs": 88.8,
+  "worstBuildMs": 56,
+  "worstRasterMs": 44.7,
+  "over200ms": 0,
+  "sessionFrames": 330,
+  "longTaskMaxMs": 109,
+  "longTasksOver200": 0
+ },
+ "longTaskError": null
+}
