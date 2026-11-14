@@ -117,14 +117,23 @@ function shellForUrl(url) {
 let currentBootstrapBuild = null;
 
 async function newestCompleteStamp() {
+  // Complete means the JS shell, or the wasm module with its glue, is cached.
+  // First pass wants the core this browser should pick (PREFERS_WASM); the
+  // second accepts either, so a wrong guess never leaves no offline boot.
+  for (const strict of [true, false]) {
+    const stamp = await newestStampWith(strict);
+    if (stamp) return stamp;
+  }
+  return null;
+}
+
+async function newestStampWith(strict) {
   try {
     const core = await caches.open(CORE);
     const names = await caches.keys();
     for (const name of names.reverse()) {
       if (!name.endsWith("-SHELL-v1")) continue;
       const stamp = name.slice(0, -"-SHELL-v1".length);
-      // Complete means either core is cached: the JS shell, or the wasm
-      // module with its glue. A browser only ever boots the one it fetched.
       const has = async (f) => {
         try {
           return isCoreResponse(f, await core.match(new URL(f + "?v=" + stamp, self.location.origin).href));
@@ -132,9 +141,10 @@ async function newestCompleteStamp() {
           return false;
         }
       };
-      const complete = (await has("main.dart.js")) ||
-        ((await has("main.dart.wasm")) && (await has("main.dart.mjs")));
-      if (!complete) continue;
+      const js = !(strict && PREFERS_WASM) && (await has("main.dart.js"));
+      const wasm = !(strict && !PREFERS_WASM) &&
+        (await has("main.dart.wasm")) && (await has("main.dart.mjs"));
+      if (!js && !wasm) continue;
       try {
         const cache = await caches.open(name);
         if (await cache.match("/flutter_bootstrap.js")) return stamp;

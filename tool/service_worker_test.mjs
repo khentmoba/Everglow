@@ -263,6 +263,19 @@ test('a wasm module without its glue is not a complete offline build', async () 
   assert.equal(await (await w.request('/flutter_bootstrap.js')).text(), bootstrap(A));
 });
 
+test('offline boot prefers a build whose cached core matches the browser, else any complete build', async () => {
+  const run = async (chromium, jsOnly = false) => {
+    const w = worker(A, new Map(), {chromium});
+    if (jsOnly) await warm(w, A); else await warmWasm(w, A);
+    await warm(w, B); // Newest build has only the JS core cached.
+    w.offline();
+    return (await w.request('/flutter_bootstrap.js')).text();
+  };
+  assert.equal(await run(true), bootstrap(A), 'Chromium boots the build it can actually run');
+  assert.equal(await run(false), bootstrap(B), 'other browsers keep the newest JS build');
+  assert.equal(await run(true, true), bootstrap(B), 'a wrong guess still finds an offline build');
+});
+
 test('an HTML SPA rewrite cannot be cached as the wasm module', async () => {
   const w = worker();
   w.network(async () => new Response('<html>', {headers: {'Content-Type': 'text/html'}}));
