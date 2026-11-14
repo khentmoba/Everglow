@@ -53,3 +53,23 @@ void registerPerfReset(void Function() onReset) {
     // Optional JS interop bridge in non-browser or test environments.
   }
 }
+
+/// Appends `{name, at}` to `window.__everglowMarks` (`at` is
+/// `performance.now()`), so a browser probe can time a navigation from the
+/// moment it asked for a route to the first frame of the real screen.
+void recordPerfMark(String name) {
+  try {
+    final marks = _globalThis['__everglowMarks'] as JSArray<JSAny?>?;
+    final mark = {'name': name, 'at': _now()}.jsify();
+    if (marks == null) {
+      _globalThis['__everglowMarks'] = [mark].toJS;
+    } else {
+      marks.callMethod('push'.toJS, mark);
+    }
+  } catch (_) {
+    // A diagnostic mark must never break navigation.
+  }
+}
+
+@JS('performance.now')
+external double _now();
