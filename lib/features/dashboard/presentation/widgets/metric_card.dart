@@ -120,10 +120,12 @@ class _MetricContent extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // The seconds cell changes every second, so on phones the
+        // 300 ms swap would keep the screen redrawing nonstop.
         AnimatedSwitcher(
-          duration: AppMotion.orZero(
-            const Duration(milliseconds: 300),
-          ),
+          duration: AppMotion.reduceAmbientMotion(context)
+              ? Duration.zero
+              : AppMotion.orZero(const Duration(milliseconds: 300)),
           transitionBuilder: (child, animation) {
             final curved = CurvedAnimation(
               parent: animation,

@@ -60,8 +60,12 @@ class _TimeCapsule extends StatelessWidget {
               ),
             Column(
               children: [
+                // The seconds cell changes every second, so on phones the
+                // 280 ms swap would keep the screen redrawing nonstop.
                 AnimatedSwitcher(
-                  duration: AppMotion.orZero(const Duration(milliseconds: 280)),
+                  duration: AppMotion.reduceAmbientMotion(context)
+                      ? Duration.zero
+                      : AppMotion.orZero(const Duration(milliseconds: 280)),
                   transitionBuilder: (child, anim) => ScaleTransition(
                     scale: anim.drive(
                       CurveTween(curve: AppMotion.easeOutStrong),
