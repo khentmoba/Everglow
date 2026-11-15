@@ -25,7 +25,7 @@ class StaggeredEntrance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (AppMotion.reduced) return child;
+    if (AppMotion.reduceAmbientMotion(context)) return child;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: duration,

@@ -19,6 +19,7 @@ extension KatanaServiceCatalog on KatanaService {
         end: hotStart < 0 ? -1 : hotStart,
       ),
     );
+    await Future<void>.delayed(Duration.zero);
 
     final hotBlocks = <String>[];
     if (hotStart >= 0) {
@@ -27,12 +28,17 @@ extension KatanaServiceCatalog on KatanaService {
       );
     }
     final hot = _parseHotItems(hotBlocks);
+    await Future<void>.delayed(Duration.zero);
 
+    final hotUpdates = _parseHotUpdateRail(html);
+    await Future<void>.delayed(Duration.zero);
+
+    final genres = _parseGenres(html);
     return KatanaHomeData(
-      hotUpdates: _parseHotUpdateRail(html),
+      hotUpdates: hotUpdates,
       latest: latest,
       hot: hot,
-      genres: _parseGenres(html),
+      genres: genres,
     );
   }
 

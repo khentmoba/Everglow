@@ -95,4 +95,27 @@ void main() {
     addTearDown(second.dispose);
     expect(second.initialScrollOffset, 150);
   });
+
+  testWidgets('continuous scroll coalesces saves and writes the final offset', (
+    tester,
+  ) async {
+    RememberedScrollController.saveDelay = const Duration(milliseconds: 50);
+    final controller = RememberedScrollController('journal:entries');
+    addTearDown(controller.dispose);
+    await pumpScrollable(tester, controller);
+
+    controller.jumpTo(50);
+    await tester.pump(const Duration(milliseconds: 20));
+    controller.jumpTo(120);
+    await tester.pump(const Duration(milliseconds: 20));
+    controller.jumpTo(310);
+    await tester.pump(const Duration(milliseconds: 20));
+
+    // Coalesced timer saw dirty ticks at 50ms and waits a settle step before
+    // persisting, so mid-scroll offsets never hit device storage.
+    expect(await storedSpot('journal:entries'), isNull);
+
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(await storedSpot('journal:entries'), 310);
+  });
 }

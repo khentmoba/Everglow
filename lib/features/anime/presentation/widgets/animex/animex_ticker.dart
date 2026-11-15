@@ -96,12 +96,17 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                   Container(
                     width: 7,
                     height: 7,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AnimeXTokens.success,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: AnimeXTokens.success, blurRadius: 8),
-                      ],
+                      boxShadow: AppMotion.reduceAmbientMotion(context)
+                          ? null
+                          : const [
+                              BoxShadow(
+                                color: AnimeXTokens.success,
+                                blurRadius: 8,
+                              ),
+                            ],
                     ),
                   ),
                   const SizedBox(width: 8),

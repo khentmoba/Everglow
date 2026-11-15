@@ -106,13 +106,30 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       }
     }
 
-    // On initial mount or in tests, arm immediately to eliminate dead startup
-    // delay. On carousel navigation, use a short 350ms dwell to absorb rapid
-    // flicking between dots without mounting unnecessary iframes.
-    if (immediate || _inTest) {
+    // On carousel navigation and scrolling remounts, use a short 350ms dwell
+    // so HtmlElementView iframe mounting never fires mid-scroll.
+    void scheduleWhenSettled() {
+      _armTimer?.cancel();
+      _armTimer = Timer(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        final scrolling =
+            Scrollable.maybeOf(context)?.position.isScrollingNotifier.value ??
+            false;
+        if (scrolling) {
+          scheduleWhenSettled();
+          return;
+        }
+        arm();
+      });
+    }
+
+    if ((immediate &&
+            !(Scrollable.maybeOf(context)?.position.isScrollingNotifier.value ??
+                false)) ||
+        _inTest) {
       arm();
     } else {
-      _armTimer = Timer(const Duration(milliseconds: 350), arm);
+      scheduleWhenSettled();
     }
   }
 
@@ -206,7 +223,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     _active = active;
     if (active) {
       _startTimer();
-      _armTrailerForCurrent(immediate: true);
+      _armTrailerForCurrent();
     } else {
       _timer?.cancel();
       _armTimer?.cancel();

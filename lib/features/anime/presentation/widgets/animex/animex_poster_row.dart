@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../../../../core/theme/app_motion.dart';
+
 import '../../../../cinema/data/models/media_item.dart';
 
 import 'animex_poster_card.dart';
@@ -54,46 +56,47 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     final page = widget.cardWidth * 3 + 32;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: SizedBox(
-        height: widget.cardWidth * 1.5 + AnimeXTokens.posterDetailsHeight,
-        child: Stack(
-          children: [
-            ListView.separated(
-              controller: _ctrl,
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              scrollCacheExtent: const ScrollCacheExtent.pixels(350),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: widget.items.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 16),
-              itemBuilder: (context, i) {
-                final item = widget.items[i];
-                return AnimeXPosterCard(
-                  item: item,
-                  width: widget.cardWidth,
-                  onTap: () => widget.onTap(item),
-                  progress: widget.progressByIndex?[i],
-                  episodeLabel: widget.episodeLabels?[i],
-                );
-              },
+    final row = SizedBox(
+      height: widget.cardWidth * 1.5 + AnimeXTokens.posterDetailsHeight,
+      child: Stack(
+        children: [
+          ListView.separated(
+            controller: _ctrl,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            scrollCacheExtent: ScrollCacheExtent.pixels(
+              reduceAmbient ? 80 : 350,
             ),
-            // Soft fades so cards slide in from under the edges.
-            const Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: _EdgeFade(left: true),
-            ),
-            const Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              child: _EdgeFade(left: false),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: widget.items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 16),
+            itemBuilder: (context, i) {
+              final item = widget.items[i];
+              return AnimeXPosterCard(
+                item: item,
+                width: widget.cardWidth,
+                onTap: () => widget.onTap(item),
+                progress: widget.progressByIndex?[i],
+                episodeLabel: widget.episodeLabels?[i],
+              );
+            },
+          ),
+          // Soft fades so cards slide in from under the edges.
+          const Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: _EdgeFade(left: true),
+          ),
+          const Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: _EdgeFade(left: false),
+          ),
+          if (!reduceAmbient) ...[
             Positioned(
               left: 8,
               top: 0,
@@ -119,8 +122,14 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
               ),
             ),
           ],
-        ),
+        ],
       ),
+    );
+    if (reduceAmbient) return row;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: row,
     );
   }
 }

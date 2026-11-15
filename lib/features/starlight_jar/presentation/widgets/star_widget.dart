@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -20,22 +21,36 @@ void drawOrigamiStar(
   final innerRadius = size * 0.26;
   final glowRadius = size * 1.25;
 
-  // 1. Soft atmospheric luminous halo (celestial glow)
+  // 1. Soft atmospheric luminous halo (celestial glow).
+  // On web, layered circles avoid allocating dozens of RadialGradient GPU
+  // shaders during the star jar's first paint frame.
   if (glowIntensity > 0.05) {
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          color.withValues(
-            alpha: (0.35 * glowIntensity * effectiveOpacity).clamp(0.0, 1.0),
-          ),
-          color.withValues(
-            alpha: (0.12 * glowIntensity * effectiveOpacity).clamp(0.0, 1.0),
-          ),
-          color.withValues(alpha: 0.0),
-        ],
-        stops: const [0.0, 0.50, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset.zero, radius: glowRadius));
-    canvas.drawCircle(Offset.zero, glowRadius, glowPaint);
+    if (kIsWeb) {
+      final glowPaint = Paint()
+        ..color = color.withValues(
+          alpha: (0.12 * glowIntensity * effectiveOpacity).clamp(0.0, 1.0),
+        );
+      canvas.drawCircle(Offset.zero, glowRadius, glowPaint);
+      glowPaint.color = color.withValues(
+        alpha: (0.24 * glowIntensity * effectiveOpacity).clamp(0.0, 1.0),
+      );
+      canvas.drawCircle(Offset.zero, glowRadius * 0.68, glowPaint);
+    } else {
+      final glowPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            color.withValues(
+              alpha: (0.35 * glowIntensity * effectiveOpacity).clamp(0.0, 1.0),
+            ),
+            color.withValues(
+              alpha: (0.12 * glowIntensity * effectiveOpacity).clamp(0.0, 1.0),
+            ),
+            color.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.50, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: glowRadius));
+      canvas.drawCircle(Offset.zero, glowRadius, glowPaint);
+    }
   }
 
   // 2. Precalculate 5 tips and 5 valleys
@@ -107,18 +122,30 @@ void drawOrigamiStar(
 
   // 5. Luminous starlight center highlight / jewel gleam
   final coreRadius = size * 0.16;
-  final corePaint = Paint()
-    ..shader = RadialGradient(
-      colors: [
-        AppColors.petalWhite.withValues(
-          alpha: (0.95 * effectiveOpacity).clamp(0.0, 1.0),
-        ),
-        color.withValues(alpha: (0.45 * effectiveOpacity).clamp(0.0, 1.0)),
-        color.withValues(alpha: 0.0),
-      ],
-      stops: const [0.0, 0.45, 1.0],
-    ).createShader(Rect.fromCircle(center: Offset.zero, radius: coreRadius));
-  canvas.drawCircle(Offset.zero, coreRadius, corePaint);
+  if (kIsWeb) {
+    final coreGlowPaint = Paint()
+      ..color = color.withValues(
+        alpha: (0.45 * effectiveOpacity).clamp(0.0, 1.0),
+      );
+    canvas.drawCircle(Offset.zero, coreRadius, coreGlowPaint);
+    coreGlowPaint.color = AppColors.petalWhite.withValues(
+      alpha: (0.75 * effectiveOpacity).clamp(0.0, 1.0),
+    );
+    canvas.drawCircle(Offset.zero, coreRadius * 0.55, coreGlowPaint);
+  } else {
+    final corePaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          AppColors.petalWhite.withValues(
+            alpha: (0.95 * effectiveOpacity).clamp(0.0, 1.0),
+          ),
+          color.withValues(alpha: (0.45 * effectiveOpacity).clamp(0.0, 1.0)),
+          color.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: coreRadius));
+    canvas.drawCircle(Offset.zero, coreRadius, corePaint);
+  }
 
   // Tiny crisp specular pinprick at the central apex
   canvas.drawCircle(

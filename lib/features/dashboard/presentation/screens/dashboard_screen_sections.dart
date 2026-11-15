@@ -325,39 +325,41 @@ extension _DashboardScreenSections on _DashboardScreenState {
 
     final visible = [...primary, ...more];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const EverglowSectionHeader(
-          label: 'Quick Access',
-          icon: Icons.grid_view_rounded,
-          hue: AppColors.blushGold,
-        ),
-        const SizedBox(height: 14),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // Keep tiles compact on phone, tablet, and desktop.
-            final columns = switch (AppBreakpoint.of(context)) {
-              BreakpointSize.mobile => 3,
-              BreakpointSize.tablet => 5,
-              BreakpointSize.desktop => 6,
-            };
-            final tileWidth =
-                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final action in visible)
-                  SizedBox(
-                    width: tileWidth,
-                    child: QuickActionTile(action: action),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
+    return RepaintBoundary(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const EverglowSectionHeader(
+            label: 'Quick Access',
+            icon: Icons.grid_view_rounded,
+            hue: AppColors.blushGold,
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Keep tiles compact on phone, tablet, and desktop.
+              final columns = switch (AppBreakpoint.of(context)) {
+                BreakpointSize.mobile => 3,
+                BreakpointSize.tablet => 5,
+                BreakpointSize.desktop => 6,
+              };
+              final tileWidth =
+                  (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final action in visible)
+                    SizedBox(
+                      width: tileWidth,
+                      child: QuickActionTile(action: action),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

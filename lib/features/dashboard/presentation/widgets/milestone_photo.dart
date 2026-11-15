@@ -72,6 +72,7 @@ class _MilestonePhotoState extends State<MilestonePhoto> {
       return Image.asset(
         widget.path,
         fit: BoxFit.cover,
+        cacheWidth: PerfSettings.sizedDecodeWidth(640),
         errorBuilder: (context, error, stack) => _photoFallback(),
       );
     }

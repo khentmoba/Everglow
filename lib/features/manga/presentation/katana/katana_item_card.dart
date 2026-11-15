@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -29,36 +30,40 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
     final compact = width < 720;
     final coverHeight = widget.dense || compact ? 114.0 : 152.0;
     final coverWidth = widget.dense || compact ? 80.0 : 106.0;
-    return Container(
-      decoration: BoxDecoration(
-        color: KatanaColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _focused ? KatanaColors.accent : KatanaColors.border,
-          width: 2.0,
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
+    return RepaintBoundary(
+      child: Container(
+        decoration: BoxDecoration(
+          color: KatanaColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _focused ? KatanaColors.accent : KatanaColors.border,
+            width: 2.0,
+          ),
+          boxShadow: _focused
+              ? [
+                  BoxShadow(
+                    color: KatanaColors.accent.withValues(alpha: 0.5),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                  const BoxShadow(
+                    color: AppColors.scrimStrong,
+                    blurRadius: 18,
+                    offset: Offset(0, 6),
+                  ),
+                ]
+              : reduceAmbient
+                  ? null
+                  : const [
+                      BoxShadow(
+                        color: AppColors.scrimStrong,
+                        blurRadius: 18,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
         ),
-        boxShadow: _focused
-            ? [
-                BoxShadow(
-                  color: KatanaColors.accent.withValues(alpha: 0.5),
-                  blurRadius: 16,
-                  spreadRadius: 1,
-                ),
-                const BoxShadow(
-                  color: AppColors.scrimStrong,
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
-                ),
-              ]
-            : const [
-                BoxShadow(
-                  color: AppColors.scrimStrong,
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Material(
+        child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
@@ -143,6 +148,7 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -219,6 +225,18 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
     final visible = limit != null
         ? manga.genres.take(limit)
         : manga.genres;
+    final chipDecoration = BoxDecoration(
+      color: KatanaColors.surfaceAlt,
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(
+        color: KatanaColors.link.withValues(alpha: 0.35),
+      ),
+    );
+    final genreStyle = AppTypography.outfitWhite.copyWith(
+      color: KatanaColors.link,
+      fontSize: 10.5,
+      fontWeight: FontWeight.w600,
+    );
     return Wrap(
       spacing: 6,
       runSpacing: 5,
@@ -228,21 +246,8 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
             onTap: () => pushGenreDirectory(context, genre.slug, genre.name),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: KatanaColors.surfaceAlt,
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(
-                  color: KatanaColors.link.withValues(alpha: 0.35),
-                ),
-              ),
-              child: Text(
-                genre.name,
-                style: AppTypography.outfitWhite.copyWith(
-                  color: KatanaColors.link,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              decoration: chipDecoration,
+              child: Text(genre.name, style: genreStyle),
             ),
           ),
       ],
@@ -424,142 +429,169 @@ class KatanaCompactCard extends StatefulWidget {
 class _KatanaCompactCardState extends State<KatanaCompactCard> {
   bool _focused = false;
 
-  @override
-  Widget build(BuildContext context) {
-    return FocusableActionDetector(
-      onFocusChange: (focused) {
-        if (focused) {
-          Scrollable.ensureVisible(
-            context,
-            alignment: 0.5,
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-          );
-        }
-        setState(() => _focused = focused);
-      },
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-      },
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            pushDetail(context, widget.manga.slug);
-            return null;
-          },
-        ),
-      },
-      child: GestureDetector(
-        onTap: () => pushDetail(context, widget.manga.slug),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  Widget _buildCoverClip() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        width: widget.width,
+        height: widget.width * 1.42,
+        child: widget.manga.coverUrl.isEmpty
+            ? Container(
+                color: KatanaColors.border,
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: KatanaColors.textLight,
+                ),
+              )
+            : KatanaNetworkImage(
+                widget.manga.coverUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: KatanaColors.border,
+                  child: const Icon(
+                    Icons.broken_image_rounded,
+                    color: KatanaColors.textLight,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildCompactColumn(
+    BuildContext context, {
+    required bool interactive,
+  }) {
+    final borderDecoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: _focused ? KatanaColors.accent : Colors.transparent,
+        width: 2.5,
+      ),
+      boxShadow: _focused
+          ? [
+              BoxShadow(
+                color: KatanaColors.accent.withValues(alpha: 0.5),
+                blurRadius: 16,
+                spreadRadius: 2,
+              ),
+            ]
+          : null,
+    );
+    return GestureDetector(
+      onTap: () => pushDetail(context, widget.manga.slug),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (interactive)
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
+              decoration: borderDecoration,
+              child: _buildCoverClip(),
+            )
+          else
+            DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _focused ? KatanaColors.accent : Colors.transparent,
-                  width: 2.5,
-                ),
-                boxShadow: _focused
-                    ? [
-                        BoxShadow(
-                          color: KatanaColors.accent.withValues(alpha: 0.5),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                    : null,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: widget.width,
-                  height: widget.width * 1.42,
-                  child: widget.manga.coverUrl.isEmpty
-                      ? Container(
-                          color: KatanaColors.border,
-                          child: const Icon(
-                            Icons.menu_book_rounded,
-                            color: KatanaColors.textLight,
-                          ),
-                        )
-                      : KatanaNetworkImage(
-                          widget.manga.coverUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: KatanaColors.border,
-                            child: const Icon(
-                              Icons.broken_image_rounded,
-                              color: KatanaColors.textLight,
-                            ),
-                          ),
-                        ),
+              child: _buildCoverClip(),
+            ),
+          const SizedBox(height: 7),
+          Text(
+            widget.manga.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.outfitBold.copyWith(
+              color: _focused ? KatanaColors.accent : KatanaColors.text,
+              fontSize: 12.5,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: widget.manga.isCompleted
+                      ? KatanaColors.green
+                      : KatanaColors.accent,
+                  shape: BoxShape.circle,
                 ),
               ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              widget.manga.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.outfitBold.copyWith(
-                color: _focused ? KatanaColors.accent : KatanaColors.text,
-                fontSize: 12.5,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: widget.manga.isCompleted
-                        ? KatanaColors.green
-                        : KatanaColors.accent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                Expanded(
-                  child: Text(
-                    widget.manga.isCompleted ? 'Completed' : 'Ongoing',
-                    style: KatanaType.small.copyWith(fontSize: 11),
-                  ),
-                ),
-              ],
-            ),
-            if (widget.manga.latestChapter != null)
-              GestureDetector(
-                // Like the site's rail: tapping the chapter link opens
-                // the reader at that chapter, while the rest of the
-                // card opens the detail page.
-                onTap: () {
-                  final latest = widget.manga.latestChapter!;
-                  pushReader(
-                    context,
-                    slug: widget.manga.slug,
-                    chapterId: latest.path,
-                    chapters: [latest],
-                    mangaTitle: widget.manga.title,
-                    coverUrl: widget.manga.coverUrl,
-                  );
-                },
+              const SizedBox(width: 5),
+              Expanded(
                 child: Text(
-                  widget.manga.latestChapter!.displayTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: KatanaType.accent.copyWith(fontSize: 11.5),
+                  widget.manga.isCompleted ? 'Completed' : 'Ongoing',
+                  style: KatanaType.small.copyWith(fontSize: 11),
                 ),
               ),
-          ],
-        ),
+            ],
+          ),
+          if (widget.manga.latestChapter != null)
+            GestureDetector(
+              // Like the site's rail: tapping the chapter link opens
+              // the reader at that chapter, while the rest of the
+              // card opens the detail page.
+              onTap: () {
+                final latest = widget.manga.latestChapter!;
+                pushReader(
+                  context,
+                  slug: widget.manga.slug,
+                  chapterId: latest.path,
+                  chapters: [latest],
+                  mangaTitle: widget.manga.title,
+                  coverUrl: widget.manga.coverUrl,
+                );
+              },
+              child: Text(
+                widget.manga.latestChapter!.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KatanaType.accent.copyWith(fontSize: 11.5),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (AppMotion.reduceAmbientMotion(context)) {
+      return RepaintBoundary(
+        child: _buildCompactColumn(context, interactive: false),
+      );
+    }
+    return RepaintBoundary(
+      child: FocusableActionDetector(
+        onFocusChange: (focused) {
+          if (focused) {
+            Scrollable.ensureVisible(
+              context,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            );
+          }
+          setState(() => _focused = focused);
+        },
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              pushDetail(context, widget.manga.slug);
+              return null;
+            },
+          ),
+        },
+        child: _buildCompactColumn(context, interactive: true),
       ),
     );
   }

@@ -2,10 +2,113 @@ part of 'katana_service.dart';
 
 /// HTML parsers for [KatanaService].
 extension KatanaServiceParse on KatanaService {
+  static final RegExp _reHtmlTags = RegExp(r'<[^>]+>');
+  static final RegExp _reWhitespace = RegExp(r'\s+');
+  static final RegExp _reDataId = RegExp(r'data-id="(\d+)"');
+  static final RegExp _reMangaHref = RegExp(
+    r'href="https://mangakatana\.com/manga/([^"/]+)"',
+  );
+  static final RegExp _reStatus = RegExp(r'class="status (ongoing|completed)"');
+  static final RegExp _reExpandedTitle = RegExp(
+    r'<h3 class="title">.*?<a[^>]*href="[^"]*manga/[^"]+"[^>]*>([^<]+)</a>',
+    dotAll: true,
+  );
+  static final RegExp _reDateDiv = RegExp(
+    r'<div class="date">.*?</div>',
+    dotAll: true,
+  );
+  static final RegExp _reSummaryDiv = RegExp(
+    r'<div class="summary[^"]*">(.*?)</div>',
+    dotAll: true,
+  );
+  static final RegExp _reGenreLink = RegExp(
+    r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>',
+  );
+  static final RegExp _reExpandedChapters = RegExp(
+    '<div class="chapter"><a href="[^"]*/(${KatanaService.chapterIdPattern})"[^>]*>([^<]*)</a></div>'
+    r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
+    dotAll: true,
+  );
+  static final RegExp _reChapterLink = RegExp(
+    r'<a href="https://mangakatana\.com/manga/[^"]*/(' +
+        KatanaService.chapterIdPattern +
+        r')"[^>]*>([^<]*)</a>',
+  );
+  static final RegExp _reCompactTitle = RegExp(
+    r'<h3 class="title">\s*<a[^>]*>([^<]+)</a>',
+    dotAll: true,
+  );
+  static final RegExp _reCompactAltTitle = RegExp(
+    r'class="title">([^<]+)</a>',
+  );
+  static final RegExp _reCompactChapter = RegExp(
+    r'href="[^"]*/(' + KatanaService.chapterIdPattern + r')"[^>]*>(.*?)</a>',
+    dotAll: true,
+  );
+  static final RegExp _reCompactAuthor = RegExp(
+    r'class="author" href="[^"]*"[^>]*>([^<]+)</a>',
+  );
+  static final RegExp _reHotUpdateChapter = RegExp(
+    r'<div class="chapter">\s*<a href="[^"]*/(' +
+        KatanaService.chapterIdPattern +
+        r')"[^>]*>(.*?)</a>',
+    dotAll: true,
+  );
+  static final RegExp _reHotTitle = RegExp(
+    r'<h3 class="title"><a href="[^"]*"[^>]*>([^<]+)</a>',
+  );
+  static final RegExp _reHotChapter = RegExp(
+    r'<div class="chapter"><a href="[^"]*/(' +
+        KatanaService.chapterIdPattern +
+        r')"[^>]*>([^<]*)</a>',
+  );
+  static final RegExp _reWebpSrcset = RegExp(
+    r'<source [^>]*srcset="((?:https?:)?//[^"\s]+)"',
+  );
+  static final RegExp _reImgSrc = RegExp(r'<img [^>]*src="((?:https?:)?//[^"]+)"');
+  static final RegExp _reImgDataSrc = RegExp(
+    r'<img [^>]*data-src="((?:https?:)?//[^"]+)"',
+  );
+  static final RegExp _reDetailTitle = RegExp(r'<h1 class="heading">([^<]+)</h1>');
+  static final RegExp _reDetailStatus = RegExp(
+    r'class="d-cell-small value status (ongoing|completed)"',
+  );
+  static final RegExp _reDetailLatest = RegExp(
+    r'class="d-cell-small value new_chap">([^<]+)</div>',
+  );
+  static final RegExp _reDetailUpdate = RegExp(
+    r'class="d-cell-small value updateAt">([^<]+)</div>',
+  );
+  static final RegExp _reDetailAlt = RegExp(
+    r'<div class="d-cell-small label">Alt name\(s\):</div>\s*<div class="d-cell-small value"><div class="alt_name">([^<]+)</div>',
+    dotAll: true,
+  );
+  static final RegExp _reDetailAuthorSec = RegExp(
+    r'<div class="d-cell-small label">Author\(s\) / Artist\(s\):</div>.*?</div>',
+    dotAll: true,
+  );
+  static final RegExp _reDetailAuthorLink = RegExp(
+    r'<a class="author" href="[^"]*"[^>]*>([^<]+)</a>',
+  );
+  static final RegExp _reDetailGenreSec = RegExp(
+    r'<div class="d-cell-small label">Genres:</div>.*?</div>',
+    dotAll: true,
+  );
+  static final RegExp _reDetailSummary = RegExp(
+    r'<div class="summary">\s*<div class="label">Description</div>\s*<p>(.*?)</p>',
+    dotAll: true,
+  );
+  static final RegExp _reGenreChip = RegExp(
+    r'href="https://mangakatana\.com/genre/([a-z0-9-]+)">([^<]+)</a> <span>\((\d+)\)</span>',
+  );
+  static final RegExp _reGenreNav = RegExp(
+    r'href="https://mangakatana\.com/genre/([a-z0-9-]+)" data-desc="([^"]*)"><h3 class="nav_label">([^<]+)</h3>',
+  );
+
   String _clean(String html) {
     final withoutTags = html
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(_reHtmlTags, ' ')
+        .replaceAll(_reWhitespace, ' ')
         .trim();
     return _unescape.convert(withoutTags);
   }
@@ -22,45 +125,30 @@ extension KatanaServiceParse on KatanaService {
   }
 
   KatanaManga? _parseExpandedItem(String block) {
-    final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
-    final hrefMatch = RegExp(
-      r'href="https://mangakatana\.com/manga/([^"/]+)"',
-    ).firstMatch(block);
+    final idMatch = _reDataId.firstMatch(block);
+    final hrefMatch = _reMangaHref.firstMatch(block);
     if (hrefMatch == null) return null;
 
     final slug = hrefMatch.group(1)!;
     final id = idMatch?.group(1) ?? slug;
 
     final cover = _coverFrom(block);
-    final statusM = RegExp(
-      r'class="status (ongoing|completed)"',
-    ).firstMatch(block);
+    final statusM = _reStatus.firstMatch(block);
     final status = statusM?.group(1) ?? 'ongoing';
 
-    final titleM = RegExp(
-      r'<h3 class="title">.*?<a[^>]*href="[^"]*manga/[^"]+"[^>]*>([^<]+)</a>',
-      dotAll: true,
-    ).firstMatch(block);
+    final titleM = _reExpandedTitle.firstMatch(block);
     final title = titleM != null
         ? _unescape.convert(titleM.group(1)!.trim())
         : slug;
 
-    final dateM = RegExp(
-      r'<div class="date">.*?</div>',
-      dotAll: true,
-    ).firstMatch(block);
+    final dateM = _reDateDiv.firstMatch(block);
     final updateText = dateM != null ? _clean(dateM.group(0)!) : '';
 
-    final summaryM = RegExp(
-      r'<div class="summary[^"]*">(.*?)</div>',
-      dotAll: true,
-    ).firstMatch(block);
+    final summaryM = _reSummaryDiv.firstMatch(block);
     final summary = summaryM != null ? _clean(summaryM.group(1)!) : '';
 
     final genres = <KatanaGenre>[];
-    for (final g in RegExp(
-      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>',
-    ).allMatches(block)) {
+    for (final g in _reGenreLink.allMatches(block)) {
       genres.add(
         KatanaGenre(
           slug: g.group(1)!,
@@ -72,11 +160,7 @@ extension KatanaServiceParse on KatanaService {
     final latest = _parseChapterLink(block);
 
     final recent = <KatanaChapter>[];
-    final chapterBlocks = RegExp(
-      '<div class="chapter"><a href="[^"]*/(${KatanaService.chapterIdPattern})"[^>]*>([^<]*)</a></div>'
-      r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
-      dotAll: true,
-    ).allMatches(block);
+    final chapterBlocks = _reExpandedChapters.allMatches(block);
     for (final m in chapterBlocks) {
       recent.add(
         KatanaChapter(
@@ -103,11 +187,7 @@ extension KatanaServiceParse on KatanaService {
   }
 
   KatanaChapter? _parseChapterLink(String block) {
-    final m = RegExp(
-      r'<a href="https://mangakatana\.com/manga/[^"]*/(' +
-          KatanaService.chapterIdPattern +
-          r')"[^>]*>([^<]*)</a>',
-    ).firstMatch(block);
+    final m = _reChapterLink.firstMatch(block);
     if (m == null) return null;
     final id = m.group(1)!;
     return KatanaChapter(
@@ -124,28 +204,16 @@ extension KatanaServiceParse on KatanaService {
   List<KatanaManga> _parseCompactItems(List<String> blocks) {
     final items = <KatanaManga>[];
     for (final block in blocks) {
-      final hrefMatch = RegExp(
-        r'href="https://mangakatana\.com/manga/([^"/]+)"',
-      ).firstMatch(block);
+      final hrefMatch = _reMangaHref.firstMatch(block);
       if (hrefMatch == null) continue;
       final slug = hrefMatch.group(1)!;
-      final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
+      final idMatch = _reDataId.firstMatch(block);
       final titleM =
-          RegExp(
-            r'<h3 class="title">\s*<a[^>]*>([^<]+)</a>',
-            dotAll: true,
-          ).firstMatch(block) ??
-          RegExp(r'class="title">([^<]+)</a>').firstMatch(block);
-      final chapterM = RegExp(
-        r'href="[^"]*/(' +
-            KatanaService.chapterIdPattern +
-            r')"[^>]*>(.*?)</a>',
-        dotAll: true,
-      ).firstMatch(block);
+          _reCompactTitle.firstMatch(block) ??
+          _reCompactAltTitle.firstMatch(block);
+      final chapterM = _reCompactChapter.firstMatch(block);
       final authors = <String>[];
-      for (final a in RegExp(
-        r'class="author" href="[^"]*"[^>]*>([^<]+)</a>',
-      ).allMatches(block)) {
+      for (final a in _reCompactAuthor.allMatches(block)) {
         authors.add(_unescape.convert(a.group(1)!.trim()));
       }
       final chapterTitle = chapterM != null ? _clean(chapterM.group(2)!) : '';
@@ -189,22 +257,12 @@ extension KatanaServiceParse on KatanaService {
     );
     final items = <KatanaManga>[];
     for (final block in blocks) {
-      final hrefMatch = RegExp(
-        r'href="https://mangakatana\.com/manga/([^"/]+)"',
-      ).firstMatch(block);
+      final hrefMatch = _reMangaHref.firstMatch(block);
       if (hrefMatch == null) continue;
       final slug = hrefMatch.group(1)!;
-      final titleM = RegExp(
-        r'<h3 class="title">\s*<a[^>]*>([^<]+)</a>',
-        dotAll: true,
-      ).firstMatch(block);
-      final chapterM = RegExp(
-        r'<div class="chapter">\s*<a href="[^"]*/(' +
-            KatanaService.chapterIdPattern +
-            r')"[^>]*>(.*?)</a>',
-        dotAll: true,
-      ).firstMatch(block);
-      final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
+      final titleM = _reCompactTitle.firstMatch(block);
+      final chapterM = _reHotUpdateChapter.firstMatch(block);
+      final idMatch = _reDataId.firstMatch(block);
       items.add(
         KatanaManga(
           slug: slug,
@@ -231,23 +289,13 @@ extension KatanaServiceParse on KatanaService {
   List<KatanaManga> _parseHotItems(List<String> blocks) {
     final items = <KatanaManga>[];
     for (final block in blocks) {
-      final hrefMatch = RegExp(
-        r'href="https://mangakatana\.com/manga/([^"/]+)"',
-      ).firstMatch(block);
+      final hrefMatch = _reMangaHref.firstMatch(block);
       if (hrefMatch == null) continue;
       final slug = hrefMatch.group(1)!;
-      final titleM = RegExp(
-        r'<h3 class="title"><a href="[^"]*"[^>]*>([^<]+)</a>',
-      ).firstMatch(block);
-      final statusM = RegExp(
-        r'class="status (ongoing|completed)"',
-      ).firstMatch(block);
-      final chapterM = RegExp(
-        r'<div class="chapter"><a href="[^"]*/(' +
-            KatanaService.chapterIdPattern +
-            r')"[^>]*>([^<]*)</a>',
-      ).firstMatch(block);
-      final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
+      final titleM = _reHotTitle.firstMatch(block);
+      final statusM = _reStatus.firstMatch(block);
+      final chapterM = _reHotChapter.firstMatch(block);
+      final idMatch = _reDataId.firstMatch(block);
       items.add(
         KatanaManga(
           slug: slug,
@@ -272,21 +320,15 @@ extension KatanaServiceParse on KatanaService {
 
   String _coverFrom(String block) {
     String? raw;
-    final webp = RegExp(
-      r'<source [^>]*srcset="((?:https?:)?//[^"\s]+)"',
-    ).firstMatch(block);
+    final webp = _reWebpSrcset.firstMatch(block);
     if (webp != null) {
       raw = webp.group(1);
     } else {
-      final img = RegExp(
-        r'<img [^>]*src="((?:https?:)?//[^"]+)"',
-      ).firstMatch(block);
+      final img = _reImgSrc.firstMatch(block);
       if (img != null) {
         raw = img.group(1);
       } else {
-        final dataSrc = RegExp(
-          r'<img [^>]*data-src="((?:https?:)?//[^"]+)"',
-        ).firstMatch(block);
+        final dataSrc = _reImgDataSrc.firstMatch(block);
         if (dataSrc != null) {
           raw = dataSrc.group(1);
         }
@@ -300,24 +342,15 @@ extension KatanaServiceParse on KatanaService {
   }
 
   KatanaManga? _parseDetail(String html, String slug) {
-    final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(html);
-    final titleM = RegExp(r'<h1 class="heading">([^<]+)</h1>').firstMatch(html);
+    final idMatch = _reDataId.firstMatch(html);
+    final titleM = _reDetailTitle.firstMatch(html);
     final cover = _coverFrom(html);
-    final statusM = RegExp(
-      r'class="d-cell-small value status (ongoing|completed)"',
-    ).firstMatch(html);
-    final latestM = RegExp(
-      r'class="d-cell-small value new_chap">([^<]+)</div>',
-    ).firstMatch(html);
-    final updateM = RegExp(
-      r'class="d-cell-small value updateAt">([^<]+)</div>',
-    ).firstMatch(html);
+    final statusM = _reDetailStatus.firstMatch(html);
+    final latestM = _reDetailLatest.firstMatch(html);
+    final updateM = _reDetailUpdate.firstMatch(html);
 
     final altNames = <String>[];
-    final altM = RegExp(
-      r'<div class="d-cell-small label">Alt name\(s\):</div>\s*<div class="d-cell-small value"><div class="alt_name">([^<]+)</div>',
-      dotAll: true,
-    ).firstMatch(html);
+    final altM = _reDetailAlt.firstMatch(html);
     if (altM != null) {
       altNames.addAll(
         _unescape
@@ -330,16 +363,11 @@ extension KatanaServiceParse on KatanaService {
 
     final authors = <String>[];
     final artists = <String>[];
-    final authorM = RegExp(
-      r'<div class="d-cell-small label">Author\(s\) / Artist\(s\):</div>.*?</div>',
-      dotAll: true,
-    ).firstMatch(html);
+    final authorM = _reDetailAuthorSec.firstMatch(html);
     if (authorM != null) {
       final section = authorM.group(0)!;
       var first = true;
-      for (final a in RegExp(
-        r'<a class="author" href="[^"]*"[^>]*>([^<]+)</a>',
-      ).allMatches(section)) {
+      for (final a in _reDetailAuthorLink.allMatches(section)) {
         if (first) {
           authors.add(_unescape.convert(a.group(1)!.trim()));
         } else {
@@ -350,14 +378,9 @@ extension KatanaServiceParse on KatanaService {
     }
 
     final genres = <KatanaGenre>[];
-    final genreSectionM = RegExp(
-      r'<div class="d-cell-small label">Genres:</div>.*?</div>',
-      dotAll: true,
-    ).firstMatch(html);
+    final genreSectionM = _reDetailGenreSec.firstMatch(html);
     final genreSection = genreSectionM?.group(0) ?? html;
-    for (final g in RegExp(
-      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>',
-    ).allMatches(genreSection)) {
+    for (final g in _reGenreLink.allMatches(genreSection)) {
       genres.add(
         KatanaGenre(
           slug: g.group(1)!,
@@ -366,10 +389,7 @@ extension KatanaServiceParse on KatanaService {
       );
     }
 
-    final summaryM = RegExp(
-      r'<div class="summary">\s*<div class="label">Description</div>\s*<p>(.*?)</p>',
-      dotAll: true,
-    ).firstMatch(html);
+    final summaryM = _reDetailSummary.firstMatch(html);
 
     final chapters = _parseChapterTable(html);
 
@@ -401,20 +421,14 @@ extension KatanaServiceParse on KatanaService {
   /// sidebar / genres page) and merges descriptions from the nav menu.
   List<KatanaGenre> _parseGenres(String html) {
     final bySlug = <String, KatanaGenre>{};
-    final chipRe = RegExp(
-      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)">([^<]+)</a> <span>\((\d+)\)</span>',
-    );
-    for (final m in chipRe.allMatches(html)) {
+    for (final m in _reGenreChip.allMatches(html)) {
       bySlug[m.group(1)!] = KatanaGenre(
         slug: m.group(1)!,
         name: _unescape.convert(m.group(2)!.trim()),
         count: int.tryParse(m.group(3)!) ?? 0,
       );
     }
-    final navRe = RegExp(
-      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)" data-desc="([^"]*)"><h3 class="nav_label">([^<]+)</h3>',
-    );
-    for (final m in navRe.allMatches(html)) {
+    for (final m in _reGenreNav.allMatches(html)) {
       final existing = bySlug[m.group(1)!];
       bySlug[m.group(1)!] = KatanaGenre(
         slug: m.group(1)!,

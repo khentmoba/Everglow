@@ -76,19 +76,22 @@ class AnimeXBadge extends StatelessWidget {
       ),
     };
 
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
         border: Border.all(color: border),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.scrimStrong,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        boxShadow: reduceAmbient
+            ? null
+            : const [
+                BoxShadow(
+                  color: AppColors.scrimStrong,
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -126,44 +129,47 @@ class _PulsingDot extends StatefulWidget {
 
 class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-  }
+  AnimationController? _ctrl;
+  Animation<double>? _opacity;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
-        !TickerMode.valuesOf(context).enabled) {
-      _ctrl.stop();
-    } else if (!_ctrl.isAnimating) {
-      _ctrl.repeat(reverse: true);
+    final disabled =
+        AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled;
+    if (disabled) {
+      _ctrl?.stop();
+      return;
+    }
+    final ctrl = _ctrl ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _opacity ??= Tween(begin: 1.0, end: 0.45).animate(ctrl);
+    if (!ctrl.isAnimating) {
+      ctrl.repeat(reverse: true);
     }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _ctrl?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween(begin: 1.0, end: 0.45).animate(_ctrl),
-      child: Container(
-        width: 6,
-        height: 6,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
-      ),
+    final dot = Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
     );
+    final opacity = _opacity;
+    if (opacity == null || AppMotion.reduceAmbientMotion(context)) {
+      return dot;
+    }
+    return FadeTransition(opacity: opacity, child: dot);
   }
 }
 

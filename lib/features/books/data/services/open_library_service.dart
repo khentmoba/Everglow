@@ -181,6 +181,9 @@ class OpenLibraryService with ConnectivityAware {
     return page.items;
   }
 
+  static const String _searchFields =
+      'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn';
+
   /// Z-Lib style paged search with field filters. Open Library's
   /// `search.json` accepts `title`, `author`, `publisher`, and `isbn`
   /// as first-class query fields plus `offset` for deep paging, so
@@ -212,6 +215,7 @@ class OpenLibraryService with ConnectivityAware {
           'publisher': publisher!.trim(),
         if (isbn?.trim().isNotEmpty == true) 'isbn': isbn!.trim(),
         if (sort.isNotEmpty) 'sort': sort,
+        'fields': _searchFields,
         'limit': '$limit',
         if (offset > 0) 'offset': '$offset',
       };
@@ -224,6 +228,7 @@ class OpenLibraryService with ConnectivityAware {
         final data = json.decode(response.body);
         final List docs = data['docs'] ?? [];
         final total = (data['numFound'] as num?)?.toInt() ?? docs.length;
+        await Future<void>.delayed(Duration.zero);
         final items = docs
             .where(
               (d) =>
@@ -319,6 +324,7 @@ class OpenLibraryService with ConnectivityAware {
         'search.json',
         query: {
           'subject': subject,
+          'fields': _searchFields,
           'limit': '$limit',
           'sort': 'trending',
           if (offset > 0) 'offset': '$offset',
@@ -327,6 +333,7 @@ class OpenLibraryService with ConnectivityAware {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List docs = data['docs'] ?? [];
+        await Future<void>.delayed(Duration.zero);
         return docs
             .where((d) => (d['title'] as String?)?.isNotEmpty == true)
             .map((d) => _mapDocToBookItem(d as Map<String, dynamic>))

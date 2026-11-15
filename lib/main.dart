@@ -24,6 +24,7 @@ import 'core/system/app_error_widget.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
 import 'core/system/tv_mode.dart';
+import 'core/theme/app_breakpoints.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
 import 'core/network/network_quality_service.dart';
@@ -212,7 +213,7 @@ class _EverglowAppState extends State<EverglowApp> {
                 // it; Overlay.wrap gives their Copy menu somewhere to float.
                 child: AppRoot(
                   child: Overlay.wrap(
-                    child: isTv
+                    child: (isTv || AppBreakpoint.isMobile(context))
                         ? child!
                         : SelectionArea(
                             focusNode: _popupSelectionFocus,

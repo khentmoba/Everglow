@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart' hide FilterChip;
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -28,9 +29,11 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_pill_nav.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/section_fonts.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/scroll_memory.dart';
 import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
@@ -104,48 +107,71 @@ class _BooksScreenState extends _BooksScreenStateBase {
   // ── HOME TAB ───────────────────────────────────────────────────────
 
   Widget _buildHomeTab() {
-    if (_isLoadingHome && _popular.isEmpty && _recent.isEmpty) {
-      return _buildShimmerHome();
-    }
-    return RefreshIndicator(
-      color: _cAmber,
-      backgroundColor: _cCard,
-      onRefresh: _fetchHomeData,
-      child: CustomScrollView(
-        controller: _homeScroll,
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        slivers: [
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 0, child: _buildTopHeader()),
-          ),
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 1, child: _buildHomeSearch()),
-          ),
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 2, child: _buildSpotlight()),
-          ),
-          if (_readHistoryList.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: StaggeredEntrance(
-                index: 3,
-                child: _buildContinueReading(),
-              ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _showHomeSkeleton,
+      builder: (context, showSkeleton, _) {
+        if (showSkeleton) {
+          return _buildShimmerHome();
+        }
+        return RefreshIndicator(
+          color: _cAmber,
+          backgroundColor: _cCard,
+          onRefresh: _fetchHomeData,
+          child: CustomScrollView(
+            controller: _homeScroll,
+            scrollCacheExtent: ScrollCacheExtent.pixels(
+              AppMotion.reduceAmbientMotion(context) ? 120 : 250,
             ),
-          ],
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 4, child: _buildCategories()),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: StaggeredEntrance(
+                  index: 0,
+                  child: _buildTopHeader(context),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: StaggeredEntrance(index: 1, child: _buildHomeSearch()),
+              ),
+              SliverToBoxAdapter(
+                child: StaggeredEntrance(
+                  index: 2,
+                  child: RepaintBoundary(child: _buildSpotlight()),
+                ),
+              ),
+              if (_readHistoryList.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: StaggeredEntrance(
+                    index: 3,
+                    child: RepaintBoundary(child: _buildContinueReading()),
+                  ),
+                ),
+              ],
+              SliverToBoxAdapter(
+                child: StaggeredEntrance(
+                  index: 4,
+                  child: RepaintBoundary(child: _buildCategories()),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: StaggeredEntrance(
+                  index: 5,
+                  child: RepaintBoundary(child: _buildPopularRail()),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: StaggeredEntrance(
+                  index: 6,
+                  child: RepaintBoundary(child: _buildRecentRail()),
+                ),
+              ),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+            ],
           ),
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 5, child: _buildPopularRail()),
-          ),
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 6, child: _buildRecentRail()),
-          ),
-          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -194,7 +220,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-  Widget _buildTopHeader() {
+  Widget _buildTopHeader(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     final canPop = Navigator.canPop(context);
     final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
@@ -297,30 +323,35 @@ class _BooksScreenState extends _BooksScreenStateBase {
   /// Netflix-style spotlight: the week's top book, big and calm, so the
   /// home screen opens on one clear thing to read.
   Widget _buildSpotlight() {
-    final pick = _popular.isNotEmpty
-        ? _popular.first
-        : (_recent.isNotEmpty ? _recent.first : null);
-    if (pick == null) return const SizedBox.shrink();
-    final blurb = pick.description.isNotEmpty
-        ? pick.description
-        : pick.subjects.take(3).join(' · ');
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-      child: GestureDetector(
-        onTap: () => _showResultDetails(pick),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _cAmber.withValues(alpha: 0.16),
-                AppColors.velvet.withValues(alpha: 0.85),
-                _cBlack.withValues(alpha: 0.9),
-              ],
-            ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([_popularFeed, _recentFeed]),
+      builder: (context, _) {
+        final popular = _popularFeed.value.results;
+        final recent = _recentFeed.value.results;
+        final pick = popular.isNotEmpty
+            ? popular.first
+            : (recent.isNotEmpty ? recent.first : null);
+        if (pick == null) return const SizedBox.shrink();
+        final blurb = pick.description.isNotEmpty
+            ? pick.description
+            : pick.subjects.take(3).join(' · ');
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+          child: GestureDetector(
+            onTap: () => _showResultDetails(pick),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _cAmber.withValues(alpha: 0.16),
+                    AppColors.velvet.withValues(alpha: 0.85),
+                    _cBlack.withValues(alpha: 0.9),
+                  ],
+                ),
             border: Border.all(color: _cAmber.withValues(alpha: 0.18)),
           ),
           child: Row(
@@ -420,6 +451,8 @@ class _BooksScreenState extends _BooksScreenStateBase {
         ),
       ),
     );
+      },
+    );
   }
 
   Widget _buildCategories() {
@@ -486,24 +519,34 @@ class _BooksScreenState extends _BooksScreenStateBase {
   }
 
   Widget _buildPopularRail() {
-    return _buildFeedRail(
-      eyebrow: 'Trending this week',
-      title: 'Most Popular',
-      accent: _cAmber,
-      results: _popular,
-      onSeeAll: () =>
-          context.push('/books/list', extra: const BookListArgs.popular()),
+    return ValueListenableBuilder<_BookFeedSlice>(
+      valueListenable: _popularFeed,
+      builder: (context, slice, _) {
+        return _buildFeedRail(
+          eyebrow: 'Trending this week',
+          title: 'Most Popular',
+          accent: _cAmber,
+          slice: slice,
+          onSeeAll: () =>
+              context.push('/books/list', extra: const BookListArgs.popular()),
+        );
+      },
     );
   }
 
   Widget _buildRecentRail() {
-    return _buildFeedRail(
-      eyebrow: 'Fresh in the catalog',
-      title: 'Recently Added',
-      accent: _cDeepRose,
-      results: _recent,
-      onSeeAll: () =>
-          context.push('/books/list', extra: const BookListArgs.recent()),
+    return ValueListenableBuilder<_BookFeedSlice>(
+      valueListenable: _recentFeed,
+      builder: (context, slice, _) {
+        return _buildFeedRail(
+          eyebrow: 'Fresh in the catalog',
+          title: 'Recently Added',
+          accent: _cDeepRose,
+          slice: slice,
+          onSeeAll: () =>
+              context.push('/books/list', extra: const BookListArgs.recent()),
+        );
+      },
     );
   }
 
@@ -511,9 +554,10 @@ class _BooksScreenState extends _BooksScreenStateBase {
     required String eyebrow,
     required String title,
     required Color accent,
-    required List<BookSearchResult> results,
+    required _BookFeedSlice slice,
     required VoidCallback onSeeAll,
   }) {
+    final results = slice.results;
     if (results.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,7 +585,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
                 final result = results[index];
                 return BookCoverCard(
                   width: 124,
-                  item: result.toBookItem(),
+                  item: slice.items[index],
                   onTap: () => _showResultDetails(result),
                 );
               },

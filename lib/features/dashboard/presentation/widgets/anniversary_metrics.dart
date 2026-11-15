@@ -167,6 +167,7 @@ class _SectionEyebrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     final row = Center(
       child: Wrap(
         alignment: WrapAlignment.center,
@@ -193,18 +194,20 @@ class _SectionEyebrow extends StatelessWidget {
                   color: AppColors.blushGold.withValues(alpha: 0.32),
                   width: 1,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                  BoxShadow(
-                    color: AppColors.auroraRose.withValues(alpha: 0.10),
-                    blurRadius: 8,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                boxShadow: reduceAmbient
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                        BoxShadow(
+                          color: AppColors.auroraRose.withValues(alpha: 0.10),
+                          blurRadius: 8,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

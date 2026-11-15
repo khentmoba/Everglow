@@ -27,6 +27,7 @@ import '../../features/tonight/presentation/routes/tonight_routes.dart';
 import '../agent/agent_mode.dart';
 import '../perf/perf_bench_route.dart';
 import '../system/tv_mode.dart';
+import '../theme/app_breakpoints.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
 import 'route_helpers.dart';
@@ -152,7 +153,9 @@ GoRouter createAppRouter() {
         builder: (context, state, child) => ValueListenableBuilder<bool>(
           valueListenable: TvMode.isTvMode,
           builder: (context, isTv, _) =>
-              isTv ? child : SelectionArea(child: child),
+              (isTv || AppBreakpoint.isMobile(context))
+                  ? child
+                  : SelectionArea(child: child),
         ),
         routes: [
           ...gatewayRoutes,

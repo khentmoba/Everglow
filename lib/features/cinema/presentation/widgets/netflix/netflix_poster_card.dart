@@ -198,34 +198,34 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 
   Widget _buildPoster(double width, double height) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     final scale = _pressed
         ? 0.96
         : (_hovered && isDesktop ? (widget.compact ? 1.05 : 1.08) : 1.0);
 
-    final transform = Matrix4.diagonal3Values(scale, scale, 1.0);
-
-    return AnimatedContainer(
-      duration: AppMotion.orZero(const Duration(milliseconds: 220)),
-      curve: AppMotion.easeOutStrong,
-      transform: transform,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: [
-          if (_hovered && isDesktop)
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.65),
-              blurRadius: 24,
-              offset: const Offset(0, 14),
-            )
-          else
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-        ],
-      ),
-      child: ClipRRect(
+    final transform = reduceAmbient
+        ? null
+        : Matrix4.diagonal3Values(scale, scale, 1.0);
+    final decoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(6),
+      boxShadow: reduceAmbient
+          ? null
+          : [
+              if (_hovered && isDesktop)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  blurRadius: 24,
+                  offset: const Offset(0, 14),
+                )
+              else
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+            ],
+    );
+    final clipped = ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: SizedBox(
           width: width,
@@ -262,7 +262,17 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
             ],
           ),
         ),
-      ),
+      );
+    return RepaintBoundary(
+      child: reduceAmbient
+          ? DecoratedBox(decoration: decoration, child: clipped)
+          : AnimatedContainer(
+              duration: AppMotion.orZero(const Duration(milliseconds: 220)),
+              curve: AppMotion.easeOutStrong,
+              transform: transform,
+              decoration: decoration,
+              child: clipped,
+            ),
     );
   }
 

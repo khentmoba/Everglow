@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../bucket_list/data/models/bucket_item.dart';
@@ -20,73 +21,79 @@ class KeepsakesCluster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.velvet.withValues(alpha: 0.32),
-          borderRadius: AppRadius.radiusX3,
-          border: Border.all(
-            color: AppColors.petalWhite.withValues(alpha: 0.08),
-            width: 1,
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
+    return RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.velvet.withValues(alpha: 0.32),
+            borderRadius: AppRadius.radiusX3,
+            border: Border.all(
+              color: AppColors.petalWhite.withValues(alpha: 0.08),
+              width: 1,
+            ),
+            boxShadow: reduceAmbient
+                ? null
+                : [
+                    BoxShadow(
+                      color: AppColors.inkDeep.withValues(alpha: 0.28),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                    BoxShadow(
+                      // Ambient starlight glow, not an edge shadow: at 0.04 alpha a
+                      // 32px blur was a very wide filter for an effect this faint.
+                      // Tighter and a touch more opaque reads the same for a third of
+                      // the blur area.
+                      color: AppColors.blushGold.withValues(alpha: 0.07),
+                      blurRadius: 18,
+                      spreadRadius: -6,
+                    ),
+                  ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.inkDeep.withValues(alpha: 0.28),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-            BoxShadow(
-              // Ambient starlight glow, not an edge shadow: at 0.04 alpha a
-              // 32px blur was a very wide filter for an effect this faint.
-              // Tighter and a touch more opaque reads the same for a third of
-              // the blur area.
-              color: AppColors.blushGold.withValues(alpha: 0.07),
-              blurRadius: 18,
-              spreadRadius: -6,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: AppRadius.radiusX3,
-          child: Stack(
-            children: [
-              // Top-right starlight atmospheric glow
-              Positioned(
-                top: -80,
-                right: -50,
-                child: Container(
-                  width: 260,
-                  height: 260,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.blushGold.withValues(alpha: 0.10),
-                        Colors.transparent,
-                      ],
+          child: ClipRRect(
+            borderRadius: AppRadius.radiusX3,
+            child: Stack(
+              children: [
+                if (!reduceAmbient) ...[
+                  // Top-right starlight atmospheric glow
+                  Positioned(
+                    top: -80,
+                    right: -50,
+                    child: Container(
+                      width: 260,
+                      height: 260,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppColors.blushGold.withValues(alpha: 0.10),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              // Bottom-left twilight violet atmospheric glow
-              Positioned(
-                bottom: -80,
-                left: -50,
-                child: Container(
-                  width: 260,
-                  height: 260,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.auroraLilac.withValues(alpha: 0.07),
-                        Colors.transparent,
-                      ],
+                  // Bottom-left twilight violet atmospheric glow
+                  Positioned(
+                    bottom: -80,
+                    left: -50,
+                    child: Container(
+                      width: 260,
+                      height: 260,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppColors.auroraLilac.withValues(alpha: 0.07),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                ],
               // Top glowing hairline
               Positioned(
                 top: 0,
@@ -146,6 +153,7 @@ class KeepsakesCluster extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

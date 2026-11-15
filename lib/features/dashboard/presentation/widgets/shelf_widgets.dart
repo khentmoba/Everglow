@@ -537,13 +537,18 @@ class _ShelfCardState extends State<ShelfCard> {
                             fontSize: 11.5,
                             height: 1.18,
                             letterSpacing: 0.1,
-                            shadows: const [
-                              Shadow(color: Color(0xDD000000), blurRadius: 6),
-                              Shadow(
-                                color: AppColors.scrimStrong,
-                                blurRadius: 12,
-                              ),
-                            ],
+                            shadows: kIsWeb
+                                ? null
+                                : const [
+                                    Shadow(
+                                      color: AppColors.scrimStrong,
+                                      blurRadius: 6,
+                                    ),
+                                    Shadow(
+                                      color: AppColors.scrimStrong,
+                                      blurRadius: 12,
+                                    ),
+                                  ],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -559,14 +564,15 @@ class _ShelfCardState extends State<ShelfCard> {
                                 decoration: BoxDecoration(
                                   color: widget.accent.color,
                                   shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: widget.accent.color.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
+                                  boxShadow: kIsWeb
+                                      ? null
+                                      : [
+                                          BoxShadow(
+                                            color: widget.accent.color
+                                                .withValues(alpha: 0.6),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
                                 ),
                               ),
                               const SizedBox(width: 5),
@@ -579,12 +585,14 @@ class _ShelfCardState extends State<ShelfCard> {
                                     ),
                                     fontSize: 8.2,
                                     letterSpacing: 0.9,
-                                    shadows: const [
-                                      Shadow(
-                                        color: Color(0xCC000000),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
+                                    shadows: kIsWeb
+                                        ? null
+                                        : const [
+                                            Shadow(
+                                              color: AppColors.scrimStrong,
+                                              blurRadius: 4,
+                                            ),
+                                          ],
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

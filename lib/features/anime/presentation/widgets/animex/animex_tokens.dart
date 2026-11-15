@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Design tokens for the Everglow anime section, modeled on the reference
 /// anime streaming UI: near-black blue-tinted surfaces, the Everglow rose
@@ -27,6 +28,7 @@ abstract final class AnimeXTokens {
   // Glass + glow treatments shared by cards, badges and popovers.
   static const Color glass = Color(0xB3121219);
   static const Color glassBorder = Color(0x2EFFFFFF);
+  static const Color posterScrimBottom = Color(0xD9000000);
 
   static const double radiusSm = 4;
   static const double radiusMd = 6;
@@ -82,6 +84,7 @@ TextStyle bebasStyle({
 }) {
   return TextStyle(
     fontFamily: 'Bebas Neue',
+    fontFamilyFallback: AppTypography.fontFallback,
     fontSize: size,
     color: color,
     letterSpacing: letterSpacing,
@@ -99,6 +102,7 @@ TextStyle dmSansStyle({
 }) {
   return TextStyle(
     fontFamily: 'DM Sans',
+    fontFamilyFallback: AppTypography.fontFallback,
     fontSize: size,
     color: color,
     fontWeight: weight,
@@ -118,6 +122,7 @@ TextStyle interBodyStyle({
 }) {
   return TextStyle(
     fontFamily: 'DM Sans',
+    fontFamilyFallback: AppTypography.fontFallback,
     fontSize: size,
     color: color,
     height: height,

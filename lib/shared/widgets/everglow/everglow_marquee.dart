@@ -62,6 +62,9 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   bool _canScroll = true;
   bool _isVisible = true;
   bool _appActive = true;
+  bool _reduceAmbient = false;
+  bool _tickerEnabled = true;
+  bool _scrollDirty = false;
   ScrollPosition? _scrollPosition;
   List<Widget> _items = const [];
   double _loopWidth = 1;
@@ -126,6 +129,17 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _reduceAmbient = AppMotion.reduceAmbientMotion(context);
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (_reduceAmbient || _controller == null) {
+      // Static swipeable ListView on phones never drifts, so leave the
+      // enclosing ScrollPosition listener-free (no per-tick localToGlobal work).
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = null;
+      _scrollSettle?.cancel();
+      _controller?.stop();
+      return;
+    }
     final pos = Scrollable.maybeOf(context)?.position;
     if (pos != _scrollPosition) {
       _scrollPosition?.removeListener(_onScroll);
@@ -136,15 +150,32 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   void _onScroll() {
-    _checkVisibility();
+    if (_reduceAmbient || _controller == null) return;
     // Pause drift for the scroll duration: each tick repaints 2x card sets
     // plus a ShaderMask saveLayer, which competes directly with the vertical
     // scroll raster on Flutter Web's single thread (PWA jank).
     final c = _controller;
     if (c != null && c.isAnimating) c.stop();
-    _scrollSettle?.cancel();
-    _scrollSettle = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted) return;
+    // Skip localToGlobal visibility lookups while actively scrolling — only
+    // check once the scroll settles so vertical scroll frames stay free of
+    // RenderObject.getTransformTo walks, and coalesce active-scroll events
+    // without cancelling/reallocating timers on every scroll pixel.
+    if (_scrollSettle?.isActive ?? false) {
+      _scrollDirty = true;
+      return;
+    }
+    _scrollDirty = false;
+    _armSettleTimer(const Duration(milliseconds: 400));
+  }
+
+  void _armSettleTimer(Duration delay) {
+    _scrollSettle = Timer(delay, () {
+      if (!mounted || _reduceAmbient) return;
+      if (_scrollDirty) {
+        _scrollDirty = false;
+        _armSettleTimer(const Duration(milliseconds: 80));
+        return;
+      }
       _checkVisibility(); // Scroll listeners can fire before layout has moved.
       _syncTicker();
     });
@@ -184,8 +215,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         _canScroll &&
         !_hovered &&
         _isVisible &&
-        TickerMode.valuesOf(context).enabled &&
-        !AppMotion.reduceAmbientMotion(context) &&
+        _tickerEnabled &&
+        !_reduceAmbient &&
         !(_scrollSettle?.isActive ?? false);
     if (shouldRun && !c.isAnimating) {
       c.repeat();
@@ -209,7 +240,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     if (widget.children.isEmpty) return const SizedBox.shrink();
     // One lazy, swipeable copy on phones. Every card remains reachable without
     // continuously repainting a duplicated track or its edge shader.
-    if (AppMotion.reduceAmbientMotion(context) || _controller == null) {
+    if (_reduceAmbient || _controller == null) {
       return RepaintBoundary(
         child: ClipRect(
           child: SizedBox(

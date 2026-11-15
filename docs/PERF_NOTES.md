@@ -454,3 +454,37 @@ against the prior widget because the phone keeps requesting frames, then
 passes with the fix; tablet motion and inactive-page restoration are checked.
 This proves stopped scheduling during chapter waits, not chapter download
 speed, presentation FPS or battery savings.
+
+### Phone 3x / 4x-CPU scroll and route-switch pass (`?agent=1`)
+
+Measured locally on the release web bundle (`build/web`) with
+`probe_scroll.mjs --screen <screen> --dpr 3 --throttle 4 --passes 2`
+(430x932 viewport, fake `?agent=1` catalog data, desktop Chrome CPU x4).
+
+Scroll probes (every screen recorded `0` frames `>200ms` and `0` main-thread long tasks `>200ms` across `first-down`, `repeat-down-1`, and `repeat-up`):
+
+| Screen | `first-down` worst frame / longTaskMax | `repeat-down-1` worst frame / longTaskMax | `repeat-up` worst frame / longTaskMax |
+| --- | --- | --- | --- |
+| `dashboard` | `179.5ms` / `188ms` | `109.2ms` / `112ms` | `118.7ms` / `124ms` |
+| `cinema` | `138.0ms` / `174ms` | `36.0ms` / `0ms` | `175.4ms` / `176ms` |
+| `anime` | `86.8ms` / `115ms` | `25.2ms` / `0ms` | `82.0ms` / `85ms` |
+| `manga` | `87.2ms` / `109ms` | `44.7ms` / `51ms` | `58.8ms` / `62ms` |
+| `books` | `151.9ms` / `190ms` | `57.4ms` / `65ms` | `115.2ms` / `127ms` |
+
+Cold route-switch latency (`probe_navigation.mjs --throttle 4 --network fast3g`):
+
+- `cinema`: first `289ms` (`longTaskMax 347ms`), revisit `215ms` (`221ms`)
+- `anime`: first `180ms` (`longTaskMax 198ms`), revisit `134ms` (`148ms`)
+- `manga`: first `137ms` (`longTaskMax 155ms`), revisit `83ms` (`92ms`)
+- `books`: first `91ms` (`longTaskMax 115ms`), revisit `47ms` (`67ms`)
+
+Key changes covered by the diff and regression tests:
+
+- `SectionFonts.warmFallbackGlyphs` (`lib/core/theme/section_fonts.dart`) pre-warms unseen non-ASCII glyphs in `katana_home_screen.dart` (titles, update text, summaries, `recentChapters`, genres) so CanvasKit fallback font lookup finishes before scrolling begins (`test/core/theme/section_fonts_warm_test.dart`).
+- Bundled local DM Sans / Roboto font assets so CanvasKit avoids runtime font fallback and layout shifts across Cinema/Anime typography.
+- `BooksScreen` (`lib/features/books/presentation/screens/books_screen.dart` & `books_screen_state_base.dart`) defers arriving feed state updates while vertically scrolling (`test/features/books/books_scroll_deferral_test.dart`) and bounds phone `CustomScrollView` `scrollCacheExtent` under reduced ambient motion.
+- `CinemaScreen` (`lib/features/cinema/presentation/screens/cinema_screen.dart`) defers `CinemaHomeCache.save` writes until vertical scrolling stops (`test/features/cinema/cinema_scroll_deferral_test.dart`).
+- `Anime` home rows and poster cards (`animex_home_page.dart`, `animex_poster_row.dart`, `animex_poster_card.dart`, `animex_ticker.dart`, `animex_badges.dart`) defer non-hero row flushes during vertical scroll via the list's `ScrollController` (`test/features/anime/animex_home_scroll_deferral_test.dart`), avoid redundant shaders/repaint work, and trim off-screen scroll extent, alongside `scroll_memory.dart` timer coalescing and `everglow_marquee.dart` active-scroll pause.
+
+Note: These measurements come from desktop headless Chrome with `?agent=1` fixtures and CPU throttling, not real hardware on Clair's iPhone or tablet; real-device sustained FPS, heat, and live Firebase/TMDB payload timing remain unmeasured here.
+

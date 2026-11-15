@@ -77,6 +77,8 @@ class AppTheme {
         brightness: Brightness.dark,
       ),
       scaffoldBackgroundColor: AppColors.twilight,
+      fontFamily: AppTypography.body,
+      fontFamilyFallback: AppTypography.fontFallback,
       textTheme: AppTypography.textTheme,
       iconTheme: const IconThemeData(color: AppColors.petalWhite),
       appBarTheme: const AppBarTheme(
