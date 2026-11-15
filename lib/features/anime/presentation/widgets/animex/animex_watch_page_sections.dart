@@ -144,9 +144,15 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
     final viewportHeight = MediaQuery.sizeOf(context).height;
     // Cap height so the player never crowds out the server selector and episode
     // list on shorter screens (such as laptops or landscape tablets).
-    final maxPlayerHeight = (viewportHeight - 280)
+    // Freeze the in-page box while browser fullscreen is active or settling out
+    // so the player container never jumps behind the fullscreen frame.
+    final computedMaxHeight = (viewportHeight - 280)
         .clamp(240.0, AnimeXTokens.playerMaxHeight)
         .toDouble();
+    if (!isPlayerFullscreenActive() || _lastWindowedMaxPlayerHeight == null) {
+      _lastWindowedMaxPlayerHeight = computedMaxHeight;
+    }
+    final maxPlayerHeight = _lastWindowedMaxPlayerHeight!;
 
     final player = !_ready
         ? AspectRatio(aspectRatio: 16 / 9, child: _buildLoadingBackdrop())

@@ -83,11 +83,12 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   Timer? _contentCheckTimer;
 
   /// Drives the page scroll view below the player.
-  ///
-  /// There is deliberately no wheel forwarding from the embed iframe:
-  /// wheel events inside a cross-origin iframe never reach this
-  /// document, so a listener on the iframe element can never fire.
   final ScrollController _pageScrollController = ScrollController();
+
+  double? _lastWindowedMaxPlayerHeight;
+  bool _isNativeFullscreenActive = false;
+  Timer? _nativeFullscreenSettleTimer;
+  JSFunction? _onNativeFullscreenChange;
 
   /// Listens for VidLink's MEDIA_DATA / PLAYER_EVENT postMessage to
   /// confirm content is playable.
@@ -353,6 +354,26 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     // to confirm content is actually playable.
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
+    _onNativeFullscreenChange = ((web.Event _) {
+      final active = web.document.fullscreenElement != null;
+      _nativeFullscreenSettleTimer?.cancel();
+      if (active) {
+        _isNativeFullscreenActive = true;
+      } else {
+        _isNativeFullscreenActive = true;
+        _nativeFullscreenSettleTimer = Timer(
+          const Duration(milliseconds: 260),
+          () {
+            _isNativeFullscreenActive = false;
+            if (mounted) setState(() {});
+          },
+        );
+      }
+    }).toJS;
+    web.document.addEventListener(
+      'fullscreenchange',
+      _onNativeFullscreenChange,
+    );
 
     if (_usesIframe) {
       _loadTimer = Timer(_WatchPartyScreenStateBase._loadTimeout, () {
@@ -451,6 +472,13 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _resyncHideTimer?.cancel();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+    _nativeFullscreenSettleTimer?.cancel();
+    if (_onNativeFullscreenChange != null) {
+      web.document.removeEventListener(
+        'fullscreenchange',
+        _onNativeFullscreenChange,
+      );
+    }
     _roomSub?.cancel();
     _streamResolver.dispose();
     _voiceChat.dispose();
@@ -886,6 +914,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         if (origin != iframeOrigin && origin != activeOrigin) return;
 
         final raw = data.dartify();
+        final scrollDelta = parseEverglowEmbedScrollDelta(raw);
+        if (scrollDelta != null) {
+          _applyEmbedScroll(scrollDelta);
+          return;
+        }
         if (_selectedProvider.id == 'everglow-embed' && raw is Map) {
           if (raw['type'] == 'everglow-embed-failed') {
             _onIframeLoadError();
@@ -909,6 +942,20 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         );
       }
     }).toJS;
+  }
+
+  void _applyEmbedScroll(double dy) {
+    if (!mounted || web.document.fullscreenElement != null) return;
+    if (!_pageScrollController.hasClients) return;
+    final position = _pageScrollController.position;
+    if (!position.hasPixels || !position.hasContentDimensions) return;
+    final next = (position.pixels + dy).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (next != position.pixels) {
+      position.jumpTo(next);
+    }
   }
 
   // ─── URL building ─────────────────────────────────────────────────

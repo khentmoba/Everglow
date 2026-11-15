@@ -15,6 +15,9 @@ import 'animex_buttons.dart';
 import 'animex_tokens.dart';
 import 'animex_videasy_progress.dart';
 
+/// Always false on native; only web embeds enter browser element fullscreen.
+bool isPlayerFullscreenActive() => false;
+
 /// Opens the reference-style trailer for an anime inside the app.
 ///
 /// The web implementation shows a modal with a YouTube iframe; Android runs

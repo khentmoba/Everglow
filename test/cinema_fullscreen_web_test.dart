@@ -104,6 +104,20 @@ void main() {
       expect(_exitButton, isNull, reason: 'desktop must not open theater');
       expect(find.text('Episodes').hitTestable(), findsOneWidget);
 
+      await tester.tap(find.text('Episodes'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.text('Episode 2'));
+      await tester.pump(const Duration(milliseconds: 300));
+      final scrollBeforeTheater = tester
+          .widget<SingleChildScrollView>(
+            find.byType(SingleChildScrollView).first,
+          )
+          .controller!
+          .offset;
+      expect(scrollBeforeTheater, greaterThan(0));
+
+      // Entering and exiting theater mode preserves both the open episode list
+      // and the page scroll offset instead of unmounting below-player sections.
       await tester.tap(find.byTooltip('Theater mode'));
       await tester.pump();
       expect(_exitButton, isNotNull, reason: 'manual theater is available');
@@ -111,10 +125,15 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(_exitButton, isNull);
-      await tester.tap(find.text('Episodes'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.ensureVisible(find.text('Episode 2'));
-      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester
+            .widget<SingleChildScrollView>(
+              find.byType(SingleChildScrollView).first,
+            )
+            .controller!
+            .offset,
+        closeTo(scrollBeforeTheater, 0.1),
+      );
       await tester.tap(find.text('Episode 2'));
       await tester.pump();
       await tester.pump();

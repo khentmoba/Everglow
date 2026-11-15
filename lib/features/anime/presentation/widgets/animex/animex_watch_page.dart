@@ -109,6 +109,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   double? _lastKnownPosition;
   MediaItem? _accountProgress;
   double? _playbackDuration;
+  double? _lastWindowedMaxPlayerHeight;
   bool _ready = false;
   bool _episodeChosen = false;
   AuthService? _auth;

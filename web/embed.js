@@ -51,7 +51,12 @@
 
   document.addEventListener('wheel', function (e) {
     try {
-      window.parent.postMessage({ type: 'everglow-embed-scroll', deltaY: e.deltaY }, '*');
+      window.parent.postMessage({
+        type: 'everglow-embed-scroll',
+        deltaX: Number(e.deltaX) || 0,
+        deltaY: Number(e.deltaY) || 0,
+        deltaMode: Number(e.deltaMode) || 0
+      }, '*');
     } catch (err) {}
   }, { passive: true });
 

@@ -189,4 +189,43 @@ void main() {
       expect(parseVideasyProgress('https://player.videasy.to', data), isNull);
     }
   });
+
+  test('parseEverglowEmbedScrollDelta normalizes wheel deltas across deltaModes', () {
+    expect(
+      parseEverglowEmbedScrollDelta({
+        'type': 'everglow-embed-scroll',
+        'deltaY': 120,
+        'deltaMode': 0,
+      }),
+      120.0,
+    );
+    expect(
+      parseEverglowEmbedScrollDelta({
+        'type': 'everglow-embed-scroll',
+        'deltaY': 3,
+        'deltaMode': 1,
+      }),
+      120.0,
+    );
+    expect(
+      parseEverglowEmbedScrollDelta(
+        jsonEncode({
+          'type': 'everglow-embed-scroll',
+          'deltaY': 0.5,
+          'deltaMode': 2,
+        }),
+      ),
+      300.0,
+    );
+    for (final invalid in <Object?>[
+      {'type': 'everglow-embed-scroll', 'deltaY': 0},
+      {'type': 'everglow-embed-scroll', 'deltaY': double.nan},
+      {'type': 'everglow-embed-scroll', 'deltaY': '120'},
+      {'type': 'animex-progress', 'deltaY': 120},
+      null,
+      'not json',
+    ]) {
+      expect(parseEverglowEmbedScrollDelta(invalid), isNull);
+    }
+  });
 }

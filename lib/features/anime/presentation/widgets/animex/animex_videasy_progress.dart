@@ -135,3 +135,29 @@ VideasyProgress? parseAnimeXProgress(
     return null;
   }
 }
+
+/// Extracts the vertical scroll delta (in logical pixels) from an
+/// `everglow-embed-scroll` postMessage sent by our owned HLS player or
+/// `web/embed.html` shell. Returns null for any other message or zero delta.
+double? parseEverglowEmbedScrollDelta(Object? data) {
+  try {
+    final decoded = data is String ? jsonDecode(data) : data;
+    if (decoded is! Map || decoded['type'] != 'everglow-embed-scroll') {
+      return null;
+    }
+    final rawY = decoded['deltaY'];
+    if (rawY is! num || !rawY.isFinite) return null;
+    final rawMode = decoded['deltaMode'];
+    final mode = rawMode is num && rawMode.isFinite ? rawMode.toInt() : 0;
+    final scale = switch (mode) {
+      1 => 40.0,
+      2 => 600.0,
+      _ => 1.0,
+    };
+    final dy = rawY.toDouble() * scale;
+    if (dy == 0 || !dy.isFinite) return null;
+    return dy;
+  } catch (_) {
+    return null;
+  }
+}

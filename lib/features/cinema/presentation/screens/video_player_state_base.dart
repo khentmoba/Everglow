@@ -96,12 +96,16 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
   /// Whether the player is in custom fullscreen (theater) mode.
   bool _isFullscreen = false;
+  double? _lastWindowedMaxPlayerHeight;
+  double _preFullscreenScrollOffset = 0;
+  bool _nativeFullscreenSettling = false;
+  Timer? _nativeFullscreenSettleTimer;
+  JSFunction? _onNativeFullscreenChange;
+
+  bool get _isNativeFullscreenActive =>
+      _nativeFullscreenSettling || web.document.fullscreenElement != null;
 
   /// Drives the page scroll view below the player.
-  ///
-  /// There is deliberately no wheel forwarding from the embed iframe:
-  /// wheel events inside a cross-origin iframe never reach this
-  /// document, so a listener on the iframe element can never fire.
   final ScrollController _scrollController = ScrollController();
   double _playerAreaHeight = 0;
 
@@ -125,6 +129,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   JSFunction? _videoTimeUpdateListener;
   JSFunction? _videoEndedListener;
   JSFunction? _videoErrorListener;
+  JSFunction? _videoWheelListener;
   web.HTMLElement? _theaterPlatformView;
   String? _platformViewStyles;
   JSFunction? _onFullscreenExitListener;
@@ -208,6 +213,16 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       _videoElement!.addEventListener('timeupdate', _videoTimeUpdateListener);
       _videoElement!.addEventListener('ended', _videoEndedListener);
       _videoElement!.addEventListener('error', _videoErrorListener);
+      _videoWheelListener = ((web.Event event) {
+        final wheel = event as web.WheelEvent;
+        final delta = parseEverglowEmbedScrollDelta({
+          'type': 'everglow-embed-scroll',
+          'deltaY': wheel.deltaY,
+          'deltaMode': wheel.deltaMode,
+        });
+        if (delta != null) _applyEmbedScroll(delta);
+      }).toJS;
+      _videoElement!.addEventListener('wheel', _videoWheelListener);
     }
 
     OfflineMediaService.instance.getPlayableUrl(item).then((url) {
@@ -368,6 +383,25 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
+    _onNativeFullscreenChange = ((web.Event _) {
+      _nativeFullscreenSettleTimer?.cancel();
+      if (web.document.fullscreenElement != null) {
+        _nativeFullscreenSettling = false;
+      } else {
+        _nativeFullscreenSettling = true;
+        _nativeFullscreenSettleTimer = Timer(
+          const Duration(milliseconds: 260),
+          () {
+            _nativeFullscreenSettling = false;
+            if (mounted) setState(() {});
+          },
+        );
+      }
+    }).toJS;
+    web.document.addEventListener(
+      'fullscreenchange',
+      _onNativeFullscreenChange,
+    );
     _installKeyForwarder();
 
     _currentSeason = widget.season ?? 1;
@@ -602,6 +636,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         // All events must come from the active frame and its exact origin.
         if (origin != Uri.parse(_iframe.src).origin) return;
         final wrapperMessage = data.dartify();
+        final scrollDelta = parseEverglowEmbedScrollDelta(wrapperMessage);
+        if (scrollDelta != null) {
+          _applyEmbedScroll(scrollDelta);
+          return;
+        }
         if ((_selectedProvider.id == 'everglow-embed' ||
                 _selectedProvider.id == 'everglow-shell') &&
             (wrapperMessage == 'animex-content-error' ||
@@ -1239,6 +1278,22 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _persistPlayerMemory();
   }
 
+  void _applyEmbedScroll(double dy) {
+    if (!mounted || _isFullscreen || web.document.fullscreenElement != null) {
+      return;
+    }
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (!position.hasPixels || !position.hasContentDimensions) return;
+    final next = (position.pixels + dy).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (next != position.pixels) {
+      position.jumpTo(next);
+    }
+  }
+
   /// Toggles theater mode by expanding the platform-view wrapper to the
   /// viewport while keeping the iframe mounted in place. Always flips
   /// [_isFullscreen] so the button never looks dead: the DOM fix is
@@ -1247,18 +1302,58 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   void _toggleFullScreen() {
     final entering = !_isFullscreen;
     if (entering) {
+      _preFullscreenScrollOffset = _scrollController.hasClients
+          ? _scrollController.offset
+          : 0;
+      if (_scrollController.hasClients && _scrollController.offset != 0) {
+        _scrollController.jumpTo(0);
+      }
       setState(() => _isFullscreen = true);
       _expandPlatformViewForTheater();
+      _animateTheaterTransition();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isFullscreen) {
+          _applyTheaterPlatformViewStyle();
+        }
+      });
       _showFullscreenExitButton();
       _setBodyOverflowHidden(true);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
       _restorePlatformViewStyle();
       setState(() => _isFullscreen = false);
+      _animateTheaterTransition();
+      final savedOffset = _preFullscreenScrollOffset;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isFullscreen || !_scrollController.hasClients) return;
+        if (savedOffset > 0) {
+          final clamped = savedOffset.clamp(
+            _scrollController.position.minScrollExtent,
+            _scrollController.position.maxScrollExtent,
+          );
+          _scrollController.jumpTo(clamped);
+        }
+      });
       _hideFullscreenExitButton();
       _setBodyOverflowHidden(false);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
+  }
+
+  void _animateTheaterTransition() {
+    final host = _playerHost;
+    if (host == null) return;
+    host.style
+      ..transition =
+          'opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)'
+      ..opacity = '0.88'
+      ..transform = 'scale(0.985)';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      host.style
+        ..opacity = '1'
+        ..transform = 'scale(1)';
+    });
   }
 
   web.HTMLElement? _findTheaterView() {
@@ -1282,7 +1377,14 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     final platformView = _findTheaterView();
     if (platformView == null) return;
     _theaterPlatformView = platformView;
-    _platformViewStyles = platformView.style.cssText;
+    _platformViewStyles ??= platformView.style.cssText;
+    _applyTheaterPlatformViewStyle();
+  }
+
+  void _applyTheaterPlatformViewStyle() {
+    final platformView = _theaterPlatformView ?? _findTheaterView();
+    if (platformView == null) return;
+    _theaterPlatformView = platformView;
     platformView.style
       ..position = 'fixed'
       ..display = 'block'
@@ -1447,6 +1549,14 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _preferences.removeListener(_onPreferencesChanged);
     _upNextTimer?.cancel();
+    _nativeFullscreenSettleTimer?.cancel();
+    _nativeFullscreenSettling = false;
+    if (_onNativeFullscreenChange != null) {
+      web.document.removeEventListener(
+        'fullscreenchange',
+        _onNativeFullscreenChange,
+      );
+    }
     _startProgressHeartbeat();
     _persistPlayerMemory();
     _loadTimer?.cancel();
@@ -1491,6 +1601,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       }
       if (_videoErrorListener != null) {
         _videoElement!.removeEventListener('error', _videoErrorListener);
+      }
+      if (_videoWheelListener != null) {
+        _videoElement!.removeEventListener('wheel', _videoWheelListener);
       }
       _videoElement = null;
     }

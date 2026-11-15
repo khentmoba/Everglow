@@ -12,6 +12,7 @@ import 'package:web/web.dart' as web;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import '../../../cinema/data/services/ani_zip_service.dart';
 import '../../../cinema/data/services/player_memory_service.dart';
 import '../../../cinema/data/services/video_source_service.dart';
@@ -130,14 +131,22 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     );
   }
 
+  double _computeMaxPlayerHeight(BuildContext context) {
+    final computed = (MediaQuery.sizeOf(context).height - 320).clamp(
+      240.0,
+      double.infinity,
+    );
+    if (!_isNativeFullscreenActive && web.document.fullscreenElement == null) {
+      _lastWindowedMaxPlayerHeight = computed;
+    }
+    return _lastWindowedMaxPlayerHeight ?? computed;
+  }
+
   /// Cinema-style 16:9 stage. Keeps the HLS player / iframe in the same
   /// platform view, with loading, error, sync, voice, and chat overlays.
   Widget _buildCinemaPlayerStage() {
     if (!_room.hasMedia) return _buildEmptyStage();
-    final maxPlayerHeight = (MediaQuery.sizeOf(context).height - 320).clamp(
-      240.0,
-      double.infinity,
-    );
+    final maxPlayerHeight = _computeMaxPlayerHeight(context);
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxPlayerHeight),
       child: RepaintBoundary(
@@ -225,10 +234,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   /// Empty room: nothing is playing yet, so the stage becomes a single
   /// obvious action instead of a black rectangle with a dead player.
   Widget _buildEmptyStage() {
-    final maxPlayerHeight = (MediaQuery.sizeOf(context).height - 320).clamp(
-      240.0,
-      double.infinity,
-    );
+    final maxPlayerHeight = _computeMaxPlayerHeight(context);
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxPlayerHeight),
       child: Center(

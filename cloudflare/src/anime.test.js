@@ -1392,7 +1392,7 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
       classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { if (v) { this._s.add(c); } else { this._s.delete(c); } }, contains(c) { return this._s.has(c); } },
       listeners: {}, addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
       dispatch(e, data) { for (const h of this.listeners[e] || []) h(data); },
-      appendChild(c) { this.children.push(c); },
+      appendChild(c) { c.parentNode = this; this.children.push(c); },
       removeChild(c) {
         const at = this.children.indexOf(c);
         if (at >= 0) this.children.splice(at, 1);
@@ -1401,7 +1401,14 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
       scrolled: null,
       scrollIntoView(opts) { this.scrolled = opts; },
       getBoundingClientRect: () => ({ x: 0, y: 0, width: 100, height: 10, left: 0 }),
-      setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
+      attrs: {},
+      setAttribute(k, val) { this.attrs[k] = String(val); },
+      getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; },
+      hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k); },
+      contains(target) {
+        if (target === this) return true;
+        return this.children.some((c) => c === target || (c && typeof c.contains === 'function' && c.contains(target)));
+      },
     };
     // `innerHTML = ''` must drop the old rows, or every rebuild stacks up.
     Object.defineProperty(node, 'innerHTML', {
@@ -1429,7 +1436,9 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     'btn-play': el(), 'btn-vol': el(), 'btn-speed': el(), 'btn-pip': el(), 'vol-range': el(),
     's-fill': el(), 'time-lbl': el(), scrub: el(),
     'sp-menu': Object.assign(el(), { hidden: true }),
+    'q-menu': Object.assign(el(), { hidden: true }),
     'btn-sv': el(), 'sv-menu': Object.assign(el(), { hidden: true }),
+    'btn-fs': el(), 'fs-p': el(),
     buf: Object.assign(el(), { hidden: true }) };
   function Hls() {
     this.destroyed = false;
@@ -1462,8 +1471,13 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
   const doc = {
     getElementById: (id) => els[id] || null,
     body: el(),
+    documentElement: el(),
     createElement: () => el(),
     pictureInPictureEnabled: true,
+    fullscreenElement: null,
+    listeners: {},
+    addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
+    dispatch(e, data) { for (const h of this.listeners[e] || []) h(data); },
   };
   const ctx = { window: win, Hls, URLSearchParams, Date, setTimeout, clearTimeout, document: doc, fetch: fetchImpl || (() => Promise.reject(new Error('no fetch'))) };
   vm.createContext(ctx);
@@ -1479,7 +1493,7 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
       h({ source: win.parent, origin: 'https://everglow-1c6db.web.app', data });
     }
   };
-  return { els, v, html, window: win, fire, key, tap, relay, loads, handlers, instances, Hls };
+  return { els, v, html, window: win, doc, fire, key, tap, relay, loads, handlers, instances, Hls };
 }
 
 /** The row that follows a section header inside the CC panel. */
@@ -2353,4 +2367,52 @@ test('handleProxyHls strips the advert from a subtitle it proxies', async () => 
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('the player forwards wheel events to the parent page except in menus or fullscreen', () => {
+  const { els, v, window, doc } = runPlayerDom({ tracks: ['English'], trackEls: [{ label: 'English' }] });
+  const posted = [];
+  window.parent.postMessage = (msg) => posted.push({ ...msg });
+
+  window.dispatch('wheel', { deltaX: 0, deltaY: 120, deltaMode: 0, target: v });
+  assert.deepEqual(posted, [
+    { type: 'everglow-embed-scroll', deltaX: 0, deltaY: 120, deltaMode: 0 },
+  ]);
+
+  // Open the CC menu and scroll inside it: the menu scrolls itself, not the page.
+  els['btn-cc'].dispatch('click');
+  assert.equal(els['cc-menu'].hidden, false);
+  window.dispatch('wheel', {
+    deltaX: 0,
+    deltaY: 80,
+    deltaMode: 0,
+    target: els['cc-menu'].children[0],
+  });
+  assert.equal(posted.length, 1, 'scrolling inside an open menu stays in the menu');
+
+  // Enter fullscreen: wheel events must not scroll the hidden page behind the player.
+  els['btn-cc'].dispatch('click');
+  doc.fullscreenElement = doc.documentElement;
+  window.dispatch('wheel', { deltaX: 0, deltaY: 120, deltaMode: 0, target: v });
+  assert.equal(posted.length, 1, 'fullscreen suppresses parent page scroll');
+});
+
+test('fullscreenchange syncs the fullscreen button state and settle class', () => {
+  const { els, doc } = runPlayerDom({ tracks: [], trackEls: [] });
+  assert.equal(els['btn-fs'].classList.contains('on'), false);
+
+  doc.fullscreenElement = doc.documentElement;
+  doc.dispatch('fullscreenchange');
+  assert.equal(els['btn-fs'].classList.contains('on'), true);
+  assert.equal(els['btn-fs'].getAttribute('aria-label'), 'Exit fullscreen');
+  assert.equal(doc.body.classList.contains('is-fs'), true);
+  assert.equal(doc.body.classList.contains('fs-settle'), true);
+  assert.match(els['fs-p'].getAttribute('d') || '', /M7 3v4H3/, 'compress icon');
+
+  doc.fullscreenElement = null;
+  doc.dispatch('fullscreenchange');
+  assert.equal(els['btn-fs'].classList.contains('on'), false);
+  assert.equal(els['btn-fs'].getAttribute('aria-label'), 'Fullscreen');
+  assert.equal(doc.body.classList.contains('is-fs'), false);
+  assert.match(els['fs-p'].getAttribute('d') || '', /M3 7V3h4/, 'expand icon');
 });
