@@ -602,7 +602,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         // All events must come from the active frame and its exact origin.
         if (origin != Uri.parse(_iframe.src).origin) return;
         final wrapperMessage = data.dartify();
-        if (_selectedProvider.id == 'everglow-embed' &&
+        if ((_selectedProvider.id == 'everglow-embed' ||
+                _selectedProvider.id == 'everglow-shell') &&
             (wrapperMessage == 'animex-content-error' ||
                 (wrapperMessage is Map &&
                     wrapperMessage['type'] == 'everglow-embed-failed'))) {

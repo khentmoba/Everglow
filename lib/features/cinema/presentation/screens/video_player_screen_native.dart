@@ -475,7 +475,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   void _onPlayerEpisodeChanged(int season, int episode) {
     if (!mounted || widget.mediaType != 'tv' || widget.isAnime) return;
     if (season <= 0 || episode <= 0) return;
-    if (_currentProvider.id != 'everglow-embed') return;
+    if (_currentProvider.id != 'everglow-embed' &&
+        _currentProvider.id != 'everglow-shell') {
+      return;
+    }
     if (season == _currentSeason && episode == _currentEpisode) return;
     setState(() {
       _currentSeason = season;
@@ -492,7 +495,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   void _onPlayerMessage(String raw) {
-    if (_currentProvider.id == 'everglow-embed' &&
+    if ((_currentProvider.id == 'everglow-embed' ||
+            _currentProvider.id == 'everglow-shell') &&
         !widget.isAnime &&
         EmbedWebView.isOwnedPlayerUrl(_buildUrl())) {
       final progress = EmbedWebView.parsePlayerProgress(raw);
