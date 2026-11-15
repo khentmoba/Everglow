@@ -12,8 +12,6 @@ import '../../data/models/music_status.dart';
 import '../providers/artist_showdown_provider.dart';
 import 'listen_along_popup.dart';
 
-/// Opens a vertical sheet (or dialog on desktop/tablet) displaying the
-/// chronological scrobble history of [artist] for both Khent and Clair.
 Future<void> showArtistShowdownHistory(
   BuildContext context, {
   required ArtistShowdownProvider showdown,
@@ -59,7 +57,6 @@ Future<void> showArtistShowdownHistory(
 
 enum _UserFilter { both, khent, clair }
 
-/// Vertical timeline of listening history for an artist in the showdown.
 class ArtistShowdownHistorySheet extends StatefulWidget {
   final ScrollController? scrollController;
   const ArtistShowdownHistorySheet({super.key, this.scrollController});
@@ -94,7 +91,6 @@ class _ArtistShowdownHistorySheetState
         final khentScrobbles = showdown.khentHistory;
         final clairScrobbles = showdown.clairHistory;
 
-        // Combine scrobbles based on filter
         final combined = <_ScrobbleItem>[];
         if (_userFilter == _UserFilter.both || _userFilter == _UserFilter.khent) {
           for (final s in khentScrobbles) {
@@ -107,7 +103,6 @@ class _ArtistShowdownHistorySheetState
           }
         }
 
-        // Apply track filter if chosen
         final filtered = _selectedTrack == null
             ? combined
             : combined
@@ -116,14 +111,12 @@ class _ArtistShowdownHistorySheetState
                     _selectedTrack!.trim().toLowerCase())
                 .toList();
 
-        // Sort newest first
         filtered.sort((a, b) {
           final aTs = a.scrobble.timestamp?.millisecondsSinceEpoch ?? 0;
           final bTs = b.scrobble.timestamp?.millisecondsSinceEpoch ?? 0;
           return bTs.compareTo(aTs);
         });
 
-        // Group by day key (YYYY-MM-DD)
         final groupedByDay = <String, List<_ScrobbleItem>>{};
         for (final item in filtered) {
           final date = item.scrobble.timestamp ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -131,7 +124,6 @@ class _ArtistShowdownHistorySheetState
           groupedByDay.putIfAbsent(dayKey, () => []).add(item);
         }
 
-        // Unique track names across all loaded history for the track filter chips
         final allTracks = <String>{};
         for (final s in [...khentScrobbles, ...clairScrobbles]) {
           if (s.trackName.trim().isNotEmpty) {
@@ -178,9 +170,6 @@ class _ArtistShowdownHistorySheetState
                 totalCount: khentScrobbles.length + clairScrobbles.length,
                 onSelectUser: (f) => setState(() => _userFilter = f),
               ),
-              // The pills count the scrobbles we managed to list. Say so when
-              // that is less than the exact all-time totals, so nobody reads
-              // a partial timeline as the whole story.
               if (khentScrobbles.isNotEmpty || clairScrobbles.isNotEmpty)
                 _HistoryCoverageNote(
                   listedPlays: khentScrobbles.length + clairScrobbles.length,
@@ -233,10 +222,6 @@ class _ScrobbleItem {
   const _ScrobbleItem({required this.scrobble, required this.isKhent});
 }
 
-/// One-line honesty check under the filter pills: the timeline can only show
-/// the scrobbles Last.fm gave us for the songs we know about, while the
-/// headline numbers are the exact all-time counts. When those disagree we
-/// say so plainly rather than letting the shorter list look like the truth.
 class _HistoryCoverageNote extends StatelessWidget {
   final int listedPlays;
   final int exactPlays;
@@ -298,7 +283,6 @@ class _SheetHeader extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Top drag handle indicator
         Center(
           child: Container(
             margin: const EdgeInsets.only(top: 10, bottom: 6),
@@ -723,7 +707,6 @@ class _TimelineRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // User dot + time column
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -767,7 +750,6 @@ class _TimelineRow extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 14),
-            // Track artwork
             Container(
               width: 44,
               height: 44,
@@ -799,7 +781,6 @@ class _TimelineRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Track title & album
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

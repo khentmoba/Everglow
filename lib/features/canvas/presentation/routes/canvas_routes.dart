@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/deferred_route.dart';
 import '../screens/canvas_screen.dart' deferred as canvas_lib;
 
-/// Routes owned by the canvas feature.
 final List<GoRoute> canvasRoutes = [
   GoRoute(
     path: '/canvas',

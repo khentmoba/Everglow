@@ -6,9 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/shared/widgets/app_network_image.dart';
 
-/// Cache backend that fails every load at once, so the retry path runs
-/// without real network or disk I/O (the default manager needs
-/// path_provider, which has no test implementation).
 class _FailingCacheManager extends CacheManager {
   _FailingCacheManager() : super(Config('app-network-image-test'));
 
@@ -126,7 +123,6 @@ void main() {
       expect(widget.useOldImageOnUrlChange, isTrue);
 
       if (kIsWeb) {
-        // On web, memCacheWidth must be null to avoid ResizeImage WebGL crash.
         expect(widget.memCacheWidth, isNull);
         expect(widget.memCacheHeight, isNull);
       } else {
@@ -151,7 +147,6 @@ void main() {
         ),
       );
 
-      // Let the failed fetch surface and the fallback render.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
@@ -159,8 +154,6 @@ void main() {
         find.byType(CachedNetworkImage),
       );
 
-      // First backoff is 2s: advancing past it rebuilds the inner image
-      // with a new key so it re-resolves instead of staying stuck.
       await tester.pump(const Duration(seconds: 3));
       final second = tester.widget<CachedNetworkImage>(
         find.byType(CachedNetworkImage),
@@ -187,8 +180,6 @@ void main() {
           ),
         );
 
-        // On web, Image.network is rendered instead of CachedNetworkImage to avoid
-        // WebGL texImage2D crash after alt-tabbing.
         expect(find.byType(CachedNetworkImage), findsNothing);
         expect(find.byType(Image), findsOneWidget);
 
@@ -196,7 +187,6 @@ void main() {
         expect(imageWidget.gaplessPlayback, isTrue);
         expect(imageWidget.excludeFromSemantics, isTrue);
 
-        // On web, RepaintBoundary is avoided on each thumbnail (flutter/flutter#192347).
         expect(
           find.descendant(
             of: find.byType(AppNetworkImage),
@@ -224,7 +214,6 @@ void main() {
           ),
         );
 
-        // Let the failure occur.
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
@@ -232,7 +221,6 @@ void main() {
           find.byType(CachedNetworkImage),
         );
 
-        // Without waiting for the 2s/8s timer, simulate returning from alt-tab
         AppNetworkImage.onAppResumed();
         await tester.pump();
 
@@ -285,7 +273,6 @@ void main() {
       );
       expect(errors, 1);
 
-      // Empty URL is placeholder-by-design, not a failure — no heal needed.
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

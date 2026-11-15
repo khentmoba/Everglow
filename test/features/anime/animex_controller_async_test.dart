@@ -20,7 +20,6 @@ MediaItem _anime({int episode = 2, String user = 'demo-a'}) => MediaItem(
   durationSeconds: 1440,
 );
 
-// Real stream listener and controllable poster futures; no Firebase or network.
 class _LibrarySource {
   final streams = <StreamController<List<MediaItem>>>[];
   final posterRequests = <List<MediaItem>>[];
@@ -173,8 +172,6 @@ void main() {
     controller.loadLibrary('demo-b');
     controller.loadLibrary('demo-a');
 
-    // No newer snapshot has incremented the snapshot generation yet; the
-    // subscription generation must reject the old result even for owner A.
     source.posters[0].complete(source.posterRequests[0]);
     await _drain();
     expect(controller.library, isEmpty);

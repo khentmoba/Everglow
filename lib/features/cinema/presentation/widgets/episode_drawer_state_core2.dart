@@ -3,19 +3,11 @@ part of 'episode_drawer.dart';
 abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
   @override
   Future<void> _updateStatus(String newStatus) {
-    // Immediate tap feedback — haptics fire at tap time, not when the
-    // queued write runs, so rapid taps never feel dead on slow network.
     HapticFeedback.selectionClick();
-    // Capture auth synchronously: the queued write may run after an async
-    // gap, when context.read would be unsafe.
     final auth = context.read<AuthService>();
     final userName = auth.currentUser ?? '';
     final partnerUsername = auth.partnerUsername;
     final isCoupleUser = auth.isCoupleUser;
-    // Serial queue: rapid taps process in order instead of racing (the
-    // original bug) or being silently dropped (the iPhone hang Khent saw
-    // — taps ignored for seconds while the network was slow, then working
-    // again with no feedback about the lost tap).
     final next = _statusQueue.then(
       (_) => _doUpdateStatus(
         newStatus,
@@ -24,14 +16,10 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         isCoupleUser: isCoupleUser,
       ),
     );
-    // Keep the chain alive even if one write fails.
     _statusQueue = next.catchError((_) {});
     return next;
   }
 
-  /// Updates [_statusNotifier] without rebuilding the drawer body.
-  /// Only the chips listen to the notifier (see [_buildStatusChip]), so
-  /// the hero/trailer/episodes never relay out for a status tap.
   void _setStatus(String value) {
     if (!mounted) return;
     _statusNotifier.value = value;
@@ -51,13 +39,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
       if (mounted) _showSnack('Please sign in to manage your watchlist');
       return;
     }
-    // ── Guard: only couple users may set partner-specific statuses.
-    // Non-couple profiles (Breyan, Octagram, guests, or any unknown user)
-    // default to the generic statuses. This is defense-in-depth even when
-    // the UI correctly hides the chips — it blocks direct calls / stale
-    // taps from writing Khent/Clair semantics into Firestore. Removal
-    // (tapping the already-selected chip) is still allowed so stale
-    // partner data can be cleared.
     if (!isCoupleUser && _currentStatus != newStatus) {
       const partnerStatuses = {
         'watching-khent',
@@ -77,25 +58,11 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         return;
       }
     }
-    // Save the previous status so we can revert locally if the Firestore
-    // write fails. Without this, a network error in isAnimeByTmdbId or
-    // saveToWatchList would leave the chip highlighted (from the optimistic
-    // notifier update) while the document in Firestore still has the old
-    // status — making the change appear to "revert" when the stream fires.
     final previousStatus = _currentStatus;
 
     if (_currentStatus == newStatus) {
-      // Tapping the already-selected chip → remove from watchlist.
-      // Route to the owning doc: partner-specific statuses (e.g.
-      // watching-clair) live on the partner's doc, and items opened from
-      // the partner's Currently Watching row carry the partner's userName.
-      // Removing from the current user instead would delete the wrong doc
-      // (or nothing) and the shelf would appear to never update.
       Logger.d("[Status] Same status tapped — removing from watchlist");
       _setStatus('');
-      // Immediate feedback: the chip already flipped via the notifier.
-      // The old code waited for the Firestore round-trip before showing
-      // anything, so a slow phone sat silent for seconds (the hang).
       if (mounted) _showSnack('Removed from watchlist');
       try {
         String ownerToRemove = userName;
@@ -116,7 +83,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
           "[Status] Removing tmdbId=${widget.item.tmdbId} from owner=$ownerToRemove (previous=$previousStatus, viewer=$userName)",
         );
         await _tmdbService.removeFromWatchList(widget.item, ownerToRemove);
-        // For "Both" statuses, also remove from the partner's doc.
         if (previousStatus == 'watched-both' ||
             previousStatus == 'watching-both') {
           if (partnerUsername != null && partnerUsername.isNotEmpty) {
@@ -142,16 +108,9 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         }
       }
     } else {
-      // Optimistically update the chip UI + confirm now; the network
-      // (anime probe + Firestore writes) lands in the background.
       _setStatus(newStatus);
       if (mounted) _showSnack('Watchlist updated');
       try {
-        // Auto-detect anime so the dashboard's Anime rail picks it up
-        // automatically. We do this against TMDB /details because that's the
-        // only endpoint that reliably returns `original_language` + nested
-        // `genres` for TV. If the network call fails we just fall back to
-        // whatever the item already has.
         bool? detectedAnime;
         if (!widget.item.isAnime) {
           try {
@@ -163,19 +122,11 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
             Logger.d("[Status] Anime detection result: $detectedAnime");
           } catch (_) {
             Logger.d("[Status] Anime detection failed, continuing");
-            // Anime detection is best-effort; don't let a TMDB failure
-            // block the status save.
           }
         }
-        // Use the poster URL from the fetched details when the item from
-        // Firestore didn't have one (e.g. older items saved before posterPath
-        // was stored). This ensures the dashboard cards get their images.
         final resolvedItem = _resolvePosterFromDetails(widget.item);
         Logger.d("[Status] Calling saveToWatchList...");
 
-        // Detect partner-specific statuses (e.g. "watched-clair") and
-        // route the save to the partner's document instead of the
-        // current user's.
         final statusOwner = TMDBService.resolveStatusOwner(newStatus, userName);
         if (statusOwner != null) {
           Logger.d(
@@ -194,9 +145,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
           skipPartnerFallback: isBoth,
         );
 
-        // For "Both" statuses (watched-both, watching-both), also update
-        // the partner's document so both partners are marked. Without
-        // this, "Both Watched" would only save to the current user.
         if (isBoth) {
           final partner = partnerUsername;
           if (partner != null && partner.isNotEmpty) {
@@ -216,15 +164,10 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
                 "[Status] Failed to save Both status to partner",
                 error: e,
               );
-              // Non-critical â€” the current user's save already succeeded.
             }
           }
         }
 
-        // Clean up stale partner-specific status from the current user's
-        // document. e.g. if Khent's doc says "watching-clair" and the user
-        // just marked Clair as watched, the old "watching-clair" on Khent's
-        // doc would pollute the couple merge.
         if (statusOwner != null && statusOwner != userName) {
           Logger.d(
             "[Status] Cleaning stale partner status from current user's doc",
@@ -237,7 +180,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
             );
           } catch (e) {
             Logger.e("[Status] Failed to clean stale status", error: e);
-            // Non-critical — don't revert the main save.
           }
         }
 
@@ -252,9 +194,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     }
   }
 
-  /// When the item from Firestore has an empty posterPath, pull the
-  /// poster from the TMDB or AniList details that were fetched when
-  /// the drawer opened. This backfills missing posters on save.
   MediaItem _resolvePosterFromDetails(MediaItem item) {
     if (item.posterPath.isNotEmpty) return item;
 
@@ -262,11 +201,9 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     final String? resolvedBackdrop;
 
     if (_isAnimeSourced) {
-      // AniList stores the full URL in _posterUrl / _backdropUrl.
       resolvedPoster = _details?['_posterUrl'] as String?;
       resolvedBackdrop = _details?['_backdropUrl'] as String?;
     } else {
-      // TMDB poster_path is a relative path — prepend the base URL.
       final rawPoster = _details?['poster_path'] as String?;
       resolvedPoster = rawPoster != null && rawPoster.isNotEmpty
           ? TmdbImages.posterFor(rawPoster)
@@ -299,8 +236,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     );
   }
 
-  /// Error variant: replaces the optimistic confirm shown at tap time
-  /// instead of queuing behind its 2s duration.
   void _showSnackError(String msg) {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -334,7 +269,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     final posterParam = widget.item.posterPath.isNotEmpty
         ? '&poster=${Uri.encodeComponent(widget.item.posterPath)}'
         : '';
-    // The selected episode already travels separately in the route.
     final title = cleanTitle(widget.item.title);
     final watchedParam = !_isAnimeSourced && widget.item.isWatched
         ? '&watched=true'
@@ -366,8 +300,4 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // BUILD
-  // ═══════════════════════════════════════════════════════════════
 }

@@ -5,7 +5,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/services/spotify_auth_service.dart';
 
-/// Handles Spotify OAuth redirect: /spotify/callback?code=...&state=...
 class SpotifyCallbackPage extends StatefulWidget {
   final String? code;
   final String? error;

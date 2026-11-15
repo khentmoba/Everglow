@@ -1,14 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Manga / Manhwa / Manhua catalog item, sourced from the Comick API
-/// for discovery and MangaKakalot for chapter pages.
-///
-/// Primary identifier is the Comick `hid` (hashed string), stored as
-/// `mangaId`. The `mangaKakalotId` field stores the MangaKakalot slug
-/// for chapter resolution.
-///
-/// `originalLanguage` maps from source country/language fields:
-///   `jp`/`ja` = Manga, `kr`/`ko` = Manhwa, `cn`/`zh` = Manhua.
 class MangaItem {
   final String id;
   final String mangaId;
@@ -20,43 +11,28 @@ class MangaItem {
   final String year;
   final String status;
 
-  /// `jp` = Manga, `ko` = Manhwa, `cn` = Manhua, `en` etc.
   final String originalLanguage;
   final String contentRating;
   final List<String> tags;
   final String userName;
   final DateTime addedAt;
 
-  /// Owning user. Items in `manga_library` are scoped per user so Khent,
-  /// Clair, and Breyan each see only their own library.
   final String libraryStatus;
 
-  /// Last chapter id the user has read (for "Continue Reading" UX).
   final String lastReadChapterId;
 
-  /// 1-indexed page within `lastReadChapterId`.
   final int lastReadPage;
 
-  // ── Comick-specific fields ──────────────────────────────
-
-  /// Comick numeric database ID (0 if not set).
   final int comickId;
 
-  /// Comick URL slug for the comic (empty if not set).
   final String comickSlug;
 
-  /// MangaKakalot slug for chapter page resolution.
   final String mangaKakalotId;
 
-  /// Comick bayesian rating (0.0–10.0 scale).
   final double rating;
 
-  /// Comick user follow count (popularity metric).
   final int followCount;
 
-  /// Alternative titles from MangaDex (English, Japanese, etc.).
-  /// Used for fallback title matching when searching MangaKakalot,
-  /// MangaKatana, and Comick by title.
   final List<String> altTitles;
 
   const MangaItem({
@@ -85,8 +61,6 @@ class MangaItem {
     this.altTitles = const [],
   });
 
-  /// Convenience label for the content type. Used in poster cards and
-  /// filters. Comick uses `kr` for Korean while MangaDex uses `ko`.
   String get contentType {
     switch (originalLanguage.toLowerCase()) {
       case 'ko':
@@ -103,7 +77,6 @@ class MangaItem {
     }
   }
 
-  /// Whether the entry has an author name.
   bool get hasAuthor => author.trim().isNotEmpty;
 
   bool get isInLibrary => libraryStatus != 'none' && libraryStatus.isNotEmpty;
@@ -258,10 +231,6 @@ class MangaItem {
   }
 }
 
-/// A single chapter of a manga. Sourced from MangaKakalot.
-/// We surface the minimum needed for both the chapter list and the
-/// reader (title, number, volume, language, page count, scanlation
-/// group name).
 class MangaChapter {
   final String id;
   final String title;
@@ -283,8 +252,6 @@ class MangaChapter {
     required this.publishAt,
   });
 
-  /// Display label: "Ch. 15 — The Battle Begins". Falls back to the
-  /// raw chapter id if no number is available.
   String get displayTitle {
     final parts = <String>[];
     if (chapter.isNotEmpty) parts.add('Ch. $chapter');
@@ -293,7 +260,6 @@ class MangaChapter {
     return parts.join(' — ');
   }
 
-  /// Short label for compact lists: "Ch. 15" or "Oneshot".
   String get shortLabel {
     if (chapter.isEmpty) return 'Oneshot';
     return 'Ch. $chapter';
@@ -326,8 +292,6 @@ class MangaChapter {
   }
 }
 
-/// Resolved page image URLs for a chapter. Returned by
-/// `MangaKakalotService.getChapterPages` and consumed by `MangaReaderScreen`.
 class MangaChapterPages {
   final String chapterId;
   final String baseUrl;
@@ -343,8 +307,6 @@ class MangaChapterPages {
     required this.expiresAt,
   });
 
-  /// Build the full image URL for the given 0-indexed page.
-  /// When [baseUrl] is empty, [filenames] are treated as direct URLs.
   String urlForPage(int index) {
     if (index < 0 || index >= filenames.length) return '';
     if (baseUrl.isEmpty) return filenames[index];

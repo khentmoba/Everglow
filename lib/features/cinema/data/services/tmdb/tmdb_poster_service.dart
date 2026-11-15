@@ -10,8 +10,6 @@ import 'tmdb_base.dart';
 import 'tmdb_details_service.dart';
 import 'tmdb_search_service.dart';
 
-/// Poster URL resolution, backfilling missing posters for watchlist items,
-/// and refreshing anime posters from AniList/Jikan.
 class TMDBPosterService with TMDBBase, ConnectivityAware {
   final TMDBDetailsService _detailsService;
   final TMDBSearchService _searchService;
@@ -19,8 +17,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
   TMDBPosterService(this._detailsService, [TMDBSearchService? searchService])
     : _searchService = searchService ?? TMDBSearchService();
 
-  /// Fetch poster URL for a media item by tmdbId and mediaType.
-  /// Returns the full poster URL or empty string if not found.
   Future<String> fetchPosterUrl(int tmdbId, String mediaType) async {
     final details = await _detailsService.fetchMediaDetails(tmdbId, mediaType);
     if (details == null) return '';
@@ -29,17 +25,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
     return '$imageBaseUrl$posterPath';
   }
 
-  /// Backfill missing posterPath for items in a list.
-  /// Returns the updated list with posters fetched where possible.
-  ///
-  /// "Missing" means unusable ([TmdbImages.isUsablePath]), not just empty:
-  /// a stringified null ("null"), a title that leaked into the poster
-  /// field ("Yellow Jacket"), or a path with whitespace all build bogus
-  /// URLs that 404 forever — those heal here instead of staying blank.
-  ///
-  /// For Jikan-sourced anime items, `tmdbId` is actually a MAL ID, not
-  /// a TMDB ID. We resolve the real TMDB ID via ani.zip first so we
-  /// don't fetch the poster for a completely unrelated title.
   Future<List<MediaItem>> backfillMissingPosters(List<MediaItem> items) async {
     final needsPoster = items
         .where((i) => !TmdbImages.isUsablePath(i.posterPath))
@@ -48,8 +33,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
 
     final updated = List<MediaItem>.from(items);
 
-    // Batch with concurrency=4 so 10 posters don't take 10×RTT serially.
-    // Each task handles its own errors; Firestore writes are fire-and-forget.
     const concurrency = 4;
     for (var i = 0; i < needsPoster.length; i += concurrency) {
       final chunk = needsPoster.skip(i).take(concurrency).toList();
@@ -69,24 +52,8 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
     return updated;
   }
 
-  /// Heals one item's poster: refetches the current artwork from TMDB and
-  /// persists it to Firestore. Returns the healed copy, or null when the
-  /// title can't be matched safely.
-  ///
-  /// Used two ways: proactively by [backfillMissingPosters] for blank or
-  /// garbage poster fields, and reactively by dashboard shelves when a
-  /// present-but-broken URL 404s (stale TMDB artwork). The reactive path is
-  /// why a 404ing cover heals instead of showing the placeholder forever.
-  ///
-  /// Safety: the fetched title must fuzzy-match the stored title before
-  /// anything is saved, so a wrong-ID doc never steals another show's art.
-  /// When the stored `mediaType` is wrong (movie saved as tv or vice
-  /// versa), the other type is tried before giving up — and the corrected
-  /// type is saved alongside the poster.
   Future<MediaItem?> healPoster(MediaItem item) async {
     try {
-      // Jikan-sourced anime stores a MAL id in tmdbId — resolve the real
-      // TMDB id first so the details lookup hits the right title.
       var tmdbId = item.tmdbId;
       if (tmdbId > 0 && item.source == 'jikan') {
         final resolved = await AniZipService().fetchTmdbId(item.tmdbId);
@@ -97,8 +64,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
         final healed = await _healByDetails(item, tmdbId);
         if (healed != null) return healed;
       }
-      // No usable id (custom / legacy docs): fall back to a title search
-      // so those covers heal too instead of staying blank.
       final searched = await _healByTitleSearch(item);
       return searched;
     } catch (e) {
@@ -107,15 +72,9 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Details-based heal: tries the stored mediaType, then the alternate
-  /// type when the first lookup misses or the title doesn't match. Strict
-  /// [titlesMatch] first; when that fails for both types (e.g. stored
-  /// "Yellow Jacket Television" vs TMDB's "Yellowjackets"), a loose
-  /// substring pass trusts the tmdbId rather than leaving the tile blank.
   Future<MediaItem?> _healByDetails(MediaItem item, int tmdbId) async {
     final primary = item.mediaType.isEmpty ? 'movie' : item.mediaType;
     final alternate = primary == 'movie' ? 'tv' : 'movie';
-    // Fetch once per type, then match strict first, loose second.
     final fetched = <String, Map<String, dynamic>>{};
     for (final mediaType in [primary, alternate]) {
       final details = await _detailsService.fetchMediaDetails(
@@ -140,18 +99,12 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
       if (posterPath == null || posterPath.isEmpty) continue;
       final posterUrl = TmdbImages.posterFor(posterPath);
       if (posterUrl.isEmpty || posterUrl == item.posterPath.trim()) continue;
-      // Persist the matched type too: fixes wrong-type docs (movie saved
-      // as tv) and normalizes empty / oddly-cased values. When the title
-      // was messy or differed (stored "Yellow Jacket Television" vs TMDB's
-      // "Yellowjackets"), also correct the stored title so the shelf
-      // shows the canonical name and future heals match strictly.
       final fixTitle = tmdbTitle.isNotEmpty && tmdbTitle != item.title;
       final healed = item.copyWith(
         posterPath: posterUrl,
         mediaType: mediaType,
         title: fixTitle ? tmdbTitle : null,
       );
-      // Don't block the heal on a single Firestore write.
       if (item.id.isNotEmpty) {
         final patch = <String, dynamic>{'posterPath': posterUrl};
         if (mediaType != item.mediaType) patch['mediaType'] = mediaType;
@@ -180,12 +133,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
     return null;
   }
 
-  /// Title-search heal for docs without a usable TMDB id or whose details
-  /// lookup had no artwork (e.g. artwork-less title vs the real show).
-  /// Picks the first result whose title matches and actually has artwork.
-  /// Generates ranked candidates via [TitleMatcher.searchCandidates]. Strict
-  /// [titlesMatch] first; when nothing matches across candidate queries,
-  /// a loose substring pass trusts TMDB's ranking rather than leaving the tile blank.
   Future<MediaItem?> _healByTitleSearch(MediaItem item) async {
     final title = item.title.trim();
     if (title.isEmpty) return null;
@@ -200,9 +147,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
               ? TitleMatcher.titlesLooselyMatch(title, r.title)
               : titlesMatch(title, r.title);
           if (!matches) continue;
-          // When the stored title was off ("Yellow Jacket Televison" vs
-          // "Yellowjackets"), correct it to TMDB's canonical title alongside
-          // the poster so the shelf shows the right name.
           final fixTitle = r.title.isNotEmpty && r.title != title;
           final healed = item.copyWith(
             posterPath: r.posterPath,
@@ -241,10 +185,6 @@ class TMDBPosterService with TMDBBase, ConnectivityAware {
     return null;
   }
 
-  /// For anime items that have a TMDB poster (empty or backfilled from
-  /// a potentially wrong ani.zip mapping), fetch the correct poster from
-  /// AniList/Jikan using the MAL ID stored in tmdbId and verify the title
-  /// matches before saving.
   Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) async {
     final needsRefresh = items
         .where((i) => i.isAnime && i.tmdbId > 0)

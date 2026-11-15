@@ -22,13 +22,6 @@ import '../widgets/study_history_panel.dart';
 part 'study_screen_builders.dart';
 part 'study_screen_bubbles.dart';
 
-/// Study — a Notebook-style corner of Everglow for Khent and Clair.
-///
-/// Sources (up to 3 PDFs) sit on the shelf up top; the chat below is
-/// grounded on them. Bubbles show questions and answers only — source
-/// text goes to the model, never on screen, so long PDFs can't flood
-/// the chat. Sessions auto-save to Firestore history so leaving and
-/// coming back keeps the shelf and turns.
 class StudyScreen extends StatefulWidget {
   const StudyScreen({super.key});
 
@@ -63,14 +56,9 @@ class _StudyScreenState extends State<StudyScreen> {
   bool _hasText = false;
   bool _userScrolledUp = false;
   bool _showJumpButton = false;
-  // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
-  // OFF keeps plain text. Defaults OFF so quick questions stay plain
-  // chat; toggle it on for the interactive sheet.
   bool _canvasEnabled = false;
   AIService? _aiService;
 
-  /// Same as [setState]; exists so the screen's `part` files (which cannot
-  /// call the `@protected` [setState] from extensions) refresh identically.
   void _refresh(void Function() update) => setState(update);
 
   @override
@@ -143,7 +131,7 @@ class _StudyScreenState extends State<StudyScreen> {
     setState(() => _picking = true);
     try {
       final doc = await _studyDocs.pickAndExtract();
-      if (!mounted || doc == null) return; // user cancelled
+      if (!mounted || doc == null) return;
       setState(() => _sources.add(doc));
       _persistSession();
       _focusNode.requestFocus();
@@ -159,8 +147,6 @@ class _StudyScreenState extends State<StudyScreen> {
     _persistSession();
   }
 
-  /// Saves the current shelf + turns to Firestore history (fire-and-forget).
-  /// Skips empty shelves so the history list never fills with blank entries.
   Future<void> _persistSession() async {
     if (_sources.isEmpty && _turns.isEmpty) return;
     try {
@@ -190,7 +176,6 @@ class _StudyScreenState extends State<StudyScreen> {
       setState(() => _historyOpen = false);
       return;
     }
-    // Current work is already auto-saved on every turn — just clear the desk.
     setState(() {
       _sessionId = null;
       _sources.clear();
@@ -208,8 +193,6 @@ class _StudyScreenState extends State<StudyScreen> {
       _historyOpen = false;
     });
     try {
-      // List payloads already carry full sources + turns; re-fetch to be safe
-      // against a stale list entry (e.g. edited on the partner's device).
       final full = await _history.loadSession(session.id) ?? session;
       if (!mounted) return;
       setState(() {
@@ -244,7 +227,6 @@ class _StudyScreenState extends State<StudyScreen> {
     setState(() {
       _turns.add(_StudyTurn.user(question));
       _sending = true;
-      // Explicit artifact asks turn Canvas on so quizzes/cards build.
       if (!_canvasEnabled && motchiWantsArtifact(question)) {
         _canvasEnabled = true;
       }

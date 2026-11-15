@@ -102,7 +102,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   final AniSkipService _aniSkip = AniSkipService();
   final ScrollController _scrollCtrl = ScrollController();
 
-  /// Community OP/ED timestamps for the current episode, if anyone marked it.
   AniSkipTimes? _skipTimes;
 
   int? _startSeconds;
@@ -115,8 +114,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   AuthService? _auth;
   String _owner = '';
 
-  /// Last reported playback position. Providers without a progress bridge
-  /// only get manual timestamp guidance, never simulated playback ticks.
   double? _playbackPosition;
 
   late final MediaItem _watchItem;
@@ -124,11 +121,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   List<AniListEpisode> _episodes = [];
   late int _selectedEpisode;
 
-  /// Episode the player frame was loaded with. Manual navigation keeps it
-  /// equal to [_selectedEpisode], but when the embed advances on its own
-  /// (CineSrc auto-play or its built-in episode picker) only
-  /// [_selectedEpisode] moves — the frame keeps playing the new episode
-  /// without a reload while the list, header, and history follow it.
   late int _playerEpisode;
   String _audio = 'sub';
   int _serverIndex = 0;
@@ -138,20 +130,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   bool _hasUnsavedProgress = false;
   Future<void> _progressSave = Future.value();
 
-  /// Server name remembered from the last visit; applied once the
-  /// server list resolves in [_load].
   String? _rememberedServer;
   int? _mappedAnilistId;
   int? _mappedTmdbId;
 
-  /// MAL episode number -> the season/episode pair TMDB expects, used
-  /// by the TMDB-keyed players so shows whose MAL entry starts
-  /// mid-series (e.g. Attack on Titan season 2) don't open the wrong
-  /// episode.
   Map<int, ({int season, int episode})> _episodeSlots = const {};
 
-  /// Whether the TMDB-keyed server uses the movie endpoint. Starts from
-  /// the route item; [_load] refines it once the AniList detail lands.
   bool _isFilm = false;
 
   String get _memoryKey => _item.source == 'tmdb'
@@ -332,7 +316,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _probeCurrentServer();
   }
 
-  /// The account's progress wins over this device's comfort preferences.
   Future<void> _restoreMemory() async {
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted) return;
@@ -340,8 +323,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     if (widget.loadSavedProgress != null) {
       saved = await widget.loadSavedProgress!(_item);
     } else if (_currentUserName().isNotEmpty) {
-      // A fresh visit reads account progress, including another device's
-      // updates. The mounted player keeps its live session on tab switches.
       saved = await _tmdbService.getSavedProgress(
         _item.tmdbId,
         _owner,
@@ -386,8 +367,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     }
   }
 
-  /// Loads AniSkip OP/ED times for the selected episode. Stale responses
-  /// (user zapped to another episode mid-flight) are dropped.
   Future<void> _fetchSkipTimes() async {
     final malId = _malId;
     final episode = _selectedEpisode;
@@ -397,8 +376,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     setState(() => _skipTimes = times);
   }
 
-  /// Owned-player progress drives account resume.
-  /// Stale events (previous episode still talking) are dropped.
   void _onPlayerProgress(VideasyProgress progress) {
     if (!mounted || !_ready) return;
     final episode = progress.episode;
@@ -468,27 +445,16 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     );
     int? mappedAnilistId;
     int? mappedTmdbId;
-    // ani.zip mappings are MAL-keyed — querying mal_id=0 returns nothing,
-    // which used to hide every TMDB-keyed server and leave Clair with an
-    // Everglow-only list.
     final mappingsMalId = AnimeXWatchPage.resolveMappingsMalId(
       detailMalId: detail?.malId,
       routeMalId: _malId,
     );
     Map<int, ({int season, int episode})> episodeSlots = const {};
-    // The ani.zip mappings payload also carries per-episode metadata
-    // (title variants, overview/summary, still image, runtime, air
-    // date) — AniList streaming episodes have clean titles + licensed
-    // stills but no synopses, so merge both sources in
-    // [_buildEpisodeList]. The mappings call is cached, so reusing the
-    // same payload here costs no extra round-trip.
     Map<int, Map<String, dynamic>> aniZipEpisodes = const {};
     try {
       var mappings = mappingsMalId > 0
           ? await _aniZip.fetchMappings(mappingsMalId)
           : null;
-      // MAL-less titles still resolve through the AniList id — without
-      // this the TMDB-keyed servers never appear for them.
       mappings ??= await _aniZip.fetchMappingsByAnilist(
         anilistId ?? detail?.id ?? 0,
       );
@@ -535,11 +501,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
         stackTrace: st,
       );
     }
-    // ani.zip doesn't know every title (e.g. Drifting Home has no
-    // themoviedb_id) — without a TMDB id every TMDB-keyed server hides
-    // and Clair is left with an Everglow-only list. Fall back to a strict
-    // catalog search (exact title + kind + year, never a guess) so films
-    // like that still open on Everglow.
     mappedTmdbId ??= await _searchTmdbFallback(detail);
     _mappedAnilistId = mappedAnilistId;
     _mappedTmdbId = mappedTmdbId;
@@ -554,7 +515,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       _detail = detail;
       _episodes = _buildEpisodeList(detail, aniZipEpisodes: aniZipEpisodes);
       _servers = nextServers;
-      // Fresh visits prefer the tracked player; an explicit choice wins.
       _serverIndex = AnimeXWatchPage.defaultServerIndex(
         nextServers,
         rememberedServer: _rememberedServer,
@@ -569,8 +529,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       _progressThrottler?.cancel();
       if (_ready) _saveWatchProgress();
     }
-    // Keep the mounted player on resume. Restoring account progress here
-    // removed it from the tree and reloaded playback on every tab switch.
   }
 
   @override
@@ -585,9 +543,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     super.dispose();
   }
 
-  /// Merges AniList streaming-episode data (clean titles, licensed
-  /// stills) with ani.zip per-episode metadata (English/x-jat titles,
-  /// overview/summary synopsis, TVDB stills, runtime, air date).
   List<AniListEpisode> _buildEpisodeList(
     AniListDetail? detail, {
     Map<int, Map<String, dynamic>> aniZipEpisodes = const {},
@@ -599,11 +554,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     );
   }
 
-  /// True when this title is a film rather than a series. The route
-  /// item usually knows (`isMovie`), but ONA-listed films (e.g. Drifting
-  /// Home: tv + a single 120-minute episode) don't — so an AniList
-  /// MOVIE format or one long episode counts too. Films need the TMDB
-  /// *movie* endpoint and a movie catalog search; series need TV.
   bool _filmFor(AniListDetail? detail) {
     if (_item.isMovie) return true;
     if (detail == null) return false;
@@ -613,9 +563,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     return episodes == 1 && minutes >= 60;
   }
 
-  /// Strict TMDB fallback for titles ani.zip can't map. Tries the
-  /// English, romaji, then route title; the first strict match wins.
-  /// Never throws — a miss just leaves the TMDB servers hidden.
   Future<int?> _searchTmdbFallback(AniListDetail? detail) async {
     final candidates = <String>[
       if (detail != null) ...[
@@ -629,7 +576,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     final seen = <String>{};
     for (final candidate in candidates) {
       final query = candidate.trim();
-      // English and route titles are often identical — one search each.
       if (query.isEmpty || !seen.add(query)) continue;
       List<MediaItem> results;
       try {
@@ -665,8 +611,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   void _selectEpisode(int episode) {
     _episodeChosen = true;
     if (_selectedEpisode == episode) return;
-    // Manual navigation drives BOTH the UI and the player frame: the new
-    // URL key reloads the embed on the picked episode.
     setState(() {
       _selectedEpisode = episode;
       _playerEpisode = episode;
@@ -677,18 +621,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _fetchSkipTimes();
   }
 
-  /// Follows the player when the embed changes episodes on its own.
-  ///
-  /// CineSrc auto-play (and its built-in episode picker) moves to the
-  /// next episode inside the frame without telling us — the list used to
-  /// keep highlighting the old episode. The embed announces each move
-  /// (`cinesrc:nextepisode`, forwarded by our embed.html wrapper), so we
-  /// move the selection, header, history, and progress to match while
-  /// leaving the loaded frame untouched — no reload, no lost position.
   void _onPlayerEpisodeChanged(int tmdbSeason, int tmdbEpisode) {
     if (!mounted || _episodes.isEmpty) return;
-    // Only the CineSrc server reports internal episode changes. Anything
-    // else arriving here is stale — a server switch already moved on.
     final current = (_serverIndex >= 0 && _serverIndex < _servers.length)
         ? _servers[_serverIndex]
         : null;
@@ -701,8 +635,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     );
     if (mapped == null || mapped == _selectedEpisode) return;
     setState(() => _selectedEpisode = mapped);
-    // The frame advanced internally: keep its original URL (including
-    // start=) byte-identical while resetting progress for the new episode.
     final loadedStart = _startSeconds;
     _resetForNewEpisode();
     _startSeconds = loadedStart;
@@ -717,7 +649,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   void _recordHistory(int episode) {
-    // TMDB history comes from the source-aware saved account item.
     if (_item.source == 'tmdb') return;
     final stores = context.read<AnimexStores>();
     stores.recordWatch(
@@ -781,8 +712,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
           : _item.posterUrl,
       backdropPath: _item.backdropPath,
       year: _item.year,
-      // Placeholder: updateProgress ignores item.status and takes the
-      // real (finale-aware) status as a separate argument below.
       status: _watchingStatusFor(userName),
       isAnime: true,
       userName: userName,
@@ -797,14 +726,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       genres: _item.genres,
     );
 
-    // Movies have no episode progress — write null so Firestore never
-    // gains stale S1E1 fields that shelves would then display.
-    // Series resolve the real season (ani.zip mapping, else the season in
-    // the title) so "Black Clover Season 2" never saves as S1E1.
     final isMovie = mediaItem.isMovie;
-    // MAL-style auto-complete: reaching the finale writes watched so the
-    // season leaves Continue Watching for Finished/Completed; anything
-    // earlier (including a rewatch from EP 1) writes watching.
     final hitsFinale = MediaItem.isCompletedProgress(
       episode: isMovie ? null : ep,
       totalEpisodes: mediaItem.episodeCount,
@@ -819,7 +741,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       episode: ep,
       episodeSlots: _episodeSlots,
     );
-    // Preserve episode order when a slow save overlaps Next Episode.
     _progressSave = _progressSave.then(
       (_) => _tmdbService.updateProgress(
         mediaItem,
@@ -865,9 +786,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       }
     }
     if (current == null) return '';
-    // Built from the LOADED episode, not the selection: after a
-    // player-driven advance the selection moves on while the frame keeps
-    // playing, and the URL must stay byte-identical so Flutter reuses it.
     return current.urlFor(_playerEpisode, _audio, startSeconds: _startSeconds);
   }
 
@@ -896,8 +814,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       _serverIndex = next.first;
       _startSeconds = nextStart;
       _playbackPosition = null;
-      // A new server must load the episode actually being watched, which
-      // may have drifted ahead of the loaded frame via player auto-play.
       _playerEpisode = _selectedEpisode;
       _showErrorCard = false;
     });
@@ -917,8 +833,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       _serverIndex = index;
       _startSeconds = nextStart;
       _playbackPosition = null;
-      // A new server must load the episode actually being watched, which
-      // may have drifted ahead of the loaded frame via player auto-play.
       _playerEpisode = _selectedEpisode;
       _failedServerIndices.clear();
       _showErrorCard = false;
@@ -927,44 +841,22 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _probeCurrentServer(autoAdvance: false);
   }
 
-  /// Remembers the working server for this anime so the next visit
-  /// opens straight on it. Fire-and-forget.
   void _persistServer(int index) {
     if (index < 0 || index >= _servers.length) return;
     _memoryService.save(_memoryKey, server: _servers[index].name);
   }
 
-  /// Cloud helper that re-fetches any allowlisted page with permissive
-  /// CORS, so the probe can read third-party embeds that send no CORS
-  /// headers — a direct fetch from Flutter Web dies before a response
-  /// exists.
   static const String _probeProxyUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
 
-  /// Fetches the embed page for the dead-server probe: first directly
-  /// (works for our own endpoints and any provider sending CORS), then
-  /// through `proxyFetchHtml` when the browser blocks the request. Null
-  /// when both paths fail — the caller leaves the iframe up.
-  ///
-  /// A non-200 answer counts as dead even when its body holds no known
-  /// marker: Megavid's healthy player page contains the same "Embed
-  /// Only" text as its 403 block page (a hidden div), so the status
-  /// code is the only thing telling them apart. The sentinel reuses the
-  /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
-      // Must outlast the Worker's own walk budget (EVERGLOW_BUDGET_MS, 12 s):
-      // a dead episode answers 502 only after the last upstream is tried, and
-      // a probe that gives up first leaves the failover page up with no
-      // auto-advance.
       final response = await http
           .get(url)
           .timeout(const Duration(seconds: 14));
       if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {
-      // Missing CORS headers or a network hiccup. One retry through our
-      // HTML proxy keeps the probe working from Flutter Web.
       try {
         final proxied = Uri.parse(
           '$_probeProxyUrl?url=${Uri.encodeComponent(url.toString())}',
@@ -985,10 +877,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     }
   }
 
-  /// Fetches the embed URL and scans the HTML for the provider's
-  /// "content unavailable" error page. When found, advances to the next
-  /// available server so the user never stares at a dead "We're Sorry /
-  /// 410 / Couldn't Find This Episode" iframe.
   Future<void> _probeCurrentServer({bool autoAdvance = true}) async {
     final url = _playerUrl;
     if (url.isEmpty || _probingServer) return;
@@ -1025,9 +913,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     unawaited(_checkOfflinePlayback());
   }
 
-  /// The top bar is also built in widget tests without an AuthService
-  /// provider. Missing auth means "not a couple profile", so the extra
-  /// button stays hidden instead of throwing.
   bool get _canWatchTogether {
     try {
       return context.read<AuthService>().isCoupleUser;
@@ -1043,8 +928,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     return _titleFor(japanese);
   }
 
-  /// Hand the current anime + episode to the watch party. The room is
-  /// shared, so the other side lands on the same episode.
   Future<void> _startAnimeWatchParty() async {
     final malId = _malId;
     if (malId <= 0) return;
@@ -1458,9 +1341,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     );
   }
 
-  /// Auto next and Skip intro. Skip intro already runs inside our own player;
-  /// Auto next only gates the automatic advance, never the player's own Next
-  /// button. Saved per profile like Hide spoilers.
   Widget _buildPlaybackPrefsRow(BuildContext context) {
     final stores = context.watch<AnimexStores?>();
     if (stores == null) return const SizedBox.shrink();
@@ -1482,9 +1362,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     );
   }
 
-  /// Says which servers failed for this episode and where playback went, so
-  /// an automatic switch is never silent. Empty when nothing failed, and when
-  /// every server failed: the error card already explains that.
   String _failedServersNote() {
     if (_showErrorCard || _failedServerIndices.isEmpty) return '';
     final failed = [

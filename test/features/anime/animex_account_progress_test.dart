@@ -1,4 +1,3 @@
-// Minimal SDK test doubles: no emulator or new mocking dependency required.
 // ignore_for_file: subtype_of_sealed_class
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -208,7 +207,6 @@ void main() {
       );
       expect(saved!.tmdbId, 53);
 
-      // The AniList-only route still carries 120 rather than the saved MAL 53.
       await service.updateProgress(
         _card(),
         'clairjassen',

@@ -10,67 +10,30 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
 
   StreamSubscription<WatchPartyRoom?>? _roomSub;
 
-  // ─── Local playback clock ─────────────────────────────────────────
-  // The iframe doesn't expose its timeline, so we run a local wall-clock
-  // estimate. Anchored every time the iframe fires `load` (we assume it
-  // starts at the hint we set in the URL) and re-anchored whenever a
-  // remote update arrives from the partner.
-
-  /// DateTime at which the iframe is "officially" at position
-  /// [_anchorTime]. Add `now - _anchorEpoch` to estimate the live
-  /// position while playing.
   DateTime? _anchorEpoch;
   double _anchorTime = 0.0;
 
-  /// One-shot guard so we don't re-process the initial snapshot we
-  /// already have on screen.  False from the start because the iframe
-  /// was already positioned via `widget.initialRoom` in `initState`;
-  /// the first Firestore snapshot coming in should only nudge the
-  /// anchor, never trigger a redundant iframe rebuild (which would
-  /// reload stale cached data over the fresh `initialRoom`).
   bool _hasAppliedInitialSnapshot = false;
 
-  /// True while we're rebuilding the iframe to land at a new offset.
-  /// The partner sees a "Syncing..." pill during this window.
   bool _isResyncing = false;
   Timer? _resyncHideTimer;
 
-  // ─── In‑stack dialog (avoids iframe event capture on web) ─────
   bool _showEndDialog = false;
   void Function(bool)? _endDialogCallback;
 
-  /// True if the host has explicitly paused (separate from "the host
-  /// hasn't pressed play yet"). Triggers the "Paused by Clair" pill
-  /// on the partner's screen.
   bool _hostExplicitlyPaused = false;
 
-  /// Whether the iframe URL should include autoplay=true.  Toggled
-  /// on every play/pause so the DOM-level reload actually stops/starts
-  /// the cross-origin embed.
   bool _autoplay = true;
 
-  /// Timestamp of the last remote Firestore snapshot we applied.
-  /// Used to discard stale heartbeats that were sent before a newer
-  /// play/pause event but arrived later due to network reordering.
   DateTime? _lastRemoteUpdate;
 
-  // ─── Live control (CineSrc through web/embed.html) ────────────────
-  // The default Everglow player can be told to play/pause/seek and
-  // reports what the viewer does. When it is ready we drive it
-  // directly instead of reloading the iframe.
-
-  /// True once the current player document said `cinesrc:ready`.
   bool _cinesrcReady = false;
 
-  /// Player events inside this window are echoes of commands we just
-  /// sent, so they are not broadcast back to the partner.
   DateTime _ignorePlayerEventsUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// A seek that the viewer started themselves, waiting for 'seeked'.
   bool _userSeekPending = false;
   Timer? _playCheckTimer;
 
-  // ─── iframe plumbing (mirrors VideoPlayerScreen) ──────────────────
   bool _isLoading = true;
   bool _iframeFailed = false;
   late final web.HTMLIFrameElement _iframe;
@@ -78,11 +41,8 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   JSFunction? _onErrorListener;
   Timer? _loadTimer;
 
-  /// Checks if VidLink actually serves content (postMessage-based).
-  /// Ensures we don't hang on "content not available" pages.
   Timer? _contentCheckTimer;
 
-  /// Drives the page scroll view below the player.
   final ScrollController _pageScrollController = ScrollController();
 
   double? _lastWindowedMaxPlayerHeight;
@@ -90,66 +50,39 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   Timer? _nativeFullscreenSettleTimer;
   JSFunction? _onNativeFullscreenChange;
 
-  /// Listens for VidLink's MEDIA_DATA / PLAYER_EVENT postMessage to
-  /// confirm content is playable.
   JSFunction? _messageListener;
 
-  /// Resolved TMDB id for anime items. Populated by [_bootstrapAnime]
-  /// on init; null when the lookup failed or the item isn't anime.
   int? _resolvedTmdbId;
 
   late VideoSourceConfig _selectedProvider;
   final Set<String> _failedProviderIds = {};
 
-  /// Shared embed-provider service. Sources are loaded from Firestore
-  /// with a hardcoded fallback.
   final VideoSourceService _sourceService = VideoSourceService();
 
-  /// Listener callback for when the service's provider list updates
-  /// asynchronously from Firestore.
   VoidCallback? _serviceListener;
 
-  // ── Self-hosted playback server (AniChan-style server layer) ───────
-  // Rooms can carry a normalized server entry ('hls' or 'embed'). HLS
-  // servers play in a real <video> element via hls.js so the couple
-  // gets precise play/pause/seek sync; embed servers use the iframe.
   final HlsServerPlayerController _hlsController = HlsServerPlayerController();
   late String _hlsViewType;
   bool _hlsFailed = false;
   bool _hlsReady = false;
   String? _hlsError;
 
-  /// Local HLS volume (0..1), remembered per room on this device.
-  /// Iframe embeds keep their own in-player volume; this only drives
-  /// the real `<video>` element we render for HLS rooms.
   double _hlsVolume = 1.0;
 
   final PlayerMemoryService _playerMemory = PlayerMemoryService();
 
-  // ── Shared server clock ────────────────────────────────────────────
-  // The room's `positionAt` is a Firestore server timestamp. Both
-  // clients derive the live position from it, so neither side is the
-  // clock and neither side runs ahead of the other.
   late final WatchPartyClock _clock;
 
-  /// Resolves the Everglow HLS manifest for the room's current title.
   final WatchPartyStreamResolver _streamResolver = WatchPartyStreamResolver();
   String? _everglowStreamUrl;
   List<WatchPartySubtitle> _availableSubtitles = const [];
   bool _resolvingStream = false;
   String? _streamResolveError;
 
-  /// Local caption visibility. The room carries the chosen track; this
-  /// mirrors it so the CC button reacts immediately.
   bool _captionsOn = true;
 
-  /// One-shot guard for rooms written before `positionAt` existed.
   bool _seededLegacyAnchor = false;
 
-  /// The platform-view registry has no unregister call, so each remount
-  /// leaves one factory behind for the session. That is bounded by the
-  /// number of title/episode/server changes in one visit and is the
-  /// price of a fresh `<video>` after a remount.
   void _regenerateHlsViewType() {
     _hlsViewType =
         'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
@@ -181,16 +114,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   bool get _isEmbedServer =>
       _room.serverType == 'embed' && (_room.streamUrl ?? '').isNotEmpty;
 
-  /// Whether the legacy embed-provider iframe path is in use.
   bool get _usesIframe => !_isHlsServer;
 
-  /// True while the real `<video>` platform view is on screen. Used to
-  /// decide whether a view-type change would remount it.
   bool get _isHlsMounted => _isHlsServer && _hlsStreamUrl.isNotEmpty;
 
-  /// The subtitle track the player should show. A null room track means
-  /// "use the first track the resolver found", which is how the normal
-  /// cinema/anime players start with English captions on.
   String? get _effectiveSubtitleUrl {
     if (!_captionsOn) return null;
     final chosen = _room.subtitleUrl;
@@ -199,7 +126,6 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
     return null;
   }
 
-  /// Final stream URL, proxied when the server requires it.
   String get _hlsStreamUrl {
     if (_isEverglowServer) return _everglowStreamUrl ?? '';
     final raw = _room.streamUrl ?? '';
@@ -207,49 +133,23 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
     return raw;
   }
 
-  // ─── Voice chat ───────────────────────────────────────────────────
   final VoiceChatService _voiceChat = VoiceChatService();
 
-  // Heartbeat keeps the partner's local clock fresh — every 5s we
-  // publish our estimated position so they can drift-correct.
   Timer? _heartbeatTimer;
 
-  // Tiny ticker that re-renders the visible mm:ss clock once per
-  // second while playing. We don't write to Firestore every tick,
-  // just to the local widget tree.
   Timer? _clockTicker;
   double _displayedTime = 0.0;
 
-  /// True while the seek slider is being dragged, so the one-second
-  /// clock tick does not fight the thumb.
   bool _seeking = false;
 
-  // ─── Sync tunables ────────────────────────────────────────────────
-
-  /// When the partner's reported time diverges from our local estimate
-  /// by more than this, we auto-rebuild the iframe at the partner's
-  /// position. Tuned to 4s — smaller than the heartbeat interval (5s)
-  /// so we never auto-resync on a single jittery update, and large
-  /// enough that we don't fight the iframe's own startup time.
   static const double _resyncThresholdSeconds = 4.0;
 
-  /// How long we wait for the iframe to fire `load` before declaring
-  /// the embed dead and trying the next provider.
   static const Duration _loadTimeout = Duration(seconds: 15);
 
-  /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
-  /// event after the iframe loads. If the event never arrives the
-  /// provider likely showed "content not available", so we fall back.
   static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
-  /// Heartbeat interval. 5s keeps the partner's local clock within
-  /// ~5s of the host without thrashing Firestore.
   static const Duration _heartbeatInterval = Duration(seconds: 5);
 
-  /// Free embed providers. Shared via [VideoSourceService] which loads
-  /// from Firestore with a hardcoded fallback. The watch-party player
-  /// doesn't expose a provider switcher — we just cycle through the
-  /// list internally on iframe error.
   List<VideoSourceConfig> get _providers => _sourceService.providers;
 }
 
@@ -268,9 +168,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       'WatchPartyScreen init: tmdbId=${_room.tmdbId}, mediaType=${_room.mediaType}, isAnime=${_room.isAnime}, season=${_room.season}, episode=${_room.episode}',
     );
 
-    // The host decides when play/pause/seek happens, the partner
-    // listens + auto-resyncs. We do honour explicit "Resync" taps
-    // on the partner side though.
     if (widget.isHost) {
       _hostExplicitlyPaused = _room.state == 'paused';
     } else {
@@ -282,9 +179,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _regenerateHlsViewType();
     _restoreHlsVolume();
 
-    // Listen for provider list updates from Firestore. If the iframe
-    // has already failed with the hardcoded defaults, retry with the
-    // freshly loaded sources.
     _serviceListener = () {
       if (!mounted) return;
       if (!_usesIframe) return;
@@ -335,12 +229,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-      // Start the content-available check for VidLink so we fall back
-      // quickly when it shows "content not available".
       _startContentCheck();
-      // Re-anchor the local clock: the iframe is "officially" at the
-      // hint we put in the URL right now. The clock then runs off
-      // wall time until the next anchor (next heartbeat or seek).
       _anchorEpoch = DateTime.now();
       _anchorTime = _localStartHint();
     }).toJS;
@@ -350,8 +239,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
 
-    // Listen for postMessage events from embed providers (VidLink)
-    // to confirm content is actually playable.
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
     _onNativeFullscreenChange = ((web.Event _) {
@@ -382,9 +269,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       });
     }
 
-    // For anime we don't have a TMDB id on the room — the slot holds
-    // the MAL id. Resolve MAL→TMDB via ani.zip, then set the iframe's
-    // src once. If the lookup fails we land in the error card.
     if (_isHlsServer) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -409,13 +293,8 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       }
     }
 
-    // Subscribe to the room. Updates are debounced by Firestore's
-    // snapshot pipeline (1-3s in practice) which is fine for our
-    // 5s heartbeat cadence.
     _roomSub = _service.getRoomStream(_room.id).listen(_onRoomUpdate);
 
-    // If the room has ended before either of us joined (host left
-    // earlier), bounce out immediately.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!_room.active && _room.updatedBy != _myUid) {
@@ -425,9 +304,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     });
 
     _startClockTicker();
-    // Both sides keep the room alive. While playing, the heartbeat
-    // re-anchors the position with a server timestamp; a late tick can
-    // only refresh the anchor, never flip the state.
     _startHeartbeat();
 
     _initVoiceChat();
@@ -443,9 +319,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     final partnerUid = _auth.partnerUid;
     if (partnerUid == null) return;
     if (!_room.active) return;
-    // We're on the watch party screen now, so suppress the
-    // app-wide "incoming call" banner — otherwise it would float
-    // on top of the active call UI.
     VoiceChatService.clearIncomingWatcher();
     await _voiceChat.init(
       roomId: _room.id,
@@ -507,16 +380,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     super.dispose();
   }
 
-  // ─── Local clock helpers ──────────────────────────────────────────
-
-  /// Wall-clock estimate of the current playback position. We add
-  /// elapsed wall time to the last anchored hint. While paused we
-  /// just return the anchor (the iframe keeps playing, but we lie
-  /// about it in the UI so the user can see "paused" badges).
   double _estimatedLocalTime() {
-    // The controller attaches in initState, before the manifest sets the
-    // start position. Until `_hlsReady`, `currentTime` is 0; the anchor
-    // fallback below is the truthful position.
     if (_isHlsServer && _hlsController.isAttached && _hlsReady) {
       return _hlsController.currentTime;
     }
@@ -529,15 +393,8 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     return _anchorTime + elapsed;
   }
 
-  /// The position to write as the room's new anchor. This is a media
-  /// position, not a wall-clock time: the server timestamp on the same
-  /// write supplies the time. Adding the device/server skew here would
-  /// double-count it and skip the video forward.
   double _positionForWrite() => _estimatedLocalTime();
 
-  /// The hint we wrote into the player URL the last time we built
-  /// the iframe. Uses the live server position so a joiner lands on
-  /// the same scene, not at the last anchor.
   double _localStartHint() => _room.livePositionAt(_clock.serverNow);
 
   void _startClockTicker() {
@@ -549,8 +406,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       });
     });
   }
-
-  // ─── Heartbeat (both sides) ───────────────────────────────────────
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
@@ -572,10 +427,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     );
   }
 
-  /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
-  /// then point the iframe at the player URL. The embed providers
-  /// expect TMDB ids, not MAL ids, so this resolution is required for
-  /// anime items to play.
   Future<void> _bootstrapAnime() async {
     final malId = _room.malId ?? _room.tmdbId;
     var tmdbId = await AniZipService().fetchTmdbId(malId);
@@ -606,8 +457,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       startSeconds: _localStartHint(),
     );
   }
-
-  // ─── Snapshot pipeline ────────────────────────────────────────────
 
   bool _mediaIdentityChanged(WatchPartyRoom a, WatchPartyRoom b) {
     return a.tmdbId != b.tmdbId ||
@@ -645,19 +494,12 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
     _lastRemoteUpdate = incoming.updatedAt;
-    // `updatedAt` is refreshed by the heartbeat every 5s, so it is a
-    // fresh server stamp. `positionAt` is the playback anchor and can be
-    // minutes old; feeding it here would estimate a negative offset and
-    // rewind the joiner.
     _clock.observe(incoming.updatedAt);
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
     final captionsChanged =
         incoming.subtitleUrl != _room.subtitleUrl ||
         incoming.captionsOn != _room.captionsOn;
-    // Compare with what OUR player is doing, not with the last
-    // snapshot: if Firestore skipped ahead and merged the partner's
-    // pause with a later tick, we still notice the difference.
     final stateChanged = (incoming.state == 'paused') != _hostExplicitlyPaused;
     final isLocalWrite =
         incoming.updatedBy == _myUid &&
@@ -674,9 +516,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _hostExplicitlyPaused = incoming.state == 'paused';
     _captionsOn = incoming.captionsOn;
 
-    // A room created before `positionAt` existed still has a live
-    // `currentTime` from the old heartbeat. Seed the anchor once so the
-    // next heartbeat cannot make the fallback look stale.
     if (!_seededLegacyAnchor &&
         incoming.positionAt == null &&
         incoming.state == 'playing') {
@@ -722,13 +561,8 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     if (captionsChanged) {
       _hlsController.setCaptions(_captionsOn);
       setState(() {});
-      // Do not return: a coalesced snapshot can also carry a pause.
     }
 
-    // When the host toggles play/pause, the remote side must also
-    // reload its iframe so the autoplay flag takes effect.  Without
-    // this the partner's iframe keeps its old src and stays paused
-    // (or keeps playing) regardless of what the overlay says.
     if (stateChanged) {
       _autoplay = !_hostExplicitlyPaused;
       final live = incoming.livePositionAt(_clock.serverNow);
@@ -746,12 +580,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
 
     if (!_hasAppliedInitialSnapshot) {
       _hasAppliedInitialSnapshot = true;
-      // The iframe was already positioned at widget.initialRoom's
-      // media in initState.  Don't check mediaChanged here — the
-      // first snapshot may be stale cache data from an earlier
-      // session (e.g. a different movie).  Just nudge the anchor
-      // and adopt incoming metadata silently.  The next snapshot
-      // (from the server) will go through the normal flow.
       _room = incoming;
       _hostExplicitlyPaused = incoming.state == 'paused';
       _anchorEpoch = DateTime.now();
@@ -777,8 +605,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     } else {
       _anchorEpoch = DateTime.now();
       _anchorTime = live;
-      // Host changed play/pause (or a small drift) — we need to rebuild the
-      // overlay so "Khent paused" flips to "Synced" and the time updates.
       setState(() {});
     }
   }
@@ -792,14 +618,8 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     setState(() {
       _isResyncing = true;
     });
-    // Cancel any pending load timer from a previous provider attempt
-    // so it doesn't fire and incorrectly mark the current provider as
-    // failed while we're rebuilding the iframe at a new offset.
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
-    // Reset the failed set so every provider gets a fresh attempt on
-    // rebuild — the previous failures may have been caused by the
-    // stale timer race rather than actual provider errors.
     _failedProviderIds.clear();
     _isLoading = true;
     _iframeFailed = false;
@@ -810,8 +630,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _selectedProvider,
       startSeconds: startSeconds,
     );
-    // Auto-hide the "Syncing..." pill after 2s — by then the iframe
-    // is usually up and the local clock is re-anchored.
     _resyncHideTimer?.cancel();
     _resyncHideTimer = Timer(const Duration(milliseconds: 2000), () {
       if (!mounted) return;
@@ -819,16 +637,12 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     });
   }
 
-  // ─── Provider failover (mirrors VideoPlayerScreen) ─────────────────
-
   void _onIframeLoadError() {
     if (!mounted) return;
     if (_isEmbedServer) {
       setState(() => _iframeFailed = true);
       return;
     }
-    // Ignore stale errors from a previous load that was aborted by a
-    // rebuild or provider switch — the current load may still succeed.
     if (!_isLoading) return;
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
@@ -867,11 +681,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  /// Starts the content availability check timer. Only applies to
-  /// VidLink, which sends a `MEDIA_DATA` or `PLAYER_EVENT` postMessage
-  /// when content is actually playable. If the event doesn't arrive
-  /// within [_WatchPartyScreenStateBase._contentCheckTimeout], the embed likely showed "content not
-  /// available" and we fall back to the next provider.
   void _startContentCheck() {
     if (_selectedProvider.id != 'vidlink') return;
     _contentCheckTimer?.cancel();
@@ -884,8 +693,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     );
   }
 
-  /// Returns the expected postMessage origin for a given provider.
-  /// Derives the origin from the provider's movie URL (the host portion).
   String _originForProvider(String providerId) {
     final cfg = _sourceService.byId(providerId);
     if (cfg == null) return '';
@@ -897,10 +704,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  /// Builds the postMessage listener for embed provider events.
-  /// Confirms content is playable and cancels the content check timer.
-  /// Only accepts messages from the currently active provider's origin
-  /// to avoid cross-provider interference.
   JSFunction _buildMessageListener() {
     return ((web.Event e) {
       try {
@@ -958,13 +761,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  // ─── URL building ─────────────────────────────────────────────────
-  // Mirrors the regular player. The only addition is a trailing
-  // `&start=N` for providers that support it (Videasy accepts
-  // `?startTime=N`). For the rest the hint is silently ignored —
-  // they always start at 0 — which is the documented limitation of
-  // the sync.
-
   String _buildPlayerUrl(
     VideoSourceConfig provider, {
     required double startSeconds,
@@ -995,9 +791,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       } else if (provider.id == 'vsembed') {
         base = '$tvBase$id?season=$s&episode=$e';
       } else {
-        // Path form for everyone else. vidsrc.to needs it too: it ignores
-        // ?season=&episode= and answers "This media is unavailable at the
-        // moment." (verified live 2026-10-04).
         final separator = tvBase.endsWith('/') ? '' : '/';
         base = '$tvBase$separator$id/$s/$e';
       }
@@ -1015,10 +808,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       }
     }
 
-    // VidLink / Videasy: autoplay flag mirrors play/pause so the
-    // DOM-level reload actually stops or starts the video.
-    // When autoplay is on, we also emit muted=1 so the browser
-    // allows autoplay even without a user gesture on the partner's side.
     if (provider.id == 'vidlink' ||
         provider.id == 'videasy' ||
         provider.id == 'vidfast') {
@@ -1034,15 +823,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       }
       return base;
     }
-    // VidFast doesn't support seek parameters — we always return the
-    // clean URL so the default first provider never fails due to an
-    // unsupported `?start=N`. Only Videasy honours startTime.
     return base;
   }
 
-  /// The URL the user can open in a new tab. Uses the same URL the
-  /// iframe would use for the current provider — if every embed has
-  /// failed, this gives the user a manual escape hatch.
   String _externalOpenUrl() {
     if (_isHlsServer) {
       return _hlsController.playbackUrl ?? _room.streamUrl ?? '';
@@ -1050,8 +833,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     if (_isEmbedServer) return _room.streamUrl ?? '';
     return _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
   }
-
-  // ─── Live control helpers ─────────────────────────────────────────
 
   bool get _isControlledEmbed =>
       _cinesrcReady && _usesIframe && !_isEmbedServer;
@@ -1078,7 +859,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  /// Puts the player where the room says it should be.
   void _syncPlayerTo(
     double time, {
     required bool paused,
@@ -1100,9 +880,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  /// Plays, and if the browser silently refused (sound autoplay is
-  /// blocked until the viewer taps), falls back to muted playback so
-  /// the picture still moves with the partner's.
   void _playWhenAllowed() {
     _sendCinesrc('play');
     _playCheckTimer?.cancel();
@@ -1166,7 +943,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  /// The viewer used the player's own controls: tell the partner.
   void _broadcastLocal({required bool paused, double? time}) {
     final t = time ?? _estimatedLocalTime();
     setState(() {
@@ -1184,8 +960,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       ),
     );
   }
-
-  // ─── User actions ─────────────────────────────────────────────────
 
   Future<void> _togglePlayPause() async {
     final nextState = _hostExplicitlyPaused ? 'playing' : 'paused';
@@ -1207,7 +981,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       if (willPause) {
         _hlsController.pause();
       } else {
-        // Local taps are a user gesture, so unmute for real audio.
         _hlsController.setMuted(false);
         _hlsController.play();
       }
@@ -1225,7 +998,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         _playCheckTimer?.cancel();
         _sendCinesrc('pause');
       } else {
-        // A tap is a user gesture, so sound is allowed.
         _sendCinesrc('setMuted', [false]);
         _playWhenAllowed();
       }
@@ -1247,8 +1019,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       );
       return;
     }
-    // Reload the iframe via DOM so the user-gesture window stays open
-    // and the browser allows autoplay on the new document.
     final url = _buildPlayerUrl(
       _selectedProvider,
       startSeconds: _estimatedLocalTime(),
@@ -1265,8 +1035,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     );
   }
 
-  /// Reload the HLS player at [startSeconds] (used when switching
-  /// servers or media, or on a manual resync).
   void _reloadHlsAt(double startSeconds) {
     if (!mounted) return;
     if (_isEverglowServer && (_everglowStreamUrl ?? '').isEmpty) {
@@ -1293,10 +1061,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     });
   }
 
-  /// Ask our streaming Worker for the room's manifest and subtitle
-  /// tracks, then start the real `<video>` at [startSeconds]. Both
-  /// clients resolve independently from the same room identity, so a
-  /// host who joined late never blocks the partner.
   Future<void> _resolveEverglowStream({double? startSeconds}) async {
     if (!mounted || !_room.hasMedia) return;
     final tmdbId = _room.tmdbId;
@@ -1313,8 +1077,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     try {
       final stream = await _streamResolver.resolve(_room);
       if (!mounted) return;
-      // A second title pick may have landed while this resolve was in
-      // flight; its result belongs to the old room identity.
       if (_room.tmdbId != tmdbId ||
           _room.malId != malId ||
           _room.season != season ||
@@ -1351,13 +1113,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
   }
 
-  /// Apply a remote state change to the HLS player without reloading
-  /// the stream: play/pause directly on the real <video> element.
   void _applyHlsState(WatchPartyRoom incoming) {
     _isResyncing = false;
     if (incoming.state == 'playing') {
-      // Remote play may lack a user gesture. Try sound first, then fall
-      // back to muted autoplay so the picture still moves.
       _hlsController.playWithSoundFallback();
     } else {
       _hlsController.pause();

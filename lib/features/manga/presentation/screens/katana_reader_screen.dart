@@ -27,16 +27,6 @@ import '../../../../core/utils/logger.dart';
 part 'katana_reader_viewers.dart';
 part 'katana_reader_chrome.dart';
 
-/// Overhauled MangaCelestia Reader Screen:
-/// - Full-screen immersive mode with tap-to-toggle controls
-/// - Webtoon (0px continuous vertical strip), Manga RTL, and Paged LTR modes
-/// - Pinch-to-zoom & double-tap zoom via InteractiveViewer
-/// - Live floating page indicator pill and bottom scrubber slider
-/// - Pre-caching upcoming pages & silent backup server failover
-/// - Tablet two-page spread support
-/// - Night dimmer and theme selection (OLED Black, Sakura Noir, Warm Sepia)
-/// - Keyboard arrow navigation for desktop & tablet keyboards
-
 @visibleForTesting
 void scrollReaderWithWheel(
   PointerSignalEvent event,
@@ -52,24 +42,16 @@ void scrollReaderWithWheel(
   if (target != position.pixels) position.jumpTo(target);
 }
 
-/// The PageView item that holds [page] (1-based). Two-page mode packs two
-/// pages into one item, so a page index is not an item index — jumping with
-/// the page number landed on the wrong spread.
 @visibleForTesting
 int pagedItemForPage(int page, {required bool twoPage}) {
   final zeroBased = page - 1;
   return twoPage ? zeroBased ~/ 2 : zeroBased;
 }
 
-/// The last PageView item for [pageCount] pages.
 @visibleForTesting
 int lastPagedItem(int pageCount, {required bool twoPage}) =>
     twoPage ? (pageCount / 2).ceil() : pageCount;
 
-/// Offset to land on while page heights are still unknown: split the
-/// current extent evenly. The extent is extrapolated from loading slots, but
-/// it is proportional, so this lands in the right region for the exact
-/// correction that follows once the target page reports its real height.
 @visibleForTesting
 double proportionalResumeOffset(
   int target,
@@ -98,9 +80,6 @@ class KatanaReaderScreen extends StatefulWidget {
   final String coverUrl;
   final int initialPage;
 
-  /// The real series record, when the caller has it. Bookmarking from
-  /// the reader used to fabricate a `status: ongoing` stub; passing the
-  /// record through keeps the saved bookmark honest.
   final KatanaManga? manga;
 
   const KatanaReaderScreen({
@@ -132,12 +111,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   String? _error;
   String _server = '';
 
-  /// Set when we only received a handful of chapters (e.g. the 3
-  /// recent ones from a home-page card). The full chapter table is
-  /// fetched in the background so chapter navigation works.
   bool _chaptersIncomplete = false;
 
-  // Reader UX Settings
   bool _showChrome = false;
   ReaderMode _mode = ReaderMode.webtoon;
   ReaderThemeStyle _themeStyle = ReaderThemeStyle.plum;
@@ -146,41 +121,24 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   bool _fitHeight = true;
   bool _bookmarked = false;
 
-  // Page Tracking
   int _currentPage = 1;
   int _lastSavedPage = -1;
   bool _showPagePill = false;
   Timer? _pagePillTimer;
 
-  /// Real per-page heights for the webtoon strip, so the page pill and
-  /// "continue reading" land on the page Clair is actually looking at
-  /// instead of a linear guess across pages of wildly different heights.
   final WebtoonPageTracker _tracker = WebtoonPageTracker();
   final Map<int, GlobalKey> _pageKeys = {};
 
-  /// Page a cold open is trying to land on, while its real height is still
-  /// unknown. Cleared once we land or Clair scrolls herself.
   int? _pendingResumePage;
 
-  /// Offset our own last jump moved to, so the scroll listener can tell it
-  /// apart from a user scroll.
   double? _lastJumpOffset;
 
-  /// False until the paged viewer has been moved to its starting spread.
-  /// The PageController is built with a page index before the two-page
-  /// preference is known, so its first onPageChanged can report the wrong
-  /// spread (or the end card) and persist that as progress.
   bool _pagedInitialJumpDone = false;
 
-  /// Set once this chapter has been marked read for the current user.
   bool _markedRead = false;
 
-  /// Chapters this user already finished, for the chapter picker.
   Set<String> _readChapterIds = const {};
 
-  // Per-page resilience (mirrors the site's reader: independent page
-  // slots, silent CDN-host retries, one token-URL refresh per chapter
-  // when several pages fail together).
   final Map<int, int> _cdnStep = {};
   final Set<String> _fallbackScheduled = {};
   final Set<int> _failedPages = {};
@@ -201,13 +159,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       ? _chapters[_currentIndex + 1]
       : null;
 
-  /// Same as [setState]; exists so the reader's `part` files (which cannot
-  /// call the `@protected` [setState] from extensions) refresh identically.
   void _refresh(void Function() update) => setState(update);
 
-  /// One timing for every piece of the reader chrome, so the header and the
-  /// footer always start and finish together. Zero when the user asked for
-  /// less motion.
   Duration get _chromeMotion => AppMotion.orZero(AppMotion.medium);
 
   @override
@@ -236,7 +189,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     _loadBookmark();
     _loadFullChaptersIfNeeded();
 
-    // Start in immersive mode by default
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -321,22 +273,14 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   }
 
   Future<void> _loadBookmark() async {
-    // One read gives both the bookmark flag and the chapters already
-    // finished, which the chapter picker needs.
     final bookmark = await _service.fetchBookmark(widget.slug, _user);
     if (!mounted) return;
     setState(() {
       _bookmarked = bookmark?.isBookmarked ?? false;
-      // Merge rather than replace: a chapter marked read while this fetch
-      // was in flight must not be un-marked by the older server value.
       _readChapterIds = {..._readChapterIds, ...?bookmark?.readChapterIds};
     });
   }
 
-  /// When the reader was opened with only a few chapters (home-page
-  /// cards pass just the 3 recent ones), fetch the manga's full
-  /// chapter table in the background so Prev/Next and the chapter
-  /// picker see every chapter.
   Future<void> _loadFullChaptersIfNeeded() async {
     if (widget.chapters.length >= 8) return;
     try {
@@ -347,8 +291,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       setState(() {
         _chapters = full;
         _chaptersIncomplete = false;
-        // Rebind to the full-table record so the reader keeps the
-        // chapter's real update date and New badge.
         final match = full.where((c) => c.id == _chapter.id).firstOrNull;
         if (match != null) _chapter = match;
       });
@@ -358,19 +300,12 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         error: e,
         stackTrace: st,
       );
-      // Navigation stays on the short list; reading still works.
     }
   }
 
-  /// Set when the first load attempt failed and we are retrying
-  /// once automatically — transient proxy/supplier hiccups used to
-  /// drop the reader straight onto an error screen.
   bool _autoRetried = false;
 
   Future<void> _loadPages() async {
-    // Where the reader already is. A server switch, a retry, or a token
-    // refresh must not throw Clair back to page 1 — that was the old
-    // behaviour for every load after the first.
     final resumePage = _currentPage;
     setState(() {
       _loading = true;
@@ -406,17 +341,12 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       return;
     }
 
-    // fetchChapterPages already tries the requested server first and
-    // then the other two, so one call covers every CDN.
     var pages = await _service.fetchChapterPages(
       widget.slug,
       _chapter.path,
       server: _server,
     );
 
-    // One silent retry: cold Cloud Function instances and flaky
-    // upstreams often fail the first volley but succeed immediately
-    // after. Retrying here keeps a hiccup from ever reaching Clair.
     if (pages.isEmpty && !_autoRetried) {
       _autoRetried = true;
       await Future<void>.delayed(const Duration(milliseconds: 600));
@@ -449,24 +379,15 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _currentPage = targetPage;
       _pagedInitialJumpDone = false;
     });
-    // Keep the heights already measured for this chapter when only the
-    // page URLs were re-fetched (server switch, retry, token refresh);
-    // reset only when this is a different chapter.
     if (_tracker.pageCount != pages.length) {
       _tracker.reset(pages.length);
       _pageKeys.clear();
     }
-    // The images remount on every load, so any pending resume correction
-    // from the previous load is stale.
     _pendingResumePage = null;
 
-    // Opening a chapter counts as reading it: pin target page at once so
-    // the series lands in Currently Reading before the first turn.
     _lastSavedPage = targetPage;
     _saveProgress(targetPage);
 
-    // Resuming straight onto the last page (or a single-page chapter)
-    // means the chapter has been seen through, so record it as read.
     if (targetPage >= pages.length) _markChapterRead();
 
     _preloadUpcoming(targetPage - 1);
@@ -484,22 +405,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           pagedItemForPage(targetPage, twoPage: _useTwoPage),
         );
       }
-      // From here on the paged viewer is on the right spread, so its
-      // onPageChanged can be trusted.
       _pagedInitialJumpDone = true;
       _triggerPagePill();
     });
   }
 
-  /// Scrolls the webtoon strip to [page].
-  ///
-  /// `_loadPages` unmounts the list, so at this moment every page is laying
-  /// out its fixed-size loading slot and `maxScrollExtent` is extrapolated
-  /// from those slots — while the tracker may still hold real heights from
-  /// before a reload. Mixing those two coordinate spaces is what made a
-  /// resume land at the bottom of the strip. So this always lands
-  /// proportionally first, then corrects exactly once the target page
-  /// reports its real height.
   void _resumeToWebtoonPage(int page) {
     if (!mounted || !_scrollController.hasClients) return;
     final target = page.clamp(1, _pages.length) - 1;
@@ -513,7 +423,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     );
   }
 
-  /// Jumps to the exact top of page [target] using measured heights.
   void _jumpWebtoonTo(int target) {
     if (!_scrollController.hasClients) return;
     _jumpWebtoonToOffset(_tracker.offsetForPage(target));
@@ -525,8 +434,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     final target = offset
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
-    // Recorded before the jump so the scroll listener can tell our own
-    // move from Clair taking over.
     _lastJumpOffset = target;
     _scrollController.jumpTo(target);
   }
@@ -545,17 +452,12 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
   void _onWebtoonScroll() {
     if (!_scrollController.hasClients || _pages.isEmpty) return;
-    // A pending resume correction is only worth applying before Clair
-    // starts moving; after that it would yank her back.
     final lastJump = _lastJumpOffset;
     if (_pendingResumePage != null &&
         lastJump != null &&
         (_scrollController.offset - lastJump).abs() > 1) {
       _pendingResumePage = null;
     }
-    // Our own resume jump must not derive or persist a page from the
-    // placeholder extent — that wrote the wrong lastReadPage. Wait for the
-    // correction to land; a user scroll clears the pending page first.
     if (_pendingResumePage != null) return;
     final page = _tracker.pageAtOffset(_scrollController.offset) + 1;
     if (page != _currentPage) {
@@ -582,10 +484,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (page >= _pages.length) _markChapterRead();
   }
 
-  /// Records the laid-out height of one page. Only [onPageLoaded] calls
-  /// this: measuring on scroll would also measure a page that scrolled back
-  /// into view and is once again showing its loading slot, caching 380 as
-  /// its real height.
   void _measurePage(int index) {
     final renderObject = _pageKeys[index]?.currentContext?.findRenderObject();
     if (renderObject is RenderBox && renderObject.hasSize) {
@@ -593,31 +491,23 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     }
   }
 
-  /// Called by [ReaderPageImage] once the real page is on screen, so the
-  /// height measured here is the page, not its loading slot.
   void _onPageLoaded(int index) {
     if (!mounted || index >= _pages.length) return;
     _measurePage(index);
     final pending = _pendingResumePage;
     if (pending == null || index != pending) return;
-    // The page we were resuming to now has a real height: land exactly.
     _pendingResumePage = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _jumpWebtoonTo(pending);
     });
   }
 
-  /// Whether the paged viewer is showing two pages per item. One rule for
-  /// the layout and for every page-to-item jump, so they cannot drift.
   bool get _useTwoPage =>
       _twoPage && MediaQuery.sizeOf(context).width >= 840;
 
   GlobalKey _pageKey(int index) =>
       _pageKeys.putIfAbsent(index, () => GlobalKey());
 
-  /// Marks the chapter read once Clair reaches its last page, which is
-  /// what "read" means everywhere else — opening a chapter is not the
-  /// same as finishing it.
   Future<void> _markChapterRead() async {
     if (_markedRead || _user.isEmpty) return;
     _markedRead = true;
@@ -663,8 +553,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _chapter = chapter;
       _pages = const [];
       _lastSavedPage = -1;
-      // A new chapter starts at its first page; without this the
-      // previous chapter's page number would be restored onto it.
       _currentPage = 1;
       _markedRead = false;
       _transformController.value = Matrix4.identity();
@@ -676,8 +564,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     });
     _tracker.reset(0);
     _pageKeys.clear();
-    // If we jumped to a chapter outside the (short) list we were
-    // handed, pull the full table so navigation keeps working.
     if (!_chapters.any((c) => c.id == chapter.id) || _chaptersIncomplete) {
       _loadFullChaptersIfNeeded();
     }
@@ -688,9 +574,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     final target = page.clamp(1, _pages.length);
     setState(() => _currentPage = target);
     _triggerPagePill();
-    // _currentPage was just set, so the scroll listener will not see a page
-    // change and would skip its read mark. Finishing the chapter with the
-    // scrubber has to mark it here.
     if (target >= _pages.length) _markChapterRead();
 
     if (_mode == ReaderMode.webtoon) {
@@ -786,10 +669,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     }
     final next = !_bookmarked;
     setState(() => _bookmarked = next);
-    // Bookmark the real series record. Building a stub here used to save
-    // `status: ongoing` plus the current chapter as "latest" for every
-    // title, so the bookmarks shelf showed wrong metadata. Removing only
-    // needs the slug, so it must never wait on — or fail with — a fetch.
     final manga = next
         ? (widget.manga ?? await _service.fetchMangaDetail(widget.slug))
         : widget.manga ??
@@ -917,10 +796,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
             backgroundColor: _themeStyle.backgroundColor,
             body: Stack(
               children: [
-                // Reader Content Layer
                 Positioned.fill(child: _buildReaderBody()),
 
-                // Night Dimmer / Tint Filter
                 if (_brightness < 1.0)
                   Positioned.fill(
                     child: IgnorePointer(
@@ -1014,16 +891,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                     ),
                   ),
 
-                // Top and bottom chrome ride one timing, so they always
-                // start and finish together: the header slides down from
-                // the top edge while the footer slides up from the bottom.
-                //
-                // The keys are load-bearing. The progress-bar child above
-                // only exists while the chrome is hidden, which shifts every
-                // later child up one slot. Without keys the Stack recycled
-                // these slots: the header's slide was rebuilt at its end
-                // offset and popped in, and the footer reused the header's
-                // slide, so it came in from the top edge ~220ms late.
                 Positioned(
                   key: const ValueKey('reader-top-chrome'),
                   top: 0,
@@ -1042,7 +909,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                   ),
                 ),
 
-                // Bottom Floating Chrome Footer
                 Positioned(
                   key: const ValueKey('reader-bottom-chrome'),
                   bottom: 0,

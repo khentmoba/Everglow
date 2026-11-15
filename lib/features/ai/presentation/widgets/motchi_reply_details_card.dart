@@ -6,7 +6,6 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/motchi_reply_details.dart';
 
-/// A compact receipt under the reply, kept when the conversation reloads.
 class MotchiReplyDetailsCard extends StatelessWidget {
   final MotchiReplyDetails details;
   final ValueChanged<String>? onCorrectMemory;
@@ -90,7 +89,6 @@ class MotchiReplyDetailsCard extends StatelessWidget {
         ],
       ),
     );
-    // Wait for the dialog's closing transition before disposing its field.
     await Future<void>.delayed(const Duration(milliseconds: 300));
     controller.dispose();
     if (correction != null && context.mounted) {

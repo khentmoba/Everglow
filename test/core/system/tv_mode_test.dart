@@ -81,7 +81,6 @@ void main() {
         ),
         isTrue,
       );
-      // Mobile phone with touch should NOT trigger TV mode
       expect(
         TvMode.isTvUserAgent(
           'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Mobile Safari/537.36',
@@ -90,7 +89,6 @@ void main() {
         ),
         isFalse,
       );
-      // Android tablet with touch should NOT trigger TV mode
       expect(
         TvMode.isTvUserAgent(
           'Mozilla/5.0 (Linux; Android 14; Tab S9) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
@@ -99,7 +97,6 @@ void main() {
         ),
         isFalse,
       );
-      // Desktop browser should NOT trigger TV mode
       expect(
         TvMode.isTvUserAgent(
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
@@ -180,7 +177,6 @@ void main() {
       expect(find.text('MangaCelestia'), findsOneWidget);
       expect(find.text('TV'), findsOneWidget);
       expect(find.text('Exit'), findsOneWidget);
-      // Guests cannot access dashboard
       expect(find.text('Dashboard'), findsNothing);
     });
 
@@ -224,7 +220,6 @@ void main() {
         ),
       );
 
-      // Focus the button via Tab, then press Android TV Select
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.select);

@@ -1,9 +1,7 @@
-// SDK sealed types are implemented only as network-free test doubles.
 // ignore_for_file: subtype_of_sealed_class
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Retries a transaction when another write wins before its commit.
 class TransactionFirestore implements FirebaseFirestore {
   Map<String, dynamic>? data;
   int revision = 0;

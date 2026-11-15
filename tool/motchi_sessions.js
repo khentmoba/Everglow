@@ -1,22 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-/**
- * Everglow Motchi Sessions CLI Inspector
- *
- * Lets developers (Khent) and Pi agents inspect live Motchi sessions:
- * - List recent sessions: `node tool/motchi_sessions.js list`
- * - Inspect full session turns: `node tool/motchi_sessions.js show <sessionId>`
- * - Search session history: `node tool/motchi_sessions.js search <keyword>`
- * - Realtime tail: `node tool/motchi_sessions.js tail`
- *
- * Options:
- *   --limit <n>      Number of sessions to show (default: 15)
- *   --user <name>    Filter by caller (khentsgdz | clairjassen)
- *   --feature <name> Filter by feature (assistant | guardian | study)
- *   --json           Print raw JSON output
- */
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -24,8 +8,6 @@ const { execSync } = require('child_process');
 
 const PROJECT_ID = 'everglow-1c6db';
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-
-// ── Colors & Formatting ──────────────────────────────────────────
 
 const c = {
   reset: '\x1b[0m',
@@ -72,8 +54,6 @@ function formatDateTime(isoString) {
   });
 }
 
-// ── Authentication ───────────────────────────────────────────────
-
 function getAccessToken() {
   const configPath = path.join(os.homedir(), '.config/configstore/firebase-tools.json');
   if (!fs.existsSync(configPath)) {
@@ -96,8 +76,6 @@ function getAccessToken() {
   }
   return token;
 }
-
-// ── Firestore REST Unwrapper ─────────────────────────────────────
 
 function unwrapFirestore(val) {
   if (!val || typeof val !== 'object') return val;
@@ -124,8 +102,6 @@ function unwrapFirestore(val) {
   }
   return val;
 }
-
-// ── Firestore API Methods ────────────────────────────────────────
 
 async function fetchSessions({ limit = 20, user = null, feature = null } = {}) {
   const token = getAccessToken();
@@ -155,7 +131,6 @@ async function fetchSessions({ limit = 20, user = null, feature = null } = {}) {
     sessions = sessions.filter((s) => (s.feature || '').toLowerCase() === feature.toLowerCase());
   }
 
-  // Sort by updatedAt descending
   sessions.sort((a, b) => {
     const timeA = new Date(a.updatedAtIso || a.updatedAt || 0).getTime();
     const timeB = new Date(b.updatedAtIso || b.updatedAt || 0).getTime();
@@ -182,8 +157,6 @@ async function fetchSessionById(sessionId) {
   const fields = unwrapFirestore(d);
   return { id: sessionId, ...fields };
 }
-
-// ── Commands ─────────────────────────────────────────────────────
 
 async function cmdList(args) {
   const limit = parseInt(args.limit || '15', 10);
@@ -213,7 +186,6 @@ async function cmdList(args) {
     const callerFormatted = formatUser(s.caller);
     const title = s.title || 'New conversation';
 
-    // Tool badges
     let toolBadges = '';
     const toolsUsedTotal = s.toolsUsedTotal || 0;
     if (toolsUsedTotal > 0) {
@@ -288,11 +260,9 @@ async function cmdShow(sessionId, args) {
 
     console.log(`${c.bold}${c.blue}── Turn ${turnNum} ───────────────────────────────────────${c.reset} ${c.dim}${timeStr}${c.reset}`);
 
-    // User Message
     console.log(`\n${c.bold}👤 User:${c.reset}`);
     console.log(`  ${turn.userMessage || c.dim + '(empty message)' + c.reset}`);
 
-    // Tools Executed
     if (Array.isArray(turn.tools) && turn.tools.length > 0) {
       console.log(`\n${c.bold}🛠 Tools Called (${turn.tools.length}):${c.reset}`);
       for (const t of turn.tools) {
@@ -308,7 +278,6 @@ async function cmdShow(sessionId, args) {
       }
     }
 
-    // Reasoning / Thinking
     if (turn.reasoning) {
       console.log(`\n${c.bold}💭 Thinking:${c.reset}`);
       const lines = turn.reasoning.split('\n').slice(0, 6);
@@ -318,7 +287,6 @@ async function cmdShow(sessionId, args) {
       }
     }
 
-    // Motchi Assistant Reply
     console.log(`\n${c.bold}🐾 Motchi Reply:${c.reset}`);
     if (turn.assistantReply) {
       const indented = turn.assistantReply
@@ -330,7 +298,6 @@ async function cmdShow(sessionId, args) {
       console.log(`  ${c.dim}(empty reply)${c.reset}`);
     }
 
-    // Turn metadata
     const metaParts = [];
     if (durationStr) metaParts.push(`⏱ ${durationStr}`);
     if (modelStr) metaParts.push(modelStr.trim());
@@ -429,8 +396,6 @@ async function cmdTail(args) {
   await poll();
   setInterval(poll, intervalSec * 1000);
 }
-
-// ── Argument Parser ──────────────────────────────────────────────
 
 function parseArgs() {
   const raw = process.argv.slice(2);

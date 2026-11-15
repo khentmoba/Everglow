@@ -12,7 +12,6 @@ test('tool loop constants are single-sourced in motchi_tools.js', () => {
   const dispatch = fs.readFileSync(path.join(__dirname, '..', 'motchi_exec_tools.js'), 'utf8');
   assert.equal(tools.TOOL_TIMEOUT_MS, 25000);
   assert.equal(tools.MAX_TOOL_ROUNDS, 8);
-  // Nobody redefines them; chat + dispatcher import them.
   assert.ok(!/const TOOL_TIMEOUT_MS = \d+;/.test(chat));
   assert.ok(!/const MAX_TOOL_ROUNDS = \d+;/.test(chat));
   assert.ok(dispatch.includes("require('./motchi_tools.js')"));
@@ -302,7 +301,6 @@ function validate(name, args) {
 
 test('matchFastPath fires only on whole-message zero-arg asks', () => {
   const fp = (m) => tools.matchFastPath(m)?.tool ?? null;
-  // Positives: one tool, no args, nothing else.
   assert.equal(fp('what level are we on'), 'get_xp_stats');
   assert.equal(fp("What's our XP?"), 'get_xp_stats');
   assert.equal(fp('show my rank'), 'get_xp_stats');
@@ -322,7 +320,6 @@ test('matchFastPath fires only on whole-message zero-arg asks', () => {
   assert.equal(fp('show my recent journal entries'), 'get_journal_entries');
   assert.equal(fp('show our trips'), 'get_trips');
   assert.equal(fp('what trips do we have'), 'get_trips');
-  // Negatives: compounds, multi-sentence, trivia (canvas), chatter.
   assert.equal(fp('what level are we on and plan a date night'), null);
   assert.equal(fp('list my reminders then cancel the plant one'), null);
   assert.equal(fp("give us today's recap plus date ideas"), null);
@@ -349,15 +346,12 @@ test('follow-through keeps write tools for a bare yes to an offer', () => {
   }
   assert.ok(!picked.includes('search_movies'), 'follow-through must not include lookups');
   assert.ok(!picked.includes('get_weather'), 'follow-through must not include weather');
-  // No offer, no writes: plain yes stays core + awareness.
   const plain = tools.selectToolNames('yes', 'just chatting about your day');
   assert.ok(!plain.includes('add_calendar_event'));
   assert.ok(!plain.includes('create_reminder'));
-  // Compound yes follows normal routing, not follow-through.
   const compound = tools.selectToolNames('yes and find movies', offer);
   assert.ok(compound.includes('search_movies'));
   assert.ok(!compound.includes('add_calendar_event'));
-  // Bare-yes shapes.
   assert.equal(tools.isBareYes('yes please'), true);
   assert.equal(tools.isBareYes('yeah do it'), true);
   assert.equal(tools.isBareYes("let's do it!"), true);
@@ -372,14 +366,12 @@ test('follow-through beats the smalltalk core-only set', () => {
   const offer = 'Shall I save that to the journal for you two?';
   const names = selectToolsForRequest('assistant', 'ok', offer).map((t) => t.function.name);
   assert.ok(names.includes('create_journal_entry'));
-  // Same "ok" with no offer stays smalltalk-narrow.
   const narrow = selectToolsForRequest('assistant', 'ok', 'nice weather today').map((t) => t.function.name);
   assert.ok(!narrow.includes('create_journal_entry'));
 });
 
 test('read/write split: reads travel light, writes ride action verbs', () => {
   const has = (msg, tool) => tools.selectToolNames(msg).includes(tool);
-  // Reads: no write schemas attached.
   assert.ok(has('what is on our watchlist', 'get_watchlist'));
   assert.ok(!has('what is on our watchlist', 'add_to_watchlist'));
   assert.ok(!has('what is on our watchlist', 'mark_watchlist_item_watched'));
@@ -391,40 +383,31 @@ test('read/write split: reads travel light, writes ride action verbs', () => {
   assert.ok(!has('read back our starlight jar notes', 'save_to_starlight_jar'));
   assert.ok(has('show our bucket list', 'get_bucket_list'));
   assert.ok(!has('show our bucket list', 'add_bucket_item'));
-  // Substring traps: reads that merely contain a write word root.
   assert.ok(!has('any new events this month', 'add_calendar_event'));
   assert.ok(!has('what chapter are we on', 'update_book_progress'));
   assert.ok(!has('tell me about our chat lately', 'send_sanctuary_message'));
   assert.ok(!has('I forget what we watched last week', 'delete_memory'));
   assert.ok(has('make a dentist appointment for Friday', 'add_calendar_event'));
-  // Writes: action verbs attach the write schemas.
   assert.ok(has('add Dune to our watchlist', 'add_to_watchlist'));
   assert.ok(has("I'm feeling happy today", 'set_mood'));
   assert.ok(has('save a note saying hi', 'save_to_starlight_jar'));
   assert.ok(has('remember that Khent likes black coffee', 'remember_fact'));
   assert.ok(has('move our dentist appointment to Friday', 'update_calendar_event'));
   assert.ok(has('rename our reading habit to morning pages', 'edit_habit'));
-  // Core stays lean: web reads, memory, and XP — no private-data writes.
   assert.deepEqual([...tools.CORE_TOOLS].sort(), ['add_xp', 'browse_web', 'read_memories', 'read_web_page', 'web_search']);
-  // Follow-through keeps the ex-core writes for offered plans.
   assert.ok(tools.selectToolNames('yes', 'Want me to save this to the jar?').includes('save_to_starlight_jar'));
   assert.ok(tools.selectToolNames('yes', 'Want me to remember that for you?').includes('remember_fact'));
 });
 
 test('context routing: follow-ups inherit the previous turn topics', () => {
   const sel = (m, ctx) => tools.selectToolNames(m, '', ctx || '');
-  // Zero-group follow-ups fall back to previous-turn topics.
   assert.ok(sel('move dentist to friday', 'add dentist appointment thursday').includes('update_calendar_event'));
   assert.ok(sel('cancel that', 'remind me tomorrow to water plants').includes('cancel_reminder'));
-  // Pronouns union context with the current match; writes gate on current.
   const readIt = sel('read it', 'journal about yesterday');
   assert.ok(readIt.includes('read_journal_entry'));
   assert.ok(!readIt.includes('create_journal_entry'));
-  // No context, no inheritance: bare follow-ups stay Chattable-small.
   assert.ok(!sel('move it to friday', '').includes('update_calendar_event'));
-  // Topic switches stay clean: me/you never pull context in.
   assert.ok(!sel('remind me tomorrow', 'add Dune to our watchlist').includes('add_to_watchlist'));
-  // Same-message repeat is not context.
   assert.ok(!sel('move dentist to friday', 'move dentist to friday').includes('update_calendar_event'));
 });
 
@@ -439,7 +422,6 @@ test('loop guard drops repeat tool+args pairs across rounds', () => {
   assert.equal(kept.length, 2);
   assert.equal(kept[0].function.arguments, '{}');
   assert.equal(kept[1].function.arguments, '{"limit":5}');
-  // Second round with the same call is fully dropped (circling).
   assert.equal(tools.dropRepeatCalls(seen, batch.slice(0, 1)).length, 0);
   assert.equal(tools.toolCallKey('a', '{}'), 'a:{}');
   assert.equal(tools.toolCallKey(null, null), ':');
@@ -457,18 +439,15 @@ test('edit tools validate id-or-title plus their fields', () => {
 
 test('isLightChat matches the greeting/smalltalk routing exactly', () => {
   const { isLightChat, selectToolsForRequest } = require('../motchi_tool_schemas.js');
-  // Bare greetings + smalltalk are light; compound asks are not.
   for (const m of ['hi', 'Hello!', 'good morning', 'mew', 'how are you?', 'thanks!', 'ok', 'lol']) {
     assert.equal(isLightChat(m), true, m);
   }
-  // Real greetings name her — the tail keeps them in the fast lane.
   for (const m of ['hi motchi', 'hello motchi!', 'hi, motchi', 'hey motchii', 'good morning motchi', 'thanks motchi', 'thank you motchi!', 'love you motchi', 'how are you motchi?']) {
     assert.equal(isLightChat(m), true, m);
   }
   for (const m of ['hi, remember that I love lilies', 'hi motchi, remember that I love lilies', 'what movies should we watch?', 'remember that I love lilies', 'plan a date night', 'hi dada', 'motchi', '']) {
     assert.equal(isLightChat(m), false, m);
   }
-  // Routing parity: the extracted regexes still drive the same tool sets.
   assert.equal(selectToolsForRequest('assistant', 'hi', '', '').length, 0);
   assert.equal(selectToolsForRequest('assistant', 'hi motchi', '', '').length, 0);
   assert.equal(selectToolsForRequest('assistant', 'how are you', '', '').length, 3);
@@ -484,7 +463,7 @@ test('normalizeToolArgs trims, coerces numerics, maps aliases, lowercases enums'
   assert.equal(tools.normalizeToolArgs('cancel_reminder', { id: 'r1', reminderId: 'r2' }).id, 'r1');
   const src = { title: '  Dune  ' };
   tools.normalizeToolArgs('x', src);
-  assert.equal(src.title, '  Dune  '); // never mutates the input
+  assert.equal(src.title, '  Dune  ');
 });
 
 test('fixHintFor points at the read tool that unblocks the write', () => {

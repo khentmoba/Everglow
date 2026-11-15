@@ -9,8 +9,6 @@ class ChapterPickerSheet extends StatefulWidget {
   final KatanaChapter currentChapter;
   final ValueChanged<KatanaChapter> onChapterSelected;
 
-  /// Chapter ids already finished, so the picker can show progress
-  /// instead of an undifferentiated wall of chapter numbers.
   final Set<String> readChapterIds;
 
   const ChapterPickerSheet({
@@ -51,7 +49,7 @@ class ChapterPickerSheet extends StatefulWidget {
 class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
   final TextEditingController _filterController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _reversed = true; // default: newest first, like the site's dropdown
+  bool _reversed = true;
   int? _selectedRangeBucket;
   String _query = '';
 
@@ -119,7 +117,6 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
       height: height,
       child: Column(
         children: [
-          // Drag handle
           Container(
             margin: const EdgeInsets.only(top: 12, bottom: 6),
             width: 44,
@@ -130,7 +127,6 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
             ),
           ),
 
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 8, 14, 10),
             child: Row(
@@ -192,7 +188,6 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
             ),
           ),
 
-          // Search / filter bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Container(
@@ -279,7 +274,6 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
 
           const Divider(height: 1, color: KatanaColors.border),
 
-          // Chapters list
           Expanded(
             child: chapters.isEmpty
                 ? Center(

@@ -12,8 +12,6 @@ import '../../../data/models/media_item.dart';
 import '../netflix/netflix_colors.dart';
 import '../netflix/netflix_nav_bar.dart';
 
-/// Dedicated Cinema Downloads tab: lets Clair and Khent manage and play
-/// offline movies and multi-episode TV series natively in the PWA.
 class CinemaDownloadsTab extends StatelessWidget {
   final void Function(MediaItem) onPlayMedia;
   final VoidCallback onBrowseCinema;
@@ -190,7 +188,6 @@ class CinemaDownloadsTab extends StatelessWidget {
     OfflineMediaService service,
     List<OfflineMediaItem> items,
   ) {
-    // Group series items by mediaId / title
     final shows = <String, List<OfflineMediaItem>>{};
     final movies = <OfflineMediaItem>[];
 
@@ -605,7 +602,6 @@ class CinemaDownloadsTab extends StatelessWidget {
       );
       return;
     } catch (_) {
-      // In isolated widget tests without GoRouter
       onPlayMedia(mediaItem);
     }
   }

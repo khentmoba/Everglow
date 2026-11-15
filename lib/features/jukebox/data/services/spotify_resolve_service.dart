@@ -6,11 +6,6 @@ import 'package:http/http.dart' as http;
 import '../../../../core/utils/logger.dart';
 import '../models/music_status.dart';
 
-/// Resolves a [MusicStatus] search URL to a real Spotify track via Cloud Function.
-///
-/// The function `proxySpotifySearch` uses Client Credentials, so the user does
-/// not need to have linked Spotify. Returns a copy of [status] with
-/// `spotifyTrackId`/`spotifyEmbedUrl` populated, or the original status on failure.
 class SpotifyResolveService {
   SpotifyResolveService({
     http.Client? client,
@@ -21,16 +16,13 @@ class SpotifyResolveService {
   final http.Client _client;
   final Future<String?> Function()? _idTokenProvider;
 
-  // Generic Cloud Function base — falls back to hosting rewrite when emulator not used.
   String get _base {
     const host = String.fromEnvironment('FUNCTIONS_HOST', defaultValue: '');
     if (host.isNotEmpty) return host;
     return 'https://us-central1-everglow-1c6db.cloudfunctions.net';
   }
 
-  /// Resolves via GET /proxySpotifySearch?artist=&track=
   Future<MusicStatus> resolve(MusicStatus status) async {
-    // Already fully resolved or empty sentinel
     final hasValidAlbum =
         status.albumName.isNotEmpty && status.albumName != 'No Album';
     if ((status.hasSpotifyTrack && hasValidAlbum) ||
@@ -58,7 +50,6 @@ class SpotifyResolveService {
                 Uri.base.host == '127.0.0.1' ||
                 Uri.base.host == '0.0.0.0');
         if (isLocalWeb) return status;
-        // Try hosting rewrite path
         final alt = Uri.parse('/api/proxySpotifySearch').replace(
           queryParameters: {
             'artist': status.artistName,
@@ -98,7 +89,6 @@ class SpotifyResolveService {
       spotifyEmbedUrl: data['embedUrl'] as String?,
       previewUrl: data['previewUrl'] as String?,
       spotifyUrl: data['spotifyUrl'] as String?,
-      // Prefer Spotify artwork if Last.fm was missing
       imageUrl: s.imageUrl ?? data['imageUrl'] as String?,
       albumName: albumToUse,
     );

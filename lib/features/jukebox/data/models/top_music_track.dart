@@ -1,11 +1,5 @@
 import 'lastfm_image_utils.dart';
 
-/// A single entry from Last.fm's `user.gettoptracks` response.
-///
-/// Unlike [MusicStatus], top tracks carry a play count and rank instead of
-/// a timestamp. Last.fm's `user.gettoptracks` response does not include the
-/// album for top tracks, so it can be enriched from `track.getinfo`, iTunes,
-/// or Spotify.
 class TopMusicTrack {
   final int rank;
   final String trackName;

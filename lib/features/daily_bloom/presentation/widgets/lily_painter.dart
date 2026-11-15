@@ -3,13 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Hand-drawn lily for Clair's garden.
-///
-/// Stages: 0 = empty pot, 1 = sprout, 2-3 = bud, 4 = half bloom, 5 = full bloom.
-/// Web-safe: glow is layered translucent circles, no blur filters.
 class LilyPainter extends CustomPainter {
   final int stage;
-  final double animationValue; // 0..1 breathing loop
+  final double animationValue;
 
   LilyPainter({required this.stage, required this.animationValue});
 
@@ -18,10 +14,8 @@ class LilyPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height * 0.8);
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // 1. Draw Pot (unchanged — flower is the focus)
     _drawPot(canvas, center, size, paint);
 
-    // 2. Draw Plant based on stage
     if (stage >= 1) {
       _drawLily(canvas, center, paint);
     }
@@ -36,7 +30,6 @@ class LilyPainter extends CustomPainter {
       height: potHeight,
     );
 
-    // Soil the stem grows out of.
     paint
       ..shader = null
       ..style = PaintingStyle.fill
@@ -59,7 +52,6 @@ class LilyPainter extends CustomPainter {
       paint,
     );
 
-    // Soft pink pot with gradient.
     paint.color = AppColors.petalWhite;
     paint.shader = LinearGradient(
       begin: Alignment.topLeft,
@@ -71,7 +63,6 @@ class LilyPainter extends CustomPainter {
       paint,
     );
 
-    // Soft side shade so the pot feels round.
     paint.shader = null;
     paint.color = Colors.pink[300]!.withValues(alpha: 0.35);
     canvas.drawRRect(
@@ -87,7 +78,6 @@ class LilyPainter extends CustomPainter {
       paint,
     );
 
-    // Pot rim + top light-catch.
     paint.color = Colors.pink[300]!;
     final rim = Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8);
     canvas.drawRRect(
@@ -105,7 +95,6 @@ class LilyPainter extends CustomPainter {
   }
 
   void _drawLily(Canvas canvas, Offset center, Paint paint) {
-    // Gentle sway + breathing. Keeps the bloom inside a 150px card.
     final sway = (animationValue - 0.5) * 5.0;
     final stemHeight = 20.0 + stage * 11.0 + animationValue * 3.0;
     final base = Offset(center.dx, center.dy);
@@ -131,7 +120,6 @@ class LilyPainter extends CustomPainter {
       ..moveTo(base.dx, base.dy)
       ..quadraticBezierTo(control.dx, control.dy, top.dx, top.dy);
 
-    // Main stem
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -140,7 +128,6 @@ class LilyPainter extends CustomPainter {
       ..color = AppColors.cinemaGreen;
     canvas.drawPath(path, paint);
 
-    // Soft highlight so the stem feels round, not flat
     final highlight = Path()
       ..moveTo(base.dx + 1.2, base.dy - 2)
       ..quadraticBezierTo(control.dx + 1.2, control.dy, top.dx + 0.8, top.dy);
@@ -150,7 +137,6 @@ class LilyPainter extends CustomPainter {
     canvas.drawPath(highlight, paint);
   }
 
-  /// Point on the quadratic stem curve at [t] (0 = base, 1 = bloom).
   Offset _stemPoint(Offset base, Offset control, Offset top, double t) {
     final u = 1 - t;
     return Offset(
@@ -166,20 +152,17 @@ class LilyPainter extends CustomPainter {
     Offset top,
     Paint paint,
   ) {
-    // More leaves as the plant grows: 1 → 4.
     final count = stage.clamp(1, 4);
     const fractions = [0.22, 0.42, 0.58, 0.72];
     for (var i = 0; i < count; i++) {
       final t = fractions[i];
       final pos = _stemPoint(base, control, top, t);
       final right = i.isEven;
-      // Lower leaves are longer; upper leaves stay small.
       final length = (26.0 - i * 3.0) * (stage >= 4 ? 1.0 : 0.75);
       _drawLanceLeaf(canvas, pos, right, length, paint);
     }
   }
 
-  /// Long lily leaf with a pointed tip, soft edge, and center vein.
   void _drawLanceLeaf(
     Canvas canvas,
     Offset pos,
@@ -212,14 +195,12 @@ class LilyPainter extends CustomPainter {
       ..color = AppColors.cinemaMatch;
     canvas.drawPath(leaf, paint);
 
-    // Edge
     paint
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..color = AppColors.cinemaGreen.withValues(alpha: 0.6);
     canvas.drawPath(leaf, paint);
 
-    // Vein
     paint
       ..strokeWidth = 1
       ..color = AppColors.petalWhite.withValues(alpha: 0.55);
@@ -241,7 +222,6 @@ class LilyPainter extends CustomPainter {
     paint
       ..style = PaintingStyle.fill
       ..shader = null;
-    // Two tiny leaves + a tip dot instead of a flat circle.
     _drawLanceLeaf(canvas, top.translate(0, 4), true, 10, paint);
     _drawLanceLeaf(canvas, top.translate(0, 4), false, 10, paint);
     paint.color = AppColors.cinemaGreen;
@@ -257,7 +237,6 @@ class LilyPainter extends CustomPainter {
       height: h,
     );
 
-    // Sepals hugging the base
     paint
       ..style = PaintingStyle.fill
       ..shader = null
@@ -280,7 +259,6 @@ class LilyPainter extends CustomPainter {
       canvas.drawPath(sepal, paint);
     }
 
-    // Teardrop bud: pale base melting into a rosy tip.
     final bud = Path()
       ..moveTo(top.dx, top.dy + 2)
       ..cubicTo(
@@ -299,7 +277,6 @@ class LilyPainter extends CustomPainter {
         top.dx,
         top.dy + 2,
       );
-    // NOTE: reset color to opaque — a translucent color would dim the shader.
     paint.color = AppColors.petalWhite;
     paint.shader = const LinearGradient(
       begin: Alignment.bottomCenter,
@@ -308,7 +285,6 @@ class LilyPainter extends CustomPainter {
     ).createShader(rect);
     canvas.drawPath(bud, paint);
 
-    // Highlight + blushing tip
     paint.shader = null;
     paint
       ..style = PaintingStyle.stroke
@@ -342,7 +318,6 @@ class LilyPainter extends CustomPainter {
     canvas.rotate(sway * 0.012);
     canvas.translate(-top.dx, -top.dy);
 
-    // Soft halo (layered circles — cheap on web, no blur).
     if (full) {
       paint
         ..style = PaintingStyle.fill
@@ -353,14 +328,12 @@ class LilyPainter extends CustomPainter {
       canvas.drawCircle(top, length * 0.85, paint);
     }
 
-    // Six bright tepals; depth comes from a soft offset shadow.
     for (var i = 0; i < 6; i++) {
       _drawPetal(canvas, top, i, length, width, paint);
     }
 
     _drawHeart(canvas, top, full, paint);
 
-    // Dew sparkle on one petal — twinkles with the breathing loop.
     if (full) {
       final sparklePos = top + Offset(length * 0.42, -length * 0.55);
       paint
@@ -389,7 +362,6 @@ class LilyPainter extends CustomPainter {
     canvas.translate(top.dx, top.dy);
     canvas.rotate(angle);
 
-    // Elongated petal with a softly recurved tip.
     final petal = Path()
       ..moveTo(0, -2)
       ..cubicTo(
@@ -409,15 +381,12 @@ class LilyPainter extends CustomPainter {
         -2,
       );
 
-    // Soft offset shadow for depth (cheap, web-safe).
     paint
       ..style = PaintingStyle.fill
       ..shader = null
       ..color = AppColors.deepRose.withValues(alpha: 0.28);
     canvas.drawPath(petal.shift(const Offset(1.6, 2.4)), paint);
 
-    // Bright petal: white throat melting into a rosy tip.
-    // NOTE: reset color to opaque — a translucent color would dim the shader.
     paint.color = AppColors.petalWhite;
     paint.shader = const LinearGradient(
       begin: Alignment.bottomCenter,
@@ -431,7 +400,6 @@ class LilyPainter extends CustomPainter {
     ).createShader(Rect.fromLTWH(-width, -length, width * 2, length));
     canvas.drawPath(petal, paint);
 
-    // Thin rosy edge
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -439,7 +407,6 @@ class LilyPainter extends CustomPainter {
       ..color = AppColors.deepRose.withValues(alpha: 0.3);
     canvas.drawPath(petal, paint);
 
-    // Pale throat stripe fading toward the tip
     paint
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
@@ -450,7 +417,6 @@ class LilyPainter extends CustomPainter {
       ..color = AppColors.blushGold.withValues(alpha: 0.8);
     canvas.drawLine(const Offset(0, -5), Offset(0, -length * 0.7), paint);
 
-    // Tiny lily speckles near the throat
     paint.style = PaintingStyle.fill;
     paint.color = AppColors.deepRose.withValues(alpha: 0.5);
     canvas.drawCircle(const Offset(-2.5, -9), 0.9, paint);
@@ -461,19 +427,16 @@ class LilyPainter extends CustomPainter {
     paint.style = PaintingStyle.fill;
   }
 
-  /// Golden throat, six stamens, and a blushing pistil.
   void _drawHeart(Canvas canvas, Offset top, bool full, Paint paint) {
     paint
       ..style = PaintingStyle.fill
       ..shader = null;
 
-    // Throat
     paint.color = AppColors.auroraGold.withValues(alpha: 0.95);
     canvas.drawCircle(top, full ? 5.5 : 4.2, paint);
     paint.color = AppColors.warmAmber.withValues(alpha: 0.9);
     canvas.drawCircle(top, full ? 3.0 : 2.2, paint);
 
-    // Six stamens peeking between the petals
     final count = full ? 6 : 3;
     for (var i = 0; i < count; i++) {
       final angle = (2 * pi / count) * i + pi / 6;
@@ -482,14 +445,12 @@ class LilyPainter extends CustomPainter {
         top.dx + cos(angle) * len,
         top.dy + sin(angle) * len * 0.9 - 1,
       );
-      // Filament
       paint
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round
         ..color = AppColors.petalWhite.withValues(alpha: 0.95);
       canvas.drawLine(top, tip, paint);
-      // Anther
       canvas.save();
       canvas.translate(tip.dx, tip.dy);
       canvas.rotate(angle + pi / 2);
@@ -507,7 +468,6 @@ class LilyPainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Pistil heart
     paint
       ..style = PaintingStyle.fill
       ..color = AppColors.deepRose;

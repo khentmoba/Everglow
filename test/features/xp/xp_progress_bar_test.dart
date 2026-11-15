@@ -13,7 +13,6 @@ void main() {
       lastActivity: DateTime(2026, 9, 8),
     );
 
-    // Box with zero width constraints — previously threw "Invalid argument: 0"
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -26,7 +25,6 @@ void main() {
     );
     expect(tester.takeException(), isNull);
 
-    // Box with very narrow constraints (< 14px)
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

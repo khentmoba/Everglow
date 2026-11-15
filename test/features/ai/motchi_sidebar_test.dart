@@ -335,7 +335,6 @@ void main() {
     expect(find.text('Movie night ideas'), findsOneWidget);
     expect(find.text('Dinner recipe with pasta'), findsOneWidget);
 
-    // Enter query 'movie'
     await tester.enterText(find.byType(TextField), 'movie');
     await tester.pump();
 
@@ -343,7 +342,6 @@ void main() {
     expect(find.text('Dinner recipe with pasta'), findsNothing);
     expect(find.text('filtered'), findsOneWidget);
 
-    // Enter non-matching query
     await tester.enterText(find.byType(TextField), 'astronaut');
     await tester.pump();
 
@@ -351,7 +349,6 @@ void main() {
     expect(find.textContaining('No matches for “astronaut”'), findsOneWidget);
     expect(find.text('Clear search'), findsOneWidget);
 
-    // Tap clear search
     await tester.tap(find.text('Clear search'));
     await tester.pump();
 

@@ -57,8 +57,6 @@ class _SpotifyEmbedViewState extends State<SpotifyEmbedView> {
       child: SizedBox(
         height: 80,
         width: double.infinity,
-        // Built-in factory: no per-track registration to retain, and the
-        // stored frame is blanked when the track changes or exits.
         child: HtmlElementView.fromTagName(
           tagName: 'div',
           onElementCreated: (element) {

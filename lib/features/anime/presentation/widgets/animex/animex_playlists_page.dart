@@ -35,7 +35,6 @@ const _emojiGlyphs = {
   'crown': '👑',
 };
 
-/// Custom playlists page with create/rename/delete management.
 class AnimeXPlaylistsPage extends StatelessWidget {
   final AnimeXController controller;
 

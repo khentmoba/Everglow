@@ -146,7 +146,6 @@ void main() {
       );
       await tester.pump();
 
-      // Tap the row to open ListenAlongPopup
       await tester.tap(find.text('Cruel Summer'));
       await tester.pump();
 

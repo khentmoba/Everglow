@@ -39,7 +39,6 @@ part 'watch_party_widgets.dart';
 part 'watch_party_state_base.dart';
 part 'watch_party_state_core2.dart';
 
-// ─── Color tokens (mirror cinema_screen.dart / episode_drawer.dart) ──
 const _cRose = AppColors.roseQuartz;
 const _cCard = AppColors.shimmerBase;
 const _cDeepRose = AppColors.deepRose;
@@ -48,33 +47,9 @@ const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 const _cGreen = AppColors.success;
 
-/// Real-time synchronized playback screen for the couple.
-///
-/// Built on top of the same third-party embed providers as the regular
-/// [VideoPlayerScreen] (Videasy / VidLink / 2Embed / etc.) but with a
-/// coordination layer that mirrors the host's playback state to the
-/// partner's iframe. See `lib/features/watch_party/data/services/watch_party_service.dart`
-/// for the room lifecycle; this file handles the UI + sync timing.
-///
-/// Why we don't get pixel-perfect sync:
-///   The iframes are cross-origin and don't expose their timeline, so
-///   we can't read `currentTime` or call `play()/pause()` on them
-///   directly. Instead both clients keep a local clock anchored to
-///   the most recent Firestore update, and when the host's time
-///   diverges from the partner's by more than [_resyncThreshold] we
-///   rebuild the iframe with a fresh `?start=` hint. This isn't a
-///   frame-perfect Netflix Party — it's a "we're watching the same
-///   scene within a few seconds" best effort, which is good enough
-///   for a movie night across town.
 class WatchPartyScreen extends StatefulWidget {
-  /// The room to join. The host constructs this from the picked media
-  /// + their auth info; the partner receives the same `id` from
-  /// Firestore when they tap Resume on the dashboard.
   final WatchPartyRoom initialRoom;
 
-  /// True if the current user is the room's host. Drives UI affordances
-  /// (host gets the play/pause button; partner gets Resync + the
-  /// "follow host" auto-resync loop).
   final bool isHost;
 
   const WatchPartyScreen({
@@ -142,8 +117,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     return _lastWindowedMaxPlayerHeight ?? computed;
   }
 
-  /// Cinema-style 16:9 stage. Keeps the HLS player / iframe in the same
-  /// platform view, with loading, error, sync, voice, and chat overlays.
   Widget _buildCinemaPlayerStage() {
     if (!_room.hasMedia) return _buildEmptyStage();
     final maxPlayerHeight = _computeMaxPlayerHeight(context);
@@ -191,8 +164,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                     },
                   )
                 else if (!_iframeFailed)
-                  // Built-in factory: server/media switches reuse this
-                  // one frame instead of registering new ones.
                   HtmlElementView.fromTagName(
                     tagName: 'div',
                     onElementCreated: (element) {
@@ -231,8 +202,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     return _selectedProvider.shortName;
   }
 
-  /// Empty room: nothing is playing yet, so the stage becomes a single
-  /// obvious action instead of a black rectangle with a dead player.
   Widget _buildEmptyStage() {
     final maxPlayerHeight = _computeMaxPlayerHeight(context);
     return ConstrainedBox(
@@ -410,8 +379,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     );
   }
 
-  /// Seek bar for the real `<video>` path. Embeds don't expose a
-  /// timeline, so this only appears for Everglow/HLS rooms.
   Widget _buildSeekBar() {
     if (!_isHlsServer || !_room.hasMedia) return const SizedBox.shrink();
     final duration = _hlsController.duration;
@@ -925,10 +892,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     );
   }
 
-  /// Local volume for HLS rooms. Third-party iframes own their own
-  /// in-player volume (unreachable cross-origin), so this slider only
-  /// exists where we render the real `<video>` element. The level is
-  /// remembered per room on this device.
   Widget _buildVolumeControl() {
     return Semantics(
       label: 'Volume',
@@ -1042,18 +1005,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildEndDialog() {
-    // NOTE: This dialog lives inside the player-stage Stack, directly above
-    // the cross-origin iframe / HLS platform view. On Flutter web a platform
-    // view is a DOM element that swallows every pointer event in its rect,
-    // so Flutter-painted buttons rendered here are visible but never receive
-    // taps. PointerInterceptor inserts a transparent platform-view layer of
-    // its own above the iframe and forwards the events back to Flutter.
-    // (pointer_interceptor is already a pubspec dependency.)
     return PointerInterceptor(
       child: Stack(
         children: [
           GestureDetector(
-            // Tapping outside the card counts as "Stay".
             onTap: () => _resolveEndDialog(false),
             child: Container(color: Colors.black.withValues(alpha: 0.6)),
           ),
@@ -1118,9 +1073,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     );
   }
 
-  /// Completes the pending `_endParty` confirmation exactly once and hides
-  /// the dialog. Guarded so a rapid double-tap on Stay/End (or a backdrop
-  /// tap racing a button tap) can't throw "Future already completed".
   void _resolveEndDialog(bool end) {
     _endDialogCallback?.call(end);
     _endDialogCallback = null;

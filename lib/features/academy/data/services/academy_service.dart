@@ -10,7 +10,6 @@ class AcademyService {
   AcademyService({FirebaseFirestore? firestore}) : _customFirestore = firestore;
 
   final FirebaseFirestore? _customFirestore;
-  // Lazy so widget tests can construct the service without Firebase.
   FirebaseFirestore get _firestore =>
       _customFirestore ?? FirebaseFirestore.instance;
 
@@ -20,11 +19,8 @@ class AcademyService {
       _firestore.collection('active_matches');
   CollectionReference get _usersRef => _firestore.collection('users');
 
-  /// Match length for 1v1. The shared [GameMatch.questionIds] order decides
-  /// the real length; this is the snapshot size at creation.
   static const int matchLength = 10;
 
-  // Fetch random questions for a category
   Future<List<AcademyQuestion>> getQuestions(
     String category, {
     int limit = 10,
@@ -45,8 +41,6 @@ class AcademyService {
     return questions.take(limit).toList();
   }
 
-  /// Random questions for a category, skipping [excludeIds] (already seen).
-  /// Falls back to the full pool when everything was seen.
   Future<List<AcademyQuestion>> getQuestionsExcluding(
     String category, {
     int limit = 10,
@@ -67,17 +61,13 @@ class AcademyService {
     if (excludeIds.isEmpty) return questions.take(limit).toList();
     final fresh = questions.where((q) => !excludeIds.contains(q.id)).toList();
     if (fresh.length >= limit) return fresh.take(limit).toList();
-    // Not enough fresh ones — mix fresh first, then repeats.
     final rest = questions.where((q) => excludeIds.contains(q.id));
     return [...fresh, ...rest].take(limit).toList();
   }
 
-  /// Loads questions by doc ID, in [ids] order. Skips missing docs.
-  /// Used for 1v1 shared sets so both phones see identical questions.
   Future<List<AcademyQuestion>> getQuestionsByIds(List<String> ids) async {
     if (ids.isEmpty) return [];
     final found = <String, AcademyQuestion>{};
-    // whereIn caps at 10 ids per query — chunk larger sets.
     for (var i = 0; i < ids.length; i += 10) {
       final chunk = ids.skip(i).take(10).toList();
       final query = await withGetTimeout(
@@ -94,7 +84,6 @@ class AcademyService {
     ];
   }
 
-  // Update Study Points for a user
   Future<void> updateStudyPoints(String userId, int points) async {
     final userDoc = _usersRef.doc(userId);
     await _firestore.runTransaction((transaction) async {
@@ -110,7 +99,6 @@ class AcademyService {
     });
   }
 
-  // Seeding helper
   Future<void> seedQuestions() async {
     try {
       final String jsonString = await rootBundle.loadString(
@@ -118,7 +106,6 @@ class AcademyService {
       );
       final List<dynamic> data = jsonDecode(jsonString);
 
-      // Process in batches of 500 (Firestore limit)
       for (var i = 0; i < data.length; i += 500) {
         final batch = _firestore.batch();
         final end = (i + 500 < data.length) ? i + 500 : data.length;
@@ -149,23 +136,14 @@ class AcademyService {
     }
   }
 
-  // 1v1 Matchmaking logic.
-  //
-  // [userUid] is the Firebase Auth UID (what security rules check);
-  // [username] is the profile name (what scoring + display use).
-  // The host snapshots the shared question order at creation so both
-  // phones play identical questions — callers should pass Motchi-fresh
-  // ids when available, otherwise we snapshot from the cached pool.
   Future<GameMatch> joinOrCreateMatch({
     required String userUid,
     required String username,
     required String category,
     List<String>? questionIds,
   }) async {
-    // 1. Cleanup stale matches
     await _cleanupStaleMatches(userUid);
 
-    // 2. Try to find a waiting match
     final waitingMatches = await withGetTimeout(
       _matchesRef
           .where('status', isEqualTo: 'waiting')
@@ -199,7 +177,6 @@ class AcademyService {
       });
     }
 
-    // 3. Create new match with a snapshotted question order.
     final ids = (questionIds != null && questionIds.isNotEmpty)
         ? questionIds.take(matchLength).toList()
         : (await getQuestions(
@@ -229,9 +206,6 @@ class AcademyService {
     return newMatch;
   }
 
-  /// Swaps a still-waiting match to a fresher question order (the host's
-  /// Motchi set). Returns false when a guest already joined — the
-  /// original cached order stands so the game stays in sync.
   Future<bool> upgradeWaitingMatchQuestions({
     required String matchId,
     required List<String> questionIds,
@@ -257,8 +231,6 @@ class AcademyService {
     }
   }
 
-  /// Deletes a still-waiting match (host cancelled search). Finished or
-  /// active matches are left alone.
   Future<void> cancelWaitingMatch(String matchId) async {
     try {
       final doc = await withGetTimeout(
@@ -275,13 +247,6 @@ class AcademyService {
     }
   }
 
-  /// Records a correct 1v1 answer (fastest finger wins the point).
-  /// Returns true when this call advanced the match; false when the
-  /// question was already answered or the match is over.
-  ///
-  /// Transaction-safe: reads + writes the match doc only, never fetches
-  /// the question pool mid-transaction. The next question comes from the
-  /// snapshotted [GameMatch.questionIds] order.
   Future<bool> submitAnswer({
     required String matchId,
     required String username,
@@ -295,13 +260,11 @@ class AcademyService {
       final match = GameMatch.fromFirestore(snapshot);
 
       if (match.status != 'active' || match.currentQuestionId != questionId) {
-        return false; // Question already answered or match over
+        return false;
       }
 
       final isHost = (match.hostUsername ?? match.hostId) == username;
       final nextIndex = match.questionIndex + 1;
-      // Legacy docs (pre-refresh) have no snapshotted order — score this
-      // answer and finish rather than stranding the match mid-game.
       final isFinished = match.questionIds.isEmpty
           ? true
           : nextIndex >= match.questionIds.length;

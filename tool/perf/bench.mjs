@@ -1,7 +1,3 @@
-// Desktop/headless shared-widget benchmark, not a calibrated phone measurement.
-// node tool/perf/bench.mjs [--build | --web-root DIR] [--runs 3]
-//   [--scene shelves,grid] [--throttle 4] [--dpr 3] [--out FILE] [--shot DIR]
-// Requires the compile-time bench route, live meter and runtime-only scroll getter.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -62,7 +58,6 @@ async function waitForMirror(cdp, timeoutMs) {
 async function measure(cdp, act, phase, previous) {
   const before = validateMirror(await readMirror(cdp));
   await act();
-  // Meter publishes periodically, so include its next reading, not old data.
   await sleep(600);
   const perf = validateMirror(await readMirror(cdp),before);
   if (previous) validateMirror(perf,previous);
@@ -72,13 +67,11 @@ async function measure(cdp, act, phase, previous) {
     sessionOver200ms:perf.sessionOver200ms, sessionOverBudgetPct:perf.sessionOverBudgetPercent,
     sessionSlowFramePct:perf.sessionSlowFramePercent,
     avgBuildMs:perf.buildAvgMs, avgRasterMs:perf.rasterAvgMs,
-    // Full-session maxima survive the HUD's bounded rolling window.
     worstBuildMs:perf.sessionWorstBuildMs, worstRasterMs:perf.sessionWorstRasterMs,
     worstFrameMs:perf.sessionWorstFrameMs, sessionFrames:perf.sessionFrames,
     freshFrames:perf.sessionFrames-before.sessionFrames, sampleSequence:perf.sampleSequence,
   };
 }
-// Scripted wheel gestures exercise the scene's real offset; not a phone flick.
 async function scrollPass(cdp, scene, steps, settleMs) {
   const initial = await readScroll(cdp,scene);
   let maxOffset = initial.offset;
@@ -115,8 +108,6 @@ async function runScene(scene, run, url, options) {
     await cdp.send('Network.setBypassServiceWorker',{bypass:true});
     await cdp.send('Network.setBlockedURLs',{urls:['*sw.js*']});
     await cdp.send('Emulation.setCPUThrottlingRate',{rate:options.throttle});
-    // Observe the WHOLE navigation/session, including load and idle. Never clear
-    // tasks between phases: late good samples must not erase an earlier freeze.
     await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:LONG_TASK_OBSERVER});
     const before = await cdp.eval('performance.timeOrigin');
     const nav = await cdp.send('Page.navigate',{url:`${url}${SCENE_PATHS[scene]}?perf=1`});
@@ -128,7 +119,7 @@ async function runScene(scene, run, url, options) {
     if (doc.timeOrigin === before) throw new Error('bench did not open a fresh document');
     if (typeof doc.stamp !== 'string' || !doc.stamp) throw new Error('missing production build stamp; use --build or a stamped --web-root');
     row.build = doc.stamp;
-    await readLongTasks(cdp); // missing/unsupported instrumentation is an error
+    await readLongTasks(cdp);
     await readScroll(cdp,scene);
     row.idle = await measure(cdp,() => sleep(options.idleMs),'idle',initial);
     let movement;

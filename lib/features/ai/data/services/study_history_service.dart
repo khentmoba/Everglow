@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 
 import 'study_doc_service.dart';
 
-/// One persisted Q&A turn in a Study session.
 class StudyHistoryTurn {
   final bool fromUser;
   final String text;
@@ -24,11 +23,6 @@ class StudyHistoryTurn {
   }
 }
 
-/// A persisted Study session: attached PDF sources + Q&A turns.
-///
-/// Lives in `ai_memories/shared/study_sessions` — separate from the generic
-/// `sessions` collection so Motchi's auto-archive/trim logic never touches
-/// study history.
 class StudySession {
   final String id;
   final String title;
@@ -51,14 +45,8 @@ class StudySession {
   });
 }
 
-/// Max source characters kept in a stored history snapshot. Live sessions
-/// are uncapped, but Firestore caps a doc at 1 MiB — so monster PDFs are
-/// trimmed here (flagged truncated) while the live chat keeps everything.
 const int kMaxStoredStudySourceChars = 500000;
 
-/// Trims [sources] to fit the history snapshot budget. Returns the same
-/// list untouched when it already fits; otherwise each doc keeps an even
-/// share of the budget, flagged truncated so the shelf label stays honest.
 List<StudyDoc> trimSourcesForStorage(List<StudyDoc> sources) {
   final total = sources.fold(0, (a, d) => a + d.text.length);
   if (total <= kMaxStoredStudySourceChars || sources.isEmpty) return sources;
@@ -76,7 +64,6 @@ List<StudyDoc> trimSourcesForStorage(List<StudyDoc> sources) {
   ];
 }
 
-/// Builds a readable session title from the first user question.
 String studySessionTitle(List<StudyHistoryTurn> turns) {
   for (final turn in turns) {
     if (!turn.fromUser) continue;
@@ -88,10 +75,6 @@ String studySessionTitle(List<StudyHistoryTurn> turns) {
   return 'Untitled study';
 }
 
-/// Firestore CRUD for Study session history.
-///
-/// Shared between Khent and Clair (couple-only, enforced by rules).
-/// All failures are swallowed (debug-logged) so history never breaks chat.
 class StudyHistoryService {
   final FirebaseFirestore _db;
 
@@ -101,9 +84,6 @@ class StudyHistoryService {
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('ai_memories').doc('shared').collection('study_sessions');
 
-  /// Creates a new session when [sessionId] is null, otherwise updates it.
-  /// Returns the session id, or null when there is nothing worth saving or
-  /// the write failed.
   Future<String?> saveSession({
     String? sessionId,
     required List<StudyDoc> sources,
@@ -117,8 +97,6 @@ class StudyHistoryService {
               : '${sources.length} source${sources.length == 1 ? '' : 's'} — ${sources.first.fileName}')
         : studySessionTitle(turns);
 
-    // Cap stored turns and sources so the doc stays under Firestore's
-    // 1 MiB ceiling. The live session keeps full text either way.
     final storedTurns = turns.length > 60
         ? turns.sublist(turns.length - 60)
         : turns;
@@ -156,7 +134,6 @@ class StudyHistoryService {
     }
   }
 
-  /// Lists sessions newest-first by last activity.
   Future<List<StudySession>> listSessions({int limit = 30}) async {
     try {
       final snap = await _col
@@ -165,7 +142,6 @@ class StudyHistoryService {
           .get();
       return snap.docs.map(_fromDoc).toList();
     } catch (e) {
-      // Fallback for older docs missing `updatedAt`: order by creation time.
       try {
         final snap = await _col
             .orderBy('createdAt', descending: true)
@@ -181,7 +157,6 @@ class StudyHistoryService {
     }
   }
 
-  /// Loads one full session (sources + turns) for restoring.
   Future<StudySession?> loadSession(String sessionId) async {
     try {
       final doc = await _col.doc(sessionId).get();
@@ -235,7 +210,6 @@ class StudyHistoryService {
       sourceNames: sourceNames,
       sources: sourcesJson.map((s) {
         final m = s as Map<String, dynamic>? ?? {};
-        // Defensive cast: Firestore may return Map<dynamic, dynamic>.
         final map = Map<String, dynamic>.from(m);
         return StudyDoc(
           fileName: map['fileName'] as String? ?? 'PDF',

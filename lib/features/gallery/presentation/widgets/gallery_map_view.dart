@@ -6,8 +6,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 
-/// Immich-inspired map — lightweight stylized map with normalized pins.
-/// No external map tiles; OSM link opens externally.
 class GalleryMapView extends StatelessWidget {
   final List<MemoryPhoto> photos;
   const GalleryMapView({super.key, required this.photos});
@@ -50,7 +48,6 @@ class GalleryMapView extends StatelessWidget {
       );
     }
 
-    // Compute bounds to normalize
     double minLat = located
         .map((p) => p.latitude!)
         .reduce((a, b) => a < b ? a : b);
@@ -131,16 +128,13 @@ class GalleryMapView extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Stack(
                 children: [
-                  // Subtle grid + glow
                   Positioned.fill(
                     child: CustomPaint(painter: _MapGridPainter()),
                   ),
-                  // Pins
                   ...located.map((p) {
                     final nx = (p.longitude! - minLng) / lngRange;
                     final ny =
-                        1 - (p.latitude! - minLat) / latRange; // invert lat
-                    // Clamp 0.08-0.92 to keep inside
+                        1 - (p.latitude! - minLat) / latRange;
                     final x = 0.08 + nx * 0.84;
                     final y = 0.10 + ny * 0.80;
                     return Align(
@@ -154,7 +148,6 @@ class GalleryMapView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // List below map
         SizedBox(
           height: 92,
           child: ListView.builder(
@@ -451,7 +444,6 @@ class _MapGridPainter extends CustomPainter {
     for (double y = 0; y < size.height; y += 36) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
-    // Glow blobs
     final glow = Paint()..color = AppColors.deepRose.withValues(alpha: 0.07);
     canvas.drawCircle(Offset(size.width * 0.3, size.height * 0.4), 80, glow);
     canvas.drawCircle(

@@ -28,11 +28,6 @@ import '../../../../../core/perf/perf_settings.dart';
 
 enum AnimeMotchiDeepThink { auto, on, off }
 
-/// Dedicated temporary Motchi chat sidebar for the Anime section.
-///
-/// Looks exactly like the main Motchi chat — same bubbles, same composer,
-/// same empty state — but stays a temporary unsaved session in a sliding
-/// side panel.
 class AnimeXMotchiSidebar extends StatefulWidget {
   final bool isOpen;
   final VoidCallback onClose;
@@ -111,7 +106,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
     if (widget.isOpen != oldWidget.isOpen) {
       if (widget.isOpen) {
         _anim.forward();
-        // Auto-focus input when opened
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && widget.isOpen) {
             _focusNode.requestFocus();
@@ -226,7 +220,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
         break;
     }
 
-    // Build context if watching an anime
     String? contextOverride;
     final watchItem = widget.controller.watchItem;
     if (watchItem != null) {
@@ -374,7 +367,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
 
         return Stack(
           children: [
-            // Backdrop scrim on mobile/tablet or when tapped outside
             Positioned.fill(
               child: GestureDetector(
                 onTap: widget.onClose,
@@ -386,7 +378,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
               ),
             ),
 
-            // Sidebar panel sliding in from right
             Positioned(
               top: 0,
               bottom: 0,
@@ -438,7 +429,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
     );
   }
 
-  /// Same header as the main Motchi chat: close, avatar, title, new chat.
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -628,7 +618,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
     );
   }
 
-  /// Same empty state as main Motchi, with anime-flavored quick asks.
   Widget _buildEmptyState(String? callerName) {
     final pet = motchiPetName(callerName);
     final watchItem = widget.controller.watchItem;
@@ -799,7 +788,6 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
     );
   }
 
-  /// Same composer as the main Motchi chat.
   Widget _buildComposer() {
     return Selector<AIService, bool>(
       selector: (_, ai) => ai.isLoading,
@@ -1075,8 +1063,6 @@ class _AnimeDeepThinkPill extends StatelessWidget {
   }
 }
 
-/// Same message bubble as the main Motchi chat: soft user pill, plain
-/// assistant text with a small Motchi header row.
 class _AnimeMessageBubble extends StatefulWidget {
   final String text;
   final bool isUser;
@@ -1574,7 +1560,6 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
-        // Outer diffuse glow bloom
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -1599,7 +1584,6 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
             );
           },
         ),
-        // Primary halo: preserves key and radial gradient color alpha animation
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -1620,7 +1604,6 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
             );
           },
         ),
-        // Breathing avatar with soft shadow pulse
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -1651,7 +1634,6 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
   }
 }
 
-/// Animated badge beside Motchi's name showing she is replying / thinking.
 class _AnimeReplyingBadge extends StatefulWidget {
   final bool isThinking;
   const _AnimeReplyingBadge({this.isThinking = false});
@@ -1834,7 +1816,6 @@ class _AnimeStreamingCaretState extends State<_AnimeStreamingCaret>
   }
 }
 
-/// Trailing indicator showing Motchi is actively typing/replying at the stream tail.
 class _AnimeStreamingTailIndicator extends StatelessWidget {
   const _AnimeStreamingTailIndicator();
 
@@ -1852,7 +1833,6 @@ class _AnimeStreamingTailIndicator extends StatelessWidget {
   }
 }
 
-/// Three micro-dots doing a gentle wave while Motchi generates text.
 class _AnimeStreamingDotsWave extends StatefulWidget {
   const _AnimeStreamingDotsWave();
 
@@ -2364,8 +2344,6 @@ class _AnimeWebSourceTileState extends State<_AnimeWebSourceTile> {
   }
 }
 
-/// Opens a source link outside Everglow. Failures stay silent — a dead
-/// link is not worth an error banner in the middle of Clair's chat.
 Future<void> _animeOpenWebSource(String url) async {
   final uri = Uri.tryParse(url.trim());
   if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) return;
@@ -2664,7 +2642,6 @@ Uint8List _decodeBase64(String dataUri) {
   return decoded;
 }
 
-/// Floating trigger button anchored on the right/bottom-right of the Anime section.
 class AnimeXMotchiFloatingTrigger extends StatelessWidget {
   final VoidCallback onTap;
 

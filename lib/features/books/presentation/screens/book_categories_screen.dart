@@ -15,8 +15,6 @@ const _cCard = AppColors.shimmerBase;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Z-Library style category browse: every shelf in one grid.
-/// Tapping a tile opens the full category list page.
 class BookCategoriesScreen extends StatelessWidget {
   const BookCategoriesScreen({super.key});
 

@@ -73,7 +73,6 @@ test('enforceRateLimit keys authed callers by uid, not IP', () => {
   const b = { endpoint, limit: 1, windowMs: 60000, uid: `u-b-${Date.now()}` };
   assert.equal(enforceRateLimit(fakeReq(), mkRes(), a), false);
   assert.equal(enforceRateLimit(fakeReq(), mkRes(), a), true);
-  // A different user on the same IP still gets their own budget.
   assert.equal(enforceRateLimit(fakeReq(), mkRes(), b), false);
 });
 

@@ -2,9 +2,6 @@ import 'dart:async';
 
 import '../../../../core/utils/logger.dart';
 
-/// Throttles cloud progress without postponing every save on every tick.
-/// Each callback captures its own profile/episode/position; writes are ordered
-/// so a slow old-episode save cannot overwrite the next episode's progress.
 class PlaybackProgressWriter {
   Timer? _timer;
   Future<void> Function()? _pending;
@@ -37,8 +34,6 @@ class PlaybackProgressWriter {
   }
 }
 
-/// Never infer completion from wall-clock time or a credits estimate.
-/// Silent embeds keep the manual Next button instead.
 bool shouldAutoplayNext({
   required bool enabled,
   required int positionSeconds,

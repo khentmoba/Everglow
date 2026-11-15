@@ -1,17 +1,9 @@
 part of 'katana_service.dart';
 
-/// Bookmarks, reading list, and couple recommendations for [KatanaService].
 extension KatanaServiceSocial on KatanaService {
-  // ── Bookmarks (Firestore, per Everglow user) ────────────────────
-
   CollectionReference<Map<String, dynamic>> get _bookmarks =>
       _firestore.collection('katana_bookmarks');
 
-  /// Bookmarks for [userName].
-  ///
-  /// [bookmarkedOnly] is for the bookmarks shelf. The reading surfaces also
-  /// read this stream for progress, and an unbookmarked series must keep
-  /// its "Ch. X • Page Y" there, so they leave it false.
   Stream<List<KatanaBookmark>> bookmarkStream(
     String userName, {
     bool bookmarkedOnly = false,
@@ -31,8 +23,6 @@ extension KatanaServiceSocial on KatanaService {
         );
   }
 
-  /// The signed-in user's own bookmark record for [slug], including which
-  /// chapters they have finished. Null when they have never read it.
   Future<KatanaBookmark?> fetchBookmark(String slug, String userName) async {
     if (userName.isEmpty || slug.isEmpty) return null;
     try {
@@ -53,13 +43,6 @@ extension KatanaServiceSocial on KatanaService {
     }
   }
 
-  /// Records that [chapterId] has been finished. Read state lives on the
-  /// same per-user bookmark document as progress, so it needs no extra
-  /// collection and no extra rules.
-  ///
-  /// [title] and [coverUrl] are written too: a read mark must never be
-  /// the first write for a series, or the bookmarks shelf would gain a
-  /// card with a blank title.
   Future<void> markChapterRead(
     String slug,
     String userName,
@@ -98,9 +81,6 @@ extension KatanaServiceSocial on KatanaService {
     try {
       final ref = _bookmarks.doc('$userName|${manga.slug}');
       if (!bookmarked) {
-        // Clear the flag instead of deleting the document: it also holds
-        // reading progress and the chapters already finished, and deleting
-        // it threw all of that away.
         await ref.set({
           'bookmarked': false,
           'userName': userName,
@@ -116,9 +96,6 @@ extension KatanaServiceSocial on KatanaService {
         latestChapterTitle: manga.latestChapter?.displayTitle ?? '',
       ).toFirestore();
       data['userName'] = userName;
-      // Never write readChapterIds from here. A fresh KatanaBookmark has
-      // an empty set, and merging that would wipe the chapters already
-      // finished every time the bookmark was re-added.
       data.remove('readChapterIds');
       await ref.set(data, SetOptions(merge: true));
     } catch (e) {
@@ -144,21 +121,11 @@ extension KatanaServiceSocial on KatanaService {
         'lastReadChapterTitle': chapterTitle,
         'lastReadPage': page,
       };
-      // Progress saves used to omit title/cover, leaving Continue Reading
-      // cards with a blank title and placeholder cover. Only fill when we
-      // have real values so we never blank out an existing bookmark.
       if (title.isNotEmpty) data['title'] = title;
       if (coverUrl.isNotEmpty) data['coverUrl'] = coverUrl;
       await _bookmarks
           .doc('$userName|$slug')
           .set(data, SetOptions(merge: true));
-      // Auto-add: reading anything pins it to Currently Reading, so
-      // Khent and Clair never have to remember the "Reading" button.
-      // Guarded on title so we never create blank entries when the
-      // reader was opened without metadata; the bookmark above still
-      // saves, and the shelf folds progress-only titles in anyway.
-      // Mirror progress onto the Currently Reading library entry so
-      // the shelf shows "Ch. X • Page Y".
       try {
         final existing = await withGetTimeout(
           _library
@@ -169,18 +136,12 @@ extension KatanaServiceSocial on KatanaService {
           label: 'katana progress save lookup',
         );
         if (existing.docs.isEmpty && title.isNotEmpty) {
-          // The reader only passes title + cover, which would save a bare
-          // entry (wrong MANGA badge, no tags/authors). Pull the detail
-          // page once so the new entry carries full metadata; falls back
-          // to the bare entry when the fetch fails.
           final manga = await _fullMangaForReading(
             slug: slug,
             title: title,
             coverUrl: coverUrl,
           );
           await setReading(manga, userName, reading: true);
-          // setReading creates a deterministic doc id, so no re-read:
-          // stamp this chapter's progress straight onto it.
           await _library
               .doc('$userName|${KatanaService._katanaMangaId(slug)}')
               .set({
@@ -190,9 +151,6 @@ extension KatanaServiceSocial on KatanaService {
           }, SetOptions(merge: true));
         } else {
           for (final doc in existing.docs) {
-            // Repair bare or partial auto-adds on the next read. A record
-            // can have tags/type data while its creator fields are still
-            // empty, so checking tags alone is not enough.
             final metadata = doc.data();
             final tags = metadata['tags'];
             final author = metadata['author'] as String?;
@@ -207,8 +165,6 @@ extension KatanaServiceSocial on KatanaService {
                 title: title,
                 coverUrl: coverUrl,
               );
-              // Never replace an existing record with bare fallback data
-              // when the detail request failed.
               if (manga.title.isNotEmpty &&
                   (manga.authors.isNotEmpty || manga.genres.isNotEmpty)) {
                 await setReading(manga, userName, reading: true);
@@ -229,10 +185,6 @@ extension KatanaServiceSocial on KatanaService {
     }
   }
 
-  /// Full metadata for a Currently Reading entry: the detail page when it
-  /// loads (genres, authors, tags, description), else the bare reader
-  /// metadata so the save still proceeds. `fetchMangaDetail` never throws
-  /// (null on failure), so no try/catch is needed here.
   Future<KatanaManga> _fullMangaForReading({
     required String slug,
     required String title,
@@ -247,8 +199,6 @@ extension KatanaServiceSocial on KatanaService {
       coverUrl: coverUrl,
     );
   }
-
-  // ── Couple reading & recommendations ──────────────────────────
 
   Future<KatanaBookmark?> getPartnerProgress(
     String slug,
@@ -329,9 +279,6 @@ extension KatanaServiceSocial on KatanaService {
       data['coverUrl'] = manga.coverUrl;
       data['userName'] = partner;
       data['recommendedBy'] = fromUser;
-      // Recommending a series the partner previously unbookmarked must put
-      // it back on their shelf; copying their old doc would carry the
-      // cleared flag across and the recommendation would vanish.
       data['bookmarked'] = true;
       data['recommendationNote'] = note.trim();
       data['recommendedAt'] = Timestamp.now();
@@ -340,13 +287,6 @@ extension KatanaServiceSocial on KatanaService {
       Logger.e('recommendManga error', error: e);
     }
   }
-
-  // ── Reading list (manga_library, shared with the dashboard's "Reading" shelf) ──
-  //
-  // The dashboard's "Reading" section streams `manga_library` entries whose
-  // `libraryStatus == 'reading'`, split into "ME" / partner sub-rows. Katana
-  // titles are keyed with a `katana|` prefix so they never collide with the
-  // Comick-sourced manga ids used by the rest of the library.
 
   CollectionReference<Map<String, dynamic>> get _library =>
       _firestore.collection('manga_library');
@@ -415,9 +355,6 @@ extension KatanaServiceSocial on KatanaService {
         'altTitles': manga.altNames,
       };
       if (existing.docs.isNotEmpty) {
-        // Preserve the original add order and any saved chapter
-        // progress — re-marking a series as Reading must not wipe
-        // where Clair left off.
         data.remove('addedAt');
         data.remove('lastReadChapterId');
         data.remove('lastReadPage');

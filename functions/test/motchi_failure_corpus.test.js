@@ -1,19 +1,5 @@
 'use strict';
 
-/* Motchi failure corpus — every known way a tool call can fail, offline.
- *
- * Cases live in `motchi_failure_corpus.json` (data, easy to extend):
- *   validate-ok   representative args must PASS the guard (no false reject)
- *   validate-err  bad args must FAIL the guard (no false accept → executor crash)
- *   fastpath      whole-message fast-path fires / stays silent
- *   routing       adversarial phrasings route to the right tools
- *   followthrough bare yes to an offer keeps the write tools
- *
- * "Perfect agent" = this corpus at 100% plus the eval suites green.
- * Add a case whenever a new failure mode is found in the wild; fix the
- * agent code, never weaken the case.
- */
-
 const { test } = require('node:test');
 const assert = require('node:assert');
 const tools = require('../motchi_tools.js');

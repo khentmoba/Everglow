@@ -29,10 +29,6 @@ function buildTmdbUpstream(path, query = {}, apiKey = '') {
   return upstream;
 }
 
-// `artist.getinfo` carries the optional `username` context, which returns
-// that user's exact all-time playcount for the artist (stats.userplaycount).
-// That is the only reliable per-artist total: top-N charts silently drop
-// plays once a track falls below the page size.
 const LASTFM_METHOD_PATTERN =
   /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|trackscrobbles|info)|track\.getinfo|artist\.(?:search|getinfo|gettoptracks))$/i;
 
@@ -59,7 +55,6 @@ function buildLastfmUpstream(query = {}, apiKey = '') {
   return upstream;
 }
 
-/** Accept only this project's HTTPS Storage download URLs. */
 function parseProjectStorageUrl(value) {
   let parsed;
   try {
@@ -76,12 +71,6 @@ function parseProjectStorageUrl(value) {
   return parsed;
 }
 
-/**
- * Maps a Firebase Storage download URL to the bucket-relative path that
- * the Admin SDK needs for deletion. Only allows this project bucket
- * and only the couple-shared `gallery/` prefix, so the delete endpoint
- * built on this can never be aimed at other files. Throws otherwise.
- */
 function resolveGalleryDeletePath(imageUrl) {
   if (typeof imageUrl !== 'string' || imageUrl.length === 0) {
     throw new Error('Missing imageUrl');
@@ -98,12 +87,6 @@ function resolveGalleryDeletePath(imageUrl) {
   return objectPath;
 }
 
-/**
- * Resolves the MangaKatana image-server cookie to forward upstream.
- * The site picks Server 2/3 from a `s_r` cookie (Server 1 = no cookie);
- * the `?sv=` query alone is ignored. Only the two exact values are ever
- * forwarded, and only to mangakatana.com hosts — anything else yields ''.
- */
 function resolveKatanaServerCookie(hostname, cookieParam) {
   const host = String(hostname || '');
   const hostOk =

@@ -18,9 +18,6 @@ import '../utils/firestore_stream_utils.dart';
 import 'notification_service.dart';
 import '../utils/logger.dart';
 
-/// Thrown by [AuthService.verifyCouplePasscode] when no endpoint returned a
-/// definitive wrong-code answer (offline, timeout, 5xx). Lets the gateway
-/// show "couldn't connect" instead of "wrong code".
 class PasscodeConnectionException implements Exception {
   final String? detail;
   const PasscodeConnectionException([this.detail]);
@@ -60,11 +57,6 @@ class AuthService extends ChangeNotifier {
           _isResolvingPartner = false;
         }
       } else if (_currentUser != null) {
-        // Anonymous sessions can never satisfy firestore.rules
-        // (`isNotAnonymous` is required for every app read), so an
-        // anonymous user paired with a couple username would only ever
-        // see permission-denied streams and false-empty shelves. Drop the
-        // false session so the gateway forces a real login instead.
         if (user.isAnonymous && isCoupleUser) {
           Logger.e(
             '[AuthService] clearing anonymous session for couple user $_currentUser — real login required',
@@ -89,9 +81,6 @@ class AuthService extends ChangeNotifier {
       }
       if (_currentUser != null) {
         Logger.i("Restored session for: $_currentUser");
-        // Same heal as the auth-state listener: a persisted anonymous user
-        // with a couple username can never read couple data. Sign out so the
-        // gateway asks for a real login instead of showing empty shelves.
         if (isCoupleUser && _auth.currentUser?.isAnonymous == true) {
           Logger.e(
             '[AuthService] clearing persisted anonymous session for $_currentUser — real login required',
@@ -104,8 +93,6 @@ class AuthService extends ChangeNotifier {
           _user = null;
         }
         notifyListeners();
-        // If auth state already fired before we loaded the session,
-        // sync the user doc now that _currentUser is available.
         if (_auth.currentUser != null && !_hasSyncedUserDoc) {
           unawaited(_syncUserDoc());
         }
@@ -127,8 +114,6 @@ class AuthService extends ChangeNotifier {
     } else {
       await prefs.remove('current_user_name');
     }
-    // Only remember a code after the server accepted it. Never ship either
-    // person's code to every browser just to support one device's cache.
     _offlineVerifier = passcode == null || name == null
         ? null
         : buildOfflineVerifier(name, passcode);
@@ -149,15 +134,9 @@ class AuthService extends ChangeNotifier {
       _isAgentSession ? 'agent_${_currentUser}_uid' : _auth.currentUser?.uid;
   bool get isSessionLoaded => _isSessionLoaded;
 
-  /// True when the Firebase session is anonymous. Anonymous sessions are
-  /// blocked by firestore.rules on every app read, so one paired with a
-  /// couple username can only ever produce permission-denied streams.
   bool get isAnonymousSession =>
       !_isAgentSession && _auth.currentUser?.isAnonymous == true;
 
-  /// Single-line auth diagnosis for the browser console. The dashboard
-  /// logs this on load so a permission-denied report always carries the
-  /// session facts needed to tell a guest session from a missing user doc.
   String get diagLine =>
       'uid=${uid ?? 'none'} '
       'anonymous=$isAnonymousSession '
@@ -166,35 +145,17 @@ class AuthService extends ChangeNotifier {
       'usersDocSynced=$_hasSyncedUserDoc '
       'agentSession=$_isAgentSession';
 
-  /// True when this session was unlocked offline from the remembered user
-  /// (see [tryOfflineRememberedLogin]). The dashboard shows cached data
-  /// with an offline banner until the next successful online login.
   bool get isOfflineMode => _offlineUnlocked;
 
-  /// True once both Firebase Auth and SharedPreferences have resolved.
-  /// Dashboard and partner-dependent features should wait for this.
-  /// An offline-remembered session also counts as ready: the dashboard
-  /// renders cached Firestore data instead of spinning forever.
   bool get isReady =>
       _currentUser != null && (_user != null || _offlineUnlocked);
 
-  /// Dynamically resolved partner UID from the /users collection.
-  /// Populated after login via [_syncUserDoc].
   String? get partnerUid => _partnerUid;
 
-  /// True while partner UID resolution is in flight. Presence widgets use
-  /// this to show a linking state instead of the unavailable fallback.
   bool get isResolvingPartner => _isResolvingPartner;
 
-  /// Re-runs partner UID resolution on demand. Safe to call repeatedly and
-  /// from any screen: concurrent calls are ignored and transient failures
-  /// preserve the last known [partnerUid] instead of clearing it.
-  /// Screens that depend on the partner link (Sanctuary, watch party) should
-  /// call this after ensuring the user doc so a single failed background
-  /// resolve no longer sticks until the next full re-login.
   Future<void> refreshPartnerLink() => _resolvePartnerInfo();
 
-  /// Partner display name resolved alongside [partnerUid].
   String get partnerName => _partnerNameResolved ?? 'Partner';
 
   String? get partnerUsername {
@@ -203,24 +164,16 @@ class AuthService extends ChangeNotifier {
     return null;
   }
 
-  /// True if the signed-in user is a cinema-only profile (Breyan, Octagram).
-  /// They get access to the Cinema feature but not the partner-only data.
   bool get isCinemaOnlyUser =>
       _currentUser == 'breyan' || _currentUser == 'octagram';
 
-  /// True if the signed-in user is one half of the couple (Khent or Clair).
-  /// These two accounts share the "Our Cinema" list; everyone else does not.
   bool get isCoupleUser =>
       _currentUser == 'khentsgdz' || _currentUser == 'clairjassen';
 
-  /// Last authentication error message, if any. Cleared on successful login.
   String? get lastAuthError => _lastAuthError;
 
-  /// Establishes an in-memory simulated session for AI agents and local dev testing.
-  /// Bypasses the passcode door and live Firebase auth without touching disk sessions.
   void enableAgentSession({String profile = 'khentsgdz'}) {
     if (!AgentMode.canActivate) return;
-    // Router redirects can repeat; notifying the router again recurses on web.
     if (_isAgentSession && _currentUser == profile) return;
     _isAgentSession = true;
     _currentUser = profile;
@@ -238,29 +191,18 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ensures the user is authenticated with Firebase (anonymously if needed)
   Future<void> ensureAuthenticated() async {
     if (_auth.currentUser == null && !_isAgentSession) {
-      // Anonymous sessions are blocked by firestore.rules, so silently
-      // creating one would only produce a broken "guest" experience.
       Logger.e(
         'Authentication required; anonymous fallback is disabled by security rules.',
       );
     }
   }
 
-  /// Sets a user-facing auth error without exposing underlying exceptions.
   void setAuthError(String message) {
     _lastAuthError = message;
   }
 
-  /// Writes/updates the /users/{uid} document and resolves the partner's UID
-  /// dynamically from Firestore. This replaces the old hard-coded UID system
-  /// and is resilient to account recreations.
-  ///
-  /// The core `users/{uid}` write is awaited, but partner resolution, XP init
-  /// and letterbox seeding run in the background so `isReady` flips true
-  /// without waiting for 2-3 extra round-trips (≈700ms saved per login).
   Future<void> _syncUserDoc() async {
     if (_isAgentSession) return;
     final myUid = _auth.currentUser?.uid;
@@ -272,7 +214,6 @@ class AuthService extends ChangeNotifier {
     try {
       final identity = await _auth.currentUser!.getIdTokenResult();
       if (identity.signInProvider == 'password' && isCinemaOnlyUser) {
-        // Old web builds exposed guest passwords. Require a fresh server code.
         _currentUser = null;
         _user = null;
         _hasSyncedUserDoc = false;
@@ -283,7 +224,7 @@ class AuthService extends ChangeNotifier {
       }
       if (identity.claims?['username'] != _currentUser) {
         _hasSyncedUserDoc = false;
-        return; // An auth event can arrive before the new profile is assigned.
+        return;
       }
       await db.collection('users').doc(myUid).set({
         'username': _currentUser,
@@ -291,11 +232,8 @@ class AuthService extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       Logger.i('[AuthService] users doc synced for $_currentUser ($myUid)');
-      // Push registration rules depend on this verified user document. The
-      // AppRoot may have attempted it as soon as Auth became ready; retry now.
       unawaited(NotificationService.instance.syncAuthSession(enabled: true));
 
-      // Remaining work doesn't block first paint — fire-and-forget.
       unawaited(
         Future.wait([
           _resolvePartnerInfo().catchError((Object e) {
@@ -311,11 +249,6 @@ class AuthService extends ChangeNotifier {
         ]),
       );
     } catch (e) {
-      // Self-heal: a stale users doc (username from an older app version
-      // or fields outside the rules allow-list) rejects every update via
-      // the keys/username rule, which permanently breaks isCouple() and
-      // with it every couple read. Delete and recreate it in the current
-      // shape instead of failing forever.
       var repaired = false;
       try {
         repaired = await _repairStaleUserDoc(db, myUid);
@@ -337,10 +270,6 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Deletes and recreates the own users doc when it is stale, i.e. its
-  /// `username` no longer matches the signed-in profile or it carries
-  /// fields the rules no longer allow. Returns true when a repair ran.
-  /// The doc only holds identity fields, so recreating it loses nothing.
   Future<bool> _repairStaleUserDoc(FirebaseFirestore db, String myUid) async {
     final doc = await getDocFast(
       db.collection('users').doc(myUid),
@@ -362,9 +291,6 @@ class AuthService extends ChangeNotifier {
     return true;
   }
 
-  /// True when a users doc can never satisfy the update rule and must be
-  /// recreated: username drifted from the signed-in profile, or the doc
-  /// carries fields outside the allow-list.
   @visibleForTesting
   static bool needsUserDocRepair(
     Map<String, dynamic> data,
@@ -375,15 +301,6 @@ class AuthService extends ChangeNotifier {
     return !data.keys.every(allowed.contains);
   }
 
-  /// Queries /users to find the partner's UID by username. If the partner's
-  /// account was recreated, this automatically finds their new UID.
-  ///
-  /// Transient failures (offline, permission-denied before the own user doc
-  /// is visible) preserve the last known [_partnerUid] so presence widgets
-  /// keep working instead of flipping to the unavailable state. Only a
-  /// definitive answer (no partner for this profile, or a successful query
-  /// with zero matches) clears the link. Retry at any time via
-  /// [refreshPartnerLink].
   Future<void> _resolvePartnerInfo() async {
     if (_isAgentSession || _isResolvingPartner) return;
     if (_currentUser == null || _auth.currentUser == null) return;
@@ -410,7 +327,6 @@ class AuthService extends ChangeNotifier {
         );
       }
 
-      // Cinema-only profiles have no partner; clear decisively.
       if (partnerUser == null) {
         _partnerUid = null;
         _partnerNameResolved = null;
@@ -419,10 +335,6 @@ class AuthService extends ChangeNotifier {
 
       try {
         final db = FirebaseFirestore.instance;
-        // Fetch every doc claiming the partner username instead of just the
-        // first. Firestore orders such a query by document id, and stray or
-        // re-created docs sort ahead of the real account, which used to point
-        // the couple at a doc with no garden / presence / chat data.
         final query = await getQueryFast(
           db
               .collection('users')
@@ -439,14 +351,11 @@ class AuthService extends ChangeNotifier {
           _partnerUid = partnerUid;
           _partnerNameResolved = partnerUser == 'khentsgdz' ? 'Khent' : 'Clair';
         } else {
-          // Partner has never synced a /users doc on this project yet.
           _partnerUid = null;
           _partnerNameResolved = null;
         }
       } catch (e) {
         Logger.e("AuthService._resolvePartnerInfo failed", error: e);
-        // Keep the last known UID so a transient error does not stick the
-        // UI in the unavailable state; the next refresh will correct it.
       }
     } finally {
       _isResolvingPartner = false;
@@ -454,16 +363,6 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Picks the real partner account when `/users` holds more than one doc
-  /// with the same username. Duplicates come from re-created accounts and
-  /// from stray docs, and Firestore returns them ordered by document id, so
-  /// the first match is not necessarily the account the partner uses.
-  ///
-  /// Ranking:
-  /// 1. docs whose `partnerUsername` links back to [myUsername] — the mutual
-  ///    link written on every login by the current app,
-  /// 2. then the most recently updated doc,
-  /// 3. then the document id, so the result is always deterministic.
   @visibleForTesting
   static String? pickPartnerUid(
     List<({String id, Map<String, dynamic> data})> docs, {
@@ -489,7 +388,6 @@ class AuthService extends ChangeNotifier {
     return data['partnerUsername'] == myUsername;
   }
 
-  /// Reads a users-doc `updatedAt` for ranking. Docs without one sort last.
   static DateTime _docUpdatedAt(Map<String, dynamic> data) {
     final value = data['updatedAt'];
     if (value is Timestamp) return value.toDate();
@@ -502,19 +400,12 @@ class AuthService extends ChangeNotifier {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  /// Server-verified passcode for any of the four profiles -> custom token.
-  /// Returns the signed profile username on success, null on bad code.
-  /// Throws [PasscodeConnectionException] when no endpoint gave a
-  /// definitive answer (offline, timeout, 5xx) so the gateway can tell
-  /// "wrong code" apart from "couldn't connect".
   Future<String?> verifyCouplePasscode(String passcode) async {
     final isLocalWeb =
         kIsWeb &&
         (Uri.base.host == 'localhost' ||
             Uri.base.host == '127.0.0.1' ||
             Uri.base.host == '0.0.0.0');
-    // Try hosting rewrite first (same-origin, no CORS), then direct CF URL.
-    // On local dev web, skip relative /api/ because the local dev server serves index.html.
     final urls = <Uri>[
       if (kIsWeb && !isLocalWeb) Uri.parse('/api/verifyPasscode'),
       Uri.parse(
@@ -533,7 +424,6 @@ class AuthService extends ChangeNotifier {
             )
             .timeout(const Duration(seconds: 10));
         if (resp.statusCode == 401 || resp.statusCode == 400) {
-          // Definitive answer from the server: wrong code.
           return null;
         }
         if (resp.statusCode != 200) {
@@ -571,18 +461,9 @@ class AuthService extends ChangeNotifier {
         Logger.e('verifyCouplePasscode $url failed', error: e);
       }
     }
-    // No endpoint gave a definitive wrong-code answer and none succeeded:
-    // the network or server is at fault, not the code itself.
     throw PasscodeConnectionException(lastError?.toString());
   }
 
-  /// Offline "remember me" for Khent/Clair when the server is unreachable.
-  ///
-  /// Only the already-remembered user (saved by a previous online login)
-  /// can unlock, and only with their own code — this never switches users
-  /// and never unlocks a fresh device. Returns the username on success.
-  /// Firestore still serves its local cache in this mode, so previously
-  /// opened chats, notes, and garden keep showing until back online.
   String? tryOfflineRememberedLogin(String passcode) {
     final remembered = _currentUser;
     if (!offlineCodeMatches(
@@ -599,8 +480,6 @@ class AuthService extends ChangeNotifier {
     return remembered;
   }
 
-  // This is an offline convenience for data already cached on this device,
-  // not a server credential. The four-digit code is never stored in plain text.
   @visibleForTesting
   static Map<String, String> buildOfflineVerifier(
     String username,
@@ -637,14 +516,6 @@ class AuthService extends ChangeNotifier {
         digest == _offlineDigest(rememberedUser!, salt, passcode);
   }
 
-  /// Offline fallback for Khent/Clair when verifyPasscode is unreachable.
-  ///
-  /// Anonymous Firebase sessions are blocked by firestore.rules
-  /// (`isNotAnonymous` is required for every app read), so signing in
-  /// anonymously would only produce permission-denied streams and
-  /// false-empty shelves. Refuse instead with a visible error so the
-  /// gateway stays put and the user retries online. Server verification
-  /// will sign in the real account on the next online login.
   Future<void> loginCoupleOffline(String username) async {
     if (username != 'khentsgdz' && username != 'clairjassen') return;
     _lastAuthError =
@@ -668,8 +539,6 @@ class AuthService extends ChangeNotifier {
     }
     _lastAuthError = null;
     await _auth.signOut();
-    // Forget the last page: the next login on this device starts fresh
-    // instead of reopening the previous user's screen.
     await RouteMemory.clear();
     _currentUser = null;
     _partnerUid = null;
@@ -679,8 +548,6 @@ class AuthService extends ChangeNotifier {
     _offlineUnlocked = false;
     await _saveSession(null);
     await AgentMode.clearPersistedState();
-    // Kept gallery photos are couple-only; the next person on this device
-    // must not find them.
     await OfflinePhotos.instance.clear();
     notifyListeners();
   }

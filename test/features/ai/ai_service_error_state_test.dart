@@ -250,7 +250,6 @@ void main() {
     expect(ai.lastError, isNull);
     expect(ai.isLoading, isFalse);
 
-    // Cancel when not loading is a no-op
     expect(ai.cancelCurrentReply(), isFalse);
     expect(ai.lastError, isNull);
 
@@ -267,16 +266,13 @@ void main() {
     expect(sess1, isNotEmpty);
     expect(sess1.startsWith('sess_'), isTrue);
 
-    // Same session ID across multiple reads
     expect(ai.currentSessionId, equals(sess1));
 
-    // Clearing conversation (new chat) cycles the session ID
     await ai.clearConversation('assistant', archive: true);
     final sess2 = ai.currentSessionId;
     expect(sess2, isNotEmpty);
     expect(sess2, isNot(equals(sess1)));
 
-    // startFreshSession cycles the session ID as well
     ai.startFreshSession();
     final sess3 = ai.currentSessionId;
     expect(sess3, isNotEmpty);

@@ -3,21 +3,6 @@
 const { cappedHttps, enforceRateLimit, requireAuth } = require('./common.js');
 const { streamMediaBody } = require('./stream_media_body');
 
-/**
- * Proxies anime episode thumbnail images so Flutter web isn't blocked by
- * CORS. Streaming CDNs (Crunchyroll, Funimation, etc.) typically don't
- * include `Access-Control-Allow-Origin` on their image endpoints, so a
- * direct `Image.network` request from the browser fails. This function
- * fetches the image server-side and streams it back with permissive CORS
- * headers.
- *
- * Accepts:
- *   GET /proxyAnimeImage?url=<encoded image url>
- *
- * Only known anime CDN hosts are allowed — currently:
- *   - *.ak.crunchyroll.com
- *   - *.funimation.com
- */
 const proxyAnimeImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');

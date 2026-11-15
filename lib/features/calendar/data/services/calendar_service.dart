@@ -25,7 +25,6 @@ class CalendarService {
 
   final Map<int, _SharedUpcomingStream> _sharedUpcoming = {};
 
-  // ponytail: capped at 100 saved entries; add pagination if the calendar outgrows this.
   Query<Map<String, dynamic>> _eventsQuery(DateTime start, DateTime end) => _db
       .collection(_collection)
       .where(
@@ -62,11 +61,6 @@ class CalendarService {
         .map((doc) => doc.exists ? CalendarEvent.fromFirestore(doc) : null);
   }
 
-  /// Stream of events for a specific month.
-  ///
-  /// Re-attaches once when the first snapshot is slow: cold dashboard
-  /// loads attach every preview at the same moment, and a single-shot
-  /// budget flipped them all to the error state at once.
   Stream<List<CalendarEvent>> getEventsForMonth(DateTime month) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoEvents);
@@ -88,24 +82,6 @@ class CalendarService {
     );
   }
 
-  /// Get upcoming events within N days. Wrapped with timeout so a slow
-  /// Firestore WebChannel doesn't keep Coming Up in skeleton forever.
-  ///
-  /// Silently re-attaches up to twice when the first snapshot is slow:
-  /// this stream backs both the Coming Up and the Upcoming Dates previews,
-  /// which were the most frequent false errors. Cold dashboard loads attach
-  /// every preview in the same tick while the WebChannel, the auth token,
-  /// and the `isCouple()` rule check are all still warming up, so a single
-  /// 8s budget expired before the server could answer and the card wrongly
-  /// asked for a manual retry. 12s x 3 attempts keeps the loading state up
-  /// while a slow first load still has a chance; only a persistent failure
-  /// surfaces as an error.
-  /// Get upcoming events within N days. Wrapped with timeout so a slow
-  /// Firestore WebChannel doesn't keep Coming Up in skeleton forever.
-  ///
-  /// Shares the active Firestore listener between multiple dashboard widgets
-  /// (Coming Up + Upcoming Dates) so cold starts only attach ONE query
-  /// instead of doubling WebChannel load.
   Stream<List<CalendarEvent>> getUpcomingEvents({int days = 30}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoEvents);
@@ -150,7 +126,6 @@ class CalendarService {
     );
   }
 
-  /// Invalidate the upcoming cache and re-run active listeners if needed.
   void invalidateUpcomingCache() {
     _cachedUpcoming = null;
     for (final shared in _sharedUpcoming.values) {
@@ -158,7 +133,6 @@ class CalendarService {
     }
   }
 
-  /// Add a new calendar event.
   Future<void> addEvent(CalendarEvent event) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -191,7 +165,6 @@ class CalendarService {
     }
   }
 
-  /// Update an existing event.
   Future<void> updateEvent(String id, Map<String, dynamic> data) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -202,7 +175,6 @@ class CalendarService {
     }
   }
 
-  /// Delete an event.
   Future<void> deleteEvent(String id) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -214,7 +186,6 @@ class CalendarService {
     }
   }
 
-  /// Get all events for a specific day.
   Future<List<CalendarEvent>> getEventsForDay(DateTime day) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return AgentFixtures.demoEvents;

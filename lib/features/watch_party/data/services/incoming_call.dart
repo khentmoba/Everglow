@@ -1,13 +1,3 @@
-/// One persistent in-app notification. Emitted by
-/// [VoiceChatService.watchIncoming] when the partner has started
-/// a watch party on the other side and this device is the callee.
-/// Cleared (replaced with `null`) when the user opens the watch
-/// party screen, when the partner ends the call, or when the room
-/// doc disappears.
-///
-/// Lives in its own library (no `flutter_webrtc` dependency) so the
-/// app-wide incoming-call banner can reference the type without pulling
-/// the voice-chat chunk into the initial bundle.
 class IncomingCall {
   final String roomId;
   final String callerUid;

@@ -29,7 +29,6 @@ void main() {
     });
 
     test('closes stream when it hangs beyond timeout', () async {
-      // A stream that never emits
       final hangingStream = Stream<List<int>>.fromFuture(
         Completer<List<int>>().future,
       );
@@ -47,7 +46,6 @@ void main() {
           .catchError((_) {});
 
       expect(results, isEmpty);
-      // Stream should have closed (not errored) via timeout
     });
 
     test('handles empty stream correctly', () async {
@@ -75,9 +73,6 @@ void main() {
         ).listen(received.add);
 
         source.add(1);
-        // Wait longer than the timeout. Firestore snapshot streams are
-        // allowed to be quiet after the first emission, so this must not
-        // close the wrapped stream.
         await Future<void>.delayed(const Duration(milliseconds: 250));
         source.add(2);
         await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -160,8 +155,6 @@ void main() {
         maxAttempts: 2,
         label: 'always-hang',
       ).listen(results.add, onError: errDone.complete);
-      // NOTE: do not chain .asFuture() here — on this SDK the future
-      // claims the error and the listen onError never fires.
       final seenError = await errDone.future.timeout(
         const Duration(seconds: 5),
       );
@@ -194,7 +187,6 @@ void main() {
         maxAttempts: 3,
         label: 'permanent',
       ).listen(results.add, onError: errDone.complete);
-      // Same note as above: do not chain .asFuture() here.
       final seenError = await errDone.future.timeout(
         const Duration(seconds: 5),
       );
@@ -202,8 +194,6 @@ void main() {
 
       expect(results, isEmpty);
       expect(seenError, isA<FirebaseException>());
-      // A missing index fails identically on every attempt: one call, then
-      // the actionable error, instead of maxAttempts slow re-attaches.
       expect(calls, 1);
     });
 
@@ -224,8 +214,6 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 20));
       await subscription.cancel();
-      // Both the budget and the backoff windows pass here; neither may
-      // trigger a second attach after cancel.
       await Future<void>.delayed(const Duration(milliseconds: 400));
 
       expect(calls, 1);

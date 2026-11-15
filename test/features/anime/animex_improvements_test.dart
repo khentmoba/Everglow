@@ -163,7 +163,6 @@ void main() {
       final cardFinder = find.byType(AnimeXPosterCard);
       expect(cardFinder, findsOneWidget);
 
-      // Perform middle-click (buttons: kTertiaryButton)
       final center = tester.getCenter(cardFinder);
       final testPointer = TestPointer(1, PointerDeviceKind.mouse, 0, kTertiaryButton);
       await tester.sendEventToBinding(testPointer.down(center));
@@ -236,10 +235,8 @@ void main() {
       );
       await tester.pump();
 
-      // Look for the initial "All Genres" button
       expect(find.text('All Genres'), findsOneWidget);
 
-      // Tap on "All Genres" to open the picker sheet
       await tester.tap(find.text('All Genres'));
       await tester.pumpAndSettle();
 
@@ -247,25 +244,20 @@ void main() {
       expect(find.text('Fantasy'), findsOneWidget);
       expect(find.text('Reincarnation'), findsOneWidget);
 
-      // Select 'Fantasy' and 'Reincarnation'
       await tester.tap(find.text('Fantasy'));
       await tester.pump();
       await tester.tap(find.text('Reincarnation'));
       await tester.pump();
 
-      // Button in sheet shows 'Apply (2)'
       expect(find.text('Apply (2)'), findsOneWidget);
       await tester.tap(find.text('Apply (2)'));
       await tester.pumpAndSettle();
 
-      // Browse page now shows Genres (2)
       expect(find.text('Genres (2)'), findsOneWidget);
       expect(controller.browseGenres, containsAll(['Fantasy', 'Reincarnation']));
 
-      // Active genre chips are visible
       expect(find.text('Clear all'), findsOneWidget);
 
-      // Tap 'Clear all' to reset
       await tester.tap(find.text('Clear all'));
       await tester.pump();
 

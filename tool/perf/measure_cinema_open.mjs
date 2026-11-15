@@ -1,16 +1,3 @@
-// Measures the real Cinema open: an in-app navigation from a warm dashboard.
-//
-// A page reload re-downloads the whole app shell (multi-MB), which says
-// nothing about how long Cinema takes to open once the app is already
-// running. This drives the same path Clair uses — the app is up, she goes
-// to Cinema — and times what she sees until the rails carry real titles.
-//
-// Navigation uses the router's own browser-history path (pushState +
-// popstate), which is the same entry point a link tap ends in, without
-// depending on the accessibility tree being clickable.
-//
-// Usage: node tool/perf/measure_cinema_open.mjs --web-root DIR
-//        [--profile none|fast3g|slow3g] [--cpu 1] [--warm 3] [--label NAME]
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -18,11 +5,8 @@ import {
   launch, median, NETWORK_PROFILES, prepare, serve, shapeNetwork, sleep, stop,
 } from './_harness.mjs';
 
-/// The skeleton billboard's own line. Seeing it means Cinema painted with
-/// placeholders. The real billboard never renders this text.
 const SKELETON_TEXT = /Finding your next watch/;
 
-/// The real billboard's "More Info" button only exists once titles are in.
 const ROWS_TEXT = /More Info/;
 
 const READ_STATE = `(() => {
@@ -40,8 +24,6 @@ const READ_STATE = `(() => {
   return {canvas, text, parts, net, url: location.pathname};
 })()`;
 
-/// Groups the requests made during one open by host, so a wasted TMDB fan-out
-/// is visible as a number instead of a guess.
 function summarizeRequests(entries) {
   const byHost = {};
   let bytes = 0;
@@ -54,7 +36,6 @@ function summarizeRequests(entries) {
   return { total: entries.length, bytes, byHost };
 }
 
-/// Navigates inside the running app, exactly like a link tap does.
 async function goTo(cdp, path) {
   await cdp.eval(`(() => {
     history.pushState({}, '', ${JSON.stringify(path)});
@@ -74,7 +55,6 @@ async function waitUntil(cdp, predicate, timeoutMs) {
   return null;
 }
 
-/// Times one dashboard -> Cinema navigation.
 async function openCinema(cdp, { timeoutMs }) {
   const before = await cdp.eval(READ_STATE);
   const beforeParts = new Set(before.parts);
@@ -122,8 +102,6 @@ async function backToDashboard(cdp, timeoutMs, settleMs = 400) {
   await sleep(settleMs);
 }
 
-/// Boots the app fresh (a full page load, so in-memory state is gone but this
-/// browser profile's saved rows survive) and waits for the dashboard.
 async function bootToDashboard(cdp, origin, timeoutMs, settleMs) {
   await cdp.send('Page.navigate', { url: `${origin}/?agent=dashboard` });
   const dashboard = await waitUntil(
@@ -179,9 +157,6 @@ export async function main(argv = process.argv.slice(2)) {
     await bootToDashboard(cdp, origin, options.timeoutMs, options.settleMs);
 
     if (options.prime) {
-      // First visit: open Cinema once so this profile saves its rows, then
-      // boot the app again. Memory is gone, the saved rows are not — that is
-      // the returning-visitor case, which is the one Clair actually lives in.
       console.log(`[cinema-open] ${options.label} priming saved rows`);
       await openCinema(cdp, options);
       await sleep(1500);

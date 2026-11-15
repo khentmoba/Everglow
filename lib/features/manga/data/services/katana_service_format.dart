@@ -1,7 +1,5 @@
 part of 'katana_service.dart';
 
-/// Formats a [DateTime] as a Manga Katana style relative string
-/// ("58 minutes ago") or "Aug-12-2026" for older dates.
 String formatKatanaTime(DateTime? time) {
   if (time == null) return '';
   final now = DateTime.now();
@@ -36,13 +34,6 @@ String formatKatanaTime(DateTime? time) {
   return '${months[time.month - 1]}-${time.day.toString().padLeft(2, '0')}-${time.year}';
 }
 
-/// Sorts a chapter list oldest → newest for the reader.
-///
-/// Ties on the chapter number (e.g. `c5` vs `v2c5` volume re-releases)
-/// fall back to the chapter id so the order is stable — Dart's list
-/// sort is not stable, and without the tie-break the tied chapters
-/// used to shuffle around on every open, which made the list look
-/// inconsistent ("chapter 2 shows up first").
 List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
   final sorted = List<KatanaChapter>.of(chapters)
     ..sort((a, b) {
@@ -53,13 +44,6 @@ List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
   return sorted;
 }
 
-/// The chapter "Continue" should open. Null for a series with no chapters.
-///
-/// [lastReadChapterId] is the anchor: continuing never goes back before the
-/// chapter she last opened. Without that anchor, finishing a chapter made it
-/// "read", so the first unread chapter became chapter 1 and Continue jumped
-/// backwards — and the reader then overwrote her real resume point with it.
-/// Records written before read marks existed rely on the anchor entirely.
 KatanaChapter? nextUnreadChapter(
   List<KatanaChapter> chapters,
   Set<String> readChapterIds, {

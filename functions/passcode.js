@@ -5,9 +5,6 @@ const crypto = require('node:crypto');
 const { getAdmin, clientIp, cappedHttps } = require('./common.js');
 const { isValidPasscodeFormat } = require('./auth_core.js');
 
-// ===== verifyPasscode (all four profiles; credentials never leave the server) =====
-// Per-IP and shared durable limits survive cold starts; the in-memory limit
-// also runs before checking whether a submitted code is correct.
 const _pcAttempts = new Map();
 function _pcHit(ip) {
   const now = Date.now();
@@ -29,15 +26,12 @@ function _sha256Hex(value) {
 
 function _passcodeMatches(code, expected) {
   if (!expected) return false;
-  // Compare hashes (always equal length) so the check is timing-safe and
-  // leaks nothing about the real passcode's length or prefix.
   const a = crypto.createHash('sha256').update(String(code)).digest();
   const b = crypto.createHash('sha256').update(String(expected)).digest();
   return crypto.timingSafeEqual(a, b);
 }
 
 async function _pcLockoutAttempt(db, ipRef, globalRef, accepted) {
-  // Counter errors propagate: no guess may bypass durable enforcement.
   return await db.runTransaction(async (transaction) => {
     const now = Date.now();
     const [ipSnap, globalSnap] = await Promise.all([
@@ -93,7 +87,6 @@ function profileForPasscode(code, env = process.env) {
     ['breyan', env.BREYAN_PASSCODE], ['octagram', env.OCTAGRAM_PASSCODE],
   ];
   const matches = profiles.filter(([, expected]) => _passcodeMatches(code, (expected || '').trim()));
-  // A duplicated server code must never select a more privileged profile.
   return matches.length === 1 ? matches[0][0] : null;
 }
 
@@ -101,7 +94,6 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
   res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Methods','POST, OPTIONS');res.set('Access-Control-Allow-Headers','Content-Type');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
   if(req.method!=='POST'){res.status(405).json({error:'POST only'});return;}
-  // Use Google's appended client hop, never the caller-supplied XFF prefix.
   const ip = clientIp(req);
   if(_pcHit(ip)){res.status(429).json({error:'Too many attempts'});return;}
   const code=String((req.body&&req.body.passcode)||'').trim();

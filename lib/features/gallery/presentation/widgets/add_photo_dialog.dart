@@ -28,14 +28,13 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
   Uint8List? _imageBytes;
   String _fileName = '';
   bool _isUploading = false;
-  double? _progress; // null while the photo is being prepared
+  double? _progress;
   bool _isSubmitEnabled = false;
   bool _addLocation = false;
 
   Future<void> _pickImage() async {
     final picked = await pickImageBytes();
     if (picked != null && mounted) {
-      // Guess extension from file name, fallback to jpg
       String ext = 'jpg';
       if (picked.fileName != null && picked.fileName!.contains('.')) {
         ext = picked.fileName!.split('.').last.toLowerCase();
@@ -153,7 +152,6 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               ),
               const SizedBox(height: 20),
 
-              // Image Preview / Pick Button
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -197,7 +195,6 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Caption Input
               TextField(
                 controller: _captionController,
                 style: AppTypography.outfitWhite.copyWith(
@@ -224,7 +221,6 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Location Toggle — Immich-inspired
               GestureDetector(
                 onTap: () => setState(() => _addLocation = !_addLocation),
                 child: Container(
@@ -389,7 +385,6 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               ],
               const SizedBox(height: 24),
 
-              // Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

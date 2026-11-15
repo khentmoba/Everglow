@@ -2,26 +2,6 @@
 
 const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
 
-/**
- * Generic allow-listed JSON catalog proxy for keyless public APIs
- * (Open Library, Jikan, iTunes, AniSkip). The client passes ?base=<openlibrary|jikan|itunes|aniskip> and
- * ?path=<api path with query>. Only those hosts are reachable;
- * auth is optional (validated when present) like proxyMangaDex.
- *
- *   GET /proxyCatalog?base=openlibrary&path=search.json%3Fq%3D...%26limit%3D20
- *   GET /proxyCatalog?base=jikan&path=anime%3Fq%3D...%26limit%3D20
- *   GET /proxyCatalog?base=itunes&path=search%3Fterm%3D...%26entity%3Dsong%26media%3Dmusic
- *   GET /proxyCatalog?base=aniskip&path=v1%2Fskip-times%2F5114%2F1%3Ftypes%5B%5D%3Dop
- *   GET /proxyCatalog?base=opentdb&path=api.php%3Famount%3D50%26category%3D9
- *   GET /proxyCatalog?base=gutendex&path=books%3Fsearch%3Ddune
- *   GET /proxyCatalog?base=archive&path=advancedsearch.php%3Fq%3D...%26output%3Djson
- *   GET /proxyCatalog?base=anizip&path=mappings%3Fmal_id%3D16498
- *   GET /proxyCatalog?base=torrentio&path=stream%2Fmovie%2Ftt0137523.json
- *
- * The pure parts (base allow-list, path sanitize, URL build) live in
- * [resolveCatalogUpstream] below so unit tests cover them without
- * stubbing firebase-functions' onRequest wrapper.
- */
 const _catalogBases = {
   openlibrary: 'https://openlibrary.org/',
   jikan: 'https://api.jikan.moe/v4/',
@@ -31,15 +11,9 @@ const _catalogBases = {
   gutendex: 'https://gutendex.com/',
   archive: 'https://archive.org/',
   anizip: 'https://api.ani.zip/',
-  // Cinema download copies. Keyed by IMDB id (`tt…` for movies,
-  // `tt…:season:episode` for series) and returning magnet hashes, so the
-  // client never talks to an index host directly.
   torrentio: 'https://torrentio.strem.fun/',
 };
 
-// Sessionful upstreams must never edge-cache: OpenTDB hands out a
-// per-user session token and advances it on every question call, so a
-// cached response would share tokens across players and repeat questions.
 const _catalogNoStoreBases = new Set(['opentdb']);
 
 function resolveCatalogUpstream(baseKey, pathParam) {
@@ -76,9 +50,6 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  // Anonymous-tolerant by design (native clients without a token still
-  // need covers). Upstreams like Jikan are strict (3/sec), so keep the
-  // per-IP cap modest.
   if (enforceRateLimit(req, res, { endpoint: 'proxyCatalog', limit: 120, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';

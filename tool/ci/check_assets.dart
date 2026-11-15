@@ -1,20 +1,3 @@
-// Asset-reference guard: every bundled path named in Dart must exist.
-// Prevents the PR #66 class: milestone photos recompressed .png -> .jpg
-// while stored code/docs still pointed at the deleted .png, rendering
-// blank frames with no error fallback.
-//
-// Scans lib/**/*.dart for assets/... refs (png/jpg/jpeg/webp/json/ttf/
-// mp3/glb/wasm) and resolves each against the repo tree. Directory
-// entries from pubspec.yaml (trailing slash) resolve as prefixes.
-//
-// Intentional exception: lib/features/dashboard/domain/models/milestone.dart
-// keeps a legacyAssetPathFixes map for retired private photos now served
-// from authenticated Storage. That map is skipped; other refs must hit
-// disk. If you rename or recompress an asset, update its refs (and add a
-// read-path rewrite + migration like Milestone.repairLegacyImageUrl) or
-// this check fails the PR.
-//
-// Usage: dart tool/ci/check_assets.dart
 import 'dart:io';
 
 import '_io.dart';
@@ -36,9 +19,6 @@ Future<void> main() async {
     final isLegacyMapHolder = file.path.replaceAll('\\', '/').endsWith(
       'lib/features/dashboard/domain/models/milestone.dart',
     );
-    // Line range of the deliberate legacyAssetPathFixes rename map
-    // (stale .png KEYS rewritten on read, not live loads). Skip refs
-    // inside it by brace depth instead of a fixed window.
     var mapStart = -1, mapEnd = -1;
     if (isLegacyMapHolder) {
       for (var i = 0; i < lines.length; i++) {
@@ -53,13 +33,7 @@ Future<void> main() async {
       final inLegacyMap = mapStart >= 0 && i >= mapStart && i <= mapEnd;
       for (final m in assetPattern.allMatches(lines[i])) {
         var ref = m.group(0)!;
-        // Neither side is bundled: both resolve to private Storage now.
         if (inLegacyMap) continue;
-        // Raw web URLs (plain <img>/<model-viewer> src, JS GLB paths)
-        // address the compiled bundle, where Flutter serves asset keys
-        // under an extra `assets/` prefix: assets/assets/models/x.glb
-        // on web == assets/models/x.glb in the repo. Normalize before
-        // resolving (see cat_visuals_web.dart).
         if (ref.startsWith('assets/assets/')) {
           ref = ref.substring('assets/'.length);
         }

@@ -5,17 +5,6 @@ import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Talks to the MangaDex API for chapter listing and page-image
-/// resolution. All requests go through the `proxyMangaDex` Cloud
-/// Function so Flutter web isn't blocked by missing CORS headers on
-/// api.mangadex.org responses.
-///
-/// MangaDex endpoints used:
-///   * Chapter feed — `GET /manga/{id}/feed`
-///   * At-home server — `GET /at-home/server/{chapterId}`
-///
-/// No API key required. Rate limiting is handled server-side by the
-/// proxy function.
 class MangaDexService with ConnectivityAware {
   static const String _proxyUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaDex';
@@ -23,7 +12,6 @@ class MangaDexService with ConnectivityAware {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaImage';
 
-  // Singleton
   static final MangaDexService _instance = MangaDexService._internal();
   factory MangaDexService() => _instance;
   MangaDexService._internal();
@@ -49,27 +37,16 @@ class MangaDexService with ConnectivityAware {
     return _headers;
   }
 
-  /// Build a proxied URL for an API path (without leading slash).
-  /// The path may include a query string, e.g.
-  /// `manga/abc/feed?translatedLanguage[]=en`.
   Uri _proxied(String apiPath) {
     return Uri.parse('$_proxyUrl?path=${Uri.encodeComponent(apiPath)}');
   }
 
-  /// Return a proxied image URL suitable for `Image.network`.
-  /// If [originalUrl] is already proxied, it is returned as-is.
   String proxiedImageUrl(String originalUrl) {
     if (originalUrl.isEmpty) return '';
     if (originalUrl.contains('proxyMangaImage')) return originalUrl;
     return '$_proxyImageUrl?url=${Uri.encodeComponent(originalUrl)}';
   }
 
-  // ── CHAPTER FEED ───────────────────────────────────────────
-
-  /// Fetch the chapter list for a MangaDex manga by its UUID.
-  /// Returns chapters sorted by chapter number (ascending), newest
-  /// first so the reading order is natural.
-  /// Auto-paginates if the manga has more than [limit] chapters.
   Future<List<MangaChapter>> getChapterFeed(
     String mangaId, {
     String language = 'en',
@@ -81,7 +58,6 @@ class MangaDexService with ConnectivityAware {
     var currentOffset = offset;
     var total = 0;
 
-    // Paginate until we've fetched all chapters
     do {
       final path =
           'manga/$mangaId/feed'
@@ -105,7 +81,6 @@ class MangaDexService with ConnectivityAware {
           total = (body['total'] as num?)?.toInt() ?? 0;
           allChapters.addAll(data.whereType<Map<String, dynamic>>());
           currentOffset += data.length;
-          // Safety: stop if we got fewer than requested (end of results)
           if (data.length < limit) break;
         } else {
           break;
@@ -118,19 +93,12 @@ class MangaDexService with ConnectivityAware {
 
     if (allChapters.isEmpty) return [];
 
-    // Filter out chapters with 0 pages — these are external/official
-    // publisher links (e.g. Webnovel, Pocket Comics, TappyToon) that
-    // have no page data on MangaDex and can't be read through the
-    // at-home server.
     final filtered = allChapters.where((d) {
       final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
       final pages = (attrs['pages'] as num?)?.toInt() ?? 0;
       return pages > 0;
     }).toList();
 
-    // Fallback: if all chapters were filtered out (licensed manga with
-    // only official publisher links), return the full list so at least
-    // the chapter numbers are visible in the UI.
     final chaptersToMap = filtered.isNotEmpty ? filtered : allChapters;
 
     return chaptersToMap.map((d) {
@@ -159,10 +127,6 @@ class MangaDexService with ConnectivityAware {
     }).toList();
   }
 
-  // ── CATALOG / LISTING ──────────────────────────────────────
-
-  /// Extract the English title from MangaDex's i18n title map.
-  /// Falls back to the first available title or 'Untitled'.
   static String _extractTitle(Map<String, dynamic> attrs) {
     final title = attrs['title'] as Map<String, dynamic>?;
     if (title != null) {
@@ -186,8 +150,6 @@ class MangaDexService with ConnectivityAware {
     return 'Untitled';
   }
 
-  /// Build the cover art URL from relationships, proxied through
-  /// `proxyMangaImage` to avoid hotlink protection from MangaDex CDN.
   String _coverUrl(String mangaId, List<dynamic>? relationships) {
     if (mangaId.isEmpty) return '';
     if (relationships == null) return '';
@@ -205,7 +167,6 @@ class MangaDexService with ConnectivityAware {
     return '';
   }
 
-  /// Extract English description from MangaDex's i18n description map.
   static String _extractDescription(Map<String, dynamic> attrs) {
     final desc = attrs['description'] as Map<String, dynamic>?;
     if (desc == null) return '';
@@ -218,8 +179,6 @@ class MangaDexService with ConnectivityAware {
     return '';
   }
 
-  /// Map MangaDex status to our status string.
-  /// MangaDex uses: ongoing, completed, hiatus, cancelled, discontinued
   static String _mapStatus(String? status) {
     switch (status) {
       case 'ongoing':
@@ -236,7 +195,6 @@ class MangaDexService with ConnectivityAware {
     }
   }
 
-  /// Extract tag names from MangaDex tag objects (max 8).
   static List<String> _extractTags(List<dynamic>? tags) {
     if (tags == null) return [];
     final names = <String>[];
@@ -254,8 +212,6 @@ class MangaDexService with ConnectivityAware {
     return names;
   }
 
-  /// Normalise language codes from Comick API values to MangaDex values.
-  /// Comick uses `jp`, `cn`; MangaDex uses `ja`, `zh`.
   static String? _normaliseLang(String? lang) {
     if (lang == null || lang.isEmpty) return null;
     switch (lang) {
@@ -268,7 +224,6 @@ class MangaDexService with ConnectivityAware {
     }
   }
 
-  /// Map a single MangaDex API manga data object to [MangaItem].
   MangaItem _mapMangaItem(Map<String, dynamic> data) {
     final mangaId = data['id'] as String? ?? '';
     final attrs = data['attributes'] as Map<String, dynamic>? ?? {};
@@ -289,7 +244,6 @@ class MangaDexService with ConnectivityAware {
       }
     }
 
-    // Extract alt titles for fallback matching on other sources
     final altTitlesRaw = attrs['altTitles'] as List?;
     final altTitles = <String>[];
     if (altTitlesRaw != null) {
@@ -324,7 +278,6 @@ class MangaDexService with ConnectivityAware {
     );
   }
 
-  /// Fetch full metadata for a MangaDex manga by UUID.
   Future<MangaItem?> getDetails(String mangaId) async {
     if (mangaId.isEmpty) return null;
     final path =
@@ -349,10 +302,6 @@ class MangaDexService with ConnectivityAware {
     return null;
   }
 
-  /// Search MangaDex by title.
-  ///
-  /// [originalLanguage] filters by original language (`ja`/`ko`/`zh`).
-  /// Pass `jp` as shorthand for `ja`.
   Future<List<MangaItem>> search({
     required String query,
     String? originalLanguage,
@@ -396,7 +345,6 @@ class MangaDexService with ConnectivityAware {
     return [];
   }
 
-  /// Fetch popular manga, optionally filtered by [originalLanguage].
   Future<List<MangaItem>> fetchPopular({
     String? originalLanguage,
     int limit = 20,
@@ -437,7 +385,6 @@ class MangaDexService with ConnectivityAware {
     return [];
   }
 
-  /// Fetch latest updated manga, optionally filtered by [originalLanguage].
   Future<List<MangaItem>> fetchLatest({
     String? originalLanguage,
     int limit = 20,
@@ -478,11 +425,6 @@ class MangaDexService with ConnectivityAware {
     return [];
   }
 
-  // ── PAGE IMAGES ────────────────────────────────────────────
-
-  /// Resolve page image URLs for a MangaDex chapter by its UUID.
-  /// Hits the at-home server endpoint, then builds full-quality
-  /// image URLs that are routed through `proxyMangaImage` for CORS.
   Future<MangaChapterPages?> getChapterPages(String chapterId) async {
     if (chapterId.isEmpty) return null;
     final path = 'at-home/server/$chapterId?forcePort443=false';
@@ -516,19 +458,16 @@ class MangaDexService with ConnectivityAware {
     return null;
   }
 
-  /// Resolve page image URLs for a chapter, automatically proxying
-  /// each image URL through `proxyMangaImage` for CORS-free display.
   Future<MangaChapterPages?> getChapterPagesProxied(String chapterId) async {
     final pages = await getChapterPages(chapterId);
     if (pages == null) return null;
-    // Replace direct URLs with proxied ones
     final proxiedFilenames = pages.filenames.map((f) {
       final directUrl = pages.urlForPage(pages.filenames.indexOf(f));
       return proxiedImageUrl(directUrl);
     }).toList();
     return MangaChapterPages(
       chapterId: pages.chapterId,
-      baseUrl: '', // URLs are now fully proxied, not relative
+      baseUrl: '',
       hash: '',
       filenames: proxiedFilenames,
       expiresAt: pages.expiresAt,

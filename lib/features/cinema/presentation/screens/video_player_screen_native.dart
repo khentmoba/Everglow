@@ -25,9 +25,6 @@ import '../widgets/embed_webview.dart';
 import '../widgets/netflix/netflix_colors.dart';
 import '../widgets/torrent_download_sheet.dart';
 
-/// Show name only: strips any trailing episode suffix the route may have
-/// carried (`Show: Episode 3`, `Show Episode 3`) so the stepper below is
-/// the single episode label.
 String _nativeDisplayTitle(String raw) {
   var title = raw.trim();
   if (title.isEmpty) return title;
@@ -53,14 +50,6 @@ String _nativeDisplayTitle(String raw) {
   return title.isEmpty ? raw.trim() : title;
 }
 
-/// Native player for the third-party embed sources.
-///
-/// Web embeds are iframe-only, so on Android the same provider URL runs
-/// inside an in-app WebView. The provider list and URL shape match the web
-/// player exactly; only the delivery mechanism differs.
-///
-/// WebViews without real progress keep manual Next; no timer guesses an ending.
-/// Phones auto-fullscreen in landscape.
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
   final String mediaType;
@@ -119,10 +108,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   late int _currentSeason;
   late int _currentEpisode;
 
-  /// Season/episode the WebView was loaded with. Manual navigation keeps
-  /// these equal to the current ones, but when the embed advances on its
-  /// own only the current pair moves — the WebView keeps playing the new
-  /// episode without a rebuild while the UI follows it.
   late int _playerSeason;
   late int _playerEpisode;
 
@@ -137,8 +122,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   int get _externalId =>
       widget.isAnime ? (widget.malId ?? widget.tmdbId) : widget.tmdbId;
 
-  /// Per-title memory key, shared with the web player so the picked
-  /// server follows Clair across phone and browser on this device.
   String get _memoryKey => PlayerMemoryService.cinemaKey(
     id: _externalId,
     mediaType: widget.mediaType,
@@ -342,7 +325,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   Future<void> _restoreDefaultSource() async {
     if (_userSelectedSource) return;
-    // This title's last-used server wins; the global default is fallback.
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted || _userSelectedSource) return;
     final id = memory.providerId ?? await _sourceService.loadDefaultSourceId();
@@ -359,16 +341,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _failedProviderIds.clear();
     _userSelectedSource = true;
     _savedProviderId = provider.id;
-    // The resume offset belongs to the loaded episode. When the selection
-    // drifted ahead via auto-play, the new server loads the new episode
-    // from its start instead of seeking into the old offset.
     if (_playerSeason != _currentSeason || _playerEpisode != _currentEpisode) {
       _startSeconds = null;
     }
     setState(() {
       _currentProvider = provider;
-      // A new server must load the episode actually being watched, which
-      // may have drifted ahead of the loaded WebView via auto-play.
       _playerSeason = _currentSeason;
       _playerEpisode = _currentEpisode;
     });
@@ -385,8 +362,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
   }
 
-  /// Remembers the current server + episode for this title so the
-  /// next visit reopens where Clair left off. Fire-and-forget.
   void _persistEpisodeMemory() {
     final sameEpisode =
         _currentSeason == _playerSeason && _currentEpisode == _playerEpisode;
@@ -453,9 +428,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   String _buildUrl() {
-    // Built from the LOADED episode, not the selection: after a
-    // player-driven advance the selection moves on while the WebView keeps
-    // playing, and the URL must stay byte-identical so Flutter reuses it.
     return buildVideoSourceUrl(
       _currentProvider,
       mediaType: widget.mediaType,
@@ -467,11 +439,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
   }
 
-  /// Follows the embed when it changes episodes on its own (CineSrc
-  /// auto-play or its built-in episode picker), without rebuilding the
-  /// WebView — no reload, no lost position. Only the Everglow server
-  /// reports these on native (our wrapper bridges them); the direct
-  /// CineSrc embed posts to itself inside the WebView, out of reach.
   void _onPlayerEpisodeChanged(int season, int episode) {
     if (!mounted || widget.mediaType != 'tv' || widget.isAnime) return;
     if (season <= 0 || episode <= 0) return;
@@ -512,7 +479,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final remaining = _providers.where(
       (p) => !_failedProviderIds.contains(p.id),
     );
-    if (remaining.isEmpty) return; // The WebView already offers Retry.
+    if (remaining.isEmpty) return;
     if (_playerSeason != _currentSeason || _playerEpisode != _currentEpisode) {
       _startSeconds = null;
     }
@@ -692,8 +659,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final isPhone = size.shortestSide < 600;
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    // Phones auto-fullscreen in landscape: player fills the screen,
-    // chrome hides, system UI goes immersive. Portrait restores all.
     if (isPhone && isLandscape) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);

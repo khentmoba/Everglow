@@ -63,7 +63,6 @@ void main() {
 
         final optimisticList = [optimistic1, optimistic2];
 
-        // First confirmation arrives
         final server1 = ChatMessage(
           id: 'srv_1',
           sender: 'clair',
@@ -97,7 +96,6 @@ void main() {
           }
         }
 
-        // Exactly ONE was reconciled, the second optimistic message is preserved!
         expect(remainingOptimistic.length, equals(1));
         expect(remainingOptimistic.first.id, equals('opt_2'));
       },

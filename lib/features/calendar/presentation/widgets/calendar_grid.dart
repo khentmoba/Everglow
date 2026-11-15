@@ -129,7 +129,6 @@ class _CalendarGridState extends State<CalendarGrid> {
       _currentMonth.month,
       1,
     ).weekday;
-    // Mon=1 ... Sun=7. We want Mon first: already correct.
     final leadingEmptyDays = firstDayWeekday - 1;
     final totalCells = leadingEmptyDays + daysInMonth;
     final rows = (totalCells / 7).ceil();
@@ -166,7 +165,6 @@ class _CalendarGridState extends State<CalendarGrid> {
         ),
         child: Stack(
           children: [
-            // Faint romantic watermark — cheap (two icons, no blur).
             Positioned(
               top: -14,
               right: -10,

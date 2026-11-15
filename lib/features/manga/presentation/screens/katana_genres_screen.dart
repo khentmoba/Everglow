@@ -8,13 +8,9 @@ import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
-/// The Genres page: every genre as a card with its count and
-/// description, mirroring the site's genre directory.
 class KatanaGenresScreen extends StatefulWidget {
   const KatanaGenresScreen({super.key, this.embed = false});
 
-  /// When true, renders just the tab content so [KatanaTabShell] can
-  /// keep one header mounted while tabs switch underneath it.
   final bool embed;
 
   @override
@@ -50,7 +46,6 @@ class _KatanaGenresScreenState extends State<KatanaGenresScreen> {
     return const KatanaTabShell(initialTab: KatanaNav.genres);
   }
 
-  /// Headerless tab content for [KatanaTabShell].
   Widget _buildContent() {
     return Center(
       child: ConstrainedBox(

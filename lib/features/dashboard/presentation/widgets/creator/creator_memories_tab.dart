@@ -22,9 +22,8 @@ class CreatorMemoriesTab extends StatefulWidget {
 }
 
 class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
-  int _selectedSubTab = 0; // 0: Compose & Preview, 1: Timeline History
+  int _selectedSubTab = 0;
 
-  // Form State
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
@@ -34,7 +33,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
   bool _isSaving = false;
   bool _showLivePreview = true;
 
-  // Editing state if updating an existing milestone
   String? _editingMilestoneId;
   List<String> _existingImageUrls = [];
 
@@ -46,7 +44,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
     try {
       _milestonesStream = widget.creatorService.watchMilestones(limit: 50);
     } catch (_) {
-      // Test / offline fallback: Firebase unavailable in widget tests.
       _milestonesStream = Stream.value(const []);
     }
   }
@@ -90,7 +87,7 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
       _selectedCategory = milestone.category;
       _existingImageUrls = List.from(milestone.imageUrls);
       _pickedImages.clear();
-      _selectedSubTab = 0; // Switch to form
+      _selectedSubTab = 0;
     });
   }
 
@@ -162,7 +159,7 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
 
       if (mounted) {
         _cancelEditing();
-        setState(() => _selectedSubTab = 1); // View timeline list
+        setState(() => _selectedSubTab = 1);
       }
     } catch (e) {
       if (mounted) {
@@ -249,7 +246,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Sub-navigation: Compose & Preview vs History
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Container(
@@ -385,7 +381,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                 ),
               ),
 
-            // Category Chips
             Text(
               'Memory Category',
               style: AppTypography.outfitBold.copyWith(
@@ -456,7 +451,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
             _buildMultiImagePicker(),
             const SizedBox(height: 24),
 
-            // Live Preview Toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -644,7 +638,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                // Existing remote images
                 ..._existingImageUrls.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final url = entry.value;
@@ -683,7 +676,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                   );
                 }),
 
-                // Newly picked local bytes
                 ..._pickedImages.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final item = entry.value;
@@ -902,7 +894,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                         ),
                       ),
                       const Spacer(),
-                      // Edit button
                       IconButton(
                         tooltip: 'Edit memory',
                         icon: const Icon(
@@ -913,7 +904,6 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _startEditing(m),
                       ),
-                      // Delete button
                       IconButton(
                         tooltip: 'Delete memory',
                         icon: const Icon(

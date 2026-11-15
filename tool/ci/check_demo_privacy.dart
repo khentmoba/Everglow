@@ -1,4 +1,3 @@
-// Public demo and benchmark sources may only use synthetic artwork.
 import 'dart:io';
 
 import '_io.dart';

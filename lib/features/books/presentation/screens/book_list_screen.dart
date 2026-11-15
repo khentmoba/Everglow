@@ -21,10 +21,8 @@ const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 const _cDeepRose = AppColors.deepRose;
 
-/// Which feed a [BookListScreen] shows.
 enum BookListKind { popular, recent, category }
 
-/// Arguments for the `/books/list` route.
 class BookListArgs {
   final BookListKind kind;
   final BookCategory? category;
@@ -34,10 +32,6 @@ class BookListArgs {
   const BookListArgs.category(this.category) : kind = BookListKind.category;
 }
 
-/// Z-Library style full list page: one feed (Popular, Recently
-/// Added, or a category) as dense rows. Category feeds page through
-/// Open Library with a Load-more footer; Popular / Recent are
-/// curated single pages.
 class BookListScreen extends StatefulWidget {
   final BookListArgs args;
   const BookListScreen({super.key, required this.args});

@@ -4,13 +4,8 @@ const net = require('net');
 const dns = require('dns').promises;
 const { trustedProfileUsername } = require('./auth_core.js');
 
-/** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
 const APP_VERSION = '6.3.0+1';
 
-/** Lazy require+init so Firebase deploy analysis doesn't time out.
- *  admin_compat restores the legacy namespace API (admin.auth(),
- *  admin.firestore(), ...) that firebase-admin v14 removed from its
- *  default export — see functions/admin_compat.js. */
 let _admin;
 function getAdmin() {
   if (!_admin) {
@@ -20,15 +15,10 @@ function getAdmin() {
   return _admin;
 }
 
-/** Firestore handle from the shared admin app. */
 function getDb() {
   return getAdmin().firestore();
 }
 
-/**
- * Requires a valid Firebase ID token carrying a server-approved profile.
- * Returns the decoded token, or writes a 401/403 and returns null.
- */
 async function requireAuth(req, res) {
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = String(header).replace(/^Bearer\s+/i, '').trim();
@@ -75,7 +65,6 @@ function isPrivateIpv4(ip) {
 function isPrivateIp(ip) {
   if (net.isIPv4(ip)) return isPrivateIpv4(ip);
   if (!net.isIPv6(ip)) return true;
-  // Only global unicast IPv6; this also rejects mapped/translated IPv4.
   return !publicIpv6.check(ip, 'ipv6') || nonPublicIps.check(ip, 'ipv6');
 }
 
@@ -89,7 +78,6 @@ async function isPublicDnsHost(hostname) {
   }
 }
 
-/** Public-only GET, with DNS pinned to the checked address on every hop. */
 async function fetchPublicUrl(target, { headers, signal }) {
   const { Readable } = require('node:stream');
   let url = new URL(target);
@@ -111,7 +99,6 @@ async function fetchPublicUrl(target, { headers, signal }) {
     const incoming = await new Promise((resolve, reject) => {
       const request = transport.get(url, {
         headers, signal,
-        // No pooled connection or second DNS lookup may bypass validation.
         agent: false,
         lookup: (_host, options, callback) => {
           callback(null, options.all ? [records[0]] : records[0].address, records[0].family);
@@ -154,16 +141,10 @@ function isAllowedBookTextUrl(url) {
   return allowed;
 }
 
-/** Resolve identity from the verified token, never a client-writable profile. */
 async function getVerifiedUsername(decoded) {
   return trustedProfileUsername(decoded);
 }
 
-// ─── External API cache (TMDB/weather/books/anime) ───────────
-// Deduplicates repeat searches within tool-loop rounds and across rapid
-// user messages. TTLs: TMDB 10m, weather 15m, books 30m, anime 10m.
-// Size-capped at 200 entries to bound memory. Lives here (not index.js)
-// so both index.js and motchi_context.js share one Map.
 const _externalCache = new Map();
 const _EXTERNAL_CACHE_TTLS = {
   tmdb: 10 * 60 * 1000,
@@ -193,12 +174,6 @@ function _setExternalCache(key, data) {
   }
 }
 
-// ─── Lightweight in-memory rate limiter ───────────
-// Per-instance sliding-window counters. Each Cloud Functions instance
-// keeps its own map, so this is not a hard global cap — but it stops
-// single-client floods and bot loops cheaply with zero Firestore cost.
-// Expensive endpoints (proxyAI) additionally use the
-// Firestore-backed daily caps below, which hold across instances.
 const _rateBuckets = new Map();
 const RATE_LIMIT_MAX_BUCKETS = 2000;
 const RATE_LIMIT_PRUNE = 200;
@@ -212,10 +187,6 @@ function _pruneRateBuckets() {
   }
 }
 
-/**
- * Record one hit for `key`. Returns true when the key is OVER the limit
- * (i.e. the caller should reject with 429). Window slides from first hit.
- */
 function rateLimitHit(key, limit, windowMs, now = Date.now()) {
   let bucket = _rateBuckets.get(key);
   if (!bucket || (now - bucket.start) >= windowMs) {
@@ -227,11 +198,6 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
   return bucket.count > limit;
 }
 
-/**
- * Google's load balancer appends client-ip, load-balancer-ip to XFF.
- * Everything before that trusted suffix can be supplied by the caller.
- * https://cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
- */
 function clientIp(req) {
   const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
   const hops = fwd.split(',').map((hop) => hop.trim());
@@ -240,11 +206,6 @@ function clientIp(req) {
   return net.isIP(req.ip || '') ? req.ip : 'unknown';
 }
 
-/**
- * Enforce a per-minute style limit. Sends 429 + Retry-After and returns
- * true when over the limit. Pass the verified `uid` for authed endpoints
- * so limits follow the user; anonymous-tolerant endpoints fall back to IP.
- */
 function enforceRateLimit(req, res, { endpoint, limit, windowMs, uid = '' }) {
   const key = uid ? `${endpoint}:u:${uid}` : `${endpoint}:ip:${clientIp(req)}`;
   if (rateLimitHit(key, limit, windowMs)) {
@@ -255,25 +216,11 @@ function enforceRateLimit(req, res, { endpoint, limit, windowMs, uid = '' }) {
   return false;
 }
 
-// ─── Firestore-backed daily usage caps ───────────
-// Counters live at api_usage/{uid}/days/{YYYY-MM-DD} (server-only
-// collection, see firestore.rules). Atomic increments, so concurrent
-// instances can't dodge the cap. Fails OPEN (allows the call) when
-// Firestore is unreachable — we never want to break Clair's chat
-// because a counter write hiccuped; the miss is logged instead.
-//
-// Speed: the write+read round-trip ran on EVERY chat request before the
-// first LLM byte (~100-400ms of pure serial wait). The count is now
-// cached in-memory for 60s: warm requests decide instantly and
-// fire-and-forget the increment, while a stale/missing entry falls back
-// to the exact write+read path. Enforcement stays within a 60s
-// staleness bound per instance — plenty for abuse protection, and the
-// per-minute rate limiter above is still the hard per-instance brake.
 function _todayDayKey(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
 
-const _dailyCapCache = new Map(); // `${uid}:${endpoint}:${day}` -> {count, ts}
+const _dailyCapCache = new Map();
 const DAILY_CAP_CACHE_TTL_MS = 60 * 1000;
 const DAILY_CAP_CACHE_MAX = 500;
 
@@ -298,7 +245,6 @@ function _dailyCapCacheSet(key, count) {
 async function checkDailyCap(uid, endpoint, dailyLimit) {
   const day = _todayDayKey();
   const key = `${uid}:${endpoint}:${day}`;
-  // Warm path: decide from cache, sync Firestore in the background.
   const cached = _dailyCapCacheGet(key);
   if (cached !== null) {
     const count = cached + 1;
@@ -332,11 +278,6 @@ async function checkDailyCap(uid, endpoint, dailyLimit) {
   }
 }
 
-// ─── Instance-count backstop ───────────
-// Every HTTPS endpoint declares its max instance count so a traffic
-// spike, bug loop, or bot flood can't scale the Cloud Functions bill
-// without bound. One Node instance serves many concurrent requests,
-// so these caps are generous for four humans.
 function cappedHttps(maxInstances, handler, opts = {}) {
   const functions = require('firebase-functions/v1');
   return functions.runWith({ maxInstances, ...opts }).https.onRequest(handler);

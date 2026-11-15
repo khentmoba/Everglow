@@ -16,13 +16,6 @@ class TableTennisGameScreen extends StatefulWidget {
 }
 
 class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
-  // Local self-contained build of the Famobi Table Tennis World Tour
-  // (originally hosted at games.cdn.famobi.com/.../table-tennis-world-tour/,
-  // now serving placeholder files). The single-file embed lives at
-  // web/table_tennis/index.html and is bundled by `flutter build web`.
-  // The `v=1` cache-buster mirrors the hexgl/index.html convention so
-  // future updates aren't pinned to a stale iframe HTML by the 1-hour
-  // Firebase Hosting CDN cache.
   static const String _gameSrc = 'table_tennis/assets/index.typed.html?v=1';
 
   late final String _viewType =

@@ -26,10 +26,6 @@ class _DemoAuth extends ChangeNotifier implements AuthService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Captures a proof screenshot from live TMDB data, so the whole library is
-/// tagged `network` (see the directive above) and excluded from the standard
-/// suite; run on demand for PR proof. The hermetic badge-render coverage
-/// lives in cinema_top_ten_rank_test.dart.
 void main() {
   testWidgets('agent drawer fits at phone width and captures without hanging', (
     tester,
@@ -47,7 +43,6 @@ void main() {
     final icons = FontLoader('MaterialIcons');
     icons.addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await tester.runAsync(icons.load);
-    // Use the app fonts so an exported proof depicts the production typography.
     for (final font in ['Outfit', 'CormorantGaramond']) {
       final loader = FontLoader(font == 'Outfit' ? font : 'Cormorant Garamond');
       loader.addFont(rootBundle.load('assets/google_fonts/$font-SemiBold.ttf'));
@@ -97,8 +92,6 @@ void main() {
         ),
       ),
     );
-    // The drawer includes an animated recommendation loader; pump a bounded
-    // interval rather than waiting for all animations to stop.
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     expect(tester.takeException(), isNull);
@@ -111,8 +104,6 @@ void main() {
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find.byKey(const ValueKey('proof')),
     );
-    // Both image creation and byte readback must leave the fake async zone.
-    // Encode raw pixels with the already-installed image package: no Skia PNG wait.
     final png = await tester.runAsync(() async {
       final image = await boundary.toImage(pixelRatio: 1);
       final pixels = await image.toByteData(format: ui.ImageByteFormat.rawRgba);

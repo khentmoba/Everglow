@@ -71,7 +71,6 @@ void main() {
     testWidgets('paints pages and cycles the waiting copy', (tester) async {
       await tester.pumpWidget(_stage());
 
-      // The animation is a CustomPainter, not a progress spinner.
       expect(find.byType(CustomPaint), findsWidgets);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text(ChapterLoadingStage.hints.first), findsOneWidget);
@@ -111,15 +110,12 @@ void main() {
       final before = _hintsOnScreen(tester);
       await tester.pump(const Duration(seconds: 5));
 
-      // Frozen: the same frame and the same line of copy, no drift.
       expect(_hintsOnScreen(tester), before);
       expect(tester.takeException(), isNull);
     });
   });
 }
 
-/// Which of the waiting lines are currently on screen (a switching
-/// copy briefly shows two at once).
 Set<String> _hintsOnScreen(WidgetTester tester) => ChapterLoadingStage.hints
     .where((h) => find.text(h).evaluate().isNotEmpty)
     .toSet();

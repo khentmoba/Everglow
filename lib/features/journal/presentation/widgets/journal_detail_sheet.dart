@@ -12,11 +12,6 @@ import '../../data/services/journal_service.dart';
 import 'journal_ui.dart';
 import 'memory_connections.dart';
 
-/// Opens the journal reading sheet — the ONE full-entry view.
-///
-/// Used by the journal list and by [JournalEntryCard]'s fallback tap.
-/// [onEdit] opens the edit dialog; null hides the edit button (the card
-/// fallback has no auth context, so it passes null).
 Future<void> showJournalDetailSheet({
   required BuildContext context,
   required JournalEntry entry,
@@ -102,7 +97,6 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            // Category + mood + actions
             Row(
               children: [
                 Container(
@@ -200,7 +194,6 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
               style: AppTypography.cormorantBold.copyWith(fontSize: 28),
             ),
             const SizedBox(height: 10),
-            // Byline: avatar + author + date + reading time
             Row(
               children: [
                 AuthorDot(author: _entry.author, size: 26),
@@ -247,7 +240,6 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
               ),
             ],
             const SizedBox(height: 16),
-            // Heart divider
             Row(
               children: [
                 Expanded(
@@ -477,7 +469,6 @@ class _LockedBox extends StatelessWidget {
   }
 }
 
-/// Author avatar dot — shared by the sheet and the entry cards.
 class AuthorDot extends StatelessWidget {
   final String author;
   final double size;

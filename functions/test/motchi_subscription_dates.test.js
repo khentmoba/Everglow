@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { subNextRenewal, exec_get_subscriptions } = require('../motchi_exec_planning.js');
 
-// The picker saves local midnight in PHT as 16:00Z on the previous day.
 const phtMidnight = (day) => new Date(`${day}T00:00:00+08:00`);
 const nextDay = (stored, cycle, now) =>
   subNextRenewal(stored, cycle, new Date(now)).toISOString();
@@ -18,7 +17,6 @@ test('subscription renewals use the stored Philippine day, not the UTC day', () 
   }
   assert.equal(nextDay(phtMidnight('2026-10-15'), 'monthly', '2026-10-15T16:00:00Z'),
     '2026-11-15T00:00:00.000Z');
-  // Motchi's date-only writes are UTC midnight, also the same PHT day.
   assert.equal(nextDay(new Date('2026-10-15'), 'monthly', '2026-10-14T16:00:00Z'),
     '2026-10-15T00:00:00.000Z');
 });

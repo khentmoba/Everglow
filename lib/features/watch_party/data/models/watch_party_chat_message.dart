@@ -1,10 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../chat/domain/models/chat_message.dart';
 
-/// One message in a Watch Together chat thread.
-///
-/// Shares the canonical [ChatMessage] shape and serialization used by the
-/// Sanctuary chat; the two chat surfaces differ only in where they persist.
 class WatchPartyChatMessage extends ChatMessage {
   WatchPartyChatMessage({
     required super.id,

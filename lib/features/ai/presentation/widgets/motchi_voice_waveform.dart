@@ -5,7 +5,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Recent microphone levels, painted without rebuilding the chat.
 class MotchiVoiceWaveform extends StatelessWidget {
   final ValueListenable<List<double>> levels;
 

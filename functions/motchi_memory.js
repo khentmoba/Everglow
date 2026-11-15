@@ -1,9 +1,5 @@
 'use strict';
 
-// Everglow Cloud Functions — Motchi memory group.
-// Fact extraction, hallucination guard, embeddings, and memory ranking.
-// Pure scoring lives in motchi_core.js; Firestore + LLM wiring lives here.
-
 const {
   getAdmin,
   getDb,
@@ -22,16 +18,6 @@ const {
 const { getTmdbKey } = require('./motchi_context.js');
 const { memoryEvidence } = require('./motchi_agent.js');
 
-// Memory vectors are local 64-dim hash embeddings (motchi_core.js).
-// Nothing on the chat path — or the nightly sweep — spends an
-// embedding API call; ranking is keywords plus local cosine.
-
-// ── Facts cache ──────────────────────────────────────────────
-// selectRelevantMemories runs every turn but the book barely moves
-// (extraction is throttled to one write per 30 min, the rest are
-// explicit). Cache the raw fetch briefly; ranking still runs fresh
-// per message, and every write path invalidates. In-memory only — a
-// cold instance just reads again.
 const FACTS_CACHE_TTL_MS = 90 * 1000;
 let _factsCache = { at: 0, facts: null };
 
@@ -39,15 +25,8 @@ function invalidateMemoryCache() {
   _factsCache = { at: 0, facts: null };
 }
 
-// ── Extraction throttle ──────────────────────────────────────
-// Memory extraction costs an LLM call per exchange. Throttle to one
-// extraction per caller per window: rapid-fire chats are usually one
-// topic, so later exchanges in the window add little. In-memory only —
-// a cold instance simply extracts again (today's behavior), and no
-// reads or writes are added to the chat path. Explicit remember_fact
-// tool calls bypass this entirely.
 const EXTRACT_THROTTLE_MS = 30 * 60 * 1000;
-const _extractThrottle = new Map(); // lowercased caller -> last epoch ms
+const _extractThrottle = new Map();
 
 function claimMemoryExtractSlot(caller, nowMs = Date.now(), windowMs = EXTRACT_THROTTLE_MS) {
   const key = String(caller || '').toLowerCase();
@@ -98,8 +77,6 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     const evidence = candidates.slice(0, 3).map((c) => memoryEvidence(c, trimmedUser, callerUsername)).filter(Boolean);
     if (!evidence.length) return;
     const db = getDb();
-    // Fetch recent facts for semantic dedupe (last 30 — extraction only
-    // needs the fresh window; older dupes are harmless).
     let recentDocs = [];
     try {
       if (_factsCache.db === db && _factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS) {
@@ -112,20 +89,14 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     } catch (e) { console.warn('[memoryExtract] dedupe unavailable:', e.message); return; }
     for (const item of evidence) {
       const { fact, category } = item;
-      // Semantic dedupe
       let isDup = false;
       for (const existing of recentDocs) {
         if (existing.fact.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
         try { if (isNearDuplicate(existing.fact, fact, 0.85)) { isDup = true; break; } } catch (_) {}
       }
       if (isDup) continue;
-      // (No exact-match query: the semantic pass above already skips
-      // case-insensitive duplicates, saving a read per candidate.)
       const parsed = parseFactStructure(fact);
-      // Contradiction: same subject + relation, different object —
-      // update the stale fact instead of adding a twin.
       const hit = findContradiction(parsed, fact, recentDocs);
-      // An automatic report must not silently overwrite an explicit correction.
       if (hit && hit.id && hit.provenance === 'explicit') continue;
       if (hit && hit.id) {
         try {
@@ -174,15 +145,10 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
 async function checkHallucinations(replyText, rand = Math.random) {
   try {
     if (!replyText || replyText.length < 20) return;
-    // Only media replies can hallucinate titles — skip the TMDB lookups
-    // for journal quotes, chat quotes, and everyday chatter.
     if (!/recommend|watch|movie|film|\bshow\b|series|anime|cinema|episode/i.test(replyText)) return;
-    // Sampled telemetry: this only feeds the review log, so checking
-    // half the replies still surfaces systemic invention at half price.
     if (rand() >= 0.5) return;
     const apiKey = getTmdbKey();
     if (!apiKey) return;
-    // Extract candidate titles: double-quoted, single-quoted, or **bold**
     const candidates = new Set();
     const dq = replyText.matchAll(/"([^"]{3,60})"/g);
     for (const m of dq) candidates.add(m[1].trim());
@@ -190,14 +156,11 @@ async function checkHallucinations(replyText, rand = Math.random) {
     for (const m of sq) candidates.add(m[1].trim());
     const bold = replyText.matchAll(/\*\*([^*]{3,60})\*\*/g);
     for (const m of bold) candidates.add(m[1].trim());
-    // Also consider Title Case phrases after trigger words like "watch", "recommend", "try"
-    // Keep set small — max 3 checks to bound TMDB calls.
     const list = Array.from(candidates).filter(t => t.split(/\s+/).length >= 1 && t.split(/\s+/).length <= 6).slice(0, 3);
     if (list.length === 0) return;
     const hallucinated = [];
     for (const title of list) {
       const q = title.toLowerCase().trim();
-      // Skip common non-titles
       if (['the', 'a', 'an', 'you', 'your', 'this', 'that'].includes(q)) continue;
       const cacheKey = `halluc:check:${q}`;
       let exists = _getExternalCache(cacheKey, _EXTERNAL_CACHE_TTLS.tmdb);
@@ -206,14 +169,13 @@ async function checkHallucinations(replyText, rand = Math.random) {
           const res = await fetch(`https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(title)}&api_key=${apiKey}`, { signal: AbortSignal.timeout(8000) });
           const data = await res.json();
           const results = data.results || [];
-          // Consider exists if any result title roughly matches query
           exists = results.some(r => {
             const t = (r.title || r.name || '').toLowerCase();
             return t.includes(q) || q.includes(t);
           });
           _setExternalCache(cacheKey, exists);
         } catch (_) {
-          continue; // skip on fetch error
+          continue;
         }
       }
       if (!exists) hallucinated.push(title);
@@ -233,12 +195,6 @@ async function checkHallucinations(replyText, rand = Math.random) {
   }
 }
 
-// ── Server-Side Memory Filtering ─────────────────────────────────
-// Replaces client-side memory injection with TF-IDF keyword matching.
-// Fetches all memories from Firestore, filters by relevance, decays stale ones.
-
-// Shared by prompt retrieval and read_memories. Preserve the app's former
-// 150-fact coverage, plus old pins; cache structured facts, not plain text.
 async function loadMemoryFacts(db = getDb()) {
   if (_factsCache.db === db && _factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS) {
     return _factsCache.facts;
@@ -280,7 +236,6 @@ async function selectRelevantMemoryFacts(userMessage, maxResults = 10, db = getD
       return c;
     }).filter((m) => m.pinned || (m.confidence ?? 1) >= 0.15);
     const ranked = selectPromptMemories(decayed, userMessage || '', maxResults);
-    // At most one access write per selected fact per cache window.
     for (const m of ranked) {
       if (_factsCache.accessed.has(m.id)) continue;
       _factsCache.accessed.add(m.id);
@@ -300,9 +255,6 @@ async function selectRelevantMemories(userMessage, maxResults = 10, db = getDb()
   return (await selectRelevantMemoryFacts(userMessage, maxResults, db)).map((m) => m.fact);
 }
 
-// Letta-style core block: pinned profile notes ride every memory turn,
-// unranked and guaranteed — the essentials Motchi never forgets, even
-// when ranking would cut them. Shares the facts cache: zero extra reads.
 async function selectCoreProfileNotes(db = getDb(), structured = false) {
   try {
     const memories = await loadMemoryFacts(db);

@@ -42,7 +42,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Bring back half-typed words after a killed tab/PWA reload.
     _messageController.loadDraft();
     _scrollController.addListener(_onScroll);
     _checkAuthAndConnect();
@@ -95,7 +94,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       return;
     }
 
-    // Ensure user doc in background — do not block chat connection on write ACK.
     unawaited(
       FirebaseFirestore.instance
           .collection('users')
@@ -109,9 +107,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
           }),
     );
 
-    // Self-heal a stuck partner link: if the one-shot background resolve in
-    // AuthService failed earlier (offline, rules), retry it now so the
-    // presence header recovers without forcing the user to re-login.
     unawaited(authService.refreshPartnerLink());
 
     setState(() {
@@ -165,20 +160,16 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       isOptimistic: true,
     );
 
-    // 1. Render now (assume success)
     setState(() {
       _optimisticMessages.add(localMsg);
     });
-    // Words are sent now — forget the draft so it never comes back stale.
     _messageController.clearDraft();
     HapticFeedback.lightImpact();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
-    // 2. Reconcile with Firestore in background
     chatService
         .sendMessage(text, currentUser, authService.uid ?? 'anonymous')
         .catchError((error) {
-          // 3. Mark as failed if server write fails
           if (mounted) {
             setState(() {
               final idx = _optimisticMessages.indexWhere((m) => m.id == tempId);
@@ -231,9 +222,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   List<ChatMessage> _mergeMessages(List<ChatMessage> serverMessages) {
     if (_optimisticMessages.isEmpty) return serverMessages;
 
-    // Filter out optimistic messages confirmed by Firestore using 1-to-1 matching.
-    // Tracking matched server IDs ensures duplicate messages ("I love you" sent twice)
-    // are only reconciled one at a time as each server confirmation arrives.
     final matchedServerIds = <String>{};
     final remainingOptimistic = <ChatMessage>[];
 
@@ -489,7 +477,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                                   );
                                 }
 
-                                // Auto-scroll logic
                                 WidgetsBinding.instance.addPostFrameCallback(
                                   (_) => _scrollToBottom(),
                                 );
@@ -571,7 +558,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                                 );
                               },
                             ),
-                          // Scroll-to-bottom FAB
                           if (_showScrollButton)
                             Positioned(
                               bottom: 8,
@@ -732,7 +718,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     }
 
     if (context.mounted) {
-      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context);
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -825,7 +811,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   }
 }
 
-/// Reusable error state widget
 class _ErrorState extends StatelessWidget {
   final IconData icon;
   final String title;

@@ -14,13 +14,6 @@ import 'katana_service.dart';
 import 'mangadex_service.dart';
 import '../models/katana_models.dart';
 
-/// Scrapes mangakakalot.com for chapter data and page images. Catalog
-/// browsing (search, popular, latest) is still handled by [ComickService].
-///
-/// MangaKakalot doesn't offer a public API — we scrape HTML pages:
-///   * Search       — `GET /search/story/{title}`
-///   * Chapter list — `GET /manga/{slug}`
-///   * Page images  — `GET /chapter/{slug}/{chapterId}`
 class MangaKakalotService with ConnectivityAware {
   static const String _baseUrl = 'https://mangakakalot.com';
 
@@ -32,7 +25,6 @@ class MangaKakalotService with ConnectivityAware {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Agent demo has no manga fixtures and must not read the live library.
   bool get _demoData =>
       AgentMode.isActive.value && AgentMode.useDemoData.value;
 
@@ -63,16 +55,12 @@ class MangaKakalotService with ConnectivityAware {
 
   final Map<String, MangaChapterPages> _pageCache = {};
 
-  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
-  /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
       '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
     );
   }
 
-  /// Search MangaKakalot by title and return the manga slug
-  /// (e.g. "manga-abc123456789").
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse(
@@ -100,8 +88,6 @@ class MangaKakalotService with ConnectivityAware {
     return '';
   }
 
-  /// Scrape the manga detail page for its chapter list.
-  /// [slug] is the MangaKakalot slug (e.g. "manga-abc123456789").
   Future<List<MangaChapter>> getChapterFeed(
     String slug, {
     String language = 'en',
@@ -135,8 +121,6 @@ class MangaKakalotService with ConnectivityAware {
       final href = m.group(1)?.trim() ?? '';
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
-      // Detail pages also link other series' chapters (sidebars and
-      // rails) — only keep links for the series we asked for.
       if (slug.isNotEmpty && !href.contains(slug)) continue;
       final id = href.startsWith('/') ? href.substring(1) : href;
       final numMatch = RegExp(
@@ -160,8 +144,6 @@ class MangaKakalotService with ConnectivityAware {
     return chapters;
   }
 
-  /// Scrape a chapter page for image URLs.
-  /// [chapterId] is the URL path (e.g. "chapter/{slug}/chapter_1").
   Future<MangaChapterPages?> getChapterPages(String chapterId) async {
     final cached = _pageCache[chapterId];
     if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
@@ -205,13 +187,6 @@ class MangaKakalotService with ConnectivityAware {
     return '$_proxyImageUrl?url=${Uri.encodeComponent(pageUrl)}';
   }
 
-  // ── LIBRARY (Firestore) ────────────────────────────────────────────
-
-  /// Fill missing creator and catalog metadata for a library item.
-  ///
-  /// Older entries were saved from slim search results, so they can have a
-  /// cover and title but no author. Resolve the source detail once and merge
-  /// the useful fields back into the user's library document.
   Future<MangaItem?> enrichMetadata(MangaItem item, String userName) async {
     if (item.hasAuthor) return item;
 
@@ -472,19 +447,10 @@ class MangaKakalotService with ConnectivityAware {
         });
   }
 
-  /// Per-user stream of titles the user is currently reading
-  /// (`libraryStatus == 'reading'`). Used by the dashboard's partner
-  /// sub-row so each partner's active reads surface alongside the
-  /// other's. Filtering is done in Dart so we don't need a composite
-  /// Firestore index.
   Stream<List<MangaItem>> getReadingStream(String userName) {
     return getReadingPreviewStream(userName, limit: 500);
   }
 
-  // Capped preview for the dashboard rail: each partner sub-row renders
-  // up to 12 cards, so the default 500-doc stream is heavy on every
-  // dashboard visit. Full library stays on getReadingStream / the
-  // manga screens.
   Stream<List<MangaItem>> getReadingPreviewStream(
     String userName, {
     int limit = 24,
@@ -519,10 +485,6 @@ class MangaKakalotService with ConnectivityAware {
     );
   }
 
-  // Capped preview for the dashboard header: it only shows the badge
-  // count, but today it merges two 500-doc realtime streams to do it.
-  // Default cap (24 per partner) is plenty for a count badge; the
-  // manga screens keep the full stream.
   Stream<List<MangaItem>> getCoupleLibraryPreviewStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
@@ -622,8 +584,6 @@ class MangaKakalotService with ConnectivityAware {
     }
     return 'none';
   }
-
-  // ── LOCAL CACHE ────────────────────────────────────────────────────
 
   Future<void> cacheLibrary(List<MangaItem> items, String userName) async {
     try {

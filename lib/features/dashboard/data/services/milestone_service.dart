@@ -11,15 +11,10 @@ class MilestoneService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Stream of all milestones, shared globally, ordered by date ascending
   Stream<List<Milestone>> get milestones {
     return milestonesPreview(limit: 500);
   }
 
-  // Capped preview for the dashboard carousel: the rail shows a handful
-  // of cards, so holding the full 500-doc realtime stream open on every
-  // dashboard visit is pure scroll-jank fuel. Full history stays
-  // available via [milestones] for archive/admin surfaces.
   Stream<List<Milestone>> milestonesPreview({int limit = 50}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoMilestones);
@@ -39,15 +34,11 @@ class MilestoneService {
     );
   }
 
-  // Helper to add a milestone (for dev seeding and future admin use)
   Future<void> addMilestone(Milestone milestone) async {
     if (AgentMode.isActive.value) return;
     await _db.collection('milestones').add(milestone.toFirestore());
   }
 
-  /// One-time repair for docs saved before milestone photos were renamed
-  /// from `.png` to `.jpg`. Rewrites only stale `imageUrls`, leaves every
-  /// other field untouched, and returns how many docs were repaired.
   Future<int> repairLegacyAssetPaths() async {
     if (AgentMode.isActive.value) return 0;
     final snapshot = await withGetTimeout(

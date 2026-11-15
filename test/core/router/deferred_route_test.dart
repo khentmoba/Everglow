@@ -26,7 +26,6 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(loader('Anime', load));
-    // No pump: the very first frame of the revisit is already the screen.
     expect(find.text('screen'), findsOneWidget);
     expect(find.text('Loading Anime…'), findsNothing);
     expect(loads, 1);

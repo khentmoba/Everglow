@@ -15,21 +15,11 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Bottom sheet that lets the host (or partner) choose which playback
-/// server the room uses, plus connect a new self-hosted server.
-///
-/// The layout mirrors AniChan's player "Sources" bar: servers have a
-/// label, a host identity, and a type badge (HLS vs embed). Selecting
-/// one updates the shared Firestore room, so the other client follows.
 class ServerPickerSheet extends StatefulWidget {
   final List<WatchPartyServer> servers;
 
-  /// Currently active server, or null when using the default embed
-  /// provider list.
   final WatchPartyServer? selected;
 
-  /// Called with the picked server, or null to go back to default
-  /// providers.
   final ValueChanged<WatchPartyServer?> onSelect;
 
   const ServerPickerSheet({

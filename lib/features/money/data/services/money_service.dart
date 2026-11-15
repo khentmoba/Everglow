@@ -5,8 +5,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/money_entry.dart';
 
-/// Shared couple wallet. Collections: `budget_transactions`,
-/// `budget_limits` (both couple-only, see firestore.rules).
 class MoneyService {
   static final MoneyService _instance = MoneyService._internal();
   factory MoneyService({FirebaseFirestore? db}) =>
@@ -16,8 +14,6 @@ class MoneyService {
   final FirebaseFirestore? _customDb;
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
 
-  /// Keep every entry in this month live so totals never silently truncate.
-  /// Grow the query only when full; the screen reveals rows in small pages.
   Stream<List<MoneyEntry>> watchMonth(DateTime month) {
     if (AgentMode.isActive.value) {
       return Stream.value(AgentFixtures.demoMoney(month));
@@ -70,8 +66,6 @@ class MoneyService {
     );
   }
 
-  /// One doc per category with a cap. Small collection, no limit needed
-  /// beyond the guard-friendly cap.
   Stream<List<BudgetLimit>> watchLimits() {
     if (AgentMode.isActive.value) {
       return Stream.value(AgentFixtures.demoBudgets);
@@ -108,7 +102,6 @@ class MoneyService {
     }
   }
 
-  /// Set (or overwrite) the monthly cap for [category].
   Future<void> setLimit(String category, double amount) async {
     if (AgentMode.isActive.value) return;
     try {

@@ -21,7 +21,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
   @override
   void initState() {
     super.initState();
-    // Bring back half-typed words after a killed tab/PWA reload.
     _controller.loadDraft();
     _controller.addListener(_validateInput);
   }
@@ -84,7 +83,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ── Category Chips ──
               Text(
                 "Category",
                 style: AppTypography.outfitBold.copyWith(
@@ -140,7 +138,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
 
               const SizedBox(height: 16),
 
-              // ── Text Input ──
               TextField(
                 controller: _controller,
                 maxLines: 3,
@@ -170,7 +167,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
 
               const SizedBox(height: 12),
 
-              // ── Tags ──
               Row(
                 children: [
                   Expanded(
@@ -260,7 +256,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
 
               const SizedBox(height: 24),
 
-              // ── Buttons ──
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -282,8 +277,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
                               category: _selectedCategory,
                               tags: List.unmodifiable(_tags),
                             );
-                            // Words are dropped now — forget the draft so it
-                            // never comes back stale.
                             _controller.clearDraft();
                             Navigator.pop(context, result);
                           }
@@ -319,7 +312,6 @@ class _DropStarDialogState extends State<DropStarDialog> {
   }
 }
 
-/// Result returned from the DropStarDialog.
 class StarDropResult {
   final String content;
   final String category;

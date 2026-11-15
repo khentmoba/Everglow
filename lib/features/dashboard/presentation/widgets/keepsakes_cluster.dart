@@ -8,7 +8,6 @@ import '../../../bucket_list/presentation/widgets/bucket_list_preview.dart';
 import '../../../journal/data/models/journal_entry.dart';
 import 'journal_preview.dart';
 
-/// Atelier — dreams + journal cluster with atmospheric depth and responsive layout.
 class KeepsakesCluster extends StatelessWidget {
   final Stream<List<BucketItem>>? bucketStream;
   final Stream<List<JournalEntry>>? journalStream;
@@ -42,10 +41,6 @@ class KeepsakesCluster extends StatelessWidget {
                       offset: const Offset(0, 12),
                     ),
                     BoxShadow(
-                      // Ambient starlight glow, not an edge shadow: at 0.04 alpha a
-                      // 32px blur was a very wide filter for an effect this faint.
-                      // Tighter and a touch more opaque reads the same for a third of
-                      // the blur area.
                       color: AppColors.blushGold.withValues(alpha: 0.07),
                       blurRadius: 18,
                       spreadRadius: -6,
@@ -57,7 +52,6 @@ class KeepsakesCluster extends StatelessWidget {
             child: Stack(
               children: [
                 if (!reduceAmbient) ...[
-                  // Top-right starlight atmospheric glow
                   Positioned(
                     top: -80,
                     right: -50,
@@ -75,7 +69,6 @@ class KeepsakesCluster extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Bottom-left twilight violet atmospheric glow
                   Positioned(
                     bottom: -80,
                     left: -50,
@@ -94,7 +87,6 @@ class KeepsakesCluster extends StatelessWidget {
                     ),
                   ),
                 ],
-              // Top glowing hairline
               Positioned(
                 top: 0,
                 left: 24,

@@ -4,26 +4,11 @@ import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
-/// TMDB discovery, trending, top rated, popular, and genre-based
-/// catalogue endpoints.
 class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
-  /// Fetch trending anime (Japanese animation) from TMDB.
-  ///
-  /// Anime is a content descriptor, not a separate catalog on TMDB, so we
-  /// discover TV shows filtered by `original_language=ja` and the
-  /// Animation genre (id 16). Sorted by popularity so the carousel shows
-  /// what's actually hot right now.
   Future<List<MediaItem>> fetchTrendingAnime() async {
     return discoverAnime(sortBy: 'popularity.desc', voteCountGte: 20);
   }
 
-  /// Unified anime discovery used by every category on the Anime screen
-  /// (Trending, Currently Airing, Top Rated, Hidden Gems, By Genre, etc.).
-  ///
-  /// All filters are optional; when none are passed you get the broadest
-  /// anime TV catalog sorted by popularity. The `with_original_language=ja`
-  /// + `with_genres=16` (Animation) constraints are always applied so a
-  /// caller can't accidentally pull non-anime results.
   Future<List<MediaItem>> discoverAnime({
     String? sortBy,
     List<int>? withGenres,
@@ -86,9 +71,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Discover anime movies. Same constraints as [discoverAnime] but hits
-  /// the `/discover/movie` endpoint since standalone anime films are
-  /// catalogued as movies on TMDB.
   Future<List<MediaItem>> discoverAnimeMovies({
     String? sortBy,
     String? primaryReleaseDateGte,
@@ -130,13 +112,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Trending (optionally by region, e.g. 'PH' for Philippines)
-  /// timeWindow: 'day' or 'week'
-  ///
-  /// Note: TMDB's /trending endpoint is globally aggregated and does NOT
-  /// support a region filter. Passing a non-'all' region routes to a
-  /// country-specific popularity feed via /discover so the list actually
-  /// reflects that region.
   Future<List<MediaItem>> fetchTrending({
     String region = 'all',
     String timeWindow = 'week',
@@ -166,15 +141,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch trending content for a specific country in a "Netflix top 10"
-  /// style: what's globally popular AND actually streamable in [countryCode].
-  ///
-  /// We intentionally do NOT use `with_origin_country` — that restricts results
-  /// to locally-produced titles, which on TMDB is dominated by Vivamax films
-  /// and other niche local catalogs. Instead we use `watch_region` together
-  /// with `with_watch_monetization_types` so the list reflects what people in
-  /// that country can actually watch on streaming (Netflix, Disney+, Prime,
-  /// Viu, iQIYI, etc.) sorted by popularity.
   Future<List<MediaItem>> fetchTrendingByCountry({
     required String countryCode,
   }) async {
@@ -237,12 +203,10 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Trending Today (kept for backwards compatibility)
   Future<List<MediaItem>> fetchTrendingToday() async {
     return fetchTrending(region: 'all', timeWindow: 'day');
   }
 
-  /// Fetch Top Rated Movies
   Future<List<MediaItem>> fetchTopRatedMovies() async {
     final url = Uri.parse('$tmdbBaseUrl/movie/top_rated');
     try {
@@ -261,7 +225,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Popular TV Shows
   Future<List<MediaItem>> fetchPopularTVShows() async {
     final url = Uri.parse('$tmdbBaseUrl/tv/popular');
     try {
@@ -280,7 +243,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Popular Movies
   Future<List<MediaItem>> fetchPopularMovies() async {
     final url = Uri.parse('$tmdbBaseUrl/movie/popular');
     try {
@@ -299,7 +261,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Top Rated TV Shows
   Future<List<MediaItem>> fetchTopRatedTV() async {
     final url = Uri.parse('$tmdbBaseUrl/tv/top_rated');
     try {
@@ -318,7 +279,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch TV shows airing today
   Future<List<MediaItem>> fetchAiringToday() async {
     final url = Uri.parse('$tmdbBaseUrl/tv/airing_today');
     try {
@@ -337,7 +297,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch TV shows currently on the air
   Future<List<MediaItem>> fetchOnTheAir() async {
     final url = Uri.parse('$tmdbBaseUrl/tv/on_the_air');
     try {
@@ -356,7 +315,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Now Playing in Cinemas (movies currently in theaters)
   Future<List<MediaItem>> fetchNowPlaying({String region = 'PH'}) async {
     final url = Uri.parse('$tmdbBaseUrl/movie/now_playing?region=$region');
     try {
@@ -375,7 +333,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch Upcoming movies (newly released / coming soon)
   Future<List<MediaItem>> fetchUpcoming({String region = 'PH'}) async {
     final url = Uri.parse('$tmdbBaseUrl/movie/upcoming?region=$region');
     try {
@@ -394,7 +351,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch list of all available genres for a media type
   Future<Map<int, String>> fetchGenreList(String mediaType) async {
     final url = Uri.parse('$tmdbBaseUrl/genre/$mediaType/list');
     try {
@@ -412,7 +368,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return {};
   }
 
-  /// Discover media by genre
   Future<List<MediaItem>> discoverByGenre({
     required int genreId,
     required String mediaType,
@@ -439,14 +394,8 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// General-purpose content discovery. Unlike [discoverAnime] it does
-  /// NOT force the Japanese language / Animation genre constraint.
-  ///
-  /// Pass any combination of optional TMDB discover parameters to
-  /// build a custom feed — language rows, decade rows, or combined
-  /// filters. The default sort is popularity descending.
   Future<List<MediaItem>> discoverMedia({
-    required String mediaType, // 'movie' or 'tv'
+    required String mediaType,
     String? sortBy,
     List<int>? withGenres,
     List<int>? withoutGenres,

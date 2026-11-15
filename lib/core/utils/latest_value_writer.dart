@@ -1,6 +1,5 @@
 import 'dart:async';
 
-/// Serialize network saves, retaining only the newest value while one is busy.
 class LatestValueWriter<T> {
   LatestValueWriter({required this.write, required this.onError});
 

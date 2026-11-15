@@ -4,30 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_motion.dart';
 
-/// Infinite horizontal marquee — constant-speed, hover-to-pause.
-///
-/// When `AppMotion.reduced` is true, the ticker is paused (content shown statically).
-/// For short rows where content does not overflow the viewport (such as 1 or 2 items),
-/// an inter-set spacer keeps the next set off-screen so the row carousels normally
-/// without showing repeated duplicate covers side-by-side. For overflowing rows,
-/// sets tile seamlessly with standard spacing to loop infinitely without visual gaps.
-///
-/// Performance notes (why this file looks the way it does):
-/// - The offset is a [ValueNotifier] consumed by a single [AnimatedBuilder]
-///   around the [Transform] only. Older code called `setState` 60x/sec, which
-///   rebuilt the ENTIRE child list (posters, badges, text) every frame and
-///   tanked scroll FPS wherever a marquee was on screen. Now only the
-///   transform repaints; children build once per widget update.
-/// - Estimated item width (`122.0`) matches the previous heuristic so loop
-///   timing is unchanged. Callers with below-the-fold marquees should still
-///   wrap this in `DeferredSection` so its ticker starts near the viewport.
-/// - The ticker pauses on app background via [WidgetsBindingObserver] and
-///   respects [TickerMode] (e.g. paused routes) through the controller.
-/// Overflowing rows also fade both clip edges ([edgeFade]): without it a
-/// drifting card is hard-sliced mid-glyph at the viewport bounds (see the
-/// Watched shelf, where titles like "…rden" were cut at both edges), which
-/// reads as a broken list. The fade dissolves edge cards into the dark
-/// backdrop instead, so the drift reads as an intentional rail.
 class EverglowMarquee extends StatefulWidget {
   final List<Widget> children;
   final double itemSpacing;
@@ -35,9 +11,6 @@ class EverglowMarquee extends StatefulWidget {
   final bool shimmer;
   final double height;
 
-  /// Soften the left/right clip bounds on overflowing (scrolling) rows.
-  /// Static rows render no fade. Disable for light backgrounds where a
-  /// fade-to-black would read as a smudge.
   final bool edgeFade;
 
   const EverglowMarquee({
@@ -68,12 +41,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   ScrollPosition? _scrollPosition;
   List<Widget> _items = const [];
   double _loopWidth = 1;
-  // While the enclosing vertical list is scrolling, the drift pauses so the
-  // single web thread spends its 16ms on scroll raster instead of also
-  // repainting this row 60x/sec. Resumes shortly after the scroll settles.
   Timer? _scrollSettle;
 
-  /// Test hook: true while the drift ticker is running.
   @visibleForTesting
   bool get isDrifting => _controller?.isAnimating ?? false;
 
@@ -110,18 +79,13 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
       }
     }
     _items = items;
-    // Wrap point for the translate loop; matches previous
-    // `_totalWidth = singleSetWidth + itemSpacing` behavior.
     _loopWidth = _estimateSetWidth() + widget.itemSpacing;
     if (_loopWidth <= 0) _loopWidth = 1;
   }
 
   void _onTick() {
     if (_hovered || !_canScroll || widget.children.isEmpty) return;
-    // No setState: only the AnimatedBuilder around Transform rebuilds.
     var next = _offset.value + widget.pixelsPerSecond / 60;
-    // Modulo (not a single subtraction) so a stale offset stays in range
-    // even when the item list — and therefore _loopWidth — shrinks.
     if (next >= _loopWidth) next %= _loopWidth;
     _offset.value = next;
   }
@@ -132,8 +96,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     _reduceAmbient = AppMotion.reduceAmbientMotion(context);
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
     if (_reduceAmbient || _controller == null) {
-      // Static swipeable ListView on phones never drifts, so leave the
-      // enclosing ScrollPosition listener-free (no per-tick localToGlobal work).
       _scrollPosition?.removeListener(_onScroll);
       _scrollPosition = null;
       _scrollSettle?.cancel();
@@ -151,15 +113,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
 
   void _onScroll() {
     if (_reduceAmbient || _controller == null) return;
-    // Pause drift for the scroll duration: each tick repaints 2x card sets
-    // plus a ShaderMask saveLayer, which competes directly with the vertical
-    // scroll raster on Flutter Web's single thread (PWA jank).
     final c = _controller;
     if (c != null && c.isAnimating) c.stop();
-    // Skip localToGlobal visibility lookups while actively scrolling — only
-    // check once the scroll settles so vertical scroll frames stay free of
-    // RenderObject.getTransformTo walks, and coalesce active-scroll events
-    // without cancelling/reallocating timers on every scroll pixel.
     if (_scrollSettle?.isActive ?? false) {
       _scrollDirty = true;
       return;
@@ -176,7 +131,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         _armSettleTimer(const Duration(milliseconds: 80));
         return;
       }
-      _checkVisibility(); // Scroll listeners can fire before layout has moved.
+      _checkVisibility();
       _syncTicker();
     });
   }
@@ -206,7 +161,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     _syncTicker();
   }
 
-  /// Runs the metronome only while the row can actually drift.
   void _syncTicker() {
     final c = _controller;
     if (c == null) return;
@@ -238,8 +192,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   @override
   Widget build(BuildContext context) {
     if (widget.children.isEmpty) return const SizedBox.shrink();
-    // One lazy, swipeable copy on phones. Every card remains reachable without
-    // continuously repainting a duplicated track or its edge shader.
     if (_reduceAmbient || _controller == null) {
       return RepaintBoundary(
         child: ClipRect(
@@ -276,9 +228,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     _syncTicker();
 
     final setWidth = _estimateSetWidth();
-    // For short rows that do not overflow the viewport (e.g. 1 or 2 items),
-    // set the inter-set gap so the next set starts off-screen. This allows
-    // the shelf to carousel normally without showing duplicate covers side-by-side.
     final isShort =
         viewportWidth.isFinite && viewportWidth > 0 && setWidth < viewportWidth;
     final interSetGap = isShort
@@ -316,13 +265,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         ),
       ),
     );
-    // Dissolve drifting cards at the clip bounds instead of slicing them
-    // mid-glyph. A ShaderMask with dstIn fades the cards' own alpha to
-    // transparent at the edges, so the dissolve matches ANY background
-    // (the old foreground gradient painted pure black, which read as a
-    // dark bar on the dashboard's purple glow). The mask itself is static
-    // — only the Transform underneath moves — and the RepaintBoundary
-    // above keeps the saveLayer cost inside this row.
     if (widget.edgeFade) {
       row = ShaderMask(
         shaderCallback: (Rect bounds) {
@@ -346,13 +288,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   double _estimateSetWidth() {
-    // Pitch model for the dashboard shelves: a 128-wide ShelfCard plus
-    // the caller's 12px right padding plus the 12px inter-item spacer,
-    // minus the trailing spacer the final card omits. Over-counting
-    // generic children is the safe direction: a wrongly-static row would
-    // clip its tail with no way to reach it, while a wrongly-scrolling
-    // row still shows every child.
-    // In production, use a GlobalKey + RenderBox for precise measurement
     if (widget.children.isEmpty) return 0;
     return widget.children.length * 152.0 - widget.itemSpacing;
   }

@@ -9,16 +9,6 @@ import '../../../../core/perf/repaint_throttle.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 
-/// Dashboard-only ambient motion — "dusk bloom."
-///
-/// A painter-driven full-screen layer that renders slow aurora ribbons,
-/// rising petal embers with motion-blur ghost trails, twinkling sparkles,
-/// and an occasional bloom pulse. All of it is drawn by one [CustomPainter]
-/// that repaints off a single [AnimationController], so no widget rebuilds
-/// or layout passes happen per frame.
-///
-/// Honors `AppMotion.reduced` by rendering nothing.
-/// On phones the same artwork stays still, without a repeating ticker.
 class DashboardAmbience extends StatefulWidget {
   final ScrollController? scrollController;
   const DashboardAmbience({super.key, this.scrollController});
@@ -36,8 +26,6 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   bool _reduceAmbient = false;
   bool _listeningScroll = false;
   bool _scrollDirty = false;
-  // While the dashboard list is moving, this full-screen layer pauses so the
-  // single web thread spends its frame budget on scroll raster, not auroras.
   Timer? _scrollSettle;
 
   @override
@@ -72,8 +60,6 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
 
   void _onScrollChange() {
     if (_reduceAmbient) return;
-    // Pause for the scroll duration; resume shortly after it settles (unless
-    // scrolled past / hidden, which _updateTickerState re-checks).
     final c = _controller;
     if (c != null && c.isAnimating) c.stop();
     if (_scrollSettle?.isActive ?? false) {
@@ -134,7 +120,6 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
       if (c.isAnimating) c.stop();
       return;
     }
-    // A pending settle means the list is still moving — stay paused.
     final route = ModalRoute.of(context);
     final isRouteVisible = route == null || route.isCurrent;
     final isAppVisible = _lifecycleState == AppLifecycleState.resumed;
@@ -168,8 +153,6 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
     _scrollSettle?.cancel();
     widget.scrollController?.removeListener(_onScrollChange);
     _secondaryAnimation?.removeStatusListener(_onRouteAnimationStatus);
-    // The painter owns the repaint gate, and the gate subscribes to the
-    // controller — so the gate has to go before the controller does.
     _painter?.dispose();
     _controller?.dispose();
     super.dispose();
@@ -187,12 +170,6 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   }
 }
 
-/// A soft ember trail that follows the mouse across the dashboard.
-///
-/// A short light streak plus a fading glow dot paints directly on a
-/// [CustomPainter]; hover updates only a [ValueNotifier], so the frame cost
-/// stays near zero. Honored only for pointer devices and when
-/// `AppMotion.reduced` is off.
 class DashboardCursorGlow extends StatefulWidget {
   const DashboardCursorGlow({super.key});
 
@@ -212,11 +189,6 @@ class _DashboardCursorGlowState extends State<DashboardCursorGlow>
   void initState() {
     super.initState();
     if (!AppMotion.reduced) {
-      // Deliberately NOT started here. This layer exists for mouse hover, and
-      // no hover ever arrives on a phone — starting the ticker at init meant a
-      // full-screen layer scheduling a frame 60 times a second forever, for
-      // nothing. [_handleHover] starts it, [_handleExit] stops it once the
-      // ember has faded.
       _controller = AnimationController(
         vsync: this,
         duration: const Duration(seconds: 24),
@@ -255,13 +227,10 @@ class _DashboardCursorGlowState extends State<DashboardCursorGlow>
     if (controller != null && !controller.isAnimating) {
       controller.repeat();
     }
-    // Stop the full-screen ticker after the ember fades even if the pointer
-    // stays inside the window without moving.
     _armSettleStop();
   }
 
   void _handleExit(PointerExitEvent event) {
-    // Keep the last sample so the ember fades out, then stop repainting.
     _armSettleStop();
   }
 
@@ -365,8 +334,6 @@ mixin _AmbientScrollPauseMixin<T extends StatefulWidget> on State<T> {
   }
 }
 
-/// Breathing emblem ring: a slowly rotating gold-rose halo around the logo,
-/// a gentle scale breath, and a soft radial bloom behind it.
 class BreathingEmblem extends StatefulWidget {
   const BreathingEmblem({super.key, required this.child});
 
@@ -451,7 +418,6 @@ class _BreathingEmblemState extends State<BreathingEmblem>
   }
 }
 
-/// A slow gold shimmer sweep across the dashboard title.
 class ShimmerTitle extends StatefulWidget {
   const ShimmerTitle({super.key, required this.child});
 
@@ -527,7 +493,6 @@ class _ShimmerTitleState extends State<ShimmerTitle>
   }
 }
 
-/// A soft heartbeat pulse for the divider heart.
 class PulseHeart extends StatefulWidget {
   const PulseHeart({super.key, required this.child});
 
@@ -619,18 +584,6 @@ class _CursorSample {
   final Offset? previous;
 }
 
-/// Forwards animation ticks at a fixed ceiling instead of every vsync.
-///
-/// One instance backs the dashboard's ambient layer. It listens to the real
-/// controller (so pausing the controller still pauses the painting) but only
-/// wakes listeners when a full [_interval] has passed since the last wake, so
-/// the layer's expensive full-screen repaint runs at ~30 fps on a 60 Hz
-/// display.
-///
-/// The throttling itself lives in [RepaintThrottle] with an injectable clock,
-/// so the cap is asserted deterministically in
-/// `test/core/perf/repaint_throttle_test.dart` rather than inferred from
-/// frame-cost timings that move with the machine.
 class _AmbienceRepaintGate extends ChangeNotifier {
   _AmbienceRepaintGate(this._controller) {
     _throttle = RepaintThrottle(interval: kAmbienceRepaintInterval);
@@ -641,13 +594,11 @@ class _AmbienceRepaintGate extends ChangeNotifier {
   final AnimationController _controller;
   late final RepaintThrottle _throttle;
 
-  /// Notifies only when the throttle lets a tick through.
   @visibleForTesting
   int get forwardedCount => _throttle.forwardedCount;
 
   void _onTick() {
     if (!_controller.isAnimating) {
-      // Idle: stop forwarding entirely so a paused screen schedules no frames.
       _throttle.stopSource();
       return;
     }
@@ -674,25 +625,10 @@ class _AmbiencePainter extends CustomPainter {
 
   final AnimationController _controller;
 
-  /// Caps this layer at ~30 fps instead of the display's 60.
-  ///
-  /// The ambient drift runs on a 24-second cycle, so a frame that lands 16ms
-  /// after the last one shows movement of well under a pixel — invisible. But
-  /// on Flutter Web every repaint of this layer re-rasterizes three
-  /// full-screen aurora bands, 14 petals with ghost trails, sparkles and a
-  /// bloom pulse, and raster shares the single web thread with build and
-  /// layout. Halving the rate halves the most expensive thing on the whole
-  /// screen. [AppMotion.reduced] and the idle freeze both bypass this
-  /// entirely, because the gate only forwards while the controller is running.
   final _AmbienceRepaintGate _gate;
 
   static const int _auroraSegments = 28;
 
-  /// Releases the repaint gate's subscription to the controller.
-  ///
-  /// [CustomPainter] has no disposal hook of its own, so the owner has to
-  /// call this; [_DashboardAmbienceState] does it before disposing the
-  /// controller.
   void dispose() {
     _gate.dispose();
   }
@@ -701,21 +637,14 @@ class _AmbiencePainter extends CustomPainter {
   final List<_Petal> _petals = [];
   final List<_Sparkle> _sparkles = [];
 
-  /// Aurora shaders depend only on the layer size, so they are built once per
-  /// size instead of six times per frame. The old version allocated two
-  /// `Paint`s and two `LinearGradient` shaders for every band on every frame —
-  /// allocation churn on the same thread that has to build, lay out and draw
-  /// the whole dashboard.
   Size? _auroraSize;
   final List<_AuroraPaints> _auroraPaints = [];
 
-  /// Reused across every petal and vein so a frame allocates no paints.
   final Paint _petalPaint = Paint();
   final Paint _petalVeinPaint = Paint()
     ..strokeWidth = 0.14
     ..strokeCap = StrokeCap.round;
 
-  // Unit petal pointing up, tip at (0, -1), base at (0, 0.6).
   final Path _unitPetal = Path()
     ..moveTo(0, -1)
     ..cubicTo(0.42, -0.52, 0.36, 0.02, 0, 0.6)
@@ -919,9 +848,6 @@ class _AmbiencePainter extends CustomPainter {
   bool shouldRepaint(covariant _AmbiencePainter oldDelegate) => false;
 }
 
-/// The two stroked paints (soft outer ribbon + bright inner core) for one
-/// aurora band. Built once per layer size: they hold shaders, which are the
-/// expensive part to recreate.
 class _AuroraPaints {
   const _AuroraPaints({required this.outer, required this.inner});
 

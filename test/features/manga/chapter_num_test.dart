@@ -33,7 +33,7 @@ void main() {
   test('chapter numbers sort in reading order', () {
     final chapters = ['10', '2', '1.5', '1', 'Special'];
     chapters.sort((a, b) => chapterNumValue(a).compareTo(chapterNumValue(b)));
-    expect(chapters.first, 'Special'); // 0 sorts first, like before
+    expect(chapters.first, 'Special');
     expect(chapters.sublist(1), ['1', '1.5', '2', '10']);
   });
 }

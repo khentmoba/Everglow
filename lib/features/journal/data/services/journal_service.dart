@@ -10,9 +10,6 @@ import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/firestore_pagination.dart';
 import '../models/journal_entry.dart';
 
-/// Journal service — Memos + DailyTxT inspired.
-///
-/// Collection: journal_entries (couple-only, see firestore.rules)
 class JournalEditConflict implements Exception {
   const JournalEditConflict();
 }
@@ -23,9 +20,6 @@ class JournalService {
       ? _instance ??= JournalService._internal()
       : JournalService._internal(db);
   JournalService._internal([this._customDb]) {
-    // Warm the preview cache off the critical path so the dashboard rail can
-    // paint on its first frame. Skipped for injected test databases, which
-    // must not touch device storage.
     if (_customDb == null) unawaited(loadPreviewCache());
   }
 
@@ -35,16 +29,11 @@ class JournalService {
   final Map<String, JournalEntry> _demoMemories = {};
   final _demoChanges = StreamController<void>.broadcast();
 
-  /// Last preview painted on this device, kept so a cold dashboard shows
-  /// entries instead of a skeleton while the live stream revalidates.
   static const _previewCacheKey = 'journal_preview_cache_v1';
   List<JournalEntry> _cachedPreview = const [];
 
-  /// Entries already on disk, usable before any Firestore round trip.
   List<JournalEntry> get cachedPreview => _cachedPreview;
 
-  /// Reads the on-device preview cache. Safe to call repeatedly: the first
-  /// successful read wins and later calls return immediately.
   Future<List<JournalEntry>> loadPreviewCache() async {
     if (_cachedPreview.isNotEmpty) return _cachedPreview;
     try {
@@ -90,16 +79,6 @@ class JournalService {
     }
   }
 
-  /// Emits what is already on disk, then the live stream.
-  ///
-  /// Stale-while-revalidate: the rail paints from cache in the first frame
-  /// instead of waiting a WebChannel round trip for data the device already
-  /// has. The live snapshot still replaces it moments later, so nothing here
-  /// can show stale content for longer than the revalidation takes.
-  ///
-  /// [live] is a factory, not a stream, so the query is only created once the
-  /// cached frame has been handed to the widget. That keeps the first paint
-  /// independent of Firestore being reachable at all.
   Stream<List<JournalEntry>> _cachedFirst(
     Stream<List<JournalEntry>> Function() live,
   ) async* {
@@ -277,7 +256,6 @@ class JournalService {
           .collection(_collection)
           .orderBy('createdAt', descending: true)
           .limit(100)
-          // Metadata changes flip an entry from "syncing" to synced.
           .snapshots(includeMetadataChanges: true)
           .map((snap) {
             final out = <JournalEntry>[];
@@ -298,10 +276,6 @@ class JournalService {
           });
     }
 
-    // Re-attach when the first snapshot is slow: the journal preview
-    // was flipping to "could not load" on cold dashboard loads while
-    // the WebChannel and auth token warm up. 12s x 3 attempts mirrors
-    // calendar-upcoming and garden-stats.
     return withFirestoreTimeout(
       subscribe(),
       resubscribe: subscribe,
@@ -311,9 +285,6 @@ class JournalService {
     );
   }
 
-  /// Older entries before [date] — seeds "load more" so the first older
-  /// page starts after the live first page instead of re-fetching the
-  /// newest entries. Continue with [fetchPage] + the returned cursor.
   Future<FirestorePage<JournalEntry>> fetchOlderThan(
     DateTime date, {
     int limit = 20,
@@ -336,9 +307,6 @@ class JournalService {
     return FirestorePage(items: items, nextCursor: next);
   }
 
-  /// Cursor-paginated older entries. The live first page stays on
-  /// [watchAll]; call this with the previous page's [nextCursor] to
-  /// scroll past entry 100 instead of hard-truncating the journal.
   Future<FirestorePage<JournalEntry>> fetchPage({
     DocumentSnapshot? cursor,
     int limit = 20,
@@ -361,10 +329,6 @@ class JournalService {
     );
   }
 
-  // Capped preview for the dashboard rail: it renders 3 rows plus a
-  // count, so a 100-doc realtime stream is 8x over-fetch on every
-  // dashboard visit. Full history stays on watchAll for the journal
-  // screen.
   Stream<List<JournalEntry>> watchPreview({int limit = 12}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(
@@ -466,9 +430,6 @@ class JournalService {
     );
   }
 
-  /// Client-side search (like Starlight): filter title/content/tags.
-  /// One-shot fetch (not a stream) so typing doesn't re-query on every
-  /// remote write; callers debounce and memoize the future.
   Future<List<JournalEntry>> search(String query) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       final q = query.toLowerCase().trim();
@@ -503,7 +464,6 @@ class JournalService {
     return matches;
   }
 
-  /// On This Day — same monthDay
   Future<List<JournalEntry>> getOnThisDay() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return const [];
@@ -526,7 +486,6 @@ class JournalService {
           .where((e) => e.createdAt.year != now.year)
           .toList();
       if (entries.isNotEmpty) return entries;
-      // Fallback: client filter
       final fallback = await withGetTimeout(
         _db
             .collection(_collection)
@@ -550,8 +509,6 @@ class JournalService {
     }
   }
 
-  /// A fresh id for a new entry, so retrying a save rewrites the same
-  /// document instead of creating a duplicate.
   String newEntryId() => AgentMode.isActive.value && AgentMode.useDemoData.value
       ? 'demo-${DateTime.now().microsecondsSinceEpoch}'
       : _db.collection(_collection).doc().id;

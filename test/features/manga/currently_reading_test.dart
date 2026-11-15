@@ -126,7 +126,6 @@ void main() {
       expect(extra.title, 'Lazy Sovereign');
       expect(extra.lastReadChapterId, 'c2');
       expect(extra.lastReadPage, 1);
-      // Display-only: no library entry, so no Remove button.
       expect(extra.isReading, isFalse);
       expect(katanaSlugOfItem(extra), 'lazy-sovereign');
     });

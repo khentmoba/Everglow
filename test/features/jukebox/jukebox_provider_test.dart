@@ -9,7 +9,6 @@ import 'package:everglow/features/jukebox/data/services/music_persistence_servic
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
 import 'package:everglow/features/jukebox/presentation/providers/jukebox_provider.dart';
 
-/// Fails the test when [condition] is not met within [timeout].
 Future<void> _waitFor(
   bool Function() condition, {
   Duration timeout = const Duration(seconds: 2),
@@ -33,8 +32,6 @@ MusicStatus _liveStatus(String username) => MusicStatus(
   timestamp: DateTime.utc(2026, 9, 6, 5, 0),
 );
 
-/// Subclassing is safe: [MusicPersistenceService] resolves Firestore lazily,
-/// and this fake overrides every method that would touch it.
 class _FakeStore extends MusicPersistenceService {
   final List<StreamController<Map<String, MusicStatus>>> controllers = [];
   final List<MusicStatus> saved = [];
@@ -157,7 +154,6 @@ void main() {
       addTearDown(sub.cancel);
 
       await _waitFor(() => events.isNotEmpty);
-      // No Firestore data was ever emitted; the replay carries the sentinels.
       expect(events.single['khentsgdz']!.trackName, 'Silent Night');
       expect(events.single['clairjassen']!.trackName, 'Silent Night');
       expect(store.controllers.length, 1);
@@ -172,11 +168,9 @@ void main() {
       addTearDown(sub.cancel);
       await _waitFor(() => events.isNotEmpty);
 
-      // First listen dies like an unauthenticated permission-denied.
       store.controllers.single.addError(Exception('permission-denied'));
       await _waitFor(() => store.controllers.length == 2);
 
-      // Live data arriving on the replacement subscription reaches the UI.
       final live = _liveStatus('khentsgdz');
       store.controllers.last.add({'khentsgdz': live});
       await _waitFor(
@@ -196,7 +190,6 @@ void main() {
       addTearDown(sub.cancel);
       await _waitFor(() => events.isNotEmpty);
 
-      // Mirrors withFirestoreTimeout closing a slow first snapshot.
       await store.controllers.single.close();
       await _waitFor(() => store.controllers.length == 2);
 
@@ -211,7 +204,6 @@ void main() {
 
     test('stops retrying after dispose', () async {
       final store = _FakeStore();
-      // No addTearDown: this test disposes the provider itself.
       final provider = JukeboxProvider(
         apiService: _StubSync(null),
         persistenceService: store,
@@ -249,7 +241,6 @@ void main() {
         },
         livePollInterval: const Duration(milliseconds: 50),
       );
-      // Initial round (2 users) + fast re-polls land quickly.
       await _waitFor(() => liveFetches >= 6);
 
       final idleStore = _FakeStore();
@@ -264,7 +255,6 @@ void main() {
         livePollInterval: const Duration(milliseconds: 50),
       );
       await _waitFor(() => idleFetches == 2);
-      // 200ms in, the idle provider must not have re-polled yet.
       await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(idleFetches, 2);
     });

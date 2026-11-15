@@ -1,5 +1,3 @@
-// Golden comparisons are platform-sensitive (font/Skia backends differ
-// between Windows and Linux), so CI excludes these with --exclude-tags.
 @Tags(['golden'])
 library;
 
@@ -80,11 +78,6 @@ void main() {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Plain shape, not an Icon: Material icon glyphs rasterize
-                // differently across Flutter SDK versions and OS builds,
-                // which broke these goldens with tiny pixel diffs. PulseHeart
-                // only scales its child and paints a glow, so a circle keeps
-                // the same animation coverage without the font dependency.
                 const PulseHeart(
                   child: SizedBox(
                     width: 24,

@@ -9,11 +9,6 @@ import 'system_status.dart';
 
 typedef ConnectivityCheck = bool Function();
 
-/// Lightweight backend health probe used during app startup.
-///
-/// The probe is intentionally non-blocking in the UI path: a failed or
-/// slow check degrades to [SystemStatus.unreachable] instead of delaying
-/// the first frame.
 class HealthService {
   HealthService({
     http.Client? client,
@@ -40,7 +35,6 @@ class HealthService {
   Future<SystemStatus> probe({
     Duration timeout = const Duration(seconds: 5),
   }) async {
-    // Agent demo must not call the production backend from a local build.
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return const SystemStatus(status: 'ok');
     }

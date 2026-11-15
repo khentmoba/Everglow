@@ -90,7 +90,6 @@ void main() {
     first.jumpTo(150);
     await tester.pump(const Duration(milliseconds: 50));
 
-    // Leaving and returning to the page later in the same boot.
     final second = RememberedScrollController('books:home');
     addTearDown(second.dispose);
     expect(second.initialScrollOffset, 150);
@@ -111,8 +110,6 @@ void main() {
     controller.jumpTo(310);
     await tester.pump(const Duration(milliseconds: 20));
 
-    // Coalesced timer saw dirty ticks at 50ms and waits a settle step before
-    // persisting, so mid-scroll offsets never hit device storage.
     expect(await storedSpot('journal:entries'), isNull);
 
     await tester.pump(const Duration(milliseconds: 50));

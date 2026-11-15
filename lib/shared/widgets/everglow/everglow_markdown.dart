@@ -6,28 +6,12 @@ import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Shared markdown renderer for every chat surface (Motchi, Study, Sanctuary).
-///
-/// AI replies arrive as lightweight markdown — headings, **bold**, *italic*,
-/// `code`, bullet/numbered lists, tables, dividers. This renders them as
-/// warm, premium Everglow cards instead of raw `**` / `|` walls.
-///
-/// Design language (global — one look everywhere):
-/// - Body 14px / 1.65, high-emphasis text for readability
-/// - Section labels (emoji / ALL-CAPS lines) get a gold dot + hairline
-/// - Consecutive bullets & steps share ONE grouped glass card with hairline
-///   dividers — never one box per item (16 teams = 1 card, not 16)
-/// - `**Headers:**` are boxless accent-bar titles that hug their list
-/// - Tables WRAP text (no clipped "Shows system comp…" columns)
-/// - Callouts (💡 lines) get a lilac→rose gradient card
-/// - All colors/radii/type come from Dusk Petal tokens — no literals.
 class EverglowMarkdown extends StatelessWidget {
   final String text;
   final TextStyle? baseStyle;
   final double paragraphGap;
   final bool selectable;
 
-  /// Quiet headings and open lists for chat; other surfaces keep their cards.
   final bool plain;
 
   const EverglowMarkdown({
@@ -65,7 +49,6 @@ class EverglowMarkdown extends StatelessWidget {
     for (var i = 0; i < blocks.length; i++) {
       out.add(blocks[i]);
       if (i == blocks.length - 1) break;
-      // Headers hug the list/table below them; everything else breathes.
       final hugsNext =
           (blocks[i] is _Subhead ||
               blocks[i] is _SectionLabel ||
@@ -92,7 +75,6 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Code block ``` ... ```
       if (trimmed.startsWith('```')) {
         final buf = <String>[];
         i++;
@@ -106,7 +88,6 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Table
       if (_looksLikeTableStart(lines, i)) {
         final tableLines = <String>[];
         while (i < lines.length &&
@@ -132,7 +113,6 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Heading #, ##, ### — tolerant of missing space (`###Title`).
       final heading = RegExp(r'^(#{1,4})\s*(.+?)\s*$').firstMatch(trimmed);
       if (heading != null && (heading.group(2) ?? '').isNotEmpty) {
         final level = heading.group(1)!.length;
@@ -152,14 +132,12 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Divider --- or *** or ___
       if (RegExp(r'^(-{3,}|\*{3,}|_{3,})$').hasMatch(trimmed)) {
         blocks.add(const EverglowDivider());
         i++;
         continue;
       }
 
-      // Quote > ...
       if (trimmed.startsWith('>')) {
         final buf = <String>[];
         while (i < lines.length && lines[i].trim().startsWith('>')) {
@@ -170,7 +148,6 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Bullet list — gather the whole run into ONE grouped card.
       final bullet = RegExp(r'^([-*•])\s+(.*)$').firstMatch(trimmed);
       if (bullet != null) {
         final items = <String>[];
@@ -195,7 +172,6 @@ class EverglowMarkdown extends StatelessWidget {
             }
           }
           items.add(buf.toString());
-          // A blank line inside a list doesn't split it — peek past.
           var k = j;
           while (k < lines.length && lines[k].trim().isEmpty) {
             k++;
@@ -212,7 +188,6 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Numbered list — same grouping, keeps the model's own numbers.
       final numbered = RegExp(r'^(\d+)[.)]\s+(.*)$').firstMatch(trimmed);
       if (numbered != null) {
         final items = <(String, String)>[];
@@ -238,7 +213,6 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Standalone "**Title:**" line — subhead pill.
       final boldLine = RegExp(r'^\*\*(.+?)\*\*:?\s*$').firstMatch(trimmed);
       if (!plain && boldLine != null && trimmed.length < 90) {
         blocks.add(_Subhead(content: boldLine.group(1)!.trim()));
@@ -246,24 +220,18 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // ALL-CAPS / emoji section label ("🔑 KEY POINTS AT A GLANCE",
-      // "🇨🇳 VCT China") — boxless header, checked BEFORE tips so short
-      // labels never become heavy callout boxes.
       if (!plain && _isSectionLabel(trimmed)) {
         blocks.add(_SectionLabel(content: trimmed));
         i++;
         continue;
       }
 
-      // Tip-led single line (💡 Quick hack…) — callout card. Only real
-      // tip markers qualify; other emoji lines stay light paragraphs.
       if (!plain && _isTipLead(trimmed) && trimmed.length < 220) {
         blocks.add(_Callout(text: trimmed, base: base));
         i++;
         continue;
       }
 
-      // Normal paragraph: gather until blank or special block.
       final buf = <String>[line];
       i++;
       while (i < lines.length) {
@@ -288,8 +256,6 @@ class EverglowMarkdown extends StatelessWidget {
         i++;
       }
       final paraText = buf.join('\n').trim();
-      // A short gathered paragraph that turns out to be a label/tip
-      // still gets the premium treatment (model often emits these bare).
       if (!plain && _isSectionLabel(paraText)) {
         blocks.add(_SectionLabel(content: paraText));
       } else if (!plain && _isTipLead(paraText) && paraText.length < 220) {
@@ -335,9 +301,6 @@ class EverglowMarkdown extends StatelessWidget {
   }
 }
 
-/// Wrapping table — text never clips. 2–3 column tables (the study
-/// staple) flex to fill the bubble; wide 4+ column tables get a gentle
-/// horizontal scroll with a sensible minimum cell width.
 class _EverglowTable extends StatelessWidget {
   final List<List<String>> rows;
   final int columnCount;
@@ -364,8 +327,6 @@ class _EverglowTable extends StatelessWidget {
       height: 1.55,
     );
 
-    // Weight each column by its longest cell so narrow label columns
-    // stay narrow and definition columns get room to wrap.
     final weights = List<double>.filled(columnCount, 1.0);
     for (var c = 0; c < columnCount; c++) {
       var longest = 8;
@@ -464,7 +425,6 @@ class _EverglowTable extends StatelessWidget {
   }
 }
 
-/// `#` / `##` / `###` — warm display headings with a gold underline.
 class _Heading extends StatelessWidget {
   final int level;
   final String content;
@@ -533,8 +493,6 @@ class _Heading extends StatelessWidget {
   }
 }
 
-/// `**Section:**` on its own line — boxless accent-bar title that hugs
-/// the list below it. No pill, no border: headers read as headers.
 class _Subhead extends StatelessWidget {
   final String content;
   const _Subhead({required this.content});
@@ -577,8 +535,6 @@ class _Subhead extends StatelessWidget {
   }
 }
 
-/// Emoji / ALL-CAPS section labels ("🔑 KEY POINTS AT A GLANCE") —
-/// gold dot + uppercase text + fading hairline.
 class _SectionLabel extends StatelessWidget {
   final String content;
   const _SectionLabel({required this.content});
@@ -641,10 +597,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// One grouped card for a whole bullet run — rows divided by hairlines.
-/// An emoji-led item (🇨🇳, 💡…) uses its emoji as the marker instead of
-/// the gold dot, so flags and tips read naturally inside the list.
-/// Public so regression tests can lock the grouped (not per-item) look.
 class EverglowBulletGroup extends StatelessWidget {
   final List<String> items;
   final TextStyle base;
@@ -731,10 +683,8 @@ class _BulletRow extends StatelessWidget {
   }
 }
 
-/// One grouped card for a whole numbered run — same shell as bullets.
-/// Public so regression tests can lock the grouped (not per-item) look.
 class EverglowNumberedGroup extends StatelessWidget {
-  final List<(String, String)> items; // (number, content)
+  final List<(String, String)> items;
   final bool plain;
   final TextStyle base;
   const EverglowNumberedGroup({
@@ -814,7 +764,6 @@ class EverglowNumberedGroup extends StatelessWidget {
   }
 }
 
-/// Shared shell for grouped lists — one soft card, hairline border.
 class _ListGroupShell extends StatelessWidget {
   final Widget child;
   final bool plain;
@@ -836,7 +785,6 @@ class _ListGroupShell extends StatelessWidget {
   }
 }
 
-/// Hairline between grouped rows, indented to the text edge.
 class _ListDivider extends StatelessWidget {
   const _ListDivider();
 
@@ -850,7 +798,6 @@ class _ListDivider extends StatelessWidget {
   }
 }
 
-/// 💡-led lines — lilac→rose gradient tip card.
 class _Callout extends StatelessWidget {
   final String text;
   final TextStyle base;
@@ -1060,8 +1007,6 @@ class _Dot extends StatelessWidget {
   }
 }
 
-/// Gradient hairline with a center glow dot — the global `---` divider.
-/// Public so regression tests (and any surface) can find/style it.
 class EverglowDivider extends StatelessWidget {
   const EverglowDivider({super.key});
 
@@ -1114,10 +1059,6 @@ class EverglowDivider extends StatelessWidget {
   }
 }
 
-/// Inline spans: **bold**, __bold__, `code`, *italic*, _italic_.
-///
-/// Lenient on purpose — unmatched markers are shown as-is so no text
-/// silently disappears mid-stream.
 List<TextSpan> parseInline(String input, TextStyle base) {
   final codeStyle = base.copyWith(
     fontFamily: 'monospace',
@@ -1173,7 +1114,6 @@ List<TextSpan> parseInline(String input, TextStyle base) {
   return spans;
 }
 
-/// True when [lines[index]] starts a markdown table.
 bool _looksLikeTableStart(List<String> lines, int index) {
   final first = lines[index].trim();
   if (first.isEmpty || !first.contains('|')) return false;
@@ -1190,26 +1130,21 @@ bool _looksLikeTableStart(List<String> lines, int index) {
   return cells.every((c) => RegExp(r'^:?-{1,}:?$').hasMatch(c));
 }
 
-/// Short, shouty lines ("🔑 KEY POINTS AT A GLANCE", "WHAT IS IT?")
-/// are section labels, not body copy.
 bool _isSectionLabel(String text) {
   final t = text.trim();
   if (t.isEmpty || t.length > 80) return false;
   if (t.contains('|') || t.startsWith('>') || t.startsWith('#')) return false;
-  // Leading-emoji label (🔑 KEY POINTS…, 📦 BLOCK DIAGRAM — …).
   if (_startsWithEmoji(t)) {
     final withoutEmoji = t.replaceFirst(RegExp(r'^\S+\s*'), '').trim();
     if (withoutEmoji.isEmpty) return false;
     final letters = withoutEmoji.replaceAll(RegExp(r'[^A-Za-z]'), '');
     if (letters.length < 4) return false;
     final upper = letters.replaceAll(RegExp(r'[^A-Z]'), '').length;
-    // Emoji-led + mostly-caps or short title → label.
     if (withoutEmoji.length <= 56 &&
         (upper / letters.length > 0.45 || withoutEmoji.length <= 34)) {
       return true;
     }
   }
-  // Bare ALL-CAPS line ("WHAT IS IT?", "USES:").
   final letters = t.replaceAll(RegExp(r'[^A-Za-z]'), '');
   if (letters.length >= 5 && letters.length <= 48) {
     final upper = letters.replaceAll(RegExp(r'[^A-Z]'), '').length;
@@ -1218,17 +1153,13 @@ bool _isSectionLabel(String text) {
   return false;
 }
 
-/// True when the text starts with a common emoji / symbol marker.
 bool _startsWithEmoji(String text) {
   final t = text.trimLeft();
   if (t.isEmpty) return false;
   final first = t.runes.first;
-  // Fast path: the markers Motchi actually emits.
   const markers =
       '💡🧠✨📌🔑⭐🌙💭🎯📝📚❤️💖🔥✅❌⚠️👉🏷️📦🔹🔸🟣🟢🔵🟡🟠🔴💬🗺️🧭🎓📖📎';
   if (markers.contains(String.fromCharCode(first))) return true;
-  // General ranges: emoticons, pictographs, dingbats, enclosed chars,
-  // regional-indicator flags (🇨🇳🇰🇷🇺🇸 — common in sports answers).
   return (first >= 0x1F300 && first <= 0x1FAFF) ||
       (first >= 0x2600 && first <= 0x27BF) ||
       (first >= 0x2B00 && first <= 0x2BFF) ||
@@ -1236,9 +1167,6 @@ bool _startsWithEmoji(String text) {
       (first >= 0xFE00 && first <= 0xFE0F);
 }
 
-/// True when the text starts with a tip marker (💡 ✨ 📌 …) — the only
-/// emoji that earn the heavy callout card. Flags, hearts, and section
-/// markers stay light (labels, list markers, plain text).
 bool _isTipLead(String text) {
   final t = text.trimLeft();
   if (t.isEmpty) return false;
@@ -1246,8 +1174,6 @@ bool _isTipLead(String text) {
   return tips.contains(String.fromCharCode(t.runes.first));
 }
 
-/// Splits "🇨🇳 VCT China" into ("🇨🇳", "VCT China"). Returns null
-/// when the text doesn't start with an emoji grapheme.
 (String, String)? _splitLeadingEmoji(String text) {
   final t = text.trimLeft();
   if (t.isEmpty || !_startsWithEmoji(t)) return null;

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import 'app_typography.dart';
 
-/// Bundled section fonts load before their screen, rather than at the doorway.
 class SectionFonts {
   static Future<void>? _reading;
   static Future<void>? _anime;
@@ -31,9 +30,6 @@ class SectionFonts {
         Error.throwWithStackTrace(error, stack);
       });
 
-  /// Measures any unseen non-ASCII glyphs right when catalog data arrives so
-  /// CanvasKit resolves web fallback fonts before scrolling begins instead of
-  /// triggering a full-tree paragraph relayout mid-swipe.
   static void warmFallbackGlyphs(
     Iterable<String> texts, {
     @visibleForTesting bool force = false,

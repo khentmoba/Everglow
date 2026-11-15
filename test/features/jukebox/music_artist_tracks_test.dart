@@ -28,8 +28,6 @@ Map<String, dynamic> _artistTrackEntry({
 }) => {
   'name': name,
   'playcount': playcount,
-  // The artist node shape varies for this method — the service must not
-  // depend on it (it forces the queried artist onto each result).
   'artist': {'#text': 'Ethel Cain'},
   'mbid': '',
   'image': [

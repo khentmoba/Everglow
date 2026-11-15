@@ -14,16 +14,6 @@ import '../../data/models/watch_party_room.dart';
 import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import '../../../../core/theme/app_typography.dart';
 
-/// Strict-silent banner that appears at the top of the screen when
-/// the partner has started a watch party. **No sound, no vibration
-/// — visual only.** Tap → opens the watch party screen so the
-/// callee can join the call.
-///
-/// Mounted at the app root (via `main.dart` wrapping `AuthWrapper`
-/// in a `Stack`) so it shows up regardless of which screen the
-/// user is on. Auto-clears the moment the user is on the watch
-/// party screen (the watch party screen calls
-/// `VoiceChatBootstrap.clearIncomingWatcher()` on init).
 class IncomingWatchPartyBanner extends StatefulWidget {
   const IncomingWatchPartyBanner({super.key});
 
@@ -40,8 +30,6 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
   @override
   void initState() {
     super.initState();
-    // The voice chunk (flutter_webrtc) loads on demand; attach once ready.
-    // Until then the banner renders empty, same as no incoming call.
     _attachVoice();
   }
 
@@ -261,16 +249,10 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       if (myUid == null) return;
       final roomId = incoming.roomId;
 
-      // The voice_rooms doc carries the call metadata; the
-      // watch_party_rooms doc carries the media metadata. Read
-      // the latter so we can build a WatchPartyRoom for the
-      // existing screen.
       final partySnap = await WatchPartyService().getRoom(roomId);
       if (!mounted) return;
 
       if (partySnap != null && !partySnap.active) {
-        // The party ended while the banner was visible. Don't
-        // navigate into (or re-create) a dead room.
         VoiceChatBootstrap.clearIncomingWatcher();
         return;
       }
@@ -281,10 +263,6 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
         toOpen = partySnap;
         isHost = partySnap.hostUid == myUid;
       } else {
-        // Watch party room doesn't exist yet (caller may not have
-        // finished writing it). Build a minimal placeholder so we
-        // can at least navigate; the screen will recover from a
-        // missing room.
         toOpen = WatchPartyRoom(
           id: roomId,
           hostUid: incoming.callerUid,
@@ -308,8 +286,6 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
         );
       }
 
-      // Dismiss the banner immediately so the watch party screen
-      // doesn't see its own incoming call on top.
       VoiceChatBootstrap.clearIncomingWatcher();
 
       if (!context.mounted) return;

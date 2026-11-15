@@ -9,19 +9,6 @@ import '../../../../core/utils/logger.dart';
 
 import '../models/watch_party_room.dart';
 
-/// Manages the lifecycle of a real-time "Watch Together" room between
-/// Khent and Clair. The room is a single Firestore document at
-/// `watch_party_rooms/{roomId}`. Every state transition (play, pause,
-/// seek, end) is written here, and both clients subscribe via
-/// [getRoomStream] so the partner's player reacts in real time.
-///
-/// Concurrency model:
-///   * Either side writes `state` + `currentTime` when they change
-///     something, and both tick a heartbeat every 5s. While playing,
-///     the heartbeat refreshes `currentTime` + `positionAt` together so
-///     the shared anchor stays fresh.
-///   * Both sides read the same snapshot and derive the live position
-///     from the server timestamp; neither side is the clock.
 class WatchPartyService {
   static const String _collection = 'watch_party_rooms';
 
@@ -30,9 +17,6 @@ class WatchPartyService {
 
   final FirebaseFirestore _db;
 
-  /// In-memory rooms for Agent Mode. Couple data is private, so the demo
-  /// path never touches Firestore; it behaves like a tiny local store so
-  /// every watch-party screen stays testable without a login.
   static final Map<String, WatchPartyRoom> _demoRooms = {};
   // ignore: close_sinks — process-wide demo stream, lives for the session.
   static final StreamController<List<WatchPartyRoom>> _demoRoomChanges =
@@ -62,9 +46,6 @@ class WatchPartyService {
     _demoRoomChanges.add(_demoList());
   }
 
-  /// Create a named room. No code, no password: both couple profiles can
-  /// see every room and walk in. The room starts empty so whoever opens
-  /// it can pick the first title.
   Future<WatchPartyRoom> createRoom({
     required String hostUid,
     required String hostName,
@@ -133,9 +114,6 @@ class WatchPartyService {
     return room;
   }
 
-  /// Every room this couple can see, newest activity first. Two queries
-  /// (host side and partner side) are merged here because Firestore has
-  /// no OR across different fields.
   Stream<List<WatchPartyRoom>> getRoomsStream(String uid) {
     if (_isDemo) {
       _seedDemo(uid, 'agent_demo_partner_uid');
@@ -161,8 +139,6 @@ class WatchPartyService {
     return _mergeRoomStreams(hostQuery, partnerQuery);
   }
 
-  /// One-shot room list, used when a poster starts a party and we need to
-  /// know whether a room is already live.
   Future<List<WatchPartyRoom>> getRooms(String uid) async {
     if (_isDemo) {
       _seedDemo(uid, 'agent_demo_partner_uid');
@@ -266,9 +242,6 @@ class WatchPartyService {
     return controller.stream;
   }
 
-  /// Live snapshot of a room. Emits `null` when the doc doesn't exist
-  /// (e.g. the partner hasn't opened the sheet yet), otherwise the
-  /// parsed [WatchPartyRoom].
   Stream<WatchPartyRoom?> getRoomStream(String roomId) {
     if (_isDemo) {
       return Stream<WatchPartyRoom?>.multi((controller) {
@@ -299,8 +272,6 @@ class WatchPartyService {
     );
   }
 
-  /// One-shot fetch — used to decide whether the dashboard "Watch
-  /// Together" card should show "Resume Party" vs "Start a Party".
   Future<WatchPartyRoom?> getRoom(String roomId) async {
     if (_isDemo) return _demoRooms[roomId];
     final snap = await withGetTimeout(
@@ -311,13 +282,9 @@ class WatchPartyService {
     return WatchPartyRoom.fromFirestore(snap);
   }
 
-  /// Push a new playback state. The host calls this when the user
-  /// hits Play/Pause/Seek; the partner calls it on Resync. We only
-  /// patch the fields that change so we don't overwrite the host's
-  /// metadata if there's a race.
   Future<void> updatePlayback({
     required String roomId,
-    required String state, // 'playing' | 'paused' | 'buffering'
+    required String state,
     required double currentTime,
     required String updatedBy,
   }) async {
@@ -347,16 +314,9 @@ class WatchPartyService {
       });
     } catch (e) {
       debugPrint('WatchPartyService.updatePlayback failed: $e');
-      // Don't rethrow — a dropped heartbeat shouldn't crash the
-      // player. The next tick (5s later) will succeed.
     }
   }
 
-  /// Cheap "I'm still here" tick, written every few seconds. While
-  /// playing it also refreshes [currentTime] + [positionAt] together,
-  /// so a tab closed mid-film resumes near where it stopped. It never
-  /// writes `state`: if Clair pauses a moment before a tick lands, the
-  /// tick must not flip the room back to "playing".
   Future<void> heartbeat({
     required String roomId,
     required String beatBy,
@@ -394,9 +354,6 @@ class WatchPartyService {
     }
   }
 
-  /// Switch the room to a different movie/episode without ending the
-  /// party. Resets playback to 0 so both clients start the new title
-  /// at the same time.
   Future<void> updateMedia({
     required String roomId,
     required String mediaType,
@@ -472,10 +429,6 @@ class WatchPartyService {
     }
   }
 
-  /// Move the room to another episode without ending the party. The
-  /// partner follows on the next snapshot. Playback restarts at 0 so you
-  /// both land on the same frame. Everglow rebuilds the stream from the
-  /// room's media identity; a fixed-URL HLS server reloads in place.
   Future<void> updateEpisode({
     required String roomId,
     required int season,
@@ -521,7 +474,6 @@ class WatchPartyService {
     }
   }
 
-  /// Sync the caption choice. A null [subtitleUrl] means captions off.
   Future<void> updateCaptions({
     required String roomId,
     required String? subtitleUrl,
@@ -557,7 +509,6 @@ class WatchPartyService {
     }
   }
 
-  /// Re-open an idle room (a named room you keep for movie nights).
   Future<void> reopenRoom({
     required String roomId,
     required String updatedBy,
@@ -592,10 +543,6 @@ class WatchPartyService {
     }
   }
 
-  /// Switch the room to a different playback server without ending the
-  /// party. Resets playback so both clients start the new stream at the
-  /// same position. Mirror of the AniChan player's server switcher:
-  /// the active server travels on the room document.
   Future<void> updateServer({
     required String roomId,
     String? serverType,
@@ -647,8 +594,6 @@ class WatchPartyService {
     }
   }
 
-  /// Return the room to the default embed-provider list by deleting the
-  /// server fields from the room document.
   Future<void> clearServer({
     required String roomId,
     required String updatedBy,
@@ -687,10 +632,6 @@ class WatchPartyService {
     }
   }
 
-  /// End the party. Sets `active=false` and leaves the document in
-  /// place (so the dashboard can show "Party ended 5m ago" for a
-  /// brief grace period) but flips it so the partner's listener
-  /// closes their player screen.
   Future<void> endRoom(String roomId) async {
     if (_isDemo) {
       final room = _demoRooms[roomId];
@@ -715,8 +656,6 @@ class WatchPartyService {
     }
   }
 
-  /// Hard-delete a room doc. Used for cleanup if both users have
-  /// bounced and we want to start fresh.
   Future<void> deleteRoom(String roomId) async {
     if (_isDemo) {
       _demoRooms.remove(roomId);

@@ -2,13 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'chapter_num.dart';
 
-/// Models for the Manga Katana catalog clone.
-///
-/// Everything here is scraped from `mangakatana.com` and mirrors the
-/// site's own data shape: manga entries, chapters, genres, and the
-/// user bookmark record (stored in Firestore per Everglow user).
-
-/// A single genre / tag on Manga Katana.
 class KatanaGenre {
   final String slug;
   final String name;
@@ -23,13 +16,6 @@ class KatanaGenre {
   });
 }
 
-/// Extracts the chapter number from a MangaKatana chapter id.
-///
-/// Ids look like `c413`, `c528.5`, `v6c147` (volume 6 chapter 147) or
-/// `fc` (the very first chapter). Taking everything after the *last*
-/// `c` gives the real chapter number for volume ids too, so `v6c147`
-/// sorts as 147 instead of a broken "6c147" that used to fall back to
-/// 0 and scramble the chapter order.
 String katanaChapterNumFromId(String id) {
   if (id == 'fc') return '';
   final lower = id.toLowerCase();
@@ -38,12 +24,6 @@ String katanaChapterNumFromId(String id) {
   return lower.substring(cIndex + 1);
 }
 
-/// Infers the dashboard language badge from MangaKatana genres.
-///
-/// The site has no language field — Korean titles carry the `manhwa`
-/// genre and Chinese titles the `manhua` genre, so those win; anything
-/// else (including genre-less auto-adds) falls back to Japanese manga.
-/// Returns the `MangaItem.originalLanguage` code (`ko` / `cn` / `jp`).
 String katanaLanguageForGenres(List<KatanaGenre> genres) {
   var manhwa = false;
   for (final genre in genres) {
@@ -55,7 +35,6 @@ String katanaLanguageForGenres(List<KatanaGenre> genres) {
   return manhwa ? 'ko' : 'jp';
 }
 
-/// A single chapter entry for a manga (e.g. `c413`).
 class KatanaChapter {
   final String id;
   final String num;
@@ -71,7 +50,6 @@ class KatanaChapter {
     this.isNew = false,
   });
 
-  /// MangaKatana chapter path, e.g. `c413` or `fc`.
   String get path => id;
 
   bool get isFirst => id == 'fc';
@@ -85,25 +63,18 @@ class KatanaChapter {
   double get numeric => chapterNumValue(num);
 }
 
-/// A manga entry from the Manga Katana catalog.
-///
-/// List items only populate [latestChapter], [genres], [summary],
-/// [updateText] and [recentChapters]; the detail page additionally
-/// populates [altNames], [authors], [artists], [chapters] and
-/// [description].
 class KatanaManga {
   final String slug;
   final String id;
   final String title;
   final String coverUrl;
-  final String status; // 'ongoing' | 'completed'
-  final String updateText; // e.g. "58 minutes ago"
+  final String status;
+  final String updateText;
   final String summary;
   final List<KatanaGenre> genres;
   final KatanaChapter? latestChapter;
   final List<KatanaChapter> recentChapters;
 
-  // Detail-only fields
   final List<String> altNames;
   final List<String> authors;
   final List<String> artists;
@@ -161,7 +132,6 @@ class KatanaManga {
   }
 }
 
-/// A user's bookmarked manga, persisted in Firestore.
 class KatanaBookmark {
   final String slug;
   final String title;
@@ -175,16 +145,8 @@ class KatanaBookmark {
   final String recommendedBy;
   final String recommendationNote;
 
-  /// Chapter ids this user has finished. Drives the read/unread marks in
-  /// the chapter list and makes "continue reading" pick the first
-  /// chapter actually left unread instead of guessing from the last one
-  /// opened.
   final Set<String> readChapterIds;
 
-  /// Whether this series is still on the bookmarks shelf. Unbookmarking
-  /// clears this instead of deleting the document, because the same
-  /// document carries reading progress and [readChapterIds] — deleting it
-  /// used to wipe both. Absent in older records, which count as bookmarked.
   final bool bookmarked;
 
   const KatanaBookmark({
@@ -227,8 +189,6 @@ class KatanaBookmark {
       readChapterIds: read is List
           ? {for (final id in read) if (id is String && id.isNotEmpty) id}
           : const {},
-      // Missing means a record written before this flag existed, which was
-      // saved because the user bookmarked it.
       bookmarked: data['bookmarked'] != false,
     );
   }
@@ -263,7 +223,6 @@ class KatanaBookmark {
   }
 }
 
-/// A page of catalog results from Manga Katana.
 class KatanaPageResult {
   final List<KatanaManga> items;
   final int page;
@@ -278,8 +237,6 @@ class KatanaPageResult {
   });
 }
 
-/// Aggregated home page data (Hot Updates rail, Latest Updates,
-/// Hot Manga, genres).
 class KatanaHomeData {
   final List<KatanaManga> hotUpdates;
   final List<KatanaManga> latest;

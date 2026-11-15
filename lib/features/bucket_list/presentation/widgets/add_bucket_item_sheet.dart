@@ -9,10 +9,6 @@ import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_ui.dart';
 
-/// Bottom-sheet composer for planting a new dream.
-///
-/// Warm prompts, big category tiles, and one-tap meta — built for Clair's
-/// thumbs on phone and tablet.
 class AddBucketItemSheet extends StatefulWidget {
   final String createdBy;
 
@@ -27,7 +23,7 @@ class _AddBucketItemSheetState extends State<AddBucketItemSheet> {
   final _descController = TextEditingController();
   BucketCategory _category = BucketCategory.experience;
   BucketPriority _priority = BucketPriority.medium;
-  String? _assignedTo; // null = unassigned, else username
+  String? _assignedTo;
   DateTime? _dueDate;
   bool _saving = false;
   bool _canSave = false;
@@ -54,7 +50,7 @@ class _AddBucketItemSheetState extends State<AddBucketItemSheet> {
     setState(() => _saving = true);
 
     final item = BucketItem(
-      id: '', // Firestore generates the id.
+      id: '',
       title: title,
       description: _descController.text.trim(),
       category: _category,

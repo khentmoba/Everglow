@@ -34,7 +34,6 @@ void main() {
       expect(map['dueDate'], Timestamp.fromDate(DateTime.utc(2030, 12, 20)));
       expect(map['notes'], '');
       expect(map['description'], '');
-      // Null completion fields must be absent (never written as null).
       expect(map.containsKey('completedAt'), isFalse);
       expect(map.containsKey('completedBy'), isFalse);
     });
@@ -56,8 +55,6 @@ void main() {
         final map = BucketListService.buildMarkUncompletePayload();
 
         expect(map['status'], 'wish');
-        // Deleting (not setting null) is what actually clears the fields in
-        // Firestore — a null value would break fromFirestore round-trips.
         expect(map['completedAt'], isA<FieldValue>());
         expect(map['completedBy'], isA<FieldValue>());
       },
@@ -138,8 +135,6 @@ void main() {
       expect(round.category, original.category);
       expect(round.status, BucketStatus.completed);
       expect(round.createdBy, original.createdBy);
-      // Timestamp round-trips come back as local-zone DateTimes at the same
-      // instant; compare instants, not zone labels.
       expect(
         round.createdAt.toUtc(),
         original.createdAt.toUtc(),

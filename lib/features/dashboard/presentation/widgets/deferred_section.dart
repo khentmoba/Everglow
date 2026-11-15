@@ -5,32 +5,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Keeps a heavy dashboard section out of the tree on first frame until
-/// either the scroll view brings it near the viewport or (when [warmWhenIdle]
-/// is true) the page sits still long enough to warm it one frame at a time.
-///
-/// Why this matters so much on web: a `CustomScrollView` builds **every** sliver
-/// at once — `SliverToBoxAdapter` mounts all of its children eagerly, and the
-/// framework only skips laying out and painting the ones outside the viewport
-/// (`test/deferred_section_test.dart` pins that down). The dashboard is built
-/// from 21 such slivers, so mounting all 21 sections — and their ~25
-/// `snapshots()` streams, image decodes and animation controllers — on the
-/// first frame would freeze the boot. Deferring them keeps frame 1 light, and
-/// [warmWhenIdle] then builds below-viewport sections one-by-one while idle so
-/// a fast scroll does not hit a cold-build burst.
-///
-/// One code path for every platform. The old web branch skipped the visibility
-/// check entirely and just waited `deferMs`, which mounted everything anyway.
-///
-/// Progress is guaranteed three ways, because a section that never appears is
-/// far worse than one that appears early:
-/// * a geometry check right after the frame that built the placeholder,
-/// * the scroll position listener,
-/// * a slow safety-net timer while unrevealed sections belong to an active page.
-///
-/// Nothing here may ever throw: a broken check would take the whole dashboard
-/// down with it (that is how the "Together zone" grey slab happened), so every
-/// read is guarded and a failed check simply means "try again later".
 class DeferredSection extends StatefulWidget {
   const DeferredSection({
     super.key,
@@ -42,41 +16,18 @@ class DeferredSection extends StatefulWidget {
 
   final Widget child;
 
-  /// Height reserved before the real section exists, so the scrollbar and the
-  /// jump-to-zone anchors keep roughly the right extent while it is deferred.
   final double placeholderHeight;
 
-  /// Stagger applied *after* the section is found to be near the viewport.
-  ///
-  /// The first screenful of sections all qualify at once; without this they
-  /// would all build in the same frame and hand Firestore's single WebChannel
-  /// a burst of subscriptions plus a `get(/users/{uid})` rule check each. Keep
-  /// it small — it delays real content.
   final int deferMs;
 
-  /// Also builds this section in the background once the page has been still
-  /// for a moment, top to bottom, one section at a time.
-  ///
-  /// Why: a section's first build runs cold code and first-time drawing work.
-  /// Paid during the first swipe, that is the freeze on a fresh open. Paid
-  /// while nobody is touching the screen, it is invisible, and the first swipe
-  /// lands on sections that already exist. Sections never unload, so this only
-  /// reaches the state one full scroll would reach anyway, just sooner.
-  /// Any scroll pauses the warm-up until the page is still again.
   final bool warmWhenIdle;
 
-  /// Stillness required after first build or after a scroll before warming.
   static const Duration warmIdleDelay = Duration(milliseconds: 250);
 
-  /// Gap between two background builds, so each gets its own quiet frame.
   static const Duration warmGap = Duration(milliseconds: 16);
 
-  /// How far beyond the viewport still counts as "close enough". Wide enough to
-  /// build a section before it is visible (no blank flash when scrolling into
-  /// it), narrow enough that far-below sections stay unmounted.
   static const double preloadMargin = 280;
 
-  /// How long a section may sit above the viewport and still be worth building.
   static const double keepAboveMargin = 500;
 
   @override
@@ -91,7 +42,6 @@ class _DeferredSectionState extends State<DeferredSection>
   bool _visible = false;
   bool _checkScheduled = false;
   bool _revealRetryScheduled = false;
-  // Nearby sections often share a timer deadline. Give each mount its own frame.
   static bool _mountPending = false;
   bool _warnedNoPosition = false;
   Timer? _deferTimer;
@@ -101,7 +51,6 @@ class _DeferredSectionState extends State<DeferredSection>
 
   bool get _active => _appActive && _pageActive;
 
-  // Background warm-up shared by every section that opted in, in build order.
   static final List<_DeferredSectionState> _warmQueue = [];
   static Timer? _warmTimer;
 
@@ -120,7 +69,6 @@ class _DeferredSectionState extends State<DeferredSection>
     for (final s in _warmQueue) {
       if (!s._active) continue;
       if (s._position?.isScrollingNotifier.value ?? false) {
-        // Never compete with a live swipe; try again once it settles.
         _armWarm(DeferredSection.warmIdleDelay);
         return;
       }
@@ -131,8 +79,6 @@ class _DeferredSectionState extends State<DeferredSection>
       seenBelowTop = true;
       next ??= s;
     }
-    // Nothing active or only above-viewport sections left: stop without
-    // re-arming so we never shift visible content or spin a 16ms timer.
     if (next == null) return;
     if (_mountPending) {
       _armWarm(DeferredSection.warmGap);
@@ -142,8 +88,6 @@ class _DeferredSectionState extends State<DeferredSection>
     _armWarm(DeferredSection.warmGap);
   }
 
-  /// Cached in [didChangeDependencies] so the check never has to look up an
-  /// inherited widget from a timer callback.
   double _viewportHeight = 0;
   bool _phone = false;
 
@@ -157,8 +101,6 @@ class _DeferredSectionState extends State<DeferredSection>
       _warmQueue.add(this);
       _armWarm(DeferredSection.warmIdleDelay);
     }
-    // The placeholder is built by this frame; its geometry is only readable
-    // from a post-frame callback.
     WidgetsBinding.instance.addPostFrameCallback((_) => _check());
   }
 
@@ -173,8 +115,6 @@ class _DeferredSectionState extends State<DeferredSection>
       _deferTimer = null;
       return;
     }
-    // Keep recovery active while Clair is using the page: a missing geometry
-    // notification must never leave a section blank. Hidden pages need no polls.
     _safetyNet ??= Timer.periodic(
       const Duration(milliseconds: 400),
       (_) => _check(),
@@ -224,8 +164,6 @@ class _DeferredSectionState extends State<DeferredSection>
     });
   }
 
-  /// Watches the enclosing scroll view so a section builds as it comes into
-  /// range instead of waiting for the safety-net tick.
   void _syncScrollListener() {
     final position = _positionOf(Scrollable.maybeOf(context));
     if (position == _position) return;
@@ -233,8 +171,6 @@ class _DeferredSectionState extends State<DeferredSection>
     _position?.isScrollingNotifier.removeListener(_onScroll);
     _position = position;
     _position?.addListener(_onScroll);
-    // Stopping a fling need not change pixels. Reveal the landing cards then,
-    // rather than leaving placeholders until the next safety-net tick.
     _position?.isScrollingNotifier.addListener(_onScroll);
   }
 
@@ -250,18 +186,8 @@ class _DeferredSectionState extends State<DeferredSection>
     }
   }
 
-  /// Reveals as soon as the section is near, and again after the layout that
-  /// this scroll produced. Without the second pass a *programmatic* jump (the
-  /// dashboard's jump-to-zone anchors) would scroll past sections that were not
-  /// laid out yet at notification time, and leave their placeholders behind
-  /// until the user happened to scroll again.
   void _onScroll() {
-    // One geometry read per frame max: during a fast scroll this fires per
-    // pixel across ~20 sections, and each localToGlobal walks the render
-    // tree on the single web thread. The post-frame pass + 400ms safety net
-    // still reveal within a frame of entering the preload margin.
     _scheduleCheck();
-    // Any movement restarts the stillness wait before background builds.
     if (widget.warmWhenIdle && _warmTimer != null) {
       _armWarm(DeferredSection.warmIdleDelay);
     }
@@ -274,7 +200,6 @@ class _DeferredSectionState extends State<DeferredSection>
       _deferTimer = null;
       return;
     }
-    // Long entrance staggers let a phone swipe outrun the reserved space.
     final delay = _phone ? widget.deferMs.clamp(0, 120) : widget.deferMs;
     if (delay > 0) {
       _deferTimer ??= Timer(Duration(milliseconds: delay), _reveal);
@@ -283,8 +208,6 @@ class _DeferredSectionState extends State<DeferredSection>
     _reveal();
   }
 
-  // Use Flutter's velocity heuristic, also used for deferred image loading.
-  // Already mounted cards stay visible; only new, expensive mounts wait.
   bool get _deferForFastScroll =>
       (_position?.isScrollingNotifier.value ?? false) &&
       (_position?.recommendDeferredLoading(context) ?? false);
@@ -304,7 +227,6 @@ class _DeferredSectionState extends State<DeferredSection>
   bool _isNearViewport() {
     if (_viewportHeight <= 0) return false;
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
-    // Never laid out (beyond the viewport's cache extent) or already gone.
     if (box == null || !box.attached || !box.hasSize) return false;
     final double top;
     try {
@@ -323,7 +245,6 @@ class _DeferredSectionState extends State<DeferredSection>
     if (!mounted || _visible || !_active) return;
     _deferTimer?.cancel();
     _deferTimer = null;
-    // A quick swipe can leave the section behind before its timer fires.
     if (_deferForFastScroll || (!idle && !_isNearViewport())) return;
     if (_mountPending) {
       if (!_revealRetryScheduled) {

@@ -71,9 +71,6 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     unawaited(_resolveEverglowStream(startSeconds: 0));
   }
 
-  /// Open the episode picker for the current series. Picking an episode
-  /// writes it to the room, so the other client reloads the same episode
-  /// without either side needing to tell the other.
   Future<void> _showEpisodePicker() async {
     if (!_room.isSeries) return;
     final maxEpisodes = _room.episodeCount ?? 100;
@@ -140,9 +137,6 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     }
   }
 
-  /// Caption picker for HLS rooms. The chosen track is written to the
-  /// room, so turning captions on, off, or to another language happens
-  /// on both screens at once.
   Future<void> _showCaptionPicker() async {
     if (!_isHlsServer) return;
     var tracks = _availableSubtitles;
@@ -310,8 +304,6 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     final completer = Completer<bool>();
     setState(() {
       _showEndDialog = true;
-      // Guarded: a raw `completer.complete` tear-off would throw
-      // "Future already completed" on a rapid double-tap.
       _endDialogCallback = (value) {
         if (!completer.isCompleted) completer.complete(value);
       };
@@ -322,8 +314,6 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     await _voiceChat.endCall();
     if (mounted) Navigator.of(context).pop();
   }
-
-  // ─── Build ────────────────────────────────────────────────────────
 
   void _selectProvider(VideoSourceConfig provider) {
     if (provider.id == _selectedProvider.id) return;
@@ -354,8 +344,6 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  /// Seek the shared room to [seconds]. The local `<video>` moves now;
-  /// the partner follows on the next snapshot through the drift check.
   void _seekTo(double seconds) {
     final duration = _hlsController.duration;
     final target = duration > 0 ? seconds.clamp(0.0, duration) : seconds;

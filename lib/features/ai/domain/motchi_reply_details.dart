@@ -1,5 +1,3 @@
-/// Verified memories and execution receipts attached to one assistant reply.
-/// These are transport data, not claims extracted from the model's prose.
 class MotchiReplyDetails {
   final List<Map<String, dynamic>> memories;
   final List<Map<String, dynamic>> steps;
@@ -19,17 +17,9 @@ class MotchiReplyDetails {
       recommendations.isEmpty &&
       !interrupted;
 
-  /// Only a step that can leave something half-saved demands action. Reads
-  /// (web_search, read_web_page, browse_web) are informational: a page
-  /// Motchi could not open changes where the answer came from, which the
-  /// reply already says, and leaves Clair nothing to finish herself.
-  /// Anything not explicitly marked `write: false` still counts — older
-  /// saved replies predate that flag, and silence is the wrong default.
   bool get needsAttention {
     if (steps.any(_needsAction)) return true;
     if (!interrupted) return false;
-    // An interruption only demands finishing steps if there was an action/write
-    // that could be half-done. Pure reads leave nothing to save or finish.
     return steps.isEmpty || steps.any((s) => s['write'] != false);
   }
 
@@ -122,7 +112,6 @@ class MotchiReplyDetails {
     );
   }
 
-  /// Citation markers are invisible, including a marker split across tokens.
   static String visibleText(String text) {
     final clean = text.replaceAll(RegExp(r'\[\[memory:[^\]\r\n]*\]\]'), '');
     final start = clean.lastIndexOf('[[');
@@ -137,8 +126,6 @@ class MotchiReplyDetails {
     return clean;
   }
 
-  /// Only explicitly named owners count. The person who saved a fact is
-  /// not necessarily the person it describes.
   static String owner(Map<String, dynamic> memory) {
     final subject = '${memory['subject'] ?? ''}'.trim().toLowerCase();
     if (subject == 'clair') return 'Clair';

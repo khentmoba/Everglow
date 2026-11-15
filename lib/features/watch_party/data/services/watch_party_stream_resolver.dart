@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import '../../../cinema/data/services/cinema_video_sources.dart';
 import '../models/watch_party_room.dart';
 
-/// One subtitle track returned by the Everglow stream resolver.
 class WatchPartySubtitle {
   final String url;
   final String label;
@@ -13,9 +12,6 @@ class WatchPartySubtitle {
   const WatchPartySubtitle({required this.url, required this.label});
 }
 
-/// The playable stream for a room: a real HLS manifest plus its subtitle
-/// tracks. The watch party plays this in our own `<video>`, so play,
-/// pause, seek, and captions are exact instead of an iframe best effort.
 class WatchPartyStream {
   final String src;
   final List<WatchPartySubtitle> subtitles;
@@ -28,10 +24,6 @@ class WatchPartyStream {
   });
 }
 
-/// Resolves a room's movie/episode through Everglow's own streaming
-/// Worker. The Worker already serves the cinema and anime player pages;
-/// `format=json` returns the same resolved manifest without the HTML, so
-/// the watch party can drive the stream itself.
 class WatchPartyStreamResolver {
   WatchPartyStreamResolver({http.Client? client, this.timeout = const Duration(seconds: 25)})
     : _client = client ?? http.Client();
@@ -42,8 +34,6 @@ class WatchPartyStreamResolver {
   static const String workerBase =
       '${CinemaVideoSources.proxyCinemaOrigin}/proxyAnime';
 
-  /// The request the room turns into. Kept pure so it can be asserted
-  /// without the network.
   Uri uriFor(WatchPartyRoom room) {
     final query = <String, String>{'format': 'json'};
     if (room.isAnime) {

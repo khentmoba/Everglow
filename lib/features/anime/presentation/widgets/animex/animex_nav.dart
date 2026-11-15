@@ -12,7 +12,6 @@ import 'animex_buttons.dart';
 import 'animex_controller.dart';
 import 'animex_tokens.dart';
 
-/// Fixed top header for the anime section (desktop / tablet).
 class AnimeXTopHeader extends StatelessWidget {
   final AnimeXController controller;
   final VoidCallback onSearch;
@@ -110,8 +109,6 @@ class AnimeXTopHeader extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      // Keep section switching compact so phone headers still fit
-                      // the search and profile controls.
                       const MediaSectionMenu(currentRoute: '/anime'),
                       AnimeXIconButton(
                         icon: Icons.search_rounded,
@@ -237,7 +234,6 @@ class AnimeXTopHeader extends StatelessWidget {
   }
 }
 
-/// Bottom navigation used on mobile, mirroring the reference app bar.
 class AnimeXMobileBottomNav extends StatelessWidget {
   final AnimeXController controller;
   final VoidCallback onSearch;
@@ -456,7 +452,6 @@ class _NavItemState extends State<_NavItem> {
   }
 }
 
-/// EN / JP title-language toggle wired to [AnimexStores].
 class _TitleLanguageToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

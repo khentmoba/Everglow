@@ -2,17 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// A single "chapter" derived from a fetched book's plain text. The
-/// chapter splitter in the reader service produces a list of these.
 class BookChapter {
   final String title;
   final String body;
   const BookChapter({required this.title, required this.body});
 }
 
-/// Vertical chapter list shown in the book details drawer. Mirrors
-/// the role of `episode_drawer.dart`'s episode list — except we
-/// don't navigate by tapping a row, we just show the structure.
 class ChapterList extends StatelessWidget {
   final List<BookChapter> chapters;
   final bool isLoading;

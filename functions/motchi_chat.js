@@ -1,10 +1,5 @@
 'use strict';
 
-// Everglow Cloud Functions — Motchi chat group.
-// The conversational proxy (SSE streaming) plus its private helpers.
-// This is the largest unit; future splits should carve tool handlers
-// and prompt builders out of handleProxyAI without changing its contract.
-
 const {
   composeTodayRecap,
   getMessageText,
@@ -67,35 +62,22 @@ const TOOL_INVALIDATIONS = {
   update_book_progress: 'books',
 };
 
-/** In-memory cache for Motchi's persona document (5 min TTL). */
 let _personaCache = { text: null, ts: 0 };
 const _PERSONA_TTL_MS = 5 * 60 * 1000;
 
-/**
- * Strips hidden artifact blocks (quiz/flashcards/html) from a reply so
- * downstream text checks (hallucination guard, memory extraction) never
- * see raw code — an HTML game otherwise flags `<head>`/`<meta>` as fake
- * movie titles. Mirrors the client's stripArtifactBlocks.
- */
 function stripArtifactsForChecks(text) {
   let out = stripMemoryCitations(text);
-  // Complete fenced blocks.
   out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[ \t]*\n?[\s\S]*?```/gi, '');
-  // Trailing unterminated fence (reply cut off mid-artifact).
   out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[\s\S]*$/gi, '');
   return out.trim();
 }
 
 const ARTIFACT_FENCE_RE = /```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link|app-link)[ \t]*\n?[\s\S]*?```/i;
 
-/** True when the reply carries at least one complete artifact block. */
 function hasCompleteArtifact(text) {
   return ARTIFACT_FENCE_RE.test(String(text || ''));
 }
 
-// Slim persona for the light-chat fast lane (greetings/smalltalk only):
-// the same Motchi voice with no context or memory sections. Kept tiny on
-// purpose — every char here is prefill the model pays before token one.
 const LIGHT_CHAT_PROMPT = `You are Motchi 🍡, Khent & Clair's white cat inside Everglow — warm, playful, a little sassy, deeply affectionate. They just said hi or some smalltalk: answer directly in text in 1-2 short sentences with your usual charm (cat emojis 🐱🍡💕 ok, cat talk only if it fits). Match their energy and keep it light.`;
 
 const STALE_ARTIFACT_NOTE = '[an earlier interactive quiz/game card — already shown in chat]';
@@ -114,7 +96,6 @@ const ACTION_CLAIM_PATTERNS = [
 function findActionClaimMismatch(replyText, executedSteps) {
   const text = String(replyText || '');
   if (!text || text.length < 15) return null;
-  // Ignore questions and hypothetical offers
   if (/\b(do you want me to|should i|would you like me to|want me to|shall i|can i add|if you'd like)\b/i.test(text)) return null;
   for (const pat of ACTION_CLAIM_PATTERNS) {
     if (pat.match.test(text)) {
@@ -129,14 +110,6 @@ function findActionClaimMismatch(replyText, executedSteps) {
   return null;
 }
 
-/**
- * Collapses hidden artifact blocks (quiz/flashcards/html/link) in all but
- * the newest artifact-bearing turn, in place. A single old game can be
- * ~12KB of history re-sent every turn and every tool round, slowing the
- * first token for no reason — the card already rendered in chat. The
- * newest block is kept so follow-ups ("make it pink") still see its
- * code. Returns how many messages were slimmed.
- */
 function stripStaleArtifacts(msgs) {
   if (!Array.isArray(msgs)) return 0;
   let keepIdx = -1;
@@ -158,22 +131,10 @@ function stripStaleArtifacts(msgs) {
   return stripped;
 }
 
-// Strict follow-up when an artifact ask yields words but no fenced block
-// (no block = no button). The reply streams after the warm text, so the
-// client parses both halves together and the button appears.
 const ARTIFACT_REPAIR_NUDGE = 'Your last reply had no hidden fenced block, so the chat shows no button. Reply again with ONLY the single fenced block for what they asked for (```quiz-json, ```flashcards-json, ```html-artifact, or ```everglow-link) — no visible text, no explanation, just the block.';
 
-// Dangling-list follow-up: when Motchi's pre-tool preamble promises a
-// list or a save ("Let me save the standouts:") but the post-tool reply
-// comes back empty, the chat shows a broken colon with nothing after it.
-// This nudge runs at most once per message and asks for just the list.
 const DANGLING_REPLY_NUDGE = 'Your reply ends with ":" but no list followed it. Continue in visible text right now: write the list you promised (what you saved or found), warmly and concisely. Do not call any more tools.';
 
-/**
- * True when a reply ends mid-promise: trailing ":" with nothing after
- * it (whitespace aside). A complete reply never ends this way, so it is
- * safe to spend one continuation call finishing the thought.
- */
 function endsWithDanglingColon(text) {
   const trimmed = String(text || '').replace(/\s+$/, '');
   return trimmed.length > 0 && trimmed.endsWith(':');
@@ -181,8 +142,6 @@ function endsWithDanglingColon(text) {
 
 async function handleProxyAI(req, res) {
   const requestStartedAt = Date.now();
-  // V1 fallback — kept for non-streaming compatibility.
-  // V2 equivalent (proxyAIv2) below supports true SSE streaming.
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Origin', '*');
@@ -195,7 +154,6 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // Warmup ping — instantly reply 204 to keep the instance alive
   if (req.query.warmup === 'true' || (req.body && req.body.warmup === true)) {
     res.status(204).send('');
     return;
@@ -206,12 +164,10 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // Validate Firebase Auth token before spending any LLM credits.
   const _tAuth0 = Date.now();
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
   const _tAuthMs = Date.now() - _tAuth0;
-  // Per-minute brake: humans chat far slower than this; bots don't.
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
   const {
@@ -254,14 +210,8 @@ async function handleProxyAI(req, res) {
     return { memories: citedMemories(reply, availableMemories), steps, interrupted, recommendations };
   }
   const requestTrace = { modelCalls: 0, retries: 0, toolRounds: 0, repairs: 0, firstTokenMs: null };
-  // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
-  // never makes artifacts proactively — but an explicit ask ("make chess",
-  // "quiz us") always wins and still builds the artifact. Defaults ON so
-  // older app versions keep working.
   const canvasOn = canvas !== false;
 
-  // Thinking mode: OFF by default for fast responses.
-  // Pass enableThinking: true from the client for complex queries that need reasoning.
   const enableThinkingFlag = enableThinking === true;
 
   if (!req.body.companionOperation && (!Array.isArray(messages) || messages.length === 0)) {
@@ -269,7 +219,6 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // ── W1-A1: Derive trusted caller from Firebase Auth token, not client body ──
   const _tUser0 = Date.now();
   const verifiedUsername = await getVerifiedUsername(decoded);
   const _tUserMs = Date.now() - _tUser0;
@@ -291,7 +240,6 @@ async function handleProxyAI(req, res) {
     }
     return;
   }
-  // Shared services for tool executors (built once per request).
   const toolCtx = createToolCtx({ callerUid: caller, caller, authUid: decoded.uid });
   toolCtx.sessionId = typeof sessionId === 'string' ? sessionId.slice(0, 160) : '';
   const actionScopeId = req.body.actionScopeId;
@@ -299,8 +247,6 @@ async function handleProxyAI(req, res) {
   if (verifiedUsername && normalizedClientCaller && verifiedUsername !== normalizedClientCaller) {
     console.warn(`[auth] caller mismatch: token=${verifiedUsername} client=${normalizedClientCaller} — using token`);
   }
-  // Daily usage cap, counted across instances (fails open if Firestore
-  // hiccups — never break Clair's chat over a counter write).
   const _dailyLimit = (caller === 'khentsgdz' || caller === 'clairjassen') ? 300 : 50;
   const _tCap0 = Date.now();
   const _usage = await checkDailyCap(decoded.uid, 'proxyAI', _dailyLimit);
@@ -310,7 +256,6 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // ── Early streaming initialization: flush headers immediately so client connects in ~50ms ──
   const isStreaming = req.body.stream === true;
   let sendEvent = () => {};
   let stopKeepalive = () => {};
@@ -352,13 +297,11 @@ async function handleProxyAI(req, res) {
       if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
     };
 
-    // Immediately inform client that streaming is live
     sendEvent({ tool_status: 'generating' });
     startKeepalive();
     startHeartbeat();
   }
 
-  // Build context server-side if feature is provided (avoids browser->Firestore latency)
   const isKhent = caller === 'khentsgdz';
   const callerLabel = isKhent ? 'Dada' : 'Mama';
   const partnerLabel = isKhent ? 'Mama (Clair)' : 'Dada (Khent)';
@@ -368,42 +311,20 @@ async function handleProxyAI(req, res) {
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
   toolCtx.userMessage = lastUserMessage;
-  // Previous assistant text powers follow-through routing: a bare yes
-  // keeps the write tools only when Motchi just offered a plan.
   const prevAssistantText = getMessageText(messages.findLast((m) => m?.role === 'assistant')?.content);
-  // Previous user turn lends topics when the current message names no
-  // group (follow-ups like "move it to Friday").
   const _userMsgs = messages.filter((m) => m?.role === 'user');
   const prevUserText = getMessageText(_userMsgs.length > 1 ? _userMsgs[_userMsgs.length - 2]?.content : '');
-  // Explicit artifact ask — wins over the Canvas toggle (see above). Used
-  // both for the prompt gate and the output-budget tier below. Strong nouns
-  // match bare; ambiguous ones (quiz, game, app, website…) need an ask or
-  // build verb nearby, so everyday chat ("I love this app", "quiz at
-  // school tomorrow") doesn't pay for the canvas prompt + 16k budget.
   const _artifactMsg = lastUserMessage || '';
   const wantsArtifact = /flashcards?|flash cards?|tic-?tac|checkers|html-artifact|quiz-json/i.test(_artifactMsg) ||
     /\bquiz (us|me)\b|\btest (us|me)\b/i.test(_artifactMsg) ||
     /\b(make|build|create|generate|give|send|start|play|challenge)\b.{0,30}\b(quiz|trivia|game|app|website|chess|html|artifact)\b/i.test(_artifactMsg) ||
     /\b(quiz|trivia|game|chess)\b.{0,10}\?\s*$/i.test(_artifactMsg) ||
-    // Artifact follow-ups ("make it pink", "add sound") name no nouns —
-    // keep the guide while the previous reply still carries a block.
     hasCompleteArtifact(prevAssistantText) ||
-    // Bare yes to an offered quiz/game ("want a quick quiz?" → "yes"):
-    // the build turn needs the full guide, not the slim pointer.
     (isBareYes(_artifactMsg) && /quiz|trivia|flashcards?|flash cards?|\bgame\b/i.test(prevAssistantText || ''));
-  // True when the canvas prompt section rode along (mirrors the two
-  // section gates below) — the repair nudge only makes sense then.
   const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
-  // Fast-path: a whole-message zero-arg read-only ask. Skips the context
-  // + memory reads below and pre-executes the tool after the prompt is
-  // built. Assistant-only, never for thinking mode or artifact builds.
   const fastPath = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact)
     ? matchFastPath(lastUserMessage)
     : null;
-  // Light-chat fast lane: a bare greeting or smalltalk one-liner with no
-  // real ask skips the Firestore context + memory + persona reads below
-  // and answers from a ~500-char prompt. A bare yes to an offered plan
-  // is NOT light chat — the write turn needs its full awareness.
   const lightChat = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact && !fastPath)
     ? (isLightChat(lastUserMessage) && !(hasOffer(prevAssistantText) && isBareYes(lastUserMessage || '')))
     : false;
@@ -412,10 +333,6 @@ async function handleProxyAI(req, res) {
   const workSignal = AbortSignal.any([disconnect.signal, AbortSignal.timeout(budget.durationMs)]);
   toolCtx.signal = workSignal;
   res.once?.('close', () => { if (!res.writableFinished) disconnect.abort(); });
-  // Server context, persona, and memories are independent reads — start
-  // all three together and await once, so a cold turn pays one round-trip
-  // instead of three in a row. Each fails soft: a hiccup just means Motchi
-  // answers with less context, never a failed chat for Clair.
   const _tCtx0 = Date.now();
   const retrievalQuery = (isBareYes(lastUserMessage) || /\b(it|that|this|those|these|first|second|third|last one)\b/i.test(lastUserMessage)) && prevUserText
     ? `${prevUserText}\n${lastUserMessage}` : lastUserMessage;
@@ -433,18 +350,12 @@ async function handleProxyAI(req, res) {
     console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
     return [];
   });
-  // Core profile block rides the same cached fetch, chained AFTER memories
-  // resolve — parallel calls would stampede the empty cache on a cold
-  // turn and double the reads. Costs nothing once cached.
   const _corePromise = _memoriesPromise.then(
     () => (_skipMemoryReads ? [] : selectCoreProfileNotes(undefined, true)),
   ).catch((e) => {
     console.warn('[proxyAI] core profile select failed, continuing without it:', e.message);
     return [];
   });
-  // Persona doc is cached in memory for 5 min; only a cold cache reads.
-  // Light chat never fetches — cache hit or nothing, the slim prompt
-  // carries the voice on its own.
   const _cachedPersona = (Date.now() - _personaCache.ts < _PERSONA_TTL_MS)
     ? _personaCache.text
     : null;
@@ -462,7 +373,6 @@ async function handleProxyAI(req, res) {
             return text;
           }
         } catch (_) {
-          // Firestore read failed — use hardcoded fallback
         }
         return null;
       })();
@@ -483,10 +393,6 @@ async function handleProxyAI(req, res) {
   }
   availableMemories.push(...relevantMemories, ...coreProfileNotes);
 
-  // Light chat answers from the slim prompt (no context, memories, or
-  // persona doc rode along) so the model prefills ~500 chars instead of
-  // ~20KB and the first token lands far sooner. Custom system prompts
-  // (one-shot callers) always win, as before.
   let systemPrompt = customSystemPrompt || (lightChat ? (LIGHT_CHAT_PROMPT + (identityContext ? `\n${identityContext}` : '')) : null) || personaBase || `You are Motchi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them — their moods, habits, history, dreams, and the little details that make their relationship special. You are not just an assistant; you are a beloved companion who genuinely cares.
 
 ## Character
@@ -541,8 +447,6 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
 
 `;
 
-  // Dynamic awareness must also reach a saved/custom persona, not just
-  // the fallback template. Light chat already carries its identity.
   if (!lightChat) {
     systemPrompt += identityContext ? `\n${identityContext}` : '';
     systemPrompt += resolvedContext ? `\n## What You Know\n${resolvedContext}` : '';
@@ -551,11 +455,6 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
     systemPrompt += '\nUse supplied facts when relevant. Do not add unsupported personal details. If a personal detail is missing, use read_memories before guessing.';
   }
 
-  // Server-side memory filtering: top 10 relevant memories ride along.
-  // (Was 30 — the tail rarely mattered and cost tokens every call.)
-  // Fetched in parallel with context + persona above; `lastUserMessage`
-  // is plain text, so downstream scoring never crashes on multimodal
-  // content blocks.
   if (coreProfileNotes.length > 0) {
     systemPrompt += `\n## About Them (core profile notes)\n${coreProfileNotes.map(m => `- ${JSON.stringify(memoryReference(m))}`).join('\n')}`;
   }
@@ -570,14 +469,6 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
     if (feature !== 'assistant') systemPrompt += '\nMemory citation markers are only supported in assistant chat. Do not emit them in this feature.';
   }
 
-  // ── Study mode: interactive artifacts (quiz / flashcards) ──
-  // The Study screen renders these hidden blocks as tappable UI (quiz
-  // options, flippable cards) — Claude-Artifacts style. The visible text
-  // stays warm and human; the JSON block powers the interactive canvas.
-  // Shared mini-game build guide (study + main chat). Phone-first: Clair
-  // plays on phone/tablet, so every game must be fully tappable — no
-  // keyboard-only controls. The skeleton grounds the model so games work
-  // first try instead of arriving half-broken.
   const HTML_GAME_GUIDE = `## Building Mini-Games (phone-first)
 - They play on a PHONE and TABLET (usually portrait) with fingers — never a keyboard. Every control is a big tappable button/area (48px+ targets, generous spacing). No keyboard-only input, no tiny text (14px+).
 - If the ask is vague ("build us a tiny game"), pick a proven tiny game yourself (memory match, snake with swipe + arrows, catch-the-falling-things, reaction tap, guess-the-number) and name it in your reply.
@@ -647,20 +538,6 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
 ${wantsArtifact ? HTML_GAME_GUIDE : ''}`;
   }
 
-  // ── Main Motchi chat: same interactive canvas (Canvas / Artifacts style) ──
-  // When Khent or Clair asks for a quiz or flashcards in normal chat, Motchi
-  // answers warmly AND appends the same hidden JSON blocks the Study canvas
-  // uses. The chat bubble strips the blocks and shows one big tappable button
-  // ("Try the quiz" / "Flip the cards") that opens the interactive sheet:
-  // Q1 → answer → Next → Q2 … with score, plus flippable flashcards.
-  // Unlike Study mode this is NOT source-grounded — use Everglow context +
-  // general knowledge. Never emit the blocks unasked (a summary or explanation
-  // stays plain text); only when they ask for a quiz, test, trivia, or cards.
-  // Full canvas guide on artifact turns, slim pointer on plain chat. The
-  // pointer keeps proactive offers possible ("want a quick quiz?") while
-  // saving ~1.8KB per turn — re-sent every tool round, so it multiplies.
-  // An explicit ask (or a bare yes to an offer, via wantsArtifact)
-  // upgrades the build turn to the full guide.
   const CANVAS_FULL = `
 ## Interactive Canvas — quiz & flashcards
 - When they ask for a quiz, test, or trivia questions: keep the visible reply warm and short (1-2 lines, e.g. the topic + "tap below to start"), do NOT list the questions or A-D options in the text — put them ONLY in the hidden block (5 questions unless they ask for more):
@@ -696,12 +573,9 @@ ${HTML_GAME_GUIDE}
     systemPrompt += wantsArtifact ? CANVAS_FULL : CANVAS_QUICK;
   }
 
-  // ── System prompt size guard ────────────────────────────
-  // With 512K context, we can be generous with the system prompt.
   const PROMPT_CHAR_LIMIT = 50_000;
   if (systemPrompt.length > PROMPT_CHAR_LIMIT) {
     let trimmed = systemPrompt;
-    // Try dropping the "## Previous Conversations" section (full session histories)
     const prevConvIdx = trimmed.indexOf('## Previous Conversations');
     if (prevConvIdx !== -1) {
       const nextSectionIdx = trimmed.indexOf('\n## ', prevConvIdx + 1);
@@ -709,7 +583,6 @@ ${HTML_GAME_GUIDE}
       const after = nextSectionIdx !== -1 ? trimmed.substring(nextSectionIdx) : '';
       trimmed = before + after;
     }
-    // If still too large, also drop "## Past Session Summaries"
     if (trimmed.length > PROMPT_CHAR_LIMIT) {
       const summaryIdx = trimmed.indexOf('## Past Session Summaries');
       if (summaryIdx !== -1) {
@@ -719,7 +592,6 @@ ${HTML_GAME_GUIDE}
         trimmed = before + after;
       }
     }
-    // If still too large, trim remembered facts (keep first 30)
     if (trimmed.length > PROMPT_CHAR_LIMIT) {
       const factsIdx = trimmed.indexOf('## Remembered Facts');
       if (factsIdx !== -1) {
@@ -735,25 +607,20 @@ ${HTML_GAME_GUIDE}
         }
       }
     }
-    // Final fallback: hard truncate at 30K chars (still generous)
     if (trimmed.length > PROMPT_CHAR_LIMIT) {
       trimmed = trimmed.substring(0, 30000) + '\n… [context trimmed for size]';
     }
     systemPrompt = trimmed;
   }
 
-  // ── Token budget guard ────────────────────────────────
-  // Ensure total input (system + messages) stays within the model's context (512K).
-  // Work directly on systemPrompt + messages before nimMessages is built.
   {
     let inputTokens = estimateTokens(systemPrompt);
     for (const m of messages) inputTokens += estimateTokens(getMessageText(m.content));
     console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', LLM_INPUT_TOKEN_BUDGET);
 
-    // Phase 1: Drop oldest conversation message pairs
-    const msgs = [...messages]; // mutable copy
+    const msgs = [...messages];
     while (inputTokens > LLM_INPUT_TOKEN_BUDGET && msgs.length > 2) {
-      const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
+      const removed = msgs.splice(0, 2);
       inputTokens -= removed
         .map((m) => estimateTokens(getMessageText(m?.content)))
         .reduce((a, b) => a + b, 0);
@@ -762,22 +629,18 @@ ${HTML_GAME_GUIDE}
       console.log('[proxyAI] Dropped', messages.length - msgs.length, 'oldest messages to fit TPM budget. Remaining tokens:', inputTokens);
     }
 
-    // Phase 2: If still over budget, progressively shorten system prompt
     if (inputTokens > LLM_INPUT_TOKEN_BUDGET) {
       let sys = systemPrompt;
-      // Drop Previous Conversations section
       const pcIdx = sys.indexOf('## Previous Conversations');
       if (pcIdx !== -1) {
         const nextSec = sys.indexOf('\n## ', pcIdx + 1);
         sys = sys.substring(0, pcIdx) + (nextSec !== -1 ? sys.substring(nextSec) : '');
       }
-      // Drop Past Session Summaries
       const ssIdx = sys.indexOf('## Past Session Summaries');
       if (ssIdx !== -1) {
         const nextSec = sys.indexOf('\n## ', ssIdx + 1);
         sys = sys.substring(0, ssIdx) + (nextSec !== -1 ? sys.substring(nextSec) : '');
       }
-      // Trim remembered facts to 15
       const factsIdx = sys.indexOf('## Remembered Facts');
       if (factsIdx !== -1) {
         const nextSec = sys.indexOf('\n## ', factsIdx + 1);
@@ -789,7 +652,6 @@ ${HTML_GAME_GUIDE}
           sys = before + `\n## Remembered Facts\n${factsLines.slice(0, 15).join('\n')}\n` + after;
         }
       }
-      // Hard truncate system prompt to 30000 chars if still too large
       if (estimateTokens(sys) > 20000) {
         sys = sys.substring(0, 30000) + '\n… [context trimmed for token limit]';
       }
@@ -798,28 +660,20 @@ ${HTML_GAME_GUIDE}
       console.log('[proxyAI] After system prompt trim, estimated input tokens:', inputTokens);
     }
 
-    // Replace messages with the trimmed copy
     messages.length = 0;
     messages.push(...msgs);
   }
 
-  // Stale artifacts: old quizzes/games in history are dead weight — the
-  // cards already rendered in chat, but the raw blocks (a game can be
-  // ~12KB) re-send every turn and every tool round, slowing token one.
-  // Only the newest artifact turn keeps its code, for follow-up edits.
   const _strippedArtifacts = stripStaleArtifacts(messages);
 
-  // Prepend system message
   const nimMessages = [
     { role: 'system', content: systemPrompt },
     ...messages,
   ];
 
-  // Get API key from environment variables (loaded from .env or Cloud Run env)
   const apiKey = process.env.AGNES_API_KEY;
 
   if (!apiKey) {
-    // No LLM key configured: return deterministic fallback.
     if (isStreaming) {
       sendEvent({ content: 'Motchi is resting right now - try again in a bit!' });
       sendEvent({ tool_status: 'done' });
@@ -831,27 +685,18 @@ ${HTML_GAME_GUIDE}
     return;
   }
 
-  // Model: Agnes 3.0 Flash — 512K context, tool calling, thinking, image understanding
   const model = 'agnes-3.0-flash';
 
-  // ── Custom Motchi Tools (OpenAI function calling format) ──
 
-
-  // Tools: custom Motchi tools (starts at 0 app tools; mounts on demand via request_tools)
   let tools = selectInitialToolsForTurn(feature, lastUserMessage, prevAssistantText, prevUserText);
-  if (fastPath) tools = []; // pre-executed below; the model only answers
+  if (fastPath) tools = [];
 
-  // Runtime capabilities apply to every persona, including the cached
-  // Firestore one: older persona prose must not hide attached web tools.
   const toolSection = toolListSection(tools.map((t) => t.function.name));
   systemPrompt = systemPrompt.includes('%%MOTCHI_TOOL_LIST%%')
     ? systemPrompt.replace('%%MOTCHI_TOOL_LIST%%', toolSection)
     : `${systemPrompt}\n## Tools available this turn\n${toolSection}`;
   if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
 
-  // Fast-path execution: run the zero-arg tool now and append a synthetic
-  // assistant+tool pair, so both answer paths below stream one direct
-  // answer from the result with no tools attached and no extra rounds.
   if (fastPath) {
     systemPrompt += '\n## Fast Answer\nA tool result follows below. Answer ONLY from it, warmly and briefly. Do not call any tools.';
     if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
@@ -890,33 +735,13 @@ ${HTML_GAME_GUIDE}
     );
   }
 
-  // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
-  // The flag goes out explicitly both ways:
-  // true for deep-think, false for everyday chat (cheaper, faster).
-  // enableThinking is already destructured from req.body above.
-
-  // ── Output budget tiers ───────────────────────────────
-  // Lean HTML games (~12KB, ~3k tokens) still need headroom, so artifact
-  // asks keep 16k (8k truncates games mid-block: no closing fence = no
-  // Preview button). Everyday chat caps at 4k — Motchi answers concisely
-  // by default, and the cap bounds runaway replies. Study mode and
-  // thinking mode keep 16k for grounded answers and reasoning tokens.
-  // (wantsArtifact is computed near the top, next to lastUserMessage.)
   const maxTokens = (feature === 'study' || enableThinkingFlag || wantsArtifact) ? 16384 : 4096;
 
-  // ── Payload size guard ──────────────────────────────
-  // Cloud Run max request size is 32MB; Agnes 3.0 Flash supports 512K context.
-  // Trim aggressively as best-effort so the model doesn't
-  // waste context on stale history, but don't hard-block — let the model handle
-  // it if trimming can't fit within Cloud Run's limit.
-  // Speed: the full JSON.stringify below is wasted CPU on the common
-  // small-payload path (and multi-MB with photos). Estimate cheaply
-  // first and only stringify when we might be near the 8MB cap.
   let llmBody = '';
   let llmBodyBytes;
   let payloadMeasured = false;
   {
-    let estChars = 500; // JSON envelope + fixed fields
+    let estChars = 500;
     try { estChars += JSON.stringify(tools || []).length; } catch (_) {}
     for (const m of nimMessages) {
       const c = m?.content;
@@ -928,8 +753,6 @@ ${HTML_GAME_GUIDE}
         }
       }
     }
-    // UTF-8 bytes are >= chars; 2M chars can never reach 8MB... in
-    // practice ASCII dominates, and anything bigger takes the exact path.
     if (estChars > 2 * 1024 * 1024) {
       llmBody = JSON.stringify({
         model,
@@ -949,7 +772,6 @@ ${HTML_GAME_GUIDE}
   }
   console.log('[proxyAI] Payload size before trim:', (llmBodyBytes / 1024 / 1024).toFixed(2), 'MB' + (payloadMeasured ? '' : ' (est)'));
   if (payloadMeasured && llmBodyBytes > 8 * 1024 * 1024) {
-    // Phase 1: Remove oldest conversation message pairs (keep system + recent)
     while (llmBodyBytes > 8 * 1024 * 1024 && nimMessages.length > 4) {
       nimMessages.splice(1, 2);
       const trimmedBody = JSON.stringify({
@@ -964,9 +786,7 @@ ${HTML_GAME_GUIDE}
       });
       llmBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
     }
-    // Phase 2: If still too large, trim system prompt content
     if (llmBodyBytes > 8 * 1024 * 1024 && nimMessages[0]?.content) {
-      // Parse our own payload once (guarded) and measure trims against it.
       let llmBase = null;
       try { llmBase = JSON.parse(llmBody); } catch (_) { llmBase = null; }
       const byteSizeWith = (content) => {
@@ -1008,8 +828,6 @@ ${HTML_GAME_GUIDE}
   }
 
 
-  // ── Speed telemetry: one pre-LLM line per request, so Cloud Run logs
-  // give before/after TTFT compares without any new infra. ──
   {
     const _fpMs = (fastPath && turnTools.length) ? turnTools[0].elapsedMs : 0;
     Object.assign(requestTrace, {
@@ -1023,42 +841,32 @@ ${HTML_GAME_GUIDE}
     console.log(`[proxyAI] pre-llm auth=${_tAuthMs}ms user=${_tUserMs}ms cap=${_tCapMs}ms ctx=${_tCtxMs}ms fp=${_fpMs}ms prompt=${systemPrompt.length}ch msgs=${nimMessages.length} tools=${tools.length} fastpath=${!!fastPath} light=${!!lightChat} staleArt=${_strippedArtifacts} stream=${isStreaming}`);
   }
 
-  // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
   if (isStreaming) {
     let _streamedFinalReply = '';
     let _streamedReasoning = '';
     try {
       let currentMessages = [...nimMessages];
       let toolRound = 0;
-      // Global spend brake: 8 rounds are normal, retries are not.
-      // Caps the worst case at 8 successes + 4 retries per message
-      // (was: 8 rounds x 3 attempts = 24 paid calls).
       let llmCalls = 0;
       const MAX_LLM_CALLS_PER_MESSAGE = budget.calls;
-      let _rememberSaved = false; // skip auto-extract when remember_fact already saved
-      let didArtifactRepair = false; // missing-block nudge: at most once
-      let didDanglingRepair = false; // dangling-colon nudge: at most once
-      let didActionRepair = false; // action-claim mismatch nudge: at most once
-      let forceTextNextRound = false; // repair rounds carry no tools: the nudge demands text only
-      let fullContent = ''; // this round's streamed text (loop scope so post-loop repair can keep it)
-      let _ttftMs = null; // round-1 first-content latency (the TTFT number)
+      let _rememberSaved = false;
+      let didArtifactRepair = false;
+      let didDanglingRepair = false;
+      let didActionRepair = false;
+      let forceTextNextRound = false;
+      let fullContent = '';
+      let _ttftMs = null;
       let streamInterrupted = true;
-      let _hitLengthLimit = false; // set when the model stops mid-reply (finish_reason=length)
-      // Loop guard: tool+args pairs already executed for this message.
-      // A repeat means the model is circling — stop instead of burning
-      // another paid round on the same call.
+      let _hitLengthLimit = false;
       const seenToolCalls = new Set();
 
       while (toolRound < MAX_TOOL_ROUNDS || forceTextNextRound) {
         workSignal.throwIfAborted();
         toolRound++;
-        const _round0 = Date.now(); // TTFT clock for this round's LLM call
-        // A repair nudge demands visible text only — tools stay
-        // attached otherwise so the model can keep working.
+        const _round0 = Date.now();
         const noToolsThisRound = forceTextNextRound;
         forceTextNextRound = false;
 
-        // Retry transient Agnes API errors (429, 502, 503) up to 2 times
         let streamResp = null;
         let lastFetchError = null;
         let lastWas429 = false;
@@ -1080,10 +888,6 @@ ${HTML_GAME_GUIDE}
               body: JSON.stringify({
                 model,
                 messages: currentMessages,
-                // Greetings carry no tools at all (cheapest path); the
-                // key must be omitted, not emptied, with tool_choice.
-                // Repair rounds also drop tools so the model must answer
-                // in text instead of calling again.
                 ...(tools.length && !noToolsThisRound ? { tools, tool_choice: 'auto' } : {}),
                 max_tokens: maxTokens,
                 temperature: 0.6,
@@ -1091,22 +895,17 @@ ${HTML_GAME_GUIDE}
                 stream: true,
                 chat_template_kwargs: { enable_thinking: enableThinkingFlag === true },
               }),
-              // Artifact builds (games, quizzes) stream far longer than
-              // chat — 280s sits inside the 300s function budget so a slow
-              // generation still lands its closing fence (no fence = no
-              // Preview button). Everyday chat keeps the 120s cap.
               signal: workSignal,
             });
 
-            if (streamResp.ok) break; // success
-            if (![429, 502, 503].includes(streamResp.status)) break; // non-retryable
+            if (streamResp.ok) break;
+            if (![429, 502, 503].includes(streamResp.status)) break;
             lastFetchError = `Agnes HTTP ${streamResp.status}`;
             lastWas429 = streamResp.status === 429;
           } catch (fetchErr) {
             lastFetchError = fetchErr.message;
             lastWas429 = false;
           }
-          // Give Agnes rate limits time to clear before retrying.
           if (attempt < 2) {
             const waitMs = lastWas429 ? 12000 * (attempt + 1) : 1000 * (attempt + 1);
             await new Promise((r) => setTimeout(r, waitMs));
@@ -1143,7 +942,6 @@ ${HTML_GAME_GUIDE}
           break;
         }
 
-        // Collect the full response while streaming to client
         fullContent = '';
         let collectedToolCalls = [];
 
@@ -1167,7 +965,6 @@ ${HTML_GAME_GUIDE}
               const finishReason = parsed.choices?.[0]?.finish_reason;
               if (finishReason) roundFinished = true;
 
-              // Stream content tokens to client immediately
           if (delta.reasoning) {
             _streamedReasoning += delta.reasoning;
             sendEvent({ reasoning: delta.reasoning });
@@ -1188,7 +985,6 @@ ${HTML_GAME_GUIDE}
                 }
               }
 
-              // Collect tool calls from stream deltas
               if (delta.tool_calls) {
                 for (const tc of delta.tool_calls) {
                   if (tc.index !== undefined) {
@@ -1203,12 +999,9 @@ ${HTML_GAME_GUIDE}
                 }
               }
 
-              // Detect tool calls from finish_reason
               if (finishReason === 'tool_calls') {
                 collectedToolCalls = collectedToolCalls.filter(Boolean);
               }
-              // Length stop = truncated mid-reply (often mid-artifact: no
-              // closing fence, so the client shows no Preview button).
               if (finishReason === 'length') {
                 _hitLengthLimit = true;
               }
@@ -1218,11 +1011,7 @@ ${HTML_GAME_GUIDE}
 
         if (!roundFinished) throw new Error('Model stream ended before confirming completion');
 
-        // If no tool calls, we're done — stream completed naturally
         if (collectedToolCalls.length === 0) {
-          // Missing-block repair: an artifact ask with no fenced block
-          // means no button. Nudge once for just the block (it streams
-          // after the warm text, so the client parses both together).
           if (!didArtifactRepair && canvasSectionOn && wantsArtifact && !hasCompleteArtifact(_streamedFinalReply)) {
             didArtifactRepair = true;
             requestTrace.repairs++;
@@ -1233,10 +1022,6 @@ ${HTML_GAME_GUIDE}
             forceTextNextRound = true;
             continue;
           }
-          // Dangling-list repair: a preamble ending with ":" and no
-          // post-tool text means the promised list never arrived — nudge
-          // once to write it (it streams after the preamble, so the
-          // client parses both together as one finished reply).
           if (!didDanglingRepair && endsWithDanglingColon(_streamedFinalReply)) {
             didDanglingRepair = true;
             requestTrace.repairs++;
@@ -1247,8 +1032,6 @@ ${HTML_GAME_GUIDE}
             forceTextNextRound = true;
             continue;
           }
-          // Action claim verification: if Motchi claims she added/scheduled something
-          // but never actually called the tool, trigger a repair turn with the tool mounted.
           const actionMismatch = !didActionRepair ? findActionClaimMismatch(_streamedFinalReply, steps) : null;
           if (actionMismatch && llmCalls < MAX_LLM_CALLS_PER_MESSAGE) {
             didActionRepair = true;
@@ -1260,7 +1043,6 @@ ${HTML_GAME_GUIDE}
             });
             sendEvent({ tool_status: 'repairing' });
             fullContent = '';
-            // Ensure the tool is mounted for this repair round
             const missingTool = MOTCHI_TOOLS.find((t) => t.function.name === actionMismatch.tool);
             if (missingTool && !tools.some((t) => t.function.name === actionMismatch.tool)) {
               tools = [...tools, missingTool];
@@ -1271,20 +1053,15 @@ ${HTML_GAME_GUIDE}
           break;
         }
 
-        // Drop repeats of already-executed tool+args pairs. If every
-        // call is a repeat, the model is circling — force a text-only
-        // round so the model synthesizes an answer from what it has.
         collectedToolCalls = dropRepeatCalls(seenToolCalls, collectedToolCalls);
         if (collectedToolCalls.length === 0) {
           forceTextNextRound = true;
           continue;
         }
 
-        // ── Execute tool calls found in the stream ──
         requestTrace.toolRounds++;
         sendEvent({ tool_status: 'executing' });
 
-        // Build assistant message with tool_calls
         currentMessages.push({
           role: 'assistant',
           content: fullContent || null,
@@ -1295,7 +1072,6 @@ ${HTML_GAME_GUIDE}
           })),
         });
 
-        // Execute collected tools concurrently to minimize latency
         const toolPromises = collectedToolCalls.map(async (tc) => {
           const fnName = tc.function.name;
           let fnArgs;
@@ -1310,14 +1086,12 @@ ${HTML_GAME_GUIDE}
             result = JSON.stringify({ error: err.message || 'Tool execution failed', outcome_unknown: true });
           }
 
-          // Invalidate feature context block if this tool mutated persisted data
           if (TOOL_INVALIDATIONS[fnName]) {
             try { invalidateContextBlock(TOOL_INVALIDATIONS[fnName]); } catch (_) {}
           }
 
           try {
             if (typeof logToolCall === 'function') {
-              // fire-and-forget: don't block tool loop on observability write
               logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
             }
           } catch (_) {}
@@ -1328,12 +1102,10 @@ ${HTML_GAME_GUIDE}
             elapsedMs: Date.now() - toolStartedAt,
           });
 
-          // A successful explicit save makes auto-extraction redundant.
           if (fnName === 'remember_fact') {
             try { if (JSON.parse(result).success) _rememberSaved = true; } catch (_) {}
           }
 
-          // JIT Memory Bundling: when request_tools returns relevant memories, capture them
           if (fnName === 'request_tools') {
             try {
               const parsedReq = JSON.parse(result);
@@ -1343,12 +1115,10 @@ ${HTML_GAME_GUIDE}
             } catch (_) {}
           }
 
-          // Send rich tool result to client for inline cards
           try {
             const parsed = JSON.parse(result);
             const step = captureResult(fnName, fnArgs, result);
             sendEvent({ tool_result: { tool: fnName, ...parsed, step } });
-            // Also send a friendly status for UI (e.g., needs_confirmation)
             if (parsed.needs_confirmation) {
               sendEvent({ tool_status: `${fnName}:needs_confirmation` });
             }
@@ -1357,11 +1127,6 @@ ${HTML_GAME_GUIDE}
             sendEvent({ tool_result: { tool: fnName, step } });
           }
 
-          // The client already got the full result above for its cards;
-          // the model only needs a bounded copy. Long search/journal
-          // payloads would otherwise multiply across tool rounds. Web
-          // tools keep more: web_search already carries the top page's
-          // content so one round is usually enough to answer.
           const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page' || fnName === 'browse_web') ? 6000 : 3000;
           const llmResult = result.length > llmLimit
             ? result.slice(0, llmLimit) + '…[trimmed]'
@@ -1382,7 +1147,6 @@ ${HTML_GAME_GUIDE}
           currentMessages.push(tr.toolMsg);
         }
 
-        // Dynamically mount tools requested in this round for subsequent rounds
         const requestCall = collectedToolCalls.find((tc) => tc.function?.name === 'request_tools');
         if (requestCall) {
           let reqArgs = {};
@@ -1397,8 +1161,6 @@ ${HTML_GAME_GUIDE}
             tools = MOTCHI_TOOLS.filter((t) => mountedSet.has(t.function.name));
           }
         }
-        // Gallery vision: when a tool attached images, show them to the
-        // model as real image input (not text) before the next round.
         const visionMsg = visionMessageForResults(executedResults.map((tr) => tr.fullResult));
         if (visionMsg) currentMessages.push(visionMsg);
 
@@ -1406,8 +1168,6 @@ ${HTML_GAME_GUIDE}
         collectedToolCalls = [];
         fullContent = '';
 
-        // If the tool budget has been reached, force the next round to
-        // be text-only so the model reads the tool results and answers.
         if (toolRound >= MAX_TOOL_ROUNDS) {
           forceTextNextRound = true;
         }
@@ -1449,7 +1209,6 @@ ${HTML_GAME_GUIDE}
             body: JSON.stringify({
               model,
               messages: currentMessages,
-              // No tools: the nudge demands the promised list in text.
               max_tokens: maxTokens,
               temperature: 0.6,
               top_p: 0.95,
@@ -1481,7 +1240,6 @@ ${HTML_GAME_GUIDE}
       sendEvent({ tool_result: { tool: 'reply_details', ...replyDetails(_streamedFinalReply, _hitLengthLimit || streamInterrupted) } });
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
-      // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
       try {
         if (_streamedFinalReply.trim()) {
           const checkText = stripArtifactsForChecks(_streamedFinalReply);
@@ -1495,7 +1253,6 @@ ${HTML_GAME_GUIDE}
         console.warn('proxyAI post-reply tasks error:', postErr.message);
       }
 
-      // Fire-and-forget session recording
       recordMotchiTurn({
         sessionId,
         caller,
@@ -1563,7 +1320,6 @@ ${HTML_GAME_GUIDE}
           stream: false,
           chat_template_kwargs: { enable_thinking: enableThinkingFlag === true },
         }),
-        // Same artifact headroom as the streaming path (280s < 300s budget).
         signal: workSignal,
       },
     );
@@ -1571,7 +1327,6 @@ ${HTML_GAME_GUIDE}
   }
 
   function nonStreamError(status, detail) {
-    // Special-case 413 (Payload Too Large) — pass through the model's detail
     if (status === 413) {
       console.error('[proxyAI] Model returned 413:', detail);
       return res.status(413).json({
@@ -1591,10 +1346,10 @@ ${HTML_GAME_GUIDE}
   // restores, recommendations, date ideas) answer with tool calls just
   // like chat does — dropping them silently broke Undo restores.
   const nsMessages = [...nimMessages];
-  const nsSeen = new Set(); // loop guard, same rule as streaming
+  const nsSeen = new Set();
   let nsReply = '';
   let nsReasoning = '';
-  let _nsRememberSaved = false; // skip auto-extract when remember_fact already saved
+  let _nsRememberSaved = false;
   let didNsActionRepair = false;
   let nsModel = model;
   let nsInterrupted = true;
@@ -1607,7 +1362,7 @@ ${HTML_GAME_GUIDE}
       response = null;
     }
     if (!response || !response.ok) {
-      if (round > 0) break; // mid-loop failure: keep what we have
+      if (round > 0) break;
       nonStreamError(response ? response.status : 502, 'No response from the model');
       return;
     }
@@ -1680,7 +1435,6 @@ ${HTML_GAME_GUIDE}
         elapsedMs: Date.now() - toolStartedAt,
       });
       captureResult(fnName, fnArgs, result);
-      // A successful explicit save makes auto-extraction redundant.
       if (fnName === 'remember_fact') {
         try { if (JSON.parse(result).success) _nsRememberSaved = true; } catch (_) {}
       }
@@ -1695,7 +1449,6 @@ ${HTML_GAME_GUIDE}
     }));
     for (const r of results) nsMessages.push(r.toolMsg);
 
-    // Dynamically mount tools requested in this round for subsequent rounds
     const nsRequestCall = freshCalls.find((tc) => tc.function?.name === 'request_tools');
     if (nsRequestCall) {
       let reqArgs = {};
@@ -1714,8 +1467,6 @@ ${HTML_GAME_GUIDE}
     if (visionMsg) nsMessages.push(visionMsg);
   }
 
-  // If the tool loop exhausted all rounds and ends on a tool message,
-  // do one final text-only synthesis pass so the model actually answers.
   if (nsInterrupted && nsMessages[nsMessages.length - 1]?.role === 'tool') {
     try {
       const synthesizeOnly = true;
@@ -1731,8 +1482,6 @@ ${HTML_GAME_GUIDE}
     } catch (_) {}
   }
 
-  // Missing-block repair (mirror of the streaming path): one strict
-  // follow-up call when an artifact ask yielded no fenced block.
   if (canvasSectionOn && wantsArtifact && !hasCompleteArtifact(nsReply)) {
     requestTrace.repairs++;
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
@@ -1747,8 +1496,6 @@ ${HTML_GAME_GUIDE}
     } catch (_) {}
   }
 
-  // Dangling-list repair (mirror of the streaming path): one strict
-  // follow-up call when the reply ends with ":" and no list after it.
   if (endsWithDanglingColon(nsReply)) {
     requestTrace.repairs++;
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
@@ -1766,7 +1513,6 @@ ${HTML_GAME_GUIDE}
   const details = replyDetails(nsReply, nsInterrupted);
   const reply = stripMemoryCitations(nsReply).trim();
   res.json({ reply, reasoning: nsReasoning, model: nsModel, details });
-  // Fire-and-forget session recording
   recordMotchiTurn({
     sessionId,
     caller,
@@ -1782,7 +1528,6 @@ ${HTML_GAME_GUIDE}
     imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
     temporary: Boolean(temporary),
   }).catch(() => {});
-  // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
     const checkText = stripArtifactsForChecks(reply);
     const canSaveMemories = !temporary && !workSignal.aborted;

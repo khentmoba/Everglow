@@ -43,8 +43,6 @@ class _HomeRow {
   });
 }
 
-/// Home page of the anime section: spotlight hero, airing ticker, curated
-/// rows, continue-watching rail and the airing schedule call-to-action.
 class AnimeXHomePage extends StatefulWidget {
   final AnimeXController controller;
 
@@ -231,7 +229,6 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
       ]);
       _rows[id] = buildRow(page.items, loading: false);
       if (id == 'trending') {
-        // Reveal hero immediately so first paint isn't gated on secondary feeds.
         setState(() {});
       } else {
         scheduleRowFlush();
@@ -890,12 +887,6 @@ class _ContinueCard extends StatelessWidget {
   return (season, now.year);
 }
 
-/// Keeps a loaded poster row mounted after it scrolls out of the home list.
-///
-/// Without it the lazy list throws a row away a few hundred pixels off screen
-/// and rebuilds every card on the way back up, losing how far it was scrolled
-/// sideways. Only finished rows stay: the spotlight trailer, the ticker and
-/// loading shimmer still unmount so nothing animates off screen.
 class _KeepRowAlive extends StatefulWidget {
   final bool keepAlive;
   final Widget child;

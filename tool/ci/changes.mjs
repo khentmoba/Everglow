@@ -7,9 +7,6 @@ const full = () => Object.fromEntries(keys.map(key => [key, true]));
 
 export function selectChecks(paths) {
   if (paths == null) return full();
-  // Every main push deploys the whole app and backend, even for docs changes.
-  // Keep every deterministic deployment prerequisite in every PR. Only extra
-  // browser/privacy coverage is selected from the diff.
   const checks = {app:true, browser:false, web:true, backend:true, security:false, audit:true};
   const enable = (...names) => names.forEach(name => { checks[name] = true; });
   for (const path of paths) {
@@ -39,17 +36,16 @@ export function selectChecks(paths) {
         ['.gitignore', '.gitattributes', '.editorconfig', 'LICENSE', '.github/pull_request_template.md'].includes(path)) {
       // Guards still run; agents run browser tooling checks when these tools change.
     } else {
-      return full(); // Unknown inputs must never silently bypass verification.
+      return full();
     }
   }
   return checks;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  let paths = null; // Dispatches and unavailable history get a complete run.
+  let paths = null;
   if (process.env.BASE_SHA) {
     try {
-      // Both sides of renames matter: moving backend code into docs deletes code.
       paths = execFileSync('git', ['diff', '--no-renames', '--name-only', '-z', process.env.BASE_SHA, 'HEAD', '--'],
         {encoding:'utf8', stdio:['ignore', 'pipe', 'pipe']}).split('\0').filter(Boolean);
     } catch {

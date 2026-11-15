@@ -4,8 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-/// Fake browser bridge: drives visibility, playback, and reloads without a
-/// page, so the update notification state machine is testable on the VM.
 class FakeUpdateBrowser implements AppUpdateBrowser {
   bool hidden = false;
   bool offline = false;
@@ -101,14 +99,12 @@ void main() {
       expect(service.updateAvailable, isTrue);
       expect(browser.reloaded, isFalse);
 
-      // Even if tab is hidden, tick occurs, or time passes: NEVER auto-reload!
       browser.hidden = true;
       browser.onHidden!();
       service.tick();
       expect(browser.reloaded, isFalse);
       expect(service.updateAvailable, isTrue);
 
-      // Only manual user action applies the reload
       service.applyNow();
       expect(browser.reloaded, isTrue);
       expect(service.updateAvailable, isFalse);
@@ -131,7 +127,6 @@ void main() {
       expect(service.updateAvailable, isFalse);
       expect(browser.reloaded, isFalse);
 
-      // Tab switching or hiding while dismissed still does not reload
       browser.hidden = true;
       browser.onHidden!();
       expect(browser.reloaded, isFalse);
@@ -150,7 +145,6 @@ void main() {
       service.dismiss();
       expect(service.updateAvailable, isFalse);
 
-      // Server later reports build 'c'
       await service.noteLiveBuild('c');
       expect(service.latestBuild, 'c');
       expect(service.isDismissed, isFalse);
@@ -254,8 +248,6 @@ void main() {
       final service = AppUpdateService();
       addTearDown(service.dispose);
 
-      // On the VM the default bridge is the no-op stub: start is a safe
-      // no-op and checks never produce a build (relative fetch fails).
       await service.start();
       await service.checkNow();
 

@@ -4,12 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-/// Renders one self-contained HTML mini-app inside a sandboxed iframe.
-///
-/// `sandbox="allow-scripts"` lets the game run its own JavaScript while the
-/// frame stays opaque-origin: no access to the app, no storage, no top
-/// navigation. Motchi is prompted to keep apps dependency-free (no CDN,
-/// no network calls), so they run happily inside the sandbox.
 class CanvasHtmlView extends StatefulWidget {
   final String html;
   final ValueChanged<bool>? onContentFinishedChanged;
@@ -51,8 +45,6 @@ class _CanvasHtmlViewState extends State<CanvasHtmlView> {
     if (kIsWeb) {
       web.window.addEventListener('message', _messageListener);
       _iframe = web.HTMLIFrameElement()
-        // setAttribute (not IDL properties) so huge inline docs and the
-        // sandbox token list apply reliably across browsers.
         ..setAttribute('srcdoc', widget.html)
         ..setAttribute('sandbox', 'allow-scripts')
         ..setAttribute('referrerpolicy', 'no-referrer')
@@ -83,8 +75,6 @@ class _CanvasHtmlViewState extends State<CanvasHtmlView> {
   @override
   Widget build(BuildContext context) {
     if (!kIsWeb) return const SizedBox.shrink();
-    // Built-in factory: no per-message registration to retain, and the
-    // stored frame is blanked when the chat moves on.
     return HtmlElementView.fromTagName(
       tagName: 'div',
       onElementCreated: (element) {

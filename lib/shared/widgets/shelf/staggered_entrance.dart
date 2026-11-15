@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_motion.dart';
 
-/// Entrance animation that fades + slides a single child in. When
-/// nested in a list with the [index] wired up, callers can stagger
-/// the section reveals by passing incrementing `delayStep` durations.
 class StaggeredEntrance extends StatelessWidget {
   final int index;
   final Duration delayStep;

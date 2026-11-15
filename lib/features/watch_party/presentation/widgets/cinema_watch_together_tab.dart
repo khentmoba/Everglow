@@ -16,14 +16,6 @@ import 'watch_party_media_picker_sheet.dart';
 import 'temporary_chat_panel.dart';
 part 'cinema_watch_together_widgets.dart';
 
-/// Opens the full title picker and starts a party with whatever is chosen.
-///
-/// This is the way in when nothing is saved yet. The tab used to offer
-/// only posters from My List, so a couple who had not saved a single
-/// title saw an empty stage and no way to start — while the good search
-/// picker sat inside the party screen, which needed a party to open.
-/// Classic chicken-and-egg. Search and trending now sit right here, and
-/// picking a title starts (or switches) the party immediately.
 class _ChooseTitleButton extends StatelessWidget {
   const _ChooseTitleButton();
 
@@ -80,9 +72,6 @@ class _ChooseTitleButton extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     HapticFeedback.selectionClick();
-    // Ask which library first, then open the picker on that tab. Landing
-    // straight on Cinema meant an anime night started with a TMDB search
-    // box and no obvious way to switch — the tab strip was easy to miss.
     final category = await showModalBottomSheet<WatchPartyPickerCategory>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -90,8 +79,6 @@ class _ChooseTitleButton extends StatelessWidget {
     );
     if (category == null || !context.mounted) return;
 
-    // The picker reports the chosen title through onSelect and closes
-    // itself, so the callback is where the party starts.
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -108,11 +95,6 @@ class _ChooseTitleButton extends StatelessWidget {
   }
 }
 
-/// First step: Cinema or Anime?
-///
-/// Two large targets rather than a hidden tab strip, because "watch an
-/// anime together" and "watch a film together" are different intentions
-/// and picking the wrong one costs a search to undo.
 class _ChooseSourceSheet extends StatelessWidget {
   const _ChooseSourceSheet();
 
@@ -232,11 +214,6 @@ class _SourceOption extends StatelessWidget {
   }
 }
 
-/// Dedicated "Watch Together" tab inside Cinema.
-///
-/// Matches the Cinema shell (near-black stage, poster grid, rose accent)
-/// while surfacing the couple's active party room and one-tap party
-/// starters from the existing watchlist.
 class CinemaWatchTogetherTab extends StatefulWidget {
   final List<MediaItem> watchlist;
   final void Function(MediaItem) onMediaTap;

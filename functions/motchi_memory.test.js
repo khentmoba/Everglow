@@ -107,7 +107,6 @@ test('checkHallucinations samples telemetry and caps title checks', async () => 
   let calls = 0;
   global.fetch = async () => { calls++; throw new Error('network touched'); };
   try {
-    // Skipped sample never touches the network, even for media replies.
     await mem.checkHallucinations('Watch "Galactic Hamsters 9" tonight, it is great!', () => 0.99);
     assert.equal(calls, 0);
   } finally {

@@ -54,7 +54,7 @@ void main() {
         season: 1,
         episode: 3,
         progress: 0.456,
-        totalBytes: 1024 * 1024 * 1024 * 2, // 2 GB
+        totalBytes: 1024 * 1024 * 1024 * 2,
         downloadedAt: DateTime.now(),
       );
 

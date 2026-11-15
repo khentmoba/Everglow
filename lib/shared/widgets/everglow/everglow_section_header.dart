@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Minimal section header with hairline rule, icon badge and label.
-///
-/// Used on Dashboard (Quick Access, Jump, etc.) and could be reused
-/// elsewhere for consistent vertical rhythm.
 class EverglowSectionHeader extends StatelessWidget {
   final String label;
   final IconData icon;

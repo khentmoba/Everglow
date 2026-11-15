@@ -19,7 +19,6 @@ enum _LibraryFilter { all, watching, toWatch, watched, reminders }
 
 enum _LibrarySort { recentlySaved, lastWatched, title }
 
-/// My List - a quiet poster grid of the couple's cinema collection.
 class CinemaLibraryTab extends StatefulWidget {
   final List<MediaItem> watchlist;
   final void Function(MediaItem) onMediaTap;
@@ -56,7 +55,6 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Nullable lookup keeps standalone previews/tests working without DI.
     final auth = context.watch<AuthService?>();
     if (auth != null) unawaited(_preferences.setUser(auth.currentUser));
   }
@@ -70,11 +68,6 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   final TMDBService _service = TMDBService();
   final Set<String> _healAttempted = {};
 
-  /// Reactive heal: a poster URL that looks valid but 404s (stale TMDB
-  /// artwork) triggers one background heal instead of a permanent
-  /// placeholder tile. The heal writes to Firestore, so the parent's
-  /// watchlist stream picks up the fixed poster automatically. Deduped
-  /// per doc id per session.
   void _handleImageError(MediaItem item) {
     if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
     _healAttempted.add(item.id);
@@ -87,8 +80,6 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   }
 
   List<MediaItem> get _visible {
-    // Every movie (live-action or anime) plus non-anime TV lives here —
-    // see MediaItem.isCinemaItem. Anime series live in the anime section.
     final all = widget.watchlist.cinemaItems;
     final filtered = switch (_filter) {
       _LibraryFilter.all => all,
@@ -104,7 +95,6 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
     visible.sort((a, b) {
       final comparison = switch (_sort) {
         _LibrarySort.recentlySaved => b.addedAt.compareTo(a.addedAt),
-        // Unwatched titles follow watched titles, rather than looking recent.
         _LibrarySort.lastWatched =>
           (b.progressUpdatedAt ?? DateTime(1970)).compareTo(
             a.progressUpdatedAt ?? DateTime(1970),
@@ -331,7 +321,6 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
               },
             ),
           ),
-        // Bottom padding
         const SliverToBoxAdapter(child: SizedBox(height: 110)),
       ],
     );

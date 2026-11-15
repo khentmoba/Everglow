@@ -65,10 +65,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
   bool _userScrolledUp = false;
   bool _scrollingToBottom = false;
   DeepThinkMode _deepThinkMode = DeepThinkMode.auto;
-  // Canvas toggle — when off, Motchi just chats normally instead of making
-  // interactive quizzes / cards / games proactively. Defaults OFF so quick
-  // questions stay plain chat. An explicit ask ("make chess", "quiz us")
-  // auto-turns it on for that request; past artifacts always stay visible.
   bool _canvasEnabled = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
@@ -306,7 +302,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
         : _input.text.trim();
     final hasImages = !retry && _attachedImageUrls.isNotEmpty;
     if (text.isEmpty && !hasImages) return;
-    // Explicit artifact asks turn Canvas on so the game/quiz actually builds.
     final autoCanvas = !_canvasEnabled && motchiWantsArtifact(text);
     _isSending = true;
     _lastSentMessage = text;
@@ -364,7 +359,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
-      // Error already surfaced via AIService.lastError -> _ErrorBanner; avoid duplicate SnackBar covering composer.
       debugPrint('[Motchi] send failed: $e');
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -652,9 +646,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
     );
   }
 
-  /// Text of the nearest user message before [beforeIndex], or '' when
-  /// none. Lets an assistant bubble know what was actually asked — e.g.
-  /// whether the user explicitly wanted the quiz questions inline.
   String _prevUserText(List<AIMessage> msgs, int beforeIndex) {
     for (var k = beforeIndex - 1; k >= 0; k--) {
       if (msgs[k].role == 'user') return msgs[k].content;
@@ -756,8 +747,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                     ),
                                     isUser: false,
                                     isStreaming: true,
-                                    // Always show: if Motchi emitted a block, Clair asked for it.
-                                    // The toggle gates *generation*, never display of past games.
                                     showArtifacts: true,
                                     keepFullText: userAskedForVisibleQuiz(
                                       _prevUserText(allMsgs, allMsgs.length),
@@ -800,8 +789,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                   ),
                   text: msg.content,
                   isUser: isUserMsg,
-                  // Always show past artifacts — turning Canvas off must not
-                  // hide games/quizzes Motchi already made.
                   showArtifacts: true,
                   keepFullText:
                       !isUserMsg &&
@@ -812,8 +799,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       ? () => _preparePrompt(msg.content)
                       : null,
                 );
-                // Web answers keep their tappable sources under the
-                // finished bubble (persisted on the message).
                 if (!isUserMsg && msg.sources.isNotEmpty) {
                   bubble = Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,5 +930,3 @@ class _MotchiScreenState extends State<MotchiScreen> {
     );
   }
 }
-
-// ─── Header ──────────────────────────────────────────────────────

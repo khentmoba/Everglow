@@ -10,8 +10,6 @@ import '../../../../shared/widgets/app_network_image.dart';
 
 typedef PrivateMilestonePhotoLoader = Future<Uint8List?> Function(String path);
 
-/// Loads legacy private photos through authenticated Storage; demo fixtures
-/// remain local assets and never fall back to the private photo bundle.
 class MilestonePhoto extends StatefulWidget {
   final String path;
   final PrivateMilestonePhotoLoader? privatePhotoLoader;

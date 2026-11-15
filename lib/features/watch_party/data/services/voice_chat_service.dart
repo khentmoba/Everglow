@@ -15,25 +15,6 @@ import 'incoming_call_validator.dart';
 enum VoiceChatState { idle, calling, connected, ended }
 
 
-/// WebRTC voice chat for the Watch Party screen, plus a side
-/// channel that surfaces "the partner started a watch party"
-/// events to the rest of the app (so the silent banner can show
-/// even when the user isn't on the watch party screen).
-///
-/// Signalling uses a Firestore document at
-/// `voice_rooms/{roomId}` (the same roomId the host uses for the
-/// watch party room — sorted joined uids). The doc carries the
-/// SDP offer/answer; the `candidates` subcollection carries
-/// trickle ICE candidates. Both sides subscribe to the doc and
-/// react to state changes.
-///
-/// Lifecycle states:
-///   * `idle` — no peer connection, no room listening.
-///   * `calling` — the call is being set up (offer written, no
-///     answer yet, or the peer connection is still negotiating).
-///   * `connected` — `RTCPeerConnectionState` reached `connected`.
-///   * `ended` — either side ended the call, or the connection
-///     dropped past one ICE-restart attempt.
 class VoiceChatService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -44,8 +25,6 @@ class VoiceChatService {
   StreamSubscription<QuerySnapshot>? _candidateSub;
   StreamSubscription<DocumentSnapshot>? _incomingSignalSub;
 
-  /// Hook for the host's beforeunload cleanup. Held so dispose()
-  /// can detach it cleanly. Web only; native is a no-op.
   final BeforeUnloadHelper _beforeUnload = BeforeUnloadHelper();
 
   final ValueNotifier<VoiceChatState> state = ValueNotifier(
@@ -61,43 +40,21 @@ class VoiceChatService {
   bool _iceRestarted = false;
   final List<RTCIceCandidate> _pendingRemoteCandidates = [];
 
-  /// Stream controller for app-wide "incoming call" notifications.
-  /// We expose a single global stream — if multiple instances
-  /// exist, the last one wins. The banner widget subscribes to
-  /// this stream and shows the silent top-of-screen card.
   static final StreamController<IncomingCall?> _incomingController =
       StreamController<IncomingCall?>.broadcast();
   static Stream<IncomingCall?> get incomingStream => _incomingController.stream;
 
-  /// Latest incoming call, if any. Cached so the banner can read
-  /// it on first paint without waiting for the stream to emit.
   static IncomingCall? _latestIncoming;
   static IncomingCall? get latestIncoming => _latestIncoming;
 
   static const String _collection = 'voice_rooms';
 
-  /// Public Google STUN servers. No TURN — we rely on direct
-  /// connectivity between the two clients. This will fail behind
-  /// carrier-grade NATs; the design intentionally keeps the
-  /// surface area tiny for a private two-user app.
   static const _iceServers = [
     {'urls': 'stun:stun.l.google.com:19302'},
     {'urls': 'stun:stun1.l.google.com:19302'},
     {'urls': 'stun:stun2.l.google.com:19302'},
   ];
 
-  // ─────────────────────────────────────────────────────────────────
-  // Call lifecycle
-  // ─────────────────────────────────────────────────────────────────
-
-  /// Join (or start) a voice call in [roomId] with [remoteUid] as
-  /// the other side. If [isCaller] is true, the offer is created
-  /// and written to Firestore; otherwise we wait for the offer to
-  /// appear on the doc.
-  ///
-  /// Pass [callerName] when starting the call so the partner's
-  /// incoming banner can display "Khent is calling". Optional
-  /// media fields populate the banner subtitle ("watching The Bear").
   Future<void> init({
     required String roomId,
     required String myUid,
@@ -120,9 +77,6 @@ class VoiceChatService {
     _remoteDescSet = false;
     state.value = VoiceChatState.calling;
 
-    // Web only: install beforeunload so a tab close writes
-    // state='ended' instead of leaving the room in 'calling'
-    // forever.
     _installBeforeUnload();
 
     try {
@@ -191,9 +145,6 @@ class VoiceChatService {
         _iceRestarted = false;
       } else if (s ==
           RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        // Don't immediately bail — give ICE a few seconds to
-        // self-heal. The "failed" handler below does the heavy
-        // lifting.
       } else if (s == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
         await _handleConnectionFailed();
       }
@@ -206,9 +157,6 @@ class VoiceChatService {
     }
   }
 
-  /// Called when the peer connection reaches `failed`. We attempt
-  /// one ICE restart; if that doesn't recover the link within a
-  /// short window we end the call.
   Future<void> _handleConnectionFailed() async {
     if (_pc == null) {
       state.value = VoiceChatState.ended;
@@ -230,13 +178,9 @@ class VoiceChatService {
           'state': 'calling',
           'offer': offerJson,
           'answer':
-              '', // clear old answer so callee processes the restart offer
+              '',
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-        // Give the new ICE gathering a few seconds to complete.
-        // If onConnectionState fires "connected" in that window
-        // we recover; if it stays failed, the user will hang up
-        // manually or the watch party will end.
         return;
       } catch (e) {
         Logger.e('VoiceChatService: ICE restart failed', error: e);
@@ -293,8 +237,6 @@ class VoiceChatService {
 
   Future<void> _handleOffer(String offerJson) async {
     try {
-      // Reset flag so a new offer (ICE restart) can set the remote
-      // description again.
       _remoteDescSet = false;
 
       final map = jsonDecode(offerJson) as Map<String, dynamic>;
@@ -462,9 +404,6 @@ class VoiceChatService {
     }
   }
 
-  /// Clean up the peer connection, the local media stream, and
-  /// every subscription. Resets state so the service can be
-  /// re-initialised for the next call. Idempotent.
   Future<void> dispose() async {
     _signalSub?.cancel();
     _candidateSub?.cancel();
@@ -503,28 +442,10 @@ class VoiceChatService {
     hasRemoteAudio.value = false;
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // App-wide "incoming call" listener
-  // ─────────────────────────────────────────────────────────────────
-  //
-  // Watches the same voice_rooms/{roomId} doc that the WebRTC
-  // signalling uses, but on the *callee* side. When the doc
-  // appears with state='calling' and our uid is the callee, emit
-  // an IncomingCall to the global stream so the silent banner
-  // widget can show it. Cleared when the user opens the watch
-  // party screen, the room ends, or the doc disappears.
-
-  /// Begin watching for an incoming watch party call. Idempotent —
-  /// calling it twice from different places just replaces the
-  /// listener with one bound to the new ids. Pass null to stop
-  /// watching (the banner should call this when the user is on
-  /// the watch party screen, so the in-app notification doesn't
-  /// fight the active call UI).
   static void watchIncoming({
     required String myUid,
     required String? partnerUid,
   }) {
-    // No partner (cinema-only profile) — nothing to listen for.
     if (partnerUid == null || partnerUid.isEmpty) {
       _clearIncoming();
       return;
@@ -532,13 +453,10 @@ class VoiceChatService {
     final sorted = [myUid, partnerUid]..sort();
     final roomId = '${sorted[0]}_${sorted[1]}';
 
-    // Drop any cached invitation from a previous session until the
-    // fresh snapshots confirm the party is still live.
     _clearIncoming();
     _incomingVoiceSnapshot = null;
     _incomingPartySnapshot = null;
 
-    // Cancel any previous watchers before installing new ones.
     _incomingWatcherSub?.cancel();
     _incomingPartySub?.cancel();
 
@@ -551,9 +469,6 @@ class VoiceChatService {
           _evaluateIncoming(myUid: myUid, roomId: roomId);
         });
 
-    // The voice room is only meaningful while the matching watch
-    // party room is still live. A room left in `calling` by a closed
-    // tab or an old session must never re-surface as an invitation.
     _incomingPartySub =
         withFirestoreTimeout(
           _incomingDb.collection(_watchPartyCollection).doc(roomId).snapshots(),
@@ -602,7 +517,6 @@ class VoiceChatService {
       return;
     }
 
-    // surface the latest media metadata
     final incoming = IncomingCall(
       roomId: roomId,
       callerUid: (data['callerUid'] as String?) ?? '',
@@ -625,8 +539,6 @@ class VoiceChatService {
         previous.roomId == incoming.roomId &&
         previous.callerUid == incoming.callerUid &&
         previous.mediaTitle == incoming.mediaTitle) {
-      // The party-room heartbeat refreshes every few seconds; don't
-      // churn the banner unless the invitation itself changed.
       return;
     }
     _latestIncoming = incoming;
@@ -635,8 +547,6 @@ class VoiceChatService {
     }
   }
 
-  /// Stop watching. Called from the watch party screen on entry
-  /// (so we don't double-notify) and on logout.
   static void clearIncomingWatcher() {
     _incomingWatcherSub?.cancel();
     _incomingWatcherSub = null;
@@ -664,14 +574,9 @@ class VoiceChatService {
   static DocumentSnapshot<Map<String, dynamic>>? _incomingPartySnapshot;
   static const String _watchPartyCollection = 'watch_party_rooms';
 
-  // ─────────────────────────────────────────────────────────────────
-  // Web tab-close cleanup
-  // ─────────────────────────────────────────────────────────────────
-
   void _installBeforeUnload() {
     _uninstallBeforeUnload();
     _beforeUnload.install(() {
-      // Best-effort write. We can't await inside the listener.
       if (_roomId != null && state.value != VoiceChatState.ended) {
         _db
             .collection(_collection)
@@ -684,7 +589,6 @@ class VoiceChatService {
               Logger.e('VoiceChatService beforeunload update failed', error: e);
             });
       }
-      // Also stop local tracks so the browser releases the mic.
       if (_localStream != null) {
         for (final track in _localStream!.getAudioTracks()) {
           try {

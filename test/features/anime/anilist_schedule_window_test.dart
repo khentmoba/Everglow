@@ -55,7 +55,7 @@ Future<List<AnimexScheduleEntry>> _fetch(
 );
 
 void main() {
-  final now = DateTime(2026, 8, 19, 14); // Wednesday, device-local time.
+  final now = DateTime(2026, 8, 19, 14);
 
   group('current local Monday–Sunday week', () {
     final cases = <(String, DateTime, int, DateTime)>[
@@ -124,8 +124,6 @@ void main() {
         expect(requests, hasLength(1));
         final variables = requests.single['variables'] as Map<String, dynamic>;
         final end = DateTime(start.year, start.month, start.day + 1);
-        // AniList's greater/lesser filters are strict: include start midnight,
-        // exclude the following midnight. Do not assume a day lasts 24 hours.
         expect(variables['airingAtGreater'], _seconds(start) - 1);
         expect(variables['airingAtLesser'], _seconds(end));
       });
@@ -158,7 +156,7 @@ void main() {
         _entry(4, DateTime(2026, 8, 19, 19)),
         _entry(5, end.subtract(const Duration(seconds: 1))),
         _entry(6, end),
-        _entry(7, DateTime(2026, 8, 26, 10)), // Same weekday, different week.
+        _entry(7, DateTime(2026, 8, 26, 10)),
       ]);
     }, weekday: 2);
 

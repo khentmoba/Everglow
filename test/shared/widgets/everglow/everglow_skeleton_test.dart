@@ -70,21 +70,17 @@ void main() {
         ),
       );
 
-      // 3 skeletons mounted -> exactly 1 shared controller, activeCount is 3
       expect(EverglowShimmerScope.activeCount, 3);
       expect(EverglowShimmerScope.controller, isNotNull);
       final sharedController = EverglowShimmerScope.controller;
 
-      // Pump frames to advance shimmer
       await tester.pump(const Duration(milliseconds: 100));
       expect(EverglowShimmerScope.controller, same(sharedController));
 
-      // Unmount all skeletons
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: SizedBox())),
       );
 
-      // Controller disposed, activeCount back to 0
       expect(EverglowShimmerScope.activeCount, 0);
       expect(EverglowShimmerScope.controller, isNull);
     },

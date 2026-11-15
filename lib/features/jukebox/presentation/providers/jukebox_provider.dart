@@ -26,10 +26,6 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
        _pollInterval = pollInterval,
        _livePollInterval = livePollInterval,
        _resubscribeDelay = resubscribeDelay {
-    // Replay the latest known state to every (re)subscriber: broadcast
-    // streams don't retain events, so without this a fresh StreamBuilder
-    // (e.g. after navigating back to the dashboard) shows empty cards
-    // until the next Firestore write lands, minutes later.
     _statusController =
         StreamController<Map<String, MusicStatus>>.broadcast(
           onListen: _replayLatest,
@@ -48,14 +44,8 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
   final Duration _livePollInterval;
   final Duration _resubscribeDelay;
 
-  /// Last awarded track per Last.fm username, so the poll doesn't
-  /// re-award the same scrobble every tick.
   final Map<String, String> _lastAwardedTrackKey = {};
 
-  /// Last synced track per Last.fm username. The poll skips its Firestore
-  /// write when nothing changed, so idle hours cost zero writes instead
-  /// of two every minute. Play/stop transitions always change the key
-  /// (live vs timestamped), so they still sync immediately.
   final Map<String, String> _lastSyncedTrackKey = {};
 
   late final StreamController<Map<String, MusicStatus>> _statusController;
@@ -94,25 +84,15 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
     final khentUser = EnvConfig.lastfmUserKhent;
     final clairUser = EnvConfig.lastfmUserClair;
 
-    // 1. Initial local state
     _currentStatus[khentUser] = MusicStatus.empty(khentUser);
     _currentStatus[clairUser] = MusicStatus.empty(clairUser);
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) return;
 
-    // 2. Listen to Firestore for real-time updates (Global Consistency)
     _subscribeToFirestore([khentUser, clairUser]);
 
-    // 3. Start Polling Last.fm to keep Firestore updated
-    // Adaptive cadence (see _pollLoop): ~25s while anyone is live so song
-    // changes surface fast, 60s while idle to stay kind to Last.fm.
     _pollLoop(khentUser, clairUser);
   }
 
-  /// Polls Last.fm, then waits [_livePollInterval] while anyone is live
-  /// and [_pollInterval] while idle. Fast polling only runs during actual
-  /// listening, and Firestore writes still happen only on track changes,
-  /// so realtime costs nothing extra there — just a few more free
-  /// Last.fm reads while music plays.
   Future<void> _pollLoop(String khent, String clair) async {
     if (_disposed || !_appActive || _pollInFlight) return;
     _pollInFlight = true;
@@ -123,8 +103,6 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pollInFlight = false;
     }
     if (_disposed || !_appActive) return;
-    // Echoed Firestore state covers failed polls: a failed fetch returns
-    // false, but the last known live state keeps the fast cadence.
     final anyoneLive =
         live || _currentStatus.values.any((s) => s.isPlaying);
     _pollingTimer = Timer(anyoneLive ? _livePollInterval : _pollInterval, () {
@@ -147,16 +125,10 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
         .listen(
           _handleFirestoreData,
           onError: (Object error, StackTrace stackTrace) {
-            // The dashboard is reachable before Firebase Auth restores
-            // (offline prefs session), so the first listen can fail with
-            // permission-denied; without a handler the subscription dies
-            // silently and live updates never recover. Resubscribe instead.
             Logger.w('Jukebox: music-status stream error ($error); retrying');
             _scheduleResubscribe(usernames);
           },
           onDone: () {
-            // The stream wrapper closes slow first snapshots and the
-            // source can close on reconnects — resubscribe either way.
             Logger.w('Jukebox: music-status stream closed; resubscribing');
             _scheduleResubscribe(usernames);
           },
@@ -168,7 +140,6 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
     _needsResubscribe = true;
     _resubscribeTimer?.cancel();
     if (!_appActive) return;
-    // Back off so a persistently-denied session doesn't hot-loop listens.
     var delay = _resubscribeDelay;
     for (var i = 0; i < _resubscribeAttempts; i++) {
       delay = delay * 2;
@@ -196,7 +167,6 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Returns true when either user is currently playing (drives [_pollLoop]).
   Future<bool> _fetchAndSync(String khent, String clair) async {
     final futures = <Future<bool>>[];
     if (khent.isNotEmpty) {
@@ -253,9 +223,6 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
     return '${status.trackName}␟${status.artistName}␟$stamp';
   }
 
-  /// Maps a Last.fm username back to the signed-in Firebase uid when the
-  /// scrobble belongs to the current user. Partner scrobbles are skipped —
-  /// XP is earned, never gifted across accounts from one device.
   String? _uidForLastfmUser(String lastfmUser) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || uid.isEmpty) return null;
@@ -267,8 +234,6 @@ class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
     final auth = _authService;
     final me = auth?.currentUser?.toLowerCase();
     if (me == null || me.isEmpty) {
-      // Fallback when AuthService isn't wired (tests): only award when the
-      // device's own username matches the scrobble owner.
       return false;
     }
     final mine = me == 'khentsgdz' ? EnvConfig.lastfmUserKhent : me == 'clairjassen' ? EnvConfig.lastfmUserClair : '';

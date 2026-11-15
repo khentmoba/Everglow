@@ -10,23 +10,9 @@ import '../../data/services/watch_party_chat_service.dart';
 import 'watch_party_chat_bubble.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Toggleable right-side chat drawer for the Watch Party screen.
-///
-/// Persists messages to `watch_party_chats/{roomId}/messages/`.
-/// The roomId is the watch-party room document id (auto id for named
-/// rooms), so the chat history is tied to the room and survives media
-/// switches and re-joins.
-///
-/// Sits as a `Stack` overlay above the watch party iframe. When
-/// closed, only a small chat icon in the screen header is visible.
-/// When open, the drawer takes the right 340 px on desktop, or the
-/// full width on narrow screens.
 class WatchPartyChatDrawer extends StatefulWidget {
   final String roomId;
 
-  /// Initial open/closed state. The parent (WatchPartyScreen)
-  /// usually keeps this closed on first paint and lets the user
-  /// tap a chat icon to open it.
   final bool initiallyOpen;
 
   const WatchPartyChatDrawer({
@@ -101,7 +87,6 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _sendError = 'Could not send: $e');
-      // Restore the text so the user doesn't lose what they typed.
       _inputController.text = text;
     }
   }
@@ -112,9 +97,6 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
 
     return Stack(
       children: [
-        // Backdrop tap-to-close on narrow viewports. On desktop the
-        // drawer is small enough that we don't dim the video, so we
-        // skip the backdrop.
         if (_isOpen)
           Positioned.fill(
             child: LayoutBuilder(
@@ -130,9 +112,6 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
             ),
           ),
 
-        // Drawer panel. Anchored to the right edge. On wide screens
-        // it sits next to the video without obscuring it; on narrow
-        // screens it expands to nearly the full width.
         if (_isOpen)
           Positioned(
             top: 0,
@@ -182,8 +161,6 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
             ),
           ),
 
-        // Toggle button. Always rendered so the user can re-open
-        // after closing. Positioned at the right edge, mid-height.
         if (!_isOpen)
           Positioned(
             top: 80,
@@ -320,9 +297,6 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
           );
         }
 
-        // Auto-scroll to the newest message only if the user is
-        // already near the bottom (within 50px). This lets the user
-        // scroll up to read history without being yanked back down.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
             final maxScroll = _scrollController.position.maxScrollExtent;

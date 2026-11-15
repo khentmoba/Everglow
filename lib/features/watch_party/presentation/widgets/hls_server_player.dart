@@ -9,13 +9,6 @@ import '../../data/services/watch_party_server_service.dart';
 import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Controls a real `<video>` element playing an HLS stream through
-/// hls.js inside a Flutter platform view.
-///
-/// Unlike the iframe-based providers, an HLS server exposes the actual
-/// timeline, so the watch party can sync play/pause/seek precisely.
-/// The bridge (`web/hls_bridge.js`) owns the Hls instances; this Dart
-/// controller only talks to the bridge by id.
 class HlsServerPlayerController {
   HlsServerPlayerState? _state;
   double _lastTime = 0.0;
@@ -34,9 +27,6 @@ class HlsServerPlayerController {
 
   String? get playbackUrl => _state?._loadingUrl;
 
-  /// Latest known playback position in seconds. Falls back to the last
-  /// reported time so the screen's clock keeps ticking even between
-  /// `timeupdate` events.
   double get currentTime {
     final state = _state;
     if (state == null || state._video == null || state._destroyed) {
@@ -63,7 +53,6 @@ class HlsServerPlayerController {
     }
   }
 
-  /// Duration of the loaded stream in seconds, or 0 until metadata lands.
   double get duration {
     final state = _state;
     if (state == null || state._video == null || state._destroyed) return 0;
@@ -87,9 +76,6 @@ class HlsServerPlayerController {
     _state?._play();
   }
 
-  /// Play with sound when the browser allows it, and fall back to muted
-  /// autoplay when it does not. Used for remote play/join, where there is
-  /// no user gesture on this device.
   void playWithSoundFallback() {
     _state?._playWithSoundFallback();
   }
@@ -107,15 +93,12 @@ class HlsServerPlayerController {
     _state?._setMuted(muted);
   }
 
-  /// Show or hide the attached subtitle track without reloading.
   void setCaptions(bool on) {
     _state?._setCaptions(on);
   }
 
   bool get isMuted => _muted;
 
-  /// Local volume level (0..1). Applied to the element whenever it is
-  /// set; independent of [isMuted], which stays driven by autoplay.
   double get volume => _volume;
 
   void setVolume(double volume) {
@@ -124,29 +107,18 @@ class HlsServerPlayerController {
   }
 }
 
-/// Platform view for a self-hosted HLS stream.
 class HlsServerPlayer extends StatefulWidget {
   final String streamUrl;
   final double startSeconds;
   final bool autoplay;
 
-  /// Optional WebVTT subtitle track URL. Added as a `<track>` child on
-  /// the real `<video>` element so sidecar/embedded subtitles render
-  /// natively in the browser.
   final String? subtitleUrl;
 
-  /// Whether the subtitle track should be visible. Synced through the
-  /// room, so one tap on CC flips both screens.
   final bool captionsOn;
 
-  /// Unique platform view id. Keep it stable for the same room so the
-  /// same `<video>` element survives rebuilds and remote sync updates.
   final String viewType;
   final HlsServerPlayerController controller;
 
-  /// Starting volume (0..1) for the `<video>` element. The screen owns
-  /// the persisted value and passes it down; updates flow through
-  /// [HlsServerPlayerController.setVolume].
   final double initialVolume;
 
   final VoidCallback? onReady;
@@ -231,7 +203,6 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     }
   }
 
-  /// Adds (or replaces) the WebVTT subtitle track on the video element.
   void _attachSubtitle() {
     final video = _video;
     if (video == null || _destroyed) return;
@@ -260,13 +231,10 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     }
   }
 
-  /// Forces any attached text tracks to show once the media is ready.
   void _showSubtitles() {
     _setCaptions(widget.captionsOn);
   }
 
-  /// Shows or hides every text track. Called on first load and whenever
-  /// the room's caption choice changes.
   void _setCaptions(bool on) {
     final video = _video;
     if (video == null || _destroyed) return;

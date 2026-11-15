@@ -251,11 +251,8 @@ void main() {
       final playerUrl = kIsWeb
           ? tester.widget<AnimeXPlayerFrame>(player).url
           : null;
-      // Browser coverage also verifies that the real iframe survives.
       final iframe = kIsWeb ? playerIframe(playerState!) : null;
       if (kIsWeb) isolatePlayerIframe(playerState!);
-      // A background tab must keep its current session even if another
-      // device's saved progress differs. Reopening the page loads it afresh.
       for (final backgroundState in [
         AppLifecycleState.hidden,
         AppLifecycleState.paused,
@@ -284,7 +281,6 @@ void main() {
           findsOneWidget,
         );
       }
-      // A fresh visit still reads account progress from the other device.
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
@@ -335,12 +331,8 @@ void main() {
 
     expect(next(), (token: 'EP 2', isSeason: false));
     expect(next(episode: 11), (token: 'EP 12', isSeason: false));
-    // Last episode of the last season: nothing follows, so no action.
     expect(next(episode: 12), isNull);
-    // A later season is the next thing to watch, and it has no episode
-    // number to name.
     expect(next(episode: 12, nextSeason: true), (token: '', isSeason: true));
-    // Films never offer a next episode, and a next season still wins.
     expect(next(isFilm: true), isNull);
     expect(
       next(isFilm: true, nextSeason: true),
@@ -431,7 +423,6 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Resume Episode 8 · 10:00'));
       expect(controller.watchItem?.currentEpisode, 8);
-      // A resume card is not an explicit episode selection: fetch fresh progress.
       expect(controller.watchEpisode, isNull);
       controller.replace([anime(status: 'watched-self')]);
       await tester.pump();
@@ -447,7 +438,6 @@ void main() {
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      // The Mushoku case: EP 12/12 still stored as watching-self.
       final controller = DemoController([
         anime(id: 1, episode: 5),
         anime(id: 2, episode: 12),

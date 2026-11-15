@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DoodleStroke {
-  /// Legacy strokes were saved without their source canvas dimensions.
   static const legacyCanvasAspectRatio = 2.0;
 
   final String id;
@@ -12,8 +11,6 @@ class DoodleStroke {
   final DateTime? createdAt;
   final String userId;
 
-  /// Optional text content. When non-null, this stroke is a text annotation
-  /// positioned at [points.first].
   final String? text;
 
   DoodleStroke({
@@ -27,7 +24,6 @@ class DoodleStroke {
     this.text,
   });
 
-  /// Whether this stroke is a text annotation rather than a freehand drawing.
   bool get isTextAnnotation => text != null && text!.isNotEmpty;
 
   factory DoodleStroke.fromFirestore(DocumentSnapshot doc) =>
@@ -60,9 +56,6 @@ class DoodleStroke {
   static double _toDouble(dynamic value, double fallback) =>
       value is num ? value.toDouble() : fallback;
 
-  /// Parses stroke points without throwing: one malformed point or
-  /// stroke document must never brick the whole shared canvas for
-  /// both partners. Bad entries are skipped, bad shapes become empty.
   static List<Map<String, double>> _parsePoints(dynamic raw) {
     if (raw is! List) return const [];
     final points = <Map<String, double>>[];

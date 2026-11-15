@@ -27,7 +27,6 @@ class MusicStatus {
     this.previewUrl,
   });
 
-  /// True when we have a resolved Spotify track (not just a search URL).
   bool get hasSpotifyTrack =>
       spotifyTrackId != null && spotifyTrackId!.isNotEmpty;
 
@@ -46,10 +45,6 @@ class MusicStatus {
     return MusicStatus.fromTrackJson(track, username);
   }
 
-  /// Parses a single Last.fm recent-track entry into a [MusicStatus].
-  ///
-  /// Shared by `user.getrecenttracks` responses of any limit (1 for the
-  /// "vibing" card, 5 for the dashboard's recent-listen list).
   factory MusicStatus.fromTrackJson(
     Map<String, dynamic> track,
     String username,

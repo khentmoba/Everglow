@@ -1,6 +1,5 @@
 part of 'chess_game_screen.dart';
 
-// ── header icon ────────────────────────────────────────────────
 class _HeaderIcon extends StatefulWidget {
   final IconData icon;
   final String tooltip;
@@ -37,7 +36,6 @@ class _HeaderIconState extends State<_HeaderIcon> {
   }
 }
 
-// ── status bar ─────────────────────────────────────────────────
 class _StatusBar extends StatelessWidget {
   final String turn;
   final bool isCheck;
@@ -131,7 +129,6 @@ class _StatusBar extends StatelessWidget {
   }
 }
 
-// ── player bar ─────────────────────────────────────────────────
 class _PlayerBar extends StatelessWidget {
   final String label;
   final bool isWhite;
@@ -218,7 +215,6 @@ class _PlayerBar extends StatelessWidget {
   }
 }
 
-// ── board ──────────────────────────────────────────────────────
 class _BoardSection extends StatelessWidget {
   final Map<String,String> board;
   final String? selected;
@@ -409,7 +405,6 @@ class _BoardSection extends StatelessWidget {
   }
 }
 
-// ── side panel ─────────────────────────────────────────────────
 class _SidePanel extends StatelessWidget {
   final String turn;
   final List<String> sanHistory;
@@ -708,7 +703,6 @@ class _PillButtonState extends State<_PillButton> {
   }
 }
 
-// ── promotion sheet ────────────────────────────────────────────
 class _PromotionSheet extends StatelessWidget {
   final void Function(String) onPick;
   final bool isWhite;
@@ -782,7 +776,6 @@ class _PromotionSheet extends StatelessWidget {
   }
 }
 
-// ── game over ──────────────────────────────────────────────────
 class _GameOverOverlay extends StatelessWidget {
   final bool isMate;
   final String turn;
@@ -846,7 +839,6 @@ class _GameOverOverlay extends StatelessWidget {
   }
 }
 
-// ── snapshot ───────────────────────────────────────────────────
 class _Snapshot {
   final Map<String,String> board;
   final String turn;

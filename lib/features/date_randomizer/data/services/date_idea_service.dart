@@ -14,10 +14,6 @@ class DateIdeaService {
 
   List<DateIdea> get cachedIdeas => _cachedIdeas;
 
-  /// Fetches a capped sample of ideas from Firestore. Seeds the database
-  /// if empty. Capped at 50: the dashboard card shows one random idea at
-  /// a time, so the previous unbounded full-collection read (1000+ docs
-  /// on every dashboard open) was pure cold-start fuel.
   Future<void> initialize({int limit = 50}) async {
     if (_cachedIdeas.isNotEmpty) return;
 
@@ -33,7 +29,6 @@ class DateIdeaService {
 
     if (snapshot.docs.isEmpty) {
       await seedIdeas();
-      // Fetch again after seeding
       final seededSnapshot = await withGetTimeout(
         _db.collection('date_ideas').limit(limit).get(),
         label: 'date ideas reload after seed',
@@ -48,14 +43,12 @@ class DateIdeaService {
     }
   }
 
-  /// Selects a random [DateIdea] from the cached list.
   DateIdea? getRandomIdea() {
     if (_cachedIdeas.isEmpty) return null;
     final random = Random();
     return _cachedIdeas[random.nextInt(_cachedIdeas.length)];
   }
 
-  /// Loads 1000+ ideas from assets and pushes them to Firestore in batches.
   Future<void> seedIdeas() async {
     try {
       final String jsonString = await rootBundle.loadString(
@@ -65,7 +58,6 @@ class DateIdeaService {
 
       final collection = _db.collection('date_ideas');
 
-      // Process in batches of 500 (Firestore limit)
       for (var i = 0; i < data.length; i += 500) {
         final batch = _db.batch();
         final end = (i + 500 < data.length) ? i + 500 : data.length;

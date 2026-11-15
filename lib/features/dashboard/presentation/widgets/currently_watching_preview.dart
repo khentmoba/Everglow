@@ -15,13 +15,6 @@ import 'shelf_widgets.dart';
 import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// "Currently Watching" shelf on the dashboard.
-///
-/// For couple users (khentsgdz / clairjassen) the shelf splits into
-/// two labeled sub-rows — "Me" and the partner — so each partner can
-/// see what the other is currently watching without leaving the
-/// dashboard. Non-couple users keep the original single-row layout
-/// (one stream of their own items only).
 class CurrentlyWatchingPreview extends StatelessWidget {
   const CurrentlyWatchingPreview({super.key});
 
@@ -97,9 +90,6 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
       if (mounted) setState(() => _items = []);
       return;
     }
-    // Realtime so undo (chip-tap remove / Continue Watching X) drops the
-    // count immediately instead of lingering until a manual reload. Bounded
-    // by previewLimit (limit) to keep dashboard reads light.
     _streamSub?.cancel();
     _streamSub = _service
         .getCurrentlyWatchingStream(
@@ -109,10 +99,6 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
         .listen(
       (items) {
         if (!mounted) return;
-        // Cinema owns every movie (live-action or anime) plus non-anime TV;
-        // anime series live in the Anime rail. Filtering on isCinemaItem
-        // (instead of bare !isAnime) keeps anime films in this shelf so
-        // movie lovers never lose them from Currently Watching.
         setState(() => _items = items.watchingCinema);
       },
       onError: (Object e) {
@@ -187,9 +173,6 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       if (mounted) setState(() => _hasLoaded = true);
       return;
     }
-    // Realtime stream (bounded by previewLimit via limit) so undo /
-    // remove updates the shelf immediately. Mirrors the anime Watching Now
-    // shelf, which already streams for this reason.
     _streamSub?.cancel();
     _streamSub = _service
         .getCurrentlyWatchingStream(
@@ -199,7 +182,6 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         .listen(
       (items) {
         if (!mounted) return;
-        // Same cinema rule as the header: every movie counts here.
         final filtered = items.watchingCinema;
         setState(() {
           _items = filtered;
@@ -210,8 +192,6 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       },
       onError: (Object e) {
         if (!mounted) return;
-        // Report the failure instead of a false-empty shelf: a denied
-        // fetch means the data is unreachable, not absent.
         setState(() {
           _hasLoaded = true;
           _loadError = true;
@@ -230,9 +210,6 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     }
   }
 
-  /// Reactive heal: a cover URL that looks valid but 404s (stale TMDB
-  /// artwork) triggers one background heal instead of a permanent
-  /// placeholder tile. Deduped per doc id per session.
   void _handleImageError(MediaItem item) {
     if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
     _healAttempted.add(item.id);
@@ -267,17 +244,11 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     );
   }
 
-  /// Sanitize title to remove CSS class artifacts like "css-1dbjc4n".
-  ///
-  /// Both regexes are static finals (compiled once): the whitespace
-  /// pattern used to be constructed inline on every card on every build,
-  /// which recompiled it dozens of times per shelf emission.
   static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
   static final _multiSpaceRegex = RegExp(r'\s{2,}');
 
   static String _sanitizeTitle(String title) {
     var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
-    // Collapse multiple spaces
     cleaned = cleaned.replaceAll(_multiSpaceRegex, ' ');
     return cleaned.isNotEmpty ? cleaned : title;
   }
@@ -285,7 +256,6 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   String? _subtitleFor(MediaItem item) {
     final parts = <String>[];
     if (item.isMovie) {
-      // Movies have no episode progress - identify them as films.
       if (item.year.isNotEmpty) parts.add(item.year);
       parts.add('Movie');
     } else {
@@ -343,9 +313,6 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         children: cards.take(12).toList(),
       );
     }
-    // Couple path: show shimmer while the Firestore stream is still
-    // loading, otherwise the emptyMessage flashes for 300ms and looks
-    // like a permanent empty state on slow networks.
     if (!_hasLoaded) {
       return Padding(
         padding: const EdgeInsets.only(top: 14),

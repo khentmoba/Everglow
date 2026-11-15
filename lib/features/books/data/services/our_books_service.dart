@@ -12,8 +12,6 @@ import '../models/book_item.dart';
 import '../models/our_books_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Persists and syncs the shared "Our Books" list between Khent and
-/// Clair. Mirrors `OurCinemaService` for the cinema feature.
 class OurBooksService {
   OurBooksService({FirebaseFirestore? firestore}) : _customDb = firestore;
   final FirebaseFirestore? _customDb;
@@ -51,16 +49,6 @@ class OurBooksService {
     );
   }
 
-  /// Emits the shelf already on this device, then the live stream.
-  ///
-  /// Same shape as `JournalService._cachedFirst`: the dashboard rail paints
-  /// from disk instead of waiting a WebChannel round trip for books the phone
-  /// already has. [live] is a factory, not a stream, so the Firestore query is
-  /// only created once the cached frame is handed over — the first paint then
-  /// does not depend on Firestore being reachable at all.
-  ///
-  /// A cache read that throws is swallowed: showing live data late is better
-  /// than showing nothing, so the live stream still runs.
   Stream<List<OurBooksItem>> _cachedFirst(
     Stream<List<OurBooksItem>> Function() live, {
     bool Function(OurBooksItem)? where,
@@ -79,17 +67,10 @@ class OurBooksService {
     yield* live();
   }
 
-  // Capped count for the dashboard header: it only shows the badge
-  // number, but today it holds a 300-doc realtime stream open to do
-  // it. Sorted newest-first, same shape as the full stream.
   Stream<List<OurBooksItem>> getOurBooksCountPreviewStream({int limit = 24}) {
     return getOurBooksStream(limit: limit);
   }
 
-  /// Capped preview for the dashboard rail: the header shows a count and
-  /// each partner sub-row renders up to 12 cards, so a 300-doc realtime
-  /// stream is 10x+ over-fetch on every dashboard visit. Full history
-  /// stays on getOurBooksStream for the books screen.
   Stream<List<OurBooksItem>> getOurBooksByAdderStream(String adder) {
     return getOurBooksByAdderPreviewStream(adder, limit: 24);
   }
@@ -226,7 +207,6 @@ class OurBooksService {
       if (workKey.isEmpty && iaId.isEmpty) {
         throw ArgumentError('A book work key or archive id is required');
       }
-      // Keep pre-existing random-id records readable; new writes share one id.
       final existing = await withGetTimeout(
         collection
             .where(

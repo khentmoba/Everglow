@@ -17,9 +17,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
   bool _isLoading = true;
 
-  /// Set to true when the iframe fires `error`, returns no response
-  /// within [_loadTimeout], or fails three URL-form retries. The error
-  /// card takes over from the spinner in that case.
   bool _iframeFailed = false;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
@@ -34,7 +31,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   int _playbackPositionSeconds = 0;
   int _playbackDurationSeconds = 0;
 
-  // Opt-in autoplay requires trusted completion. Silent embeds keep manual Next.
   NextEpisode? _nextEpisode;
   bool _upNextVisible = false;
   int _upNextLeft = 10;
@@ -45,56 +41,30 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   final NextEpisodeService _nextService = NextEpisodeService();
   static const int _upNextCountdownSeconds = 10;
 
-  /// Tracks whether we've saved the initial "watching" status for this
-  /// playback session so we don't spam Firestore on every rebuild.
   bool _hasSavedWatchProgress = false;
   bool _currentEpisodeCompleted = false;
 
-  /// Current season/episode state — updated by [EpisodeNavigator] for TV
-  /// content so the iframe URL rebuilds when the user switches episodes.
   late int _currentSeason;
   late int _currentEpisode;
 
-  /// Cached username to avoid [context.read] from JS interop callbacks
-  /// where the widget tree traversal can silently fail.
   String _currentUserName = '';
 
-  // Metadata state
   Map<String, dynamic>? _details;
 
-  /// How long to wait for the iframe to fire `load` before we consider
-  /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
-  /// generous ceiling that still surfaces 404s within a reasonable
-  /// user wait.
   static const Duration _loadTimeout = Duration(seconds: 15);
 
-  /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
-  /// event after the iframe loads. If the event never arrives the
-  /// provider likely showed "content not available", so we fall back.
   static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
-  /// The currently selected embed source. Starts at the user's saved
-  /// default (or the first entry from VideoSourceService); auto-fallback
-  /// cycles through the list when an embed fails.
   late VideoSourceConfig _selectedProvider;
 
-  /// Seek target for the initial embed URL. Starts as the route's `start`
-  /// param; per-title memory fills it in when the route carries none.
   int? _resolvedStartSeconds;
 
-  /// Resume lookup in flight. The first progress write waits for it so a
-  /// slow lookup can't be beaten by a write of position 0 that erases the
-  /// very spot we are about to resume from.
   Future<void> _restoreFuture = Future.value();
 
-  /// Per-title comfort memory: last-used server, episode, and position.
   final PlayerMemoryService _memoryService = PlayerMemoryService();
 
-  /// Tracks which providers have already been tried and failed during
-  /// this session so auto-fallback doesn't re-try a dead source.
   final Set<String> _failedProviderIds = {};
 
-  /// Whether the player is in custom fullscreen (theater) mode.
   bool _isFullscreen = false;
   double? _lastWindowedMaxPlayerHeight;
   double _preFullscreenScrollOffset = 0;
@@ -105,12 +75,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   bool get _isNativeFullscreenActive =>
       _nativeFullscreenSettling || web.document.fullscreenElement != null;
 
-  /// Drives the page scroll view below the player.
   final ScrollController _scrollController = ScrollController();
   double _playerAreaHeight = 0;
 
-  /// Keys the player page understands. The app relays these from its own
-  /// document, so the arrows work even when the iframe has no focus.
   static const Set<String> _playerKeys = {
     ' ', 'k', 'K', 'j', 'J', 'l', 'L',
     'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
@@ -119,7 +86,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   };
   JSFunction? _keyForwarder;
 
-  /// DOM exit chip shown above the Flutter platform view in theater mode.
   web.HTMLButtonElement? _fullscreenExitButton;
   web.HTMLDivElement? _playerHost;
   web.HTMLVideoElement? _videoElement;
@@ -273,28 +239,18 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     mountPlayerNode(host, _iframe);
   }
 
-  /// Shared embed-provider service. Sources are loaded from Firestore
-  /// with a hardcoded fallback.
   final VideoSourceService _sourceService = VideoSourceService();
 
-  /// Listener callback for when the service's provider list updates
-  /// asynchronously from Firestore.
   VoidCallback? _serviceListener;
 
   VideoSourceConfig get _activeProvider => _selectedProvider;
 
-  /// Providers offered for the active item. Cinema content promotes the
-  /// ad-free FluxTV server first and keeps every existing source; anime
-  /// playback keeps its existing Videasy-first list without FluxTV servers.
   List<VideoSourceConfig> get _selectableProviders =>
       CinemaVideoSources.selectable(
         _sourceService.providers,
         isAnime: widget.isAnime,
       );
 
-  /// Looks up a provider in the list actually offered to this player,
-  /// including cinema-only FluxTV servers that are not in the shared
-  /// [VideoSourceService] registry.
   VideoSourceConfig? _providerById(String id) {
     for (final provider in _selectableProviders) {
       if (provider.id == id) return provider;
@@ -307,8 +263,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _preferences.addListener(_onPreferencesChanged);
-    // Restore this title's last-used server (or the saved global default),
-    // falling back to the first recommended source from the service.
     final srcList = _selectableProviders;
     _selectedProvider = srcList.isNotEmpty
         ? srcList.first
@@ -318,9 +272,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     unawaited(_preferences.setUser(_currentUserName));
     _restoreFuture = _restorePlayerMemory();
 
-    // Listen for provider list updates from Firestore. If the iframe
-    // has already failed with the hardcoded defaults, retry with the
-    // freshly loaded sources.
     _serviceListener = () {
       if (!mounted) return;
       final newList = _selectableProviders;
@@ -410,18 +361,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _playbackPositionSeconds = widget.startSeconds ?? 0;
     _resolveNextEpisode();
 
-    // For anime we don't have a TMDB id on the MediaItem — the slot
-    // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
-    // iframe's src once. If the lookup fails (no cross-reference
-    // exists) we land in the error card and offer external links.
     if (widget.isAnime) {
       _bootstrapAnime();
     } else {
       _iframe.src = _buildPlayerUrl(_selectedProvider);
     }
 
-    // All orientations allowed — phones auto-enter theater mode in
-    // landscape (see [_maybeAutoFullscreen]) instead of being locked.
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -431,10 +376,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
-  /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
-  /// then point the iframe at the player URL. VidLink has a dedicated
-  /// MAL-based anime endpoint, so the TMDB id is only needed when VidLink
-  /// fails and the player falls back to other providers.
   Future<void> _bootstrapAnime() async {
     final malId = widget.malId ?? widget.tmdbId;
 
@@ -450,9 +391,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _resolveNextEpisode();
   }
 
-  /// Called when the iframe fires `error` or the [_loadTimeout] fires
-  /// while still loading. Marks the current provider as failed and
-  /// automatically tries the next untried provider in [_providers].
   void _onIframeLoadError() {
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
@@ -464,8 +402,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _tryNextProvider();
   }
 
-  /// Called when the user picks a different episode from [EpisodeNavigator].
-  /// Rebuilds the iframe URL for the new episode and resets loading state.
   void _onEpisodeChanged(int episode) {
     if (episode == _currentEpisode) return;
     ++_restoreRevision;
@@ -497,7 +433,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _persistPlayerMemory(resetPosition: true);
   }
 
-  /// Called when the user picks a different season from [EpisodeNavigator].
   void _onSeasonChanged(int season) {
     if (season == _currentSeason) return;
     ++_restoreRevision;
@@ -530,9 +465,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _persistPlayerMemory(resetPosition: true);
   }
 
-  /// Saves or updates the watch progress in Firestore so the
-  /// "Currently Watching" shelves across the app reflect what the
-  /// user is watching right now. Runs once per playback session.
   void _saveWatchProgress() {
     if (_hasSavedWatchProgress) return;
     _hasSavedWatchProgress = true;
@@ -542,8 +474,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   void _writeWatchProgress() {
     if (!mounted) return;
 
-    // If the cached username is empty (shouldn't happen since we capture
-    // it in initState, but be defensive), attempt a direct read.
     String userName = _currentUserName;
     if (userName.isEmpty) {
       try {
@@ -581,8 +511,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
             source: widget.isAnime ? 'jikan' : 'tmdb',
           ),
           userName,
-          // Movies don't have episode progress - write null so existing
-          // movie docs get their stale season/episode fields cleared.
           season: season,
           episode: episode,
           timestamp: timestamp,
@@ -594,7 +522,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _persistPlayerMemory();
   }
 
-  /// Returns the correct watching status value for the user.
   String _watchingStatusFor(String userName) {
     switch (userName) {
       case 'khentsgdz':
@@ -606,11 +533,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Starts the content availability check timer. Only applies to
-  /// VidLink, which sends a `MEDIA_DATA` or `PLAYER_EVENT` postMessage
-  /// when content is actually playable. If the event doesn't arrive
-  /// within [_contentCheckTimeout], the embed likely showed "content not
-  /// available" and we fall back to the next provider.
   void _startContentCheck() {
     if (_selectedProvider.id != 'vidlink') return;
     _contentCheckTimer?.cancel();
@@ -620,10 +542,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     });
   }
 
-  /// Builds the postMessage listener for embed provider events.
-  /// Confirms content is playable and cancels the content check timer.
-  /// Only accepts messages from the currently active provider's origin
-  /// to avoid cross-provider interference.
   JSFunction _buildMessageListener() {
     return ((web.Event e) {
       try {
@@ -633,7 +551,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         if (data == null || !identical(msg.source, _iframe.contentWindow)) {
           return;
         }
-        // All events must come from the active frame and its exact origin.
         if (origin != Uri.parse(_iframe.src).origin) return;
         final wrapperMessage = data.dartify();
         final scrollDelta = parseEverglowEmbedScrollDelta(wrapperMessage);
@@ -661,8 +578,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
           return;
         }
 
-        // Videasy progress ticks (JSON string). Origin-checked inside
-        // the parser — other providers stay silent here.
         try {
           final dataStr = data.toString();
           final videasy = parseVideasyProgress(origin, dataStr);
@@ -678,10 +593,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
           // Fall through to CineSrc / VidLink handling.
         }
 
-        // CineSrc internal episode changes (auto-play or its episode
-        // picker) arrive as objects. Trusted per provider: the direct
-        // embed must speak from the real upstream origin, while our
-        // wrapper's forwards were already origin-checked in embed.html.
         try {
           final obj = data.dartify();
           if (obj is Map && obj['type'] == 'cinesrc:nextepisode') {
@@ -730,7 +641,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
           // Ignore malformed CineSrc progress events.
         }
 
-        // Only accept messages from the active provider's origin
         final activeOrigin = _originForProvider(_selectedProvider.id);
         if (origin != activeOrigin) return;
 
@@ -748,7 +658,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         debugPrint(
           '[VideoPlayerScreen] Cross-origin postMessage parse error: $e',
         );
-      } // ignore cross-origin / parse errors
+      }
     }).toJS;
   }
 
@@ -783,16 +693,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     return null;
   }
 
-  /// Follows the embed when CineSrc changes episodes on its own
-  /// (auto-play or its built-in episode picker).
-  ///
-  /// Without this the navigator kept highlighting the finished episode
-  /// while the frame played the next one — and the runtime-estimate
-  /// fallback timer would later reload the already-playing episode from
-  /// scratch. The new position re-resolves Up Next and reschedules the
-  /// timer, while the iframe itself is never touched: no reload, no
-  /// lost position. Anime-in-cinema is skipped (its MAL ids don't map
-  /// to the reported TMDB season/episode; AnimeX is the anime path).
   void _onPlayerEpisodeChanged(int season, int episode) {
     if (!mounted || widget.mediaType != 'tv' || widget.isAnime) return;
     if (season <= 0 || episode <= 0) return;
@@ -807,8 +707,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       _currentEpisode = episode;
       _currentEpisodeCompleted = false;
     });
-    // Manual navigation reloads the iframe, whose load event saves
-    // progress — with no reload we save explicitly instead.
     _saveWatchProgress();
     _resolveNextEpisode();
     _persistPlayerMemory(resetPosition: true);
@@ -837,8 +735,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         timestamp: position,
         durationSeconds: duration,
       );
-      // A slow heartbeat must not overwrite newer local memory saved by
-      // an episode/source change or exit after this tick was scheduled.
       if (!mounted || memoryRevision != _memoryRevision) return;
       final currentSeason = widget.mediaType == 'tv' ? _currentSeason : null;
       final currentEpisode = widget.mediaType == 'tv' ? _currentEpisode : null;
@@ -858,7 +754,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     });
   }
 
-  /// Real progress replaces estimates; the throttle never restarts on a tick.
   void _onPlaybackTick(int position, int duration) {
     if (!mounted) return;
     if (position != _playbackPositionSeconds ||
@@ -887,8 +782,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Resolves the episode after the current one for the Up Next card
-  /// and the persistent Next pill. TV only — movies have no next.
   Future<void> _resolveNextEpisode() async {
     if (widget.mediaType != 'tv') return;
     final tmdbId = widget.isAnime ? _activeTmdbId : widget.tmdbId;
@@ -901,13 +794,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       episode: episode,
     );
     if (!mounted) return;
-    // Stale response (user zapped episodes mid-flight) — drop it.
     if (season != _currentSeason || episode != _currentEpisode) return;
     setState(() => _nextEpisode = next);
     _checkUpNext();
   }
 
-  /// Completion comes from the active player, never from elapsed time.
   void _checkUpNext() {
     if (widget.mediaType != 'tv' || _nextEpisode == null) return;
     final completed = shouldAutoplayNext(
@@ -915,8 +806,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       positionSeconds: _playbackPositionSeconds,
       durationSeconds: _playbackDurationSeconds,
     );
-    // Rewinding during the countdown hides it so replay isn't
-    // interrupted; reaching the end again re-triggers it.
     if (_upNextVisible) {
       if (!completed) {
         _upNextTimer?.cancel();
@@ -966,8 +855,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     });
   }
 
-  /// Plays the resolved next episode (same-season or season premiere).
-  /// Reloads the iframe in place — Clair never leaves the player.
   void _playNextEpisode() {
     final next = _nextEpisode;
     if (next == null) return;
@@ -975,8 +862,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _upNextTimer?.cancel();
     unawaited(_progressWriter.flush());
     _hasSavedWatchProgress = false;
-    // New episode starts from the beginning — same as
-    // [_resetUpNextForNewEpisode], which this path inlines.
     _resolvedStartSeconds = null;
     setState(() {
       _currentSeason = next.season;
@@ -1007,11 +892,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _resolveNextEpisode();
   }
 
-  /// Resets Up Next state when the episode changes by any other path
-  /// (navigator, season switch, player auto-advance). The caller
-  /// re-resolves + reschedules. The resume offset is dropped too: it
-  /// belongs to the previous episode, and keeping it would seek the
-  /// new episode into the middle (or past its end).
   void _resetUpNextForNewEpisode() {
     _upNextTimer?.cancel();
     _hasSavedWatchProgress = false;
@@ -1021,12 +901,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _resolvedStartSeconds = null;
   }
 
-  /// Auto-enters theater when a phone rotates to landscape and exits on
-  /// portrait. A manual exit lasts until the next portrait orientation.
   void _maybeAutoFullscreen(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    // A short desktop window is not a phone rotation. Keep theater manual
-    // on desktop even when the viewport's shortest side falls below 600.
     final isMobilePlatform =
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
@@ -1066,8 +942,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Returns the expected postMessage origin for a given provider.
-  /// Derives the origin from the provider's movie URL (the host portion).
   String _originForProvider(String providerId) {
     final cfg = _providerById(providerId);
     if (cfg == null) return '';
@@ -1079,28 +953,18 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Per-title memory key. Anime items are keyed by MAL id (the id this
-  /// player navigates with), everything else by TMDB id.
   String get _memoryKey => PlayerMemoryService.cinemaKey(
     id: _externalId,
     mediaType: widget.mediaType,
     isAnime: widget.isAnime,
   );
 
-  /// Restores this title's last-used server, episode, and position.
-  /// Explicit route params (tapped episode, Continue Watching resume)
-  /// always win; memory only fills in what the route didn't specify.
-  /// Falls back to the saved global default server when the title has
-  /// no memory yet (non-anime only — anime keeps its Videasy default).
   Future<void> _restorePlayerMemory() async {
     final revision = _restoreRevision;
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted || revision != _restoreRevision) return;
     var needsReload = false;
 
-    // Episode + position follow the account, not the device: what Clair
-    // watched last on the tablet beats what this phone remembers. Only
-    // asked when the route didn't already say where to start.
     final routeNamedSpot =
         widget.season != null ||
         widget.episode != null ||
@@ -1114,13 +978,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
             mediaType: widget.mediaType,
           );
     if (!mounted || revision != _restoreRevision) return;
-    // A finished title starts over instead of jumping to its credits.
     final live = saved == null || saved.isWatched ? null : saved;
     final cloudSeason = live?.currentSeason;
     final cloudEpisode = live?.currentEpisode;
     final cloudSeconds = live?.resumeSeconds;
 
-    // Server: per-title memory first, then the global default.
     final rememberedId = memory.providerId;
     VideoSourceConfig? match = rememberedId == null
         ? null
@@ -1138,7 +1000,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       needsReload = true;
     }
 
-    // Episode: only when the route didn't name one.
     final hasCloudEpisode =
         widget.mediaType == 'tv' &&
         cloudSeason != null &&
@@ -1158,9 +1019,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       }
     }
 
-    // Position: only when the route didn't carry one, and only when the
-    // saved position belongs to the episode being opened — otherwise a
-    // resume point from one episode would seek a different episode.
     final cloudSameEpisode = widget.mediaType != 'tv'
         ? live != null
         : hasCloudEpisode &&
@@ -1182,16 +1040,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
     if (!needsReload) return;
     setState(() {});
-    // If the iframe already has a src (non-anime path sets it
-    // synchronously in initState), reload it with the restored choices.
-    // Otherwise initState/_bootstrapAnime picks them up when setting src.
     if (_iframe.src.isNotEmpty && _iframe.src != 'about:blank') {
       _iframe.src = _buildPlayerUrl(_selectedProvider);
     }
   }
 
-  /// Persists the current server/episode/position for this title so the
-  /// next visit reopens exactly where Clair left off. Fire-and-forget.
   void _persistPlayerMemory({bool resetPosition = false}) {
     ++_memoryRevision;
     _memoryService.save(
@@ -1206,9 +1059,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     );
   }
 
-  /// Applies the `sandbox` attribute when the provider is marked
-  /// `sandboxSafe`. Sandboxing kills popups/top-navigation without a
-  /// server round-trip — ideal for CineSrc/Movish/VidBolt.
   void _applySandbox(VideoSourceConfig provider) {
     if (provider.sandboxSafe) {
       _iframe.setAttribute(
@@ -1220,8 +1070,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Find the next untried provider and switch to it. If every
-  /// provider has been tried, show the error card.
   void _tryNextProvider() {
     ++_restoreRevision;
     _resolvedStartSeconds = _playbackPositionSeconds;
@@ -1253,9 +1101,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Called when the user picks a different provider from the dropdown
-  /// or error card. Clears the failed set so the chosen provider gets
-  /// a fresh attempt.
   void _selectProvider(VideoSourceConfig provider, {bool retry = false}) {
     if (provider.id == _selectedProvider.id && !retry) return;
     ++_restoreRevision;
@@ -1294,11 +1139,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  /// Toggles theater mode by expanding the platform-view wrapper to the
-  /// viewport while keeping the iframe mounted in place. Always flips
-  /// [_isFullscreen] so the button never looks dead: the DOM fix is
-  /// best-effort (host may not be mounted yet); the document-level exit
-  /// button remains available in either case.
   void _toggleFullScreen() {
     final entering = !_isFullscreen;
     if (entering) {
@@ -1363,7 +1203,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     } catch (_) {
       // Fall through to the iframe-anchored lookup.
     }
-    // Fallback when the host ref isn't set yet: iframe -> host -> view.
     try {
       final grandParent = _iframe.parentElement?.parentElement;
       if (grandParent != null) return grandParent as web.HTMLElement;
@@ -1430,15 +1269,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // KEYBOARD FORWARDING
-  // ---------------------------------------------------------------------------
-
-  /// Keys reach the player page only while its frame has focus. Clicking
-  /// anywhere else on the page leaves the arrows dead, so the app relays
-  /// them. When the frame does have focus this listener never fires —
-  /// keyboard events go to the focused document only — so nothing is
-  /// handled twice.
   static const Map<String, String> _mediaKeyAliases = {
     'MediaPlayPause': ' ',
     'MediaFastForward': 'l',
@@ -1458,11 +1288,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         event.preventDefault();
         return;
       }
-      // Only our own HLS embed understands everglow-key. For third-party
-      // embeds leave keys untouched so the browser's default behavior works.
       if (_selectedProvider.id != 'everglow-embed') return;
-      // When scrolled past the video, allow arrow keys and space to scroll
-      // the episode list and page metadata normally.
       if (_scrollController.hasClients &&
           _playerAreaHeight > 0 &&
           _scrollController.offset > _playerAreaHeight) {
@@ -1492,17 +1318,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     web.document.addEventListener('keydown', _keyForwarder);
   }
 
-  /// Adds the DOM exit chip for theater mode. Flutter widgets can't
-  /// paint above the platform-view iframe, so this chip is a plain DOM
-  /// element appended to the page with a higher z-index.
   void _showFullscreenExitButton() {
     if (_fullscreenExitButton != null) return;
     final button = web.HTMLButtonElement()
       ..type = 'button'
       ..textContent = 'Exit theater'
       ..setAttribute('aria-label', 'Exit theater');
-    // Standalone-web only: keep the chip below the iPhone status bar
-    // so it stays tappable. Everywhere else the inset is 0.
     final topInset = WebStandalone.safeAreaTop();
     button.style
       ..position = 'fixed'
@@ -1621,22 +1442,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     super.dispose();
   }
 
-  /// The id we hand to the embed. For anime items this is the MAL id
-  /// (either passed via [widget.malId] or, for backwards compat, the
-  /// `tmdbId` slot which Jikan's mapper reuses for MAL ids). For
-  /// non-anime items it's the TMDB id.
   int get _externalId =>
       widget.isAnime ? (widget.malId ?? widget.tmdbId) : widget.tmdbId;
 
-  /// The TMDB id we resolved from the MAL id for anime playback.
-  /// Populated by [_bootstrapAnime] on init; null when the lookup
-  /// failed or the item isn't anime. The URL builder uses this so
-  /// anime hands the same Videasy URL off as non-anime.
   int? _externalTmdbId;
 
-  /// Resolved TMDB id for the active item. Non-anime: the widget's
-  /// TMDB id. Anime: the TMDB id we looked up via ani.zip, or null
-  /// when the lookup failed (the error card takes over in that case).
   int? get _activeTmdbId => widget.isAnime ? _externalTmdbId : widget.tmdbId;
 
   String _buildPlayerUrl(VideoSourceConfig provider) {
@@ -1652,20 +1462,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     );
   }
 
-  /// The URL the user can open in a new tab. Uses the same URL the
-  /// iframe would use for the current provider — if every embed has
-  /// failed, this gives the user a manual escape hatch.
   String _externalOpenUrl() {
     return _buildPlayerUrl(_activeProvider);
   }
 }
 
-/// Makes [node] the only child of [host].
-///
-/// `replaceChildren` takes one node in package:web. Handing it a JS array
-/// stringifies the element into an "[object HTMLIFrameElement]" text node, so
-/// the embed never loads, no load event fires, and every server times out into
-/// the error card. One helper so the array form cannot come back.
 @visibleForTesting
 void mountPlayerNode(web.HTMLDivElement host, web.Node node) {
   host.replaceChildren(node);

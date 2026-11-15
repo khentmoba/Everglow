@@ -48,12 +48,7 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Main entry for the books feature. Three-tab lazy stack
-/// (Home, Search, Library) with a custom glassmorphic bottom nav.
-/// Mirrors `CinemaScreen` from the cinema feature.
 class BooksScreen extends StatefulWidget {
-  /// Pre-filled search text, e.g. when tapping an author name on the
-  /// detail page. Opens straight on the Search tab.
   final String initialQuery;
   final BookCatalogService? catalog;
   const BooksScreen({super.key, this.initialQuery = '', this.catalog});
@@ -103,8 +98,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
       ),
     );
   }
-
-  // ── HOME TAB ───────────────────────────────────────────────────────
 
   Widget _buildHomeTab() {
     return ValueListenableBuilder<bool>(
@@ -175,7 +168,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-  /// Books already finished, newest first, with who read them.
   Widget _buildContinueReading() {
     final items = _readHistoryList.take(12).toList();
     return Column(
@@ -320,8 +312,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-  /// Netflix-style spotlight: the week's top book, big and calm, so the
-  /// home screen opens on one clear thing to read.
   Widget _buildSpotlight() {
     return ListenableBuilder(
       listenable: Listenable.merge([_popularFeed, _recentFeed]),
@@ -596,8 +586,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-  // ── SEARCH TAB ─────────────────────────────────────────────────────
-
   Widget _buildSearchTab() {
     return Column(
       children: [
@@ -818,8 +806,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     setState(() => _advancedFilters = picked);
     _rerunSearchIfNeeded();
   }
-
-  // ── LIBRARY TAB ────────────────────────────────────────────────────
 
   List<BookItem> get _libraryList {
     switch (_librarySegment) {
@@ -1064,8 +1050,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     }
   }
 
-  // ── SHIMMER LOADING ────────────────────────────────────────────────
-
   Widget _buildShimmerHome() {
     return CustomScrollView(
       physics: const NeverScrollableScrollPhysics(),
@@ -1105,8 +1089,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
       ],
     );
   }
-
-  // ── BOTTOM NAV ─────────────────────────────────────────────────────
 
   Widget _buildBottomNavBar() {
     return EverglowPillNav(

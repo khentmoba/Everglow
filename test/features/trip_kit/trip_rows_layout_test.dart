@@ -4,8 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/trip_kit/presentation/widgets/trip_ui.dart';
 
-// Clair reads trips on her phone: long item labels, peso amounts, and the
-// two-field expense row must never overflow at 360px or on tablet.
 Widget _rows() {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1,4 +1,3 @@
-// SDK sealed types are implemented only as network-free test doubles.
 // ignore_for_file: subtype_of_sealed_class
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_test_fakes.dart';
@@ -8,7 +7,6 @@ class QueryReads {
   final List<String> orders = [];
 }
 
-/// Executes filtering, ordering, limits and cursors over synthetic records.
 class PagedCollection extends TestCollection {
   final QueryReads reads;
   final String? order;

@@ -2,9 +2,6 @@ import 'dart:math';
 
 import 'memory_fact.dart';
 
-/// Scores facts against a free-text query so Motchi can pull the most
-/// relevant handful from long-term memory instead of dumping the whole
-/// book into every prompt.
 class MemoryRetriever {
   const MemoryRetriever();
 
@@ -79,7 +76,6 @@ class MemoryRetriever {
   }
 }
 
-/// A multiple-choice question generated from real remembered facts.
 class MemoryTriviaQuestion {
   final String question;
   final List<String> choices;
@@ -96,9 +92,6 @@ class MemoryTriviaQuestion {
   bool isCorrect(int index) => index == answerIndex;
 }
 
-/// Turns Motchi's memory into a couple game. Questions blank out the
-/// object of a structured memory and use other objects as distractors,
-/// so every answer is grounded in a real fact.
 class MemoryTriviaGenerator {
   final Random? _random;
 
@@ -147,8 +140,6 @@ class MemoryTriviaGenerator {
   }
 }
 
-/// A small, explainable pattern found in Everglow data. Kept pure so
-/// tests can verify the exact insights without Firestore.
 class RelationshipInsight {
   final String title;
   final String detail;

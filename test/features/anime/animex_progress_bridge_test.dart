@@ -40,8 +40,6 @@ void main() {
   );
 
   test('every resolver-backed source is an owned player, and only those', () {
-    // A source that is missing here plays but never records a resume point,
-    // never reports a watched episode, and gets no skip or Next button.
     for (final source in ['megavid', 'megaplay', 'everglow', 'yumezone']) {
       final frame = '$animeXProxyOrigin/proxyAnime?source=$source&ep=3';
       expect(isAnimeXProxyPlayerUrl(frame), isTrue, reason: source);

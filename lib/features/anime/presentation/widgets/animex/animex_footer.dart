@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'animex_controller.dart';
 import 'animex_tokens.dart';
 
-/// Site footer for the anime section, matching the reference layout:
-/// wordmark + tagline, legal/social links and copyright.
 class AnimeXFooter extends StatelessWidget {
   final AnimeXController controller;
 

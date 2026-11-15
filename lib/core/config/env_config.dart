@@ -1,7 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-/// Public client configuration only. All profile codes and account
-/// credentials are verified by the server and must never enter a web build.
 class EnvConfig {
   static const Map<String, String> _compileTimeEnv = {
     'LASTFM_USER_KHENT': String.fromEnvironment('LASTFM_USER_KHENT'),

@@ -1,21 +1,3 @@
-// Times the hop Clair makes most: dashboard -> a media section -> back.
-//
-// Boots the release app at `/?agent=dashboard&perf=1` (isolated demo session,
-// no login or couple data), lets the dashboard settle, then opens Cinema,
-// Anime, Mangacelestia and Books in turn through the router's own browser
-// history path (pushState + popstate, where a link tap ends up too) and
-// returns to the dashboard between each. Each section is opened twice: the
-// first visit and a revisit.
-//
-// The time reported is from the navigation request to the end of the first
-// frame that built the real screen, read from the `route:<label>` marks that
-// `DeferredRouteLoader` records while the frame meter is on. A loading body
-// does not count as arrival.
-//
-//   node tool/perf/probe_navigation.mjs [--web-root DIR] [--throttle 4]
-//        [--network none|fast3g|slow3g] [--settle 6000] [--json FILE]
-//
-// Desktop headless Chrome is not a phone. Compare two builds on the same rig.
 import { writeFileSync } from 'node:fs';
 import {
   launch, LONG_TASK_OBSERVER, prepare, serve, shapeNetwork, sleep, stop,
@@ -35,7 +17,6 @@ const WIDTH = 430;
 const HEIGHT = 932;
 const DPR = 3;
 
-/// Route path and the `DeferredRouteLoader` label that marks its arrival.
 const SECTIONS = [
   ['cinema', '/cinema', 'Cinema'],
   ['anime', '/anime', 'Anime'],
@@ -46,7 +27,6 @@ const HOME = ['dashboard', '/dashboard', 'Home'];
 
 const marks = (cdp) => cdp.eval('(window.__everglowMarks || []).slice()');
 
-/// Navigates in the running app and waits for the screen's arrival mark.
 async function open(cdp, [, path, label], timeoutMs = 30000) {
   await cdp.eval('window.__egFlushLongTasks && window.__egFlushLongTasks()');
   const start = await cdp.eval(`(() => {
@@ -92,7 +72,6 @@ try {
   if (!(await marks(cdp)).some((m) => m.name === 'route:Home')) {
     throw new Error('dashboard never arrived (no route:Home mark; is this build instrumented?)');
   }
-  // Shape after boot: the probe times in-app hops, not the app shell download.
   if (network !== 'none') await shapeNetwork(cdp, network);
   if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
   await sleep(settleMs);

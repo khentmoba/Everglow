@@ -1,12 +1,5 @@
 'use strict';
 
-/**
- * Pure Motchi intelligence helpers shared by the proxy and scheduled
- * functions. Kept dependency-free so `node --test` can verify retrieval,
- * trivia, insights, context selection, and recap composition without
- * Firestore or an LLM.
- */
-
 function tokenize(text) {
   const matches = String(text || '').toLowerCase().match(/[a-z0-9]{3,}/g);
   return matches ? [...new Set(matches)] : [];
@@ -24,9 +17,6 @@ function toDate(value) {
   return null;
 }
 
-/**
- * Best-effort inference of subject/relation/object from a plain fact.
- */
 function parseFactStructure(fact) {
   const trimmed = String(fact || '').trim();
   const match = trimmed.match(
@@ -87,12 +77,6 @@ function scoreMemory(rawFact, tokens, now) {
   return score;
 }
 
-/**
- * Finds a stored fact that `parsed` contradicts: same subject + same
- * relation (case-insensitive), but a materially different object.
- * Near-duplicates are NOT contradictions — dedupe owns those.
- * Returns the conflicting candidate or null.
- */
 function findContradiction(parsed, factText, candidates) {
   const subject = String((parsed && parsed.subject) || '').trim().toLowerCase();
   const relation = String((parsed && parsed.relation) || '').trim().toLowerCase();
@@ -154,8 +138,6 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
       let score = scoreMemory(fact, tokens, current);
       try {
         const stored = Array.isArray(fact.embedding) ? fact.embedding : null;
-        // A stored vector in another space (legacy remote dims) never
-        // matches — recompute the local vector instead of crashing.
         const factEmb = stored && queryEmb && stored.length === queryEmb.length
           ? stored
           : simpleEmbedding(fact.fact || '');
@@ -169,22 +151,15 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
   return scored.slice(0, maxResults).map((entry) => entry.fact);
 }
 
-// Keep general questions lean without losing broad personal recall.
 function isPersonalQuery(query) {
   return /\b(khent|clair|dada|mama|she|her|him|his|our|we|my|i'm|i am|remember|memories|relationship|ako|nako|namo|amo|kami|kita|hinumdumi|tandaan|recommend|suggest|choose|pick|plan|planning|surprise|feeling|feel|sad|stressed|tired)\b/i.test(String(query || ''));
 }
 
 const MEMORY_QUERY_STOP_WORDS = new Set(('what which who when where how why does did can could would should tell explain about please help know think something anything fact facts memory memories remember save saved exactly use then say answer one sentence sentences short two favorite favourite prefers prefer loves love likes like enjoys enjoy khent clair dada mama our your their the and for with that this have has are was were you she her his him they them ako nako namo amo kami kita unsa ang nga mga kay paborito gusto ganahan').split(' '));
 
-/** Relevant prompt facts, not a filled quota. Broad personal asks retain
- * a small fallback; explicit Memory Book searches still use rankMemories.
- * No remote query embedding is needed on the chat critical path.
- */
 function selectPromptMemories(facts, query, maxResults = 10, maxChars = 2000) {
   if (maxResults <= 0 || maxChars <= 0) return [];
   const tokens = tokenize(query).filter((t) => !MEMORY_QUERY_STOP_WORDS.has(t));
-  // Profile notes ride the always-on core block, not ranking — they
-  // must never be cut from (or duplicated into) Remembered Facts.
   const pool = (facts || []).filter((f) => f && f.category !== 'profile');
   const ranked = rankMemories(pool, query, Math.max(pool.length, maxResults));
   const personal = isPersonalQuery(query);
@@ -208,12 +183,6 @@ function selectPromptMemories(facts, query, maxResults = 10, maxChars = 2000) {
   return selected;
 }
 
-/**
- * True when a stored memory embedding matches no known query space:
- * missing, malformed, or an odd dimension. Valid spaces are local
- * 64-dim hash vectors and remote vectors (hundreds of dims). The
- * nightly sweep recomputes the invalid ones, remote-first.
- */
 function needsEmbeddingBackfill(embedding) {
   if (!Array.isArray(embedding)) return true;
   return embedding.length !== 64 && embedding.length < 256;
@@ -230,15 +199,6 @@ function isNearDuplicate(a, b, threshold = 0.88) {
   return cosineSimilarity(embA, embB) >= threshold;
 }
 
-/**
- * Groups near-duplicate facts for the nightly tidy (Mem0-style UPDATE).
- * Two facts merge only when BOTH hold: local-embedding cosine >=
- * threshold (default 0.93 — stricter than the 0.88 read-time check,
- * because a merge deletes) AND the same subject+relation shape (or
- * both unparsed prose). Survivor per group: pinned first, then highest
- * confidence, then oldest. Pure — the sweep enforces its own safety
- * caps (never delete pinned, max groups/night) around this.
- */
 function findDuplicateGroups(facts, threshold = 0.93) {
   const list = (facts || []).filter((f) => f && String(f.fact || '').trim());
   const embs = list.map((f) => {
@@ -286,12 +246,6 @@ function findDuplicateGroups(facts, threshold = 0.93) {
       return { survivor, dupes: members.filter((m) => m !== survivor) };
     });
 }
-// ── Context block pre-selection ────────────────────────────────
-// Picks which Firestore-backed context blocks to fetch BEFORE any read
-// happens, so a chat turn fetches ~8 small blocks instead of ~20.
-// Single words match whole words (case-insensitive); entries with a
-// space match as phrases. Kept generous: a spurious block costs one
-// cached read, a missed block costs Motchi her awareness.
 const CONTEXT_BLOCK_KEYWORDS = {
   mood: ['mood', 'moods', 'feeling', 'feelings', 'feel', 'felt', 'emotion', 'emotions', 'happy', 'sad', 'stressed', 'tired', 'excited', 'anxious', 'lonely', 'pattern', 'patterns'],
   watchlist: ['movie', 'movies', 'film', 'films', 'watch', 'watched', 'watching', 'watchlist', 'show', 'shows', 'series', 'episode', 'episodes', 'cinema', 'tv', 'drama', 'netflix'],
@@ -314,18 +268,8 @@ const CONTEXT_BLOCK_KEYWORDS = {
   subs: ['subscription', 'subscriptions', 'subs', 'sub', 'renew', 'renews', 'renewal', 'renewals', 'billing', 'netflix', 'spotify', 'icloud'],
 };
 
-// Awareness set: fetched when the query names nothing in particular.
-// The pricey `sessions` scan is deliberately NOT here — it only runs
-// when the message asks about history, memory, or the past.
 const DEFAULT_CONTEXT_KEYS = ['chat', 'mood', 'activity', 'watchlist', 'starlight', 'books', 'calendar'];
 
-/**
- * Block keys to fetch for a query: keyword hits first (up to maxKeys),
- * no unrelated filler. Vague personal requests retain chat + mood;
- * general explanations retain only the free date/identity context.
- * The model can still pull other spaces through awareness tools.
- * The pricey sessions scan runs only on a history keyword hit.
- */
 function selectBlockKeys(query, maxKeys = 7, minKeys = 0) {
   const lowered = String(query || '').toLowerCase();
   const words = new Set(lowered.split(/[^a-z0-9]+/).filter(Boolean));
@@ -343,8 +287,6 @@ function selectBlockKeys(query, maxKeys = 7, minKeys = 0) {
   });
   scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.key < b.key ? -1 : 1));
   const picked = scored.filter((s) => s.score > 0).slice(0, maxKeys).map((s) => s.key);
-  // Don't pad a movie/garden/etc. request with unrelated blocks. Only
-  // vague personal questions need the small chat+mood awareness fallback.
   const floor = picked.length ? minKeys : Math.max(minKeys, isPersonalQuery(query) ? 2 : 0);
   for (const s of scored) {
     if (picked.length >= floor) break;
@@ -376,10 +318,6 @@ function selectContextBlocks(blocks, query, maxBlocks = 6, alwaysKeep = 'proacti
   return [...always, ...rest].slice(0, maxBlocks);
 }
 
-/**
- * Deterministic memory trivia: blank the object of real facts and use
- * other objects/subjects as distractors.
- */
 function generateTrivia(facts, count = 5, random = Math.random) {
   const normalized = (facts || [])
     .map(normalizeFact)
@@ -415,9 +353,6 @@ function generateTrivia(facts, count = 5, random = Math.random) {
   });
 }
 
-/**
- * Explainable pattern insights from mood and activity logs.
- */
 function computeInsights({ moods = [], activities = [] } = {}) {
   const insights = [];
   const moodCounts = {};
@@ -461,10 +396,6 @@ function computeInsights({ moods = [], activities = [] } = {}) {
   return insights;
 }
 
-/**
- * Compose a warm, data-grounded "today" recap. Used by the Motchi Today
- * tool and as the fallback body when the scheduled LLM digest fails.
- */
 function composeTodayRecap({
   dateLabel = '',
   moods = [],
@@ -529,7 +460,6 @@ function composeTodayRecap({
   return parts.join(' ');
 }
 
-/// Flattens an LLM message content block (string or parts array) to text.
 function getMessageText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
@@ -540,23 +470,15 @@ function getMessageText(content) {
   return '';
 }
 
-/// Rough input-token estimate for Motchi prompts.
-/// Counts CJK characters (roughly 1.5 tokens each); the rest ~4 chars/token.
 function estimateTokens(text) {
   if (!text) return 0;
-  // Count CJK characters (roughly 1.5 tokens each) and emoji (1 token each)
   const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
   const nonCjk = text.length - cjk;
   return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
 }
 
-// ── Philippine-time dates ──────────────────────────────────────
-// Cloud Run thinks in UTC but Khent and Clair live in PHT (UTC+8, no
-// daylight saving — the offset never changes). Day-keyed records
-// (moods, digests) use PHT so late-night entries land on the right day.
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
 
-/** YYYY-MM-DD of the PHT calendar day containing `nowMs`. */
 function phtDateString(nowMs = Date.now()) {
   return new Date(nowMs + PHT_OFFSET_MS).toISOString().slice(0, 10);
 }
@@ -564,27 +486,17 @@ function phtDateString(nowMs = Date.now()) {
 const PHT_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const PHT_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-/** "Sunday, September 27, 2026" in Philippine wall time. */
 function phtDateLabel(nowMs = Date.now()) {
   const pht = new Date(nowMs + PHT_OFFSET_MS);
   return `${PHT_WEEKDAYS[pht.getUTCDay()]}, ${PHT_MONTHS[pht.getUTCMonth()]} ${pht.getUTCDate()}, ${pht.getUTCFullYear()}`;
 }
 
-/**
- * UTC instants bounding the PHT calendar day containing `nowMs`:
- * { start, end } as Dates (end is the last millisecond of the day).
- */
 function phtDayBounds(nowMs = Date.now()) {
   const pht = new Date(nowMs + PHT_OFFSET_MS);
   const startMs = Date.UTC(pht.getUTCFullYear(), pht.getUTCMonth(), pht.getUTCDate()) - PHT_OFFSET_MS;
   return { start: new Date(startMs), end: new Date(startMs + 24 * 60 * 60 * 1000 - 1) };
 }
 
-/**
- * Heuristic gate to avoid calling the memory extraction LLM on casual
- * chatter, greetings, search commands, or questions that contain no
- * personal facts about Khent or Clair.
- */
 function shouldExtractMemory(userMessage, motchiReply) {
   const user = String(userMessage || '').trim();
   const reply = String(motchiReply || '').trim();
@@ -592,64 +504,39 @@ function shouldExtractMemory(userMessage, motchiReply) {
 
   const lower = user.toLowerCase();
 
-  // Explicit memory cues always pass (English + Bisaya + Tagalog)
   if (/remember\b|don't forget|keep in mind|note that|our anniversary|my birthday|her birthday|his birthday|hinumdumi|tandaan/i.test(lower)) {
     return true;
   }
 
-  // Pure commands / lookups without personal signals should not trigger extraction
   if (/^(search|find|play|what is the weather|what's the weather|how's the weather|show me|list|give me)\b/i.test(lower)) {
     return false;
   }
 
-  // Casual greetings and acknowledgments without substantive info
   if (/^(hi|hello|hey|good morning|good afternoon|good evening|good night|bye|thanks|thank you|ok|okay|got it|cool|nice|yes|no|yep|nope)[!.,\s]*$/i.test(lower)) {
     return false;
   }
 
-  // Must have a personal subject marker (Khent, Clair, I, my, we, our,
-  // plus Bisaya/Tagalog pronouns so code-switched chat is remembered too)
   const hasSubject = /\b(i|my|i'm|im|i've|ive|i'd|we|our|khent|clair|dada|mama|ako|ko|nako|mi|namo|amo|kami|kita|ta|siya|iya|mo|ikaw|ka)\b/i.test(lower);
   if (!hasSubject) return false;
 
-  // Must have a durable fact/preference/habit/milestone indicator
-  // (English + Bisaya/Tagalog: gusto, paborito, kanunay, eskwela…)
   const hasSignal = /\b(prefer|prefers|preference|love|loves|like|likes|hate|hates|dislike|dislikes|favorite|favourite|always|never|started|finished|bought|studies|study|school|college|csucc|ustp|works?|job|dream|dreams|hope|goals?|habit|habits|gym|bike|rides?|rode|winner x|fuji|camera|coffee|food|allergic|allergy|fears?|scared of|miss|missing|gusto|ganahan|paborito|mahal|lami|kanunay|pirme|ayaw|eskwela|trabaho|damgo|hadlok|nahadlok|gimingaw|mingaw|palit|sugod|human)\b/i.test(lower);
 
   if (hasSignal) return true;
 
-  // Longer multi-sentence reflective exchanges (> 120 chars) with personal subject
   return user.length >= 120;
 }
 
-// Agnes 3.0 Flash: 512K context window. Keep the proven 120K
-// input budget as a cost guard; the extra headroom is reserve, not license.
 const LLM_INPUT_TOKEN_BUDGET = 120000;
 
-/**
- * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
- * 8601 plus "today/tonight/tomorrow [at H[:MM] am/pm]" (tmrw works
- * too), "in N minutes/hours/days/weeks", weekday names ("friday",
- * "friday at 3pm", "next friday"), and "next week". Clock times are read as
- * Philippine wall time (the server runs on UTC, but Khent and Clair live
- * in PHT) — "tomorrow at 3pm" means 3pm in Cabadbaran, not 3pm UTC.
- * Returns null when nothing parseable is found.
- */
 function parseReminderDate(raw, nowMs = Date.now()) {
   const text = String(raw || '').trim();
   if (!text) return null;
   const lower = text.toLowerCase().replace(/\btmrw\b/g, 'tomorrow');
-  // Phrases first: the lenient Date parser below mangles inputs like
-  // "tonight at 8" into nonsense years, so known relatives win.
 
   const parseClock = (src) => {
     const hay = src !== undefined ? src : lower;
     const m = hay.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
     if (!m) {
-      // Named times: noon/midnight are exact; dayparts get the
-      // obvious defaults (morning 9am, afternoon 3pm, evening 9pm).
-      // Checked only when no digits exist, so "night" never shadows
-      // a real clock time (and \bnight\b can't match "tonight").
       if (/\bnoon\b/.test(hay)) return { h: 12, min: 0, explicit: true };
       if (/\bmidnight\b/.test(hay)) return { h: 0, min: 0, explicit: true };
       if (/\bmorning\b/.test(hay)) return { h: 9, min: 0, explicit: false };
@@ -666,7 +553,6 @@ function parseReminderDate(raw, nowMs = Date.now()) {
     if (h > 23 || min > 59) return null;
     return { h, min, explicit: ap === 'am' || ap === 'pm' };
   };
-  // PHT calendar day `dayOffset` from now, at h:min Philippine wall time.
   const phtWall = (dayOffset, h, min) => {
     const phtNow = new Date(nowMs + PHT_OFFSET_MS);
     const utcMidnight = Date.UTC(phtNow.getUTCFullYear(), phtNow.getUTCMonth(), phtNow.getUTCDate());
@@ -677,8 +563,6 @@ function parseReminderDate(raw, nowMs = Date.now()) {
   if (rel) {
     const n = parseInt(rel[1], 10);
     const isDay = !(rel[2].startsWith('min') || rel[2].startsWith('hour') || rel[2] === 'hr');
-    // "in 2 days at 3pm" keeps its clock: scan AFTER the rel phrase
-    // so the "2" in "2 days" isn't misread as 2 o'clock.
     if (isDay) {
       const clock = parseClock(lower.slice(rel.index + rel[0].length));
       if (clock) {
@@ -699,10 +583,8 @@ function parseReminderDate(raw, nowMs = Date.now()) {
   if (/\btonight\b/.test(lower)) {
     const clock = parseClock();
     if (!clock) return phtWall(0, 20, 0);
-    // "midnight tonight" is the coming midnight, not last night's.
     if (clock.h === 0 && clock.min === 0) return phtWall(1, 0, 0);
     let h = clock.h;
-    // Bare hours at night mean evening: "tonight at 8" is 8pm.
     if (!clock.explicit) {
       if (h >= 1 && h <= 11) h += 12;
       else if (h === 12) h = 0;
@@ -713,7 +595,6 @@ function parseReminderDate(raw, nowMs = Date.now()) {
     const clock = parseClock();
     if (clock) {
       const d = phtWall(0, clock.h, clock.min);
-      // That time already passed today — they mean tomorrow.
       return d.getTime() <= nowMs ? phtWall(1, clock.h, clock.min) : d;
     }
     return new Date(nowMs + 3600000);
@@ -725,9 +606,8 @@ function parseReminderDate(raw, nowMs = Date.now()) {
     let delta = (targets[wd[2]] - phtDow + 7) % 7;
     const clock = parseClock();
     if (wd[1] || /next week/.test(lower)) {
-      delta += 7; // "next friday" = next week's Friday
+      delta += 7;
     } else if (delta === 0) {
-      // Same weekday: today if the clock time is still ahead, else +7.
       if (clock) {
         const t = phtWall(0, clock.h, clock.min);
         if (t.getTime() > nowMs) return t;
@@ -735,26 +615,19 @@ function parseReminderDate(raw, nowMs = Date.now()) {
       delta = 7;
     }
     if (clock) return phtWall(delta, clock.h, clock.min);
-    return phtWall(delta, 9, 0); // dateless weekday = 9am that day
+    return phtWall(delta, 9, 0);
   }
   if (/\b(midnight|noon)\b/.test(lower)) {
-    // Lone "at midnight/noon" with no day anchor: the coming one.
     const clock = parseClock();
     const d = phtWall(0, clock.h, clock.min);
     return d.getTime() <= nowMs ? phtWall(1, clock.h, clock.min) : d;
   }
   if (/next week/.test(lower)) return new Date(nowMs + 7 * 86400000);
-  // Last resort: ISO 8601 and other directly parseable dates.
   const direct = new Date(text);
   if (!Number.isNaN(direct.getTime())) return direct;
   return null;
 }
 
-// ── Context-block trimming (C1: slim prompt) ────────────────────
-// Pure formatters for the two biggest context blocks (sanctuary chat
-// history and archived sessions). The live conversation already carries
-// recent turns, so these blocks keep a short tail + a count line
-// instead of full history — roughly half the tokens, same awareness.
 const CHAT_CONTEXT_SHOWN = 12;
 const CHAT_MESSAGE_CHARS = 400;
 const SESSION_SUMMARY_SHOWN = 6;
@@ -769,11 +642,6 @@ function truncateText(text, max) {
   return s.slice(0, max) + '… [truncated]';
 }
 
-/**
- * Formats sanctuary chat lines (chronological "who: text" strings).
- * Keeps the newest `shown` lines, capped per line, plus a count of the
- * older messages Motchi can still pull via read_chat_messages.
- */
 function formatChatContext(lines, shown = CHAT_CONTEXT_SHOWN, perMessage = CHAT_MESSAGE_CHARS) {
   const list = (lines || []).filter((l) => String(l || '').trim());
   if (list.length === 0) return '';
@@ -783,11 +651,6 @@ function formatChatContext(lines, shown = CHAT_CONTEXT_SHOWN, perMessage = CHAT_
   return `Recent sanctuary chat:\n${head}${tail.join('\n')}`;
 }
 
-/**
- * Formats archived session summaries + raw session blocks with hard
- * bounds. Summaries are cheapest (one line each); raw blocks are
- * capped by count, chars, and per-message length.
- */
 function formatSessionContext(summaries, sessions, opts = {}) {
   const {
     summaryShown = SESSION_SUMMARY_SHOWN,

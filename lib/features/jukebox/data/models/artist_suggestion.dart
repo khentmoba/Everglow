@@ -1,7 +1,5 @@
 import 'lastfm_image_utils.dart';
 
-/// One row from `artist.search`: a pickable artist name plus the bits the
-/// autocomplete dropdown shows (listeners + tiny cover).
 class ArtistSuggestion {
   final String name;
   final int listeners;

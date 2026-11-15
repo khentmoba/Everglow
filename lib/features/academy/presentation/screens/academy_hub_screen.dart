@@ -19,10 +19,6 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_elevation.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 
-// The academy sub-routes (solo study, the head-to-head board, the podium)
-// share this hub's question/match models, so they ship in the same deferred
-// chunk. Exporting them here is what lets the route file reach all four
-// through one `deferred as academy_lib` import.
 export 'game_board_screen.dart';
 export 'podium_screen.dart';
 export 'solo_study_screen.dart';
@@ -92,7 +88,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
 
   Future<void> _checkAndSeedQuestions() async {
     try {
-      // Skip in widget tests / before Firebase init.
       if (Firebase.apps.isEmpty) return;
       final snapshot = await withGetTimeout(
         FirebaseFirestore.instance
@@ -139,7 +134,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
       );
 
       if (match.status == 'active') {
-        // Joined as guest — the host's shared set is ready, no AI spent.
         _goToGame(match);
       } else {
         _pendingMatchId = match.matchId;
@@ -148,8 +142,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         }
         _startTimeoutTimer();
 
-        // While waiting, Motchi writes a fresh shared set for the match.
-        // Fail-soft: the cached order stands when she is resting.
         _studySets
             .buildMatchSet(category: category)
             .then(
@@ -322,7 +314,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
           topic: topic,
         ),
       );
-      // Solo results can send Clair straight into a 1v1 challenge.
       if (result == 'challenge' && mounted) {
         _showCategoryPicker(onPick: (picked, _) => _startMatchmaking(picked));
       }
@@ -354,8 +345,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         );
       }
 
-      // Both phones load the SAME snapshotted order. Legacy matches
-      // without one fall back to a fresh random pull (best effort).
       final questions = match.questionIds.isNotEmpty
           ? await _academyService.getQuestionsByIds(match.questionIds)
           : await _academyService.getQuestions(match.category);
@@ -394,7 +383,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     final pending = _pendingMatchId;
     _pendingMatchId = null;
     if (pending != null) {
-      // Best effort: don't strand a waiting match we walked away from.
       _academyService.cancelWaitingMatch(pending).ignore();
     }
     super.dispose();
@@ -598,8 +586,6 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   }
 }
 
-/// Warm, tappable mode row — extracted so layout tests can pump it
-/// without Firebase, Auth, or GoRouter.
 class AcademyModeCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -712,8 +698,6 @@ class AcademyModeCard extends StatelessWidget {
   }
 }
 
-// ── Category Data ────────────────────────────────────────────
-
 class _CategoryData {
   final String label;
   final IconData icon;
@@ -721,8 +705,6 @@ class _CategoryData {
 
   const _CategoryData(this.label, this.icon, this.key);
 }
-
-// ── Category Picker Bottom Sheet ─────────────────────────────
 
 class _CategoryPickerSheet extends StatefulWidget {
   final List<_CategoryData> categories;
@@ -924,8 +906,6 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
     );
   }
 }
-
-// ── Category Card ────────────────────────────────────────────
 
 class _CategoryCard extends StatefulWidget {
   final _CategoryData data;

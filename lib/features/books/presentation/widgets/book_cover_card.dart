@@ -6,9 +6,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 
-/// A book cover at 2:3. When the image is missing or fails (Gutenberg
-/// covers often block web loads), it draws a cloth-bound cover with
-/// the title and author instead of an empty box.
 class BookCover extends StatelessWidget {
   final String imageUrl;
   final String title;
@@ -69,8 +66,6 @@ class BookCover extends StatelessWidget {
                 )
               else
                 fallback,
-              // Spine crease: a soft highlight on the left edge makes a
-              // flat image read as a physical book.
               Positioned(
                 left: 0,
                 top: 0,
@@ -117,7 +112,6 @@ class _ClothCover extends StatelessWidget {
     return ExcludeSemantics(
       child: LayoutBuilder(
         builder: (context, box) {
-          // Thumbnails are too small to letter, so they get a book mark.
           if (box.maxWidth < 80) {
             return DecoratedBox(
               decoration: decoration,
@@ -192,15 +186,12 @@ class _ClothCover extends StatelessWidget {
   }
 }
 
-/// Bookstore-style tile: the cover on top, title and author below.
-/// Covers already print their own title, so nothing is laid over them.
 class BookCoverCard extends StatelessWidget {
   final BookItem item;
   final VoidCallback onTap;
   final double? width;
   final double? height;
 
-  /// Small coloured label under the author, e.g. who has read it.
   final String? statusBadge;
   final Color? badgeColor;
 
@@ -234,8 +225,6 @@ class BookCoverCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Loose fit: the cover keeps its 2:3 size and the title sits
-              // right under it; it only shrinks when the tile is too short.
               Flexible(
                 child: BookCover(
                   imageUrl: item.coverUrl,

@@ -221,7 +221,6 @@ class _RandomizerCardState extends State<RandomizerCard>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Roulette ring with gradient rim.
                         Container(
                           width: 156,
                           height: 156,
@@ -255,7 +254,6 @@ class _RandomizerCardState extends State<RandomizerCard>
                             ),
                           ),
                         ),
-                        // Center heart button.
                         BouncyButton(
                           onTap: _handleSpin,
                           child: const AnimatedEmblem(
@@ -314,7 +312,6 @@ class _RoulettePainter extends CustomPainter {
       );
     }
 
-    // Inner ring.
     canvas.drawCircle(
       center,
       radius - 18,

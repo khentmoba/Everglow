@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'spotify_auth_service.dart';
 
-/// Stub for VM / test environments where Web Playback SDK is unavailable.
 class SpotifyPlayerService extends ChangeNotifier {
   SpotifyPlayerService(SpotifyAuthService auth);
 

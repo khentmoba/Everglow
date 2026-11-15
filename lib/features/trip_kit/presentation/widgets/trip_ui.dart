@@ -6,8 +6,6 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/trip.dart';
 
-/// Shared Trip Kit formatting + row widgets (list + detail screens).
-
 String tripPeso(double amount) =>
     '₱${NumberFormat.decimalPattern().format(amount.round())}';
 
@@ -21,7 +19,6 @@ String tripDateRange(Trip trip) {
   return fmt.format(d);
 }
 
-/// Section heading: icon + title + optional trailing (e.g. "3/8").
 class TripSectionTitle extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -67,7 +64,6 @@ class TripSectionTitle extends StatelessWidget {
   }
 }
 
-/// One checklist row: tap toggles, × deletes.
 class TripCheckRow extends StatelessWidget {
   final String label;
   final String? subtitle;
@@ -196,8 +192,6 @@ class TripCheckRow extends StatelessWidget {
   }
 }
 
-/// Add-new row: text field + round add button, optional second field
-/// (expense amount / place note).
 class TripAddRow extends StatelessWidget {
   final TextEditingController controller;
   final String hint;

@@ -16,8 +16,6 @@ class XpAward {
   const XpAward(this.amount, this.dailyCap);
 }
 
-/// Result of [XPService.computeDailyAward]: the merged counters and new
-/// totals the transaction should write, plus whether it leveled up.
 class DailyAwardOutcome {
   final Map<String, dynamic> counters;
   final int newXp;
@@ -54,13 +52,8 @@ class XPService {
   FirebaseFirestore get _firestore =>
       _customFirestore ?? FirebaseFirestore.instance;
 
-  // Agent demo must never read or write live XP progress.
   bool get _demo => AgentMode.isActive.value && AgentMode.useDemoData.value;
 
-  /// Serializes progress writes so concurrent awards on boot (e.g. listen
-  /// + garden) execute in FIFO order without contending on Firestore
-  /// locks. Cross-device safety (Clair's phone + tablet) comes from the
-  /// transactions inside, not this queue.
   Future<void> _lastOp = Future.value();
 
   Future<T> _enqueue<T>(Future<T> Function() task) {
@@ -117,10 +110,6 @@ class XPService {
           .doc('main');
 
       try {
-        // Transaction: phone + tablet awarding at once used to
-        // read-modify-write the same total and lose one award. The
-        // transaction retries on contention, so both awards land.
-        // Sounds stay OUTSIDE: the body may run more than once.
         final leveledUp = await _firestore
             .runTransaction<bool?>((txn) async {
               final snapshot = await txn.get(docRef);
@@ -131,7 +120,7 @@ class XPService {
                   'streak': 1,
                   'lastActivity': FieldValue.serverTimestamp(),
                 });
-                return null; // Fresh doc: silent, as before.
+                return null;
               }
               final data = snapshot.data() ?? <String, dynamic>{};
               final rawXp = data['xpTotal'];
@@ -161,9 +150,6 @@ class XPService {
     });
   }
 
-  /// Pure daily-award math: cap check, counter bump, and new totals.
-  /// The transaction body calls this so the rule unit-tests without
-  /// Firestore. Returns null when the daily cap is already reached.
   @visibleForTesting
   static DailyAwardOutcome? computeDailyAward({
     required Map<String, dynamic> data,
@@ -209,10 +195,6 @@ class XPService {
       final today = _todayKey();
 
       try {
-        // Transaction: two devices awarding the same action at once used
-        // to both pass the cap check and double-award. Inside a
-        // transaction only one wins; the loser re-reads and sees the
-        // spent cap. Sounds stay OUTSIDE (the body may retry).
         final outcome = await _firestore
             .runTransaction<DailyAwardOutcome?>((txn) async {
               final snapshot = await txn.get(docRef);
@@ -304,9 +286,6 @@ class XPService {
           })
           .timeout(const Duration(seconds: 6));
     } on TimeoutException {
-      // WebChannel contended or offline — the UI already paints an
-      // optimistic zero-state bar, so just let the next watchProgress
-      // retry seed the doc.
       return;
     }
   }

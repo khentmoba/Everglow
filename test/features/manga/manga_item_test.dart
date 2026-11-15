@@ -6,7 +6,6 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 void main() {
   group('MangaItem', () {
     test('contentType maps original language to content type', () {
-      // Verified via fromFirestore to reuse the default-arg path.
       MangaItem item(String lang) => MangaItem.fromFirestore({
         'mangaId': 'hid1',
         'title': 'T',
@@ -104,7 +103,6 @@ void main() {
       expect(restored.contentRating, item.contentRating);
       expect(restored.tags, item.tags);
       expect(restored.userName, item.userName);
-      // Timestamp.toDate() returns local time; compare epoch millis.
       expect(
         restored.addedAt.millisecondsSinceEpoch,
         addedAt.millisecondsSinceEpoch,

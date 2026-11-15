@@ -11,18 +11,9 @@ import 'netflix_hover_preview.dart';
 import 'netflix_touch_preview.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Tells the owning row where this card sits on screen so a floating
-/// preview can be anchored to it (Netflix-style hover popover).
 typedef NetflixHoverCallback =
     void Function(bool hovered, Rect globalRect, MediaItem item);
 
-/// Poster-only card used across the cinema rails and grids.
-///
-/// Mirrors Netflix's visual language:
-/// * Posters are near-square-cornered artwork with no text overlays.
-/// * On desktop the card scales up and casts a shadow while hovered; in
-///   row mode the owner renders a floating preview popover above it.
-/// * On touch it behaves like a simple pressable tile that opens details.
 class NetflixPosterCard extends StatefulWidget {
   final MediaItem item;
   final VoidCallback? onTap;
@@ -32,23 +23,14 @@ class NetflixPosterCard extends StatefulWidget {
   final void Function(MediaItem, double? rating)? onRate;
   final bool Function(MediaItem)? isInList;
 
-  /// Renders a thin progress bar at the bottom (continue watching).
   final double? progress;
 
-  /// Optional rank numeral drawn to the left of the poster (Top 10 rows).
   final int? rank;
 
-  /// Grid/compact mode - no floating preview, gentler hover scale.
   final bool compact;
 
-  /// Lets the card manage its own floating preview on desktop (used by
-  /// grids). Rows keep [onHover] so they can position previews themselves.
   final bool selfPreview;
 
-  /// Fired when the poster fails to load. Library grids use it to trigger
-  /// one background poster heal per item (see `TMDBPosterService.healPoster`)
-  /// instead of leaving a stale-URL cover on the placeholder forever.
-  /// May fire repeatedly while failed — the caller must dedupe.
   final VoidCallback? onImageError;
 
   const NetflixPosterCard({
@@ -79,22 +61,16 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 
   bool get _isDesktop => MediaQuery.sizeOf(context).width >= 1024;
 
-  // Grid/rail cards (124-172px): w342 is plenty even at 3x DPR and saves
-  // ~40% bytes + wasm decode per scroll frame vs w500 (PWA scroll
-  // bottleneck). Detail drawers keep using MediaItem.posterUrl (w500).
   String get _posterUrl => TmdbImages.cardFor(widget.item.posterPath);
 
   void _onHover(bool hovered) {
     if (widget.selfPreview) {
       setState(() => _hovered = hovered);
       if (!hovered) {
-        // A card exit only cancels a pending show, never the open
-        // preview: it covers the card and dismisses itself on exit.
         _previewTimer?.cancel();
         return;
       }
       if (!_isDesktop) return;
-      // Start the trailer lookup now so the popover opens with it ready.
       unawaited(prefetchNetflixPreview(widget.item));
       _previewTimer?.cancel();
       _previewTimer = Timer(const Duration(milliseconds: 260), () {
@@ -112,7 +88,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     if (hovered == _hovered) return;
     setState(() => _hovered = hovered);
     if (hovered) {
-      // Prefetch before the row's 260ms delay so the trailer is ready.
       unawaited(prefetchNetflixPreview(widget.item));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final box = context.findRenderObject() as RenderBox?;
@@ -145,7 +120,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
         top: offset.dy,
         width: width,
         child: MouseRegion(
-          // The preview owns its own dismissal: leaving it closes it.
           onExit: (_) {
             _previewTimer?.cancel();
             _removeSelfPreview();
@@ -293,8 +267,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
             behavior: HitTestBehavior.opaque,
             onTapDown: (_) {
               setState(() => _pressed = true);
-              // Touch has no hover — start the trailer lookup at press-down
-              // so a long-press preview opens with video ready.
               unawaited(prefetchNetflixPreview(widget.item));
             },
             excludeFromSemantics: true,
@@ -310,9 +282,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 
     if (widget.rank == null) return SizedBox(width: width, child: poster);
 
-    // Top-10 numeral: a giant filled digit with a dark edge, tucked
-    // slightly behind the poster's left edge like Netflix. One stacked
-    // Text draws the stroke, the other the fill.
     TextStyle numeral({required bool stroke}) =>
         AppTypography.outfitWhite.copyWith(
           fontSize: 200,
@@ -354,11 +323,9 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
   }
 }
 
-/// Landscape "continue watching" card with a progress bar.
 class NetflixContinueCard extends StatefulWidget {
   final MediaItem item;
 
-  /// Details are separate from the main tap, which can resume playback.
   final VoidCallback? onDetails;
   final VoidCallback? onRestart;
   final String? subtitle;
@@ -394,18 +361,12 @@ class NetflixContinueCard extends StatefulWidget {
 class _NetflixContinueCardState extends State<NetflixContinueCard> {
   bool _hovered = false;
 
-  // Continue cards are 170-230px 16:9: w780 covers 3x DPR (690px) while
-  // w1280 (MediaItem.backdropUrl) is 2.5x over-fetch decoded on the scroll
-  // thread. Poster fallback uses the w342 grid size.
   String get _backdropUrl {
     final b = TmdbImages.backdropFor(widget.item.backdropPath);
     if (b.isNotEmpty) return b;
     return TmdbImages.cardFor(widget.item.posterPath);
   }
 
-  /// When the backdrop 404s but a distinct poster exists, show the poster
-  /// instead of the blank placeholder — a portrait poster cropped to 16:9
-  /// still beats an empty tile.
   Widget _backdropErrorFallback() {
     final backdrop = TmdbImages.backdropFor(widget.item.backdropPath);
     final poster = TmdbImages.cardFor(widget.item.posterPath);
@@ -600,11 +561,6 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
   }
 }
 
-/// Small dismiss (X) badge overlaid on continue-watching cards.
-///
-/// Tapping removes the title from Continue Watching (see
-/// `TMDBWatchlistService.clearWatchProgress`) without dropping it from
-/// My List — Netflix's "Remove From Row".
 class NetflixRemoveBadge extends StatelessWidget {
   final VoidCallback? onTap;
   final String tooltip;
@@ -631,7 +587,6 @@ class NetflixRemoveBadge extends StatelessWidget {
   }
 }
 
-/// Shared activation keeps keyboard and screen-reader taps on the same path.
 class _NetflixCardAction extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
@@ -711,8 +666,6 @@ class _NetflixCardActionState extends State<_NetflixCardAction> {
   }
 }
 
-/// Bell dot marking posters with "Remind me" set. Sits top-left so it
-/// never collides with the top-right remove badge.
 class _RemindBadge extends StatelessWidget {
   const _RemindBadge();
 

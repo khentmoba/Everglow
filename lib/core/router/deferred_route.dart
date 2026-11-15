@@ -5,41 +5,13 @@ import '../perf/perf_probe.dart';
 import '../perf/perf_settings.dart';
 import '../utils/logger.dart';
 
-/// Loading shell for routes split out of the initial bundle with
-/// `deferred as` imports (see docs/PERF_NOTES.md).
-///
-/// Usage in a `go_router` builder:
-/// ```dart
-/// import "../screens/chess_game_screen.dart" deferred as chessLib;
-///
-/// GoRoute(
-///   path: "chess",
-///   builder: (_, _) => DeferredRouteLoader(
-///     label: "Chess",
-///     loadLibrary: chessLib.loadLibrary,
-///     builder: () => chessLib.ChessGameScreen(),
-///   ),
-/// ),
-/// ```
-///
-/// The chunk downloads on first navigation (~one small JS part file), then
-/// stays cached for the session. Shows a themed spinner while loading and a
-/// retry action if the chunk fails (offline mid-deploy, CDN hiccup).
-///
-/// [label] names the chunk: once a label has loaded, later visits build the
-/// screen on the first frame instead of flashing the loading body for one.
-/// Routes that share a label must share the same library.
 class DeferredRouteLoader extends StatefulWidget {
-  /// Deferred prefix tear-off, e.g. `chessLib.loadLibrary`.
   final Future<void> Function() loadLibrary;
 
-  /// Builds the real screen. Only called after the chunk loads.
   final Widget Function() builder;
 
-  /// Short human label used in loading/error UI, e.g. "Chess".
   final String label;
 
-  /// Optional first paint while the chunk loads. Defaults to a spinner.
   final WidgetBuilder? loadingBuilder;
 
   const DeferredRouteLoader({
@@ -55,15 +27,8 @@ class DeferredRouteLoader extends StatefulWidget {
 
   static final Set<String> _loaded = <String>{};
 
-  /// Whether the chunk named [label] has finished loading this session.
   static bool isLoaded(String label) => _loaded.contains(label);
 
-  /// Downloads a section's chunk before the first tap, so opening it does
-  /// not wait on the network or flash the loading body.
-  ///
-  /// Skipped on a slow or data-saving connection, where the download would
-  /// compete with the page Clair is actually looking at. Safe to call more
-  /// than once: a loaded chunk resolves immediately.
   static Future<void> warm(
     String label,
     Future<void> Function() loadLibrary,
@@ -79,13 +44,11 @@ class DeferredRouteLoader extends StatefulWidget {
     }
   }
 
-  /// Forgets loaded chunks so widget tests start cold.
   @visibleForTesting
   static void debugReset() => _loaded.clear();
 }
 
 class _DeferredRouteLoaderState extends State<DeferredRouteLoader> {
-  /// Null once the chunk is known to be loaded.
   Future<void>? _future;
 
   @override
@@ -107,8 +70,6 @@ class _DeferredRouteLoaderState extends State<DeferredRouteLoader> {
 
   bool _marked = false;
 
-  /// With the frame meter on, records when the real screen first painted so
-  /// `tool/perf/probe_navigation.mjs` can time the tap-to-screen wait.
   Widget _screen() {
     if (!_marked && PerfSettings.frameMeter.value) {
       _marked = true;

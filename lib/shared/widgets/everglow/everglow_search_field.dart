@@ -5,11 +5,6 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Unified search field for all feature screens.
-///
-/// Glass, 44px min height, token-driven, with clear action and focus ring.
-/// Replaces duplicated TextField(InputDecoration) blocks across journal,
-/// cookbook, vault, travel, etc.
 class EverglowSearchField extends StatefulWidget {
   final TextEditingController controller;
   final String hint;

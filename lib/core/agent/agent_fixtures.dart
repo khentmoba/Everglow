@@ -19,12 +19,6 @@ import '../../features/tonight/data/models/tonight_decision.dart';
 import '../../features/tonight/data/models/tonight_option.dart';
 import '../../features/watch_party/data/models/watch_party_room.dart';
 
-/// Pre-populated, privacy-safe demo fixtures for Everglow couple surfaces.
-///
-/// Ensures agents and developers can render, verify, and take PR proof
-/// screenshots of couple-only screens (Dashboard, Milestones, Notes, Garden,
-/// Chat, Journal, Starlight Jar) without requiring Firebase credentials or
-/// leaking private couple memories.
 class AgentFixtures {
   AgentFixtures._();
 
@@ -425,8 +419,6 @@ class AgentFixtures {
     ),
   ];
 
-  /// Fake watch-party rooms for Agent Mode. Nothing here touches Firestore
-  /// or a real couple's history; the titles are demo-only.
   static List<WatchPartyRoom> demoWatchPartyRooms({
     required String myUid,
     required String partnerUid,

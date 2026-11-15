@@ -9,8 +9,6 @@ import '../katana/katana_nav.dart';
 import '../katana/katana_theme.dart';
 import '../../../../core/services/auth_service.dart';
 
-/// The user's bookmarked manga, with continue-reading progress and
-/// quick removal, mirroring the site's bookmark list.
 class KatanaBookmarksScreen extends StatefulWidget {
   const KatanaBookmarksScreen({super.key});
 

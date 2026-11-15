@@ -4,9 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_markdown.dart';
 
-/// Global chat regression: AI answers must never show raw markdown
-/// (`**`, `###`, `| tables |`, `---`) in Motchi or Study. Both surfaces
-/// render through [EverglowMarkdown], so these lock the shared behavior.
 void main() {
   Future<void> pumpMarkdown(WidgetTester tester, String text) async {
     await tester.pumpWidget(

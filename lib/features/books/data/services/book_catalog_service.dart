@@ -6,13 +6,8 @@ import './gutenberg_service.dart';
 import './internet_archive_service.dart';
 import './open_library_service.dart';
 
-/// Sort modes copied from WeLib's search page.
 enum BookSort { relevant, popular, newest, oldest, largest, smallest, random }
 
-/// Z-Lib style advanced-search filters. Every field maps onto either
-/// an Open Library query field (title / author / publisher / isbn)
-/// or a client-side post-filter (year range, exact match) applied
-/// after the three sources are merged.
 class BookSearchFilters {
   final String? title;
   final String? author;
@@ -45,7 +40,6 @@ class BookSearchFilters {
 
   bool get isNotEmpty => !isEmpty;
 
-  /// Short human summary for the filter pill, e.g. "Author + 1940–1960".
   String get summary {
     final parts = <String>[];
     if (title?.trim().isNotEmpty == true) parts.add('Title');
@@ -60,9 +54,6 @@ class BookSearchFilters {
   }
 }
 
-/// One page of merged catalog results. `total` is the Open Library
-/// catalog-wide match count; `hasMore` tells the list whether a
-/// "Load more" row should be shown.
 class CatalogPage {
   final List<BookSearchResult> results;
   final int total;
@@ -81,11 +72,6 @@ class CatalogPage {
   );
 }
 
-/// The "database" behind the WeLib-style search: merges Open Library
-/// (discovery + metadata), Project Gutenberg (public-domain text +
-/// downloads), and Internet Archive (public-domain downloads) into a
-/// single result set, then applies filetype / language filters and
-/// WeLib's sort modes.
 class BookCatalogService {
   static final BookCatalogService _instance = BookCatalogService._internal();
   factory BookCatalogService() => _instance;
@@ -139,17 +125,6 @@ class BookCatalogService {
     return page.results;
   }
 
-  /// Z-Lib style paged search across the merged catalog.
-  ///
-  /// Page 1 fans out to all three sources (Open Library +
-  /// Gutenberg + Internet Archive) and merges them. Deeper pages
-  /// are Open Library only — it is the only source with true
-  /// offset paging over millions of docs, and merging ranked pages
-  /// from three APIs would duplicate and mis-order results.
-  ///
-  /// [onPartial] gets page 1 early, once per source that answers while
-  /// others are still pending, so one slow library doesn't hold back the
-  /// rest. Partial pages never offer Load More; the returned page is final.
   Future<CatalogPage> searchPaged(
     String query, {
     void Function(CatalogPage page)? onPartial,
@@ -260,9 +235,6 @@ class BookCatalogService {
     return build(done: true);
   }
 
-  /// Gutenberg and Gutendex/IA only take a free-text query, so fold
-  /// the structured filters into one best-effort string for them.
-  /// The precise filtering still happens client-side in [_applyFilters].
   String _effectiveQuery(String query, BookSearchFilters filters) {
     final parts = <String>[
       query,
@@ -272,8 +244,6 @@ class BookCatalogService {
     return parts.where((p) => p.isNotEmpty).join(' ');
   }
 
-  /// Most Popular analog: Open Library trending plus Gutenberg's
-  /// most-downloaded catalog, merged.
   Future<List<BookSearchResult>> mostPopular({int limit = 20}) async {
     final results = await Future.wait([
       _openLibrary.fetchTrending().then(_fromOpenLibrary),
@@ -284,11 +254,6 @@ class BookCatalogService {
     return _applySort(merged, BookSort.popular).take(limit).toList();
   }
 
-  /// Recently Added analog: recently *published* Open Library books
-  /// with real covers (see `OpenLibraryService.fetchRecent`). Only OL
-  /// tracks publish years at this scale, so this feed is OL-only by
-  /// design. Cover-less stragglers are dropped so the rail never
-  /// renders placeholder tiles.
   Future<List<BookSearchResult>> recentlyAdded({int limit = 20}) async {
     final items = await _openLibrary.fetchRecent(limit: limit);
     final mapped = _fromOpenLibrary(items);
@@ -296,14 +261,10 @@ class BookCatalogService {
     return withCovers.isNotEmpty ? withCovers : mapped;
   }
 
-  /// Category browse: subject discovery mapped to catalog results.
-  /// Powers both the home rails and the full category list pages.
   Future<List<BookSearchResult>> byCategory(String category, {int limit = 20}) {
     return byCategoryPaged(category, limit: limit);
   }
 
-  /// Paged variant for category list pages (`offset` > 0 loads
-  /// deeper Open Library subject pages).
   Future<List<BookSearchResult>> byCategoryPaged(
     String category, {
     int limit = 30,
@@ -320,8 +281,6 @@ class BookCatalogService {
     }).toList();
   }
 
-  /// Enrich a result with the full detail payload (description,
-  /// publisher, size, real download URLs) for the detail page.
   Future<BookSearchResult> details(BookSearchResult result) async {
     var enriched = result;
     if (result.iaId.isNotEmpty) {
@@ -335,8 +294,6 @@ class BookCatalogService {
       ]);
       final work = fetched[0] as Map<String, dynamic>?;
       final editions = fetched[1] as List<Map<String, dynamic>>;
-      // First edition carrying physical details (pages, ISBN,
-      // publisher) — feeds the Z-Lib style meta table.
       Map<String, dynamic>? edition;
       for (final e in editions) {
         if ((e['number_of_pages'] as num?) != null ||
@@ -401,8 +358,6 @@ class BookCatalogService {
     return enriched;
   }
 
-  /// Similar books: subject overlap via Open Library, falling back
-  /// to the same author.
   Future<List<BookSearchResult>> similar(
     BookSearchResult result, {
     int limit = 10,
@@ -423,19 +378,13 @@ class BookCatalogService {
     return const [];
   }
 
-  /// True when this result can be read or downloaded in-app.
   bool get isSupportedCatalog => true;
 
-  /// Compact count for result headers: 1234 -> "1.2K".
   static String compactCount(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
     return '$n';
   }
-
-  // ---------------------------------------------------------------------
-  // Mapping + merge
-  // ---------------------------------------------------------------------
 
   List<BookSearchResult> _fromOpenLibrary(List<BookItem> items) {
     return items.map((item) {
@@ -478,8 +427,6 @@ class BookCatalogService {
     }).toList();
   }
 
-  /// Merge duplicate titles across sources, preferring the record
-  /// with the richest metadata and combining download URLs.
   List<BookSearchResult> _merge(List<BookSearchResult> results) {
     final byKey = <String, BookSearchResult>{};
     final order = <String>[];
@@ -549,8 +496,6 @@ class BookCatalogService {
           return false;
         }
       }
-      // Structured filters: Open Library already applied them
-      // server-side, but Gutenberg/IA results need them here.
       if (filters.title?.trim().isNotEmpty == true &&
           !r.title.toLowerCase().contains(
             filters.title!.trim().toLowerCase(),
@@ -579,7 +524,6 @@ class BookCatalogService {
       if (filters.yearTo != null && year > 0 && year > filters.yearTo!) {
         return false;
       }
-      // Exact match: the title or author must equal the query.
       if (filters.exact && query.isNotEmpty) {
         final q = query.trim().toLowerCase();
         if (r.title.trim().toLowerCase() != q &&

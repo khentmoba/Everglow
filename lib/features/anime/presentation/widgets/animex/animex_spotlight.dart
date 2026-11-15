@@ -14,8 +14,6 @@ import 'animex_buttons.dart';
 import 'animex_skeleton.dart';
 import 'animex_tokens.dart';
 
-/// Artwork-led spotlight with readable metadata and separate touch controls.
-/// Leaves room for the catalog on phones and tablets.
 class AnimeXSpotlight extends StatefulWidget {
   final List<MediaItem> items;
   final bool loading;
@@ -42,7 +40,6 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   Timer? _armTimer;
   Timer? _fallbackTimer;
 
-  // Shared with the cinema hero and the dashboard memories.
   static const Duration _stillHoldDuration = AppMotion.carouselHold;
   static const Duration _trailerHoldDuration = AppMotion.carouselHoldTrailer;
 
@@ -106,8 +103,6 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       }
     }
 
-    // On carousel navigation and scrolling remounts, use a short 350ms dwell
-    // so HtmlElementView iframe mounting never fires mid-scroll.
     void scheduleWhenSettled() {
       _armTimer?.cancel();
       _armTimer = Timer(const Duration(milliseconds: 350), () {
@@ -137,8 +132,6 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     _fallbackTimer?.cancel();
     if (mounted && _active) {
       setState(() => _trailerReady = true);
-      // Give Clair 25 full seconds of uninterrupted trailer playback starting
-      // only after the video has actually loaded and began playing.
       if (_muted && _playing) {
         _startTimer(duration: _trailerHoldDuration);
       }
@@ -234,7 +227,6 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
   void _startTimer({Duration? duration}) {
     _timer?.cancel();
-    // Do not auto-advance when Clair unmuted to listen or paused playback.
     if (!_active || !_muted || !_playing) return;
     final hold =
         duration ??
@@ -301,13 +293,9 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       child: Stack(
         fit: StackFit.passthrough,
         children: [
-          // Keep only the current backdrop (plus the outgoing fade), not
-          // five full-resolution images with four hidden at zero opacity.
           Positioned.fill(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 700),
-              // The default switcher stack loosens constraints, letting banners
-              // and poster fallbacks shrink to their decoded image dimensions.
               layoutBuilder: (currentChild, previousChildren) => Stack(
                 fit: StackFit.expand,
                 children: [...previousChildren, ?currentChild],
@@ -319,7 +307,6 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
             ),
           ),
 
-          // 2. Active trailer player, smoothly cross-faded in when loaded.
           if (_active && hasTrailer && _trailerArmed)
             Positioned.fill(
               child: AnimatedOpacity(
@@ -343,8 +330,6 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
               ),
             ),
 
-          // Top shade for header legibility, fading into the page bg at the
-          // bottom so the hero melts into the ticker below.
           const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -697,7 +682,6 @@ class _HeroDot extends StatelessWidget {
   }
 }
 
-/// Trailer controls stay over the artwork, separate from carousel navigation.
 class _HeroMediaControls extends StatelessWidget {
   final bool playing;
   final bool muted;

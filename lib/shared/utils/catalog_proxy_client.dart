@@ -1,13 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
-/// Shared helper for keyless public JSON catalogs (Open Library, Jikan,
-/// iTunes, AniSkip).
-///
-/// Routes through the `proxyCatalog` Cloud Function (allow-listed to those
-/// hosts, 5-minute edge cache) so the browser never calls third parties
-/// directly. Sends the Firebase ID token when signed in; the proxy
-/// validates it when present and still serves anonymous callers.
 class CatalogProxyClient {
   CatalogProxyClient({http.Client? client}) : _client = client ?? http.Client();
 

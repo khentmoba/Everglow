@@ -1,4 +1,3 @@
-// Network-free test doubles for sealed SDK types.
 // ignore_for_file: subtype_of_sealed_class, must_be_immutable
 import 'dart:async';
 
@@ -253,7 +252,6 @@ void main() {
   );
 }
 
-/// The server never answers until [server] completes, like a weak signal.
 class _SlowCollection extends TestCollection {
   final server = Completer<void>();
   @override

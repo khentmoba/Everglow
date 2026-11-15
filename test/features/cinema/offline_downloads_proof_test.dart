@@ -53,11 +53,6 @@ void main() {
       await tester.runAsync(loader.load);
     }
 
-    // A proof image is an artifact, not a fixture. Writing it under docs/
-    // would dirty every working tree that runs the suite, and the next
-    // `git add -A` would rewrite a merged PR's evidence.
-    // Sync on purpose: testWidgets runs in fake async, so real I/O futures
-    // only complete inside tester.runAsync.
     final proofDir = Directory.systemTemp.createTempSync('everglow-proof-');
     addTearDown(() => proofDir.deleteSync(recursive: true));
 

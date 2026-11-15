@@ -20,7 +20,6 @@ class TriviaApiService {
     _sessionToken = prefs.getString(_tokenKey);
     final timestamp = prefs.getInt(_tokenTimestampKey);
 
-    // Tokens expire after 6 hours of inactivity
     if (_sessionToken == null ||
         timestamp == null ||
         DateTime.now().millisecondsSinceEpoch - timestamp >
@@ -30,8 +29,6 @@ class TriviaApiService {
   }
 
   Future<void> _requestNewToken() async {
-    // Routed through proxyCatalog (no-store for opentdb) so session
-    // tokens are never edge-cached and shared between players.
     final response = await _proxy.get(
       'opentdb',
       'api_token.php',
@@ -98,13 +95,13 @@ class TriviaApiService {
       final responseCode = data['response_code'] as int;
 
       switch (responseCode) {
-        case 0: // Success
+        case 0:
           final results = data['results'] as List;
           return results
               .map((json) => _mapJsonToQuestion(json, categoryId))
               .toList();
 
-        case 3: // Token Not Found
+        case 3:
           if (retryCount >= 3) {
             throw Exception('OpenTDB session recovery failed after retries.');
           }
@@ -115,7 +112,7 @@ class TriviaApiService {
             retryCount: retryCount + 1,
           );
 
-        case 4: // Token Empty
+        case 4:
           if (retryCount >= 3) {
             throw Exception('OpenTDB session recovery failed after retries.');
           }
@@ -126,7 +123,7 @@ class TriviaApiService {
             retryCount: retryCount + 1,
           );
 
-        case 5: // Rate Limit
+        case 5:
           if (retryCount < 3) {
             final delay = Duration(seconds: (5 * (retryCount + 1)));
             await Future.delayed(delay);

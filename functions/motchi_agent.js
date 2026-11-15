@@ -25,7 +25,6 @@ function normalizeFeedback(value) {
     .slice(-20).map((f) => ({ title: f.title.slice(0, 120), reason: f.reason, at: f.at }));
 }
 
-// Share the existing push-token document: schedules already read it.
 async function loadCompanion(db, caller) {
   const hit = cache.get(caller);
   if (hit && hit.db === db && Date.now() - hit.at < CACHE_MS) return hit.value;
@@ -62,7 +61,6 @@ function companionPrompt(profiles, now = Date.now()) {
   const lines = [];
   for (const [owner, profile] of Object.entries(profiles)) {
     for (const f of profile.feedback || []) {
-      // Tonight's mood is not a lifelong dislike.
       if (f.reason === 'not_tonight' && now - f.at > 24 * 60 * 60 * 1000) continue;
       lines.push(`${owner}: ${JSON.stringify(f.title)} — ${f.reason}`);
     }
@@ -71,7 +69,7 @@ function companionPrompt(profiles, now = Date.now()) {
 }
 
 function allowsPush(data, type, now = Date.now()) {
-  if (type === 'reminder' || type === 'reminder_shared') return true; // Explicit reminders keep their promised time.
+  if (type === 'reminder' || type === 'reminder_shared') return true;
   const prefs = normalizePreferences(data?.preferences);
   const hour = new Date(now + 8 * 3600000).getUTCHours();
   const quiet = prefs.quietStart === prefs.quietEnd ? false
@@ -106,7 +104,6 @@ function memoryEvidence(candidate, userMessage, caller) {
   const contentWords = fact.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 &&
     !['khent', 'clair', 'and', 'the', 'likes', 'loves', 'prefers', 'dislikes', 'hates', 'enjoys', 'wants', 'has'].includes(w));
   if (!contentWords.length || !contentWords.some((w) => quote.toLowerCase().includes(w))) return null;
-  // Never turn a single person's statement into a shared preference.
   if (/and/.test(subject) && !/\b(we|our|both|kami|namo)\b/i.test(quote)) return null;
   return { fact, category: ['fact', 'preference', 'dislike', 'goal', 'date', 'habit'].includes(candidate.category) ? candidate.category : 'fact',
     sourceText: quote, source: caller, provenance: subject.toLowerCase() === speaker.toLowerCase() ? 'self_report' : 'partner_report', confidence: 0.8 };

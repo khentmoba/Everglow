@@ -58,7 +58,6 @@ void main() {
         ),
       );
 
-      // Initial frame: 1%, opening door label, heart icon, and EVERGLOW title
       expect(find.text('EVERGLOW'), findsOneWidget);
       expect(find.text('1%'), findsOneWidget);
       expect(find.text('opening the door…'), findsOneWidget);
@@ -70,7 +69,6 @@ void main() {
       );
       expect(initialIndicator.value, closeTo(0.01, 0.005));
 
-      // Pump halfway (500ms into 1000ms): percent should be climbing
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('1%'), findsNothing);
 
@@ -80,7 +78,6 @@ void main() {
       expect(midIndicator.value, greaterThan(0.2));
       expect(midIndicator.value, lessThan(0.9));
 
-      // Pump to completion (another 500ms for animation + 250ms for hold)
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('100%'), findsOneWidget);
       expect(find.text('opening your story…'), findsOneWidget);

@@ -80,7 +80,6 @@ void main() {
       expect(stripped[0]['content'], 'look 0');
       expect(hasImage(stripped[2]), isTrue);
       expect(hasImage(stripped[4]), isTrue);
-      // Order and roles preserved.
       expect(stripped[1]['content'], 'message 1');
       expect(stripped[0]['role'], 'user');
     });

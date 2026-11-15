@@ -68,8 +68,6 @@ void main() {
       expect(find.text('Trending Now'), findsOneWidget);
       expect(find.text('Top 10 in the Philippines'), findsOneWidget);
 
-      // Each rail must be fed its own list — Top 10 mirroring Trending
-      // renders two identical rails back to back.
       final rows = tester
           .widgetList<NetflixRow>(find.byType(NetflixRow))
           .toList();

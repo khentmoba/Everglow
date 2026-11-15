@@ -181,7 +181,6 @@ class _ListenSheetState extends State<_ListenSheet> {
               ],
             ),
           ),
-          // Player controls
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
             child: Row(

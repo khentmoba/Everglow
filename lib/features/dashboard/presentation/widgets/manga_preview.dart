@@ -15,16 +15,6 @@ import 'shelf_widgets.dart';
 import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// "Reading" shelf on the dashboard.
-///
-/// For couple users (khentsgdz / clairjassen) the shelf splits into
-/// two labeled sub-rows — "Me" and the partner — sourced from each
-/// partner's `manga_library` collection filtered by
-/// `libraryStatus == 'reading'`. This gives each partner a quick view
-/// of what the other is actively reading.
-///
-/// Non-couple users keep the original merged-couple or single-user
-/// layout that streams every title in their library (any status).
 class MangaPreview extends StatelessWidget {
   const MangaPreview({super.key});
 
@@ -103,8 +93,6 @@ class _MangaHeaderState extends State<_MangaHeader> {
   }
 
   void _subscribe() {
-    // Header only shows the badge count: 24 docs per partner is plenty
-    // instead of two merged 500-doc streams.
     final stream = widget.isCouple
         ? _service.getCoupleLibraryPreviewStream(limit: 24)
         : _service.getLibraryStream(widget.userName);
@@ -174,8 +162,6 @@ class _MangaShelfState extends State<_MangaShelf> {
   }
 
   void _subscribe() {
-    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
-    // the 500-doc reading stream.
     final stream = widget.readingOnly
         ? _service.getReadingPreviewStream(widget.userName, limit: 24)
         : _service.getLibraryStream(widget.userName);
@@ -195,8 +181,6 @@ class _MangaShelfState extends State<_MangaShelf> {
   }
 
   void _openDetails(MangaItem item) {
-    // Katana-sourced entries (added via "Khent Reading" / "Claire Reading")
-    // open the Katana detail page so the reading button stays reachable.
     if (item.mangaId.startsWith('katana|')) {
       pushDetail(context, item.mangaKakalotId);
       return;

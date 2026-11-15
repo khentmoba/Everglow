@@ -62,7 +62,6 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
     return RepaintBoundary(
       child: Stack(
         children: [
-          // Confetti overlay
           if (widget.showConfetti)
             Align(
               alignment: Alignment.topCenter,
@@ -82,7 +81,6 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
               ),
             ),
 
-          // Note dialog
           Center(
             child: ScaleTransition(
               scale: _scaleAnimation,
@@ -107,7 +105,6 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Category badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -143,7 +140,6 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                       ),
                     ),
 
-                    // Tags
                     if (widget.note.tags.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Wrap(

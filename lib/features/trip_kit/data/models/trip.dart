@@ -2,13 +2,6 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// One page per lakad: packing list + budget + places live on a single
-/// [Trip] doc (collection `travel_trips`, couple-only) so planning stays
-/// in Everglow instead of scattered across chat.
-///
-/// Sub-items are embedded arrays — one stream per trip, no subcollections,
-/// no extra indexes. Sections update one field at a time so Khent ticking
-/// packing never clobbers Clair adding an expense.
 class Trip {
   final String id;
   final String title;
@@ -38,7 +31,6 @@ class Trip {
     required this.createdAt,
   });
 
-  /// Client-side id for embedded sub-items (no doc ids inside arrays).
   static String newId() =>
       '${DateTime.now().microsecondsSinceEpoch}${Random().nextInt(1 << 20)}';
 
@@ -46,8 +38,6 @@ class Trip {
       Trip.fromMap(doc.data() as Map<String, dynamic>? ?? const {}, doc.id);
 
   factory Trip.fromMap(Map<String, dynamic> data, String id) {
-    // Tolerate missing/odd-typed fields: one malformed doc must never
-    // crash the trips stream and blank the whole Trip Kit.
     DateTime? asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
     double asMoney(dynamic v) =>
         v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -137,15 +127,12 @@ class Trip {
     );
   }
 
-  // ── Computed helpers for cards ──────────────────────────────
-
   int get packedCount => packing.where((e) => e.packed).length;
 
   double get spentTotal => expenses.fold(0, (total, e) => total + e.amount);
 
   double get remaining => budgetTotal - spentTotal;
 
-  /// 0..1 spent vs budget; 0 when no budget set.
   double get budgetProgress {
     if (budgetTotal <= 0) return 0;
     return (spentTotal / budgetTotal).clamp(0.0, 1.0);
@@ -156,7 +143,6 @@ class Trip {
   int get visitedCount => places.where((e) => e.done).length;
 }
 
-/// One packing checklist row.
 class TripPackItem {
   final String id;
   final String label;
@@ -198,7 +184,6 @@ class TripPackItem {
   }
 }
 
-/// One budget expense.
 class TripExpense {
   final String id;
   final String label;
@@ -232,7 +217,6 @@ class TripExpense {
   }
 }
 
-/// One place to visit.
 class TripPlace {
   final String id;
   final String name;

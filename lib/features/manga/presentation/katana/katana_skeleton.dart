@@ -3,8 +3,6 @@ import '../../../../core/theme/app_motion.dart';
 
 import './katana_theme.dart';
 
-/// Shimmer placeholders shaped like real Katana content, so tab
-/// switches land on a soft pulse instead of a bare spinner.
 class KatanaListSkeleton extends StatelessWidget {
   final int rows;
   final EdgeInsetsGeometry padding;
@@ -35,8 +33,6 @@ class KatanaListSkeleton extends StatelessWidget {
   }
 }
 
-/// Placeholder for the Genres page: heading lines plus a grid of
-/// genre-shaped cards.
 class KatanaGenreGridSkeleton extends StatelessWidget {
   final int cards;
 
@@ -84,7 +80,6 @@ class KatanaGenreGridSkeleton extends StatelessWidget {
   }
 }
 
-/// One cover-plus-lines row, shaped like a [KatanaCard] list item.
 class _ListRow extends StatelessWidget {
   const _ListRow();
 
@@ -114,7 +109,6 @@ class _ListRow extends StatelessWidget {
   }
 }
 
-/// One grey bar or cover block.
 class _Block extends StatelessWidget {
   final double? width;
   final double? height;
@@ -135,8 +129,6 @@ class _Block extends StatelessWidget {
   }
 }
 
-/// Fades [child] between full and half opacity on a loop, so
-/// skeletons shimmer gently while content loads.
 class _Pulse extends StatefulWidget {
   final Widget child;
 

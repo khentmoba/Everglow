@@ -50,8 +50,6 @@ void main() {
         ..statusError = Exception('offline');
       final controller = MoodController(fake);
 
-      // Must not throw, and must not flip to "not submitted" (which would
-      // nag Clair for a mood she already gave).
       await controller.checkTodayStatus('clair');
 
       expect(controller.hasSubmittedToday, isFalse);

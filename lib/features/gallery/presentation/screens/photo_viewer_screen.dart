@@ -95,7 +95,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
+              Navigator.pop(context);
               HapticFeedback.lightImpact();
 
               final removedIndex = _currentIndex;
@@ -201,7 +201,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
       ),
       body: Column(
         children: [
-          // Photo viewer
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -224,9 +223,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Instant paint: the grid thumbnail is already in the
-                        // image cache, so it shows immediately while the
-                        // full-res photo streams in on top of it.
                         if (thumbUrl?.isNotEmpty == true)
                           Image(
                             image: _photoImage(thumbUrl!),
@@ -246,9 +242,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                           gaplessPlayback: true,
                           loadingBuilder: (context, child, progress) {
                             if (progress == null) return child;
-                            // Thumbnail underneath stays visible while the
-                            // full photo loads; legacy photos without one
-                            // keep the spinner so the wait is visible.
                             if (thumbUrl?.isNotEmpty == true) {
                               return const SizedBox.shrink();
                             }
@@ -263,8 +256,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                             );
                           },
                           errorBuilder: (context, error, stack) {
-                            // Full-res failed: keep the thumbnail when we
-                            // have one, otherwise show the broken icon.
                             if (thumbUrl?.isNotEmpty == true) {
                               return const SizedBox.shrink();
                             }
@@ -285,7 +276,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             ),
           ),
 
-          // Caption bar
           if (_photos.isNotEmpty)
             Container(
               width: double.infinity,

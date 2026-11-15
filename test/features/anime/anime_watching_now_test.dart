@@ -23,7 +23,7 @@ void main() {
       expect(anime.isCurrentlyWatching, isTrue);
       expect(anime.isWatched, isFalse);
       expect(anime.isToWatch, isFalse);
-      expect(anime.isCinemaItem, isFalse); // Anime series live in Anime rail
+      expect(anime.isCinemaItem, isFalse);
       expect(anime.isAnimeSeries, isTrue);
     });
 
@@ -43,7 +43,7 @@ void main() {
       expect(animeMovie.isAnime, isTrue);
       expect(animeMovie.isCurrentlyWatching, isTrue);
       expect(animeMovie.isMovie, isTrue);
-      expect(animeMovie.isCinemaItem, isTrue); // Anime films belong to cinema too
+      expect(animeMovie.isCinemaItem, isTrue);
       expect(animeMovie.isAnimeSeries, isFalse);
     });
 

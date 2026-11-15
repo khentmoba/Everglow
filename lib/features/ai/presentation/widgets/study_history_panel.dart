@@ -8,10 +8,6 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/services/study_history_service.dart';
 
-/// Slide-in history panel for Motchi Study.
-///
-/// Mobile: backdrop + drawer. Desktop (≥ 1024): persistent rail.
-/// Mirrors [MotchiSidebar] grouping/search so the two histories feel like one.
 class StudyHistoryPanel extends StatefulWidget {
   final bool isOpen;
   final String? activeSessionId;

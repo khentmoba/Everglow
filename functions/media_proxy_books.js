@@ -74,23 +74,6 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
   });
 });
 
-/**
- * Proxies EPUB book files so the in-app "Read Online" reader can open
- * them on Flutter web (gutenberg.org sends no CORS headers, so a direct
- * browser fetch fails). Same trust shape as `proxyBookText`: Firebase
- * Auth required, same gutenberg.org / archive.org allow-list, same
- * per-user rate limit.
- *
- * Accepts:
- *   POST /proxyBookFile { urls: [<epub url>, ...] }
- *
- * Returns:
- *   { base64, usedUrl, attempted } on success, or
- *   { base64: '', usedUrl: '', attempted, error } when every URL fails.
- *
- * Size cap: 7 MB raw (base64 inflates ~33%, keeping the JSON response
- * under the Functions payload limit). Typical EPUBs are well under this.
- */
 const proxyBookFile = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -153,14 +136,12 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
       }
       const buf = Buffer.from(await response.arrayBuffer());
       if (buf.length === 0 || buf.length > MAX_BYTES) continue;
-      // Zip magic: EPUBs are zip archives (PK\x03\x04).
       if (buf[0] !== 0x50 || buf[1] !== 0x4b) continue;
       if (String(req.get('Accept') || '').includes('application/epub+zip')) {
         res.set('Content-Type', 'application/epub+zip');
         res.set('X-Book-Source', encodeURIComponent(url));
         res.send(buf);
       } else {
-        // Keep older installed clients working during the deployment window.
         res.json({ base64: buf.toString('base64'), usedUrl: url, attempted: urls.slice(0, i + 1) });
       }
       return;

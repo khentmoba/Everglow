@@ -11,8 +11,6 @@ import 'package:everglow/features/cinema/presentation/widgets/trailer_player_web
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/shared/widgets/everglow/lazy_indexed_stack.dart';
 
-// Counts custom factory registrations (must stay zero) and supplies dummy
-// roots so fromTagName callbacks run without loading third parties.
 class _Registry extends ui_web.PlatformViewRegistry {
   int customFactories = 0;
   @override

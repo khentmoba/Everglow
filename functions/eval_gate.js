@@ -1,28 +1,5 @@
 'use strict';
 
-/* Motchi regression gate — offline, zero LLM cost.
- *
- * Fails closed (exit 1) when the live contract drifts from the pinned
- * helpers, prompt snapshot, or eval cases:
- *   1. TOOL_TIMEOUT_MS / MAX_TOOL_ROUNDS single-sourced in `motchi_tools.js`
- *   2. MOTCHI_TOOLS declarations match TOOL_NAMES (both directions)
- *   3. every tool has an executor and every executor names a known tool
- *   4. every eval case references known tools only
- *   5. prompt snapshot version + tool inventory match TOOL_NAMES
- *   6. routing: every tool is reachable (core + awareness + groups +
- *      follow-through + fast-path), group references name known tools,
- *      fast-path tools take zero required args, and no eval case
- *      attaches more than 24 schemas (efficiency cap)
- *
- * Layout (post split): schemas in `motchi_tool_schemas.js`, executors in
- * `motchi_exec_{media,memory,social,planning,insights}.js`, dispatcher in
- * `motchi_exec_tools.js`. The gate scans those files, not motchi_chat.js.
- *
- * Usage: `node eval_gate.js` (from `functions/`) or
- *        `node functions/eval_gate.js` (from repo root).
- * Prints one JSON report to stdout; diagnostics go to stderr.
- */
-
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -49,7 +26,6 @@ function check(name, ok, detail = '') {
   if (!ok) failures.push(name);
 }
 
-// Single-source constants: tools.js defines, chat/exec import, nobody redefines.
 check('constants.timeout',
   !/const TOOL_TIMEOUT_MS = \d+;/.test(chatSrc) &&
   /TOOL_TIMEOUT_MS/.test(dispatchSrc) &&
@@ -61,9 +37,6 @@ check('constants.rounds',
 
 const declared = [...schemaSrc.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
 const declaredSet = new Set(declared);
-// Self-check against path drift (PR #106 class): a scan that finds zero
-// tools means the gate is looking at the wrong file, not that the
-// contract is empty.
 check('tools.scanned-file-live', declared.length > 0,
   'motchi_tool_schemas.js yielded 0 tools; gate path drifted?');
 check('tools.count', declared.length === tools.TOOL_NAMES.length,
@@ -84,9 +57,6 @@ check('tools.dispatcher-complete',
   tools.TOOL_NAMES.every((n) => mapped.includes(n)),
   tools.TOOL_NAMES.filter((n) => !mapped.includes(n)).join(','));
 
-// Routing reachability: a tool nothing attaches is dead weight the model
-// can never call. Legit attach paths: core, awareness, intent groups
-// (reads + writes), follow-through, and fast-path.
 const reachable = new Set([
   ...tools.CORE_TOOLS,
   ...tools.AWARENESS_TOOLS,
@@ -99,12 +69,9 @@ for (const i of tools.FAST_PATH_INTENTS) reachable.add(i.tool);
 const stranded = tools.TOOL_NAMES.filter((n) => !reachable.has(n));
 check('routing.reachable', stranded.length === 0, stranded.join(','));
 
-// Group references must name known tools: a typo in a group silently
-// vanishes at filter time and blinds Motchi for that intent.
 const unknownRefs = [...reachable].filter((n) => !tools.TOOL_NAMES.includes(n));
 check('routing.group-tools-known', unknownRefs.length === 0, unknownRefs.join(','));
 
-// Fast-path tools pre-execute with `{}`: any required arg breaks them.
 const schemaByName = new Map(MOTCHI_TOOLS.map((t) => [t.function.name, t.function]));
 const nonZeroArg = tools.FAST_PATH_INTENTS.filter((i) => {
   const req = schemaByName.get(i.tool)?.parameters?.required;
@@ -112,10 +79,6 @@ const nonZeroArg = tools.FAST_PATH_INTENTS.filter((i) => {
 }).map((i) => i.tool);
 check('routing.fastpath-zeroarg', nonZeroArg.length === 0, nonZeroArg.join(','));
 
-// Routing efficiency + recall over every eval case: attached-schema
-// count approximates the per-turn token price, and every expected
-// tool must survive routing (mirrors the unit test so the release
-// contract holds even if the test file is touched).
 let attachedTotal = 0;
 let attachedMax = 0;
 let attachedMaxId = '';

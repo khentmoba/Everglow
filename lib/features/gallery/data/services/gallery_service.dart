@@ -92,14 +92,6 @@ class GalleryService {
     };
   }
 
-  /// Returns the URL used for displaying gallery images.
-  /// Routes Firebase Storage URLs through a Cloud Function proxy
-  /// on web to avoid CORS / auth issues.
-  ///
-  /// Pass [thumb] for rails, grids, and marquees: it appends `&w=440`
-  /// so the proxy caches the thumbnail URL long-term, independently of
-  /// the short-lived full-res viewer URL. (The proxy does not resize;
-  /// small bytes come from the stored `thumbUrl` files.)
   static String displayUrl(String imageUrl, {bool thumb = false, bool? isWeb}) {
     final web = isWeb ?? kIsWeb;
     if (web && imageUrl.contains('firebasestorage.googleapis.com')) {
@@ -110,20 +102,12 @@ class GalleryService {
     return imageUrl;
   }
 
-  /// The grid's image URL for [photo]. The viewer shows the same thumbnail
-  /// under the full photo, so keeping this one URL makes a photo viewable
-  /// offline.
   static String gridUrl(MemoryPhoto photo, {bool? isWeb}) => displayUrl(
     photo.previewUrl,
     thumb: photo.thumbUrl?.isNotEmpty != true,
     isWeb: isWeb,
   );
 
-  /// Upload a photo and store its metadata in Firestore.
-  ///
-  /// Uploads a web-friendly full image (max 1600px, JPEG q85) plus a
-  /// 400px grid thumbnail. Grids load `thumbUrl`; the viewer loads the
-  /// full `imageUrl`. Falls back to the original bytes when decoding fails.\
   Future<MemoryPhoto> uploadPhoto({
     required Uint8List imageBytes,
     required String fileName,
@@ -177,8 +161,6 @@ class GalleryService {
       }
     }
 
-    // Save metadata to Firestore. If it fails, remove only objects whose
-    // upload completed; a committed metadata write must keep its files.
     late final DocumentReference<Map<String, dynamic>> docRef;
     try {
       docRef = await _db
@@ -218,7 +200,6 @@ class GalleryService {
     );
   }
 
-  /// Decode the original once for both upload sizes.
   @visibleForTesting
   static ({Uint8List full, Uint8List? thumb}) prepareUploadImages(
     Uint8List bytes,
@@ -230,8 +211,6 @@ class GalleryService {
     return native_images.encodeResized(decoded, maxSize);
   }
 
-  /// Decode + downscale to [maxSize] longest edge, re-encode JPEG q85.
-  /// Returns null when the bytes aren't a decodable image.
   @visibleForTesting
   static Uint8List? resizedJpeg(Uint8List bytes, int maxSize) {
     try {
@@ -244,7 +223,6 @@ class GalleryService {
     }
   }
 
-  /// Stream of all photos, newest first.
   Stream<List<MemoryPhoto>> watchPhotosByIds(List<String> ids) {
     if (ids.isEmpty) return Stream.value(const []);
     if (AgentMode.isActive.value) {
@@ -285,9 +263,6 @@ class GalleryService {
         );
   }
 
-  /// Older photos below the live first page. Seed with the oldest live
-  /// photo's date, then continue with the returned cursor, so Load More
-  /// reads each photo once instead of re-reading the whole album.
   Future<FirestorePage<MemoryPhoto>> fetchOlderPhotos({
     required DateTime before,
     DocumentSnapshot? cursor,
@@ -312,7 +287,6 @@ class GalleryService {
     return FirestorePage(items: items, nextCursor: next);
   }
 
-  /// Stream of recent photos (for dashboard preview).
   Stream<List<MemoryPhoto>> getRecentPhotos({int limit = 6}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoPhotos.take(limit).toList());
@@ -330,7 +304,6 @@ class GalleryService {
         );
   }
 
-  /// Delete a photo from Storage before its Firestore metadata.
   Future<void> deletePhoto(MemoryPhoto photo) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return;
@@ -369,7 +342,7 @@ class GalleryService {
     );
     final progress = task.snapshotEvents.listen(
       (snap) => onSent?.call(snap.bytesTransferred),
-      onError: (_) {}, // the awaited task below reports the failure
+      onError: (_) {},
     );
     try {
       await task;
@@ -424,7 +397,6 @@ class GalleryService {
       (error.code == 'object-not-found' ||
           error.code == 'storage/object-not-found');
 
-  /// Server-side Storage delete for the partner's photos.
   Future<void> _deleteStorageViaFunction(String imageUrl) async {
     if (_deleteStorageViaFunctionForTesting case final delete?) {
       try {
@@ -496,9 +468,6 @@ class GalleryService {
   // service (one per gallery screen) is recreated; add a refresh if it shows.
   Future<List<MemoryPhoto>>? _searchIndex;
 
-  /// Search photos by caption or tags. The album's metadata is read once
-  /// per service and reused for every later query; [recent] (the live first
-  /// page) adds photos uploaded since.
   Future<List<MemoryPhoto>> searchPhotos(
     String query, {
     List<MemoryPhoto> recent = const [],
@@ -545,7 +514,6 @@ class GalleryService {
     return photos;
   }
 
-  /// "On This Day" — photos uploaded on the same month+day in previous years.
   Future<List<MemoryPhoto>> getPhotosFromThisDay() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return [];
@@ -566,8 +534,6 @@ class GalleryService {
         label: 'gallery on-this-day',
       );
 
-      // Legacy photos predate the monthDay field; bound the fallback so it
-      // never grows with the full album.
       if (snapshot.docs.isEmpty) {
         snapshot = await withGetTimeout(
           _db
@@ -595,8 +561,6 @@ class GalleryService {
     }
   }
 
-  /// This Week In Past — 7-day window around today (Immich-inspired: This week in past slides).
-  /// Memoized per calendar day so every dashboard open doesn't re-read 300 docs.
   DateTime? _thisWeekDay;
   List<MemoryPhoto>? _thisWeekCache;
   Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
@@ -629,7 +593,7 @@ class GalleryService {
                     .difference(DateTime(now.year, now.month, now.day))
                     .inDays)
                 .abs();
-        return diff <= 3; // within 3 days => 7-day window
+        return diff <= 3;
       }).toList()..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
       _thisWeekDay = today;
       _thisWeekCache = results;
@@ -640,9 +604,6 @@ class GalleryService {
     }
   }
 
-  /// All photos that have a pinned location — for map view (Immich map).
-  /// One-shot fetch: the map only needs a snapshot on open, not a realtime
-  /// stream that re-queries on every remote write.
   Future<List<MemoryPhoto>> getPhotosWithLocationStream() =>
       getPhotosWithLocation(limit: 100);
 

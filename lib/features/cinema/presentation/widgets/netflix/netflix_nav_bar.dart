@@ -6,17 +6,8 @@ import '../../../../../core/theme/app_typography.dart';
 import '../../../../../shared/widgets/shelf/media_section_menu.dart';
 import 'netflix_colors.dart';
 
-/// Height of the floating desktop/tablet top navbar, excluding the system
-/// status inset.
-///
-/// Kept for backwards-compat / tests; the top bar was removed in favor of
-/// the persistent sidebar, so this constant is no longer added to the
-/// content inset.
 const double kNetflixNavBarHeight = 68;
 
-/// Top inset that page content needs to clear the floating navbar.
-///
-/// Non-hero pages need to clear the overlaying desktop catalog bar.
 double cinemaTopContentInset(BuildContext context) {
   final topPad = MediaQuery.paddingOf(context).top;
   if (MediaQuery.sizeOf(context).width >= 1024 || TvMode.isTvMode.value) {
@@ -26,18 +17,15 @@ double cinemaTopContentInset(BuildContext context) {
   return topPad + 16;
 }
 
-/// A navigation link for the cinema top/bottom bars.
 class NetflixNavLink {
   final String label;
   final int tab;
 
-  /// Optional browse filter to seed when this link opens the Browse tab.
   final String? browseOptionId;
 
   const NetflixNavLink(this.label, this.tab, [this.browseOptionId]);
 }
 
-/// Bottom-bar entry for mobile.
 class NetflixMobileItem {
   final String label;
   final IconData icon;
@@ -45,8 +33,6 @@ class NetflixMobileItem {
   final int tab;
   final String? browseOptionId;
 
-  /// True for the Anime entry, which leaves Cinema for the `/anime` route
-  /// instead of switching tabs. Handled via [NetflixNavBar.onAnimeTap].
   final bool isAnimeLink;
 
   const NetflixMobileItem({
@@ -59,13 +45,6 @@ class NetflixMobileItem {
   });
 }
 
-/// Mobile bottom-bar entries for the Cinema shell.
-///
-/// Couple users (Khent / Clair) get the full set ending in Together.
-/// Cinema-only profiles (Breyan / Octagram) get Anime instead of Together:
-/// Together is couple-only and would only show them a locked screen, while
-/// Anime would otherwise be unreachable for them on mobile — they have no
-/// dashboard and the floating corner button is their logout.
 List<NetflixMobileItem> cinemaMobileNavItems({
   required bool isCinemaOnlyUser,
   bool showDownloads = true,
@@ -157,10 +136,6 @@ List<NetflixMobileItem> cinemaMobileNavItems({
   return allItems;
 }
 
-/// Netflix-style cinema navigation.
-///
-/// Desktop renders a transparent-to-solid top bar. Mobile renders the
-/// bottom bar used as [Scaffold.bottomNavigationBar] on narrow layouts.
 class NetflixNavBar extends StatelessWidget {
   final bool scrolled;
   final int currentIndex;
@@ -189,10 +164,6 @@ class NetflixNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Top bar removed — always render the bottom bar variant.
-    // Desktop layouts don't use this widget at all (they show the
-    // transparent catalog top bar instead); mobile/tablet layouts mount
-    // it as bottomNavigationBar.
     return _NetflixBottomNav(
       currentIndex: currentIndex,
       onAnimeTap: onAnimeTap,
@@ -229,10 +200,6 @@ class NetflixNavBar extends StatelessWidget {
   }
 }
 
-/// Transparent cinema top bar for desktop widths.
-///
-/// Primary catalog navigation follows the streaming-service model; the
-/// trailing controls are Everglow's application-level destinations.
 class NetflixCinemaTopBar extends StatelessWidget {
   final int currentIndex;
   final List<NetflixNavLink> links;
@@ -570,8 +537,6 @@ class _NetflixBottomNav extends StatelessWidget {
                 Expanded(
                   child: _MobileTab(
                     item: item,
-                    // The Anime entry leaves Cinema, so it never shows as
-                    // the active tab.
                     active: !item.isAnimeLink && item.tab == currentIndex,
                     onTap: () {
                       if (item.isAnimeLink) {

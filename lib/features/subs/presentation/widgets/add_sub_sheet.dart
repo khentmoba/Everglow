@@ -10,9 +10,6 @@ import '../../data/models/subscription.dart';
 import '../../data/services/subs_service.dart';
 import 'sub_card.dart';
 
-/// Bottom-sheet composer for adding (or editing) a subscription.
-///
-/// Name, price in pesos, renewal date, cycle, who pays — nothing else.
 class AddSubSheet extends StatefulWidget {
   final String createdBy;
   final Subscription? existing;
@@ -100,7 +97,7 @@ class _AddSubSheetState extends State<AddSubSheet> {
       } else {
         await service.add(
           Subscription(
-            id: '', // Firestore generates the id.
+            id: '',
             name: name,
             price: price,
             renewalDate: renewal,

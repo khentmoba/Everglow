@@ -37,7 +37,6 @@ class AudioService {
     }
   }
 
-  // Pre-defined SFX
   static const String pop = 'assets/audio/pop.mp3';
   static const String sparkle = 'assets/audio/sparkle.mp3';
   static const String levelUp = 'assets/audio/level_up.mp3';

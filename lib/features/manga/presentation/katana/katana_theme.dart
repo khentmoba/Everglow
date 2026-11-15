@@ -4,26 +4,23 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../data/services/katana_service.dart';
 
-/// Everglow "MangaCelestia — Sakura Noir Sanctuary" black & pink palette
-/// used across the manga/manhwa/manhua section: deep velvet-black surfaces
-/// paired with hot sakura pink (#FF2E7E) and soft sakura blush (#FF85B3).
 abstract final class KatanaColors {
-  static const Color background = Color(0xFF060408); // deepest velvet black
-  static const Color surface = Color(0xFF0E0912); // sakura noir card
-  static const Color surfaceAlt = Color(0xFF170E1D); // elevated noir surface
-  static const Color surfaceGlow = Color(0xFF211229); // soft sakura highlight
-  static const Color border = Color(0xFF2E1726); // dark sakura hairline
-  static const Color borderStrong = Color(0xFF52213B); // highlighted pink line
-  static const Color text = Color(0xFFFFF5F8); // crisp sakura-petal white
-  static const Color textMuted = Color(0xFFD9B8C7); // blush secondary text
-  static const Color textLight = Color(0xFF997586); // quiet dusty-rose text
-  static const Color accent = Color(0xFFFF2E7E); // hot sakura pink
-  static const Color accentDark = Color(0xFFC9185B); // crimson pink
-  static const Color accentSoft = Color(0xFFFF85B3); // soft sakura blush
-  static const Color link = Color(0xFFFF85B3); // sakura blush links & chips
+  static const Color background = Color(0xFF060408);
+  static const Color surface = Color(0xFF0E0912);
+  static const Color surfaceAlt = Color(0xFF170E1D);
+  static const Color surfaceGlow = Color(0xFF211229);
+  static const Color border = Color(0xFF2E1726);
+  static const Color borderStrong = Color(0xFF52213B);
+  static const Color text = Color(0xFFFFF5F8);
+  static const Color textMuted = Color(0xFFD9B8C7);
+  static const Color textLight = Color(0xFF997586);
+  static const Color accent = Color(0xFFFF2E7E);
+  static const Color accentDark = Color(0xFFC9185B);
+  static const Color accentSoft = Color(0xFFFF85B3);
+  static const Color link = Color(0xFFFF85B3);
   static const Color green = AppColors.success;
-  static const Color orange = Color(0xFFFF5C99); // hot-pink flame accent
-  static const Color headerDark = Color(0xFF09060C); // noir header base
+  static const Color orange = Color(0xFFFF5C99);
+  static const Color headerDark = Color(0xFF09060C);
 }
 
 abstract final class KatanaType {
@@ -68,7 +65,6 @@ abstract final class KatanaType {
   );
 }
 
-/// A bordered noir card used for every MangaCelestia panel.
 class KatanaCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -104,7 +100,6 @@ class KatanaCard extends StatelessWidget {
   }
 }
 
-/// Section header bar with a glowing sakura-pink accent rule.
 class KatanaSectionHeader extends StatelessWidget {
   final String title;
   final String? badge;
@@ -183,7 +178,6 @@ class KatanaSectionHeader extends StatelessWidget {
   }
 }
 
-/// Primary or outlined Sakura Noir button.
 class KatanaButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -245,7 +239,6 @@ class KatanaButton extends StatelessWidget {
   }
 }
 
-/// Pill chip used for status / genre labels.
 class KatanaChip extends StatelessWidget {
   final String label;
   final Color color;
@@ -283,8 +276,6 @@ class KatanaChip extends StatelessWidget {
   }
 }
 
-/// Network image wrapper for Manga Katana covers using [AppNetworkImage]
-/// with URL validation, auto-retry, and CanvasKit WebGL Alt-Tab safety.
 class KatanaNetworkImage extends StatelessWidget {
   final String url;
   final BoxFit fit;

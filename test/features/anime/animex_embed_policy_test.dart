@@ -4,8 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AnimeXEmbedPolicy', () {
     test('sandboxAllowed refuses MegaPlay, AniXo, and TryEmbed only', () {
-      // MegaPlay, AniXo, and TryEmbed detect the sandbox attribute and
-      // block playback.
       expect(
         AnimeXEmbedPolicy.sandboxAllowed(
           'https://megaplay.buzz/stream/ani/21/1/sub',
@@ -24,7 +22,6 @@ void main() {
         ),
         isFalse,
       );
-      // Megavid, VidCore, Rive, Fmov have no detector — they stay caged.
       expect(
         AnimeXEmbedPolicy.sandboxAllowed(
           'https://megavid.buzz/ani/21/1/sub',
@@ -49,7 +46,6 @@ void main() {
         ),
         isTrue,
       );
-      // Our own pages and anything unknown stay sandboxed too.
       expect(
         AnimeXEmbedPolicy.sandboxAllowed(
           'https://everglow-1c6db.web.app/embed.html?tmdbId=1&type=movie',
@@ -61,7 +57,6 @@ void main() {
 
     test('referrerFor sends the origin to the third-party servers', () {
       const fallback = 'no-referrer';
-      // All three reject referrer-less loads (410 / 403 / Embed Only).
       expect(
         AnimeXEmbedPolicy.referrerFor(
           'https://megaplay.buzz/stream/ani/21/1/sub',
@@ -90,7 +85,6 @@ void main() {
         ),
         'strict-origin-when-cross-origin',
       );
-      // Our own pages keep the caller policy (still no-referrer).
       expect(
         AnimeXEmbedPolicy.referrerFor(
           'https://everglow-1c6db.web.app/embed.html?tmdbId=1&type=movie',

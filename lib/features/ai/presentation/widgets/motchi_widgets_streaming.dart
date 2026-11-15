@@ -25,7 +25,6 @@ class _StreamingPlaceholder extends StatelessWidget {
   }
 }
 
-/// Three animated dots, reused by the thinking states.
 class _ThreeDots extends StatefulWidget {
   const _ThreeDots();
 
@@ -100,12 +99,6 @@ class _ThreeDotsState extends State<_ThreeDots>
   }
 }
 
-/// Motchi's avatar with a soft breathing rose halo and lively aura.
-///
-/// The one "I'm working on it" tell for the whole answering window —
-/// from the first thinking dot through every tool round to the last
-/// streamed word. Stays a still halo when the user asked for reduced
-/// motion (AppMotion.reduced).
 class _AnsweringAvatar extends StatefulWidget {
   const _AnsweringAvatar({this.size = 20});
 
@@ -152,7 +145,6 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
-        // Outer diffuse glow bloom
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -177,7 +169,6 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
             );
           },
         ),
-        // Primary halo: preserves key and radial gradient color alpha animation for test verification
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -198,7 +189,6 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
             );
           },
         ),
-        // Breathing avatar with soft shadow pulse
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -229,7 +219,6 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
   }
 }
 
-/// Blinking caret shown at the end of a live-streaming reply.
 class _StreamingCaret extends StatefulWidget {
   const _StreamingCaret();
 
@@ -296,7 +285,6 @@ class _StreamingCaretState extends State<_StreamingCaret>
   }
 }
 
-/// Trailing indicator showing Motchi is actively typing/replying at the stream tail.
 class _StreamingTailIndicator extends StatelessWidget {
   const _StreamingTailIndicator();
 
@@ -310,7 +298,6 @@ class _StreamingTailIndicator extends StatelessWidget {
   }
 }
 
-/// Three micro-dots doing a gentle wave while Motchi generates text.
 class _StreamingDotsWave extends StatefulWidget {
   const _StreamingDotsWave();
 
@@ -394,8 +381,6 @@ class _StreamingDotsWaveState extends State<_StreamingDotsWave>
   }
 }
 
-// ─── Thinking indicator ─────────────────────────────────────────
-
 class _ThinkingIndicator extends StatelessWidget {
   const _ThinkingIndicator();
 
@@ -428,8 +413,6 @@ class _ThinkingIndicator extends StatelessWidget {
     );
   }
 }
-
-// ─── Error banner ───────────────────────────────────────────────
 
 class _ErrorBanner extends StatelessWidget {
   final String? lastSentMessage;
@@ -489,8 +472,6 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-// ─── Composer input ─────────────────────────────────────────────
-
 class _ComposerInput extends StatefulWidget {
   final bool enabled;
   final GlobalKey inputKey;
@@ -504,8 +485,6 @@ class _ComposerInput extends StatefulWidget {
   final bool centered;
   final DeepThinkMode deepThinkMode;
   final ValueChanged<DeepThinkMode> onSelectDeepThink;
-  // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
-  // OFF keeps Motchi as plain chat. Defaults OFF.
   final bool canvasEnabled;
   final VoidCallback? onToggleCanvas;
 

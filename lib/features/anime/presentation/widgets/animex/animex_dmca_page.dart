@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'animex_controller.dart';
 import 'animex_tokens.dart';
 
-/// DMCA / takedown notice page for the anime section.
 class AnimeXDmcaPage extends StatelessWidget {
   final AnimeXController controller;
 

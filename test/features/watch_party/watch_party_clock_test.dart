@@ -7,7 +7,6 @@ void main() {
     test('serverNow follows the observed offset', () {
       var local = DateTime.utc(2026, 1, 1, 12);
       final clock = WatchPartyClock(now: () => local);
-      // The server timestamp is two seconds ahead of the local clock.
       clock.observe(local.add(const Duration(seconds: 2)));
       expect(clock.serverNow, local.add(const Duration(seconds: 2)));
 
@@ -19,7 +18,6 @@ void main() {
       var local = DateTime.utc(2026, 1, 1, 12);
       final clock = WatchPartyClock(now: () => local);
       clock.observe(local.add(const Duration(seconds: 3)));
-      // A slower delivery looks like a smaller offset; it must not win.
       clock.observe(local.add(const Duration(milliseconds: 500)));
       expect(clock.offset, const Duration(seconds: 3));
     });

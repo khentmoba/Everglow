@@ -4,8 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Native twin of [MotchiWebBridge]; clipboard paste is unavailable and
-/// image resizing uses Flutter's image codec instead of a browser canvas.
 class MotchiWebBridge {
   void installPasteListener(ValueChanged<String> onPasteDataUri) {}
 

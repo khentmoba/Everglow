@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-/// Posts the current pick to Discord via notifyDiscordWatch.
-/// Quiet-fails: returns false and print-logs, cinema stays usable.
 class DiscordShareService {
   DiscordShareService({required this.endpoint, http.Client? client})
       : _client = client ?? http.Client();

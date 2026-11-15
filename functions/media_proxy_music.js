@@ -3,20 +3,11 @@
 const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
 const { streamMediaBody } = require('./stream_media_body');
 
-/**
- * Last.fm artwork CDN hosts. Covers come from the `image` arrays in
- * `proxyLastfm` JSON responses (user.gettoptracks, user.getrecenttracks,
- * track.getinfo album art, ...).
- */
 const LASTFM_IMAGE_HOSTS = new Set([
   'lastfm-img.freetls.fastly.net',
   'lastfm.freetls.fastly.net',
 ]);
 
-/**
- * True when [targetUrl] is an https URL on the Last.fm artwork CDN.
- * Pure so unit tests can pin the allow-list without HTTP mocks.
- */
 function isAllowedLastfmImageUrl(targetUrl) {
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) return false;
   let parsed;
@@ -31,23 +22,6 @@ function isAllowedLastfmImageUrl(targetUrl) {
   );
 }
 
-/**
- * Proxies Last.fm album artwork so Flutter Web isn't blocked by CORS.
- * The Last.fm image CDN sends no `Access-Control-Allow-Origin` header,
- * so a direct `Image.network` fetch from the browser fails and every
- * dashboard leaderboard row falls back to the music-note tile. This
- * function fetches the bytes server-side and streams them back with
- * permissive CORS headers.
- *
- * Accepts:
- *   GET /proxyLastfmImage?url=<encoded image url>
- *
- * Mirrors the `proxyMangaImage` pattern: anonymous by design (an
- * `<img>`-style load can't send Authorization headers), restricted to
- * the Last.fm artwork hosts above, with a per-IP rate limit as the
- * abuse backstop. Artwork URLs are content-hashed and immutable, so
- * responses cache for a year.
- */
 const proxyLastfmImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -63,7 +37,6 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
     return;
   }
   if (enforceRateLimit(req, res, { endpoint: 'proxyLastfmImage', limit: 240, windowMs: 60000 })) return;
-  // Optional token: validated when present, anonymous otherwise.
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {

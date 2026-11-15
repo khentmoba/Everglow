@@ -7,21 +7,6 @@ import '../models/manga_item.dart';
 import '../models/chapter_num.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Scrapes scanlation-group websites for chapter lists and page images.
-/// Each supported site is defined as a [_ScanSite] with URL patterns
-/// and regex selectors tailored to that site's HTML structure.
-///
-/// Catalogue discovery stays with [ComickService]; this service is a
-/// fallback for titles not found on Comick / MangaDex / MangaKakalot,
-/// and a primary source for the fastest chapter releases.
-///
-/// Supported providers (in priority order):
-///   1. AsuraScans   (asurascans.com)
-///   2. ReaperScans  (reaperscans.com)
-///   3. ArcaneScans  (arcanescans.com)
-///   4. FlameScans   (flamescans.org)
-///   5. LuminousScans(luminousscans.com)
-///   6. VoidScans    (void-scans.com)
 class ScanlationService with ConnectivityAware {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyScanlation';
@@ -29,7 +14,6 @@ class ScanlationService with ConnectivityAware {
   static const String _proxyHtmlUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
 
-  // Singleton
   static final ScanlationService _instance = ScanlationService._internal();
   factory ScanlationService() => _instance;
   ScanlationService._internal();
@@ -56,22 +40,16 @@ class ScanlationService with ConnectivityAware {
     'Accept': 'text/html,application/xhtml+xml',
   };
 
-  // ── PROVIDER DEFINITIONS ──────────────────────────────────
-
   static const List<_ScanSite> _sites = [
     _ScanSite(
       name: 'AsuraScans',
       baseUrl: 'https://asurascans.com',
-      // Series page: https://asurascans.com/manga/{slug}/
       seriesPath: '/manga/',
-      // Chapter link regex — looks for <a> inside chapter list items
       chapterHrefRe:
           r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
-      // Image regex for chapter pages
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
       imgExclude: ['avatar', 'logo', 'icon', 'banner', 'header', 'discord'],
-      // Some Asura chapters use a reader API
       readerApiPath: null,
     ),
     _ScanSite(
@@ -131,15 +109,8 @@ class ScanlationService with ConnectivityAware {
     ),
   ];
 
-  // ── PUBLIC API ────────────────────────────────────────────
-
-  /// Search all scanlation sites for a series matching [title].
-  /// Returns a map of site name → page URL (slug) for sites that
-  /// have the series. Empty map means not found anywhere.
   Future<Map<String, String>> searchAll(String title) async {
     final query = title.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-    // All sites in parallel — the old sequential loop took up to
-    // 6 sites x 3 URLs x 8s when every site timed out.
     final entries = await Future.wait(
       _sites.map((site) async {
         try {
@@ -154,8 +125,6 @@ class ScanlationService with ConnectivityAware {
     return Map.fromEntries(entries.whereType<MapEntry<String, String>>());
   }
 
-  /// Fetch chapters from all scanlation sites. Returns a combined
-  /// list deduplicated by chapter number, ordered descending.
   Future<List<MangaChapter>> getChapterFeedFromAll(
     Map<String, String> siteSlugs,
   ) async {
@@ -183,13 +152,11 @@ class ScanlationService with ConnectivityAware {
     all.sort((a, b) {
       final na = chapterNumValue(a.chapter);
       final nb = chapterNumValue(b.chapter);
-      return nb.compareTo(na); // newest first
+      return nb.compareTo(na);
     });
     return all;
   }
 
-  /// Resolve page image URLs for a chapter on a specific site.
-  /// [chapterUrl] is the full URL to the chapter page.
   Future<MangaChapterPages?> getChapterPages(
     String siteName,
     String chapterUrl,
@@ -199,7 +166,6 @@ class ScanlationService with ConnectivityAware {
     try {
       final urls = await _getPageImages(site, chapterUrl);
       if (urls.isEmpty) return null;
-      // Pre-proxy all image URLs
       final proxied = urls.map(proxiedImageUrl).toList();
       return MangaChapterPages(
         chapterId: chapterUrl,
@@ -219,8 +185,6 @@ class ScanlationService with ConnectivityAware {
     }
   }
 
-  /// Resolve pages for a chapter by searching across all known
-  /// site slugs. Returns pages from the first site that responds.
   Future<MangaChapterPages?> getChapterPagesFromAll(
     Map<String, String> siteSlugs,
     String chapterNumber,
@@ -230,7 +194,6 @@ class ScanlationService with ConnectivityAware {
       final site = _findSite(entry.key);
       if (site == null) continue;
       try {
-        // Fetch chapter list to find the chapter URL
         final chapters = await _getChapters(site, entry.value);
         MangaChapter? match;
         for (final c in chapters) {
@@ -250,16 +213,11 @@ class ScanlationService with ConnectivityAware {
     return null;
   }
 
-  /// Transform a raw image URL into a CORS-safe proxied URL.
   String proxiedImageUrl(String originalUrl) {
     if (originalUrl.isEmpty) return '';
     return '$_proxyImageUrl?url=${Uri.encodeComponent(originalUrl)}';
   }
 
-  // ── INTERNAL SCRAPING ─────────────────────────────────────
-
-  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
-  /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
       '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
@@ -274,10 +232,7 @@ class ScanlationService with ConnectivityAware {
     }
   }
 
-  /// Try to find a series on a site by searching its listing.
-  /// Returns the series slug (URL path) if found.
   Future<String> _searchSite(_ScanSite site, String query) async {
-    // Try common search URL patterns
     final searchUrls = [
       '${site.baseUrl}/?s=${Uri.encodeComponent(query)}',
       '${site.baseUrl}/?search=${Uri.encodeComponent(query)}',
@@ -292,7 +247,6 @@ class ScanlationService with ConnectivityAware {
             .timeout(const Duration(seconds: 8));
         if (response.statusCode != 200) continue;
 
-        // Look for series links in search results
         final linkRe = RegExp(
           r'<a[^>]*href="(' +
               RegExp.escape(site.baseUrl) +
@@ -302,13 +256,11 @@ class ScanlationService with ConnectivityAware {
         final matches = linkRe.allMatches(response.body);
         for (final m in matches) {
           final href = m.group(1) ?? '';
-          // Filter to series paths (not chapters or other pages)
           if (href.contains(site.seriesPath) &&
               !RegExp(
                 r'chapter|ch[-_]?\d',
                 caseSensitive: false,
               ).hasMatch(href)) {
-            // Extract slug from URL
             final slug = href
                 .replaceFirst(site.baseUrl, '')
                 .replaceFirst(site.seriesPath, '')
@@ -321,14 +273,9 @@ class ScanlationService with ConnectivityAware {
       }
     }
 
-    // No match on this site. Returning a guessed slug here used to
-    // force a pointless 404 fetch per site on every open (slow), and
-    // the loose chapter regex could then scrape unrelated chapters
-    // off error pages into the list (wrong numbers).
     return '';
   }
 
-  /// Scrape a series page for its chapter list.
   Future<List<MangaChapter>> _getChapters(_ScanSite site, String slug) async {
     final url = '${site.baseUrl}${site.seriesPath}$slug/';
     final headers = await _authHeaders();
@@ -349,7 +296,6 @@ class ScanlationService with ConnectivityAware {
       final numMatch = numRe.firstMatch(href);
       final chapterNum = numMatch?.group(1) ?? '';
 
-      // Try to get chapter title from link text
       String title = '';
       final fullMatch = m.group(0) ?? '';
       final textMatch = RegExp(
@@ -376,7 +322,6 @@ class ScanlationService with ConnectivityAware {
     return chapters;
   }
 
-  /// Scrape a chapter page for image URLs.
   Future<List<String>> _getPageImages(_ScanSite site, String chapterUrl) async {
     final uri = chapterUrl.startsWith('http')
         ? Uri.parse(chapterUrl)
@@ -394,19 +339,16 @@ class ScanlationService with ConnectivityAware {
     for (final m in imgRe.allMatches(response.body)) {
       final src = (m.group(1) ?? '').trim();
       if (src.isEmpty) continue;
-      // Skip non-image URLs
       if (!RegExp(
         r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
         caseSensitive: false,
       ).hasMatch(src)) {
         continue;
       }
-      // Skip excluded patterns (logos, avatars, etc.)
       if (excludeRe.hasMatch(src)) continue;
       urls.add(src);
     }
 
-    // If no images found with the primary regex, try broader patterns
     if (urls.isEmpty) {
       final broadRe = RegExp(
         '<img[^>]*\\s+src\\s*=\\s*["\']([^"\']+)["\']',
@@ -423,7 +365,6 @@ class ScanlationService with ConnectivityAware {
         }
         if (excludeRe.hasMatch(src)) continue;
 
-        // Handle protocol-relative URLs
         String fullSrc = src;
         if (src.startsWith('//')) {
           fullSrc = 'https:$src';
@@ -434,36 +375,25 @@ class ScanlationService with ConnectivityAware {
       }
     }
 
-    // Deduplicate while preserving order
     final seen = <String>{};
     return urls.where((u) => seen.add(u)).toList();
   }
 }
 
-/// Configuration for a single scanlation site.
 class _ScanSite {
   final String name;
   final String baseUrl;
 
-  /// Path prefix for series pages (e.g. "/manga/" or "/series/").
   final String seriesPath;
 
-  /// Regex to extract chapter links from a series page.
-  /// Must capture the full chapter URL in group 1.
   final String chapterHrefRe;
 
-  /// Regex to extract the chapter number from a chapter URL.
-  /// Must capture the number in group 1.
   final String chapterNumRe;
 
-  /// Regex to extract image src URLs from a chapter page.
-  /// Must capture the URL in group 1.
   final String imgSrcRe;
 
-  /// Substrings that disqualify an image URL (logos, avatars, etc.).
   final List<String> imgExclude;
 
-  /// Optional path for a JSON reader API (e.g. /api/reader/).
   final String? readerApiPath;
 
   const _ScanSite({

@@ -1,5 +1,3 @@
-// node --test tool/service_worker_test.mjs
-// node tool/service_worker_test.mjs --browser (also runs a real Chrome SW check)
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
@@ -24,7 +22,6 @@ const mainJsPath = "main.dart.js?v=${stamp}";
 const main = document.createElement('script'); main.src = mainJsPath; document.head.append(main);`;
 
 function generateWorker(stamp) {
-  // Execute Dart in an isolated metadata-only copy; never rewrite tracked web/.
   const dir = mkdtempSync(join(tmpdir(), 'everglow-sw-test-'));
   try {
     mkdirSync(join(dir, 'tool'));
@@ -80,7 +77,7 @@ function worker(stamp = A, stores = new Map(), {onLine = false} = {}) {
   };
   vm.runInNewContext(sources.get(stamp), {
     URL, Response, caches,
-    navigator: {onLine}, // Skip unrelated activation pre-warm by default.
+    navigator: {onLine},
     self: {
       location: {origin}, clients: {async claim() {}}, skipWaiting() {},
       addEventListener: (event, handler) => { handlers[event] = handler; },
@@ -125,7 +122,6 @@ function worker(stamp = A, stores = new Map(), {onLine = false} = {}) {
       });
       const result = await response;
       await Promise.all(pending);
-      // Drain legacy fire-and-forget cache writes too.
       await new Promise((resolve) => setImmediate(resolve));
       return result;
     },
@@ -169,7 +165,7 @@ test('required loaders are network/no-store online and cached for offline boot',
 test('old worker serves a fresh deploy and keeps its bootstrap/main/chunks paired offline', async () => {
   const w = worker(A);
   await warm(w, A);
-  await warm(w, B); // Same worker, newly deployed bytes.
+  await warm(w, B);
   assert.equal(await (await w.request('/flutter_bootstrap.js?fresh=1')).text(), bootstrap(B));
   assert.equal(await (await w.request(core(B))).text(), `main:${B}`);
   const calls = w.calls.length;
@@ -193,7 +189,7 @@ test('activation preserves the previous complete shell when the new core is not 
   await warm(old, A);
   const next = worker(B, old.stores);
   next.online(B);
-  await next.request('/flutter_bootstrap.js'); // No B main/chunks yet.
+  await next.request('/flutter_bootstrap.js');
   await next.activate();
   next.offline();
   assert.equal(await (await next.request('/flutter_bootstrap.js')).text(), bootstrap(A));
@@ -342,7 +338,6 @@ test('deferred part chunks and CanvasKit listed in version.json are pre-warmed o
     return script('ok');
   });
   await w.activate();
-  // Verify warmCoreShell actually populated the caches without manual seeding:
   assert.ok(stores.has(shell(A)), 'active shell cache created');
   assert.equal(await (await w.caches.match('/main.dart.js_1.part.js?v=' + encodeURIComponent(A), {cacheName: shell(A)})).text(), 'part:/main.dart.js_1.part.js');
   assert.equal(await (await w.caches.match('/main.dart.js_2.part.js?v=' + encodeURIComponent(A), {cacheName: shell(A)})).text(), 'part:/main.dart.js_2.part.js');
@@ -350,7 +345,6 @@ test('deferred part chunks and CanvasKit listed in version.json are pre-warmed o
   assert.ok(stores.get('canvaskit-__ENGINE_REV__')?.has(canvaskitUrl + 'canvaskit.wasm'));
   assert.ok(stores.get(shell(A))?.has(origin + '/manifest.json'));
 
-  // And verify they all serve offline:
   w.offline();
   assert.equal(await (await w.request('/main.dart.js_1.part.js?v=' + encodeURIComponent(A))).text(), 'part:/main.dart.js_1.part.js');
   assert.equal(await (await w.request('/main.dart.js_2.part.js?v=' + encodeURIComponent(A))).text(), 'part:/main.dart.js_2.part.js');
@@ -366,7 +360,7 @@ test('Chrome boots paired loaders/main/deferred code with BOTH page and worker o
       const path = new URL(req.url, 'http://local').pathname;
       let body;
       let type = 'text/javascript';
-      if (path === '/sw.js') body = sources.get(A); // Old worker stays active during deploy B.
+      if (path === '/sw.js') body = sources.get(A);
       else if (path === '/flutter_bootstrap.js') body = bootstrap(build);
       else if (path === '/main.dart.js') body = `window.__mainBuild = '${build}';
         const part = document.createElement('script');
@@ -382,7 +376,6 @@ test('Chrome boots paired loaders/main/deferred code with BOTH page and worker o
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const url = `http://127.0.0.1:${server.address().port}/`;
-    // Ask the OS for a free debugger port; only our throwaway Chrome is driven.
     const portServer = createServer();
     await new Promise((resolve) => portServer.listen(0, '127.0.0.1', resolve));
     const port = portServer.address().port;
@@ -406,9 +399,9 @@ test('Chrome boots paired loaders/main/deferred code with BOTH page and worker o
       };
       await visit(A);
       await wait('!!navigator.serviceWorker.controller');
-      await visit(A); // First controlled visit stores bootstrap and deferred bytes.
+      await visit(A);
       build = B;
-      await visit(B); // No stale HTML/bootstrap/main after deploy, despite old worker.
+      await visit(B);
       const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
       const target = targets.find((t) => t.type === 'service_worker' && t.url === url + 'sw.js');
       assert.ok(target, 'attach to the actual active worker, not just the page');
@@ -424,7 +417,7 @@ test('Chrome boots paired loaders/main/deferred code with BOTH page and worker o
         assert.equal(offline.error, undefined);
       }
       server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve)); // No network path even if emulation leaks.
+      await new Promise((resolve) => server.close(resolve));
       await visit(B);
       const state = await cdp.eval('({bootstrap:window.__EVERGLOW_BUILD__,main:window.__mainBuild,part:window.__boot,controlled:!!navigator.serviceWorker.controller})');
       assert.deepEqual(state, {bootstrap: B, main: B, part: B, controlled: true});
@@ -451,7 +444,7 @@ test('incomplete active build must serve the icons of its selected offline boots
   await old.request(icon);
   const next = worker(B, old.stores);
   next.online(B);
-  await next.request('/flutter_bootstrap.js'); // B main not yet available.
+  await next.request('/flutter_bootstrap.js');
   await next.activate();
   next.offline();
   assert.equal(await (await next.request('/flutter_bootstrap.js')).text(), bootstrap(A));
@@ -466,7 +459,7 @@ test('old active worker cannot overwrite the previous offline font before new ma
   w.network(async () => new Response('icons:A'));
   await w.request(icon);
   w.online(B);
-  await w.request('/flutter_bootstrap.js'); // B core fetch still incomplete.
+  await w.request('/flutter_bootstrap.js');
   w.network(async () => new Response('icons:B'));
   await w.request(icon);
   w.offline();

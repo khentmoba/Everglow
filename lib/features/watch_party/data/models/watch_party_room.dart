@@ -1,148 +1,62 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// One watch party room shared between Khent and Clair. A single document
-/// in `watch_party_rooms/{roomId}` mirrors every state change: who's
-/// hosting, what they're watching, and where in the playback each user
-/// is right now. The other client subscribes via
-/// [WatchPartyService.getRoomStream] and reacts in real time.
 class WatchPartyRoom {
-  /// The Firestore document id. Older rooms use the deterministic
-  /// sorted-uid join; newer rooms use an auto id so the couple can keep
-  /// several named rooms ("Movie Night", "Anime Night") side by side.
   final String id;
 
-  /// Human name of the room. Shown in the room picker. Empty on rooms
-  /// created before rooms had names; the UI falls back to "Our room".
   final String name;
 
-  /// Firebase Auth uid of whoever started the party. Useful for "host"
-  /// UI affordances (the host gets the Play button, the partner gets
-  /// a "Join" affordance).
   final String hostUid;
 
-  /// Username of the host (`khentsgdz` or `clairjassen`). Used purely for
-  /// display in the partner avatar and labels.
   final String hostName;
 
-  /// The partner's uid. Persisted so the joiner doesn't need to know
-  /// their own uid in the document — we just read `hostUid` and derive
-  /// the partner.
   final String partnerUid;
 
-  /// Username of the partner. Display only.
   final String partnerName;
 
-  // ─── Media identity ────────────────────────────────────────────────
-  // The three ids we need to replay the right embed: a TMDB id (for
-  // movies / non-anime TV), a MAL id (for anime routed through Jikan),
-  // and an `isAnime` flag so the player knows which URL builder to call.
-
-  /// 'movie' or 'tv'. Series episode playback uses 'tv' + the
-  /// `season` / `episode` fields below.
   final String mediaType;
 
-  /// TMDB id. For anime this is empty (we route through the MAL id)
-  /// unless the host opened an anime-sourced item, in which case the
-  /// player will resolve TMDB via ani.zip.
   final int tmdbId;
 
-  /// MAL id for anime items; null for non-anime.
   final int? malId;
 
-  /// Anime flag — drives the URL builder and the embed provider pick.
   final bool isAnime;
 
-  /// TV-only. Null for movies.
   final int? season;
   final int? episode;
 
-  /// Display data (poster, title) so the partner's join screen can
-  /// show a "Khent invited you to watch: <title>" card before they
-  /// press Join.
   final String title;
   final String posterPath;
 
-  // ── Self-hosted playback server ────────────────────────────────────
-  // Mirrors the AniChan server model: the room carries the active
-  // server's identity and normalized stream URL so the partner can
-  // replay the exact same host without needing their own config.
-
-  /// 'hls' | 'embed' | null. Null means the legacy embed-provider list.
   final String? serverType;
 
-  /// Display label of the active server (e.g. "★ Home server").
   final String? serverName;
 
-  /// Host identity reported for the active server.
   final String? serverHost;
 
-  /// Normalized stream URL (m3u8 for hls, page URL for embed).
   final String? streamUrl;
 
-  /// Optional subtitle track for the active HLS server.
   final String? subtitleUrl;
 
-  /// Whether the selected subtitle track is visible. Synced so one tap
-  /// on CC turns captions on or off for both of you.
   final bool captionsOn;
 
-  /// Total episodes in the series, when the picker knew it. Lets the
-  /// in-party episode picker stop at the real last episode instead of
-  /// guessing.
   final int? episodeCount;
 
-  /// Whether the stream should be routed through `proxyWatchStream`.
   final bool proxyEnabled;
 
-  // ─── Playback state ────────────────────────────────────────────────
-  // This is the heart of the real-time sync. Every time the host (or
-  // the partner) changes state, we rewrite this document with the new
-  // values. The other client listens to the snapshot and reacts.
-
-  /// 'playing' | 'paused' | 'buffering'. Drives the sync overlay
-  /// ("Synced" vs "Paused by Khent" vs "Syncing to 0:23...").
   final String state;
 
-  /// Estimated current playback position in seconds. Because the
-  /// third-party iframe doesn't expose its timeline, both clients
-  /// keep an internal clock and reconcile whenever one of them writes
-  /// a new value here.
   final double currentTime;
 
-  /// Server time at which [currentTime] was true. This is the clock the
-  /// couple shares: while [state] is `playing`, both clients add the
-  /// elapsed server time to [currentTime]. Nothing depends on the
-  /// host's browser ticking a heartbeat, so neither side runs ahead.
-  /// Null on rooms written before this field existed; those fall back
-  /// to [updatedAt].
   final DateTime? positionAt;
 
-  /// Server timestamp of the last state change. The other client
-  /// uses `DateTime.now().difference(updatedAt)` to decide whether a
-  /// received update is fresh or stale (e.g. host closed the tab 10
-  /// minutes ago and the state is no longer trustworthy).
   final DateTime updatedAt;
 
-  /// Uid of the user who made the last state change. Used so we don't
-  /// react to our own writes (which would otherwise cause an infinite
-  /// reload loop).
   final String updatedBy;
 
-  /// Uid of whoever sent the latest heartbeat, or null if none yet.
-  /// Heartbeats refresh [currentTime] + [positionAt] while playing and
-  /// always refresh [updatedAt]; they never touch [state] or [updatedBy],
-  /// so a tick can't undo a pause that the other person just made.
   final String? beatBy;
 
-  // ─── Lifecycle ─────────────────────────────────────────────────────
-
-  /// When the room was created. Used to age out stale rooms and to
-  /// show "Started 5 min ago" in the join card.
   final DateTime createdAt;
 
-  /// True while the party is live. Set to false when either user taps
-  /// "End Party" or the host leaves; the partner's listener sees the
-  /// flip and bounces them back to the cinema screen.
   final bool active;
 
   const WatchPartyRoom({
@@ -178,45 +92,28 @@ class WatchPartyRoom {
     required this.active,
   });
 
-  /// True when the room has a title to play. A freshly created room is
-  /// empty until one of you picks something.
   bool get hasMedia => tmdbId > 0 || title.isNotEmpty;
 
-  /// True when the room is a series, so the episode picker belongs on
-  /// screen. Anime films and cinema movies answer false.
   bool get isSeries => mediaType == 'tv';
 
   bool get isHost =>
-      updatedBy.isNotEmpty; // not used as a getter; see isUserHost helper
+      updatedBy.isNotEmpty;
   bool get isPlaying => state == 'playing';
   bool get isPaused => state == 'paused';
   bool get isBuffering => state == 'buffering';
 
-  /// True while the party is genuinely live: flagged active AND the
-  /// heartbeat is fresh. The party screen ticks `updatedAt` every 5s,
-  /// so anything older than [staleAfter] means both clients are gone
-  /// (closed tab, crash) and the room is a leftover. UIs showing
-  /// resume affordances should use this instead of [active] so a dead
-  /// room is never offered for rejoin.
   bool isLive({Duration staleAfter = const Duration(minutes: 15)}) =>
       active && DateTime.now().difference(updatedAt) < staleAfter;
 
-  /// The position this room would be at if the server clock read
-  /// [serverNow]. While playing, every client adds the same elapsed
-  /// server time to the same anchor, so neither side is the source of
-  /// truth and neither side drifts ahead of the other.
   double livePositionAt(DateTime serverNow) {
     if (state != 'playing') return currentTime;
     final anchor = positionAt ?? updatedAt;
     final elapsed = serverNow.difference(anchor);
     if (elapsed <= Duration.zero) return currentTime;
-    // A live heartbeat is at most ~5s old. Anything older means the tab
-    // closed mid-film; extrapolating would skip the idle time.
     if (elapsed > const Duration(seconds: 30)) return currentTime;
     return currentTime + elapsed.inMilliseconds / 1000.0;
   }
 
-  /// Pretty "0:23" / "1:02:45" rendering for the sync overlay.
   String get formattedCurrentTime =>
       _formatDuration(Duration(milliseconds: (currentTime * 1000).round()));
 
@@ -230,9 +127,6 @@ class WatchPartyRoom {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  /// Build the deterministic room id from two uids. Sorting first
-  /// means Khent and Clair always compute the same string regardless
-  /// of which one of them opened the sheet first.
   static String buildRoomId(String uidA, String uidB) {
     final sorted = [uidA, uidB]..sort();
     return '${sorted[0]}_${sorted[1]}';
@@ -367,9 +261,6 @@ class WatchPartyRoom {
     );
   }
 
-  /// Replace the room's title/episode in one step. Unlike [copyWith],
-  /// nullable fields are taken literally, so switching from an anime
-  /// series to a movie really clears the old MAL id and episode.
   WatchPartyRoom copyWithMedia({
     required String mediaType,
     required int tmdbId,
@@ -421,8 +312,6 @@ class WatchPartyRoom {
     );
   }
 
-  /// Copy only the caption choice. Server fields are passed through
-  /// unchanged, so tapping CC never tears down the HLS player.
   WatchPartyRoom copyWithCaptions({
     String? subtitleUrl,
     bool? captionsOn,
@@ -461,8 +350,6 @@ class WatchPartyRoom {
     );
   }
 
-  /// Copy with a new active server. Passing null fields clears the
-  /// server selection and returns to the default embed providers.
   WatchPartyRoom copyWithServer({
     String? serverType,
     String? serverName,
@@ -518,8 +405,6 @@ class WatchPartyRoom {
     return null;
   }
 
-  /// Parses a dynamic value into an int, handling both numeric and string
-  /// Firestore types (e.g. a tmdbId stored as a String).
   static int? _parseInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -528,16 +413,10 @@ class WatchPartyRoom {
   }
 }
 
-/// Tags an incoming room snapshot with a stable id so widgets can
-/// detect "new snapshot" vs "same snapshot" and avoid rebuilding the
-/// iframe on every tick when nothing has actually changed.
 class WatchPartyUpdate {
   final WatchPartyRoom room;
   final DateTime receivedAt;
 
-  /// True if the last state change came from us. WatchPartyScreen
-  /// uses this to ignore our own writes (otherwise our local play
-  /// press would re-load our own iframe, killing playback).
   final bool isLocal;
 
   const WatchPartyUpdate({

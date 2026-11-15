@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-/// In-memory and file-based offline storage for native / test environments.
 class OfflineMediaStorage {
   OfflineMediaStorage._();
   static final OfflineMediaStorage instance = OfflineMediaStorage._();

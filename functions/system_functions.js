@@ -1,23 +1,10 @@
 'use strict';
 
-// Everglow Cloud Functions — system group.
-// Holds liveness + presence TTL sweeper so index.js stays a thin
-// composition root. Export names match the old index.js surface.
-
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { APP_VERSION, getAdmin, getDb, enforceRateLimit, cappedHttps } = require('./common.js');
 const { STALE_PRESENCE_MS, isStalePresence } = require('./system_core.js');
 
-/**
- * Liveness + dependency check for uptime monitoring.
- *
- * Accepts:
- *   GET /api/health
- *
- * Public by design: it only reveals service identity and Firestore
- * reachability, never user data.
- */
 const health = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -32,8 +19,6 @@ const health = cappedHttps(10, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  // Public by design (uptime probes), but each hit reads Firestore —
-  // cap it so a bot loop can't bill us.
   if (enforceRateLimit(req, res, { endpoint: 'health', limit: 60, windowMs: 60000 })) return;
 
   const checks = { firestore: 'pending' };
@@ -57,13 +42,6 @@ const health = cappedHttps(10, async (req, res) => {
   });
 });
 
-/**
- * Presence TTL sweeper.
- *
- * Clients heartbeat every 60 seconds but a closed tab can leave
- * `isOnline: true` forever. This scheduled job marks stale online
- * presence documents offline so the partner UI never shows a ghost.
- */
 const sweepStalePresence = onSchedule({
   schedule: 'every 10 minutes',
   timeZone: 'UTC',
@@ -88,7 +66,6 @@ const sweepStalePresence = onSchedule({
       updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
       sweptAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
-    // also close any active presence_sessions dangling for this uid
     try {
       const sessSnap = await db.collection('presence_sessions')
         .where('uid', '==', doc.id)

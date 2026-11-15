@@ -3,11 +3,6 @@ import 'package:flutter/material.dart';
 
 import 'embed_webview.dart';
 
-/// Native trailer surface for the YouTube trailer player.
-///
-/// Android can't host the iframe used by the web player, so the same YouTube
-/// embed runs inside an in-app WebView. Trailer taps no longer bounce out to
-/// the browser.
 class TrailerPlayer extends StatefulWidget {
   final String videoKey;
   final bool muted;

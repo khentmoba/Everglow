@@ -3,11 +3,6 @@ import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../models/book_search_result.dart';
 
-/// Searches the Internet Archive's public text collection via the
-/// `advancedsearch` JSON endpoint and resolves per-item download and
-/// read URLs from the item metadata API. Only public-domain items
-/// are surfaced (their files are directly downloadable), which keeps
-/// the catalog legal while mirroring WeLib's breadth.
 class InternetArchiveService {
   static final InternetArchiveService _instance =
       InternetArchiveService._internal();
@@ -16,9 +11,6 @@ class InternetArchiveService {
 
   final CatalogProxyClient _proxy = CatalogProxyClient();
 
-  // NOTE: search + metadata JSON go through proxyCatalog (see search()
-  // and fetchMetadata()); these bases only build download links and
-  // cover <img> URLs, which stay direct by design.
   static const String _downloadBase = 'https://archive.org/download';
   static const String _imgBase = 'https://archive.org/services/img';
 
@@ -41,8 +33,6 @@ class InternetArchiveService {
     final langClause = (language != null && language.isNotEmpty)
         ? ' AND language:($language)'
         : '';
-    // Trimmed so the proxied query string always fits the proxy's
-    // 300-char upstream-query budget.
     final q = query.trim().length > 100
         ? query.trim().substring(0, 100)
         : query.trim();

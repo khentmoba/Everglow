@@ -36,8 +36,6 @@ class VoiceChatOverlay extends StatelessWidget {
                 valueListenable: service.hasRemoteAudio,
                 builder: (_, hasAudio, _) {
                   if (!hasAudio) return const SizedBox.shrink();
-                  // Keep the renderer mounted so browsers route the remote
-                  // track to the user's speakers without showing video UI.
                   return IgnorePointer(
                     child: SizedBox(
                       width: 1,

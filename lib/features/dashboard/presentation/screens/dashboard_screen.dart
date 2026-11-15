@@ -81,9 +81,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
   String? _lastGardenUid;
-  // First-screen load veil: shown strictly after passcode entry for
-  // Khent or Clair at the gateway door (see DashboardLoadVeil).
-  // Initial site open, reloads, and returning sessions show no veil.
   final DashboardLoadTracker _loadTracker = DashboardLoadTracker();
   bool _showLoadVeil = false;
   bool _authMarked = false;
@@ -101,7 +98,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (ctx != null) {
       final viewport = Scrollable.of(ctx).position.viewportDimension;
       final topInset = MediaQuery.paddingOf(context).top;
-      // Keep zone jumps at their previous landing position below the controls.
       final alignment = viewport > 0
           ? (0.05 + 0.95 * topInset / viewport).clamp(0.05, 1.0).toDouble()
           : 0.05;
@@ -120,8 +116,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     WidgetsBinding.instance.addObserver(this);
     _lifecycle.install(_setOfflineFromHeartbeat);
     _loadTracker.addListener(_onLoadProgress);
-    // The 1% incremental load veil only appears if requested by a fresh
-    // passcode login on the gateway door.
     final shouldShowVeil = DashboardLoadVeil.consumePasscodeLoaderRequest();
     if (shouldShowVeil) {
       _showLoadVeil = true;
@@ -135,30 +129,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     Future.microtask(() {
       if (mounted) {
         final authService = context.read<AuthService>();
-        // Session facts for the console: pairs every permission-denied
-        // shelf report with the UID, guest flag, and user-doc sync state
-        // so the cause is readable without opening the Firebase console.
         Logger.i('[AuthDiag] ${authService.diagLine}');
-        // Auth session is the first load signal (async context: marking
-        // directly is safe here).
         if (authService.isReady) {
           _authMarked = true;
           _loadTracker.mark(DashboardLoadSignal.auth);
         }
-        // Garden sync rides along with _syncPresenceHeartbeat below so it
-        // retries while the UID is unavailable instead of running once.
 
-        // These Firestore reads need a signed-in session. Guarding them
-        // prevents permission-denied errors when the dashboard is opened
-        // as a deep link before the gateway has authenticated the user.
-        // Date ideas ride post-first-frame: the card shows one random
-        // idea on tap, so it must not contend with the ~25 preview
-        // streams attaching on the critical path.
         if (authService.isReady) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            // Stagger one-off catalog fetches so they don't contend with
-            // critical-path dashboard stream attachments on cold start.
             Future.delayed(const Duration(milliseconds: 600), () {
               if (!mounted) return;
               context.read<GuardianService>().initialize().catchError((Object e) {
@@ -167,9 +146,6 @@ class _DashboardScreenState extends State<DashboardScreen>
             });
             Future.delayed(const Duration(milliseconds: 900), () {
               if (!mounted) return;
-              // Each media section's code chunk is the one thing between her
-              // tap and the screen. Fetch them one at a time while she is
-              // still reading the dashboard, Cinema first.
               unawaited(() async {
                 await warmCinemaLibrary();
                 await warmAnimeLibrary();
@@ -273,7 +249,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _onLoadProgress() {
-    // Signals continue to report readiness for cards underneath.
   }
 
   void _dismissLoadVeil() {
@@ -284,18 +259,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  /// Starts the DailyBloom garden stream for [uid]. Runs inside the heartbeat
-  /// retry loop so a cold start (UID not restored yet on the first tick)
-  /// still picks up the garden a moment later instead of leaving DailyBloom
-  /// permanently empty. The visit is recorded once per UID per session.
   void _syncGarden(String uid) {
     if (!mounted) return;
     final garden = context.read<GardenProvider>();
     garden.updateUserId(uid);
     if (_lastGardenUid != uid) {
       _lastGardenUid = uid;
-      // Record visit after the initial stream attachments have settled
-      // so the write and XP transaction don't contend with cold-start reads.
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted && _lastGardenUid == uid) {
           garden.recordInteraction();
@@ -312,8 +281,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  /// Distilled: hero sections keep timed entrance, zone content
-  /// fades quickly via intersection (DeferredSection).
   Widget _animatedSliver(
     Widget child, {
     int delayMs = 900,
@@ -323,8 +290,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     bool hero = false,
   }) {
     if (child is DashboardPair) {
-      // Each stacked phone card reserves its own height and loads independently.
-      // On tablets the same pair still lays out side by side.
       return SliverToBoxAdapter(
         child: DashboardPair(
           left: DeferredSection(
@@ -342,7 +307,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       );
     }
-    // Product motion: hero gets single FadeInDown, zone content defers via DeferredSection only (no per-sliver stagger)
     final Widget animated;
     if (!widget.animate || !hero) {
       animated = child;
@@ -366,9 +330,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  /// Tablet+ pair sliver: [left] and [right] sit side by side, each
-  /// keeping its own [DeferredSection] stagger so heavy cards never
-  /// build in the same frame. Phone keeps the stacked slivers instead.
   Widget _animatedSliverPair({
     required Widget left,
     required Widget right,
@@ -409,9 +370,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final isReady = context.select<AuthService, bool>((a) => a.isReady);
-    // Auth session ready after mount (e.g. deep link before the gateway
-    // finished): the microtask in initState may have run too early, so
-    // catch it here post-frame — never notify during build itself.
     if (isReady && !_authMarked) {
       _authMarked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -481,12 +439,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               showPetals: false,
             ),
           ),
-          // Ambient dusk-bloom layer (dashboard only, pauses when scrolled off).
           Positioned.fill(
             child: DashboardAmbience(scrollController: _scrollController),
           ),
-          // Content can scroll behind the clock; fixed controls stay safe.
-          // Keep bottom and side protection unchanged.
           SafeArea(
             top: false,
             child: Stack(
@@ -496,7 +451,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                   constraints: BoxConstraints(maxWidth: contentMaxWidth),
                   child: CustomScrollView(
                     controller: _scrollController,
-                    // Lay out phone placeholders far enough ahead for preloading.
                     scrollCacheExtent: ScrollCacheExtent.pixels(
                       AppBreakpoint.isMobile(context) ? 500 : 250,
                     ),
@@ -505,13 +459,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
                         sliver: SliverMainAxisGroup(
                           slivers: [
-                      // Offline remember-me: saved copy with a quiet banner.
                       const _OfflineBannerSliver(),
-                      // Header. The top padding reserves the pinned
-                      // top-action row (see DashboardOverlays): on phones
-                      // the anniversary pill is wider than the gap between
-                      // the floating buttons, so it has to start below
-                      // them instead of scrolling behind them.
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(AppSpacing.pageH(context), kTopActionsReserve, AppSpacing.pageH(context), 24),
@@ -528,7 +476,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                       ),
 
-                      // XP Progress Bar
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -543,7 +490,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                       ),
 
-                      // Quick access rail
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
@@ -560,7 +506,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                       ),
 
-                      // Anniversary Metrics Grid
                       AnniversaryMetrics(animate: widget.animate),
 
                       SliverToBoxAdapter(
@@ -572,7 +517,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                       const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-                      // ── ZONE: TODAY — what is alive today ──
                       SliverToBoxAdapter(
                         child: SizedBox(key: _sectionKeys['zone-today'], height: 0),
                       ),
@@ -612,11 +556,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         deferMs: 240,
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                      // Today/Together staggers stay ~120ms apart: on the
-                      // single-threaded web renderer, overlapping first
-                      // builds + stream attaches + image decodes read as one
-                      // long freeze. All still below the first viewport, so
-                      // nothing Clair sees arrives later.
                       _animatedSliver(
                         const DailyBloom(),
                         delayMs: 460,
@@ -624,7 +563,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         deferMs: 360,
                       ),
 
-                      // ── ZONE: TOGETHER — gentle, intimate ──
                       SliverToBoxAdapter(
                         child: SizedBox(key: _sectionKeys['zone-together'], height: 0),
                       ),
@@ -639,8 +577,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         delayMs: 480,
                         placeholderHeight: 68,
                       ),
-                      // Together goes two-column on tablet+: jar + timeline
-                      // side by side, each keeping its own defer stagger.
                       if (AppBreakpoint.isMobile(context)) ...[
                         _animatedSliver(
                           const StarlightJarWidget(),
@@ -665,7 +601,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                           rightDeferMs: 600,
                         ),
 
-                      // ── ZONE: OUR WORLD — places & keepsakes ──
                       SliverToBoxAdapter(
                         child: SizedBox(key: _sectionKeys['zone-world'], height: 0),
                       ),
@@ -697,7 +632,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         deferMs: 380,
                       ),
 
-                      // ── ZONE: PLAY — sound, screen & games ──
                       SliverToBoxAdapter(
                         child: SizedBox(key: _sectionKeys['zone-play'], height: 0),
                       ),
@@ -812,10 +746,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
 
-              // Soft ember trail that follows the mouse.
               const Positioned.fill(child: DashboardCursorGlow()),
 
-              // Floating overlays remain below the system icons.
               Padding(
                 padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
                 child: const DashboardOverlays(),
@@ -823,8 +755,6 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ),
-          // First-screen load veil: 1% incremental progress after passcode
-          // entry (see DashboardLoadVeil). Fades at 100% or on Skip.
           DashboardLoadVeil(
             visible: _showLoadVeil,
             onSkip: _dismissLoadVeil,
@@ -838,11 +768,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
 }
 
-/// Slim offline banner for remember-me sessions.
-///
-/// Shows only when the gate unlocked from the remembered user while the
-/// server was unreachable AND the device is still offline — it hides
-/// itself on reconnect, when live data takes over again.
 class _OfflineBannerSliver extends StatelessWidget {
   const _OfflineBannerSliver();
 

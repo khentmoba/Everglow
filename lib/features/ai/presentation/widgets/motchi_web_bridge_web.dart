@@ -7,16 +7,6 @@ import 'package:web/web.dart' as web;
 
 import '../../../../core/utils/logger.dart';
 
-/// Web-specific helpers used by the Motchi screen.
-///
-/// Clipboard paste and canvas-based image resizing only exist in the
-/// browser; the native twin keeps the same surface as safe no-ops /
-/// codec-based resizing.
-///
-/// Uses `package:web` + `dart:js_interop` rather than the legacy `dart:html`
-/// and `dart:js` libraries so this file also compiles for the WebAssembly
-/// renderer, where both are unavailable. Behaviour is unchanged: the same
-/// browser APIs are called with the same arguments.
 class MotchiWebBridge {
   web.EventListener? _pasteListener;
   web.EventListener? _voiceVisibilityListener;
@@ -51,7 +41,6 @@ class MotchiWebBridge {
       if (ctor == null) return;
       final context = (ctor as JSFunction).callAsConstructorVarArgs<JSObject>();
       _audioContext = context;
-      // Resume in the tap, before awaiting microphone permission on Safari.
       _audioAction(context, 'resume');
       final audioConstraints = <String, Object>{
         'echoCancellation': true,
@@ -85,7 +74,6 @@ class MotchiWebBridge {
       analyser['fftSize'] = 256.toJS;
       source.callMethodVarArgs('connect'.toJS, [analyser]);
       final samples = Uint8List(256);
-      // Only measure locally; never record, upload, or connect to speakers.
       _meterTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
         analyser.callMethodVarArgs('getByteTimeDomainData'.toJS, [
           samples.toJS,
@@ -237,9 +225,6 @@ class MotchiWebBridge {
   }
 
   bool get isSpeechSupported {
-    // Deliberately a value check, not `has()`. A page can define these globals
-    // and set them to null to mean "unsupported", which `has()` would read as
-    // supported. This matches the previous `js.context[...] != null` behaviour.
     if (globalContext['webkitSpeechRecognition'] != null) return true;
     if (globalContext['SpeechRecognition'] != null) return true;
     return false;
@@ -275,8 +260,6 @@ class MotchiWebBridge {
     rec['onresult'] = ((JSAny? event) {
       if (!identical(_recognition, rec)) return;
       try {
-        // Keep the latest full result list: interim words can be revised, and
-        // mobile browsers may end listening without sending a final result.
         final browserEvent = event as JSObject;
         final results = browserEvent.getProperty<JSObject>('results'.toJS);
         final words = <String>[];
@@ -309,7 +292,6 @@ class MotchiWebBridge {
     rec['onend'] = ((JSAny? _) {
       if (identical(_recognition, rec)) _finishSpeech(_speechTranscript);
     }).toJS;
-    // Start directly in the mic tap so Safari retains user activation.
     try {
       rec.callMethodVarArgs('start'.toJS);
       if (_speech != null) {
@@ -324,7 +306,6 @@ class MotchiWebBridge {
     return pending.future;
   }
 
-  /// Draws image bytes onto a canvas and returns a compact data URI.
   Future<String> resizeImageToDataUri(
     Uint8List bytes, {
     int maxDim = 1280,
@@ -337,8 +318,6 @@ class MotchiWebBridge {
       img.addEventListener(
         'load',
         ((web.Event _) {
-          // A JS callback cannot be an async function (its Future return type
-          // has no JS equivalent), so the async work is detached here.
           unawaited(() async {
           try {
             final scale = math.min(

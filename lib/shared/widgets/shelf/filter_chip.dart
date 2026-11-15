@@ -3,25 +3,15 @@ import '../../../../core/system/tv_mode.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// A shareable filter chip with animated selection state, hover/touch
-/// feedback, and a tinted icon + label.
-///
-/// Extracted from the anime screen so it can be reused on the cinema
-/// Browse tab or any other filter-picker UI across the app.
 class FilterChip extends StatefulWidget {
-  /// Icon shown beside the label.
   final IconData icon;
 
-  /// Display label.
   final String label;
 
-  /// Tint colour for the selected + hover states.
   final Color color;
 
-  /// Whether this chip is currently the active filter.
   final bool selected;
 
-  /// Called when the user taps the chip.
   final VoidCallback onTap;
 
   const FilterChip({

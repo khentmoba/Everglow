@@ -4,9 +4,6 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_spacing.dart';
 import 'everglow_icon_button.dart';
 
-/// Slim custom app bar — back button + title + actions.
-///
-/// Replaces bare `IconButton`/`GestureDetector` headers and `AppBar`.
 class EverglowAppBar extends StatelessWidget {
   final String? title;
   final Widget? titleWidget;
@@ -38,13 +35,11 @@ class EverglowAppBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Back button
             if (showBack)
               EverglowIconButton.back(
                 onPressed: onBackPressed ?? () => Navigator.maybePop(context),
               ),
 
-            // Title
             if (title != null || titleWidget != null) ...[
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -59,7 +54,6 @@ class EverglowAppBar extends StatelessWidget {
             ] else
               const Spacer(),
 
-            // Actions
             ...actions.map(
               (a) => Padding(
                 padding: const EdgeInsets.only(left: AppSpacing.sm),

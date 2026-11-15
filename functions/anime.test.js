@@ -105,15 +105,11 @@ test('hlsPlayerHtml recovers instead of spinning forever', () => {
     title: 'Ep 1',
     tracks: [],
   });
-  // Starts playback once the manifest is ready (phones block silent autoplay).
   assert.ok(html.includes('MANIFEST_PARSED'));
-  // Transient failures retry; repeated fatal ones surface a card + retry.
   assert.ok(html.includes('recoverMediaError'));
   assert.ok(html.includes('startLoad'));
   assert.ok(html.includes('location.reload'));
-  // Unrecoverable stalls tell the app to advance to the next server.
   assert.ok(html.includes('animex-content-error'));
-  // The in-player card must never trip the dead-server probe.
   assert.ok(!html.includes(NO_SOURCE_MARKER));
 });
 
@@ -123,10 +119,6 @@ test('hlsPlayerHtml hidden overlays stay hidden', () => {
     title: 'Ep 1',
     tracks: [],
   });
-  // Regression: author-origin `.ov{display:flex}` beats the UA
-  // stylesheet's `[hidden]{display:none}`, so without an explicit rule
-  // the tap-to-play button AND the "stalled" card paint over the video
-  // from the first frame on every episode.
   assert.ok(html.includes('.ov[hidden]{display:none'));
 });
 
@@ -143,9 +135,6 @@ test('hlsPlayerHtml inline script parses', () => {
   for (const code of blocks) new vm.Script(code);
 });
 
-/** Minimal DOM + Hls stubs so the player script can run inside a vm.
- *  Elements need style/hidden/addEventListener; the video also needs
- *  src/play for the native-HLS fallback branch. */
 function playerScriptContext(calls, { search = '', native = false, hls = true } = {}) {
   const element = () => ({
     style: {},
@@ -225,9 +214,6 @@ test('hlsPlayerHtml inline script actually runs and starts the stream', () => {
   const calls = { loadSource: [], attachMedia: [], handlers: {} };
   const context = playerScriptContext(calls);
   vm.createContext(context);
-  // Regression: 94c57427 shipped `(function(){...});` — a script that
-  // parses cleanly but is never invoked, so the player spun forever.
-  // Executing the script must actually start the stream.
   new vm.Script(code, { filename: 'player.js' }).runInContext(context);
   assert.deepEqual(calls.loadSource, ['https://x/y.m3u8']);
   assert.equal(calls.attachMedia.length, 1);
@@ -248,7 +234,6 @@ function runPlayer(options = {}) {
   };
 }
 
-/** Delivers a player-state message the way the app frame does. */
 function sendState(window, state) {
   window.dispatch('message', {
     source: window.parent,
@@ -436,8 +421,6 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
     assert.ok(seen.includes('https://cdn/master.m3u8'));
     assert.ok(seen.includes('https://cdn/v.m3u8'));
     assert.ok(seen.includes('https://cdn/s0.ts'));
-    // Server-side verification sends the Referer the CDN expects; it never
-    // needs CORS headers because the browser streams via proxyMegavidHls.
     assert.ok(
       referers.length > 0 &&
         referers.every((r) => r === 'https://megavid.buzz/'),
@@ -609,8 +592,6 @@ test('isMegavidHost only allows trusted Megavid hosts', () => {
   assert.equal(isMegavidHost('megavid.buzz'), true);
   assert.equal(isMegavidHost('a.megavid.buzz'), true);
   assert.equal(isMegavidHost('MEGAVID.buzz'), true);
-  // Segments stream from Megavid's CDN, not its own domain — the proxy
-  // and playlist rewriter must accept it or every episode stalls on CORS.
   assert.equal(isMegavidHost('cdn.api-webs.com'), true);
   assert.equal(isMegavidHost('cdnx.aniwatchtv.site'), true);
   assert.equal(isMegavidHost('aniwatchtv.site'), false);
@@ -623,10 +604,6 @@ test('isMegavidHost only allows trusted Megavid hosts', () => {
 });
 
 test('isMegavidHost allows the rotating megavid.se CDN apex', () => {
-  // Regression: in late October 2026 Megavid moved its CDN to megavid.se
-  // (s-90.megavid.se). A host left out of the allowlist is refused by
-  // proxyMegavidHls with "Host not allowed", so every episode dies before
-  // a single byte streams.
   assert.equal(isMegavidHost('s-90.megavid.se'), true);
   assert.equal(isMegavidHost('s-91.megavid.se'), true);
   assert.equal(isMegavidHost('megavid.se'), true);
@@ -636,14 +613,10 @@ test('isMegavidHost allows the rotating megavid.se CDN apex', () => {
 });
 
 test('megavidHeaders sends the origin the CDN demands', () => {
-  // Regression: Megavid's CDN answers 403 to the identical request without
-  // an Origin header, which took every episode down while the catalog
-  // kept working.
   const headers = megavidHeaders();
   assert.equal(headers.Origin, 'https://megavid.buzz');
   assert.equal(headers.Referer, 'https://megavid.buzz/');
   assert.ok(headers['User-Agent']);
-  // Extra headers (e.g. Range) are merged, not dropped.
   const ranged = megavidHeaders({ Range: 'bytes=0-1023' });
   assert.equal(ranged.Range, 'bytes=0-1023');
   assert.equal(ranged.Origin, 'https://megavid.buzz');
@@ -651,9 +624,6 @@ test('megavidHeaders sends the origin the CDN demands', () => {
 });
 
 test('rewriteMegavidPlaylist proxies relative URIs on the megavid.se CDN', () => {
-  // Regression: the current CDN answers with playlist paths relative to
-  // the playlist itself ("/uwu/.../playlist.txt"). Left as-is, the browser
-  // resolves them against our own domain and every segment 404s.
   const base = 'https://host/proxyMegavidHls';
   const master =
     '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n/uwu/v1/abc/playlist.txt\n';
@@ -683,9 +653,7 @@ test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
   );
   assert.ok(out.includes(`${base}?u=${encodeURIComponent('https://megavid.buzz/vid/a/v.m3u8')}`));
   assert.ok(out.includes('URI="' + base));
-  // Nested media URLs must never carry a login token.
   assert.ok(!out.includes('token='));
-  // External hosts are never rewritten into the proxy.
   const mixed = '#EXTM3U\nhttps://evil.com/x.ts\n';
   assert.equal(
     rewriteMegavidPlaylist(mixed, 'https://megavid.buzz/a.m3u8', base),
@@ -695,10 +663,6 @@ test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
 
 test('rewriteMegavidPlaylist proxies CDN segment hosts', () => {
   const base = 'https://host/proxyMegavidHls';
-  // Regression: Megavid moved every media segment to cdn.api-webs.com
-  // while playlists stayed on megavid.buzz. Leaving the CDN host out
-  // meant variant playlists kept bare CDN URLs, the browser fetched them
-  // directly, and — with no CORS headers — every episode stalled.
   const variant =
     '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.004,\n' +
     'https://cdn.api-webs.com/abc/480p/video0.ts\n';
@@ -731,9 +695,6 @@ test('rewriteMegavidPlaylist proxies the active ani.watch CDN', () => {
 });
 
 test('MegaPlay playlists stamp segments on rotating CDN hosts', () => {
-  // Late October 2026: MegaPlay moved segments to throwaway domains like
-  // wintergrove.space. Left un-proxied, the browser got 403 and the
-  // Everglow server buffered forever.
   const base = 'https://host/proxyMegavidHls';
   const key = 'a'.repeat(64);
   const segment = 'https://ywh4n.wintergrove.space/anime/x/y/seg-1-f1-v1-a1.jpg';
@@ -751,7 +712,6 @@ test('MegaPlay playlists stamp segments on rotating CDN hosts', () => {
   const url = new URL(line);
   assert.equal(url.searchParams.get('u'), segment);
   assert.ok(validCdnStamp(key, segment, url.searchParams.get('s')));
-  // Without a key the old behaviour stays: unlisted hosts are untouched.
   assert.ok(
     rewritePlaylistWithHosts(playlist, 'https://fetch.nexabloom.top/a.m3u8', base, isMegaPlayHost)
       .includes(`\n${segment}\n`),
@@ -931,7 +891,6 @@ test('skip action belongs to the opening, next belongs to the ending', () => {
     video.dispatch('timeupdate');
   };
   const width = (id) => Number.parseFloat(els[id].style.width);
-  // Nothing announced yet: neither action can show.
   at(60);
   assert.equal(els['btn-skip'].hidden, true);
   assert.equal(els['btn-next'].hidden, true);

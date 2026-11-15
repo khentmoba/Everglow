@@ -8,14 +8,12 @@ import 'package:http/http.dart' as http;
 import '../../../../core/utils/logger.dart';
 import '../models/book_item.dart';
 
-/// One chapter extracted from an EPUB spine item.
 class EpubChapter {
   final String title;
   final String body;
   const EpubChapter({required this.title, required this.body});
 }
 
-/// Result of [EpubService.loadChapters].
 class EpubResult {
   final List<EpubChapter> chapters;
   final String usedUrl;
@@ -29,18 +27,6 @@ class EpubResult {
   bool get isSuccess => chapters.isNotEmpty;
 }
 
-/// Minimal EPUB reader backend: fetches the EPUB file through the
-/// `proxyBookFile` Cloud Function (gutenberg.org sends no CORS
-/// headers, so the browser cannot fetch it directly), unzips it
-/// with the pure-Dart `archive` package, and turns the OPF spine
-/// into plain-text chapters the existing reader UI already knows
-/// how to show.
-///
-/// EPUB structure recap (all we rely on):
-///   * `META-INF/container.xml` points at the `.opf` package file.
-///   * The OPF manifest maps ids to XHTML files; the spine orders them.
-///   * Each spine file becomes one chapter: title from `<title>` /
-///     first heading, body from tags-stripped text.
 class EpubService {
   static final EpubService _instance = EpubService._internal();
   factory EpubService() => _instance;
@@ -66,9 +52,6 @@ class EpubService {
     return _proxyUrl;
   }
 
-  /// Candidate EPUB file URLs for a book, derived from its source
-  /// id. Gutenberg ids (`pg1342`) map to the canonical EPUB URLs;
-  /// Internet Archive ids map to the item's `<id>.epub` file.
   List<String> candidatesFor(BookItem item) {
     final iaId = item.iaId;
     if (iaId.startsWith('pg') && iaId.length > 2) {
@@ -84,7 +67,6 @@ class EpubService {
     return const [];
   }
 
-  /// Fetch the first working EPUB from [urls] and extract chapters.
   Future<EpubResult> loadChapters(List<String> urls) async {
     if (urls.isEmpty) return EpubResult.empty('No EPUB source available.');
     final bytes = await _fetchBytes(urls);
@@ -105,12 +87,6 @@ class EpubService {
     }
   }
 
-  // ── FETCH ──────────────────────────────────────────────────────────
-
-  /// Fetch EPUB bytes via the Cloud Function proxy (CORS-safe).
-  /// Falls back to a direct fetch, which works where the host
-  /// sends CORS headers (archive.org) — e.g. on native or when the
-  /// proxy is unreachable.
   Future<({Uint8List data, String usedUrl})?> _fetchBytes(
     List<String> urls,
   ) async {
@@ -138,7 +114,6 @@ class EpubService {
             ),
           );
         }
-        // Older deployed proxies still send JSON until the backend rolls out.
         final data = json.decode(response.body) as Map<String, dynamic>;
         final base64 = data['base64'] as String? ?? '';
         if (base64.isNotEmpty) {
@@ -171,15 +146,6 @@ class EpubService {
   bool _looksLikeZip(Uint8List bytes) =>
       bytes.length > 4 && bytes[0] == 0x50 && bytes[1] == 0x4b;
 
-  // ── PARSE ──────────────────────────────────────────────────────────
-  //
-  // A tiny purpose-built parser (regex over container.xml / OPF /
-  // XHTML) instead of an XML package: EPUB package files are small
-  // and regular, and this keeps the dependency footprint at one
-  // pure-Dart zip package.
-
-  /// Unzip [bytes] and extract plain-text chapters in spine order.
-  /// Pure function of the bytes — unit-tested without network.
   static List<EpubChapter> parseChapters(
     Uint8List bytes, {
     String fallbackTitle = 'Book',
@@ -241,7 +207,6 @@ class EpubService {
   static String? _findOpfPath(Map<String, ArchiveFile> files) {
     final container = files['META-INF/container.xml'];
     if (container == null) {
-      // Some producers skip the container: fall back to any .opf.
       for (final name in files.keys) {
         if (name.toLowerCase().endsWith('.opf')) return name;
       }
@@ -259,7 +224,6 @@ class EpubService {
     return null;
   }
 
-  /// Spine XHTML hrefs in reading order.
   static List<String> _spineHrefs(String opf) {
     final manifest = <String, String>{};
     final itemPattern = RegExp('<item\\b[^>]*>', caseSensitive: false);
@@ -269,7 +233,6 @@ class EpubService {
       final href = _attr(tag, 'href');
       final media = _attr(tag, 'media-type');
       if (id.isEmpty || href.isEmpty) continue;
-      // Only XHTML content documents can be chapters.
       if (media.isNotEmpty &&
           !media.contains('html') &&
           !media.contains('xhtml') &&
@@ -348,11 +311,8 @@ class EpubService {
     return 'Chapter $number';
   }
 
-  /// Strip an XHTML spine document down to readable plain text.
-  /// Block boundaries become newlines so paragraphs survive.
   static String htmlToText(String html) {
     var text = html;
-    // Drop scripts, styles, and comments wholesale.
     text = text.replaceAll(
       RegExp('<script[\\s\\S]*?</script>', caseSensitive: false),
       '',
@@ -362,7 +322,6 @@ class EpubService {
       '',
     );
     text = text.replaceAll(RegExp('<!--[\\s\\S]*?-->'), '');
-    // Block ends become line breaks.
     text = text.replaceAll(
       RegExp(
         '</(p|h[1-6]|div|li|tr|blockquote|section|article)\\b[^>]*>',
@@ -396,8 +355,6 @@ class EpubService {
         .replaceAll('&#39;', "'")
         .replaceAll('&apos;', "'")
         .replaceAllMapped(RegExp('&#(\\d+);'), (m) {
-          // Total decode: a malformed book with an out-of-range
-          // entity used to throw and fail the entire book open.
           final code = int.tryParse(m.group(1)!);
           if (code == null || code < 0 || code > 0x10FFFF) {
             return '\u{FFFD}';

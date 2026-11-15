@@ -8,11 +8,9 @@ Future<void> _loadAnime() async {
   await Future.wait([anime_lib.loadLibrary(), SectionFonts.anime()]);
 }
 
-/// Fetches Anime's code chunk and fonts before the first tap.
 Future<void> warmAnimeLibrary() =>
     DeferredRouteLoader.warm('Anime', _loadAnime);
 
-/// Routes owned by the anime feature.
 final List<GoRoute> animeRoutes = [
   GoRoute(
     path: '/anime',

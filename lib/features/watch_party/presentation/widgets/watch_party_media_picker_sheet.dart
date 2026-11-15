@@ -16,21 +16,12 @@ import '../../../cinema/data/services/tmdb/tmdb_search_service.dart';
 import '../../data/models/media_ref.dart';
 import 'watch_party_episode_picker_sheet.dart';
 
-/// Which library the picker is searching.
-///
-/// Public so a caller can open the sheet on a chosen tab instead of
-/// always landing on Cinema — the Watch Together tab asks "Cinema or
-/// Anime?" first and then opens the picker already on that tab.
 enum WatchPartyPickerCategory { cinema, anime }
 
-/// Bottom sheet that lets Khent or Clair search and choose any movie,
-/// TV show, or anime to watch together in real time.
 class WatchPartyMediaPickerSheet extends StatefulWidget {
   final String currentTitle;
   final ValueChanged<MediaRef> onSelect;
 
-  /// Tab to open on. Defaults to Cinema, which is what the in-party
-  /// picker has always shown, so existing callers are unaffected.
   final WatchPartyPickerCategory initialCategory;
 
   const WatchPartyMediaPickerSheet({
@@ -265,7 +256,6 @@ class _WatchPartyMediaPickerSheetState
       ),
       child: Column(
         children: [
-          // Drag handle
           Container(
             width: 44,
             height: 4,

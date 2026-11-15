@@ -1,8 +1,3 @@
-// The books rail must paint the shelf already on this device before Firestore
-// answers. Same contract as the journal preview: a WebChannel round trip for
-// books the phone already has is the wait Clair reported, so the cached frame
-// has to arrive first and the live snapshot replaces it afterwards.
-//
 // ignore_for_file: subtype_of_sealed_class, must_be_immutable
 import 'dart:async';
 import 'dart:convert';
@@ -14,8 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/firestore_test_fakes.dart';
 
-/// A collection whose snapshot stream never emits, standing in for a cold
-/// WebChannel on a weak signal.
 class _SilentCollection extends TestCollection {
   @override
   Stream<QuerySnapshot<Map<String, dynamic>>> snapshots({
@@ -74,8 +67,6 @@ void main() {
         firestore: TestFirestore(_SilentCollection()),
       );
 
-      // .first must complete from cache alone: the live stream never emits,
-      // so anything that reached Firestore here would hang until the guard.
       final first = await service.getOurBooksStream().first.timeout(
         const Duration(seconds: 2),
         onTimeout: () => throw StateError(

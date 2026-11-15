@@ -1001,10 +1001,6 @@ class _TonightOptionCard extends StatelessWidget {
       borderRadius: AppRadius.radiusLg,
       child: option.imageUrl?.isNotEmpty == true
           ? AppNetworkImage(
-              // Decoded at the size it is displayed. Bare Image.network here
-              // meant every date-option thumbnail was decoded at its natural
-              // resolution (~3.5MB each, per the memory table in
-              // docs/PERF_NOTES.md) to fill a 76px slot.
               imageUrl: option.imageUrl!,
               cacheWidth: cacheWidth,
               fit: BoxFit.contain,

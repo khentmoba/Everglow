@@ -16,10 +16,6 @@ import '../../data/services/subs_service.dart';
 import '../widgets/add_sub_sheet.dart';
 import '../widgets/sub_card.dart';
 
-/// Subs Tracker — every shared subscription in one calm list.
-///
-/// A hero shows the monthly peso total so Khent + Clair can see where
-/// money leaks, and each card counts down to its next renewal.
 class SubsScreen extends StatelessWidget {
   const SubsScreen({super.key});
 
@@ -110,7 +106,6 @@ class SubsScreen extends StatelessWidget {
   }
 }
 
-/// Centers [child] and caps its width on tablets / desktop.
 class _Constrained extends StatelessWidget {
   final Widget child;
   const _Constrained({required this.child});
@@ -126,7 +121,6 @@ class _Constrained extends StatelessWidget {
   }
 }
 
-/// Monthly peso total + soonest renewal, so the leak is visible at a glance.
 class SubsMoneyHero extends StatelessWidget {
   final List<Subscription> all;
   const SubsMoneyHero({super.key, required this.all});
@@ -207,7 +201,6 @@ class SubsMoneyHero extends StatelessWidget {
   }
 }
 
-/// Extended gradient "Track" button.
 class _TrackFab extends StatelessWidget {
   final VoidCallback onTap;
   const _TrackFab({required this.onTap});
@@ -261,7 +254,6 @@ class _TrackFab extends StatelessWidget {
   }
 }
 
-/// Loading shimmer shaped like the hero + cards.
 class _LoadingSubs extends StatelessWidget {
   const _LoadingSubs();
 

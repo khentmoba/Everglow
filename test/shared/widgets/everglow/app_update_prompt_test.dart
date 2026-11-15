@@ -71,15 +71,12 @@ void main() {
 
     expect(find.text('A fresh Everglow update is ready'), findsOneWidget);
     expect(find.text('Restart'), findsOneWidget);
-    // No Tooltip: the banner lives above Overlay (see builder test below),
-    // so Dismiss is exposed via Semantics instead.
     expect(find.byTooltip('Dismiss'), findsNothing);
     expect(
       find.bySemanticsLabel('Dismiss update notification'),
       findsOneWidget,
     );
 
-    // Tap Restart -> triggers reload
     await tester.tap(find.text('Restart'));
     await tester.pumpAndSettle();
 
@@ -106,7 +103,6 @@ void main() {
 
     expect(find.text('A fresh Everglow update is ready'), findsOneWidget);
 
-    // Tap Dismiss -> banner disappears, browser does NOT reload
     await tester.tap(find.bySemanticsLabel('Dismiss update notification'));
     await tester.pumpAndSettle();
 
@@ -118,11 +114,6 @@ void main() {
   testWidgets(
     'banner in MaterialApp.builder (above Overlay) never crashes on hover',
     (tester) async {
-      // Production setup (see EverglowApp.build in main.dart): the prompt
-      // wraps the Navigator via MaterialApp.builder, so it sits ABOVE the
-      // Overlay. Any Tooltip there throws "No Overlay widget found" on
-      // hover in release (assert in debug) and squeezes the Row into
-      // vertical text + a 340px tall slab. This test pins the fix.
       final browser = FakePromptBrowser();
       final service = AppUpdateService(browser: browser);
       addTearDown(service.dispose);
@@ -147,8 +138,6 @@ void main() {
       expect(find.byType(Tooltip), findsNothing);
       expect(tester.takeException(), isNull);
 
-      // Desktop/tablet mouse hover over Dismiss — the exact gesture that
-      // crashed live with "No Overlay widget found".
       final dismiss = find.byIcon(Icons.close_rounded);
       expect(dismiss, findsOneWidget);
       final gesture = await tester.createGesture(
@@ -160,7 +149,6 @@ void main() {
       expect(find.text('A fresh Everglow update is ready'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Banner text stays horizontal (wide), never squeezed vertical.
       final textSize = tester.getSize(
         find.text('A fresh Everglow update is ready'),
       );

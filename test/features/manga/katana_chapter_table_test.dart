@@ -1,11 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/manga/data/services/katana_service.dart';
 
-/// The chapter table used to silently drop chapters: rows the site
-/// marks as "Go to" jump targets carry the chapter id in `data-jump`
-/// (`<tr data-jump="c30">`) instead of a number, and volume chapters
-/// link to `v6c147`-style paths. Both shapes were skipped, so a
-/// 31-chapter manga showed only 27 (Chapter 30 among the missing).
 void main() {
   const rows = '''
 <tr data-jump="c30"><td><div class="chapter"><a href="https://mangakatana.com/manga/some-manga.1/c30">Chapter 30: The Final Day</a></div></td><td><div class="update_time">Sep-14-2026</div></td></tr>

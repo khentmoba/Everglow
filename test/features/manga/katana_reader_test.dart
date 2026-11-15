@@ -154,8 +154,6 @@ void main() {
     });
 
     test('two-page mode packs two pages per item', () {
-      // The regression: resuming page 12 used to jump to item 11, which
-      // shows pages 23-24. It must land on item 5 (pages 11-12).
       expect(pagedItemForPage(12, twoPage: true), 5);
       expect(pagedItemForPage(1, twoPage: true), 0);
       expect(pagedItemForPage(2, twoPage: true), 0);
@@ -164,8 +162,6 @@ void main() {
     });
 
     test('the last item matches the PageView item count', () {
-      // _buildPagedViewer builds ceil(pages / 2) + 1 items in two-page
-      // mode, so the last reachable index is ceil(pages / 2).
       expect(lastPagedItem(10, twoPage: false), 10);
       expect(lastPagedItem(10, twoPage: true), 5);
       expect(lastPagedItem(9, twoPage: true), 5);
@@ -175,7 +171,6 @@ void main() {
 
   group('proportionalResumeOffset', () {
     test('splits the extent evenly across the pages', () {
-      // 11 pages, target index 5 of 10 gaps -> halfway down the extent.
       expect(proportionalResumeOffset(5, 11, 1000), 500);
       expect(proportionalResumeOffset(0, 11, 1000), 0);
       expect(proportionalResumeOffset(10, 11, 1000), 1000);

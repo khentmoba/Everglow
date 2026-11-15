@@ -61,8 +61,6 @@ test('real handler retrieves fresh server facts, skips general memory work, and 
   assert.equal(disabled.memoryCount, 0);
   assert.equal(disabled.factDocs, 0);
 
-  // Access matches motchi_access.test.js: anything but a verified couple
-  // name is denied before any retrieval or model call.
   for (const identity of [null, 'breyan']) {
     request.fixture.caller = identity;
     const denied = await request(`denied-${identity}`, 'What tea does Clair prefer?', { caller: 'khentsgdz' });

@@ -10,8 +10,6 @@ import 'package:everglow/features/jukebox/presentation/widgets/spotify_embed_vie
 
 import 'cinema_fullscreen_web_test.dart' as cinema_fullscreen;
 
-// Counts custom factory registrations (must stay zero) and supplies dummy
-// roots so fromTagName callbacks run without loading third parties.
 class _Registry extends ui_web.PlatformViewRegistry {
   int customFactories = 0;
   @override
@@ -48,8 +46,6 @@ void main() {
     final frame = state.debugIframe as web.HTMLIFrameElement;
     expect(frame.src, contains('/embed/track/trackAAA'));
 
-    // Same slot, new track: the stored frame reloads instead of mounting
-    // a second embed with its own registration.
     await tester.pumpWidget(build('trackBBB'));
     expect(state.debugIframe, same(frame));
     expect(frame.src, contains('/embed/track/trackBBB'));

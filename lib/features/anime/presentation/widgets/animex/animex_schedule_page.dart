@@ -22,8 +22,6 @@ const _days = <(String, String)>[
   ('Sun', 'Sunday'),
 ];
 
-/// This week's broadcast dates with a personal My List view. No notification
-/// promise: the former bell only persisted a device-local preference.
 class AnimeXSchedulePage extends StatefulWidget {
   final AnimeXController controller;
   final AnimexScheduleLoader? loadSchedule;
@@ -43,8 +41,6 @@ class AnimeXSchedulePage extends StatefulWidget {
 class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
   late int _day;
   List<AnimexScheduleEntry> _dayEntries = const [];
-  // Null follows My List: it opens on My List while Clair has titles there
-  // and on All anime when the list is empty. A tap on a chip makes it explicit.
   bool? _filterChoice;
 
   bool get _onlyMyList =>
@@ -85,15 +81,11 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
     setState(() => _dayEntries = entries);
   }
 
-  /// The next episode from the selected day that still has to air, honoring
-  /// the current filter. Null when nothing is left on that day.
   AnimexScheduleEntry? get _nextUp {
     final library = widget.controller.library;
     final now = _clock();
     AnimexScheduleEntry? best;
     for (final entry in _dayEntries) {
-      // The TMDB backup week carries dates only (airingAt is local
-      // midnight), so it cannot promise a time or a countdown.
       if (!entry.hasExactTime) continue;
       if (_onlyMyList && !animexScheduleIsInLibrary(entry.media, library)) {
         continue;
@@ -107,11 +99,7 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
   bool _isSaved(MediaItem media) =>
       animexScheduleIsInLibrary(media, widget.controller.library);
 
-  /// One tap to save a show straight from the schedule, through the same
-  /// optimistic path the rest of the anime section uses.
   Future<void> _toggleSaved(MediaItem media) async {
-    // Pin the current view first: saving from this card must not flip the
-    // whole page to My List under Clair's finger.
     _filterChoice ??= _onlyMyList;
     final userName = context.read<AuthService?>()?.currentUser ?? '';
     if (userName.isEmpty) {
@@ -127,8 +115,6 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
     }
   }
 
-  /// Date under each day tab, from the same week as the clock. Calendar
-  /// arithmetic keeps local midnights across DST changes.
   DateTime _dateForDay(int index) {
     final now = _clock();
     return DateTime(now.year, now.month, now.day - (now.weekday - 1) + index);
@@ -155,14 +141,10 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
           _NextUpCard(
             entry: next,
             clock: _clock,
-            // Tick only against the real clock: a fixed clock (tests) renders
-            // a static countdown and schedules no timers.
             live: widget.now == null,
             saved: _isSaved(next.media),
             onToggleSaved: () => _toggleSaved(next.media),
             onExpired: () {
-              // The episode just aired: let the page pick the next one
-              // instead of freezing this card on "Airing now".
               if (mounted) setState(() {});
             },
             onTap: () => widget.controller.openWatch(next.media),
@@ -189,9 +171,6 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
         _buildDayTabs(),
         const SizedBox(height: 24),
         AnimeXScheduleList(
-          // Stable key: the NEXT UP card above appears and disappears, which
-          // shifts this child's slot. Without a key Flutter rebuilds the list
-          // from scratch and refetches the day.
           key: const ValueKey('animex-schedule-list'),
           controller: widget.controller,
           weekday: _day,
@@ -217,12 +196,8 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
                 message: _days[i].$2,
                 child: TextButton(
                   onPressed: () => setState(() {
-                    // Re-tapping the selected day must not clear the card:
-                    // the day never changes, so the list never refetches.
                     if (i == _day) return;
                     _day = i;
-                    // Never show the previous day's "next up" while the new
-                    // day loads.
                     _dayEntries = const [];
                   }),
                   style: TextButton.styleFrom(
@@ -277,9 +252,6 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
   }
 }
 
-/// "Next up" summary for the selected day: poster, episode, local time and a
-/// countdown. Ticks only when [live], so a fixed clock in tests renders a
-/// static countdown and schedules no timers.
 class _NextUpCard extends StatefulWidget {
   final AnimexScheduleEntry entry;
   final DateTime Function() clock;
@@ -287,7 +259,6 @@ class _NextUpCard extends StatefulWidget {
   final bool saved;
   final VoidCallback onToggleSaved;
 
-  /// The countdown reached zero. The page decides what follows.
   final VoidCallback onExpired;
   final VoidCallback onTap;
 
@@ -318,8 +289,6 @@ class _NextUpCardState extends State<_NextUpCard> {
   @override
   void didUpdateWidget(_NextUpCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // A reused card with a new entry must tick again: the previous timer
-    // cancelled itself when its own countdown hit zero.
     if (oldWidget.entry != widget.entry || oldWidget.live != widget.live) {
       _startTimer();
     }
@@ -345,8 +314,6 @@ class _NextUpCardState extends State<_NextUpCard> {
         widget.onExpired();
         return;
       }
-      // The text changes per minute above a minute, so an idle card must
-      // not rebuild every second.
       final text = formatRemaining(remaining);
       if (text == _lastText) return;
       _lastText = text;
@@ -354,7 +321,6 @@ class _NextUpCardState extends State<_NextUpCard> {
     });
   }
 
-  /// Plain words instead of a raw clock: "in 3h 12m", "in 44m", "Airing now".
   static String formatRemaining(Duration d) {
     if (d <= Duration.zero) return 'Airing now';
     if (d.inDays >= 1) return 'in ${d.inDays}d ${d.inHours % 24}h';

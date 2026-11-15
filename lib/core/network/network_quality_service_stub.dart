@@ -6,7 +6,6 @@ enum NetworkQuality {
   slow,
 }
 
-/// Detects network quality and data-saving mode on native/test platforms.
 class NetworkQualityService {
   NetworkQualityService._();
 

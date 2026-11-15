@@ -22,7 +22,6 @@ class AcademyPortalCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Shifting Aura
             Positioned(
               top: -50,
               right: -50,
@@ -36,7 +35,6 @@ class AcademyPortalCard extends StatelessWidget {
               ),
             ),
 
-            // Content
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

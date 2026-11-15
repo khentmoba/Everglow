@@ -8,11 +8,6 @@ import '../../netflix/netflix_colors.dart';
 
 void _noop() {}
 
-/// Netflix-inspired cinematic hero for the Everglow Cinema detail drawer.
-/// Full-bleed backdrop (or autoplaying trailer with real-time audio toggle),
-/// smooth layered scrims, floating circular close button in top right,
-/// volume/mute button in bottom right, and stylized title with high-contrast
-/// white Play button and quick circular action buttons.
 class CinemaHero extends StatelessWidget {
   final String backdropUrl;
   final String posterUrl;
@@ -163,7 +158,6 @@ class CinemaHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Top scrim for close button legibility
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -177,7 +171,6 @@ class CinemaHero extends StatelessWidget {
               ),
             ),
           ),
-          // Bottom scrim melting seamlessly into the dialog card background
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -193,7 +186,6 @@ class CinemaHero extends StatelessWidget {
               ),
             ),
           ),
-          // Left scrim for title and button legibility
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -213,8 +205,6 @@ class CinemaHero extends StatelessWidget {
   }
 
   Widget _buildTopBar(BuildContext context) {
-    // Both hero variants must add the live top inset to their fixed
-    // offsets so the close X sits below the status bar on mobile.
     final topInset = MediaQuery.paddingOf(context).top;
     return Positioned(
       top: 10 + topInset,
@@ -318,7 +308,6 @@ class CinemaHero extends StatelessWidget {
             runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // White Netflix Play Button
               _buildPlayButton(),
               if (isUnreleased) ...[
                 _CircleActionButton(

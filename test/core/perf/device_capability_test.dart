@@ -66,7 +66,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: MediaQuery(
-            data: const MediaQueryData(size: Size(1200, 800)), // desktop/tablet
+            data: const MediaQueryData(size: Size(1200, 800)),
             child: Builder(
               builder: (context) {
                 final reduced = AppMotion.reduceAmbientMotion(context);

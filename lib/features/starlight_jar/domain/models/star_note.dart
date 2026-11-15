@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Categories for star notes.
 const List<String> starCategories = [
   'gratitude',
   'memory',
@@ -10,7 +9,6 @@ const List<String> starCategories = [
   'surprise',
 ];
 
-/// Emoji + label map for display.
 const Map<String, (String emoji, String label)> starCategoryInfo = {
   'gratitude': ('🙏', 'Gratitude'),
   'memory': ('📸', 'Memory'),

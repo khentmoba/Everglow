@@ -1,4 +1,3 @@
-/// Fictional catalogue records for offline Agent Mode, never real couple data.
 const _titles = [
   'Moonlit Cinema',
   'The Lantern Trail',
@@ -84,7 +83,7 @@ Map<String, dynamic>? agentTmdbResponse(Uri url) {
       };
     }
     if (path[2] == 'similar') return {'results': _records};
-    return {'results': []}; // No trailers or third-party reviews in demo mode.
+    return {'results': []};
   }
   final type = path.contains('movie')
       ? 'movie'

@@ -10,21 +10,9 @@ import '../../data/services/motchi_minis_service.dart';
 import '../../data/services/study_artifact.dart';
 import 'canvas_html_view.dart';
 
-/// Preview canvas — the Google-Canvas moment for Motchi's mini-apps.
-///
-/// When her reply carries an `html-artifact` block (a game, a page, a tool),
-/// the bubble shows one big "Preview 🔍" button instead of raw code.
-/// Tapping opens this sheet with the app actually running inside a
-/// sandboxed frame:
-///
-/// - Phone / tablet (Clair's world): a near-full bottom sheet she can drag.
-/// - Desktop: a near-full-screen takeover, so games get real room instead
-///   of a cramped centered box.
 Future<void> openCanvasPreview(BuildContext context, HtmlArtifact app) {
   final size = MediaQuery.sizeOf(context);
   if (size.width >= 1024) {
-    // Near-full-screen: a fixed-size stage leaves games no dead margins.
-    // The sheet fills it via [CanvasPreviewSheet.expanded].
     final stageWidth = size.width - 32;
     final stageHeight = size.height - 32;
     return showDialog(
@@ -90,9 +78,6 @@ class _PreviewChrome extends StatelessWidget {
 class CanvasPreviewSheet extends StatelessWidget {
   final HtmlArtifact app;
 
-  /// When true the sheet fills a fixed-size stage (desktop takeover) and
-  /// the game frame expands to use it. When false (draggable mobile
-  /// sheet) the column wraps its content as before.
   final bool expanded;
 
   const CanvasPreviewSheet({super.key, required this.app, this.expanded = false});
@@ -153,8 +138,6 @@ class CanvasPreviewSheet extends StatelessWidget {
   }
 }
 
-/// Save button for the shelf: keeps this game in Motchi's Minis so it can
-/// be replayed without scrolling back through chat.
 class _SaveMiniButton extends StatefulWidget {
   final HtmlArtifact app;
 
@@ -171,8 +154,6 @@ class _SaveMiniButtonState extends State<_SaveMiniButton> {
   Future<void> _save() async {
     if (_saved || _busy) return;
     setState(() => _busy = true);
-    // Fail soft: any surprise (no auth session, no network) becomes a
-    // friendly snackbar, never a crash on Clair's screen.
     var ok = false;
     try {
       final by = context.read<AuthService>().currentUser ?? 'motchi';
@@ -225,9 +206,6 @@ class _SaveMiniButtonState extends State<_SaveMiniButton> {
   }
 }
 
-/// The framed game/app area. In `expanded` mode (fixed desktop stage) it
-/// takes all remaining height so the game fills the screen; otherwise it
-/// keeps the old wrap-content behavior with a minimum height.
 class _PreviewFrame extends StatelessWidget {
   final bool expanded;
   final String html;

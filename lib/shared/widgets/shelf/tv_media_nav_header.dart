@@ -10,10 +10,6 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/logger.dart';
 
-/// Top media navigation bar optimized for TV remotes and guest profiles.
-///
-/// Gives 1-click / D-pad remote access between Everglow's three primary media sections:
-/// Cinema 🎬, Anime 🌸, and MangaCelestia 📖.
 class TvMediaNavHeader extends StatelessWidget {
   final String currentRoute;
   final VoidCallback? onLogout;
@@ -53,7 +49,6 @@ class TvMediaNavHeader extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: TvMode.isTvMode,
       builder: (context, isTv, _) {
-        // Shown when TV mode is active.
         if (!isTv) return const SizedBox.shrink();
 
         return Container(
@@ -98,7 +93,6 @@ class TvMediaNavHeader extends StatelessWidget {
                           )
                         else
                           const SizedBox(width: 4),
-                        // Section switch tabs
                         FocusTraversalGroup(
                           policy: ReadingOrderTraversalPolicy(),
                           child: Row(
@@ -124,7 +118,6 @@ class TvMediaNavHeader extends StatelessWidget {
                             ],
                           ),
                         ),
-                        // TV Mode toggle chip and Exit
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

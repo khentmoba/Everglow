@@ -15,14 +15,9 @@ import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
-/// Manga Katana home: Latest Updates list, Hot Manga rail and the
-/// Genres widget, laid out like the site (content left, widgets right
-/// on desktop).
 class KatanaHomeScreen extends StatefulWidget {
   const KatanaHomeScreen({super.key, this.embed = false});
 
-  /// When true, renders just the tab content so [KatanaTabShell] can
-  /// keep one header mounted while tabs switch underneath it.
   final bool embed;
 
   @override
@@ -36,8 +31,6 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
   bool _loading = true;
   String? _error;
 
-  // Content-type browsing: 'all' shows the live Latest Updates feed;
-  // 'manga' / 'manhwa' / 'manhua' show that type's full catalog.
   String _type = 'all';
   List<KatanaManga> _typeItems = const [];
   int _typePage = 1;
@@ -469,8 +462,6 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     );
   }
 
-  /// The site's `#hot_update .slick_book` rail: full-width sideways
-  /// scroll above Latest Updates, desktop only (`uk-visible-large`).
   Widget _buildHotUpdatesRail(List<KatanaManga> items) {
     return KatanaCard(
       padding: const EdgeInsets.all(14),

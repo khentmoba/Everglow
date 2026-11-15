@@ -17,9 +17,8 @@ class CreatorLettersTab extends StatefulWidget {
 }
 
 class _CreatorLettersTabState extends State<CreatorLettersTab> {
-  int _selectedSubTab = 0; // 0: Compose, 1: Vault / Scheduled
+  int _selectedSubTab = 0;
 
-  // Form State
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
@@ -35,7 +34,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
     try {
       _notesStream = widget.creatorService.watchHiddenNotes(limit: 50);
     } catch (_) {
-      // Test / offline fallback: Firebase unavailable in widget tests.
       _notesStream = Stream.value(const []);
     }
   }
@@ -107,7 +105,7 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
         _contentController.clear();
         setState(() {
           _selectedTemplate = null;
-          _selectedSubTab = 1; // Switch to vault to view the letter
+          _selectedSubTab = 1;
         });
       }
     } catch (e) {
@@ -247,7 +245,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Sub-navigation: Compose vs Vault
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Container(
@@ -336,7 +333,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Template selection
             Text(
               'Start from a template',
               style: AppTypography.outfitBold.copyWith(
@@ -433,7 +429,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
                 color: AppColors.textHigh,
               ),
             ),
-            // Quick preset chips
             Row(
               children: [
                 _buildPresetChip('+1 Day', const Duration(days: 1)),
@@ -606,7 +601,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
                 children: [
                   Row(
                     children: [
-                      // Status Badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -656,7 +650,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
                         ),
                       ),
                       const Spacer(),
-                      // Edit Date Button
                       IconButton(
                         tooltip: 'Change unlock date',
                         icon: const Icon(
@@ -667,7 +660,6 @@ class _CreatorLettersTabState extends State<CreatorLettersTab> {
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _editUnlockDate(note),
                       ),
-                      // Delete Button
                       IconButton(
                         tooltip: 'Delete letter',
                         icon: const Icon(

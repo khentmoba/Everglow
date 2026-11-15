@@ -1,12 +1,3 @@
-// Web-only SSE streaming client.
-//
-// Primary path: `fetch` + `ReadableStream` (incremental chunks in every
-// modern browser). Fallback path: XHR responseText polling, which keeps
-// streaming working in older browsers and embedded webviews where fetch
-// body streams are buffered until the response completes.
-//
-// Uses `package:web` rather than `dart:html` so this file also compiles for
-// the WebAssembly renderer, where `dart:html` is unavailable.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
@@ -14,11 +5,6 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'sse_cancellation.dart';
 
-/// Parses SSE lines from a streaming HTTP response.
-///
-/// Same event shape as the native streamer: JSON `data:` lines carrying
-/// `content`, `reasoning`, `tool_status`, or `error` fields, terminated by
-/// a bare `data: [DONE]`.
 Future<String> streamSseResponse({
   required String url,
   required Map<String, String> headers,
@@ -34,28 +20,17 @@ Future<String> streamSseResponse({
   final fullResponse = StringBuffer();
   final completer = Completer<String>();
   var lineBuffer = '';
-  // SSE data payloads waiting to be rendered. Network chunks can contain
-  // dozens of events at once (especially after a thinking phase), so we
-  // drain them frame-by-frame at a visible pace instead of letting a burst
-  // paint the whole reply in a single frame.
   final pending = <String>[];
   var drainScheduled = false;
   var streamDone = false;
-  // First paint wins: the first VISIBLE token (content/reasoning) renders
-  // synchronously instead of waiting for a requestAnimationFrame (~1 frame
-  // / 16ms of TTFT). Status-only events stay on the paced rAF path, and
-  // later bursts keep painting at a visible rhythm.
   var paintedFirstToken = false;
 
-  /// True when a queued SSE payload carries visible text. Raw-string scan
-  /// (drain still does the real JSON parse) — only the value's first char
-  /// is inspected, so embedded escapes can't fool it.
   bool payloadHasText(String data, String key) {
     final i = data.indexOf('"$key":"');
     if (i < 0) return false;
     final v = i + key.length + 4;
     if (v >= data.length) return false;
-    return data[v] != '"'; // '"' right away = empty string value
+    return data[v] != '"';
   }
 
   bool pendingHasVisibleToken() {
@@ -69,7 +44,6 @@ Future<String> streamSseResponse({
 
   web.EventListener? visibilityListener;
 
-  /// Stops listening for the tab returning to the foreground.
   void detachVisibilityListener() {
     final listener = visibilityListener;
     if (listener == null) return;
@@ -121,8 +95,6 @@ Future<String> streamSseResponse({
   }
 
   void startDrain() {
-    // In background tabs, browsers pause requestAnimationFrame. Drain immediately
-    // so incoming chunks don't pile up or hang until the user refocuses the tab.
     if (web.document.hidden) {
       drainScheduled = false;
       drainAll();
@@ -132,17 +104,11 @@ Future<String> streamSseResponse({
     if (drainScheduled) return;
     if (!paintedFirstToken && pendingHasVisibleToken()) {
       drain();
-      // A 4-event budget may leave the token queued behind statuses —
-      // stay on the sync path until visible text actually drains.
       paintedFirstToken = !pendingHasVisibleToken();
       if (pending.isNotEmpty) startDrain();
       return;
     }
     drainScheduled = true;
-    // Drive pacing with requestAnimationFrame: browser timers get throttled
-    // hard while the app's animations run, which made reply bursts appear
-    // all at once. Frame callbacks run on the same clock as the app's own
-    // animations, so the queue drains at a steady visible pace.
     web.window.requestAnimationFrame(
       ((num _) {
         drainScheduled = false;
@@ -195,7 +161,6 @@ Future<String> streamSseResponse({
   }
 
   Future<String> responseFuture = completer.future;
-  // Re-drains a queued reply when the tab returns to the foreground.
   visibilityListener = ((web.Event _) {
     if (!web.document.hidden && pending.isNotEmpty) {
       startDrain();
@@ -242,7 +207,6 @@ Future<String> streamSseResponse({
 
     final stream = response.body;
     if (stream == null) {
-      // fetch body streaming unavailable: fall back to XHR polling.
       _streamViaXhr(
         url,
         headers,
@@ -256,9 +220,6 @@ Future<String> streamSseResponse({
       responseFuture = completer.future;
     } else {
       final reader = stream.getReader() as web.ReadableStreamDefaultReader;
-      // The reply accumulator is written only by [_processSseData]; decoded
-      // chunk text goes through a separate buffer so it can be cleared without
-      // ever touching the accumulated reply.
       final decodedBuffer = StringBuffer();
       final decoderSink = const Utf8Decoder(
         allowMalformed: true,
@@ -266,8 +227,6 @@ Future<String> streamSseResponse({
       try {
         while (true) {
           final chunk = await reader.read().toDart;
-          // The final chunk can carry `done: true` together with a value, so
-          // process the value before checking the completion flag.
           final value = chunk.value;
           if (value != null) {
             final bytes = (value as JSUint8Array).toDart;
@@ -302,8 +261,6 @@ Future<String> streamSseResponse({
   }
 }
 
-/// XHR polling fallback: reads `responseText` on a timer so chunks surface
-/// incrementally even where `ReadableStream` is unavailable or buffered.
 void _streamViaXhr(
   String url,
   Map<String, String> headers,
@@ -369,7 +326,6 @@ void _streamViaXhr(
   }
 }
 
-/// Sink used to decode UTF-8 across chunk boundaries (emoji-safe).
 class _StringBufferSink implements ChunkedConversionSink<String> {
   final StringBuffer buffer;
 
@@ -382,8 +338,6 @@ class _StringBufferSink implements ChunkedConversionSink<String> {
   void close() {}
 }
 
-/// Process a single SSE `data:` payload (already stripped of the `data: `
-/// prefix and trailing newline).
 void _processSseData(
   String data,
   StringBuffer fullResponse,

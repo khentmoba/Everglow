@@ -5,39 +5,35 @@ import '../../../../shared/utils/tmdb_images.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Per-shelf visual identity. Each rail (Cinema, Anime, Books, Manga)
-/// passes one of these accents to the shared shelf primitives so the
-/// icon, glow, and badge pick up a unique hue without each preview
-/// having to redeclare the same color constants.
 enum ShelfAccent {
   cinema(
     label: 'Cinema',
-    color: AppColors.roseQuartz, // roseQuartz
-    glow: AppColors.deepRose, // deepRose
+    color: AppColors.roseQuartz,
+    glow: AppColors.deepRose,
     icon: Icons.local_movies_outlined,
   ),
   anime(
     label: 'Anime',
-    color: AppColors.softLavender, // softLavender
+    color: AppColors.softLavender,
     glow: Color(0xFF8E5DA0),
     icon: Icons.auto_awesome_outlined,
   ),
   books(
     label: 'Books',
-    color: AppColors.warmAmber, // warmAmber
+    color: AppColors.warmAmber,
     glow: Color(0xFFB87800),
     icon: Icons.menu_book_rounded,
   ),
   manga(
     label: 'Manga',
-    color: Color(0xFFE8B4BC), // softer rose for manga
+    color: Color(0xFFE8B4BC),
     glow: Color(0xFFAD1457),
     icon: Icons.import_contacts_outlined,
   ),
   gallery(
     label: 'Gallery',
-    color: AppColors.roseQuartz, // roseQuartz
-    glow: Color(0xFF880E4F), // deep magenta
+    color: AppColors.roseQuartz,
+    glow: Color(0xFF880E4F),
     icon: Icons.photo_library_outlined,
   );
 
@@ -54,10 +50,6 @@ enum ShelfAccent {
   final IconData icon;
 }
 
-/// Common header for the four dashboard shelves (Cinema, Anime, Books,
-/// Manga). Pairs the section icon + title with an item count and a
-/// "View All" affordance. All four rails share this header so the
-/// visual rhythm of the dashboard stays consistent.
 class ShelfHeader extends StatelessWidget {
   final ShelfAccent accent;
   final String title;
@@ -323,10 +315,6 @@ class _ViewAllButtonState extends State<_ViewAllButton> {
   }
 }
 
-/// Reusable poster / cover card used by every shelf. Wraps a network
-/// image in a rounded glass tile with an accent-tinted border, a soft
-/// glow shadow, and a gradient title overlay at the bottom so users
-/// can read what's in the card without opening it.
 class ShelfCard extends StatefulWidget {
   final ShelfAccent accent;
   final String imageUrl;
@@ -335,10 +323,6 @@ class ShelfCard extends StatefulWidget {
   final String? topBadge;
   final VoidCallback? onTap;
 
-  /// Fired when the cover image fails to load. Shelves use it to trigger
-  /// one background poster heal per item (see `TMDBPosterService.healPoster`)
-  /// instead of leaving a stale-URL cover on the placeholder forever.
-  /// May fire repeatedly while failed — the shelf must dedupe.
   final VoidCallback? onImageError;
 
   const ShelfCard({
@@ -364,8 +348,6 @@ class _ShelfCardState extends State<ShelfCard> {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
-    // 128px shelf cards: w342 is plenty even at 3x DPR and saves ~40%
-    // bytes + wasm decode per scroll frame vs w500 (PWA scroll bottleneck).
     return TmdbImages.cardFor(url);
   }
 
@@ -417,10 +399,6 @@ class _ShelfCardState extends State<ShelfCard> {
                   : AppColors.petalWhite.withValues(alpha: 0.10),
               width: 1,
             ),
-            // Web: one cheap shadow instead of two blurred layers. BoxShadow
-            // blur is re-rasterized on every scroll frame (no raster cache
-            // on CanvasKit) and the faint glow layer costs a full blur pass
-            // for 0.14 alpha. Single shadow reads the same on a phone.
             boxShadow: kIsWeb
                 ? [
                     BoxShadow(
@@ -473,7 +451,6 @@ class _ShelfCardState extends State<ShelfCard> {
                   )
                 else
                   _Placeholder(accent: widget.accent, title: widget.title),
-                // Top hairline highlight.
                 Positioned(
                   top: 0,
                   left: 0,
@@ -491,7 +468,6 @@ class _ShelfCardState extends State<ShelfCard> {
                     ),
                   ),
                 ),
-                // Soft vignette.
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -506,7 +482,6 @@ class _ShelfCardState extends State<ShelfCard> {
                     ),
                   ),
                 ),
-                // Bottom editorial gradient.
                 Positioned(
                   left: 0,
                   right: 0,
@@ -655,7 +630,6 @@ class _ShelfCardState extends State<ShelfCard> {
                       ),
                     ),
                   ),
-                // Hover shimmer sweep
                 if (isHovered)
                   Positioned.fill(
                     child: IgnorePointer(
@@ -734,8 +708,6 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
-/// Empty-state panel shown when a shelf has no items yet. Uses the
-/// shelf's accent so each section still feels like itself.
 class ShelfEmpty extends StatelessWidget {
   final ShelfAccent accent;
   final String message;

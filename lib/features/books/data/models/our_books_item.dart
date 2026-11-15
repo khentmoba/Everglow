@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './book_item.dart';
 
-/// A single entry in the shared "Our Books" list, visible to Khent
-/// and Clair only. Mirrors the cinema's `OurCinemaItem` shape.
 class OurBooksItem {
   final String id;
   final String workKey;
@@ -14,16 +12,12 @@ class OurBooksItem {
   final String year;
   final List<String> subjects;
 
-  /// Which partner added the item. Always one of 'khentsgdz' or
-  /// 'clairjassen'.
   final String addedBy;
 
   final DateTime addedAt;
 
-  /// `null` means Khent has not read it yet.
   final DateTime? khentReadAt;
 
-  /// `null` means Clair has not read it yet.
   final DateTime? clairReadAt;
 
   const OurBooksItem({
@@ -55,11 +49,6 @@ class OurBooksItem {
   bool get isReadByKhent => khentReadAt != null;
   bool get isReadByClair => clairReadAt != null;
 
-  /// Mirrors [BookItem.readSourceLabel]. Computed lazily from the
-  /// `iaId` / `workKey` so the couple list always knows which
-  /// provider powers the read source even if the model was
-  /// reconstructed from Firestore (where this field is not
-  /// persisted).
   String get readSourceLabel {
     if (iaId.isNotEmpty) return 'Internet Archive';
     if (workKey.isNotEmpty) return 'Open Library';

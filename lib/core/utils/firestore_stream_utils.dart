@@ -5,26 +5,6 @@ import 'package:flutter/foundation.dart';
 
 import 'logger.dart';
 
-/// Wraps a Firestore snapshot stream with a bounded budget for the *first*
-/// event so StreamBuilders never sit in `ConnectionState.waiting` forever.
-///
-/// On web, Firestore listeners can hang after route navigation or
-/// backgrounding. Without a budget the UI shows an infinite spinner; with
-/// this wrapper it gets an error/close it can render as a retry state.
-///
-/// The budget only guards the initial emission. Firestore snapshot
-/// streams are long-lived push channels that legitimately emit nothing
-/// for minutes at a time; once the first snapshot is delivered, the
-/// stream is passed through untouched until the source closes or errors.
-///
-/// Cold starts (new WebChannel + auth token + query) routinely exceed a
-/// few seconds on slow networks, and every dashboard preview attaches at
-/// the same moment — so a single-shot budget flipped ALL of them to the
-/// error state at once. Pass [resubscribe] (a factory for a fresh query
-/// stream) to let the wrapper silently re-attach with [retryDelay]
-/// backoff before surfacing an error, up to [maxAttempts] total attempts.
-/// Without [resubscribe] the behavior is the legacy one: a first-event
-/// timeout closes the stream, and a first-event error is forwarded.
 Stream<T> withFirestoreTimeout<T>(
   Stream<T> stream, {
   Duration duration = const Duration(seconds: 5),
@@ -33,13 +13,6 @@ Stream<T> withFirestoreTimeout<T>(
   int maxAttempts = 2,
   Duration retryDelay = const Duration(seconds: 2),
 }) {
-  // On web (especially during cold launch or when running locally on
-  // localhost where multiple collection streams attach simultaneously),
-  // the initial WebChannel connection and target allocation can take 15-20s.
-  // A tight 5-10s timer kills the subscription while Firestore is still
-  // connecting, creating an aggressive retry loop that exhausts and drops
-  // the stream. Ensure at least a 25s initial budget on web so first paint
-  // actually succeeds.
   final effectiveDuration = kIsWeb && duration < const Duration(seconds: 25)
       ? const Duration(seconds: 25)
       : duration;
@@ -56,9 +29,6 @@ Stream<T> withFirestoreTimeout<T>(
   return guard.output;
 }
 
-/// State machine behind [withFirestoreTimeout]. A tiny class (instead of
-/// closures) so the mutually-recursive attach/retry/finish steps compile:
-/// Dart local functions cannot forward-reference each other.
 class _FirstEventGuard<T> {
   _FirstEventGuard({
     required Stream<T> firstStream,
@@ -118,8 +88,6 @@ class _FirstEventGuard<T> {
     _budgetTimer?.cancel();
     _budgetTimer = Timer(duration, () {
       if (_receivedFirst || _settled) return;
-      // The current listener is wedged (or just too slow): drop it so
-      // it can't deliver a stale first event later.
       _cancelSubscription();
       if (factory != null && _attempt < maxAttempts) {
         Logger.w(
@@ -149,9 +117,6 @@ class _FirstEventGuard<T> {
     });
   }
 
-  /// Re-attaches via [factory] after [retryDelay], unless the first event
-  /// arrived or the guard settled meanwhile. A factory that throws
-  /// synchronously settles the guard with that error.
   void _scheduleReattach() {
     _backoffTimer?.cancel();
     _backoffTimer = Timer(retryDelay, () {
@@ -187,12 +152,6 @@ class _FirstEventGuard<T> {
             if (!_settled) _controller.addError(error, stackTrace);
             return;
           }
-          // Pre-first-event failure: transient blips (and token-refresh
-          // races) deserve a silent re-attach before the UI gives up.
-          // Permanent failures (missing index, denied session) would fail
-          // identically on every attempt: surface them at once so the UI
-          // can show the actionable hint instead of spinning through the
-          // whole retry budget first.
           _cancelSubscription();
           if (_isPermanent(error)) {
             _finishError(error, stackTrace);
@@ -218,8 +177,6 @@ class _FirstEventGuard<T> {
             }
             return;
           }
-          // Source closed without data (or the budget path already
-          // re-attached and this is the stale subscription draining).
           _cancelSubscription();
           if (factory != null && _attempt < maxAttempts && !_settled) {
             _scheduleReattach();
@@ -231,8 +188,6 @@ class _FirstEventGuard<T> {
         },
       );
     } catch (error, stackTrace) {
-      // The source threw synchronously on listen (e.g. an already-
-      // listened single-subscription stream or a misconfigured SDK).
       _finishError(error, stackTrace);
     }
   }
@@ -242,16 +197,11 @@ class _FirstEventGuard<T> {
     _settled = true;
     _cancelTimers();
     _cancelSubscription();
-    // Logger.e always emits (even in release): this line is the only
-    // trace distinguishing a timeout from permission-denied from offline
-    // in a production bug report.
     Logger.e('[Firestore] $name failed: ${_shortError(error)}');
     _controller.addError(error, stackTrace);
   }
 }
 
-/// True for failures a retry cannot fix: the next attempt would fail the
-/// same way, so re-attaching only delays the actionable error UI.
 bool _isPermanent(Object error) {
   if (error is FirebaseException) {
     switch (error.code) {
@@ -276,12 +226,6 @@ String _shortError(Object error) {
   return s.length > 160 ? '${s.substring(0, 160)}…' : s;
 }
 
-/// Human-readable cause for a Firestore stream failure, for retry rows.
-///
-/// The dashboard previews historically showed one generic line for every
-/// failure mode, which made "could not load" reports undiagnosable.
-/// Returns a short noun phrase that reads naturally as
-/// `'<hint> — tap here to retry.'`.
 String firestoreErrorHint(Object? error) {
   if (error == null) return 'Could not load';
   if (error is TimeoutException) return 'Timed out';
@@ -321,17 +265,6 @@ String firestoreErrorHint(Object? error) {
   return 'Could not load';
 }
 
-/// Bounds a one-shot Firestore read (`.get()` on a doc or query) so a
-/// stalled WebChannel can't hang a card on its skeleton forever.
-///
-/// Rule: every `.get()` in app code goes through here. Raw `.timeout()`
-/// works but scatters budgets; this keeps one web-aware floor (cold
-/// starts on web routinely need ~25s, same as [withFirestoreTimeout])
-/// and one log line per stall so slow reads show up in release logs.
-///
-/// Throws [TimeoutException] on expiry — callers already catch errors
-/// from reads (permission-denied, offline), so this is one more caught
-/// error their retry/empty states handle.
 Future<T> withGetTimeout<T>(
   Future<T> read, {
   Duration duration = const Duration(seconds: 10),
@@ -355,8 +288,6 @@ Future<T> withGetTimeout<T>(
   );
 }
 
-/// Reads a Firestore document from local cache first (0-1ms).
-/// Falls back to the server if not present in the local cache.
 Future<DocumentSnapshot<T>> getDocFast<T>(
   DocumentReference<T> ref, {
   Duration duration = const Duration(seconds: 10),
@@ -371,8 +302,6 @@ Future<DocumentSnapshot<T>> getDocFast<T>(
   return withGetTimeout(ref.get(), duration: duration, label: label);
 }
 
-/// Reads a Firestore query from local cache first (0-1ms).
-/// Falls back to the server if not present in the local cache.
 Future<QuerySnapshot<T>> getQueryFast<T>(
   Query<T> query, {
   Duration duration = const Duration(seconds: 10),

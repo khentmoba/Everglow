@@ -7,7 +7,6 @@ import 'animex_skeleton.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_motion.dart';
 
-/// Responsive auto-fill poster grid with a staggered entrance animation.
 class AnimeXGrid extends StatelessWidget {
   final List<MediaItem> items;
   final void Function(MediaItem) onTap;

@@ -5,13 +5,6 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-/// 3D chibi cat guardian rendered via the `<model-viewer>` web component.
-///
-/// Load behavior (dashboard performance): the platform view is created
-/// [initDelay] after mount so the GLB fetch + WebGL boot never contend with
-/// the dashboard's Firestore stream burst on cold start. Until then — and
-/// while the model downloads — the Motchi avatar shows (already bundled, and
-/// already on-screen via the AI button, so it costs zero new bytes).
 class CatVisuals extends StatefulWidget {
   final double size;
   final bool autoRotate;
@@ -44,8 +37,6 @@ class CatVisualsState extends State<CatVisuals> {
   void initState() {
     super.initState();
     _viewType = 'model-viewer-${identityHashCode(this)}';
-    // The factory below is cheap (no load until the platform view lays
-    // out), so register now but mount the view after the delay.
     if (widget.initDelay == Duration.zero) {
       _ready = true;
     } else {
@@ -65,8 +56,6 @@ class CatVisualsState extends State<CatVisuals> {
       }
       final el = web.document.createElement('model-viewer') as web.HTMLElement;
       el
-        // Web-relative path (the pubspec asset key gains an extra
-        // `assets/` prefix in the compiled web bundle).
         ..setAttribute('src', 'assets/assets/models/chibi_cat.glb')
         ..setAttribute('poster', 'assets/assets/images/motchi_avatar.webp')
         ..setAttribute('alt', 'Everglow Guardian Cat')
@@ -104,8 +93,6 @@ class CatVisualsState extends State<CatVisuals> {
     }
   }
 
-  /// Stops the model-viewer's render loop before the element is removed,
-  /// avoiding a race in the model-viewer library on disposal.
   void suspend() {
     final el = _element;
     if (el != null && el.style.display != 'none') {
@@ -134,8 +121,6 @@ class CatVisualsState extends State<CatVisuals> {
   @override
   void dispose() {
     _initTimer?.cancel();
-    // Stop the model-viewer render loop before the platform view element is
-    // removed, avoiding a race inside the model-viewer library.
     final el = _element;
     if (el != null) {
       el.style.display = 'none';

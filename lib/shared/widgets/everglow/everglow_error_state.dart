@@ -6,10 +6,6 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_spacing.dart';
 import 'everglow_button.dart';
 
-/// Unified error state for ALL screens.
-///
-/// Shows an icon + message + Retry button + optional "Open in browser" escape.
-/// Replaces raw `Text('Error: $e')` and silent failures.
 class EverglowErrorState extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
@@ -34,7 +30,6 @@ class EverglowErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon
             Container(
               width: 80,
               height: 80,
@@ -95,10 +90,6 @@ class EverglowErrorState extends StatelessWidget {
   }
 }
 
-/// Offline state with connectivity message.
-///
-/// Thin wrapper around [EverglowErrorState] so screens have one
-/// obvious widget to reach for when connectivity is lost.
 class EverglowOfflineState extends StatelessWidget {
   final VoidCallback? onRetry;
 

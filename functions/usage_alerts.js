@@ -1,26 +1,16 @@
 'use strict';
 
-// Everglow Cloud Functions — API usage anomaly alerts.
-// Reads the daily counters written by checkDailyCap (common.js) at
-// api_usage/{uid}/days/{YYYY-MM-DD} and pings Khent over FCM when
-// usage looks abnormal: near a daily cap, or spiking vs yesterday.
-//
-// Alerts go to Khent only — Clair should never get a scary ops warning.
-// Each alert cools down for 12h so a stuck loop can't spam his phone.
-
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
 const { sendFCMToUser } = require('./triggers.js');
 
-// Warn levels sit just under the caps enforced in motchi_chat.js.
-// Bump these together with that file.
 const WARN_LEVELS = {
   proxyAI: 250,
 };
 
-const SPIKE_RATIO = 5; // today >= 5x yesterday…
-const SPIKE_MINIMUM = 20; // …and at least 20 calls, to ignore tiny noise.
+const SPIKE_RATIO = 5;
+const SPIKE_MINIMUM = 20;
 const ALERT_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 const MAX_USERS_SCANNED = 20;
 
@@ -28,10 +18,6 @@ function _dayKey(date) {
   return date.toISOString().slice(0, 10);
 }
 
-/**
- * Pure anomaly detector (unit-tested). Returns human-readable alert
- * lines for one user, e.g. ["proxyAI at 280/300 today", ...].
- */
 function detectAnomalies(username, today, yesterday) {
   const alerts = [];
   for (const [endpoint, warnAt] of Object.entries(WARN_LEVELS)) {
@@ -121,7 +107,6 @@ const sweepApiUsageAnomalies = onSchedule({
       console.log('[usageAlerts] usage normal');
     }
   } catch (e) {
-    // Never throw: a failing watchdog must not become its own alarm storm.
     console.warn('[usageAlerts] sweep failed:', e.message);
   }
 });

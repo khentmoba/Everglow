@@ -1,15 +1,10 @@
 import 'package:flutter/scheduler.dart' show FrameTiming;
 
-/// Reported Flutter frame timings, not display presentation or dropped frames.
-/// Averages use a bounded window; session peaks and counts survive that window.
-/// Other main-thread tasks and frames never reported by Flutter need a browser
-/// trace. Even [FrameTiming.totalSpan] is not a complete interaction measurement.
 class FrameStats {
   FrameStats({this.capacity = 240}) : assert(capacity > 0);
 
   final int capacity;
 
-  /// A reference 60Hz budget, not a measurement of the device's refresh rate.
   static const double frameBudgetMs = 1000 / 60;
 
   final List<_FrameSample> _samples = <_FrameSample>[];
@@ -21,7 +16,6 @@ class FrameStats {
   double _sessionWorstRasterMs = 0;
   double _sessionWorstFrameMs = 0;
 
-  /// Adds work durations and, when available, the full reported frame span.
   void add(double buildMs, double rasterMs, {double? totalMs}) {
     final sample = _FrameSample(
       buildMs,
@@ -64,7 +58,6 @@ class FrameStats {
 
   int get frameCount => _samples.length;
 
-  /// Uncapped since reset: differencing a capped window gives a false zero FPS.
   int get totalFrames => _totalFrames;
   int get sessionOver200ms => _over200ms;
   double get sessionWorstBuildMs => _sessionWorstBuildMs;
@@ -80,13 +73,11 @@ class FrameStats {
   double get worstRasterMs => _max((s) => s.rasterMs);
   double get worstTotalMs => _max((s) => s.totalMs);
 
-  /// Diagnostic window share above the reference budget, not observed jank.
   double get jankPercent => _percent(
     _samples.where((s) => s.totalMs > frameBudgetMs).length,
     frameCount,
   );
 
-  /// Timings exceeding two reference budgets, NOT measured presentation skips.
   double get slowFramePercent => _percent(
     _samples.where((s) => s.totalMs > frameBudgetMs * 2).length,
     frameCount,
@@ -114,14 +105,12 @@ class FrameStats {
   }
 }
 
-/// Rate of reported frames, not necessarily presented FPS (especially headless).
 double framesPerSecond(int frames, Duration elapsed) {
   final micros = elapsed.inMicroseconds;
   if (micros <= 0 || frames <= 0) return 0;
   return frames * Duration.microsecondsPerSecond / micros;
 }
 
-/// The same rounded values feed the HUD and the opt-in browser mirror.
 class PerfSnapshot {
   PerfSnapshot.of({
     required double fps,

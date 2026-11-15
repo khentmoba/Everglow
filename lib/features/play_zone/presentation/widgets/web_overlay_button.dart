@@ -6,21 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 import '../../../../core/theme/app_colors.dart';
 
-/// Small circular HUD button rendered as a real DOM element (via
-/// [HtmlElementView]) so that it sits ABOVE any sibling iframe
-/// platform view in the DOM z-order and can receive pointer events.
-///
-/// The previous in-Flutter `GestureDetector` HUD buttons failed when
-/// they were stacked over a [HtmlElementView] (iframe). Even though
-/// Flutter draws them on top in the widget tree, the iframe is a
-/// separate DOM element that consumes clicks in its area before
-/// Flutter's pointer dispatch ever sees them. Rendering the button
-/// itself as a DOM `<button>` element via another platform view puts
-/// it on top of the iframe in the DOM and the browser routes the
-/// click to the button.
-///
-/// On non-web platforms (where `kIsWeb` is false) we fall back to a
-/// regular `GestureDetector` so this widget remains usable.
 class WebOverlayButton extends StatefulWidget {
   const WebOverlayButton({
     super.key,
@@ -119,9 +104,6 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
   void _handleClick() {
     if (!mounted) return;
     widget.onTap();
-    // Drop focus so the button doesn't stay in :focus state and so
-    // the next click anywhere on the iframe doesn't replay a click
-    // on this button.
     try {
       _element.blur();
     } catch (e) {
@@ -191,11 +173,6 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
   }
 }
 
-/// Large rectangular overlay button (gradient background, optional
-/// leading icon + label) rendered as a DOM `<button>` element so it
-/// sits above any sibling iframe platform view. Used for the
-/// critical "I FINISHED!" finish button on multiplayer game
-/// screens, which would otherwise be eaten by the iframe.
 class WebOverlayTextButton extends StatefulWidget {
   const WebOverlayTextButton({
     super.key,
@@ -205,8 +182,8 @@ class WebOverlayTextButton extends StatefulWidget {
     this.tooltip,
     this.busy = false,
     this.gradient = const [
-      AppColors.warmAmber, // warmAmber
-      AppColors.deepRose, // deepRose
+      AppColors.warmAmber,
+      AppColors.deepRose,
     ],
     this.borderColor,
     this.fullWidth = true,
@@ -442,9 +419,6 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
   }
 }
 
-/// Non-interactive status pill rendered as a DOM `<div>` so it can sit
-/// above an iframe platform view. Used for the partner-status display
-/// in the multiplayer game top bar.
 class WebOverlayPill extends StatefulWidget {
   const WebOverlayPill({
     super.key,
@@ -538,8 +512,6 @@ class _WebOverlayPillState extends State<WebOverlayPill> {
     return div;
   }
 
-  /// `replaceChildren` takes one node in package:web, so an array argument is
-  /// stringified into a text node. Clear, then append each child.
   void _replaceChildren(web.Element element, List<web.Node> children) {
     element.textContent = '';
     for (final child in children) {

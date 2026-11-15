@@ -6,11 +6,6 @@ import 'everglow_background.dart';
 import 'everglow_app_bar.dart';
 import 'everglow_pill_nav.dart';
 
-/// Standard screen scaffold for ALL screens.
-///
-/// Wraps EverglowBackground + SafeArea + responsive container +
-/// optional EverglowAppBar + optional EverglowPillNav.
-/// Every screen in the app uses this instead of raw `Scaffold`.
 class EverglowScaffold extends StatelessWidget {
   final Widget body;
   final EverglowAppBar? appBar;
@@ -39,7 +34,6 @@ class EverglowScaffold extends StatelessWidget {
     this.floatingActionButton,
   });
 
-  /// Cinema variant — darker background.
   const EverglowScaffold.cinema({
     super.key,
     required this.body,
@@ -78,7 +72,6 @@ class EverglowScaffold extends StatelessWidget {
       floatingActionButton: floatingActionButton,
       body: Stack(
         children: [
-          // Atmospheric background
           if (glows != null)
             EverglowBackground(
               baseColor: backgroundColor ?? AppColors.twilight,
@@ -91,19 +84,12 @@ class EverglowScaffold extends StatelessWidget {
               showPetals: showPetals,
             ),
 
-          // Content. The iPhone Home Screen status-bar inset arrives via
-          // MediaQuery (see WebStandaloneInsets at the app root), so this
-          // SafeArea clears it on every screen with no per-screen work.
-          // The background above stays full-bleed and the bottom stays
-          // edge-to-edge by design.
           SafeArea(
             bottom: !hasNav,
             child: Column(
               children: [
-                // AppBar
                 ?appBar,
 
-                // Body
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
@@ -116,7 +102,6 @@ class EverglowScaffold extends StatelessWidget {
             ),
           ),
 
-          // Bottom nav
           if (hasNav)
             EverglowPillNav(
               items: navItems!,

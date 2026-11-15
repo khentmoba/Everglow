@@ -10,11 +10,6 @@ import '../../../data/services/tmdb_service.dart';
 import '../trailer_player.dart';
 import 'netflix_colors.dart';
 
-/// Full-bleed billboard hero - the Netflix opening shot.
-///
-/// A single featured title fills the viewport with its backdrop (or a
-/// muted autoplaying trailer), cinematic scrims, a title block with
-/// Play / More Info actions, and a soft crossfade cycle between titles.
 class NetflixBillboard extends StatefulWidget {
   final List<MediaItem> items;
   final void Function(MediaItem) onPlay;
@@ -32,8 +27,6 @@ class NetflixBillboard extends StatefulWidget {
 }
 
 class _NetflixBillboardState extends State<NetflixBillboard> {
-  // Shared with the anime hero and the dashboard memories so a slide rests
-  // for the same beat on phone and desktop.
   static const _hold = AppMotion.carouselHold;
   static final Map<String, String?> _trailerCache = {};
   static final Map<String, Map<String, dynamic>> _detailCache = {};
@@ -45,15 +38,9 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   Timer? _timer;
   bool _muted = true;
   bool _ready = false;
-  // Accumulated horizontal drag distance for the current swipe gesture.
   double _dragDx = 0;
-  // Trailer lookups stay off the open path on phones: details (runtime,
-  // synopsis, TMDB rating) load immediately, the YouTube key only resolves
-  // after the still has painted or the user taps Play.
   bool _trailerArmed = false;
 
-  /// False while the home tab sits behind another tab: rotation and loads
-  /// stay off so a covered billboard costs nothing (mirrors AnimeXSpotlight).
   bool _active = false;
 
   MediaItem get _item => widget.items[_index];
@@ -107,8 +94,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
         return;
       }
       final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
-      // Trailer autoplay is desktop-only: arming on phones would fetch a
-      // YouTube key + spin up a WebView the user never sees.
       if (isDesktop) _armTrailer();
       _select((_index + 1) % widget.items.length);
     });
@@ -139,10 +124,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     });
   }
 
-  /// Resolves the YouTube key after the still is on screen. Called once
-  /// from the engage path (Play tap arms it via the parent) and from the
-  /// rotation timer on desktop; on phones the muted autoplay player never
-  /// mounts, so this typically never fires there.
   void _armTrailer() {
     if (_trailerArmed) return;
     _trailerArmed = true;
@@ -203,8 +184,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     return v.toDouble();
   }
 
-  /// Age certification ("PG-13", "TV-MA") from the appended TMDB payload.
-  /// Prefers the Philippine rating, falls back to US, then anything.
   String? get _certification {
     final d = _details;
     if (d == null) return null;
@@ -255,9 +234,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
         : (MediaQuery.sizeOf(context).height * 0.58).clamp(380.0, 540.0);
 
     return GestureDetector(
-      // The dot indicators promise swiping, so horizontal drags flip
-      // slides. Vertical drags still reach the page scroll: the gesture
-      // arena only hands us the pointer when it moves mostly sideways.
       onHorizontalDragStart: (_) => _dragDx = 0,
       onHorizontalDragUpdate: (details) => _dragDx += details.delta.dx,
       onHorizontalDragCancel: () => _dragDx = 0,
@@ -281,7 +257,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               switchOutCurve: Curves.easeIn,
               child: _buildMedia(isDesktop),
             ),
-            // Bottom scrim into page background.
             const IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -299,7 +274,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
                 ),
               ),
             ),
-            // Left scrim for text legibility.
             const IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -339,8 +313,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(widget.items.length, (i) {
                   final active = i == _index;
-                  // Dots are tappable shortcuts — and padded so each one
-                  // is a comfortable touch target on phones.
                   return GestureDetector(
                     key: ValueKey('billboard-dot-$i'),
                     behavior: HitTestBehavior.opaque,
@@ -375,8 +347,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   }
 
   Widget _buildMedia(bool isDesktop) {
-    // Phones get the still only — the autoplaying trailer player (YouTube
-    // WebView/iframe) stays desktop-only so open never mounts video.
     final showTrailer = isDesktop && _trailerKey != null && _ready;
     return KeyedSubtree(
       key: ValueKey('billboard-${_item.tmdbId}-$isDesktop'),
@@ -416,9 +386,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Billboard items are the top of Trending, so every slide is
-            // a Top-10 title — the pill names its rank. A Wrap (not a Row)
-            // so the meta line fits phone widths too.
             Wrap(
               spacing: 10,
               runSpacing: 6,
@@ -533,7 +500,6 @@ class _HdBadge extends StatelessWidget {
   }
 }
 
-/// Age-rating chip ("PG-13", "TV-MA") beside the other meta badges.
 class _CertBadge extends StatelessWidget {
   final String certification;
   const _CertBadge(this.certification);
@@ -557,7 +523,6 @@ class _CertBadge extends StatelessWidget {
   }
 }
 
-/// "#N in Top 10" pill — the billboard only ever shows trending titles.
 class _TopTenPill extends StatelessWidget {
   final int rank;
   const _TopTenPill({required this.rank});

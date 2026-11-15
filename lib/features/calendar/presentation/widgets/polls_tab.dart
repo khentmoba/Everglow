@@ -441,7 +441,6 @@ class _PollCard extends StatelessWidget {
       ),
     );
     if (confirm != true) return;
-    // Save the event and poll decision together, or leave both unchanged.
     if (poll.options.isEmpty) return;
     final opt = poll.options.firstWhere(
       (o) => o.id == winning,

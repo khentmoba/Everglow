@@ -25,15 +25,12 @@ class _Auth extends ChangeNotifier implements AuthService {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
-/// Answers every Home feed with [items], or waits on [gate] when one is set.
 class _FeedService implements TMDBService {
   _FeedService({this.items = const [], this.gate});
 
   final List<MediaItem> items;
   final Completer<List<MediaItem>>? gate;
 
-  /// Every Home feed call this service answered, so a test can prove Cinema
-  /// did not ask TMDB again.
   int calls = 0;
 
   Future<List<MediaItem>> _feed() {
@@ -100,7 +97,6 @@ Future<void> _open(WidgetTester tester, TMDBService service) =>
 Future<void> _close(WidgetTester tester) =>
     tester.pumpWidget(const SizedBox());
 
-/// Lets SharedPreferences (a platform channel) finish its pending work.
 Future<void> _settleStorage(WidgetTester tester) async {
   await tester.runAsync(
     () => Future<void>.delayed(const Duration(milliseconds: 20)),
@@ -130,7 +126,6 @@ void main() {
     (tester) async {
       final gate = Completer<List<MediaItem>>();
       await _open(tester, _FeedService(gate: gate));
-      // First frame: nothing has resolved from the network.
       await tester.pump();
       expect(find.byType(CinemaScreen), findsOneWidget);
       expect(find.byType(CinemaHomeTab), findsOneWidget);
@@ -171,7 +166,6 @@ void main() {
 
       expect(_ids(_home(tester).trendingGlobal), [1, 2]);
       expect(_ids(_home(tester).popularTVShows), [1, 2]);
-      // Nothing is loading, because nothing was asked for.
       expect(_home(tester).isLoadingHome, isFalse);
       expect(repeat.calls, 0);
       expect(tester.takeException(), isNull);
@@ -192,7 +186,6 @@ void main() {
       await _open(tester, repeat);
       await tester.pump();
 
-      // Saved rows are on screen before the network answers.
       expect(_ids(_home(tester).trendingGlobal), [1]);
       expect(_home(tester).isLoadingHome, isTrue);
       expect(repeat.calls, greaterThan(0));
@@ -240,7 +233,6 @@ void main() {
     await _settleStorage(tester);
     await _close(tester);
 
-    // Age the rows so the refresh actually runs; a fresh cache would skip it.
     CinemaHomeCache.debugAgeRows(const Duration(minutes: 30));
     await _open(tester, _FeedService());
     await _settleStorage(tester);

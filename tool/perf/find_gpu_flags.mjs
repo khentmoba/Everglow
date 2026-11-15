@@ -1,6 +1,3 @@
-// Find a Chrome flag set that gives this container hardware WebGL.
-// Reads the real UNMASKED_RENDERER_WEBGL string, and times a fill-rate probe,
-// so "we have no GPU" can be checked instead of assumed.
 import { spawn } from 'node:child_process';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -57,7 +54,6 @@ async function probe(flags) {
     const send = (method, params = {}) => new Promise((res) => { const c = id++; pending.set(c, res); ws.send(JSON.stringify({ id: c, method, params })); });
     await send('Runtime.enable');
     const r = await send('Runtime.evaluate', { expression: PROBE, returnByValue: true, awaitPromise: false });
-    // CDP nests the result twice: {result:{result:{type,value}}}
     const raw = r?.result?.result?.value;
     out = typeof raw === 'string' ? JSON.parse(raw) : { error: JSON.stringify(r).slice(0, 200) };
     ws.close();

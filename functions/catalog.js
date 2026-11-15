@@ -1,9 +1,5 @@
 'use strict';
 
-// Everglow Cloud Functions — catalog group.
-// TMDB (cinema) + Last.fm (jukebox) proxies. Both keep API keys
-// server-side and require a Firebase ID token.
-
 const {
   cappedHttps,
   requireAuth,
@@ -17,19 +13,6 @@ const {
   buildTmdbUpstream,
 } = require('./media_proxy_core.js');
 
-/**
- * Authenticated TMDB metadata proxy. The client supplies the normal TMDB path
- * after /proxyTmdb (for example: /trending/all/week); any client api_key is
- * ignored and replaced server-side so the browser bundle never contains it.
- */
-// No minInstances (cost): cold start ~1-2s is fine for metadata lookups.
-/**
- * Builds the instance-cache key for an upstream URL: path plus its query,
- * sorted by name and with the server-held `api_key` left out (so one key
- * covers every caller of the same data). Reads the URL's own params instead
- * of cloning it, so nothing can throw here and the upstream request URL is
- * never mutated.
- */
 function externalCacheKey(prefix, upstream) {
   const query = [...upstream.searchParams.entries()]
     .filter(([name]) => name !== 'api_key')
@@ -39,15 +22,6 @@ function externalCacheKey(prefix, upstream) {
   return `${prefix}${upstream.pathname}?${query}`;
 }
 
-/**
- * Per-method cache TTLs for Last.fm. All-time counters barely move between
- * listens, so the slow reads (exact per-artist playcounts, all-time top
- * tracks/artists) are held much longer than the blanket 5-minute default.
- * Recent charts (7day) stay short, while recent scrobbles — the jukebox's
- * live feed — are held only 30s so a song change surfaces on the next
- * poll instead of up to 5 minutes late. The showdown's deeper paging
- * never re-pays upstream per open.
- */
 function lastfmCacheTtlMs(method, period) {
   const m = String(method || '').toLowerCase();
   const p = String(period || 'overall').toLowerCase();
@@ -68,10 +42,6 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Vary', 'Authorization');
-  // Authenticated per-user responses stay private, but the CDN may serve
-  // the identical TMDB catalog payload across users for 5 minutes. The
-  // browser still revalidates via the in-memory instance cache below;
-  // this header only lets Google's edge absorb repeat opens.
   res.set('Cache-Control', 'private, max-age=0, s-maxage=300');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
@@ -79,8 +49,6 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
 
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
-  // One Cinema open fans out to ~30 calls; 300/min per user is generous
-  // for humans and still cuts off floods/bots.
   if (enforceRateLimit(req, res, { endpoint: 'proxyTmdb', limit: 300, windowMs: 60000, uid: decoded.uid })) return;
 
   const apiKey = (process.env.TMDB_API_KEY || '').trim();
@@ -94,10 +62,6 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
     return;
   }
 
-  // TMDB metadata is public and slow-moving: cache it per instance so the
-  // ~30 calls behind one Cinema open (and repeat opens) don't each pay a
-  // TMDB round trip. Auth + path validation above still run on every call;
-  // only HTTP 200 bodies are cached. TTL lives in common.js (10m for TMDB).
   const cacheKey = externalCacheKey('tmdb:proxy:', upstream);
   const cached = _getExternalCache(cacheKey, _EXTERNAL_CACHE_TTLS.tmdb);
   if (cached) {
@@ -125,11 +89,6 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
   }
 });
 
-/**
- * Authenticated read-only Last.fm proxy. Only public catalog/user lookup
- * methods are allowed; the API key stays in Cloud Functions.
- */
-// No minInstances (cost): cold start ~1-2s is fine for catalog lookups.
 const proxyLastfm = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -155,10 +114,6 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
     return;
   }
 
-  // Same instance cache as TMDB: the jukebox polls recent tracks every
-  // ~25s while someone is live, so the live feed is cached 30s (one poll
-  // behind at most) while all-time reads hold 30m — see lastfmCacheTtlMs.
-  // Only HTTP 200 bodies are cached (errors never stick).
   const cacheKey = externalCacheKey('lastfm:proxy:', upstream);
   const cached = _getExternalCache(
     cacheKey,
@@ -176,8 +131,6 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
     const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
     const body = await response.text();
     const contentType = response.headers.get('content-type') || 'application/json';
-    // Only cache successful Last.fm payloads (Last.fm returns error payloads
-    // with HTTP 200 — errors must never stick in the cache).
     if (response.status === 200 && !body.includes('"error":')) {
       _setExternalCache(cacheKey, { status: 200, contentType, body });
     }

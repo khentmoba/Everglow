@@ -7,8 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/epub_service.dart';
 
-/// Builds a minimal valid EPUB in memory: container.xml + OPF with a
-/// two-item spine + two XHTML chapters.
 Uint8List buildTestEpub() {
   final archive = Archive();
   void add(String name, String text) {

@@ -3,14 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/logger.dart';
 import '../../domain/models/mini_game.dart';
 
-/// Motchi's Minis — saved mini-games, shared by Khent and Clair.
-///
-/// Games are saved from the canvas preview and replayed from the shelf.
-/// Small on purpose: one stream, one save, one delete.
 class MotchiMinisService {
   final FirebaseFirestore _db;
 
-  /// Newest first, capped so the shelf stays snappy.
   static const int shelfLimit = 50;
 
   MotchiMinisService({FirebaseFirestore? db})
@@ -34,7 +29,6 @@ class MotchiMinisService {
         );
   }
 
-  /// Saves a game to the shelf. Returns true on success.
   Future<bool> saveMini({
     required String title,
     required String html,

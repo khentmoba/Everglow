@@ -7,13 +7,6 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../../../core/utils/logger.dart';
 
-/// Disk cache shared by every manga/manhwa/manhua reader page.
-///
-/// The default image cache only lives in memory, so once Clair scrolls
-/// past a few big pages the earlier ones are thrown away and must
-/// download all over again when she scrolls back. This manager keeps
-/// page bytes on disk (30 days, room for several chapters), so a page
-/// that has loaded once stays loaded.
 final CacheManager readerPageCacheManager = CacheManager(
   Config(
     'reader-pages',
@@ -22,75 +15,31 @@ final CacheManager readerPageCacheManager = CacheManager(
   ),
 );
 
-/// One chapter page in the manga readers.
-///
-/// What it guarantees for Clair:
-/// - Fast and smooth scrolling: neighbours within the scroller's
-///   cache extent (1200px) stay built, while offscreen strips are
-///   unmounted so their decoded GPU textures are evicted by Flutter's
-///   `ImageCache` (96 MB limit). Deliberately does NOT keep offscreen
-///   widgets alive with `AutomaticKeepAliveClientMixin`: a 100-page
-///   manhwa keeping every strip mounted in `_liveImages` consumes
-///   500MB+ of WebGL textures, triggering iOS WebKit Jetsam process
-///   termination and sudden PWA reloads mid-chapter.
-/// - Once a page loads, the browser HTTP cache (on web) and 30-day
-///   disk cache (on native) ensure that scrolling back never needs
-///   to re-download from the network.
-/// - A failed page retries by itself a few times with a short backoff
-///   instead of sitting there as a black gap.
-/// - When retries run out, the slot always shows the page number plus
-///   a big per-page Retry button — never a blank black box, and never
-///   a button that reloads the whole chapter.
-/// - On Flutter Web it uses plain `Image.network` with gapless
-///   playback, mirroring [AppNetworkImage]: `CachedNetworkImage` hits
-///   an upstream CanvasKit texture bug there.
-///
-/// Parents that rewrite failing URLs (the Katana reader silently tries
-/// the next CDN host) pass [onError]: it fires once per failure,
-/// post-frame so the parent may call `setState`. Changing [imageUrl]
-/// in response resets the retry counter for the new URL.
 class ReaderPageImage extends StatefulWidget {
   final String imageUrl;
 
-  /// 1-based page number shown in the loading / error slots.
   final int pageNumber;
 
   final BoxFit fit;
 
-  /// Set for paged fit-height mode; null lets the page size itself
-  /// (webtoon full-width strip).
   final double? height;
 
-  /// Downscale width for the in-memory bitmap so more pages fit in
-  /// memory. Defaults to screen width x device pixel ratio.
   final int? memCacheWidth;
 
-  /// Slot colors so each reader keeps its own theme.
   final Color slotColor;
   final Color accentColor;
   final Color mutedColor;
 
-  /// Same-URL automatic retries before the error slot appears.
   final int maxAutoRetries;
 
-  /// Delay before the first automatic retry; doubles each attempt.
   final Duration firstRetryDelay;
 
-  /// Fired (post-frame) on every failure. May be used to swap in a
-  /// fallback URL; the widget resets itself for the new URL.
   final void Function()? onError;
 
-  /// Fired (post-frame) once per URL when the real image is on screen.
-  /// Parents that measure page heights must wait for this: before it, the
-  /// laid-out box is the fixed-size loading slot, not the page.
   final void Function()? onLoaded;
 
-  /// Extra button in the error slot, e.g. "Try another server".
   final Widget? secondaryAction;
 
-  /// Test seam: production callers leave this null (shared disk
-  /// cache); tests inject a failing manager to drive the retry path
-  /// without real network or disk I/O.
   final BaseCacheManager? cacheManager;
 
   const ReaderPageImage({
@@ -111,14 +60,11 @@ class ReaderPageImage extends StatefulWidget {
     this.cacheManager,
   });
 
-  /// Overrides [kIsWeb] in widget tests to verify the web branch.
   @visibleForTesting
   static bool? debugUseWebImplementation;
 
   static bool get _isWeb => debugUseWebImplementation ?? kIsWeb;
 
-  /// Warms the cache for a page Clair is about to reach, using the
-  /// same provider (and disk cache) the widget itself reads through.
   static Future<void> precachePage(BuildContext context, String url) {
     if (url.isEmpty) return Future.value();
     Future<void> precache(ImageProvider provider) {
@@ -140,17 +86,12 @@ class ReaderPageImage extends StatefulWidget {
 }
 
 class _ReaderPageImageState extends State<ReaderPageImage> {
-  /// Bumped on every (re)try so the inner image gets a fresh [Key]
-  /// and re-resolves instead of reusing its failed stream.
   int _generation = 0;
   int _attempt = 0;
   Timer? _retryTimer;
 
-  /// Post-frame notifications already queued for this [_generation],
-  /// so one failure notifies the parent exactly once.
   int _notifiedForGeneration = -1;
 
-  /// Same guard for [ReaderPageImage.onLoaded].
   int _notifiedLoadedForGeneration = -1;
 
   @override
@@ -165,9 +106,6 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
     }
   }
 
-  /// Tells the parent that the real image is on screen, so it can measure
-  /// the page instead of the loading slot. Runs post-frame because it is
-  /// called from inside a builder.
   void _notifyLoaded() {
     if (_notifiedLoadedForGeneration == _generation) return;
     _notifiedLoadedForGeneration = _generation;
@@ -186,9 +124,6 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
 
   bool get _exhausted => _attempt > widget.maxAutoRetries;
 
-  /// Called from the error builder, which can run on every parent
-  /// rebuild while failed — the guards keep one retry timer and one
-  /// parent notification per attempt.
   void _handleError() {
     final onError = widget.onError;
     if (onError != null && _notifiedForGeneration != _generation) {
@@ -236,9 +171,6 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
     });
   }
 
-  /// Slot heights stay bounded: an infinite page height (paged
-  /// fit-height mode) would break the loading / error boxes, so
-  /// those fall back to a fixed size like before.
   double _slotHeight(double fallback) {
     final h = widget.height;
     if (h == null || h.isInfinite) return fallback;
@@ -314,17 +246,12 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
       );
     }
 
-    // On native, isolate repaints so decode/upload never repaints the
-    // parent list. On web, skip RepaintBoundary to avoid the upstream
-    // CanvasKit Sliver bug (flutter/flutter#192347).
     if (!ReaderPageImage._isWeb) {
       image = RepaintBoundary(child: image);
     }
     return image;
   }
 
-  /// Loading slot: always shows the page number plus a spinner, so a
-  /// slow page never looks like a black gap.
   Widget _pendingSlot({required bool retrying}) {
     return Container(
       width: double.infinity,
@@ -357,8 +284,6 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
     );
   }
 
-  /// Failure slot after every automatic retry ran out: page number,
-  /// message, and a per-page Retry that touches only this image.
   Widget _errorSlot() {
     return Container(
       width: double.infinity,

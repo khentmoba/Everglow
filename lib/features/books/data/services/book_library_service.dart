@@ -4,9 +4,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/book_item.dart';
 
-/// Z-Lib style personal library: per-user favorites and a download
-/// history. Both collections are couple-only in `firestore.rules`,
-/// mirroring `read_list`. Breyan / Octagram never see these.
 class BookLibraryService {
   BookLibraryService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -16,9 +13,6 @@ class BookLibraryService {
   static bool isCoupleUser(String userName) =>
       userName == 'khentsgdz' || userName == 'clairjassen';
 
-  // ── FAVORITES ──────────────────────────────────────────────────────
-
-  /// Heart a book. Idempotent: re-tapping keeps a single document.
   Future<void> addFavorite(BookItem item, String userName) async {
     if (!isCoupleUser(userName)) {
       Logger.w('addFavorite refused: $userName is not a couple user');
@@ -82,10 +76,6 @@ class BookLibraryService {
     );
   }
 
-  // ── DOWNLOAD HISTORY ───────────────────────────────────────────────
-
-  /// Log a download. One document per (book, format) so re-downloads
-  /// refresh the timestamp instead of spamming the list.
   Future<void> logDownload(
     BookItem item,
     String userName, {

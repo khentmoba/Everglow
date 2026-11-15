@@ -99,7 +99,6 @@ void main() {
       final counter = AnniversaryCounter.calculate(start, now);
 
       expect(counter.years, 1);
-      // months/days may vary by age_calculator impl — just ensure no crash
       expect(counter.months, greaterThanOrEqualTo(0));
       expect(counter.days, greaterThanOrEqualTo(0));
     });

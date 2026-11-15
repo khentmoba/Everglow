@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'animex_tokens.dart';
 
-/// Quiet shelf heading: the titles and artwork carry the browsing hierarchy.
 class AnimeXSectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;

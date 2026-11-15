@@ -20,13 +20,6 @@ import '../../../../core/utils/optimistic_action.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Bottom-sheet details for a manga / manhwa / manhua, opened from the
-/// dashboard "Reading" shelf.
-///
-/// Matches the manga page ([KatanaDetailScreen]) layout so Clair gets
-/// the same familiar feel everywhere: cover-left hero card, clear
-/// reading actions, library chips, clean synopsis, and a chapter table
-/// with a newest/oldest toggle.
 class MangaDetailsDrawer extends StatefulWidget {
   final MangaItem item;
   const MangaDetailsDrawer({super.key, required this.item});
@@ -49,7 +42,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   List<MangaChapter> _chapters = const [];
   bool _isLoadingChapters = true;
   String? _chapterError;
-  bool _reversed = true; // newest first, like the manga page
+  bool _reversed = true;
   bool _synopsisExpanded = false;
 
   @override
@@ -76,13 +69,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
 
     const timeout = Duration(seconds: 10);
 
-    // Stage 1: direct ID-based feeds — fast and exact, no title search.
-    // Most library items carry a Comick hid, so this stage alone
-    // usually fills the list in a couple of seconds.
     final idFutures = <Future<List<MangaChapter>>>[];
-    // Comick chapter feeds need the hid (`mangaId`); the URL slug
-    // answers with a bot-check page, so the hid is always tried when
-    // we have it. Both fire in parallel and the best wins.
     if (_item.comickSlug.isNotEmpty) {
       idFutures.add(
         _comickService
@@ -119,14 +106,8 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
 
     var best = await _pickBest(idFutures);
 
-    // Scanlation slugs help the reader resolve pages later. Look them
-    // up in the background so the chapter list never waits for them.
     unawaited(_discoverScanlationSlugs());
 
-    // Stage 2: title search — only when the IDs found nothing. Limited
-    // to the main title plus one alt; the full alt list (a dozen+
-    // titles in many languages) used to fan out into 50+ slow scrapes
-    // that all had to finish before anything showed.
     if (best.isEmpty) {
       final titles = <String>[_item.title];
       for (final alt in _item.altTitles) {
@@ -189,7 +170,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       best = await _pickBest(searchFutures);
     }
 
-    // Stage 3: scanlation sites as a last resort.
     if (best.isEmpty) {
       try {
         final slugs = await _scanlationService
@@ -225,10 +205,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     }
   }
 
-  /// Returns the longest non-empty chapter list: one coherent source.
-  /// Merging every source used to mix foreign chapters into the list
-  /// with huge number gaps (Ch. 385 jumping to Ch. 462), so we now
-  /// pick a single best source instead.
   Future<List<MangaChapter>> _pickBest(
     List<Future<List<MangaChapter>>> futures,
   ) async {
@@ -245,15 +221,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     return best;
   }
 
-  /// Dedupe one source's chapters by chapter number (Comick returns
-  /// the same chapter once per scanlation group) and sort oldest
-  /// first with a stable id tie-break.
   List<MangaChapter> _dedupeAndSort(List<MangaChapter> list) {
     final byChapter = <String, MangaChapter>{};
     for (final ch in list) {
       final key = normalizeChapterNum(ch.chapter);
       if (key.isEmpty) {
-        // Chapters without a number get unique keys by id
         byChapter['id:${ch.id}'] = ch;
         continue;
       }
@@ -298,15 +270,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     }
   }
 
-  /// Chapters in display order (newest first by default, like the
-  /// manga page).
   List<MangaChapter> get _orderedChapters {
     if (!_reversed) return _chapters;
     return _chapters.reversed.toList();
   }
 
-  /// Where the big reading button should go: the next unread chapter
-  /// after the last-read one, or the very first chapter for new reads.
   MangaChapter? get _continueTarget {
     if (_chapters.isEmpty) return null;
     final lastId = _item.lastReadChapterId;
@@ -320,8 +288,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   bool get _hasStarted => _item.lastReadChapterId.isNotEmpty;
 
   Future<void> _openReader(MangaChapter chapter) async {
-    // The reader lives in a deferred chunk (see docs/PERF_NOTES.md); ensure
-    // it is loaded before pushing so direct drawer opens work offline-first.
     await reader_lib.loadLibrary();
     if (!mounted) return;
     Navigator.of(context).push(
@@ -388,14 +354,10 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     );
   }
 
-  /// Strip the link-dump tail ("Official Translation: https://…") and
-  /// raw URLs / markdown leftovers so the synopsis reads cleanly.
   String get _cleanSynopsis {
     var text = _item.description;
     if (text.isEmpty) return '';
-    // Descriptions sometimes arrive as HTML — drop tags first.
     text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');
-    // Cut the official-links tail if present.
     for (final marker in [
       '**Links:**',
       'Links:',
@@ -413,7 +375,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         break;
       }
     }
-    // Drop leftover raw URLs, markdown bold, and bracket clutter.
     text = text.replaceAll(RegExp(r'https?://\S+'), '');
     text = text.replaceAll('**', '');
     text = text.replaceAll(RegExp(r'\[\s*\]'), '');
@@ -525,8 +486,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     );
   }
 
-  /// Cover-left hero, exactly like the manga page so the art is never
-  /// cropped into a face close-up on phones.
   Widget _buildHero() {
     return KatanaCard(
       padding: const EdgeInsets.all(14),

@@ -92,7 +92,6 @@ void main() {
           return http.Response('Not found', 404);
         });
 
-        // Item mis-tagged as 'tv' instead of 'movie'
         final details = await service.fetchMediaDetails(1714066, 'tv');
         expect(details, isNotNull);
         expect(details?['id'], 1714066);

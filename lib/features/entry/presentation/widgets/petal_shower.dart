@@ -28,9 +28,6 @@ class _PetalShowerState extends State<PetalShower>
       vsync: this,
     );
 
-    // Pre-render a single petal shape into a Picture so every frame
-    // replays it with a simple translate+rotate instead of allocating
-    // new Path objects on the UI thread.
     _petalShapePicture = _createPetalShapePicture(15.0);
 
     final rng = math.Random();
@@ -48,15 +45,11 @@ class _PetalShowerState extends State<PetalShower>
     }
   }
 
-  /// Pre-renders one canonical petal shape into a [Picture] so it can be
-  /// replayed cheaply per petal per frame.
   static Picture _createPetalShapePicture(double maxSize) {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
     final paint = Paint()..color = AppColors.roseQuartz.withValues(alpha: 0.6);
 
-    // Petal shape: two quadratic curves forming an eye-like leaf.
-    // Scaled so the caller can adjust size via canvas.scale().
     final path = Path()
       ..moveTo(0, 0)
       ..quadraticBezierTo(maxSize / 2, -maxSize, maxSize, 0)
@@ -171,9 +164,6 @@ class PetalPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PetalPainter oldDelegate) {
-    // Only repaint when the animation frame actually advances.
-    // The old code returned true unconditionally, repainting 60×/s
-    // even when the widget was occluded or the controller paused.
     return oldDelegate.progress != progress || oldDelegate.petals != petals;
   }
 }

@@ -1,9 +1,7 @@
-/// Minimal subset of media metadata needed to represent a title in a
-/// Watch Party (movies, TV shows, and anime).
 class MediaRef {
   final int tmdbId;
   final int? malId;
-  final String mediaType; // 'movie' | 'tv'
+  final String mediaType;
   final bool isAnime;
   final int? season;
   final int? episode;

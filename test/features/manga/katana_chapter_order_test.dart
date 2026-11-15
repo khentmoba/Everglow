@@ -41,7 +41,6 @@ void main() {
     });
 
     test('a gap left by jumping around is the continue target', () {
-      // Read 1 and 3 out of order: chapter 2 is still the one left.
       expect(nextUnreadChapter(chapters, const {'c1', 'c3'})?.id, 'c2');
     });
 
@@ -57,9 +56,6 @@ void main() {
     });
 
     test('a record without read marks falls back to the last read chapter', () {
-      // Bookmarks written before read marks existed have an empty set but
-      // do know where she stopped. Continuing from chapter 1 would open the
-      // wrong chapter and overwrite that resume point.
       expect(
         nextUnreadChapter(
           chapters,
@@ -71,7 +67,6 @@ void main() {
     });
 
     test('read marks win over the last read chapter', () {
-      // The anchor is c3, so continuing never goes back to c2.
       expect(
         nextUnreadChapter(
           chapters,
@@ -83,9 +78,6 @@ void main() {
     });
 
     test('finishing the last read chapter continues forward', () {
-      // The blocker: once c2 was finished, readChapterIds was non-empty, so
-      // the old fallback stopped applying and Continue went back to c1 —
-      // overwriting the real resume point.
       expect(
         nextUnreadChapter(
           chapters,

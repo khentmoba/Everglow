@@ -28,7 +28,6 @@ Future<void> _pumpBillboard(WidgetTester tester) {
   );
 }
 
-/// Lets the 700ms crossfade finish after a gesture.
 Future<void> _settleCrossfade(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 800));

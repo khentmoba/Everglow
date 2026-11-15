@@ -27,7 +27,6 @@ class AnniversaryCounter {
       );
     }
 
-    // Calendar borrow: full years, then full months, then leftover days.
     var years = now.year - startDate.year;
     var months = now.month - startDate.month;
     var days = now.day - startDate.day;

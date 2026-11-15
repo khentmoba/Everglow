@@ -28,14 +28,12 @@ void main() {
       await _recordSample(stores, 'Khent Show');
       expect(stores.history.map((e) => e.title), ['Khent Show']);
 
-      // Same device, different profile: must start empty.
       await stores.switchUser('octagram');
       expect(stores.history, isEmpty);
 
       await _recordSample(stores, 'Octagram Show');
       expect(stores.history.map((e) => e.title), ['Octagram Show']);
 
-      // Switching back restores the first profile untouched.
       await stores.switchUser('khentsgdz');
       expect(stores.history.map((e) => e.title), ['Khent Show']);
     });
@@ -50,7 +48,6 @@ void main() {
       expect(stores.currentUser, isEmpty);
 
       final prefs = await SharedPreferences.getInstance();
-      // No global (unscoped) keys may be written.
       expect(prefs.getString('animex_watch_history_v1'), isNull);
     });
 
@@ -71,17 +68,14 @@ void main() {
       });
 
       final stores = AnimexStores.instance;
-      // Cinema-only profile must NOT inherit legacy watches.
       await stores.load(username: 'octagram');
       expect(stores.history, isEmpty);
 
-      // First couple profile inherits legacy once, then legacy is gone.
       await stores.switchUser('khentsgdz');
       expect(stores.history.map((e) => e.title), ['Legacy Show']);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('animex_watch_history_v1'), isNull);
 
-      // Second profile (cinema or couple) starts from its own keys.
       await stores.switchUser('breyan');
       expect(stores.history, isEmpty);
     });
@@ -102,7 +96,6 @@ void main() {
       await stores.setSkipIntro(false);
 
       await stores.switchUser('clairjassen');
-      // Another profile keeps its own defaults.
       expect(stores.autoNext, isTrue);
       expect(stores.skipIntro, isTrue);
 

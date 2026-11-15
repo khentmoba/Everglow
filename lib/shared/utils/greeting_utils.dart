@@ -1,10 +1,5 @@
-/// Warm, time-aware greeting lines for Motchi's welcome screen.
-///
-/// Pure and tiny on purpose: the chat empty-state shows these with zero
-/// backend calls, so Clair always gets a personal hello even offline.
 library;
 
-/// Pet name Motchi uses for each user. Unknown/null → no name.
 String motchiPetName(String? username) {
   switch (username) {
     case 'khentsgdz':
@@ -16,7 +11,6 @@ String motchiPetName(String? username) {
   }
 }
 
-/// "Good evening, Mama 🍡" — title line for the welcome screen.
 String motchiGreetingTitle(DateTime now, String? username) {
   final pet = motchiPetName(username);
   final who = pet.isEmpty ? '' : ', $pet';
@@ -27,7 +21,6 @@ String motchiGreetingTitle(DateTime now, String? username) {
   return pet.isEmpty ? 'Up late? 🌙' : 'Up late$who? 🌙';
 }
 
-/// One warm contextual line under the greeting.
 String motchiGreetingSubtitle(DateTime now) {
   final h = now.hour;
   if (h >= 5 && h < 12) {

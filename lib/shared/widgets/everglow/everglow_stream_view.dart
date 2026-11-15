@@ -8,56 +8,27 @@ import '../../../core/utils/logger.dart';
 import 'everglow_error_state.dart';
 import 'everglow_skeleton.dart';
 
-/// The ONE way to show a live Firestore list.
-///
-/// Replaces copy-pasted `StreamBuilder` + `hasError` + `waiting` blocks
-/// (15+ screens). Every list shows the same loading spinner and the
-/// same error card, so Clair sees one consistent app and agents learn
-/// one pattern.
-///
-/// ```dart
-/// EverglowStreamView<List<Trip>>(
-///   stream: service.watchTrips(),
-///   streamLabel: 'travel-trips',
-///   isEmpty: (trips) => trips.isEmpty,
-///   emptyView: EverglowEmptyState(...),
-///   builder: (context, trips) => ListView(...),
-/// )
-/// ```
 class EverglowStreamView<T> extends StatefulWidget {
-  /// Keep this source stable between rebuilds; replace it for queries or retry.
   final Stream<T> stream;
 
-  /// Disable when the service already guards the first event and owns retries.
   final bool guardFirstEvent;
 
-  /// Label used in debug logs when the first snapshot hangs.
   final String? streamLabel;
 
-  /// Builds the list once data arrives and [isEmpty] is false.
   final Widget Function(BuildContext context, T data) builder;
 
-  /// Returns true when `data` should show [emptyView] instead of [builder].
-  /// Pass `(list) => list.isEmpty` for lists.
   final bool Function(T data)? isEmpty;
 
-  /// Shown when [isEmpty] returns true. Required when [isEmpty] is given.
   final Widget? emptyView;
 
-  /// Shown while waiting for the first snapshot.
-  /// Defaults to [EverglowLoadingState].
   final Widget? loadingView;
 
-  /// Optional message under the default loading spinner.
   final String? loadingMessage;
 
-  /// Message for the default error card.
   final String errorMessage;
 
-  /// Icon for the default error card.
   final IconData errorIcon;
 
-  /// Retry callback for the default error card. Usually `() => setState(() {})`.
   final VoidCallback? onRetry;
 
   const EverglowStreamView({
@@ -124,7 +95,6 @@ class _EverglowStreamViewState<T> extends State<EverglowStreamView<T>> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<T>(
-      // A new source must not inherit the previous query/profile's snapshot.
       key: ObjectKey(_stream),
       stream: _stream,
       builder: (context, snap) {

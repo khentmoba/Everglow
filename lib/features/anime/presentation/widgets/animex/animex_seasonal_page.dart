@@ -16,7 +16,6 @@ const _seasons = <(String, String)>[
   ('FALL', 'Fall'),
 ];
 
-/// Seasonal page: pick a season + year and browse the anime grid.
 class AnimeXSeasonalPage extends StatefulWidget {
   final AnimeXController controller;
 

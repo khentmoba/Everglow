@@ -32,7 +32,6 @@ void main() {
       expect(details?['id'], item.tmdbId);
       expect(details?['overview'], isNotEmpty);
       final watchlist = TMDBWatchlistService();
-      // A simulated couple session must not read or write real/cached lists.
       expect(await watchlist.getCoupleWatchListStream().first, isEmpty);
       expect(
         await watchlist.getSavedProgress(

@@ -15,7 +15,6 @@ import '../../data/models/money_entry.dart';
 import '../../data/services/money_service.dart';
 import '../widgets/add_money_dialog.dart';
 
-/// Our Money — one shared peso wallet with monthly budgets.
 class MoneyScreen extends StatelessWidget {
   const MoneyScreen({super.key});
 
@@ -84,7 +83,7 @@ class MoneyScreen extends StatelessWidget {
               stream: MoneyService().watchMonth(DateTime.now()),
               streamLabel: 'money-recent',
               errorMessage: 'Could not load our money',
-              isEmpty: (_) => false, // empty handled inside (summary shows ₱0)
+              isEmpty: (_) => false,
               builder: (context, entries) =>
                   _MoneyBody(entries: entries, onAdd: () => _quickAdd(context)),
             ),
@@ -568,7 +567,7 @@ class _MoneyRow extends StatelessWidget {
             }
           }
         }
-        return false; // stream rebuilds the list; no local removal needed
+        return false;
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),

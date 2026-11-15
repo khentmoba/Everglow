@@ -11,8 +11,6 @@ import 'animex_controller.dart';
 import 'animex_footer.dart';
 import 'animex_tokens.dart';
 
-/// Dedicated Anime Downloads section: lets Clair and Khent manage and play
-/// downloaded anime episodes across seasons offline in the PWA.
 class AnimeXDownloadsPage extends StatelessWidget {
   final AnimeXController controller;
 
@@ -192,7 +190,6 @@ class AnimeXDownloadsPage extends StatelessWidget {
     OfflineMediaService service,
     List<OfflineMediaItem> items,
   ) {
-    // Group anime episodes by series title
     final series = <String, List<OfflineMediaItem>>{};
 
     for (final item in items) {

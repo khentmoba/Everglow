@@ -19,24 +19,19 @@ void main() {
       ),
     );
 
-    // Initial pump
     await tester.pump();
 
-    // Verify eyebrow pills
     expect(find.text('TIME TOGETHER'), findsOneWidget);
 
-    // Verify hero section
     expect(find.text('YEARS TOGETHER'), findsOneWidget);
     expect(find.text('since Feb 14, 2026'), findsOneWidget);
 
-    // Verify counter labels
     expect(find.text('MONTHS'), findsOneWidget);
     expect(find.text('DAYS'), findsOneWidget);
     expect(find.text('HOURS'), findsOneWidget);
     expect(find.text('MINUTES'), findsOneWidget);
     expect(find.text('SECONDS'), findsOneWidget);
 
-    // Verify bottom seal ribbon
     expect(find.textContaining('days of us'), findsOneWidget);
   });
 

@@ -1,11 +1,5 @@
 'use strict';
 
-/* Motchi memory tool executors — moved verbatim from
- * motchi_chat.js executeTool() (mechanical split, no behavior change).
- * Each executor is (ctx, args) => JSON string. Shared services
- * ride on ctx (see motchi_exec_tools.js createToolCtx).
- */
-
 const { parseFactStructure, rankMemories, findContradiction, simpleEmbedding, tokenize } = require('./motchi_core.js');
 const { loadMemoryFacts, invalidateMemoryCache } = require('./motchi_memory.js');
 
@@ -13,9 +7,6 @@ async function exec_remember_fact(ctx, args) {
     const fact = (args.fact || '').trim();
     if (!fact) return JSON.stringify({ error: 'No fact provided' });
     const parsed = parseFactStructure(fact);
-    // Contradiction: same subject + relation with a different object
-    // updates the stale fact instead of stacking a twin ("I hate
-    // coffee now" replaces "loves coffee", it doesn't join it).
     if (parsed.subject && parsed.relation) {
       try {
         const factsCol = ctx.db.collection('ai_memories').doc('shared').collection('facts');
@@ -42,7 +33,6 @@ async function exec_remember_fact(ctx, args) {
         }
       } catch (_) {}
     }
-    // Save immediately with a local vector; nightly maintenance can enrich it.
     const emb = simpleEmbedding(fact);
     await ctx.db.collection('ai_memories').doc('shared').collection('facts').add({
       fact,
@@ -60,7 +50,7 @@ async function exec_remember_fact(ctx, args) {
       lastAccessed: null,
       pinned: false,
       source: ctx.callerUid || 'motchi',
-      embedding: emb, // W4-C9 scaffold
+      embedding: emb,
     });
     invalidateMemoryCache();
     return JSON.stringify({
@@ -100,10 +90,6 @@ async function exec_read_memories(ctx, args) {
 }
 
 async function exec_search_sessions(ctx, args) {
-    // Archival recall: keyword search over the 12 freshest session docs
-    // (both partners — "what did we talk about" is a couple question).
-    // Single-field orderBy, so no composite index. Docs can be big (50
-    // turns), so snippets stay short and the list stays capped.
     const query = String(args.query || '').trim();
     if (!query) return JSON.stringify({ error: 'No query provided' });
     const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 10);
@@ -146,8 +132,6 @@ async function exec_save_profile_note(ctx, args) {
     }
     const parsed = parseFactStructure(note);
     const factsCol = ctx.db.collection('ai_memories').doc('shared').collection('facts');
-    // Contradiction: same subject + relation with a different object
-    // updates the stale note — core truths never stack twins.
     if (parsed.subject && parsed.relation) {
       try {
         const snap = await factsCol.where('subject', '==', parsed.subject).limit(15).get();
@@ -213,7 +197,6 @@ async function exec_delete_memory(ctx, args) {
     if (!args.confirm) {
       return JSON.stringify({ needs_confirmation: true, message: `Delete this memory? "${factText.slice(0,180)}" — re-call delete_memory with confirm:true to proceed.`, memory_id: mid, fact: factText });
     }
-    // Soft-delete to trash for undo (retain 7 days)
     try {
       await ctx.db.collection('ai_memories_trash').add({
         originalId: mid,
@@ -244,7 +227,6 @@ async function exec_edit_memory(ctx, args) {
       source: ctx.caller,
       sourceText: (ctx.userMessage || '').slice(0, 800),
       confidence: 1.0,
-      // A wording correction must not silently erase the fact's owner.
       subject: parsed.subject || snap.data()?.subject || parseFactStructure(snap.data()?.fact || '').subject || null,
       relation: parsed.relation || null,
       object: parsed.object || null,

@@ -20,7 +20,6 @@ void main() {
       ], force: true);
       expect(SectionFonts.warmedGlyphCountForTesting, 4);
 
-      // Flush the scheduled post-frame TextPainter measurement cleanly.
       await tester.pump();
       expect(tester.takeException(), isNull);
 

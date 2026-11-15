@@ -5,7 +5,6 @@ import '../../features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../features/chat/data/services/chat_service.dart';
 import '../utils/logger.dart';
 
-/// Aggregated "On This Day" memory from one of the three sources.
 class OnThisDayMemory {
   final OnThisDaySource source;
   final DateTime date;
@@ -13,7 +12,7 @@ class OnThisDayMemory {
   final String subtitle;
   final String? imageUrl;
   final String? posterUrl;
-  final dynamic original; // MemoryPhoto, MediaItem, or ChatMessage
+  final dynamic original;
 
   const OnThisDayMemory({
     required this.source,
@@ -30,8 +29,6 @@ class OnThisDayMemory {
 
 enum OnThisDaySource { gallery, cinema, chat }
 
-/// Unified service that queries Gallery, Cinema, and Chat for items
-/// that share today's calendar date from previous years.
 class OnThisDayService {
   final GalleryService _galleryService;
   final TMDBWatchlistService _cinemaService;
@@ -42,7 +39,6 @@ class OnThisDayService {
       _cinemaService = TMDBWatchlistService(),
       _chatService = ChatService();
 
-  /// Fetch all "On This Day" memories across all sources in parallel.
   Future<List<OnThisDayMemory>> getAllMemories() async {
     try {
       final results = await Future.wait([
@@ -59,7 +55,6 @@ class OnThisDayService {
     }
   }
 
-  /// This Week In Past — 7-day window (Immich: This week in past)
   Future<List<OnThisDayMemory>> getThisWeekMemories() async {
     try {
       final photos = await _galleryService.getPhotosFromThisWeek();
@@ -87,8 +82,6 @@ class OnThisDayService {
   }
 
   Future<List<OnThisDayMemory>> _getGalleryMemoriesForWeek() async {
-    // Reuse cinema's watch list but filter to this-week window via gallery's week logic
-    // For now, use cinema's OnThisDay as week proxy — expand later.
     return [];
   }
 
@@ -125,7 +118,6 @@ class OnThisDayService {
 
   Future<List<OnThisDayMemory>> _getChatMemories() async {
     final messages = await _chatService.getMessagesFromThisDay();
-    // Pick up to 3 most representative messages from this day.
     final picked = messages.take(3).toList();
     return picked
         .map(

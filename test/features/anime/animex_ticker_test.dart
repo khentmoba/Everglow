@@ -54,11 +54,8 @@ void main() {
       ),
     );
 
-    // Initial pump
     await tester.pump();
 
-    // Find the Transform widget responsible for translating the track.
-    // It's the Transform.translate inside AnimeXTicker.
     Finder findTrackTransform() {
       return find.descendant(
         of: find.byType(AnimeXTicker),
@@ -68,17 +65,13 @@ void main() {
 
     Transform getTransform() => tester.widget<Transform>(findTrackTransform());
 
-    // Initially at offset 0
     expect(getTransform().transform.getTranslation().x, equals(0.0));
 
-    // Advance animation by 2 seconds (out of 40s duration, 2/40 = 0.05 of track width)
     await tester.pump(const Duration(seconds: 2));
 
     final offsetBeforeHover = getTransform().transform.getTranslation().x;
-    // Offset should be negative (translated left)
     expect(offsetBeforeHover, lessThan(0.0));
 
-    // Hover over the ticker
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
     addTearDown(gesture.removePointer);
@@ -86,19 +79,14 @@ void main() {
     await gesture.moveTo(tester.getCenter(find.byType(AnimeXTicker)));
     await tester.pump();
 
-    // Crucial check: on hover, it must NOT reset to 0.0 (the preset).
-    // It must stay at exactly offsetBeforeHover.
     expect(getTransform().transform.getTranslation().x, equals(offsetBeforeHover));
 
-    // Wait another 2 seconds while hovering: it should remain paused at the exact same offset
     await tester.pump(const Duration(seconds: 2));
     expect(getTransform().transform.getTranslation().x, equals(offsetBeforeHover));
 
-    // Move mouse away (unhover)
     await gesture.moveTo(const Offset(900, 900));
     await tester.pump();
 
-    // Advance another 2 seconds: it should resume and advance further
     await tester.pump(const Duration(seconds: 2));
     final offsetAfterResume = getTransform().transform.getTranslation().x;
     expect(offsetAfterResume, lessThan(offsetBeforeHover));
@@ -110,7 +98,6 @@ void main() {
     addTearDown(tester.view.reset);
     final items = _sampleItems();
 
-    // Wide screen (>= 600px)
     tester.view.physicalSize = const Size(800, 600);
     tester.view.devicePixelRatio = 1.0;
     await tester.pumpWidget(
@@ -127,7 +114,6 @@ void main() {
     expect(find.text('AIRING TODAY'), findsOneWidget);
     expect(find.text('AIRING'), findsNothing);
 
-    // Narrow screen (< 600px)
     tester.view.physicalSize = const Size(400, 800);
     await tester.pumpWidget(
       MaterialApp(
@@ -162,8 +148,6 @@ void main() {
     );
     await tester.pump();
 
-    // The ticker must use Row with Expanded and ClipRect to prevent track
-    // overflow from bleeding into or behind the AIRING label.
     final rowFinder = find.descendant(
       of: find.byType(AnimeXTicker),
       matching: find.byType(Row),
@@ -182,8 +166,6 @@ void main() {
     );
     expect(shaderMaskFinder, findsOneWidget);
 
-    // Verify the label and the clip rect do not overlap horizontally:
-    // The ClipRect starts to the right of the AIRING label.
     final labelTopLeft = tester.getTopLeft(find.text('AIRING TODAY'));
     final clipRectTopLeft = tester.getTopLeft(clipRectFinder);
     expect(clipRectTopLeft.dx, greaterThan(labelTopLeft.dx));

@@ -4,34 +4,21 @@ import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
-/// TMDB detail endpoints: credits, reviews, similar titles, TV show
-/// season/episode data, and generic media details.
 class TMDBDetailsService with TMDBBase, ConnectivityAware {
   final _detailsCache = <String, Map<String, dynamic>>{};
   final _pendingDetails = <String, Future<Map<String, dynamic>?>>{};
 
-  /// IMDB id per `type:id`, so the download sheet asks TMDB once per
-  /// title instead of on every open. Empty string caches a miss.
   final _imdbIds = <String, String>{};
 
-  /// IDs that 404'd on BOTH movie and tv lookups (stale/dead TMDB ids).
-  /// Process-wide so the billboard, hover cards, and episode drawer share
-  /// one memory of dead ids instead of re-404ing on every rotation.
   static final Set<String> _deadIds = <String>{};
 
-  /// Requested-type -> resolved-type corrections, keyed `"$type:$id"`.
-  /// E.g. `tv:1714066` -> `movie` for "Yellow Jacket Televison", a movie
-  /// mistagged as tv in user data. Repeat opens fetch the right type
-  /// first (one request, no 404) instead of probing the wrong type again.
   static final Map<String, String> _typeFixes = <String, String>{};
 
-  /// Test helper: statics persist across tests in one file.
   static void resetDetailsCacheForTests() {
     _deadIds.clear();
     _typeFixes.clear();
   }
 
-  /// Fetch cast (credits) for a movie or TV show
   Future<List<Map<String, dynamic>>> fetchCredits(
     int id,
     String mediaType,
@@ -59,7 +46,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch user reviews for a movie or TV show
   Future<List<Map<String, dynamic>>> fetchReviews(
     int id,
     String mediaType,
@@ -92,7 +78,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch similar movies / TV shows
   Future<List<MediaItem>> fetchSimilar(int id, String mediaType) async {
     final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id/similar');
     try {
@@ -113,7 +98,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// Fetch TV Show details (including seasons)
   Future<Map<String, dynamic>?> fetchTVShowDetails(int tvId) async {
     final url = Uri.parse('$tmdbBaseUrl/tv/$tvId');
     try {
@@ -127,7 +111,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return null;
   }
 
-  /// Fetch TV Show Season Episodes
   Future<List<dynamic>> fetchSeasonEpisodes(int tvId, int seasonNumber) async {
     final url = Uri.parse('$tmdbBaseUrl/tv/$tvId/season/$seasonNumber');
     try {
@@ -142,11 +125,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return [];
   }
 
-  /// IMDB id for a title, needed to look up a downloadable copy.
-  ///
-  /// Movies carry `imdb_id` on the details payload the player already
-  /// caches, so this costs nothing there. TV needs one extra
-  /// `/external_ids` call, cached for the session.
   Future<String?> fetchImdbId(int id, String mediaType) async {
     if (id <= 0) return null;
     final key = '$mediaType:$id';
@@ -169,7 +147,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
         }
       }
     } catch (e) {
-      // A miss is not worth a retry storm: the sheet shows "nothing found".
       Logger.e('TMDB IMDB id lookup failed for $key', error: e);
       return null;
     }
@@ -177,7 +154,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return value.isEmpty ? null : value;
   }
 
-  /// Fetch Media Item details (for Hero Banner metadata)
   Future<Map<String, dynamic>?> fetchMediaDetails(
     int id,
     String mediaType,
@@ -192,7 +168,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     try {
       final details = await pending;
       if (details != null) {
-        // Keep metadata memory bounded during long browsing sessions.
         if (_detailsCache.length >= 80 && !_detailsCache.containsKey(key)) {
           _detailsCache.remove(_detailsCache.keys.first);
         }
@@ -210,8 +185,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     int id,
     String mediaType,
   ) async {
-    // Certifications ride along so the billboard can show an age chip
-    // without a second round trip (the proxy passes query params through).
     final key = '$mediaType:$id';
     if (_deadIds.contains(key)) return null;
     final firstType = _typeFixes[key] ?? mediaType;
@@ -223,8 +196,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       }
-      // On 404, check the alternate mediaType in case a movie was tagged tv
-      // or vice-versa (e.g. titles with "Televison" tagged as tv).
       if (response.statusCode == 404) {
         final altType = firstType == 'tv'
             ? 'movie'
@@ -237,14 +208,10 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
           );
           final altResponse = await tmdbGet(altUrl);
           if (altResponse.statusCode == 200) {
-            // Remember the correction so repeat opens skip the 404 probe.
             _typeFixes[key] = altType;
             return json.decode(altResponse.body);
           }
         }
-        // Both types 404'd: remember the dead id so rotations and
-        // hovers stop re-requesting it for the rest of the session.
-        // Other statuses (5xx/429) are transient and stay retryable.
         _deadIds.add(key);
       }
     } catch (e) {
@@ -253,10 +220,6 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
     return null;
   }
 
-  /// Returns `true` if the given TMDB item represents anime, by looking
-  /// at the detailed payload (which is the only place we reliably have
-  /// `original_language` for TV shows). Used by the episode drawer when
-  /// saving a show to the watchlist.
   Future<bool> isAnimeByTmdbId(int tmdbId, String mediaType) async {
     final details = await fetchMediaDetails(tmdbId, mediaType);
     if (details == null) return false;

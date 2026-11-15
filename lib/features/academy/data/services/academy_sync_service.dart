@@ -5,7 +5,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class AcademySyncService {
-  // Lazy so widget tests can construct the service without Firebase.
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final TriviaApiService _apiService = TriviaApiService();
 
@@ -22,8 +21,6 @@ class AcademySyncService {
     final apiIds = TriviaApiService.getApiCategoryIds(category);
     if (apiIds.isEmpty) return;
 
-    // Pick one of the available API IDs for this category randomly
-    // (copy first: apiIds may be a cached list shared across calls).
     final apiCategoryId = ([...apiIds]..shuffle()).first;
 
     final count = await _getUnusedQuestionCount(category);
@@ -68,7 +65,6 @@ class AcademySyncService {
       final batch = _firestore.batch();
 
       for (var question in newQuestions) {
-        // Update the ID using the hash logic from US1
         final id = AcademyQuestion.generateId(question.questionText);
         final docRef = _firestore.collection('academy_questions').doc(id);
 

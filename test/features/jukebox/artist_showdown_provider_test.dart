@@ -32,8 +32,6 @@ class _FakeSync extends MusicSyncService {
     this.gatedArtist,
   });
 
-  /// Last.fm username -> full all-time top tracks (provider filters by
-  /// artist locally, mirroring the live `user.gettoptracks` path).
   final Map<String, List<TopMusicTrack>> byUser;
   final Map<String, String?> artworkByTrack;
   final List<ArtistSuggestion> suggestions;
@@ -209,7 +207,6 @@ void main() {
       expect(provider.clairTotal, 79);
       expect(provider.leader, 'clair');
       expect(provider.tracks, hasLength(2));
-      // Sorted by combined plays: American Teenager (109) first.
       expect(provider.tracks.first.trackName, 'American Teenager');
       expect(provider.tracks.first.khentPlays, 42);
       expect(provider.tracks.first.clairPlays, 67);
@@ -255,11 +252,9 @@ void main() {
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.artist, 'Ethel Cain');
-        // Exactly 1,000,001 plays for Khent — uncapped!
         expect(provider.khentTotal, 1000001);
         expect(provider.clairTotal, 25);
         expect(provider.leader, 'khent');
-        // All 3 tracks are shown, including the 1-play song and the 1,000,000 play song
         expect(provider.tracks, hasLength(3));
         expect(provider.tracks[0].trackName, 'Strangers');
         expect(provider.tracks[0].khentPlays, 1000000);
@@ -269,8 +264,6 @@ void main() {
         expect(provider.tracks[2].trackName, 'Rare B-Side');
         expect(provider.tracks[2].khentPlays, 1);
 
-        // Both sources are read: the catalog for deep cuts, each user's own
-        // chart for tracks the global catalog misses (none here).
         expect(sync.calls, 2);
         expect(sync.catalogCalls, greaterThanOrEqualTo(1));
         expect(sync.userArtistTrackCalls, 2);
@@ -278,15 +271,10 @@ void main() {
       },
     );
 
-    // Regression: the user's own chart used to be read only when the catalog
-    // found nothing, so any song missing from the global catalog (name
-    // variants, delisted songs) collapsed into an unnamed "Other songs" row.
-    // Both sources are unioned now, so every played song is a named row.
     test('unions catalog counts with the user chart so every song is named',
         () async {
       final sync = _FakeSync(
         byUser: {
-          // In the user's chart but missing from the global catalog.
           'khentsgdz': [_track('Delisted Demo', 3)],
           'clairjassen': [_track('Delisted Demo', 2)],
         },
@@ -299,13 +287,11 @@ void main() {
       final provider = ArtistShowdownProvider(syncService: sync);
       await _waitFor(() => !provider.isLoading);
 
-      // Both the catalog song and the chart-only song are named rows.
       expect(provider.tracks, hasLength(2));
       expect(provider.tracks[0].trackName, 'Strangers');
       expect(provider.tracks[1].trackName, 'Delisted Demo');
       expect(provider.tracks[1].khentPlays, 3);
       expect(provider.tracks[1].clairPlays, 2);
-      // Totals are the row sums: everything adds up, nothing is filler.
       expect(provider.khentTotal, 45);
       expect(provider.clairTotal, 69);
       provider.dispose();
@@ -470,11 +456,9 @@ void main() {
       );
       final provider = ArtistShowdownProvider(syncService: sync);
       await _waitFor(() => !provider.isLoading);
-      // Table shows immediately, even before artwork lands.
       expect(provider.tracks, hasLength(1));
       await _waitFor(() => provider.tracks.first.imageUrl == art);
       expect(sync.artworkCalls, greaterThanOrEqualTo(1));
-      // Totals are untouched by the enrichment pass.
       expect(provider.khentTotal, 10);
       expect(provider.clairTotal, 5);
       provider.dispose();
@@ -490,7 +474,6 @@ void main() {
       );
       final provider = ArtistShowdownProvider(syncService: sync);
       await _waitFor(() => !provider.isLoading);
-      // Give the background pass a moment to run and give up quietly.
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(provider.tracks.first.imageUrl, isNull);
       expect(provider.hasData, isTrue);
@@ -513,12 +496,10 @@ void main() {
       expect(provider.isSearching, isFalse);
       expect(sync.suggestionCalls, 1);
 
-      // Cached: second identical query never hits the service.
       await provider.searchArtists('Lana Del');
       expect(provider.suggestions, hasLength(1));
       expect(sync.suggestionCalls, 1);
 
-      // Short input hides the dropdown without a fetch.
       await provider.searchArtists('a');
       expect(provider.suggestions, isEmpty);
       expect(provider.isSearching, isFalse);
@@ -571,7 +552,6 @@ void main() {
       expect(provider.suggestions, hasLength(1));
       await _waitFor(() => provider.suggestions.first.imageUrl == photo);
       expect(sync.artistImageCalls, 1);
-      // The per-query cache holds the enriched rows, so retyping is instant.
       await provider.searchArtists('Lana Del');
       expect(provider.suggestions.first.imageUrl, photo);
       expect(sync.suggestionCalls, 1);
@@ -597,8 +577,6 @@ void main() {
       await _waitFor(() => provider.suggestions.first.imageUrl == photo);
       expect(sync.artistImageCalls, 1);
 
-      // A different query returning the same artist reuses the photo
-      // without another Spotify lookup.
       await provider.searchArtists('lana');
       await _waitFor(() => provider.suggestions.first.imageUrl == photo);
       expect(sync.artistImageCalls, 1);
@@ -617,7 +595,6 @@ void main() {
 
       await provider.searchArtists('lana');
       expect(provider.suggestions, hasLength(1));
-      // Give the background pass a moment to run and give up quietly.
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(provider.suggestions.first.imageUrl, isNull);
       expect(sync.artistImageCalls, 1);
@@ -673,7 +650,6 @@ void main() {
         expect(provider.hasHistory, isTrue);
         expect(provider.khentHistory, hasLength(1));
         expect(provider.clairHistory, hasLength(1));
-        // Enriched artwork from showdown tracks is attached to khent's scrobble:
         expect(
           provider.khentHistory.first.imageUrl,
           'https://itunes/american.png',
@@ -688,11 +664,9 @@ void main() {
         );
         expect(sync.historyCalls, 2);
 
-        // Subsequent call uses cache
         await provider.loadArtistHistory();
         expect(sync.historyCalls, 2);
 
-        // forceRefresh bypasses cache
         await provider.loadArtistHistory(forceRefresh: true);
         expect(sync.historyCalls, 4);
 
@@ -738,7 +712,6 @@ void main() {
           },
           chartGate: chartGate,
         );
-        // chartTimeout is 50ms so chart lookup bounds quickly without waiting
         final provider = ArtistShowdownProvider(
           syncService: sync,
           chartTimeout: const Duration(milliseconds: 50),
@@ -750,7 +723,6 @@ void main() {
 
         await _waitFor(() => !provider.isLoading);
 
-        // Catalog track playcounts are returned even though chart was pending
         expect(provider.hasData, isTrue);
         expect(provider.khentTotal, 42);
         expect(provider.clairTotal, 67);
@@ -786,18 +758,15 @@ void main() {
         expect(provider.khentTotal, 10);
         expect(provider.tracks, hasLength(1));
 
-        // Select an artist that times out before any data resolves
         await provider.selectArtist('Slow Artist');
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.artist, 'Slow Artist');
-        // Must NOT keep Ethel Cain's totals or tracks!
         expect(provider.khentTotal, 0);
         expect(provider.clairTotal, 0);
         expect(provider.tracks, isEmpty);
         expect(provider.hasData, isFalse);
 
-        // Switching back to Ethel Cain restores cached Ethel Cain
         await provider.selectArtist('Ethel Cain');
         expect(provider.artist, 'Ethel Cain');
         expect(provider.khentTotal, 10);
@@ -825,15 +794,12 @@ void main() {
         expect(provider.clairTotal, 5);
         final initialCalls = sync.calls;
 
-        // Ordinary selectArtist with same name is a no-op due to cache / equality
         await provider.selectArtist('Ethel Cain');
         expect(sync.calls, initialCalls);
 
-        // Update backing data
         sync.byUser['khentsgdz'] = [_track('Strangers', 25)];
         sync.byUser['clairjassen'] = [_track('Strangers', 30)];
 
-        // refresh() forces an eviction and reload
         await provider.refresh();
         await _waitFor(() => !provider.isLoading);
 
@@ -857,7 +823,6 @@ void main() {
         expect(provider.hasData, isFalse);
         expect(provider.tracks, isEmpty);
 
-        // Add plays and refresh
         sync.byUser['khentsgdz'] = [_track('American Teenager', 12)];
         sync.byUser['clairjassen'] = [_track('American Teenager', 18)];
 
@@ -897,11 +862,9 @@ void main() {
         expect(provider.khentTotal, 10);
         expect(provider.hasData, isTrue);
 
-        // Update data, start refresh while gated
         sync.byUser['khentsgdz'] = [_track('Strangers', 50)];
         final refreshFuture = provider.refresh();
 
-        // While in-flight, it should still have previous data
         expect(provider.isLoading, isTrue);
         expect(provider.hasData, isTrue);
         expect(provider.khentTotal, 10);

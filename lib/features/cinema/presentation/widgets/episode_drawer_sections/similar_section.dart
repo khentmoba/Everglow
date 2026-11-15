@@ -5,10 +5,6 @@ import '../../../data/models/media_item.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Renders the "More Like This" horizontal rail of similar titles.
-/// Shows a loading skeleton while fetching, an empty-state message
-/// when no similar titles are found, or a horizontal scrollable list
-/// of poster cards with title and year/type labels.
 class SimilarSection extends StatelessWidget {
   final List<MediaItem> similar;
   final bool isLoading;

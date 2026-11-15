@@ -8,46 +8,9 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_motion.dart';
 import '../../core/perf/perf_settings.dart';
 
-/// Shared network image with web-performance defaults.
-///
-/// Why this exists: the app renders ~90 `Image.network` posters/covers across
-/// cinema, anime, books, manga, gallery and dashboard previews. Raw
-/// `Image.network` without `cacheWidth`, `loadingBuilder` or `errorBuilder`
-/// causes three measurable costs on Flutter Web (CanvasKit/SkWasm):
-///
-/// 1. Full-resolution decode: a 780px TMDB poster displayed at 120px still
-///    decodes + uploads the full bitmap to the GPU on every scroll frame.
-///    `cacheWidth` downscales at decode time (huge scroll-FPS win).
-/// 2. Layout pop-in: no placeholder means zero-size -> image-size jumps that
-///    retrigger layout of the whole row/grid (jank + CLS-like flashes).
-/// 3. Re-fetch on rebuild: without `gaplessPlayback`, a parent rebuild shows
-///    a blank frame while the image resolves again.
-///
-/// Rule of thumb for `cacheWidth`: displayed CSS width x device pixel ratio,
-/// capped at ~2x. Examples: 175px poster card -> 350-400; 120px grid thumb ->
-/// 240-300; full-width hero (~800px) -> 800-1200. When in doubt, copy the
-/// call sites below (`AppPosterImage` defaults to 400).
-///
-/// Images resolve through `CachedNetworkImage` (memory + disk cache), so
-/// scrolling a rail back and forth never re-fetches bytes that were
-/// already decoded. `cacheWidth`/`cacheHeight` become `memCacheWidth` /
-/// `memCacheHeight` so the in-memory bitmap stays downscaled too.
-///
-/// Exception: remote images on Flutter Web ignore decode bounds.
-/// An upstream CanvasKit bug (flutter/flutter#158093, #160199) turns any
-/// downscaled decode into `WebGL: INVALID_VALUE: texImage2D: no image`
-/// + black rectangles, so remote web images decode at natural size. Bundled
-/// assets use known decode bounds with the existing sized-asset rollback switch.
-///
-/// Failed loads retry on their own with backoff (2s, 8s, 32s, 128s, 512s).
-/// A brief network blip no longer leaves every rail stuck on its fallback
-/// tile: each image re-attempts for ~11 minutes, so leaving the dashboard
-/// on another screen for a few minutes heals by the time you come back.
 class AppNetworkImage extends StatefulWidget {
   final String imageUrl;
 
-  /// Display size. When only [width] is given and [aspectRatio] is set, height
-  /// is derived so the placeholder reserves the exact space (no pop-in).
   final double? width;
   final double? height;
   final double? aspectRatio;
@@ -60,19 +23,10 @@ class AppNetworkImage extends StatefulWidget {
   final Widget? placeholder;
   final Widget? errorWidget;
 
-  /// Thumbnails scroll faster with [FilterQuality.low]; heroes/full viewers
-  /// can pass [FilterQuality.medium] or [FilterQuality.high].
   final FilterQuality filterQuality;
 
-  /// Optional cache backend, passed straight to [CachedNetworkImage].
-  /// Production callers leave this null (shared disk cache); tests inject
-  /// a fake to drive the failure path without real network or disk I/O.
   final BaseCacheManager? cacheManager;
 
-  /// Fired when the image fails to load (404, CORS, offline, ...).
-  /// May run on every rebuild while failed — callers that heal (refetch
-  /// a fresh URL) must dedupe, e.g. one attempt per item id per session
-  /// like the manga shelf's `_healAttempted` set.
   final VoidCallback? onError;
 
   const AppNetworkImage({
@@ -96,22 +50,11 @@ class AppNetworkImage extends StatefulWidget {
   @override
   State<AppNetworkImage> createState() => _AppNetworkImageState();
 
-  /// Overrides [kIsWeb] in widget tests to verify web vs native branches.
   @visibleForTesting
   static bool? debugUseWebImplementation;
 
   static bool get _isWeb => debugUseWebImplementation ?? kIsWeb;
 
-  /// Decode width to use for a remote image, in physical pixels.
-  ///
-  /// An explicit [declaredCacheWidth] always wins. Otherwise the display width
-  /// is doubled (a common rule of thumb: CSS pixels x ~2 device pixels) and
-  /// clamped so a tiny thumb still decodes at a sane floor and a hero cannot
-  /// allocate an unbounded texture.
-  ///
-  /// Extracted as a pure static so the memory figures in
-  /// `docs/pr-proof/pr-400/BENCHMARKS.md` are computed from the logic the app
-  /// actually ships, rather than from a hardcoded 400px the app never uses.
   @visibleForTesting
   static int? resolveCacheWidth({
     required int? declaredCacheWidth,
@@ -124,10 +67,6 @@ class AppNetworkImage extends StatefulWidget {
     return (displayWidth * 2).clamp(120, 1200).round();
   }
 
-  /// Decode height to use, mirroring [resolveCacheWidth].
-  ///
-  /// When an explicit width was declared the decode is width-driven (the image
-  /// keeps its aspect ratio), so no height is forced.
   @visibleForTesting
   static int? resolveCacheHeight({
     required int? declaredCacheHeight,
@@ -142,17 +81,12 @@ class AppNetworkImage extends StatefulWidget {
     return (displayHeight * 2).clamp(120, 1800).round();
   }
 
-  /// Global notification triggered when the app resumes (e.g. alt-tab return
-  /// or browser tab focus) to immediately re-attempt failed image loads.
   static final ValueNotifier<int> appResumeNotifier = ValueNotifier<int>(0);
 
-  /// Called by the app lifecycle observer when the app transitions to [AppLifecycleState.resumed].
   static void onAppResumed() {
     appResumeNotifier.value++;
   }
 
-  /// Validates that a string is a fetchable web URL. Protects WebGL/CanvasKit
-  /// from trying to decode 404/SPA-rewritten HTML or dummy 'null' strings as textures.
   static bool isValidUrl(String? url) {
     if (url == null) return false;
     final trimmed = url.trim();
@@ -173,13 +107,10 @@ class AppNetworkImage extends StatefulWidget {
 }
 
 class _AppNetworkImageState extends State<AppNetworkImage> {
-  /// Backoff between automatic reloads after a failed fetch.
   static const _maxRetries = 5;
   static Duration _backoffFor(int attempt) =>
       Duration(seconds: 2 * (1 << (attempt * 2)));
 
-  /// Bumped on every retry so the inner image gets a fresh [Key] and
-  /// re-resolves instead of reusing its failed stream.
   int _generation = 0;
   int _attempt = 0;
   int _scheduledForGeneration = -1;
@@ -211,8 +142,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
 
   void _onAppResumed() {
     if (!mounted) return;
-    // If this image was in an error/backoff state when the user alt-tabbed away
-    // or the device slept, retry immediately on returning.
     if (_attempt > 0) {
       _retryTimer?.cancel();
       _retryTimer = null;
@@ -220,9 +149,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
     }
   }
 
-  /// Schedules one reload for the current [_generation]. Called from the
-  /// error builder, which can run on every parent rebuild while failed —
-  /// the generation guard keeps it to a single timer per attempt.
   void _scheduleRetry() {
     if (_attempt >= _maxRetries) return;
     if (_scheduledForGeneration == _generation) return;
@@ -236,9 +162,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
     });
   }
 
-  /// Reports a load failure to [AppNetworkImage.onError] (heal hook) and
-  /// schedules the automatic retry. Error builders can run on every parent
-  /// rebuild while failed — heal callers dedupe (see [onError] docs).
   void _reportError() {
     widget.onError?.call();
     _scheduleRetry();
@@ -248,8 +171,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
   Widget build(BuildContext context) {
     final isAsset = widget.imageUrl.startsWith('assets/');
     if (!isAsset && !AppNetworkImage.isValidUrl(widget.imageUrl)) {
-      // Non-empty but unfetchable (e.g. a stringified "null") still needs
-      // a heal; a truly empty URL is placeholder-by-design, not a failure.
       if (widget.imageUrl.trim().isNotEmpty) widget.onError?.call();
       return _fallback();
     }
@@ -277,12 +198,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
         errorBuilder: (context, _, _) => _fallback(),
       );
     } else if (AppNetworkImage._isWeb) {
-      // Flutter Web CanvasKit (flutter/flutter#158093, #160199, #192347) has an upstream
-      // issue where CachedNetworkImage's default ImageRenderMethodForWeb.HtmlImage creates
-      // unattached HTMLImageElements that get their textures evicted by the browser on
-      // Alt-Tab / backgrounding, logging "WebGL: INVALID_VALUE: texImage2D: no image"
-      // and rendering blank. On Web, standard Image.network fetches arraybuffer bytes directly
-      // into Skia WASM memory and is fully immune to browser background texture purging.
       image = Image.network(
         widget.imageUrl,
         key: ValueKey('${widget.imageUrl}#$_generation'),
@@ -366,7 +281,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
       );
     }
 
-    // Reserve space before decode so rows/grids never jump.
     if (widget.aspectRatio != null &&
         (widget.width != null || widget.height != null)) {
       image = AspectRatio(aspectRatio: widget.aspectRatio!, child: image);
@@ -382,8 +296,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
       image = ClipRRect(borderRadius: widget.borderRadius!, child: image);
     }
 
-    // On native, isolate repaints so image decode/upload never repaints the parent row.
-    // On web, skip RepaintBoundary to avoid upstream CanvasKit Sliver bug (flutter/flutter#192347).
     if (!AppNetworkImage._isWeb) {
       image = RepaintBoundary(child: image);
     }
@@ -415,11 +327,6 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
   }
 }
 
-/// 2:3 poster default used by cinema / anime / books / manga grids.
-///
-/// Fixed [width] + aspect + `cacheWidth: 400` covers the common 120-200px card
-/// range at up to 2x DPR without over-decoding. Pass a smaller `cacheWidth`
-/// (240-300) for dense sub-120px thumbs, larger (800+) for detail heroes.
 class AppPosterImage extends StatelessWidget {
   final String imageUrl;
   final double width;

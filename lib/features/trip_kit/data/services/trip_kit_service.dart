@@ -6,12 +6,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/trip.dart';
 
-/// Trip Kit service — one doc per lakad in `travel_trips` (couple-only).
-///
-/// Each section (details / packing / budget / places) updates its own
-/// fields, so two people editing different sections never clobber each
-/// other. Same-section races resolve last-write-wins — fine for a
-/// packing checklist shared by two.
 class TripKitService {
   static final TripKitService _instance = TripKitService._internal();
   factory TripKitService({FirebaseFirestore? db}) =>
@@ -22,7 +16,6 @@ class TripKitService {
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'travel_trips';
 
-  /// All trips, newest first.
   Stream<List<Trip>> watchAll() {
     if (AgentMode.isActive.value) return Stream.value(AgentFixtures.demoTrips);
     Stream<List<Trip>> subscribe() {
@@ -44,8 +37,6 @@ class TripKitService {
           });
     }
 
-    // Cold-start re-attach mirrors bucket-list / journal: the first
-    // snapshot can lag while the WebChannel and auth token warm up.
     return withFirestoreTimeout(
       subscribe(),
       resubscribe: subscribe,
@@ -55,7 +46,6 @@ class TripKitService {
     );
   }
 
-  /// One trip page.
   Stream<Trip?> watchOne(String id) {
     if (AgentMode.isActive.value) {
       return Stream.value(
@@ -76,7 +66,6 @@ class TripKitService {
     );
   }
 
-  /// Create a trip; returns the new doc id for navigation.
   Future<String> create(Trip trip) async {
     if (AgentMode.isActive.value) return AgentFixtures.demoTrips.first.id;
     try {
@@ -89,7 +78,6 @@ class TripKitService {
     }
   }
 
-  /// Title / destination / dates / notes / budget total.
   Future<void> updateDetails(Trip trip) async {
     if (AgentMode.isActive.value) return;
     try {

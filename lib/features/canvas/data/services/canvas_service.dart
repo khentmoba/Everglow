@@ -49,8 +49,6 @@ class CanvasService {
     await _db.collection(_collection).doc(id).delete();
   }
 
-  // --- Live Drawing Support ---
-
   Future<void> updateActiveStroke(String userId, DoodleStroke stroke) async {
     if (AgentMode.isActive.value) return;
     await _db.collection('live_canvas').doc(userId).set(stroke.toMap());
@@ -79,8 +77,6 @@ class CanvasService {
 
   Future<void> clearAllStrokes() async {
     if (AgentMode.isActive.value) return;
-    // Fire-and-forget from a dialog with no await: failures must log,
-    // not surface as unhandled async errors.
     try {
       await _deleteInBatches(
         (await withGetTimeout(
@@ -112,7 +108,6 @@ class CanvasService {
     }
   }
 
-  /// Delegates to [simplifyCanvasPoints] from canvas_point_utils.dart.
   List<Map<String, double>> simplifyPoints(
     List<Map<String, double>> points, {
     double epsilon = 0.001,

@@ -11,8 +11,6 @@ import 'frame_stats.dart';
 import 'perf_probe.dart';
 import 'perf_settings.dart';
 
-/// Mounts [PerfHud] over the whole app, but only while the meter switch is on,
-/// so no HUD timer or timing callback runs by default.
 class PerfMeterOverlay extends StatelessWidget {
   const PerfMeterOverlay({super.key, required this.child});
 
@@ -28,8 +26,6 @@ class PerfMeterOverlay extends StatelessWidget {
           textDirection: TextDirection.ltr,
           child: Stack(
             fit: StackFit.expand,
-            // PerfHud is a direct child on purpose: it returns a `Positioned`
-            // once dragged, and a Positioned only works directly under a Stack.
             children: [child, const PerfHud()],
           ),
         );
@@ -38,20 +34,6 @@ class PerfMeterOverlay extends StatelessWidget {
   }
 }
 
-/// Opt-in diagnostic for reported frame rate and build/raster timings.
-/// Session peaks/counts persist until reset; averages cover recent frames.
-/// This does not measure display presentation skips or every main-thread task.
-///
-/// Interactions, kept on the card so the tool never needs another screen:
-/// * drag it anywhere (it starts bottom-left, where no app control lives —
-///   it used to sit at top-left over Khent's Creator Studio button),
-/// * double-tap resets the window: reset, scroll the screen you care about,
-///   then read the numbers,
-/// * tap the `dpr` line to cycle the render scale (device → 2.0x → 1.5x →
-///   device); it reloads so the change applies immediately.
-///
-/// Cost control: it reads frame timings (free) and only repaints itself ~2.5
-/// times a second, so the meter can stay on while profiling.
 class PerfHud extends StatefulWidget {
   const PerfHud({super.key});
 
@@ -65,10 +47,8 @@ class _PerfHudState extends State<PerfHud> {
   final FrameStats _stats = FrameStats();
   final Stopwatch _since = Stopwatch()..start();
 
-  /// Lets the drag read where the card actually is.
   final GlobalKey _cardKey = GlobalKey();
 
-  /// Set once the card has been dragged; null means "default corner".
   Offset? _position;
   Offset? _dragFrom;
   Offset _dragDelta = Offset.zero;
@@ -130,10 +110,6 @@ class _PerfHudState extends State<PerfHud> {
     setState(() {});
   }
 
-  /// Next render scale in the cycle: device → 2.0x → 1.5x → device.
-  ///
-  /// Reloads straight away because the engine only reads the scale when the
-  /// view is created, so a tap here is "change and apply" in one gesture.
   void _cycleRenderScale() {
     PerfSettings.setRenderScale(
       PerfSettings.nextRenderScale(PerfSettings.renderScale.value),
@@ -141,7 +117,6 @@ class _PerfHudState extends State<PerfHud> {
     AppUpdateBrowser.instance.reload();
   }
 
-  /// Current top-left of the card, for the drag origin.
   Offset? _cardTopLeft() {
     final box = _cardKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return null;
@@ -154,8 +129,6 @@ class _PerfHudState extends State<PerfHud> {
     return box.size;
   }
 
-  /// Keeps a dragged meter fully on screen — losing it off an edge would mean
-  /// losing the only way to read (or turn off) the numbers.
   Offset _clampToScreen(Offset position, Size cardSize) {
     final screen = MediaQuery.sizeOf(context);
     return Offset(
@@ -178,8 +151,6 @@ class _PerfHudState extends State<PerfHud> {
     });
   }
 
-  /// Green when the frame fits the 60fps budget, amber when it is close, red
-  /// when it is not — so a screenshot reads without doing arithmetic.
   Color _tone(double value, double good, double ok) {
     if (value <= good) return AppColors.success;
     if (value <= ok) return AppColors.warning;
@@ -247,8 +218,6 @@ class _PerfHudState extends State<PerfHud> {
                       style: _line(AppColors.textMuted),
                     ),
                     const SizedBox(width: 8),
-                    // The render-scale switch lives here too, so testing it never
-                    // depends on reaching another screen (it used to).
                     if (AppUpdateBrowser.instance.supported)
                       GestureDetector(
                         onTap: _cycleRenderScale,
@@ -283,9 +252,6 @@ class _PerfHudState extends State<PerfHud> {
     );
 
     final positioned = _position;
-    // Bottom-left by default: every corner of the app has real controls
-    // (creator button top-left, partner status top-right, Motchi bottom-right),
-    // and the dashboard has nothing anchored bottom-left.
     if (positioned == null) {
       return SafeArea(
         child: Align(

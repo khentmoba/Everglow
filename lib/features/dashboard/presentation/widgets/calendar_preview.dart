@@ -30,11 +30,6 @@ class _CalendarPreviewState extends State<CalendarPreview> {
   @override
   void initState() {
     super.initState();
-    // Preview shares the 60-day window with Coming Up (which renders 3
-    // cards): one shared query shape instead of two overlapping
-    // listeners (30d + 60d) doubling rule evals on every dashboard visit.
-    // One subscription for the widget lifetime so dashboard rebuilds don't
-    // resubscribe and restart the Firestore listener on every frame.
     _service = CalendarService();
     final cached = _service.cachedUpcoming;
     if (cached != null) {
@@ -69,11 +64,6 @@ class _CalendarPreviewState extends State<CalendarPreview> {
         _scheduleSilentRetry(error);
       },
       onDone: () {
-        // withFirestoreTimeout closes the stream without an error when the
-        // first snapshot never arrives (cold Firestore WebChannel on first
-        // load). Retry silently — the loading row stays up, so Clair never
-        // sees a spurious "could not load" that needs a manual tap. The
-        // error row only appears after the retries are exhausted.
         if (!mounted) return;
         if (_isLoading && _events == null) _scheduleSilentRetry(_error);
       },
@@ -108,12 +98,6 @@ class _CalendarPreviewState extends State<CalendarPreview> {
   @override
   Widget build(BuildContext context) {
     final events = _events;
-    // While loading — including silent background retries after a slow
-    // first snapshot — keep the loading row up so first load never flashes
-    // "could not load calendar". The error row only appears after all
-    // retries are exhausted, and the manual tap stays as a last resort.
-    // Error (or timeout-closed with no data) must never masquerade as
-    // "empty" — the calendar screen would still show dates on tap.
     if (!_isLoading && (_error != null || events == null)) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -150,7 +134,6 @@ class _CalendarPreviewState extends State<CalendarPreview> {
       );
     }
 
-    // Waiting for the first snapshot is loading, not empty.
     if (events == null) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

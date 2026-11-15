@@ -4,12 +4,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 
-/// Zone header for distilled dashboard — replaces repetitive FeatureSection
-/// headers with a single breathable label per zone.
-///
-/// 4 zones: Today / Together / Our World / Play
-/// Each zone groups 3-5 related previews so the dashboard reads as
-/// a story, not a warehouse inventory.
 class DashboardZoneHeader extends StatelessWidget {
   final String label;
   final String title;
@@ -36,7 +30,6 @@ class DashboardZoneHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Eyebrow + rule
           Row(
             children: [
               Container(
@@ -122,8 +115,6 @@ class DashboardZoneHeader extends StatelessWidget {
   }
 }
 
-/// Light pair container for 2-across previews on tablet and up.
-/// Stacks vertically on phone (< 600px).
 class DashboardPair extends StatelessWidget {
   final Widget left;
   final Widget right;

@@ -29,7 +29,6 @@ void main() {
         ),
         isFalse,
       );
-      // iTunes and Spotify art already send CORS headers: never proxied.
       expect(
         isLastfmImageUrl('https://is1-ssl.mzstatic.com/image/x.jpg'),
         isFalse,
@@ -47,7 +46,6 @@ void main() {
         ),
       );
       expect(proxied, contains(Uri.encodeComponent(realArt)));
-      // Idempotent: proxying twice yields the same URL.
       expect(proxyLastfmImageUrl(proxied), proxied);
       expect(
         proxyLastfmImageUrl('https://i.scdn.co/image/x'),

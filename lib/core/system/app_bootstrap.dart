@@ -17,11 +17,6 @@ typedef NotificationsInitializer = Future<void> Function();
 typedef FirestoreConfigurer = Future<void> Function();
 typedef UrlStrategyConfigurer = void Function();
 
-/// Immutable summary of the startup sequence.
-///
-/// [health] is the instant snapshot (`checking` while the probe runs — the
-/// probe never blocks [AppBootstrap.run]); await [healthFuture] for the
-/// probed backend status.
 class BootstrapResult {
   final bool environmentLoaded;
   final SystemStatus health;
@@ -38,10 +33,6 @@ class BootstrapResult {
   bool get isHealthy => health.isHealthy;
 }
 
-/// Deterministic startup orchestrator for Everglow.
-///
-/// Dependencies are injected so the sequence is testable without Firebase
-/// plugins. Production wiring lives in `main.dart`; unit tests inject fakes.
 class AppBootstrap {
   AppBootstrap({
     required FirebaseInitializer initializeFirebase,
@@ -95,11 +86,8 @@ class AppBootstrap {
       NotificationService.setScaffoldMessengerKey(messengerKey);
     }
 
-    // Push notification setup is non-critical; never block first frame.
     unawaited(_startNotifications());
 
-    // Backend health never blocks the first frame: the probe runs in the
-    // background (like notifications) and its result lands on healthFuture.
     final healthFuture = _probeHealthInBackground(_probeHealth);
 
     stopwatch.stop();
@@ -115,8 +103,6 @@ class AppBootstrap {
     );
   }
 
-  /// Runs the health probe to completion without ever throwing: failures
-  /// degrade to [SystemStatus.unreachable] instead of failing startup.
   Future<SystemStatus> _probeHealthInBackground(HealthProbe? probe) async {
     if (probe == null) {
       return SystemStatus.unreachable(error: 'Health probe not configured');
@@ -137,10 +123,6 @@ class AppBootstrap {
   }
 
   Future<void> _defaultFirestoreSettings() {
-    // On web in debug / local dev mode, IndexedDB persistence with 25+
-    // simultaneous stream listeners on cold launch causes severe transaction
-    // lock contention. Using memory cache in local dev keeps startup fast
-    // and listeners immediately responsive without deadlocks.
     final bool isLocal = kDebugMode ||
         (kIsWeb &&
             (Uri.base.host == 'localhost' ||

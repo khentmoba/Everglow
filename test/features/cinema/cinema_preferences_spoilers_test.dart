@@ -79,7 +79,6 @@ void main() {
     expect(find.text('Secret ending'), findsNothing);
     expect(find.text('Secret plot'), findsNothing);
     expect(find.text('Episode 7'), findsOneWidget);
-    // A frame gives no plot away, so the still is not a spoiler.
     expect(find.byType(AppNetworkImage), findsOneWidget);
     expect(
       tester.widget<AppNetworkImage>(find.byType(AppNetworkImage)).imageUrl,
@@ -157,13 +156,11 @@ void main() {
       await tester.tap(find.text('Reveal details').first);
       await tester.pumpAndSettle();
       expect(plays, 0);
-      // Revealed in place — no drawer over the list.
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.text('Secret ending'), findsOneWidget);
       expect(find.text('Secret plot'), findsOneWidget);
       expect(find.text('Other secret'), findsNothing);
       expect(find.text('Hide details'), findsOneWidget);
-      // The row itself plays, so the drawer never held the only play.
       await tester.tap(find.text('Secret ending'));
       await tester.pump();
       expect(plays, 1);

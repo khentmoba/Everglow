@@ -1,13 +1,3 @@
-// Hardcoded-colour ratchet: no new `Color(0x...)` literals in lib/ outside the
-// palette. A literal in a widget bypasses lib/core/theme/app_colors.dart, so
-// the next theme change misses it. Existing literals are pinned per file in
-// _pinned and may only go down. Removing one means lowering that file's number
-// in the same commit; adding one fails the check.
-//
-// Palette files (lib/core/theme/, *_tokens.dart, *_colors.dart, *_theme.dart)
-// define the colours themselves and are not counted.
-//
-// Usage: dart tool/ci/check_no_hardcoded_colors.dart
 import 'dart:io';
 
 import '_io.dart';
@@ -20,7 +10,6 @@ bool _isPaletteFile(String path) =>
     path.endsWith('_colors.dart') ||
     path.endsWith('_theme.dart');
 
-/// file -> pinned count of `Color(0x` literals. Must match the scan exactly.
 const Map<String, int> _pinned = {
   'lib/features/academy/presentation/screens/podium_screen.dart': 1,
   'lib/features/academy/presentation/widgets/trivia_loading_overlay.dart': 1,

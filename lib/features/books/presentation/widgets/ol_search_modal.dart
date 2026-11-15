@@ -12,11 +12,7 @@ import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Bottom sheet for searching the Open Library catalog and adding a
-/// book to either the personal "Mine" list or the shared "Our Books"
-/// couple list.
 class OLSearchModal extends StatefulWidget {
-  /// Pre-selects the "Mine" / "Ours" scope toggle. Defaults to 'mine'.
   final String initialScope;
   const OLSearchModal({super.key, this.initialScope = 'mine'});
 

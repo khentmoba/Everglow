@@ -60,8 +60,6 @@ class _TimeCapsule extends StatelessWidget {
               ),
             Column(
               children: [
-                // The seconds cell changes every second, so on phones the
-                // 280 ms swap would keep the screen redrawing nonstop.
                 AnimatedSwitcher(
                   duration: AppMotion.reduceAmbientMotion(context)
                       ? Duration.zero
@@ -247,10 +245,6 @@ class _CountdownFooter extends StatelessWidget {
   }
 }
 
-// Minute-granularity footer: the progress fraction and "X days to go"
-// label cannot move within a minute, so rebuilding on every parent
-// frame (or every second from _CountdownUnits above) is wasted layout.
-// This wrapper ticks at minute boundaries only.
 class _CountdownFooterBody extends StatefulWidget {
   final DateTime target;
   final Color hue;

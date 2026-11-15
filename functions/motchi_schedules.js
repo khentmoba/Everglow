@@ -2,10 +2,6 @@
 
 const { getCalendarEvents } = require('./calendar_core.js');
 
-// Everglow Cloud Functions — Motchi schedules group.
-// Morning digest, night recap, mood check-in, smart nudges,
-// weekly recap, special-day nudge, reminder checker, memory sweep.
-
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
@@ -15,11 +11,6 @@ const sendFCMToUser = (uid, payload) => sendPushToUser(uid, { ...payload, motchi
 const sendFCMToBoth = (payload) => sendPushToBoth({ ...payload, motchi: true });
 const { subNextRenewal } = require('./motchi_exec_planning.js');
 
-/**
- * Subs renewing within 7 days, soonest first — the "Netflix renews in
- * 3 days" line for the morning digest. Empty when nothing is due,
- * so quiet days stay quiet.
- */
 function subsRenewingSoon(subsSnap) {
   if (!subsSnap || subsSnap.empty) return [];
   const now = new Date();
@@ -35,16 +26,6 @@ function subsRenewingSoon(subsSnap) {
     .sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
-// Cap on remote embedding calls per nightly sweep. Local vectors are
-// free and unbounded; remote ones cost time + money, so the first 25
-// invalid facts per night upgrade and the rest wait their turn.
-
-/**
- * Shared recap fetch for the morning/night/weekly digests: one parallel
- * sweep (moods + activity + starlight + memories, plus watchlist when
- * asked) mapped into the shape composeTodayRecap wants. Raw snapshots
- * ride along so callers can run their own quiet-day checks.
- */
 async function collectRecapData(db, {
   dateLabel,
   moodsQuery,
@@ -84,16 +65,11 @@ async function collectRecapData(db, {
   };
 }
 
-// ── Scheduled: Daily Digest (8:00 AM PHT wall time) ───────────
-// NOTE: cron is interpreted in timeZone Asia/Manila below, so these
-// are Philippine wall times (NOT UTC — do not 'correct' them).
 const motchiDailyDigest = onSchedule({
   schedule: '0 8 * * *',
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {
-  // Outer guard: a failed Firestore read must log, not throw — an
-  // uncaught scheduled run just burns a retry and pages the logs.
   try {
   const db = getDb();
   const today = phtDateString();
@@ -104,9 +80,6 @@ const motchiDailyDigest = onSchedule({
   });
   const { moodsSnap, activitySnap, starSnap } = snaps;
 
-  // Quiet-day skip: no moods, no fresh activity, no starlight — the paid
-  // LLM polish would just gush over an empty week. The deterministic
-  // recap below still goes out, so Clair never misses her digest.
   const _cutoff = Date.now() - 36 * 60 * 60 * 1000;
   const _freshActivity = activitySnap.docs.some((d) => {
     const t = d.data().timestamp;
@@ -116,7 +89,6 @@ const motchiDailyDigest = onSchedule({
   const _quietDay = moodsSnap.empty && starSnap.empty && !_freshActivity;
   if (_quietDay) console.log('[motchiDailyDigest] quiet day — skipping LLM polish');
 
-  // Try a real Motchi voice first; fall back to the deterministic recap.
   let digest = composeTodayRecap(recapData);
   try {
     const apiKey = process.env.AGNES_API_KEY;
@@ -167,7 +139,6 @@ const motchiDailyDigest = onSchedule({
   }
 });
 
-// ── Scheduled: Night Recap (11:11 PM PHT wall time) ──────────────
 const motchiNightRecap = onSchedule({
   schedule: '11 23 * * *',
   timeZone: 'Asia/Manila',
@@ -194,7 +165,6 @@ const motchiNightRecap = onSchedule({
   }
 });
 
-// ── Scheduled: Mood Check-In (8:00 PM PHT wall time) ──────────
 const motchiMoodCheckIn = onSchedule({
   schedule: '0 20 * * *',
   timeZone: 'Asia/Manila',
@@ -220,9 +190,7 @@ const motchiMoodCheckIn = onSchedule({
     console.warn('[motchiMoodCheckIn] check-in failed:', e.message);
   }
 
-  // W4-D14: Behavior-based initiative — silence gap + mood trend
   try {
-    // 48h silence in Sanctuary
     const chatSnap = await db.collection('sanctuary_messages').orderBy('timestamp', 'desc').limit(1).get();
     if (!chatSnap.empty) {
       const last = chatSnap.docs[0].data().timestamp?.toDate?.();
@@ -234,7 +202,6 @@ const motchiMoodCheckIn = onSchedule({
         });
       }
     }
-    // 7-day negative mood trend (sad/stressed/tired/anxious/down)
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const weekMoods = await db.collection('moods').where('timestamp', '>=', weekAgo).limit(100).get();
     const negative = new Set(['sad', 'stressed', 'tired', 'anxious', 'down', 'upset', 'angry', 'lonely']);
@@ -259,7 +226,6 @@ const motchiMoodCheckIn = onSchedule({
   }
 });
 
-// ── Scheduled: Smart Behavior Nudge (7pm PHT daily) — checks streaks, overdue bucket, journal silence, tomorrow calendar ───────
 const motchiSmartNudge = onSchedule({
   schedule: '0 19 * * *',
   timeZone: 'Asia/Manila',
@@ -342,7 +308,6 @@ const motchiSmartNudge = onSchedule({
   }
 });
 
-// ── Scheduled: Weekly Recap (Sunday 9am PHT) — W4-D15 ───────
 const motchiWeeklyRecap = onSchedule({
   schedule: '0 9 * * 0',
   timeZone: 'Asia/Manila',
@@ -362,8 +327,6 @@ const motchiWeeklyRecap = onSchedule({
     });
     const { moodsSnap, activitySnap, starSnap } = snaps;
     let recap = composeTodayRecap(recapData);
-    // Quiet-week skip: same idea as the daily digest — empty weeks get
-    // the deterministic recap, no paid polish.
     const _wCutoff = Date.now() - 8 * 24 * 60 * 60 * 1000;
     const _wFresh = activitySnap.docs.some((d) => {
       const t = d.data().timestamp;
@@ -372,7 +335,6 @@ const motchiWeeklyRecap = onSchedule({
     });
     const _quietWeek = moodsSnap.empty && starSnap.empty && !_wFresh && recapData.activities.length === 0;
     if (_quietWeek) console.log('[motchiWeeklyRecap] quiet week — skipping LLM polish');
-    // Try LLM polish (same as daily digest, but weekly)
     try {
       const apiKey = process.env.AGNES_API_KEY;
       if (apiKey && !_quietWeek) {
@@ -412,7 +374,6 @@ const motchiWeeklyRecap = onSchedule({
   }
 });
 
-// ── Scheduled: Special Day Nudge (9:00 AM PHT wall time) ───────
 const motchiSpecialDayNudge = onSchedule({
   schedule: '0 9 * * *',
   timeZone: 'Asia/Manila',
@@ -435,7 +396,6 @@ const motchiSpecialDayNudge = onSchedule({
     });
   }
 
-  // Check upcoming special days within 7 days
   for (const [date, event] of Object.entries(specialDays)) {
     if (date === mmdd) continue;
     const [m, d] = date.split('-').map(Number);
@@ -452,7 +412,6 @@ const motchiSpecialDayNudge = onSchedule({
   }
 });
 
-// ── Scheduled: Reminder Checker (every 10 min PHT) — W1-A2 ───────
 const motchiReminderChecker = onSchedule({
   schedule: 'every 10 minutes',
   timeZone: 'Asia/Manila',
@@ -461,10 +420,6 @@ const motchiReminderChecker = onSchedule({
   const db = getDb();
   try {
     const now = getAdmin().firestore.Timestamp.now();
-    // Indexed due query (reminders/fired+remindAtTs in firestore.indexes.json)
-    // so the 10-minute tick reads only what's due instead of scanning up
-    // to 100 pending docs. Falls back to the old scan when the index is
-    // still building — reminders must never silently stop firing.
     let snap;
     try {
       snap = await db.collection('reminders')
@@ -507,13 +462,13 @@ const motchiReminderChecker = onSchedule({
         }
         await doc.ref.update({ notifiedUsers: getAdmin().firestore.FieldValue.arrayUnion(recipient) });
       }
-      if (!complete) return; // Keep pending after a temporary delivery failure.
+      if (!complete) return;
       await doc.ref.update({
         fired: true,
         firedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
       });
       firedCount++;
-      return null; // map-to-promises: values unused, allSettled joins only
+      return null;
     });
     const results = await Promise.allSettled(jobs);
     for (const result of results) {
@@ -525,9 +480,6 @@ const motchiReminderChecker = onSchedule({
   }
 });
 
-// ── Scheduled: Memory sweep (daily 3am PHT) — W3-C12 ───────
-// Halves confidence for memories not accessed in 90d and prunes
-// those that fall below 0.15 (except pinned). Keeps fact store lean.
 const motchiMemorySweep = onSchedule({
   schedule: '0 3 * * *',
   timeZone: 'Asia/Manila',
@@ -541,13 +493,9 @@ const motchiMemorySweep = onSchedule({
     let pruned = 0;
     let updated = 0;
     let backfilled = 0;
-    const deletedIds = new Set(); // decay-pruned docs skip the merge pass below
+    const deletedIds = new Set();
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
-      // Backfill invalid embeddings (missing, malformed, odd dims) with
-      // local vectors. Runs for pinned docs too. Legacy remote-space
-      // vectors are left alone — ranking falls back to recomputing
-      // their local vector, so they still rank correctly.
       if (data.fact && needsEmbeddingBackfill(data.embedding)) {
         try {
           const emb = simpleEmbedding(String(data.fact), 64);
@@ -571,13 +519,9 @@ const motchiMemorySweep = onSchedule({
         await doc.ref.update({ confidence: decayed });
         updated++;
       }
-      return null; // map-to-promises: values unused, allSettled joins only
+      return null;
     });
     await Promise.allSettled(jobs);
-    // Mem0-style tidy: near-dupe facts merge into one survivor (pinned
-    // wins, then highest confidence, then oldest). Capped at 5 groups
-    // a night; pinned docs are never deleted. Runs after decay so
-    // already-pruned docs are out of the picture.
     let merged = 0;
     try {
       const live = snap.docs

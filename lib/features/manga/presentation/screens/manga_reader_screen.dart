@@ -23,15 +23,8 @@ import '../../data/services/scanlation_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Reader background — deep black, darker than the anime palette.
-const _readerBg = AppColors.animeBackground; // 0xFF080810
+const _readerBg = AppColors.animeBackground;
 
-///   • Long-strip (webtoon) mode by default — vertical continuous scroll
-///   • Tap center of screen to show/hide UI chrome
-///   • Chapter dropdown for quick navigation
-///   • Prev/Next chapter buttons at the bottom
-///   • "Next Chapter →" card at the very end of the scroll
-///   • Page counter overlay
 class MangaReaderScreen extends StatefulWidget {
   final MangaItem manga;
   final MangaChapter chapter;
@@ -61,13 +54,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   bool _isLoading = true;
   String? _loadError;
 
-  /// Scroll controller for long-strip mode
   final ScrollController _scrollController = ScrollController();
 
-  /// Whether the UI chrome (top/bottom bars) is visible
   bool _showUI = true;
 
-  /// Current scroll position as a page estimate
   int _currentPageEstimate = 0;
   String _readerUser = '';
   int? _lastQueuedPage;
@@ -109,9 +99,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     final offset = _scrollController.offset;
     final maxScroll = _scrollController.position.maxScrollExtent;
 
-    // Estimate current page from scroll position
-    // Each image is roughly viewport-width * aspect-ratio in height
-    // We'll use a simple ratio
     final ratio = maxScroll > 0 ? offset / maxScroll : 0;
     final totalPages = _pages!.filenames.length;
     final page = (ratio * totalPages)
@@ -120,15 +107,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     if (page == _currentPageEstimate) return;
     setState(() => _currentPageEstimate = page);
 
-    // Save progress periodically
     if (_currentPageEstimate % 5 == 0) {
       _saveProgress(_currentPageEstimate);
     }
     _preloadUpcoming(_currentPageEstimate);
   }
 
-  /// Warms the cache for the next few pages so turning the page
-  /// never waits on the network for a page Clair is about to reach.
   void _preloadUpcoming(int currentIndex) {
     final pages = _pages;
     if (pages == null || !mounted) return;
@@ -157,14 +141,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     final timeout = const Duration(seconds: 15);
     final futures = <Future<MangaChapterPages?>>[];
 
-    // 1) MangaDex — try chapter.id directly
     futures.add(
       _mangaDexService
           .getChapterPagesProxied(widget.chapter.id)
           .timeout(timeout, onTimeout: () => null),
     );
 
-    // 2) MangaDex — match by chapter number
     final mangaDexId = widget.manga.mangaKakalotId;
     if (mangaDexId.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
       futures.add(
@@ -184,7 +166,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       );
     }
 
-    // 3) MangaKakalot
     futures.add(
       _kakalotService
           .getChapterPages(widget.chapter.id)
@@ -231,12 +212,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       );
     }
 
-    // 4) MangaKatana
     futures.add(
       _resolveMangakatanaPages().timeout(timeout, onTimeout: () => null),
     );
 
-    // 5) Bato.to — only if the chapter ID is already a Bato path
     if (widget.chapter.id.startsWith('/title/') ||
         widget.chapter.id.startsWith('/chapter/')) {
       final batoPath = widget.chapter.id.startsWith('http')
@@ -251,11 +230,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       );
     }
 
-    // 6) MangaSee123 — only if we have a known slug (skip Comick hid)
-    // MangaSee123 slugs are short identifiers, not Comick hids.
-    // Disabled for now since we don't store MangaSee123 slugs.
-
-    // 7) Scanlation sites
     final slugs = widget.scanlationSlugs;
     if (slugs != null && slugs.isNotEmpty) {
       futures.add(
@@ -265,7 +239,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       );
     }
 
-    // Keep source priority without waiting for lower-priority failures.
     final pages = await _pickBestPages(futures);
 
     if (!mounted) return;
@@ -348,13 +321,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       _isLoading = false;
     });
     _preloadUpcoming(0);
-    // Restore last read page
     if (widget.manga.lastReadChapterId == widget.chapter.id &&
         widget.manga.lastReadPage > 0 &&
         widget.manga.lastReadPage <= pages.filenames.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients && mounted) {
-          // Scroll to approximate position (will be refined once layout settles)
           final ratio = widget.manga.lastReadPage / pages.filenames.length;
           final target = _scrollController.position.maxScrollExtent * ratio;
           _scrollController.jumpTo(
@@ -376,8 +347,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     _lastQueuedPage = pageIndex;
     return _progressWriter.add(pageIndex);
   }
-
-  // ── Chapter navigation ──────────────────────────────────────────
 
   MangaChapter? get _previousChapter {
     final i = widget.allChapters.indexWhere((c) => c.id == widget.chapter.id);
@@ -420,7 +389,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle
             Container(
               margin: const EdgeInsets.only(top: 12, bottom: 8),
               width: 40,
@@ -509,15 +477,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     );
   }
 
-  // ── Build ───────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _readerBg,
       body: Stack(
         children: [
-          // Main content area — tap to toggle UI
           GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: _toggleUI,
@@ -527,7 +492,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 ? _buildError()
                 : _buildReader(),
           ),
-          // Top bar (animated)
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOut,
@@ -536,7 +500,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             right: 0,
             child: _buildTopBar(),
           ),
-          // Bottom bar (animated)
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOut,
@@ -545,7 +508,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             right: 0,
             child: _buildBottomBar(),
           ),
-          // Page counter (always visible, small)
           if (!_isLoading && _loadError == null && _pages != null)
             Positioned(
               top: MediaQuery.paddingOf(context).top + 56 + 4,
@@ -636,7 +598,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     ],
                   ),
                 ),
-                // Chapter picker button
                 IconButton(
                   onPressed: _openChapterPicker,
                   icon: const Icon(
@@ -675,7 +636,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Progress indicator
           if (_pages != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -715,7 +675,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               ),
             ),
           const SizedBox(height: 8),
-          // Chapter navigation
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Row(
@@ -728,7 +687,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Chapter picker center button
                 GestureDetector(
                   onTap: _openChapterPicker,
                   child: Container(
@@ -835,7 +793,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     );
   }
 
-  /// Long-strip (webtoon) reader — continuous vertical scroll.
   Widget _buildReader() {
     if (_pages == null) return const SizedBox.shrink();
     final pageCount = _pages!.filenames.length;
@@ -847,24 +804,16 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         top: MediaQuery.paddingOf(context).top + 56,
         bottom: MediaQuery.paddingOf(context).bottom + 120,
       ),
-      // Virtualize aggressively: neighbours within 1200px are kept
-      // built for smooth scrolling, while offscreen strips are
-      // unmounted so decoded GPU textures can be evicted by ImageCache.
       scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: !kIsWeb,
-      itemCount: pageCount + 1, // +1 for "Next Chapter" card
+      itemCount: pageCount + 1,
       itemBuilder: (context, index) {
         if (index == pageCount) {
-          // "Next Chapter" card at the end
           return _buildNextChapterCard(next);
         }
 
         final url = _pages!.urlForPage(index);
-        // Page image — fills width, no gaps. Once loaded it stays
-        // loaded (disk cache + keep-alive); a failed page retries
-        // itself and offers a per-page Retry instead of reloading
-        // the whole chapter.
         return ReaderPageImage(
           key: ValueKey('page-$index-$url'),
           imageUrl: url,

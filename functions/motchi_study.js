@@ -1,11 +1,5 @@
 'use strict';
 
-// Everglow Cloud Functions — Motchi study-set generator for Academy.
-// Solo Study and 1v1 call this ONCE per set (never per question) so a
-// whole match costs 1 against the shared proxyAI daily cap. The client
-// caches every returned question in `academy_questions`, so repeat
-// plays cost nothing and Clair never waits on Motchi twice.
-
 const {
   requireAuth,
   enforceRateLimit,
@@ -30,8 +24,6 @@ const STUDY_CATEGORIES = [
 const MIN_COUNT = 5;
 const MAX_COUNT = 20;
 const DEFAULT_COUNT = 10;
-// A set with fewer keepers than this is a failure — the client falls
-// back to its cached pool instead of starting a stub game.
 const MIN_KEEPERS = 5;
 const STUDY_PROFILES = ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
 
@@ -73,7 +65,6 @@ function buildStudyPrompt({ category, count, topic }) {
   );
 }
 
-/** Strips code fences so fenced JSON still parses. */
 function stripFences(text) {
   let out = String(text || '').trim();
   if (out.startsWith('```')) {
@@ -88,10 +79,6 @@ function isValidOption(opt) {
   return typeof opt === 'string' && opt.trim().length > 0 && opt.length <= 200;
 }
 
-/**
- * Validates one raw item. Returns the cleaned question or null.
- * Pure so `node --test` can verify it without Firestore or an LLM.
- */
 function cleanStudyItem(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const questionText = typeof raw.questionText === 'string' ? raw.questionText.trim() : '';
@@ -108,10 +95,6 @@ function cleanStudyItem(raw) {
   return { questionText, options, correctOptionIndex: correct, explanation };
 }
 
-/**
- * Parses a model reply into validated questions. Returns {questions} on
- * success or {error} when the reply is unusable. Pure (no I/O).
- */
 function parseStudySet(text) {
   let raw;
   try {
@@ -192,8 +175,6 @@ async function handleGenerateStudySet(req, res) {
   const count = clampCount(req.body?.count);
   const topic = cleanTopic(req.body?.topic);
 
-  // Shared cap with Motchi chat: one set costs the same as one chat turn.
-  // Fails open on counter hiccups (see common.js) — never block study.
   const caller = await getVerifiedUsername(decoded).catch(() => null);
   if (!isStudyProfile(caller)) {
     res.status(403).json({ error: 'A verified app profile is required' });
@@ -222,14 +203,12 @@ async function handleGenerateStudySet(req, res) {
     { role: 'user', content: buildStudyPrompt({ category, count, topic }) },
   ];
 
-  // One generation attempt + one strict-JSON repair attempt at most.
   let reply;
   try {
     reply = await callLlm({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
   } catch (e) {
     if (e.status === 429 || e.status === 502 || e.status === 503) {
       try {
-        // Give Agnes rate limits time to clear before the single retry.
         await new Promise((r) => setTimeout(r, e.status === 429 ? 12000 : 1500));
         reply = await callLlm({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
       } catch {

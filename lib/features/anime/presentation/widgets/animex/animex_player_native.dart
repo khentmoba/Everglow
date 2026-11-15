@@ -15,13 +15,8 @@ import 'animex_buttons.dart';
 import 'animex_tokens.dart';
 import 'animex_videasy_progress.dart';
 
-/// Always false on native; only web embeds enter browser element fullscreen.
 bool isPlayerFullscreenActive() => false;
 
-/// Opens the reference-style trailer for an anime inside the app.
-///
-/// The web implementation shows a modal with a YouTube iframe; Android runs
-/// the same embed in a WebView instead of handing the user off to YouTube.
 Future<void> showAnimexTrailer(
   BuildContext context, {
   String? youtubeId,
@@ -48,7 +43,6 @@ Future<void> showAnimexTrailer(
   );
 }
 
-/// Trailer overlay dialog with a 16:9 YouTube player and close button.
 class AnimeXTrailerModal extends StatelessWidget {
   final String title;
   final String youtubeId;
@@ -115,11 +109,6 @@ class AnimeXTrailerModal extends StatelessWidget {
   }
 }
 
-/// Native embed surface for the AnimeX player.
-///
-/// Android runs the provider embed inside an in-app WebView. A main-frame
-/// load failure reports [onContentError] so callers can auto-advance to the
-/// next server just like the web player.
 class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
   final double aspectRatio;
@@ -127,31 +116,18 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final VoidCallback? onContentError;
   final void Function(VideasyProgress progress)? onProgress;
 
-  /// In-place seek for our Megavid player; other providers ignore it.
   final int? seekSeconds;
   final int seekRequest;
   final AniSkipTimes? skipTimes;
 
-  /// Destination token the player prints beside its next action (`EP 20`),
-  /// or null when nothing follows (a film, or the last episode of the last
-  /// season). The player only shows that action during the ending or the
-  /// last 90 seconds. [nextIsSeason] switches the wording to "Next season".
   final String? nextToken;
   final bool nextIsSeason;
   final VoidCallback? onNextEpisode;
 
-  /// Whether this frame may move on by itself when an episode ends. Native
-  /// playback has no automatic advance today, so this only keeps the frame
-  /// API identical to the web one; manual next always works.
   final bool autoAdvance;
 
   final ValueChanged<String>? onAudioChanged;
 
-  /// Fires when the embed changes episodes on its own (CineSrc
-  /// auto-play or its built-in episode picker), reporting the TMDB
-  /// season/episode it moved to. Mirrors the web frame's postMessage
-  /// path; on native the event arrives through the `EverglowPlayer`
-  /// JS channel instead.
   final void Function(int season, int episode)? onPlayerEpisodeChanged;
 
   const AnimeXPlayerFrame({
@@ -177,9 +153,6 @@ class AnimeXPlayerFrame extends StatefulWidget {
 }
 
 class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
-  /// Hosts the anime servers are allowed to top-navigate to. Anything
-  /// else (app-store pages, tiktok:// / youtube:// app-open intents,
-  /// redirect farms) is the ad engine talking, so the WebView drops it.
   static const _allowedHosts = {
     'megaplay.buzz',
     'anixo.buzz',
@@ -302,9 +275,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       return;
     }
     try {
-      // The owned top-level page accepts self messages only when the
-      // native EverglowPlayer channel exists; browser parents still need
-      // their exact app origin AND window.parent as the source.
       await controller.runJavaScript(
         'window.postMessage({type:"animex-seek",seconds:$seconds},'
         '"$animeXProxyOrigin");',
@@ -314,9 +284,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
   }
 
-  /// Sends the opening/ending windows and the next-episode label. Sent on
-  /// load and on every change, even with no skip times, so the player can
-  /// clear a label that no longer applies.
   Future<void> _sendPlayerState() async {
     final controller = _controller;
     if (!_loaded ||

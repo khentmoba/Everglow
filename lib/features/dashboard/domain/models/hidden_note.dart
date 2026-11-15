@@ -22,8 +22,6 @@ class HiddenNote {
 
   factory HiddenNote.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    // Safe parsing: missing or malformed unlockDate falls back to now (unlocked)
-    // so the letter is at least visible rather than crashing the whole stream.
     DateTime unlockDate;
     final rawDate = data['unlockDate'];
     if (rawDate is Timestamp) {

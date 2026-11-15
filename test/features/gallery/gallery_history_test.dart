@@ -35,8 +35,6 @@ void main() {
       expect(last.hasMore, isFalse);
       expect((await service.searchPhotos('seaside')).single.id, '0');
       expect((await service.searchPhotos('photo')).length, 80);
-      // Live page + two older pages, then the search index read once (3
-      // pages) and reused by the second query.
       expect(query.reads.limits, [40, 40, 40, 40, 40, 40]);
     },
   );

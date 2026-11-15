@@ -1,4 +1,3 @@
-// Synthetic-only harness: flutter run -d chrome -t tool/welcome_gift_preview.dart
 import 'package:flutter/material.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';

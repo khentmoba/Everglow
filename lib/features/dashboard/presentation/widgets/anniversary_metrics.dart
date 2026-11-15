@@ -10,13 +10,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/anniversary_counter.dart';
 import '../widgets/metric_card.dart';
 
-/// Time Together — one keepsake clock instead of six loose boxes.
-///
-/// A single locket card holds the years hero, a quiet months/days +
-/// hours/minutes/seconds grid behind hairline dividers, and a total-days
-/// ribbon overlapping the bottom edge like a wax seal. Ticks live every
-/// second via a lightweight ValueNotifier; no pulse glow, no heavy
-/// shadows, no blur-over-big-area. The whole card animates as one fade.
 class AnniversaryMetrics extends StatefulWidget {
   final bool animate;
   const AnniversaryMetrics({super.key, this.animate = true});
@@ -38,14 +31,9 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBin
       DateTime.now(),
     );
     _notifier = ValueNotifier(_prev);
-    // 1s cadence only because the seconds cell is live; the ribbon
-    // below diffs DateTime.now() off the same notifier, so no second
-    // timer is needed anywhere in this subtree.
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
   }
 
-  // Cached at second granularity: the builder runs every second off the
-  // same notifier, and total days only flips at midnight.
   int? _cachedTotalDays;
   int _cachedTotalDaysSecond = -1;
 
@@ -83,7 +71,6 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBin
       _timer.cancel();
     } else if (state == AppLifecycleState.resumed) {
       _timer.cancel();
-      // recreate timer
       _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
     }
   }
@@ -136,10 +123,6 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBin
   }
 }
 
-/// Renders a hardware-accelerated frosted blur on native platforms where
-/// [BackdropFilter] is smooth and performant. On web or reduced motion,
-/// falls back to direct translucent rendering to prevent web gray-screen
-/// artifacts and overhead.
 Widget _wrapGlass({
   required BorderRadius borderRadius,
   required Widget child,
@@ -156,9 +139,6 @@ Widget _wrapGlass({
   );
 }
 
-/// Centered eyebrow — one quiet pill pair, matching the centered
-/// "EST. FEBRUARY 14" pill in the header above. Wraps gracefully on
-/// narrow phones instead of squeezing edge to edge.
 class _SectionEyebrow extends StatelessWidget {
   final bool animate;
   final ValueNotifier<AnniversaryCounter> notifier;
@@ -291,8 +271,6 @@ class _SectionEyebrow extends StatelessWidget {
   }
 }
 
-/// The unified locket: years hero on top, counter grid in the middle,
-/// total-days ribbon overlapping the bottom edge like a seal.
 class _KeepsakeClock extends StatelessWidget {
   final AnniversaryCounter counter;
   final int totalDays;
@@ -310,7 +288,6 @@ class _KeepsakeClock extends StatelessWidget {
       child: Stack(
         children: [
           Padding(
-            // Bottom padding reserves room for the overlapping ribbon.
             padding: const EdgeInsets.only(bottom: 18),
             child: _wrapGlass(
               borderRadius: AppRadius.radiusX3,
@@ -339,12 +316,6 @@ class _KeepsakeClock extends StatelessWidget {
                       blurRadius: 30,
                       offset: const Offset(0, 16),
                     ),
-                    // Ambient bloom: alpha 0.08 over a 32px blur was a very
-                    // wide filter for an effect this faint — the third
-                    // auroraGold layer below it (0.06) was all but invisible
-                    // and still cost a full blur pass every raster. One tighter
-                    // layer at slightly higher alpha reads the same and costs
-                    // roughly a third of the pixels.
                     BoxShadow(
                       color: AppColors.auroraRose.withValues(alpha: 0.10),
                       blurRadius: 18,
@@ -355,7 +326,6 @@ class _KeepsakeClock extends StatelessWidget {
                 ),
                 child: Stack(
                   children: [
-                    // Specular light wash along upper card curve
                     Positioned(
                       top: 0,
                       left: 0,
@@ -381,7 +351,6 @@ class _KeepsakeClock extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Faint keepsake hearts watermark — etched into glass
                     Positioned(
                       left: -16,
                       bottom: 60,
@@ -404,7 +373,6 @@ class _KeepsakeClock extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Top hairline edge highlight
                     Positioned(
                       top: 0,
                       left: 32,
@@ -511,7 +479,6 @@ class _KeepsakeClock extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 18),
-                          // Sunken crystal console panel for the counter grid
                           Container(
                             clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
@@ -540,7 +507,6 @@ class _KeepsakeClock extends StatelessWidget {
                             ),
                             child: Stack(
                               children: [
-                                // Inner top rim specular highlight
                                 Positioned(
                                   top: 0,
                                   left: 20,
@@ -641,7 +607,6 @@ class _KeepsakeClock extends StatelessWidget {
   }
 }
 
-/// Line — diamond — line ornament under the years numeral.
 class _DiamondDivider extends StatelessWidget {
   const _DiamondDivider();
 
@@ -665,7 +630,7 @@ class _DiamondDivider extends StatelessWidget {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),
           child: Transform.rotate(
-            angle: 0.785398, // 45 degrees in radians
+            angle: 0.785398,
             child: Container(
               width: 5,
               height: 5,
@@ -698,8 +663,6 @@ class _DiamondDivider extends StatelessWidget {
   }
 }
 
-/// Hairline divider between grid columns — fixed height comes from the
-/// surrounding SizedBox row, so no IntrinsicHeight cost.
 class _VDivider extends StatelessWidget {
   const _VDivider();
 
@@ -725,7 +688,6 @@ class _VDivider extends StatelessWidget {
   }
 }
 
-/// Hairline divider between the two grid rows.
 class _HDivider extends StatelessWidget {
   const _HDivider();
 
@@ -749,8 +711,6 @@ class _HDivider extends StatelessWidget {
   }
 }
 
-/// Wax-seal ribbon overlapping the card's bottom edge: the count Clair
-/// actually feels ("206 days of us") in bright type, the date quiet.
 class _TotalDaysRibbon extends StatelessWidget {
   final int totalDays;
 

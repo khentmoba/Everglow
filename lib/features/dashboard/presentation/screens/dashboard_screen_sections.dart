@@ -1,8 +1,5 @@
 part of 'dashboard_screen.dart';
 
-/// Display sections of the dashboard screen, split out of
-/// [dashboard_screen.dart] to keep the state lifecycle readable.
-/// Same library, so all private state stays reachable.
 extension _DashboardScreenSections on _DashboardScreenState {
   Widget _buildHeader(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -84,8 +81,6 @@ extension _DashboardScreenSections on _DashboardScreenState {
               ),
               padding: const EdgeInsets.all(13),
               child: ClipOval(
-                // cacheWidth matches the 108px emblem at 3x DPR: avoids a
-                // full-res logo decode on every header rebuild.
                 child: Image.asset(
                   'assets/images/logo.jpg',
                   fit: BoxFit.cover,
@@ -337,7 +332,6 @@ extension _DashboardScreenSections on _DashboardScreenState {
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
-              // Keep tiles compact on phone, tablet, and desktop.
               final columns = switch (AppBreakpoint.of(context)) {
                 BreakpointSize.mobile => 3,
                 BreakpointSize.tablet => 5,

@@ -7,21 +7,11 @@ import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
-/// Firestore-backed watchlist CRUD, couple-merge streams, currently-watching
-/// streams, progress tracking, and one-time migration helpers.
-/// Agent sessions return empty lists and skip persistence; drawer selections
-/// remain local to the widget and never touch live or cached couple data.
 class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   TMDBWatchlistService();
 
-  // Bounds every live watch-list query below. A couple list stays far
-  // under this in practice; the cap keeps Firestore reads finite.
   static const int streamLimit = 500;
 
-  // Bound for dashboard preview rails: each shelf sub-row renders up to
-  // 12 cards and headers only show counts, so a 500-doc realtime stream
-  // per sub-row is heavy on every dashboard visit. Full history stays
-  // on the un-capped streams for the cinema/anime screens.
   static const int previewLimit = 24;
 
   static String _mediaType(String value) =>
@@ -68,8 +58,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   }) {
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      // Missing source normally means TMDB; an exact AniList link safely
-      // identifies older anime records that predate the source field.
       if (data['anilistId'] == anilistId &&
           data['isAnime'] == true &&
           _mediaType(data['mediaType'] as String? ?? 'movie') ==
@@ -82,10 +70,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return null;
   }
 
-  /// Lightweight one-shot fetch for dashboard previews. Reads [limit]
-  /// docs once instead of holding a realtime stream each (Cinema + Anime
-  /// + Currently Watching previously opened ~1500 realtime docs per
-  /// dashboard mount).
   Future<List<MediaItem>> getPreviewItems(
     String userName, {
     int limit = 30,
@@ -111,8 +95,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return items;
   }
 
-  // ─── CRUD ──────────────────────────────────────────────────────────────
-
   Future<void> saveToWatchList(
     MediaItem item,
     String status,
@@ -126,9 +108,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       Logger.w("Error saving to watch list: userName is empty");
       return;
     }
-    // ── Guard: non-couple users (Breyan, Octagram, guests) may only use
-    // generic statuses. Partner-specific statuses would store Khent/Clair
-    // semantics under an isolated account and leak via merges.
     const coupleStatuses = {
       'watching-khent',
       'watching-clair',
@@ -157,20 +136,11 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     try {
       final collection = firestore.collection('watch_list');
 
-      // Determine whose document to update. When a couple user taps a
-      // partner-specific chip (e.g. "Clair Watched"), the status should
-      // go on the *partner's* document, not the current user's.
-      // [statusOwner] is set by the drawer when it detects a partner-
-      // specific status.
       final effectiveOwner = statusOwner ?? userName;
 
-      // Map partner-specific statuses to "self" variants on the owner's
-      // document. "watched-clair" on Clair's doc → "watched-self", etc.
       final effectiveStatus = _toSelfStatus(status);
 
       final catalogId = _catalogId(item);
-      // Filter the small same-numeric-ID result in Dart; adding source and
-      // mediaType to the Firestore query would require new composite indexes.
       Logger.d(
         "[WatchList] Querying catalogId=$catalogId, owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}",
       );
@@ -210,33 +180,14 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         "[WatchList] Query returned ${existing.docs.length} docs for owner=$effectiveOwner",
       );
 
-      // NOTE: no partner fallback. Every dashboard/cinema shelf uses
-      // per-user streams (`where userName == X`), so each user's writes
-      // must stay on their own document. Hijacking the partner's doc
-      // would overwrite the partner's status (e.g. resetting their
-      // watched entry to to-watch) and leave the writer's own shelf
-      // permanently empty - the 'movies gone from Currently Watching /
-      // Watched' bug. When the owner has no doc we always create one
-      // below. [skipPartnerFallback] is kept for API compatibility.
       assert(skipPartnerFallback || !skipPartnerFallback);
 
-      // Determine the anime flag. If the caller passed an explicit override
-      // (e.g. the episode drawer detected anime via /details), trust it.
-      // Otherwise fall back to whatever was already on the item.
       final isAnime = isAnimeOverride ?? item.isAnime;
 
       if (existingItem != null) {
         Logger.d(
           "[WatchList] Updating existing doc ${existingItem.id} with status=$effectiveStatus, owner=$effectiveOwner",
         );
-        // Update status if exists — also refresh metadata fields so the
-        // dashboard cards always have the latest poster, title, etc.
-        // (Items saved before posterPath was stored get their poster
-        //  on the next status change rather than staying blank forever.)
-        //
-        // Only overwrite posterPath when the incoming item actually has
-        // one — prevents an empty posterPath (e.g. from a stale Jikan
-        // search result) from clobbering an already-saved poster.
         final updateData = <String, dynamic>{
           'status': effectiveStatus,
           'isAnime': isAnime,
@@ -250,9 +201,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         if (item.posterPath.isNotEmpty) {
           updateData['posterPath'] = item.posterPath;
         }
-        // Rewatch: tapping Watching on a completed season (EP 12/12)
-        // restarts it at EP 1 — without the reset the completion rule
-        // above would keep it in Finished and the chip would lie.
         if (effectiveStatus.startsWith('watching') && item.isSeriesCompleted) {
           updateData['currentEpisode'] = 1;
           updateData['currentTimestamp'] = null;
@@ -262,7 +210,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         await collection.doc(existingItem.id).update(updateData);
         Logger.d("[WatchList] Update succeeded for doc ${existingItem.id}");
       } else {
-        // Create new entry scoped to the effective owner
         Logger.d(
           "[WatchList] No existing doc found — creating new entry for owner=$effectiveOwner",
         );
@@ -285,19 +232,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     } catch (e, st) {
       Logger.e("Error saving to watch list", error: e);
       Logger.d("[WatchList] Stack trace: $st");
-      rethrow; // Let the caller know the save failed so it can revert UI state.
+      rethrow;
     }
   }
 
-  /// Maps partner-specific statuses to the "self" variant that should be
-  /// stored on the owner's document.
-  ///   "watched-clair"  → "watched-self"
-  ///   "watched-khent"  → "watched-self"
-  ///   "watching-clair" → "watching-self"
-  ///   "watching-khent" → "watching-self"
-  ///   "watched-both" / "watching-both" are preserved as-is so a
-  ///   single doc can represent "Both Watched" without needing a merge.
-  ///   anything else    → as-is
   static String _toSelfStatus(String status) {
     switch (status) {
       case 'watched-clair':
@@ -311,11 +249,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Returns the Firestore userName of the partner that a partner-specific
-  /// status refers to, or null if the status isn't partner-specific.
-  ///   "watched-clair" / "watching-clair" → "clairjassen"
-  ///   "watched-khent"  / "watching-khent" → "khentsgdz"
-  ///   "watched-both" / "watching-both" → null (ambiguous — both)
   static String? resolveStatusOwner(String status, String currentUser) {
     switch (status) {
       case 'watched-clair':
@@ -325,13 +258,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       case 'watching-khent':
         return 'khentsgdz';
       default:
-        return null; // Use currentUser (the standard path)
+        return null;
     }
   }
 
-  /// The caller's saved progress for a catalog identity, or null when there
-  /// is none (or the read failed). Never throws: resuming is a comfort, not
-  /// a reason to block playback.
   Future<MediaItem?> getSavedProgress(
     int catalogId,
     String userName, {
@@ -344,7 +274,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       return null;
     }
     try {
-      // Exact AniList IDs can resume a saved MAL entry whose MAL ID differs.
       if (anilistId != null && anilistId > 0) {
         final anime = await withGetTimeout(
           firestore
@@ -392,8 +321,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Update watch progress fields for a specific watch_list item.
-  /// Creates the entry first if it doesn't exist (for first-time watch).
   Future<void> updateProgress(
     MediaItem item,
     String userName, {
@@ -452,11 +379,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
           savedAniListId != null &&
           savedAniListId != item.anilistId;
 
-      // NOTE: no partner fallback (see saveToWatchList). Progress and
-      // removals only ever touch the caller's own document; when none
-      // exists we create one (progress) or do nothing (remove/
-      // heartbeat) instead of hijacking the partner's doc.
-
       final now = Timestamp.now();
       final data = <String, dynamic>{
         'currentSeason': season,
@@ -465,15 +387,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         'durationSeconds': durationSeconds,
         'progressUpdatedAt': now,
       };
-      // Normalize partner-specific values (watching-khent/clair) to the
-      // self-variant so per-user shelves and the drawer stay consistent
-      // with saveToWatchList.
       var effectiveStatus = status == null ? null : _toSelfStatus(status);
-      // MAL-style auto-complete: saving the finale flips watching to
-      // watched so finished seasons land in Finished/Completed. Explicit
-      // to-watch (progress clear) and already-watched statuses pass
-      // through untouched; cinema callers carry no episodeCount so they
-      // never trigger this.
       final hitsFinale = MediaItem.isCompletedProgress(
         episode: episode,
         totalEpisodes: item.episodeCount,
@@ -484,8 +398,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         effectiveStatus = 'watched-self';
       }
       if (effectiveStatus != null) data['status'] = effectiveStatus;
-      // Keep the known total on the doc so old entries saved without one
-      // still auto-complete once the catalog reports the count.
       if (item.episodeCount != null) {
         data['episodeCount'] = item.episodeCount;
       }
@@ -547,28 +459,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         mediaType: item.mediaType,
       );
 
-      // NOTE: no partner fallback (see saveToWatchList). Progress and
-      // removals only ever touch the caller's own document; when none
-      // exists we create one (progress) or do nothing (remove/
-      // heartbeat) instead of hijacking the partner's doc.
-
       if (document != null) {
         await collection.doc(document.id).delete();
         Logger.i("Removed from watch list: $catalogId ($userName)");
       }
     } catch (e) {
       Logger.e("Error removing from watch list", error: e);
-      rethrow; // Let the caller know the removal failed so it can revert UI state.
+      rethrow;
     }
   }
 
-  /// Removes a title from Continue Watching without dropping it from My List.
-  ///
-  /// Mirrors Netflix's "Remove From Row": the item keeps its place in the
-  /// library under To Watch, but its playback progress is cleared so it no
-  /// longer shows up in the watching shelves. Only ever touches the
-  /// caller's own document (see saveToWatchList). Does nothing when the
-  /// caller has no document for this catalog identity.
   Future<void> clearWatchProgress(MediaItem item, String userName) async {
     if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
@@ -603,7 +503,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Undo only a still-cleared entry; never overwrite newer device progress.
   Future<bool> restoreWatchProgress(MediaItem item, String userName) async {
     if (AgentMode.isActive.value) return false;
     if (userName.isEmpty) return false;
@@ -662,7 +561,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Adds or removes a lightweight "My List" entry from hover previews.
   Future<bool> setListMembership(
     MediaItem item,
     String userName, {
@@ -676,7 +574,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return false;
   }
 
-  /// Persists a Netflix-style thumbs-up / thumbs-down rating.
   Future<void> setUserRating(
     MediaItem item,
     String userName, {
@@ -724,9 +621,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Toggles the "Remind me" bell for an unreleased title. Creates a
-  /// lightweight To Watch entry when the caller has no document yet, so
-  /// the bell survives drawer re-opens and shows up in the Library.
   Future<void> setRemindMe(
     MediaItem item,
     String userName, {
@@ -771,7 +665,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// One-shot read of the "Remind me" bell for the drawer's initial state.
   Future<bool> isReminderSet(MediaItem item, String userName) async {
     if (AgentMode.isActive.value) return false;
     if (userName.isEmpty) return false;
@@ -798,19 +691,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  // ─── Direct Firestore streams (reverted from shared broadcast) ──
-  // The previous shared _rawCache used asBroadcastStream without replay,
-  // which caused late subscribers (e.g. Currently Watching shelf mounting
-  // after the header) to miss the initial snapshot and stay empty until
-  // the next Firestore change. It also held onto a single Firestore Watch
-  // that could enter a permission-denied error state before the users/{uid}
-  // doc was created. Direct streams are simpler and correct — the Web
-  // SDK already shares the underlying Watch target.
-
-  // ─── Streams ───────────────────────────────────────────────────────────
-
-  /// Stream of watch list items for a specific user (Firestore-based).
-  /// We filter+sort in Dart to avoid needing a composite index in Firestore.
   Stream<List<MediaItem>> getWatchListStream(String userName, {int? limit}) {
     if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     if (userName.isEmpty) return Stream.value(const []);
@@ -829,18 +709,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         });
   }
 
-  /// Stream of the combined watch list for the couple
-  /// (khentsgdz + clairjassen), deduplicated by source, media type, and ID.
-  ///
-  /// On the merged `MediaItem`:
-  ///   - `userName` is a comma-separated list of partners who have the title
-  ///     (e.g. "khentsgdz", "clairjassen", or "khentsgdz,clairjassen").
-  ///   - `status` is derived from both partners' statuses so the existing
-  ///     `isWatched` / `watchedDisplay` helpers keep working.
-  ///
-  /// The dashboard preview and the wishlist/watched tabs in the cinema
-  /// screen use this for the couple so both partners see the same combined
-  /// catalog with khent/clair/both attribution on each row.
   Stream<List<MediaItem>> getCoupleWatchListStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
@@ -890,10 +758,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return controller.stream;
   }
 
-  /// Stream of anime-only items for a single user. Same source collection
-  /// (`watch_list`) as the regular stream — we filter by `isAnime == true`
-  /// in Dart so the dashboard's Anime rail and the AnimeScreen only show
-  /// Japanese animation, no matter where the title was added.
   Stream<List<MediaItem>> getAnimeWatchListStream(
     String userName, {
     int? limit,
@@ -916,11 +780,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         });
   }
 
-  /// Couple-scoped stream of the anime rail. Identical shape to
-  /// [getCoupleWatchListStream] but the merge keeps only items where at
-  /// least one partner has `isAnime == true`. The merged item's `isAnime`
-  /// is the OR of the two partner entries, so partner-aware attribution
-  /// keeps working.
   Stream<List<MediaItem>> getCoupleAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
@@ -929,7 +788,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     userB: userB,
   ).map((items) => items.where((i) => i.isAnime).toList());
 
-  /// Stream of currently watching items for a single user.
   Stream<List<MediaItem>> getCurrentlyWatchingStream(
     String userName, {
     int? limit,
@@ -956,7 +814,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         });
   }
 
-  /// Couple-scoped currently watching stream.
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
@@ -965,7 +822,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     userB: userB,
   ).map((items) => items.where((i) => i.isCurrentlyWatching).toList());
 
-  /// Anime-only currently watching for a single user.
   Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(
     String userName, {
     int? limit,
@@ -993,7 +849,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         });
   }
 
-  /// Couple-scoped anime currently watching stream.
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
@@ -1048,9 +903,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return controller.stream;
   }
 
-  // ─── Progress ──────────────────────────────────────────────────────────
-
-  /// Keep-alive method to update timestamp while watching (debounced).
   Future<void> heartbeatProgress(
     int catalogId,
     String userName, {
@@ -1079,11 +931,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         mediaType: mediaType,
       );
 
-      // NOTE: no partner fallback (see saveToWatchList). Progress and
-      // removals only ever touch the caller's own document; when none
-      // exists we create one (progress) or do nothing (remove/
-      // heartbeat) instead of hijacking the partner's doc.
-
       if (document != null) {
         final data = <String, dynamic>{'progressUpdatedAt': Timestamp.now()};
         if (season != null) data['currentSeason'] = season;
@@ -1097,14 +944,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Remove legacy partner-specific statuses from the current user's document
-  /// after routing a status update to the partner's document.
-  ///
-  /// When Khent taps "Clair Watched" and we route to Clair's doc, Khent's
-  /// own document may still hold a legacy "watching-clair" value from before
-  /// statuses were mapped to self-variants on save. Only those legacy values
-  /// are reset to "to-watch" — the user's own watched-self / watching-self
-  /// status is always preserved so personal shelves never go empty.
   Future<void> cleanStalePartnerStatus(
     MediaItem item,
     String userName,
@@ -1133,12 +972,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       final currentStatus = docData['status'] as String? ?? '';
 
       final stalePartner = _companionPartnerStatus(newStatus);
-      // Never wipe watched-self / watching-self here: each user's own
-      // status powers their personal Currently Watching / Watched shelf,
-      // and the dashboard uses per-user streams (not the couple merge),
-      // so keeping both partners' statuses is correct. Only clear legacy
-      // partner-specific values (e.g. watching-clair) left on this doc
-      // from before statuses were mapped to self-variants on save.
       if (stalePartner != null && currentStatus == stalePartner) {
         Logger.d(
           "[WatchList] Cleaning stale '$currentStatus' from $userName's doc",
@@ -1150,11 +983,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Returns the "watching" counterpart for a "watched" partner status,
-  /// or null if there's no stale counterpart to clean.
-  ///   "watched-clair" → "watching-clair"
-  ///   "watched-khent" → "watching-khent"
-  ///   anything else   → null
   static String? _companionPartnerStatus(String status) {
     switch (status) {
       case 'watched-clair':
@@ -1170,13 +998,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  // ─── Migration ─────────────────────────────────────────────────────────
-
-  /// One-time migration: backfill `userName` for legacy watch_list items that
-  /// predate the per-user scoping. Heuristic by status:
-  ///   - watched-clair  -> clairjassen
-  ///   - watched-khent  -> khentsgdz
-  ///   - watched-both / watched / to-watch -> khentsgdz (default)
   Future<int> migrateWatchListOwnership() async {
     if (AgentMode.isActive.value) return 0;
     try {
@@ -1213,8 +1034,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// "On This Day" — watch list items added on the same month+day in
-  /// previous years, for both partners.
   Future<List<MediaItem>> getWatchListFromThisDay() async {
     if (AgentMode.isActive.value) return const [];
     final now = DateTime.now();
@@ -1233,7 +1052,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         label: 'watchlist on-this-day',
       );
 
-      // Legacy entries predate the monthDay field; bound the fallback.
       if (snapshot.docs.isEmpty) {
         snapshot = await withGetTimeout(
           firestore
@@ -1264,12 +1082,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  // ─── Couple merge helpers ──────────────────────────────────────────────
-
-  /// Merges the two partners' watch lists into a single list. Items are
-  /// deduplicated by source, media type, and ID; when both partners have the same title the
-  /// merged `userName` becomes "userA,userB" and the `status` is the
-  /// strongest watched-state across the two (see [_mergeWatchedStatus]).
   static List<MediaItem> _mergeCoupleItems(
     List<MediaItem> itemsA,
     List<MediaItem> itemsB,
@@ -1290,18 +1102,12 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
 
     final merged = byId.values.map((entry) {
       if (entry.partner == null) {
-        // Single-user item: resolve "watched-self" / "watching-self" to
-        // the partner-specific variant so the drawer chips match. "watched-both"
-        // / "watching-both" already maps to "Both" as-is, so it comes through
-        // unchanged via resolveCoupleStatus and doesn't need the merge path.
         final item = entry.primary;
         final resolved = item.resolveCoupleStatus();
         return resolved != item.status ? item.copyWith(status: resolved) : item;
       }
       final a = entry.primary;
       final b = entry.partner!;
-      // If either side already stored "watched-both" / "watching-both" as
-      // the single-doc Both representation, the merged status is Both.
       if (a.status == 'watched-both' || b.status == 'watched-both') {
         return a.copyWith(
           userName: '${a.userName},${b.userName}',
@@ -1320,11 +1126,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       }
       final userName = '${a.userName},${b.userName}';
       final status = _mergeWatchedStatusForItems(a, b);
-      // Use the most recent addedAt so the merged item is positioned
-      // correctly in the sorted list.
       final addedAt = a.addedAt.isAfter(b.addedAt) ? a.addedAt : b.addedAt;
-      // Anime flag is OR-ed across partners so a title tagged as anime by
-      // either partner is considered anime in the merged view.
       final isAnime = a.isAnime || b.isAnime;
       return a.copyWith(
         userName: userName,
@@ -1336,17 +1138,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return merged;
   }
 
-  /// Returns the strongest watched/watching status across the two partners.
-  /// Priority (highest to lowest):
-  ///   watched-both > watched-khent/clair > watching-both > watching-khent/clair > to-watch
-  ///
-  /// Owner-aware: the doc's `userName` is ground truth, not the embedded
-  /// suffix in `status`. Legacy docs can still carry a mismatched suffix
-  /// (e.g. `watching-khent` on Clair's doc from before statuses were routed
-  /// to the owner's doc). Using the suffix would attribute Clair's Odyssey
-  /// to Khent; using the owner attributes it to Clair. `isWatched` /
-  /// `isCurrentlyWatching` already normalize every variant (self, generic,
-  /// partner-specific), so only the owner decides the khent/clair suffix.
   static String _mergeWatchedStatusForItems(MediaItem a, MediaItem b) {
     final aWatched = a.isWatched;
     final bWatched = b.isWatched;
@@ -1362,15 +1153,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     return 'to-watch';
   }
 
-  /// Maps a single-owner doc to its partner-specific status. `userName` wins
-  /// over any embedded suffix so legacy mismatches never leak across rows.
   static String _ownerStatus(MediaItem item, String prefix) {
     final name = item.userName.trim();
     if (name == 'khentsgdz') return '$prefix-khent';
     if (name == 'clairjassen') return '$prefix-clair';
-    // Unknown owner (shouldn't happen for per-user queries): preserve an
-    // explicit embedded suffix when present, else fall back to generic so
-    // shelves (`isWatched` / `isCurrentlyWatching`) still match.
     if (prefix == 'watched') {
       if (item.status == 'watched-clair') return 'watched-clair';
       if (item.status == 'watched-khent') return 'watched-khent';
@@ -1382,9 +1168,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   }
 }
 
-/// Internal helper for [TMDBWatchlistService.getCoupleWatchListStream].
-/// Pairs the primary entry with an optional partner entry when both
-/// partners have the same catalog identity.
 class _MergedEntry {
   final MediaItem primary;
   final MediaItem? partner;

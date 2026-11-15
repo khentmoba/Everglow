@@ -11,13 +11,6 @@ const _cGold = AppColors.animeGold;
 const _cMuted = AppColors.mutedPurple;
 const _cWhite = AppColors.petalWhite;
 
-/// Dashboard tile for the Watch Together feature. Mirrors the
-/// shelf-card visual language of the Cinema / Anime / Books rails
-/// (24px horizontal padding, glass card, accent icon block) so the
-/// new feature sits naturally next to the existing shelves.
-///
-/// Cinematic-only profiles (Breyan, Octagram) get nothing — the
-/// tile is hidden for them.
 class WatchPartyCard extends StatelessWidget {
   const WatchPartyCard({super.key});
 

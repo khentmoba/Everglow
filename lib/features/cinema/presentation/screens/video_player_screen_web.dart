@@ -41,20 +41,14 @@ part 'video_player_state_base.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
-  final String mediaType; // 'movie' or 'tv'
+  final String mediaType;
   final int? season;
   final int? episode;
   final int? startSeconds;
   final String title;
 
-  /// When true, the player uses the MAL-id-based embed (vidsrc.to's
-  /// `/embed/anime/mal/...` endpoint) instead of the TMDB-based Videasy
-  /// URL. The `tmdbId` field is repurposed as the MAL id for these
-  /// items — see [malId] for an explicit, recommended alternative.
   final bool isAnime;
 
-  /// MAL id for anime items. Falls back to [tmdbId] for backwards
-  /// compatibility with callers that haven't been updated.
   final int? malId;
 
   final String posterPath;
@@ -86,9 +80,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     _maybeAutoFullscreen(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      // Home Screen status-bar inset arrives via MediaQuery (see
-      // WebStandaloneInsets at the app root), so this SafeArea clears
-      // it with no per-screen work.
       body: SafeArea(
         top: !_isFullscreen,
         bottom: !_isFullscreen,
@@ -97,7 +88,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
         child: Column(
           children: [
             Offstage(offstage: _isFullscreen, child: _buildTopBar()),
-            // Scrollable body: video + metadata + server selector
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
@@ -107,20 +97,14 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Keep this subtree in place while theater mode changes.
-                    // Rebuilding HtmlElementView under a different parent can
-                    // detach the iframe and restart the embed.
                     _buildPlayerArea(),
                     Offstage(
                       offstage: _isFullscreen,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Episode Navigator for TV content
                           if (widget.mediaType == 'tv' && !widget.isAnime)
                             EpisodeNavigator(
-                              // Rebuild on auto-advance so the playing episode
-                              // highlight follows the Up Next flow.
                               key: ValueKey(
                                 'ep-nav-$_currentSeason-$_currentEpisode',
                               ),
@@ -152,9 +136,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     );
   }
 
-  /// 16:9 player frame shared by normal and theater layouts. In theater
-  /// the frame fills the viewport; otherwise it caps so page content
-  /// stays visible below (embeds swallow wheel events).
   Widget _buildPlayerArea() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -169,8 +150,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
         final maxPlayerHeight = _isFullscreen
             ? viewportHeight
             : _lastWindowedMaxPlayerHeight!;
-        // Keyboard forwarding and scroll calculations use this height, so
-        // remember what the player actually occupies rather than guessing from the viewport.
         final laidOutHeight = maxPlayerHeight < constraints.maxWidth * 9 / 16
             ? maxPlayerHeight
             : constraints.maxWidth * 9 / 16;
@@ -192,8 +171,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                   children: [
                     const ColoredBox(color: Colors.black),
                     RepaintBoundary(
-                      // Built-in factory: episode/server switches reuse
-                      // this one frame instead of registering new ones.
                       child: HtmlElementView.fromTagName(
                         tagName: 'div',
                         onElementCreated: (element) {
@@ -210,8 +187,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                       _CinematicLoader(
                         providerName: _selectedProvider.shortName,
                       ),
-                    // Show the countdown only when autoplay is
-                    // about to advance, not a persistent Next pill.
                     if (!_isLoading &&
                         !_iframeFailed &&
                         _upNextVisible &&
@@ -239,11 +214,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     );
   }
 
-  /// Top control & details bar. Uses glass pills that respond to hover
-  /// (desktop) and press (touch) without changing any existing behavior.
-  /// The title is the show name only: any trailing episode suffix that
-  /// rode in on the route (`Show: Episode 3`, `Show Episode 3`, …) is
-  /// stripped so the S/E badge below is the single episode label.
   Widget _buildTopBar() {
     final compact = MediaQuery.sizeOf(context).width < 560;
     final title = _playerDisplayTitle(widget.title);
@@ -303,7 +273,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
               icon: Icons.fullscreen_rounded,
               compact: compact,
               onTap: () {
-                // Manual toggle wins over auto-fullscreen.
                 _autoFullscreen = false;
                 _toggleFullScreen();
               },
@@ -313,10 +282,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // METADATA SECTION
-  // ---------------------------------------------------------------------------
 
   Widget _buildMetadataSection() {
     final genres = _details?['genres'] as List?;
@@ -457,10 +422,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // SERVER SELECTOR
-  // ---------------------------------------------------------------------------
-
   Widget _buildServerSelectorSection() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -527,13 +488,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // MORE LIKE THIS
-  // ---------------------------------------------------------------------------
-
-  /// Download copies for what is on screen. The inner iframe keeps its
-  /// own scroll, so its pointer events are parked while the sheet is up
-  /// (same deal as the source picker) and handed back on close.
   void _showDownloadSheet() {
     _iframe.style.setProperty('pointer-events', 'none');
     showTorrentDownloadSheet(
@@ -727,10 +681,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     });
   }
 
-  /// Inline error card shown when the iframe 404s, errors out, or fails
-  /// to load within [_loadTimeout]. Offers a horizontal list of the
-  /// other providers (one tap switches the iframe) plus an "Open in
-  /// browser" link as a final escape hatch.
   Widget _buildErrorCard(BuildContext context) {
     final active = _activeProvider;
     final others = _selectableProviders
@@ -883,10 +833,3 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Player chrome widgets (video_player_screen only)
-// ---------------------------------------------------------------------------
-
-/// Glass pill button used by the player top bar. Gives desktop hover and
-/// touch press feedback while keeping the same tap behavior as before.

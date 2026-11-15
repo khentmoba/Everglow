@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// Supported offline media surface types.
 enum OfflineMediaType {
   movie,
   tv,
@@ -15,7 +14,6 @@ enum OfflineMediaType {
   }
 }
 
-/// Download lifecycle statuses for offline items.
 enum OfflineDownloadStatus {
   queued,
   downloading,
@@ -31,7 +29,6 @@ enum OfflineDownloadStatus {
   }
 }
 
-/// One downloadable offline movie, TV episode, anime episode, or manga chapter.
 @immutable
 class OfflineMediaItem {
   final String id;

@@ -10,8 +10,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 
-/// Dashboard preview — hero Dreams card with starlight progress & wishes.
-/// Atelier glass styling matching keepsakes cluster.
 class BucketListPreview extends StatefulWidget {
   final Stream<List<BucketItem>>? itemsStream;
   const BucketListPreview({super.key, this.itemsStream});
@@ -34,9 +32,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
   @override
   void initState() {
     super.initState();
-    // One subscription for the widget lifetime so dashboard rebuilds don't
-    // resubscribe and restart the Firestore listener on every frame.
-    // Preview cap (12) is plenty: the card renders progress plus 3 wishes.
     if (widget.itemsStream == null) {
       _service = BucketListService();
     }
@@ -105,7 +100,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
     const hue = AppColors.blushGold;
     final items = _items;
 
-    // Error state
     if (!_isLoading && (_error != null || items == null)) {
       return _buildCardShell(
         hue: hue,
@@ -149,7 +143,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
       );
     }
 
-    // Loading state
     if (items == null) {
       return _buildCardShell(
         hue: hue,
@@ -360,7 +353,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
   }) {
     return Row(
       children: [
-        // Mini circular percentage ring
         SizedBox(
           width: 34,
           height: 34,
@@ -385,7 +377,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
           ),
         ),
         const SizedBox(width: 10),
-        // Linear bar with status labels
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

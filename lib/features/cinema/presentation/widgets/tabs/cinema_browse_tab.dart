@@ -10,7 +10,6 @@ import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_poster_card.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Netflix-style browse: quiet category chips feeding a poster grid.
 class CinemaBrowseTab extends StatefulWidget {
   final void Function(MediaItem) onMediaTap;
   final void Function(MediaItem)? onPlayItem;
@@ -19,7 +18,6 @@ class CinemaBrowseTab extends StatefulWidget {
   final bool Function(MediaItem)? isInList;
   final TMDBService? service;
 
-  /// Browse option to auto-select on first build (used by top nav links).
   final String? initialOptionId;
 
   const CinemaBrowseTab({

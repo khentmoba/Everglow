@@ -52,7 +52,6 @@ void main() {
       ),
     );
 
-    // Press remote digits 1, 2, 3
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.pump();
     expect(currentInput, '1');
@@ -61,12 +60,10 @@ void main() {
     await tester.pump();
     expect(currentInput, '12');
 
-    // Press backspace
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
     expect(currentInput, '1');
 
-    // Press escape (clear)
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
     expect(currentInput, '');
@@ -121,19 +118,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Focus starts on key '1'. Press Enter -> enters '1'.
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(currentInput, '1');
 
-    // Move D-pad right to '2'. Press Select -> enters '2'.
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pump();
     expect(currentInput, '12');
 
-    // Move D-pad down from '2' to '5'. Press Enter -> enters '5'.
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);

@@ -12,9 +12,6 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/services/ai_memory_repo.dart';
 import '../../domain/memory/memory_retrieval.dart';
 
-/// Memory Trivia — a couple game where every question is generated from
-/// a real fact Motchi remembers. Wrong answers teach the correct memory,
-/// so losing still makes the relationship smarter.
 class MemoryTriviaScreen extends StatefulWidget {
   const MemoryTriviaScreen({super.key});
 

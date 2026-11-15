@@ -4,20 +4,17 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_motion.dart';
 
-/// Seasonal weather particle overlay for the garden.
-/// Uses month-based seasons — no external API needed.
 class GardenWeatherOverlay extends StatefulWidget {
-  final int season; // 0=winter, 1=spring, 2=summer, 3=autumn
+  final int season;
 
   const GardenWeatherOverlay({super.key, required this.season});
 
-  /// Get current season from month.
   static int currentSeason() {
     final month = DateTime.now().month;
-    if (month >= 3 && month <= 5) return 1; // Spring
-    if (month >= 6 && month <= 8) return 2; // Summer
-    if (month >= 9 && month <= 11) return 3; // Autumn
-    return 0; // Winter
+    if (month >= 3 && month <= 5) return 1;
+    if (month >= 6 && month <= 8) return 2;
+    if (month >= 9 && month <= 11) return 3;
+    return 0;
   }
 
   @override
@@ -54,7 +51,7 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
   _Particle _createParticle() {
     return _Particle(
       x: _random.nextDouble(),
-      y: _random.nextDouble() * -1, // Start above viewport
+      y: _random.nextDouble() * -1,
       speed: 0.002 + _random.nextDouble() * 0.003,
       size: 2 + _random.nextDouble() * 4,
       opacity: 0.2 + _random.nextDouble() * 0.4,
@@ -77,7 +74,6 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
-            // Update particle positions
             if (_controller.isAnimating) {
               for (final p in _particles) {
                 p.y += p.speed;
@@ -139,12 +135,12 @@ class _WeatherPainter extends CustomPainter {
       final dy = (still ? p.y.abs() % 1 : p.y) * size.height;
 
       switch (season) {
-        case 0: // Winter — snowflakes
+        case 0:
           paint.color = AppColors.petalWhite.withValues(alpha: p.opacity * 0.5);
           canvas.drawCircle(Offset(dx, dy), p.size, paint);
           break;
 
-        case 1: // Spring — falling petals
+        case 1:
           paint.color = AppArt.sakuraPetal.withValues(alpha: p.opacity);
           canvas.save();
           canvas.translate(dx, dy);
@@ -157,14 +153,14 @@ class _WeatherPainter extends CustomPainter {
           canvas.restore();
           break;
 
-        case 2: // Summer — sun rays (subtle)
+        case 2:
           paint.color = const Color(
             0xFFFFD54F,
           ).withValues(alpha: p.opacity * 0.3);
           canvas.drawCircle(Offset(dx, dy), p.size * 0.8, paint);
           break;
 
-        case 3: // Autumn — golden leaves
+        case 3:
           paint.color = AppArt.weatherLeaf.withValues(alpha: p.opacity);
           canvas.save();
           canvas.translate(dx, dy);

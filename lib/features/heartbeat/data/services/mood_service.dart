@@ -46,19 +46,12 @@ class MoodService implements MoodSource {
     yield* _demoChanges.stream.map((_) => _demoMood(username));
   }
 
-  /// Day key shared with Motchi's server reads (`moods.date`).
-  /// Device-local calendar day — Khent and Clair are on Philippine time,
-  /// matching the server's PHT basis.
   @visibleForTesting
   static String dateKeyFor(DateTime when) =>
       '${when.year.toString().padLeft(4, '0')}-'
       '${when.month.toString().padLeft(2, '0')}-'
       '${when.day.toString().padLeft(2, '0')}';
 
-  /// Submits a new mood entry.
-  ///
-  /// Writes `uid` + `date` alongside the app fields so Motchi's
-  /// server reads (check-ins, digests, recaps) see app-logged moods too.
   @override
   Future<void> submitMood({
     required String username,
@@ -118,12 +111,6 @@ class MoodService implements MoodSource {
     }
   }
 
-  /// Checks if the user has already submitted a mood today.
-  ///
-  /// The `orderBy` is load-bearing: equality on `username` plus a range on
-  /// `timestamp` needs the composite index (username ASC, timestamp DESC)
-  /// already shipped in firestore.indexes.json. Without it Firestore
-  /// throws failed-precondition on every dashboard load.
   @override
   Future<bool> hasSubmittedToday(String username) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
@@ -146,8 +133,6 @@ class MoodService implements MoodSource {
     return snapshot.docs.isNotEmpty;
   }
 
-  /// One-shot fetch of the latest mood (cheaper than opening a stream
-  /// listener for fire-and-forget reads like the Guardian's mentions).
   @override
   Future<UserMood?> getLatestMood(String username) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
@@ -174,7 +159,6 @@ class MoodService implements MoodSource {
     }
   }
 
-  /// Streams the latest mood for a specific user.
   @override
   Stream<UserMood?> watchLatestMood(String username) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {

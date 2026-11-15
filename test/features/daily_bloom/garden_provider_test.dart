@@ -201,14 +201,11 @@ void main() {
       expect(provider.partnerStats?.plantType, 'sunflower');
       expect(provider.hasPartnerError, isFalse);
 
-      // Inject error into active partner stream
       controller.addError(StateError('transient-error'));
       await _settle();
 
-      // Last known stats are preserved across errors
       expect(provider.partnerStats?.currentStage, 2);
 
-      // Manual retry reconnects and gets new stream
       provider.retryPartner();
       await _settle();
       expect(source.partnerWatchCalls, 2);

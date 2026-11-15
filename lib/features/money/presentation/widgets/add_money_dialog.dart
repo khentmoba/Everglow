@@ -7,8 +7,6 @@ import '../../../../shared/widgets/everglow/everglow_button.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../data/models/money_entry.dart';
 
-/// Quick-add: amount + category + note, done in seconds.
-/// Returns the filled entry (minus id/author/timestamp) or null.
 typedef MoneyDraft = ({
   MoneyType type,
   double amount,
@@ -228,7 +226,6 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
   }
 }
 
-/// Small dialog to set a monthly cap for one category.
 Future<double?> showSetBudgetDialog(
   BuildContext context,
   String category, {

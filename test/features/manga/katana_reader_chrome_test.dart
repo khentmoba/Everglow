@@ -11,7 +11,6 @@ import 'package:everglow/core/services/auth_service.dart';
 import 'package:everglow/features/manga/data/models/katana_models.dart';
 import 'package:everglow/features/manga/presentation/screens/katana_reader_screen.dart';
 
-/// The chapter page the reader scrapes its page URLs out of.
 const _chapterHtml =
     "<html><body><script>var thzq=['https://i1.mangakatana.com/p1.jpg',"
     "'https://i1.mangakatana.com/p2.jpg','https://i1.mangakatana.com/p3.jpg',"
@@ -130,8 +129,6 @@ class _Auth extends ChangeNotifier implements AuthService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// One sampled frame of the reader chrome: where the top bar's back button
-/// and the bottom bar's "Next" button sit on screen.
 typedef _Sample = ({double topY, double bottomY});
 
 void main() {
@@ -163,8 +160,6 @@ void main() {
       ),
     );
 
-    // Let the chapter resolve into the webtoon viewer, which is what owns
-    // the tap-to-toggle-chrome gesture.
     for (var i = 0; i < 40; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
@@ -180,8 +175,6 @@ void main() {
     final hidden = sample();
 
     await tester.tapAt(const Offset(195, 420));
-    // The reader also listens for double-tap zoom, so the single tap only
-    // resolves once the double-tap window closes.
     await tester.pump(const Duration(milliseconds: 300));
 
     final samples = <_Sample>[];
@@ -191,14 +184,11 @@ void main() {
     }
     final shown = samples.last;
 
-    // The header starts above the screen and ends below where it started;
-    // the footer starts below the screen and ends above where it started.
     expect(hidden.topY, lessThan(0), reason: 'header rests off-screen');
     expect(hidden.bottomY, greaterThan(844), reason: 'footer rests off-screen');
     expect(shown.topY, greaterThan(hidden.topY));
     expect(shown.bottomY, lessThan(hidden.bottomY));
 
-    // Real motion, not a pop: both bars have to be caught part-way in.
     final topSteps = samples.map((s) => s.topY).toSet();
     final bottomSteps = samples.map((s) => s.bottomY).toSet();
     expect(
@@ -212,7 +202,6 @@ void main() {
       reason: 'footer jumped straight to its resting place: $bottomSteps',
     );
 
-    // Same speed: neither bar may arrive before the other.
     final topArrival = samples.indexWhere((s) => s.topY == shown.topY);
     final bottomArrival = samples.indexWhere((s) => s.bottomY == shown.bottomY);
     expect(topArrival, greaterThanOrEqualTo(0));

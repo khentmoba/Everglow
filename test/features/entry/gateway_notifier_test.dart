@@ -117,8 +117,6 @@ KHENT_PASSCODE=0938
     });
 
     testWidgets('offline remembered code opens the saved copy', (tester) async {
-      // Server unreachable (throws), but this device remembers Clair and
-      // the typed code is hers: the gate unlocks into offline mode.
       final notifier = GatewayNotifier()
         ..verifyCouplePasscode = (_) async {
           throw Exception('offline');
@@ -157,9 +155,6 @@ KHENT_PASSCODE=0938
     testWidgets(
       'offline code that is not remembered stays a connection issue',
       (tester) async {
-        // A valid-shaped code (Khent's) with no remembered match: the gate
-        // must not unlock, and must say "couldn't connect" rather than
-        // "wrong code" since the server never answered.
         final notifier = GatewayNotifier()
           ..verifyCouplePasscode = (_) async {
             throw Exception('offline');

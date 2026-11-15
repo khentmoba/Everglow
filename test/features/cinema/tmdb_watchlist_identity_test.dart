@@ -1,4 +1,3 @@
-// SDK Firestore types are exercised through a network-free in-memory fake.
 // ignore_for_file: subtype_of_sealed_class
 import 'dart:async';
 

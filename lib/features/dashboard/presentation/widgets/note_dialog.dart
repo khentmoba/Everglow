@@ -6,16 +6,6 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/hidden_note.dart';
 
-/// An intimate, romantic love letter dialog for the Letterbox.
-///
-/// Designed with keepsake stationery styling:
-/// - Opened envelope flap header with centered crimson & gold wax seal
-/// - Interactive wax seal tap with bouncy flutter & sweet love message
-/// - Corner filigree flourishes & celestial starlight sparkles
-/// - Vintage postmark unlock date badge
-/// - Dancing Script / Caveat typography with romantic divider
-/// - Sweet "Forever & always" sign-off and "Keep close to heart" action
-/// - Proportioned for phones, tablets, and web without horizontal stretching
 class NoteDialog extends StatefulWidget {
   final HiddenNote note;
 
@@ -92,7 +82,7 @@ class _NoteDialogState extends State<NoteDialog>
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            maxWidth: 480, // Keeps romantic stationery proportions on all screen sizes
+            maxWidth: 480,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -101,7 +91,7 @@ class _NoteDialogState extends State<NoteDialog>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF381E3E), // Warm deep wine velvet
+                  Color(0xFF381E3E),
                   AppColors.velvet,
                   AppColors.inkDeep,
                 ],
@@ -133,7 +123,6 @@ class _NoteDialogState extends State<NoteDialog>
               borderRadius: BorderRadius.circular(28),
               child: Stack(
                 children: [
-                  // Stationery corner filigree frame and ambient starlight
                   const Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(
@@ -142,17 +131,13 @@ class _NoteDialogState extends State<NoteDialog>
                     ),
                   ),
 
-                  // Main letter content layout
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Envelope Flap & Centered Wax Seal Header
                       _buildEnvelopeHeader(context),
 
-                      // Interactive "Sealed with love" toast banner
                       _buildSealToast(),
 
-                      // Scrollable parchment content
                       Flexible(
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
@@ -164,7 +149,6 @@ class _NoteDialogState extends State<NoteDialog>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Vintage postmark date badge
                                 Center(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -212,7 +196,6 @@ class _NoteDialogState extends State<NoteDialog>
                                 ),
                                 const SizedBox(height: 18),
 
-                                // Title in cursive script
                                 Text(
                                   note.title.isNotEmpty
                                       ? note.title
@@ -236,11 +219,9 @@ class _NoteDialogState extends State<NoteDialog>
                                 ),
                                 const SizedBox(height: 12),
 
-                                // Romantic flourish divider
                                 _buildFlourishDivider(),
                                 const SizedBox(height: 20),
 
-                                // Letter body text
                                 Text(
                                   note.content,
                                   textAlign: isShort
@@ -257,7 +238,6 @@ class _NoteDialogState extends State<NoteDialog>
                                 ),
                                 const SizedBox(height: 28),
 
-                                // Romantic sign-off
                                 _buildSignOff(isShort),
                               ],
                             ),
@@ -265,7 +245,6 @@ class _NoteDialogState extends State<NoteDialog>
                         ),
                       ),
 
-                      // Footer action button
                       _buildFooter(context),
                     ],
                   ),
@@ -293,7 +272,6 @@ class _NoteDialogState extends State<NoteDialog>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Envelope flap V-crease fold lines
           const Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
@@ -302,7 +280,6 @@ class _NoteDialogState extends State<NoteDialog>
             ),
           ),
 
-          // Left Letterbox badge
           Positioned(
             left: 18,
             child: Row(
@@ -326,7 +303,6 @@ class _NoteDialogState extends State<NoteDialog>
             ),
           ),
 
-          // Mathematically Centered Wax Seal Medallion
           Center(
             child: GestureDetector(
               onTap: _onSealTap,
@@ -405,7 +381,6 @@ class _NoteDialogState extends State<NoteDialog>
             ),
           ),
 
-          // Right Close Icon Button
           Positioned(
             right: 14,
             child: Material(
@@ -629,7 +604,6 @@ class _NoteDialogState extends State<NoteDialog>
   }
 }
 
-/// Custom painter rendering opened envelope flap creases leading to the wax seal.
 class _EnvelopeFlapPainter extends CustomPainter {
   const _EnvelopeFlapPainter();
 
@@ -643,7 +617,6 @@ class _EnvelopeFlapPainter extends CustomPainter {
     final centerX = size.width / 2;
     final centerY = size.height / 2;
 
-    // V-shaped flap lines leading to the wax seal
     canvas.drawLine(
       const Offset(0, 0),
       Offset(centerX - 24, centerY),
@@ -660,7 +633,6 @@ class _EnvelopeFlapPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Custom painter rendering delicate vintage stationery borders, flourishes, and star sparkles.
 class _StationeryBorderPainter extends CustomPainter {
   const _StationeryBorderPainter();
 
@@ -668,7 +640,6 @@ class _StationeryBorderPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 50 || size.height <= 50) return;
 
-    // Inner hairline frame inset
     const double inset = 10.0;
     const double radius = 20.0;
     final rrect = RRect.fromRectAndRadius(
@@ -688,7 +659,6 @@ class _StationeryBorderPainter extends CustomPainter {
 
     canvas.drawRRect(rrect, framePaint);
 
-    // Corner bracket flourishes
     final flourishPaint = Paint()
       ..color = AppColors.blushGold.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
@@ -698,7 +668,6 @@ class _StationeryBorderPainter extends CustomPainter {
     const double flLen = 14.0;
     const double flOffset = 18.0;
 
-    // Top-Left
     canvas.drawLine(
       const Offset(flOffset, flOffset + flLen),
       const Offset(flOffset, flOffset),
@@ -710,7 +679,6 @@ class _StationeryBorderPainter extends CustomPainter {
       flourishPaint,
     );
 
-    // Top-Right
     canvas.drawLine(
       Offset(size.width - flOffset - flLen, flOffset),
       Offset(size.width - flOffset, flOffset),
@@ -722,7 +690,6 @@ class _StationeryBorderPainter extends CustomPainter {
       flourishPaint,
     );
 
-    // Bottom-Left
     canvas.drawLine(
       Offset(flOffset, size.height - flOffset - flLen),
       Offset(flOffset, size.height - flOffset),
@@ -734,7 +701,6 @@ class _StationeryBorderPainter extends CustomPainter {
       flourishPaint,
     );
 
-    // Bottom-Right
     canvas.drawLine(
       Offset(size.width - flOffset - flLen, size.height - flOffset),
       Offset(size.width - flOffset, size.height - flOffset),
@@ -746,7 +712,6 @@ class _StationeryBorderPainter extends CustomPainter {
       flourishPaint,
     );
 
-    // 4-point celestial star sparkles in corners
     final starPaint = Paint()
       ..color = AppColors.blushGold.withValues(alpha: 0.24)
       ..style = PaintingStyle.fill;

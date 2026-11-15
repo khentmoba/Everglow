@@ -117,8 +117,6 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final hero = tester.getRect(find.byType(AnimeXSpotlight));
-    // Hero must start right below header (44 status + 60 header = 104) and
-    // must not extend past the visible body area (ends at 844 - 56 nav = 788).
     expect(hero.top, 104);
     expect(
       hero.bottom,
@@ -149,11 +147,9 @@ void main() {
     );
     await tester.pump();
 
-    // Advance three holds to item 4 (_index = 3)
     await tester.pump(AppMotion.carouselHold * 3);
     expect(find.text('#4 TRENDING'), findsOneWidget);
 
-    // Update with fewer items (e.g. 3 items)
     final items3 = List.generate(3, (i) => _animexItem(i + 1));
     await tester.pumpWidget(
       MaterialApp(
@@ -168,7 +164,6 @@ void main() {
     );
     await tester.pump();
 
-    // One switcher holds the single current slide (index wraps to item 1).
     expect(find.byType(AnimatedSwitcher), findsOneWidget);
     expect(find.text('#1 TRENDING'), findsOneWidget);
   });
@@ -191,13 +186,10 @@ void main() {
     );
     await tester.pump();
 
-    // Simulate toggling fullscreen and unfullscreen repeatedly
     for (var i = 0; i < 5; i++) {
-      // Enter fullscreen (1920x1080)
       await tester.binding.setSurfaceSize(const Size(1920, 1080));
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Exit fullscreen (1568x731)
       await tester.binding.setSurfaceSize(const Size(1568, 731));
       await tester.pump(const Duration(milliseconds: 50));
     }
@@ -242,35 +234,27 @@ void main() {
     );
     await tester.pump();
 
-    // Dwell for 900ms to allow trailer arming
     await tester.pump(const Duration(milliseconds: 900));
 
-    // Trailer player should be mounted and ready
     expect(find.byType(TrailerPlayer), findsOneWidget);
 
-    // Initially muted: unmute tooltip should be visible on the mute control
     expect(find.byTooltip('Unmute trailer'), findsOneWidget);
     expect(find.byTooltip('Pause trailer'), findsOneWidget);
 
-    // Tap mute button to unmute
     await tester.tap(find.byTooltip('Unmute trailer'));
     await tester.pump();
 
-    // Now unmuted: mute tooltip should be visible
     expect(find.byTooltip('Mute trailer'), findsOneWidget);
     expect(find.byTooltip('Unmute trailer'), findsNothing);
 
-    // Tap volume button to mute again
     await tester.tap(find.byTooltip('Mute trailer'));
     await tester.pump();
     expect(find.byTooltip('Unmute trailer'), findsOneWidget);
 
-    // Tap pause button to pause
     await tester.tap(find.byTooltip('Pause trailer'));
     await tester.pump();
     expect(find.byTooltip('Play trailer'), findsOneWidget);
 
-    // Tap play button to resume
     await tester.tap(find.byTooltip('Play trailer'));
     await tester.pump();
     expect(find.byTooltip('Pause trailer'), findsOneWidget);
@@ -312,19 +296,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 900));
 
-    // Trailer player should be mounted
     expect(find.byType(TrailerPlayer), findsOneWidget);
 
-    // Initially muted
     expect(find.byTooltip('Unmute trailer'), findsOneWidget);
 
-    // Tap the Trailer button in the hero content
     final trailerButton = find.text('Trailer');
     expect(trailerButton, findsOneWidget);
     await tester.tap(trailerButton);
     await tester.pump();
 
-    // Should now be unmuted
     expect(find.byTooltip('Mute trailer'), findsOneWidget);
   });
 
@@ -363,7 +343,6 @@ void main() {
     );
     await tester.pump();
 
-    // Initial mount arms immediately so trailer starts loading without dead delay
     final trailerLayerFinder = find.byKey(
       const ValueKey('hero-trailer-layer-frieren_trailer'),
     );
@@ -372,13 +351,11 @@ void main() {
     final opacityWidget = tester.widget<AnimatedOpacity>(trailerLayerFinder);
     expect(opacityWidget.opacity, 1.0);
 
-    // Tap pause
     await tester.tap(find.byTooltip('Pause trailer'));
     await tester.pump();
     final pausedOpacity = tester.widget<AnimatedOpacity>(trailerLayerFinder);
     expect(pausedOpacity.opacity, 0.0);
 
-    // Tap play
     await tester.tap(find.byTooltip('Play trailer'));
     await tester.pump();
     final resumedOpacity = tester.widget<AnimatedOpacity>(trailerLayerFinder);
@@ -438,15 +415,12 @@ void main() {
     );
     await tester.pump();
 
-    // Initially at item 1
     expect(find.text('Trailer Anime 1'), findsOneWidget);
 
-    // One second short of the shared hold: still on the trailer slide.
     await tester.pump(AppMotion.carouselHoldTrailer - const Duration(seconds: 1));
     expect(find.text('Trailer Anime 1'), findsOneWidget);
     expect(find.text('Still Anime 2'), findsNothing);
 
-    // Hold expires, hero auto-advances to item 2.
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Still Anime 2'), findsOneWidget);
   });

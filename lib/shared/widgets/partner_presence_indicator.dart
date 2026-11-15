@@ -54,10 +54,6 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator>
     _ticker = null;
     if (!_appActive || !TickerMode.valuesOf(context).enabled) return;
     _now = DateTime.now();
-    // Freshness ticker: the online window is 4 minutes (see
-    // PresenceStatus.onlineThreshold), so 30s granularity is plenty.
-    // The previous 1s setState rebuilt this whole subtree — plus the
-    // StreamBuilder below — 60x more often than any label can change.
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
@@ -79,9 +75,6 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator>
 
   @override
   Widget build(BuildContext context) {
-    // select() instead of watch(): partner fields change rarely, and a
-    // full watch rebuilds this indicator (and re-evaluates the stream
-    // builder below) on every unrelated auth notify.
     final partnerUid = context.select<AuthService, String?>(
       (a) => a.partnerUid,
     );
@@ -98,8 +91,6 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator>
     final presence = context.read<PresenceService>();
 
     if (partnerUid == null) {
-      // Cinema-only profiles have no partner; stay silent like the doodle
-      // indicator does instead of showing a misleading error.
       if (!isCoupleUser) {
         return const SizedBox.shrink();
       }
@@ -119,9 +110,6 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator>
           dim: true,
         );
       }
-      // Resolution finished without a UID (partner doc missing or a
-      // transient error). Offer tap-to-retry so the link self-heals
-      // instead of demanding a full re-login.
       return GestureDetector(
         onTap: refreshPartnerLink,
         behavior: HitTestBehavior.opaque,

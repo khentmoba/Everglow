@@ -10,15 +10,11 @@ import '../screens/motchi_preferences_screen.dart' deferred as motchi_prefs_lib;
 import '../screens/study_screen.dart' deferred as study_lib;
 import '../widgets/motchi_screen.dart' deferred as motchi_lib;
 
-/// Routes owned by the AI / Motchi feature.
 final List<GoRoute> aiRoutes = [
   GoRoute(
     path: '/motchi',
     builder: (_, state) => DeferredRouteLoader(
       label: 'Motchi',
-      // This used to load only the section font and then build MotchiScreen
-      // directly, so the ~35KB screen stayed in the initial bundle while the
-      // loader made it look deferred. Load the screen's chunk too.
       loadLibrary: () async {
         await Future.wait([motchi_lib.loadLibrary(), SectionFonts.reading()]);
       },

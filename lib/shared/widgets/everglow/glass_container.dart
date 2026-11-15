@@ -32,9 +32,6 @@ class GlassContainer extends StatelessWidget {
     final effectiveOpacity = opacity ?? AppTheme.glassOpacity;
     final effectiveRadius = borderRadius ?? BorderRadius.circular(24.0);
 
-    // Web: BackdropFilter renders as opaque grey/white rectangle on HTML
-    // renderer and on some CanvasKit/SkWasm builds (see GlassJar comment).
-    // Disable blur on web and fall back to solid translucent fill.
     final bool useBlur =
         effectiveBlur > 0 && !AppTheme.shouldReduceMotion && !kIsWeb;
 

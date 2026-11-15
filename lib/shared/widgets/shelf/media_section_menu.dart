@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/theme/app_colors.dart';
 
-/// Shared exits for profiles whose home is Cinema rather than the dashboard.
 class MediaSectionMenu extends StatelessWidget {
   const MediaSectionMenu({super.key, required this.currentRoute});
 

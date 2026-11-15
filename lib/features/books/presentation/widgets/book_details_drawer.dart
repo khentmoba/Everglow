@@ -11,10 +11,6 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Re-derive a fully-resolved [BookItem] before opening the reader.
-/// Stale Firestore documents may carry an empty `readSourceUrl`
-/// (the field was added later), so we always fall back to a
-/// freshly-derived URL from `iaId` / `workKey`.
 BookItem _resolveReaderBook(BookItem item) {
   if (item.readSourceUrl.isNotEmpty) return item;
   return item.copyWith(
@@ -26,10 +22,6 @@ BookItem _resolveReaderBook(BookItem item) {
   );
 }
 
-/// Bottom sheet for a single book. Mirrors the cinema's
-/// `episode_drawer.dart` — but stripped down to the essentials
-/// (cover, metadata, description, status chips, read button).
-/// The full chapter list is rendered inside the reader screen.
 class BookDetailsDrawer extends StatefulWidget {
   final BookItem item;
   const BookDetailsDrawer({super.key, required this.item});
@@ -88,7 +80,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
       _showSnack('Please sign in to manage your list');
       return;
     }
-    // Guard: only couple may set Khent/Clair/Both statuses.
     if (!auth.isCoupleUser && _currentStatus != newStatus) {
       const partnerStatuses = {
         'read-khent',
@@ -133,10 +124,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   }
 
   void _openReader() {
-    // Defensive: if the model has no readSourceUrl (e.g. a legacy
-    // Firestore document that was saved before the URL was
-    // persisted), re-derive it from iaId / workKey so the reader
-    // still has something to work with.
     final resolved = _resolveReaderBook(widget.item);
     context.push('/books/reader', extra: resolved);
   }
@@ -174,7 +161,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   Widget _buildHero() {
     return Stack(
       children: [
-        // Cover backdrop
         SizedBox(
           height: 320,
           width: double.infinity,
@@ -187,7 +173,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                 )
               : Container(color: AppTheme.twilight),
         ),
-        // Cinematic gradient
         Positioned.fill(
           child: IgnorePointer(
             child: Container(
@@ -206,7 +191,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             ),
           ),
         ),
-        // Drag handle
         Positioned(
           top: 12,
           left: 0,
@@ -222,7 +206,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             ),
           ),
         ),
-        // Close button
         Positioned(
           top: 14,
           right: 16,
@@ -244,7 +227,6 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             ),
           ),
         ),
-        // Title / author / year overlay
         Positioned(
           left: 20,
           right: 60,

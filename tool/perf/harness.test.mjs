@@ -1,5 +1,3 @@
-// node --test tool/perf/harness.test.mjs (Node 22+, no npm packages).
-// CI sets PERF_REQUIRE_CHROME=1: the browser fault controls may not be skipped.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
@@ -137,7 +135,6 @@ let chrome;
 try { chrome = chromePath(); }
 catch (e) { if (process.env.PERF_REQUIRE_CHROME === '1') throw e; }
 
-// Replace only the OS process boundary; exercise real discovery and cleanup.
 function mockChromeSpawn(t, replacement) {
   const original = childProcess.spawn;
   const mocked = t.mock.method(childProcess,'spawn',replacement);
@@ -292,7 +289,6 @@ test('failed boot results preserve the startup error before resource lookup', ()
   }
 });
 
-// Two startup attempts plus an 8s shaped boot can exceed the old 20s wrapper.
 async function driver(script,args,timeout=45000) {
   return new Promise((ok,bad) => {
     const child = spawn(process.execPath,[resolve(`tool/perf/${script}`),...args],{
@@ -322,7 +318,6 @@ const bootArgs = root => ['--web-root',root,'--runs','1','--port','0','--profile
 const benchArgs = (root,out) => ['--web-root',root,'--out',out,'--runs','1','--scene','shelves','--port','0',
   '--throttle','1','--timeout-ms','1500','--settle-ms','0','--idle-ms','100','--scroll-steps','1','--scroll-settle-ms','0'];
 
-// Real Chrome controls, with synthetic content only. No Flutter build/login/network.
 test('Chrome fault controls', {skip:!chrome,timeout:90000}, async t => {
   const root = mkdtempSync(join(tmpdir(),'eg-perf-fixture-'));
   try {
@@ -337,7 +332,6 @@ test('Chrome fault controls', {skip:!chrome,timeout:90000}, async t => {
       assert.doesNotMatch(r.stdout,/firstInteractive/);
     });
     await t.test('cold slow3g really throttles uncached compressed responses before navigation',async () => {
-      // Random text resists gzip; spaces would turn a 128KiB file into ~200 bytes.
       writeFileSync(join(root,'heavy.js'),`/*${randomBytes(96*1024).toString('base64')}*/\nwindow.dispatchEvent(new Event('flutter-first-frame'));`);
       writeFileSync(join(root,'index.html'),`<!doctype html><script>window.__EVERGLOW_BUILD__='fixture-stamp'</script><script src="/heavy.js"></script>`);
       const fast = bootReport(await driver('measure_boot.mjs',bootArgs(root)));

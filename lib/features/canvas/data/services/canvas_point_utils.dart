@@ -1,13 +1,8 @@
-/// Ramer-Douglas-Peucker point simplification for normalized canvas points.
-///
-/// Used by [CanvasService] to reduce stroke point count while preserving
-/// visual fidelity. Extracted here so it can be unit-tested without Firebase.
 library;
 
 import 'dart:math' show min;
 import 'dart:ui' show Offset, Size;
 
-/// Maps normalized points to a viewport while preserving the source aspect ratio.
 Offset mapCanvasPointToViewport({
   required double x,
   required double y,
@@ -27,12 +22,6 @@ Offset mapCanvasPointToViewport({
   );
 }
 
-/// Simplifies a list of normalized canvas points (each `x`/`y` in [0,1])
-/// using the Ramer-Douglas-Peucker algorithm.
-///
-/// [epsilon] is the maximum allowed perpendicular distance, in normalized
-/// canvas units (NOT squared). Points whose distance from the segment is
-/// less than [epsilon] are collapsed.
 List<Map<String, double>> simplifyCanvasPoints(
   List<Map<String, double>> points, {
   double epsilon = 0.001,
@@ -67,9 +56,6 @@ List<Map<String, double>> simplifyCanvasPoints(
   }
 }
 
-/// Returns the squared perpendicular distance from point [p] to the segment
-/// [a]-[b], in normalized canvas units squared. Compare with `epsilon * epsilon`,
-/// NOT with a raw distance threshold.
 double perpendicularDistanceSquared(
   Map<String, double> p,
   Map<String, double> a,

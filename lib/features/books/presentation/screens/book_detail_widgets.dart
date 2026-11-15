@@ -35,8 +35,6 @@ class _TopIconButton extends StatelessWidget {
   }
 }
 
-/// Round icon with a label under it, like the My List / Rate / Share
-/// row on a Netflix title page. Fills rose when switched on.
 class _ActionChip extends StatelessWidget {
   final IconData icon;
   final String label;

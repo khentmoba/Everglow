@@ -6,10 +6,6 @@ import '../trailer_player.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Renders the hero backdrop area: a full-width backdrop image with an
-/// optional embedded YouTube trailer player, cinematic gradient overlays,
-/// a close button, and a bottom overlay showing the title, year, rating
-/// stars, and runtime badge.
 class TrailerSection extends StatelessWidget {
   final String backdropUrl;
   final String? trailerKey;
@@ -46,14 +42,9 @@ class TrailerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Same inset deal as CinemaHero: the installed web app stretches under
-    // the iPhone status bar, so the drag handle, drawer close X, and Close
-    // Trailer pill must all sit below it. Browsers/desktop report 0 here
-    // and stay pixel-identical.
     final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       children: [
-        // Backdrop image or Trailer Player
         SizedBox(
           height: isMobile ? 300 : 460,
           width: double.infinity,
@@ -62,8 +53,6 @@ class TrailerSection extends StatelessWidget {
               : _buildBackdropImage(context),
         ),
 
-        // Cinematic gradients (wrapped in IgnorePointer so the Watch Trailer
-        // and Close Trailer buttons underneath stay tappable on mobile).
         Positioned.fill(
           child: IgnorePointer(
             child: Container(
@@ -100,7 +89,6 @@ class TrailerSection extends StatelessWidget {
           ),
         ),
 
-        // Top: drag handle
         Positioned(
           top: 0,
           left: 0,
@@ -122,7 +110,6 @@ class TrailerSection extends StatelessWidget {
           ),
         ),
 
-        // Close button
         Positioned(
           top: 14 + topInset,
           right: 16,
@@ -145,7 +132,6 @@ class TrailerSection extends StatelessWidget {
           ),
         ),
 
-        // Bottom overlay: title
         Positioned(
           bottom: 16,
           left: 20,
@@ -236,8 +222,6 @@ class TrailerSection extends StatelessWidget {
       children: [
         TrailerPlayer(
           videoKey: trailerKey!,
-          // Mute on mobile so browser autoplay policies don't
-          // silently block playback.
           muted: isMobile,
           autoplay: true,
           loop: true,

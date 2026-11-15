@@ -1,7 +1,5 @@
 'use strict';
 
-// Exercise the real HTTP handler and both agent loops without credentials,
-// network, or couple data. Only the model/auth/storage boundaries are fake.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
@@ -73,7 +71,6 @@ async function journey(stream, { interrupt = false, recall = false, enableThinki
     if (!body.stream) return { ok: true, json: async () => ({ choices: [{ message }] }) };
     let consumed = false;
     const data = `data: ${JSON.stringify({ choices: [{ delta: message, finish_reason: first ? 'tool_calls' : 'stop' }] })}\n\n`;
-    // Streaming calls need indices for delta assembly.
     if (message.tool_calls) message.tool_calls.forEach((t, i) => { t.index = i; });
     const bytes = new TextEncoder().encode(first ? `data: ${JSON.stringify({ choices: [{ delta: message, finish_reason: 'tool_calls' }] })}\n\n` : data);
     return { ok: true, body: { getReader: () => ({ read: async () => {

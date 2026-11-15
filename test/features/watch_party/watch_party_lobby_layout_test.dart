@@ -44,9 +44,9 @@ Widget _wrap(Widget child, Size size) {
 
 void main() {
   for (final size in const [
-    Size(320, 640), // small phone
-    Size(430, 932), // Clair's phone
-    Size(800, 1280), // tablet
+    Size(320, 640),
+    Size(430, 932),
+    Size(800, 1280),
   ]) {
     testWidgets('room card has no overflow on ${size.width.toInt()}px', (
       tester,

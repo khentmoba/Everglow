@@ -198,18 +198,14 @@ test('needsEmbeddingBackfill spots unusable stored vectors', () => {
   assert.equal(needsEmbeddingBackfill('nope'), true);
   assert.equal(needsEmbeddingBackfill([0.1, 0.2]), true);
   assert.equal(needsEmbeddingBackfill(new Array(100).fill(0)), true);
-  // Both known spaces are valid: local 64-dim and remote (hundreds+).
   assert.equal(needsEmbeddingBackfill(new Array(64).fill(0)), false);
   assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), false);
   assert.equal(needsEmbeddingBackfill(new Array(256).fill(0)), false);
 });
 
 test('phtDateString keys late-night entries to the PHT day', () => {
-  // 23:59 PHT Sept 16
   assert.equal(phtDateString(Date.parse('2026-09-16T15:59:59Z')), '2026-09-16');
-  // 00:00 PHT Sept 17 (still Sept 16 in UTC)
   assert.equal(phtDateString(Date.parse('2026-09-16T16:00:00Z')), '2026-09-17');
-  // noon PHT
   assert.equal(phtDateString(Date.parse('2026-09-16T04:00:00Z')), '2026-09-16');
 });
 
@@ -220,21 +216,15 @@ test('phtDayBounds spans the PHT calendar day', () => {
 });
 
 test('phtDateLabel names the PHT weekday and date', () => {
-  // Sun Sep 27 2026 09:00 PHT.
   assert.equal(phtDateLabel(Date.parse('2026-09-27T01:00:00Z')), 'Sunday, September 27, 2026');
-  // 00:30 PHT Monday (still Sunday in UTC) — the label follows PHT.
   assert.equal(phtDateLabel(Date.parse('2026-09-27T16:30:00Z')), 'Monday, September 28, 2026');
 });
 
 test('getProactiveContext always leads with the PHT date', () => {
-  // Ordinary day: date line only, never empty.
   const plain = getProactiveContext(Date.parse('2026-09-27T01:00:00Z'));
   assert.ok(plain.startsWith('Today is Sunday, September 27, 2026 (Philippine time).'));
-  // Birthday edge: 00:30 PHT Feb 21 is Mama's birthday even though
-  // the server clock (UTC) still reads Feb 20.
   const bday = getProactiveContext(Date.parse('2026-02-20T16:30:00Z'));
   assert.ok(bday.includes("Mama's birthday TODAY!"));
-  // Anniversary countdown from a PHT morning.
   const anniv = getProactiveContext(Date.parse('2026-02-10T01:00:00Z'));
   assert.ok(anniv.includes('Anniversary in 4 days'));
 });
@@ -248,7 +238,6 @@ test('selectBlockKeys avoids filler except for vague personal questions', () => 
   assert.deepEqual(garden, ['garden']);
   assert.ok(!selectBlockKeys('zzzq blorp fnord').includes('sessions'));
   assert.ok(selectBlockKeys('what did we talk about at the start').includes('sessions'));
-  // Rich queries still scale up to the cap.
   const rich = selectBlockKeys('movie mood garden music book trip journal calendar');
   assert.ok(rich.length > 4 && rich.length <= 7);
 });
@@ -281,36 +270,29 @@ test('shouldExtractMemory gates casual chatter and passes durable personal facts
   assert.equal(shouldExtractMemory('My birthday is October 26', 'Dada\'s birthday is marked!'), true);
   assert.equal(shouldExtractMemory('I bought a new helmet for my Winner X bike today', 'Stay safe on the road!'), true);
 
-  // Bisaya / Tagalog code-switch passes the same gate
   assert.equal(shouldExtractMemory('hinumdumi nga gusto nako ang Ilocos Empanada', 'Noted, Mama!'), true);
   assert.equal(shouldExtractMemory('gusto kaayo nako ang Dubai Chewy Cookies', 'Sweet tooth noted!'), true);
   assert.equal(shouldExtractMemory('ako paborito kay lilies kaayo', 'Lilies it is!'), true);
   assert.equal(shouldExtractMemory('nahadlok ko sa horror movies', 'No horror for movie night!'), true);
-  // …while short Bisaya chatter still stays out
   assert.equal(shouldExtractMemory('kaon ta', 'Sige, kaon ta!'), false);
   assert.equal(shouldExtractMemory('laag ta unya', 'Enjoy you two!'), false);
 });
 
 test('parseReminderDate reads ISO, relatives, and PHT wall times', () => {
-  // Thu Sep 17 2026, 08:00 PHT (midnight UTC).
   const now = Date.UTC(2026, 8, 17, 0, 0, 0);
   assert.equal(parseReminderDate('2026-09-20T15:00:00+08:00', now).toISOString(), '2026-09-20T07:00:00.000Z');
-  // "tomorrow at 3pm" = 3pm in Cabadbaran, not 3pm UTC.
   assert.equal(parseReminderDate('tomorrow at 3pm', now).toISOString(), '2026-09-18T07:00:00.000Z');
   assert.equal(parseReminderDate('tonight at 8', now).toISOString(), '2026-09-17T12:00:00.000Z');
   assert.equal(parseReminderDate('in 2 hours', now).toISOString(), '2026-09-17T02:00:00.000Z');
   assert.equal(parseReminderDate('in 30 minutes', now).toISOString(), '2026-09-17T00:30:00.000Z');
   assert.equal(parseReminderDate('next week', now).toISOString(), '2026-09-24T00:00:00.000Z');
-  // 7am already passed today (8am now) — rolls to tomorrow.
   assert.equal(parseReminderDate('today at 7am', now).toISOString(), '2026-09-17T23:00:00.000Z');
-  // Weekdays land on the next PHT occurrence; dateless = 9am that day.
   assert.equal(parseReminderDate('friday at 3pm', now).toISOString(), '2026-09-18T07:00:00.000Z');
   assert.equal(parseReminderDate('monday', now).toISOString(), '2026-09-21T01:00:00.000Z');
   assert.equal(parseReminderDate('next friday', now).toISOString(), '2026-09-25T01:00:00.000Z');
   assert.equal(parseReminderDate('thursday at 3pm', now).toISOString(), '2026-09-17T07:00:00.000Z');
   assert.equal(parseReminderDate('thursday at 7am', now).toISOString(), '2026-09-23T23:00:00.000Z');
   assert.equal(parseReminderDate('tmrw at 3pm', now).toISOString(), '2026-09-18T07:00:00.000Z');
-  // Named times + dayparts; lone noon/midnight = the coming one.
   assert.equal(parseReminderDate('tomorrow at noon', now).toISOString(), '2026-09-18T04:00:00.000Z');
   assert.equal(parseReminderDate('remind me at midnight', now).toISOString(), '2026-09-17T16:00:00.000Z');
   assert.equal(parseReminderDate('tomorrow morning', now).toISOString(), '2026-09-18T01:00:00.000Z');
@@ -331,11 +313,9 @@ test('formatChatContext keeps newest lines plus an earlier-count', () => {
   assert.ok(out.includes('…plus 8 earlier messages'));
   assert.ok(out.includes('user: msg19'));
   assert.ok(!out.includes('user: msg0\n'));
-  // Short chats get no count line.
   const short = formatChatContext(['a: hi', 'b: hello']);
   assert.ok(!short.includes('…plus'));
   assert.ok(short.includes('a: hi'));
-  // Long lines truncate.
   const long = formatChatContext([`a: ${'x'.repeat(500)}`]);
   assert.ok(long.includes('… [truncated]'));
 });
@@ -355,13 +335,11 @@ test('formatSessionContext bounds summaries, blocks, and chars', () => {
   assert.ok(out.includes('## Previous Conversations'));
   assert.ok(out.includes('--- Session 3 ---'));
   assert.ok(!out.includes('--- Session 4 ---'));
-  // Char cap wins over block count for huge sessions.
   const huge = formatSessionContext([], [
     [{ role: 'user', content: 'z'.repeat(20000) }],
     [{ role: 'user', content: 'second' }],
   ], { charLimit: 100 });
   assert.ok(!huge.includes('second'));
-  // Per-message truncation marks.
   const trunc = formatSessionContext([], [
     [{ role: 'user', content: 'z'.repeat(20000) }],
   ]);
@@ -374,8 +352,6 @@ test('rankMemories uses local vectors and ignores foreign dims', () => {
     { fact: 'Clair adores lilies daily forever' },
     { fact: 'zzz qqq xxx', createdAt: new Date('2020-01-01') },
   ];
-  // The 4-dim vector is a legacy foreign space: ignored, never a crash,
-  // and the local recompute still ranks the lily facts above noise.
   const ranked = rankMemories(facts, 'lilies', 3, new Date());
   assert.equal(ranked.length, 3);
   assert.equal(ranked[2].fact, facts[2].fact);
@@ -388,16 +364,11 @@ test('findContradiction spots same-subject same-relation updates', () => {
     { id: 'b', fact: 'Clair loves lilies' },
     { id: 'c', fact: 'Khent rides a Honda Winner X' },
   ];
-  // Same subject + relation, different object -> conflict.
   const hit = findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', cands);
   assert.equal(hit && hit.id, 'a');
-  // Same subject, different relation -> no conflict.
   assert.equal(findContradiction(parseFactStructure('Khent hates black coffee'), 'Khent hates black coffee', cands), null);
-  // Different subject -> no conflict.
   assert.equal(findContradiction(parseFactStructure('Clair prefers black coffee'), 'Clair prefers black coffee', cands), null);
-  // Near-duplicate rephrase -> not a contradiction (dedupe owns it).
   assert.equal(findContradiction(parseFactStructure('Khent prefers black coffee!'), 'Khent prefers black coffee!', cands), null);
-  // Unparseable newcomer -> no conflict.
   assert.equal(findContradiction(parseFactStructure('hello there'), 'hello there', cands), null);
   assert.equal(findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', []), null);
   assert.equal(findContradiction(null, 'x', cands), null);

@@ -1,17 +1,4 @@
 // ignore_for_file: avoid_print
-// Motchi routing eval — scores the LIVE router, zero LLM cost.
-//
-// Older versions of this file scored a hand-written keyword strawman
-// that drifted from the shipped router (it read 53.7% while live
-// routing was 100%). Now the routing comes from
-// `tool/motchi_eval_bridge.js` (single source of truth:
-// `selectToolNames` in `functions/motchi_tools.js`) and this file
-// only scores recall: every case's expectedTools must be a subset of
-// the live selection.
-//
-// Run from repo root: `dart tool/motchi_prompt_eval.dart`
-// Advisory (always exits 0); the hard CI checks are `node --test`
-// (`tool routing covers every eval case intent`) and `eval_gate.js`.
 import 'dart:convert';
 import 'dart:io';
 

@@ -4,12 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/shared/widgets/everglow/everglow_marquee.dart';
 
-/// Tests for [EverglowMarquee] carousel behavior across shelves.
-///
-/// Shelves with fewer items (such as 1 or 2 items) space the second set off-screen
-/// so the row carousels normally without showing duplicate covers side-by-side.
-/// Shelves with overflowing items tile seamlessly to fill the viewport and auto-scroll
-/// so all media rails (Cinema, Anime, Books, Reading, Gallery) smoothly carousel.
 void main() {
   Widget harness({
     required double width,
@@ -48,13 +42,11 @@ void main() {
     );
     await tester.pump();
 
-    // Exactly 1 set visible on screen (second set placed off-screen at x >= 800)
     final firstCard = tester.getTopLeft(find.text('A Shop for Killers').first);
     final secondCard = tester.getTopLeft(find.text('A Shop for Killers').last);
     expect(firstCard.dx, closeTo(0.0, 1.0));
     expect(secondCard.dx, greaterThanOrEqualTo(780.0));
 
-    // Auto-scrolls smoothly over time
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
@@ -71,13 +63,11 @@ void main() {
     );
     await tester.pump();
 
-    // First set is on screen, second set is off-screen
     final firstA = tester.getTopLeft(find.text('Movie A').first);
     final secondA = tester.getTopLeft(find.text('Movie A').last);
     expect(firstA.dx, closeTo(0.0, 1.0));
     expect(secondA.dx, greaterThanOrEqualTo(780.0));
 
-    // Auto-scrolls smoothly over time
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
@@ -96,7 +86,6 @@ void main() {
 
     final before = tester.getTopLeft(find.text('Movie A').first);
 
-    // Advance ~2 seconds of ticker frames.
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
@@ -118,10 +107,7 @@ void main() {
     }
 
     final after = tester.getTopLeft(find.text('Item 0').first);
-    // Marquee drifts left over time.
     expect(after.dx, lessThan(before.dx));
-    // Every title remains in the tree (seamless loop keeps a full set
-    // on screen instead of scrolling into a blank gap).
     for (final t in titles) {
       expect(find.text(t), findsWidgets);
     }
@@ -162,7 +148,6 @@ void main() {
     await gesture.addPointer(location: const Offset(5, 5));
     addTearDown(gesture.removePointer);
 
-    // Hover holds the drift still — so stop paying for frames too.
     await gesture.moveTo(tester.getCenter(find.byType(EverglowMarquee)));
     await tester.pump();
     expect(tester.binding.transientCallbackCount, 0);

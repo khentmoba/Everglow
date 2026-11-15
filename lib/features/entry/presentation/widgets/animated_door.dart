@@ -6,11 +6,6 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// The Everglow entry door.
-///
-/// An arched double-tone door with carved bevels, a brass lever and a
-/// keyhole escutcheon. It breathes softly on the gateway, then swings
-/// open with a shaft of light when the passcode unlocks.
 class AnimatedDoor extends StatefulWidget {
   final bool isUnlocked;
   final bool isError;
@@ -94,8 +89,6 @@ class _AnimatedDoorState extends State<AnimatedDoor>
     );
 
     _entranceController.forward().then((_) => _completeEntrance());
-    // Some Android emulators/vendors never deliver the animation ticker
-    // future reliably. Fall back so the keypad always appears.
     _entranceFallbackTimer = Timer(
       entranceDuration + const Duration(milliseconds: 400),
       _completeEntrance,
@@ -182,15 +175,10 @@ class _AnimatedDoorState extends State<AnimatedDoor>
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      // Soft halo behind the whole door.
                       _buildHalo(),
-                      // Twinkling sparkles.
                       _buildSparkles(),
-                      // Light that pours out while the door swings open.
                       if (widget.isUnlocked) _buildLightBloom(),
-                      // The frame stays put while the panel swings.
                       _buildDoorFrame(),
-                      // The swinging panel.
                       Transform(
                         alignment: Alignment.centerLeft,
                         transform: Matrix4.identity()
@@ -208,8 +196,6 @@ class _AnimatedDoorState extends State<AnimatedDoor>
       ),
     );
   }
-
-  // ── Layers ────────────────────────────────────────────────────────────────
 
   Widget _buildHalo() {
     return Positioned.fill(
@@ -367,11 +353,8 @@ class _AnimatedDoorState extends State<AnimatedDoor>
           ),
           child: Stack(
             children: [
-              // Carved bevels stay out of the input state so the keypad has a
-              // single quiet surface.
               if (widget.isUnlocked)
                 Positioned.fill(child: _buildPanelBevels()),
-              // Engraved nameplate.
               Positioned(top: 34, left: 0, right: 0, child: _buildNameplate()),
               Positioned(
                 top: 92,
@@ -387,15 +370,12 @@ class _AnimatedDoorState extends State<AnimatedDoor>
                   ),
                 ),
               ),
-              // Keypad.
               Center(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 64, 44, 42),
                   child: widget.keypad ?? const SizedBox.shrink(),
                 ),
               ),
-              // Hardware appears only while the door is opening, so it never
-              // collides with the passcode surface.
               if (widget.isUnlocked) ...[
                 Positioned(
                   right: 14,
@@ -494,7 +474,6 @@ class _AnimatedDoorState extends State<AnimatedDoor>
         clipBehavior: Clip.none,
         alignment: Alignment.centerLeft,
         children: [
-          // Rosette.
           Container(
             width: 42,
             height: 42,
@@ -532,7 +511,6 @@ class _AnimatedDoorState extends State<AnimatedDoor>
               ),
             ),
           ),
-          // Lever arm.
           Positioned(
             left: 20,
             child: Container(
@@ -609,7 +587,6 @@ class _AnimatedDoorState extends State<AnimatedDoor>
   }
 }
 
-/// Arched door silhouette.
 class _ArchClipper extends CustomClipper<Path> {
   const _ArchClipper();
 
@@ -631,7 +608,6 @@ class _ArchClipper extends CustomClipper<Path> {
   bool shouldReclip(_ArchClipper oldClipper) => false;
 }
 
-/// Twinkling gold dust drifting in front of the door.
 class _SparklePainter extends CustomPainter {
   final double progress;
 

@@ -1,5 +1,3 @@
-/// No-op twin of `offline_photos_web.dart`: native builds already keep
-/// viewed photos on disk, and VM tests have no browser cache.
 class OfflinePhotos {
   OfflinePhotos._();
 

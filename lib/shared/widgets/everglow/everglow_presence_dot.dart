@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Presence indicator dot — online/last-seen/doodle states.
-///
-/// Replaces `PartnerPresenceIndicator._Dot` and `PartnerDoodleIndicator._PulsingDot`.
-/// Reduced-motion → static dot (no pulse).
 class EverglowPresenceDot extends StatefulWidget {
   final PresenceState state;
   final double size;

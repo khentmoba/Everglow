@@ -76,7 +76,6 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
 
-    // A fresh guardian must restore its 3D view on a tablet, including resize.
     await tester.pumpWidget(
       ChangeNotifierProvider<GuardianController>.value(
         value: guardian,

@@ -96,13 +96,8 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..allow = 'autoplay; encrypted-media'
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no')
-      // YouTube's embedded player requires a real referrer; explicit
-      // no-referrer or missing referrers surface as Error 153.
       ..setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
 
-    // Make the iframe oversized with a 16:9 aspect ratio so the YouTube
-    // video fills the entire container (like object-fit: cover). The
-    // wrapper's overflow:hidden clips anything outside the visible area.
     _iframe.style
       ..border = '0'
       ..position = 'absolute'
@@ -117,7 +112,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..backgroundColor = '#000'
       ..pointerEvents = 'none';
 
-    // Wrapper clips the iframe overflow (hides the title bar shifted above)
     final wrapper = _wrapper = web.HTMLDivElement();
     wrapper.style
       ..position = 'relative'
@@ -128,8 +122,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
     wrapper.appendChild(_iframe);
 
-    // Transparent overlay sits on top of the iframe to absorb hover/click
-    // events so the YouTube player never shows its pause/skip controls.
     final overlay = web.document.createElement('div') as web.HTMLDivElement;
     overlay.style
       ..position = 'absolute'
@@ -162,8 +154,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
               ? info['playerState']
               : null;
           if (state == 1) {
-            // Wait briefly so YouTube's initial playback OSD fades before
-            // the hero cross-fades the iframe into view.
             _settleTimer?.cancel();
             _settleTimer = Timer(const Duration(milliseconds: 350), _notifyReady);
           }
@@ -197,9 +187,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
 
-    // Set src only after the load listener is attached — setting it in
-    // the constructor chain could miss a fast cached load, leaving the
-    // hover preview stuck on the still frame with the trailer hidden.
     _iframe.src = embedUrl;
   }
 

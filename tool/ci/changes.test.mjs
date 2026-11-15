@@ -10,8 +10,6 @@ import {selectChecks} from './changes.mjs';
 const baseline = {app:true, browser:false, web:true, backend:true, security:false, audit:true};
 const all = {app:true, browser:true, web:true, backend:true, security:true, audit:true};
 
-// Missing a shared input or classifying a deleted source as documentation must
-// never let a PR bypass the checks that source can affect.
 for (const [name, paths, want] of [
   ['docs retain every deployment prerequisite without extra browser coverage', ['AGENTS.md', 'README.md', 'docs/PERF_NOTES.md', '.agents/skills/everglow-ship/SKILL.md'], baseline],
   ['PR template edits retain deployment prerequisites', ['.github/pull_request_template.md'], baseline],

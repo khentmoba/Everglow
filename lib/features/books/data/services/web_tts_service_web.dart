@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
-/// Read-aloud ("Listen") engine backed by the browser's built-in
-/// Web Speech API — the legal equivalent of WeLib's audiobook modal.
 class WebTtsService {
   WebTtsService._();
   static final WebTtsService instance = WebTtsService._();
@@ -21,8 +19,6 @@ class WebTtsService {
 
   double get rate => _rate;
 
-  /// Speak a chunk of text. On completion (natural end or cancel),
-  /// [onComplete] fires so the UI can advance or stop.
   void speak(String text, {double rate = 1.0, VoidCallback? onComplete}) {
     if (!isSupported || text.trim().isEmpty) return;
     final synthesis = web.window.speechSynthesis;

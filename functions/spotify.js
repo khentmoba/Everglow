@@ -1,16 +1,14 @@
-// ===== Spotify: Client Credentials search + User OAuth (Duo) =====
 'use strict';
 
 const { getAdmin, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
 
 
-// ===== Spotify: Client Credentials search + User OAuth (Duo) =====
 function _getSpotifyCreds() {
   const id = (process.env.SPOTIFY_CLIENT_ID || '').trim();
   const secret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim();
   return { id, secret };
 }
-let _spotifyTokenCache = null; // { token, expiresAt }
+let _spotifyTokenCache = null;
 async function _getSpotifyAppToken() {
   const { id, secret } = _getSpotifyCreds();
   if (!id || !secret) return null;
@@ -28,17 +26,6 @@ async function _getSpotifyAppToken() {
   return data.access_token;
 }
 
-/**
- * Resolves a track to a real Spotify ID via Client Credentials.
- * GET /proxySpotifySearch?query=Artist+Track  OR  ?artist=...&track=...
- * GET /proxySpotifySearch?type=artist&artist=Name — returns the artist's
- *   photo ({ artistId, artistName, imageUrl, followers, spotifyUrl }).
- *   Last.fm removed artist images from its API in 2019 (all artist.search
- *   rows carry the same white-star placeholder), so the Artist Showdown
- *   autocomplete gets its thumbnails from here instead.
- * Auth required. Track mode returns
- * { trackId, trackName, artistName, albumName, imageUrl, previewUrl, spotifyUrl, embedUrl }.
- */
 const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -55,8 +42,6 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   const query = q || (artist && track ? artist + ' ' + track : '') || artist || track;
   if (!query) { res.status(400).json({ error: 'Missing query or artist/track' }); return; }
   try {
-    // Inside the try: a network blowup while fetching the app token
-    // used to escape as an uncaught 500 with no JSON body.
     const token = await _getSpotifyAppToken();
     if (!token) { res.status(503).json({ error: 'Spotify not configured' }); return; }
     if (type === 'artist') {
@@ -67,7 +52,6 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
       const data = await r.json();
       const items = data.artists && data.artists.items;
       if (!Array.isArray(items) || items.length === 0) { res.json({ artistId: null, query: name }); return; }
-      // Prefer the exact-name match so "Lana" finds Lana, not "Lana Del Rey".
       const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
       const targetNorm = norm(name);
       let best = items[0];
@@ -91,7 +75,6 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
     const data = await r.json();
     const items = data.tracks && data.tracks.items;
     if (!Array.isArray(items) || items.length === 0) { res.json({ trackId: null, query }); return; }
-    // Prefer exact-ish match on track name
     const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
     const targetNorm = norm(track || query);
     let best = items[0];
@@ -117,11 +100,6 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   }
 });
 
-/**
- * OAuth Authorization Code exchange (PKCE supported).
- * POST /spotifyExchange { code, redirectUri, codeVerifier? }
- * Auth required. Exchanges code for access/refresh tokens, stores in Firestore spotify_tokens/{uid}.
- */
 const spotifyExchange = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -139,7 +117,6 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
     const params = new URLSearchParams({ grant_type: 'authorization_code', code: String(code), redirect_uri: String(redirectUri) });
     if (codeVerifier) params.set('code_verifier', String(codeVerifier));
     else if (secret) params.set('client_secret', secret);
-    // Spotify requires client_id always
     params.set('client_id', id);
     const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
     if (secret && !codeVerifier) headers['Authorization'] = 'Basic ' + Buffer.from(id + ':' + secret).toString('base64');
@@ -147,7 +124,6 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
     const text = await r.text();
     if (!r.ok) { console.warn('[spotifyExchange]', r.status, text); res.status(r.status).json({ error: text }); return; }
     const data = JSON.parse(text);
-    // Fetch profile to store display name
     let profile = null;
     try {
       const pr = await fetch('https://api.spotify.com/v1/me', { headers: { 'Authorization': 'Bearer ' + data.access_token }, signal: AbortSignal.timeout(8000) });
@@ -162,7 +138,6 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
       spotify_display_name: profile ? profile.display_name : null,
       updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     };
-    // Only overwrite refresh_token if we got a new one
     const ref = getAdmin().firestore().collection('spotify_tokens').doc(decoded.uid);
     const existing = await ref.get();
     if (existing.exists && !data.refresh_token && existing.data().refresh_token) doc.refresh_token = existing.data().refresh_token;
@@ -174,11 +149,6 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
   }
 });
 
-/**
- * Refreshes a stored Spotify token.
- * POST /spotifyRefresh  (no body; uses stored refresh_token)
- * Auth required.
- */
 const spotifyRefresh = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -216,11 +186,6 @@ const spotifyRefresh = cappedHttps(10, async (req, res) => {
   }
 });
 
-/**
- * Proxies Spotify currently-playing for authenticated user (server-side token).
- * GET /spotifyCurrentlyPlaying
- * Useful if client prefers server to fetch with stored token (avoids exposing token to JS).
- */
 const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -237,7 +202,6 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
     let token = snap.data().access_token;
     let expiresAt = snap.data().expires_at || 0;
     if (Date.now() > expiresAt - 60000) {
-      // try refresh inline
       const { id, secret } = _getSpotifyCreds();
       const rt = snap.data().refresh_token;
       if (rt && id) {

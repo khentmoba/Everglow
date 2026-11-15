@@ -11,13 +11,6 @@ import '../../../../core/services/auth_service.dart';
 import '../../data/models/temporary_chat_message.dart';
 import '../../data/services/temporary_chat_service.dart';
 
-/// Realtime temporary chat panel for the Watch Together tab.
-///
-/// This is the couple-only ephemeral thread: messages stream live from
-/// Firestore, are scoped to the couple's deterministic room id, and can
-/// be cleared at any time. It intentionally does not reuse the active
-/// party room chat, so conversation can happen before a movie night
-/// starts and without polluting permanent party history.
 class TemporaryChatPanel extends StatefulWidget {
   final String roomId;
   final String myUid;

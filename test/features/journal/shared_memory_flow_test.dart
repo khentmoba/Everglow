@@ -1,4 +1,3 @@
-// Firestore's SDK interfaces are implemented only as network-free test doubles.
 // ignore_for_file: subtype_of_sealed_class
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/features/calendar/data/services/calendar_service.dart';

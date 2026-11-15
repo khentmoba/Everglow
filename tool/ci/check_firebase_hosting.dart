@@ -1,13 +1,3 @@
-// Firebase hosting guard: pins the config shape that flipped twice
-// (web-lite in b21bea7, full revert in aed17ec, PR #112/#114).
-//
-// Asserts against firebase.json:
-// - hosting.public stays build/web (the Flutter artifact dir);
-// - a catch-all "**" -> /index.html rewrite exists LAST (SPA fallback);
-// - every /api/* rewrite points at a function (proxy/health surface);
-// - security + cache header blocks are present (no silent header drop).
-//
-// Usage: dart tool/ci/check_firebase_hosting.dart
 import 'dart:convert';
 import 'dart:io';
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 
-/// Native fallback for the WebGL table tennis game.
 class TableTennisGameScreen extends StatelessWidget {
   const TableTennisGameScreen({super.key});
 

@@ -9,7 +9,6 @@ class MemoryPhoto {
   final DateTime uploadedAt;
   final List<String> tags;
 
-  // Phase 2 — Immich / HomeGallery inspired geolocation
   final double? latitude;
   final double? longitude;
   final String? locationName;

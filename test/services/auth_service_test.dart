@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/services/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Minimal unit test to verify AuthService isReady logic.
-/// Full integration tests require Firebase mock which is outside scope.
 void main() {
   group('AuthService.isReady logic', () {
     test('isReady requires both user and currentUser', () {
@@ -81,8 +79,6 @@ void main() {
     });
 
     test('skips a stray doc that sorts first by document id', () {
-      // Live shape: a stray `/users` doc id (created by a malformed request)
-      // sorts before the real account and used to win the old limit(1) query.
       final uid = AuthService.pickPartnerUid([
         (
           id: '.fieldPaths=username&updateMask.fieldPaths=partnerUid',

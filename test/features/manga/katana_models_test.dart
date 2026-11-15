@@ -81,8 +81,6 @@ void main() {
     });
 
     test('fromFirestore treats a missing bookmarked flag as bookmarked', () {
-      // Records written before the flag existed were saved because the
-      // user bookmarked them, so they must stay on the shelf.
       final legacy = KatanaBookmark.fromFirestore({
         'slug': 'eleceed',
         'addedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 8)),
@@ -96,7 +94,6 @@ void main() {
         'readChapterIds': ['c1'],
       }, 'eleceed');
       expect(cleared.isBookmarked, isFalse);
-      // Unbookmarking must not take the read history with it.
       expect(cleared.readChapterIds, {'c1'});
     });
 

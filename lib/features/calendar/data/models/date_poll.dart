@@ -4,8 +4,8 @@ enum PollStatus { open, closed }
 
 class DatePollOption {
   final String id;
-  final DateTime date; // option date
-  final String label; // e.g., "Sat, Feb 14 — 7pm"
+  final DateTime date;
+  final String label;
 
   const DatePollOption({
     required this.id,
@@ -38,7 +38,7 @@ class DatePoll {
   final DateTime createdAt;
   final List<DatePollOption> options;
   final Map<String, String>
-  votes; // username -> optionId (single vote, Rallly style). Could extend to multi.
+  votes;
   final PollStatus status;
   final String? decidedOptionId;
 

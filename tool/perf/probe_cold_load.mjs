@@ -1,9 +1,3 @@
-// Cold-load resource probe: records EVERY network resource (including
-// cross-origin CanvasKit / Firebase SDK), not just same-origin ones, plus
-// time-to-first-Flutter-frame.
-//
-// Usage: node tool/perf/probe_cold_load.mjs [--web-root DIR] [--runs N]
-//        [--profile none|fast3g|slow3g] [--out FILE]
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -31,7 +25,6 @@ async function once(url, options) {
     await cdp.send('Network.enable');
     await cdp.send('Network.clearBrowserCache');
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: PROBE });
-    // Cold means cold: no service worker, no HTTP cache.
     await cdp.send('Network.setBypassServiceWorker', { bypass: true });
     await cdp.send('Network.setBlockedURLs', { urls: ['*sw.js*'] });
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });

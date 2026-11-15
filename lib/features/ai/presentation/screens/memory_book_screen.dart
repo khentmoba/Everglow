@@ -10,9 +10,6 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/services/ai_memory_repo.dart';
 import '../../domain/memory/memory_fact.dart';
 
-/// Motchi's Memory Book — a co-owned review surface for everything she
-/// remembers. Search, pin, delete, and add facts; on-this-day memories
-/// get their own shelf so anniversaries surface naturally.
 class MemoryBookScreen extends StatefulWidget {
   const MemoryBookScreen({super.key});
 
@@ -62,8 +59,6 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
   }
 
   List<MemoryFact> get _visibleFacts {
-    // Copy first: _facts is List.unmodifiable from the repo — sorting it
-    // in place throws "Cannot modify an unmodifiable list" during build.
     var facts = List<MemoryFact>.of(_facts);
     if (_category != null) {
       facts = facts.where((f) => f.category == _category).toList();

@@ -35,7 +35,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
   final _saveErrorKey = GlobalKey();
   TimeOfDay _selectedTime = const TimeOfDay(hour: 19, minute: 0);
   bool _isAllDay = false;
-  final List<String> _attendees = []; // usernames
+  final List<String> _attendees = [];
 
   @override
   void initState() {
@@ -221,7 +221,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 ),
                 const SizedBox(height: 20),
 
-                // ── Event Type ──
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
@@ -267,7 +266,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
 
                 const SizedBox(height: 16),
 
-                // ── Title ──
                 TextField(
                   controller: _titleController,
                   style: AppTypography.outfitWhite.copyWith(
@@ -295,7 +293,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // ── Description ──
                 TextField(
                   controller: _descController,
                   maxLines: 2,
@@ -323,7 +320,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // ── Time + All-day (Baïkal fix) ──
                 Row(
                   children: [
                     Expanded(
@@ -424,7 +420,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                // ── Location (Maps-inspired) ──
                 TextField(
                   controller: _locationController,
                   style: AppTypography.outfitWhite.copyWith(
@@ -456,7 +451,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // ── Attendees (couple) ──
                 Row(
                   children: [
                     Text(
@@ -474,7 +468,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // ── Recurring ──
                 Row(
                   children: [
                     Text(
@@ -537,7 +530,6 @@ class _AddEventDialogState extends State<AddEventDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                // ── Buttons ──
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [

@@ -1,15 +1,5 @@
 import 'book_item.dart';
 
-/// A WeLib-style search result. Carries everything a WeLib result
-/// row and detail page show: cover, rating, a compact metadata line
-/// ("pdf · English · 2020 · 2.9 MB"), available file formats with
-/// download URLs, and the resolved in-app read source.
-///
-/// The catalog is aggregated from legal public-domain sources
-/// (Open Library, Project Gutenberg via Gutendex, Internet Archive)
-/// instead of a shadow-library catalog, but the surface mirrors
-/// WeLib: same meta line, same action set (Listen / Read /
-/// Download / Share / Save).
 class BookSearchResult {
   final String title;
   final String author;
@@ -19,40 +9,29 @@ class BookSearchResult {
   final String publisher;
   final int pageCount;
 
-  /// Primary file type shown in the meta line (pdf, epub, txt...).
   final String filetype;
 
-  /// File size in MB for the primary file, when known.
   final double? sizeMb;
 
-  /// Goodreads-style rating (0..5) and vote count, when available.
   final double? rating;
   final int? ratingCount;
 
   final String description;
   final List<String> subjects;
 
-  /// ISBN-10 / ISBN-13 when the source catalog provides them
-  /// (Open Library search docs carry an `isbn` list).
   final String isbn;
   final String isbn13;
 
-  /// Category / subject slugs for the Z-Lib style category browse.
   final List<String> categories;
 
-  /// Human label of the source catalog ("Project Gutenberg", ...).
   final String sourceLabel;
 
-  /// Source identifiers used to resolve reading/downloads.
   final String workKey;
   final String iaId;
   final int gutenbergId;
 
-  /// Downloads keyed by lowercase extension: txt, epub, mobi, pdf...
   final Map<String, String> downloadUrls;
 
-  /// Candidate plain-text URLs for the in-app reader, in priority
-  /// order (same contract as [OpenLibraryService.buildReadSourceCandidates]).
   final List<String> readCandidates;
 
   const BookSearchResult({
@@ -84,8 +63,6 @@ class BookSearchResult {
       ? workKey
       : (gutenbergId > 0 ? 'pg$gutenbergId' : (iaId.isNotEmpty ? iaId : title));
 
-  /// Z-Lib style file line: "EPUB, 2.9 MB" — extension first so the
-  /// eye can scan a dense result list.
   String get fileLine {
     final ext = filetype.isNotEmpty
         ? filetype.toUpperCase()
@@ -99,7 +76,6 @@ class BookSearchResult {
     return ext;
   }
 
-  /// All known download extensions, EPUB-first for the detail page.
   List<String> get extensions {
     final exts = downloadUrls.keys.toList();
     exts.sort((a, b) => _extRank(a).compareTo(_extRank(b)));
@@ -127,7 +103,6 @@ class BookSearchResult {
     }
   }
 
-  /// WeLib meta line: "pdf · English · 2020 · 2.9 MB".
   String get metaLine {
     final parts = <String>[
       if (filetype.isNotEmpty) filetype.toLowerCase(),
@@ -190,8 +165,6 @@ class BookSearchResult {
     );
   }
 
-  /// Convert to the persisted [BookItem] shape so the read list,
-  /// reader, and detail screens can all consume this result.
   BookItem toBookItem({String status = '', String userName = ''}) {
     final readUrl = readCandidates.isNotEmpty ? readCandidates.first : '';
     return BookItem(
@@ -213,7 +186,6 @@ class BookSearchResult {
   }
 }
 
-/// Arguments passed to the book detail route.
 class BookDetailArgs {
   final BookItem item;
   final BookSearchResult? result;

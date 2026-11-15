@@ -1,16 +1,5 @@
 'use strict';
 
-/**
- * Pure Motchi tool contracts shared by tests and the offline eval gate.
- *
- * Mirrors the argument guards, clamps, enum fallbacks, and matching rules
- * in `index.js` (`MOTCHI_TOOLS` + `executeTool`) without Firestore, fetch,
- * or secrets, so `node --test` can verify them deterministically.
- *
- * If `executeTool` gains a new guard or clamp, add it here first (and a
- * test in `test/motchi_tools.test.js`), then port it to `index.js`.
- */
-
 const TOOL_TIMEOUT_MS = 25000;
 const MAX_TOOL_ROUNDS = 8;
 
@@ -86,17 +75,6 @@ const TOOL_NAMES = [
   'propose_choices',
 ];
 
-// ── Intent-based tool routing ─────────────────────────────────────
-// Sends Motchi only the tools that match the message intent instead of
-// every schema every turn. Saves input tokens on every request and
-// cuts mistaken tool calls. Guaranteed by tests: every eval case's
-// expectedTools must be a subset of selectToolNames(message), and every
-// known tool must stay reachable from core + groups.
-
-// Always available on normal questions: memory, XP, and web lookups.
-// Web access cannot depend on the user knowing to say "search": current
-// questions (match times, results, releases) often have no web keywords.
-// Writes still ride their intent groups; greetings skip this set entirely.
 const CORE_TOOLS = [
   'read_memories',
   'add_xp',
@@ -105,8 +83,6 @@ const CORE_TOOLS = [
   'browse_web',
 ];
 
-// Read-only lookups, added only when no intent group matches, so plain
-// chat can still inspect the shared spaces.
 const AWARENESS_TOOLS = [
   'request_tools',
   'propose_choices',
@@ -118,12 +94,6 @@ const AWARENESS_TOOLS = [
   'get_calendar_events',
 ];
 
-// Intent groups: keyword pattern plus the tools that intent needs. All
-// matching groups merge. Keywords stay generous — a spurious group
-// costs ~3 tools, a missed group costs a failed request.
-// Fallback write trigger for groups without their own `writeMatch`.
-// Generous on purpose: a spurious write set costs ~3 schemas, a missed
-// one costs a failed request.
 const WRITE_INTENT_RE = /add|save|create|log|set|mark|remove|delete|update|edit|change|cancel|complete|finish|plan|remind|send|tell|relay|pin|remember|forget|fix|move|rename|note|track|book/i;
 
 const TOOL_GROUPS = [
@@ -131,17 +101,12 @@ const TOOL_GROUPS = [
     match: /movie|film|cinema|watchlist|watched|watching|rewatch|\bwatch\b|\btv\b|shows|series|episode|tmdb|netflix|k-?drama/i,
     tools: ['search_movies', 'get_watchlist'],
     write: ['add_to_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],
-    // "watched" (not bare "watch": that matches "watchlist" itself).
-    // Keeps statement logging ("we watched Dune"); "what we watched"
-    // questions carry the writes too — harmless, the model needs a
-    // title to act and reads first. Queue/stick/take-off are list verbs.
     writeMatch: /add|save|put|mark|watched|finish|remove|delete|queue|stick|take .{0,25} off/i,
   },
   {
     match: /\bbook\b|books|\bread\b|reading|author|novel|chapter|percent|progress|\blibrary\b/i,
     tools: ['search_books'],
     write: ['add_book_to_our_books', 'update_book_progress'],
-    // No bare "chapter": "what chapter are we on" is a read.
     writeMatch: /add|save|put|percent|through|progress|finish|update|done/i,
   },
   {
@@ -156,15 +121,9 @@ const TOOL_GROUPS = [
     match: /chat|sanctuary|said|\bsay\b|\btell\b|relay|messaged|convo|message|a note|note to|\bsend\b.{0,25}(sanctuary|chat|clair|khent|her|him|them|mama|dada|note|message)/i,
     tools: ['read_chat_messages'],
     write: ['send_sanctuary_message', 'send_note_to_partner'],
-    // "tell Clair" / "send Clair a note" write; "tell me about our
-    // chat" reads. Bare "send me X" never matches the group (it means
-    // answer here, not post to sanctuary).
     writeMatch: /\btell (clair|khent|her|him|them|mama|dada)\b|\bsend\b|relay|write|message (to|for|her|him|them|clair|khent|mama|dada)/i,
   },
   {
-    // Past Motchi conversations (Letta-style archival recall). Kept
-    // specific — past-tense recall only — so everyday "said/tell"
-    // chat doesn't pay for the extra schema.
     match: /talk(ed|ing)? about|discuss|conversat|previous (chat|talk|session)|last (week|night|time)|we talked|you (said|told|mentioned)|what did (we|you)/i,
     tools: ['search_sessions'],
   },
@@ -178,18 +137,12 @@ const TOOL_GROUPS = [
     match: /\bmoods?\b|feeling|\bfeel\b|felt|emotion|happy|sad|stressed|tired|excited|anxious|lonely/i,
     tools: ['get_relationship_insights'],
     write: ['set_mood'],
-    // "my mood / I feel / right now" writes; "our moods / patterns"
-    // reads. The \bfeels? form covers "we feel great" too.
     writeMatch: /my mood|\bfeels?\b|\bfeeling\b|\bfelt\b|i'm\b|i am|right now/i,
   },
   {
     match: /memor|remember|forget|trivia|\bquiz\b|keep in mind|don't forget|note that|profile|about us/i,
     tools: ['get_memory_trivia'],
     write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory', 'save_profile_note'],
-    // "forget the memory" deletes; "I forget what we watched" is chat.
-    // Corrections ("is wrong", "actually it was") attach edits.
-    // Profile writes need an action verb + profile ("save X to our
-    // profile"); bare "what is our profile" stays a read.
     writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|is wrong|was wrong|actually.{0,15}was|meant\b|correction|forget (the|that|this|about|my|our)|(save|add|pin|put|write).{0,20}(to|in|on).{0,10}(our |my |the )?profile/i,
   },
   {
@@ -204,19 +157,12 @@ const TOOL_GROUPS = [
     match: /remind|reminder|alarm|\bnotify\b/i,
     tools: ['list_reminders'],
     write: ['create_reminder', 'cancel_reminder', 'edit_reminder'],
-    // "remind me/us/her" writes; bare "reminders" (list/show) reads.
     writeMatch: /create|add|set|new|alarm|notify|cancel|delete|remove|drop|change|edit|update|move|snooze|\bremind me\b|\bremind us\b|\bremind her\b|\bremind him\b|\bremind them\b/i,
   },
   {
     match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon|\b\d{1,2}(:\d{2})?\s*(am|pm)\b|\bnoon\b|\bmidnight\b/i,
     tools: ['get_calendar_events'],
     write: ['add_calendar_event', 'update_calendar_event', 'delete_calendar_event'],
-    // Action verbs write; bare "schedul*" writes unless the message
-    // opens with a read framing ("show my schedule", "what's on …").
-    // No bare "new": "any new events" is a read. Clock times pull
-    // the calendar READ in, but only reschedule verbs earn writes on
-    // a time-only match ("push dinner to 8pm" yes, "change my plant
-    // reminder to 5pm" no).
     writeMatch: (t, matched) => {
       const s = String(t || '');
       const m = String(matched !== undefined ? matched : s);
@@ -232,39 +178,30 @@ const TOOL_GROUPS = [
     match: /journal|diar|reflect|\bentr(?:y|ies)\b|letter|rewrite/i,
     tools: ['get_journal_entries', 'search_journal_entries', 'read_journal_entry'],
     write: ['create_journal_entry', 'edit_journal_entry', 'delete_journal_entry'],
-    // No bare "new": "any new entries" is a read.
     writeMatch: /journal about|write|create|add|start|edit|change|update|rewrite|delete|remove|fix/i,
   },
   {
     match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b|\bcomplet\w*\b|\bfinish\w*\b/i,
     tools: ['get_bucket_list'],
     write: ['add_bucket_item', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
-    // No bare "new": "any new ideas" is a read. "put X on", "take
-    // X off", and "X is now Y" are list writes.
     writeMatch: /add|create|mark|complete|finish|done|delete|remove|edit|change|update|put|take .{0,25} off|\boff\b.{0,15}\blist\b|is now|are now|\bset\b/i,
   },
   {
     match: /subscri|\bsubs?\b|renewals?|netflix|spotify|icloud|\bbilling\b/i,
     tools: ['get_subscriptions'],
     write: ['add_subscription'],
-    // No bare "new": "any new subs" is a read. "we got Netflix"
-    // and "signed up for" are statement-style adds.
     writeMatch: /add|create|track|subscrib|sign .{0,10}up|we got|just got/i,
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
     tools: ['get_trips'],
     write: ['add_trip', 'add_trip_pin', 'edit_trip'],
-    // No bare "new": "any new trips" is a read ("plan" covers it).
     writeMatch: /plan|add|create|pin|move|change|edit|update|book|shift|push|postpon/i,
   },
   {
     match: /habit|streak|workout|\bgym\b|routine|\blog\b|activity|\bdid\b|exercis|dinner|lunch|breakfast/i,
-    // log_activity stays always-on: "we had ramen" statements get
-    // logged proactively; the habit writes gate on action verbs.
     tools: ['log_activity'],
     write: ['log_habit', 'complete_habit', 'edit_habit'],
-    // No bare "new": "any new habit ideas" is a read.
     writeMatch: /log|add|create|complete|finish|done|edit|change|rename|update|start|track|fix/i,
   },
   {
@@ -292,8 +229,6 @@ const TOOL_GROUPS = [
     tools: ['get_xp_stats'],
   },
   {
-    // Bare asks ("suggest something for tonight") name no feature —
-    // attach the two pickers Motchi reaches for most, not just the index.
     match: /recommend|suggest|discover|\bfind\b|looking for|any good/i,
     tools: ['search_everglow', 'search_movies', 'get_date_ideas'],
   },
@@ -303,22 +238,9 @@ const TOOL_GROUPS = [
   },
 ];
 
-/**
- * Tool names for a message: core + matching groups' reads + gated writes.
- * When the current message names no group at all, the previous user
- * turn lends its topics (follow-ups like "move it to Friday" or
- * "cancel that"). A third-person pronoun (it/that/this) also pulls
- * context in as a union, so "read it" after journal talk inherits
- * journal reads alongside its own book match. First/second person
- * (me/you) never trigger this — topic switches stay clean. Write
- * gating always reads the CURRENT message only, so "read it" never
- * attaches creates.
- */
 function selectToolNames(message, prevAssistantText = '', prevUserText = '') {
   const text = String(message || '');
   const picked = new Set(CORE_TOOLS);
-  // Follow-through first: a bare yes to an offered plan keeps the
-  // write tools (normal keyword routing would starve it).
   if (isBareYes(text) && hasOffer(prevAssistantText)) {
     for (const name of FOLLOW_THROUGH_TOOLS) picked.add(name);
     return [...picked];
@@ -336,12 +258,9 @@ function selectToolNames(message, prevAssistantText = '', prevUserText = '') {
         n++;
         for (const name of group.tools) picked.add(name);
         if (Array.isArray(group.write) && group.write.length > 0) {
-          let wHit = true; // fail open: a broken pattern must not blind Motchi
+          let wHit = true;
           try {
             const wm = group.writeMatch || WRITE_INTENT_RE;
-            // Function predicates get the matched text too, so a noun
-            // living in context ("cancel the dentist" + prior
-            // "dentist appointment") still unlocks writes.
             wHit = typeof wm === 'function' ? wm(text, haystack) : wm.test(text);
           } catch (_) {}
           if (wHit) for (const name of group.write) picked.add(name);
@@ -360,15 +279,10 @@ function selectToolNames(message, prevAssistantText = '', prevUserText = '') {
   return [...picked];
 }
 
-/**
- * Loop-guard key for a tool call: same tool + same args twice in one
- * message means the model is circling. Pure so tests can pin it.
- */
 function toolCallKey(name, argsJson) {
   return `${name || ''}:${argsJson || ''}`;
 }
 
-/** Drops repeat calls from a batch, tracking `seen` across rounds. */
 function dropRepeatCalls(seen, calls) {
   return (calls || []).filter((tc) => {
     const key = toolCallKey(tc?.function?.name, tc?.function?.arguments);
@@ -378,12 +292,6 @@ function dropRepeatCalls(seen, calls) {
   });
 }
 
-/**
- * Markdown block naming the tools attached to this request. Names only —
- * full descriptions already ride with the schemas, so repeating them
- * would just burn tokens. The fallback persona embeds this per request
- * so the prompt never advertises tools that were routed out.
- */
 function toolListSection(toolNames) {
   const names = [...new Set((toolNames || []).filter((n) => typeof n === 'string' && n))];
   if (names.length === 0) {
@@ -419,10 +327,6 @@ function isValidHttpUrl(value) {
   return /^https?:\/\//i.test(_text(value));
 }
 
-/**
- * Argument guard mirroring the early `return { error: ... }` paths in
- * `executeTool`. Tools without an arg-level guard always validate.
- */
 function validateToolArgs(toolName, args = {}) {
   const a = args && typeof args === 'object' ? args : {};
   switch (toolName) {
@@ -584,7 +488,6 @@ function validateToolArgs(toolName, args = {}) {
       return { ok: true, urls };
     }
     case 'browse_web': {
-      // Resume path needs only the run_id from a RUNNING result.
       if (_text(a.run_id)) return { ok: true };
       if (!isValidHttpUrl(a.url)) return { ok: false, error: 'No valid http(s) URL provided' };
       if (!_text(a.goal)) return { ok: false, error: 'No goal provided' };
@@ -613,11 +516,6 @@ function validateToolArgs(toolName, args = {}) {
   }
 }
 
-// Model-shaped args, cleaned before validation runs: trimmed strings,
-// numeric strings coerced (Firestore `.limit('5')` throws on a string),
-// common alias keys copied to canonical (originals kept — some
-// executors read the alias), and enum-ish fields lowercased so
-// "High" doesn't fall through to a default. Pure; never mutates in.
 const NORMALIZE_NUMERIC_KEYS = new Set([
   'tmdb_id', 'limit', 'count', 'price', 'lat', 'lng', 'percent',
   'progress', 'budget', 'amount', 'days', 'renewing_within_days',
@@ -654,11 +552,6 @@ function normalizeToolArgs(toolName, args) {
   return out;
 }
 
-/**
- * One-line fix hint the model can act on after a validation error, or
- * null when the error is already actionable. Keeps the model's natural
- * next-round retry landing instead of circling on the same bad call.
- */
 function fixHintFor(toolName, error) {
   void toolName;
   const msg = String(error || '');
@@ -678,12 +571,10 @@ function fixHintFor(toolName, error) {
   return null;
 }
 
-/** `Math.min(args.x || def, max)` clamps used by read/count tools. */
 function clampWithDefault(value, def, max) {
   return Math.min(value || def, max);
 }
 
-/** `Math.min(Math.max(Number(x) || def, min), max)` bounded clamps. */
 function clampBounded(value, def, min, max) {
   return Math.min(Math.max(_numOr(value, NaN) || def, min), max);
 }
@@ -705,7 +596,6 @@ const clampTripsLimit = (v) => clampBounded(v, 5, 1, 10);
 const clampBookProgress = (v) => Math.min(Math.max(_numOr(v, 0) || 0, 0), 100);
 const clampXpAmount = (v) => Math.min(Math.max(_numOr(v, 10) || 10, 1), 100);
 
-/** Enum fallbacks mirroring `executeTool` (unknown -> default). */
 function normalizeHabitCategory(v) {
   return ['health', 'fitness', 'mindfulness', 'learning', 'social', 'other'].includes(String(v || ''))
     ? String(v)
@@ -742,10 +632,6 @@ function normalizeActivityCategory(v) {
   return allowed.includes(String(v || '')) ? String(v) : 'other';
 }
 
-/**
- * Case-insensitive substring match either direction, mirroring the
- * watchlist/book title lookups in `executeTool`.
- */
 function titlesMatch(a, b) {
   const x = _text(a).toLowerCase();
   const y = _text(b).toLowerCase();
@@ -753,10 +639,6 @@ function titlesMatch(a, b) {
   return x.includes(y) || y.includes(x);
 }
 
-/**
- * Disambiguation rule from `add_to_watchlist` / `add_book_to_our_books`:
- * no exact (case-insensitive) match and >= 2 substring candidates.
- */
 function needsConfirmation(query, titles) {
   const q = _text(query).toLowerCase();
   if (!q || !Array.isArray(titles) || titles.length === 0) return false;
@@ -766,10 +648,6 @@ function needsConfirmation(query, titles) {
   return subs.length >= 2;
 }
 
-/**
- * Whether `create_reminder` would store a usable `remindAtTs`.
- * Mirrors the executor by delegating to the shared date parser.
- */
 function isReminderSchedulable(raw, nowMs = Date.now()) {
   const text = _text(raw);
   if (!text) return false;
@@ -782,16 +660,6 @@ function isReminderSchedulable(raw, nowMs = Date.now()) {
   }
 }
 
-// ── Fast-path single-tool intents ─────────────────────────────────
-// Zero-arg, read-only asks whose tool result IS the answer. When the
-// whole message matches, the chat handler pre-executes the tool and
-// lets the model answer from the result with no tools attached — one
-// Firestore read + one LLM call instead of ~7 block reads + memory
-// select + a tool loop. Deliberately narrow: anchored patterns,
-// conjunction + multi-sentence + length guards reject anything
-// compound, which falls through to the normal loop. Trivia is NOT
-// here on purpose: "quiz us" deserves the interactive canvas, not
-// a text answer.
 const FAST_PATH_INTENTS = [
   {
     match: /^(what('s| is) (our|my|the) (level|xp|rank)|what level are we( on| at)?|show (our|my|the) (level|xp|rank)|how much xp do (we|i) have)[?!\s.]*$/i,
@@ -841,12 +709,6 @@ const FAST_PATH_INTENTS = [
 
 const FAST_PATH_BLOCKERS = /\b(and|then|also|plus|after that|followed by|before that)\b|[;+]|\n/i;
 
-// ── Plan follow-through ─────────────────────────────────────────
-// When Motchi presents a plan with an offer ("want me to add this to
-// the calendar?"), a bare yes means EXECUTE — but "yes" carries no
-// keywords, so normal routing would send core tools only and the model
-// couldn't act. With the previous assistant text showing an offer, a
-// bare affirmation keeps the write tools its plan may need.
 const FOLLOW_THROUGH_TOOLS = [
   'add_calendar_event',
   'update_calendar_event',
@@ -860,7 +722,6 @@ const FOLLOW_THROUGH_TOOLS = [
   'add_to_watchlist',
   'send_sanctuary_message',
   'send_note_to_partner',
-  // Ex-core writes: "want me to save / remember / log this?" + "yes".
   'save_to_starlight_jar',
   'set_mood',
   'remember_fact',
@@ -882,12 +743,10 @@ function hasOffer(prevAssistantText) {
   return OFFER_MARKERS_RE.test(String(prevAssistantText || ''));
 }
 
-/** Whole-message fast-path match, or null to use the normal loop. */
 function matchFastPath(message) {
   const text = String(message || '').trim();
   if (!text || text.length > 120) return null;
   if (FAST_PATH_BLOCKERS.test(text)) return null;
-  // A second sentence means a second ask.
   if (/[.!?]\s*[A-Za-z]/.test(text)) return null;
   for (const intent of FAST_PATH_INTENTS) {
     if (intent.match.test(text)) return { tool: intent.tool, args: {} };
@@ -895,9 +754,6 @@ function matchFastPath(message) {
   return null;
 }
 
-// ── Capability Tool Map ───────────────────────────────────────────
-// Maps high-level capability names to their specific Everglow tool sets.
-// Used by request_tools to mount only the relevant tools when summoned.
 const CAPABILITY_TOOL_MAP = {
   web: ['web_search', 'read_web_page', 'browse_web'],
   movies: ['search_movies', 'get_watchlist', 'add_to_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],

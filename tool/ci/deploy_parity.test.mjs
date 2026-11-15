@@ -25,8 +25,6 @@ test('PR and deployment use the same backend verification and locked install', (
   }
 });
 
-// The Worker is live code for Cinema and Anime. A merge must be the only way
-// it ships, tested first and played on the edge after (#592, #594, #595).
 test('a merge to main deploys the streaming Worker, tested before and smoked after', () => {
   const source = read('.github/workflows/deploy_worker.yml');
   assert.match(source, /push:\s*\n\s+branches: \[main\]/);

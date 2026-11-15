@@ -56,7 +56,6 @@ void main() {
           final textFinder = find.text('Everglow Love Letter Synopsis');
           expect(textFinder, findsOneWidget);
 
-          // Drag mouse across text to select it
           final topLeft = tester.getTopLeft(textFinder);
           final bottomRight = tester.getBottomRight(textFinder);
 
@@ -68,7 +67,6 @@ void main() {
           await dragGesture.up();
           await tester.pumpAndSettle();
 
-          // Right click on the active selection
           final center = tester.getCenter(textFinder);
           final rightClickGesture = await tester.startGesture(
             center,
@@ -78,11 +76,9 @@ void main() {
           await rightClickGesture.up();
           await tester.pumpAndSettle();
 
-          // The desktop context menu toolbar must show "Copy"
           final copyFinder = find.text('Copy');
           expect(copyFinder, findsOneWidget);
 
-          // Tapping "Copy" copies the selected text to clipboard
           await tester.tap(copyFinder);
           await tester.pumpAndSettle();
 
@@ -103,8 +99,6 @@ void main() {
         );
         addTearDown(popupFocus.dispose);
         try {
-          // Same shape as the app: EverglowApp's builder holds an outer
-          // SelectionArea for dialogs, and each page has its own (ShellRoute).
           await tester.pumpWidget(
             MaterialApp(
               builder: (context, child) => Overlay.wrap(
@@ -155,10 +149,8 @@ void main() {
           await tester.tap(find.text('Copy'));
           await tester.pumpAndSettle();
 
-          // Only the dialog's text, not the page text behind it.
           expect(mockClipboard['text'], 'Moonlit Cinema');
 
-          // Selecting must not steal focus: Escape still closes the dialog.
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
           expect(title, findsNothing);
@@ -189,18 +181,15 @@ void main() {
           final textFinder = find.text('Everglow Love Letter Synopsis');
           expect(textFinder, findsOneWidget);
 
-          // Long press on text
           final center = tester.getCenter(textFinder);
           final gesture = await tester.startGesture(center, pointer: 1);
           await tester.pump(const Duration(milliseconds: 700));
           await gesture.up();
           await tester.pumpAndSettle();
 
-          // Mobile toolbar must show "Copy"
           final copyFinder = find.text('Copy');
           expect(copyFinder, findsOneWidget);
 
-          // Tap "Copy"
           await tester.tap(copyFinder);
           await tester.pumpAndSettle();
 

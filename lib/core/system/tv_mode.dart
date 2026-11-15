@@ -6,21 +6,15 @@ import '../theme/app_colors.dart';
 import '../utils/logger.dart';
 import 'tv_detector.dart';
 
-/// Central state and styling helpers for TV-friendly browsing and remote navigation.
-///
-/// Automatically activates on Smart TV browsers (Tizen, webOS, Android TV, Fire TV, etc.)
-/// or when requested via URL query (`?tv=1`, `?mode=tv`), and supports user toggle.
 class TvMode {
   TvMode._();
 
   static const String _prefKey = 'tv_mode_enabled';
 
-  /// Reactive notifier for active TV mode.
   static final ValueNotifier<bool> isTvMode = ValueNotifier<bool>(false);
 
   static bool _initialized = false;
 
-  /// Initializes TV mode from URL override, persistent preference, or browser user agent.
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -45,10 +39,6 @@ class TvMode {
     }
   }
 
-  /// Detects Smart TV / Android TV browsers from [userAgent] and touch capability.
-  ///
-  /// Android TV browsers often omit "TV" from their UA string, but unlike
-  /// phones and tablets they report `maxTouchPoints == 0` in landscape.
   static bool isTvUserAgent(
     String userAgent, {
     int maxTouchPoints = 1,
@@ -82,7 +72,7 @@ class TvMode {
       'appletv',
       'roku',
       'crkey',
-      'aft', // Amazon Fire TV (AFTM, AFTT, etc.)
+      'aft',
       'pov_tv',
     ];
     for (final kw in tvKeywords) {
@@ -97,7 +87,6 @@ class TvMode {
     return false;
   }
 
-  /// Explicitly enables or disables TV mode, persisting the preference.
   static Future<void> setTvMode(bool enabled) async {
     isTvMode.value = enabled;
     try {
@@ -108,10 +97,8 @@ class TvMode {
     }
   }
 
-  /// Toggles TV mode on or off.
   static Future<void> toggle() => setTvMode(!isTvMode.value);
 
-  /// Standard activation shortcuts for TV remotes (D-pad Center / Select / Enter / Space).
   static const Map<ShortcutActivator, Intent> activateShortcuts = {
     SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
     SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
@@ -120,7 +107,6 @@ class TvMode {
     SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
   };
 
-  /// Scrolls the nearest scrollable ancestor so [context] is centered on TV.
   static void ensureFocusedVisible(BuildContext context) {
     if (!isTvMode.value) return;
     if (!context.mounted) return;
@@ -133,7 +119,6 @@ class TvMode {
     );
   }
 
-  /// True if [key] acts as a primary selection / OK action on TV remotes or keyboards.
   static bool isSelectKey(LogicalKeyboardKey key) {
     return key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter ||
@@ -142,7 +127,6 @@ class TvMode {
         key == LogicalKeyboardKey.gameButtonA;
   }
 
-  /// True if [key] acts as a Back / Exit / Cancel action on TV remotes or keyboards.
   static bool isBackKey(LogicalKeyboardKey key) {
     return key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.backspace ||
@@ -152,9 +136,7 @@ class TvMode {
         key == LogicalKeyboardKey.gameButtonB;
   }
 
-  /// Extracts a digit string ('0'..'9') if [key] is a number key on a TV remote or keyboard.
   static String? digitFromKey(LogicalKeyboardKey key) {
-    // 1. Direct logical keys
     if (key == LogicalKeyboardKey.digit0 || key == LogicalKeyboardKey.numpad0) {
       return '0';
     }
@@ -186,12 +168,10 @@ class TvMode {
       return '9';
     }
 
-    // 2. ASCII keyId check (0x30 to 0x39 corresponds to '0' to '9')
     if (key.keyId >= 0x30 && key.keyId <= 0x39) {
       return String.fromCharCode(key.keyId);
     }
 
-    // 3. Fallback to single-digit keyLabel
     final label = key.keyLabel;
     if (label.length == 1 && RegExp(r'^[0-9]$').hasMatch(label)) {
       return label;
@@ -200,7 +180,6 @@ class TvMode {
     return null;
   }
 
-  /// High-visibility focus border for 10-foot TV viewing.
   static Border focusBorder({
     Color accent = AppColors.auroraGold,
     double width = 3.0,
@@ -208,7 +187,6 @@ class TvMode {
     return Border.all(color: accent, width: width);
   }
 
-  /// High-visibility glowing focus shadows for 10-foot TV viewing.
   static List<BoxShadow> focusShadows({
     Color accent = AppColors.auroraGold,
     double blurRadius = 18.0,

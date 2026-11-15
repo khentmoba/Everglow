@@ -14,8 +14,6 @@ void main() {
     });
 
     test('rejects values with whitespace (titles, not paths)', () {
-      // Regression: a title like "Yellow Jacket" stored in the poster field
-      // built a bogus .../w500Yellow Jacket URL that 404d forever.
       expect(TmdbImages.isUsablePath('Yellow Jacket'), isFalse);
       expect(TmdbImages.isUsablePath('/ab c.jpg'), isFalse);
       expect(TmdbImages.isUsablePath('https://x.com/a b.jpg'), isFalse);

@@ -5,7 +5,6 @@ import '../screens/dashboard_screen.dart' deferred as dashboard_lib;
 import '../screens/letterbox_archive_screen.dart' deferred as letterbox_lib;
 import '../screens/desktop_app_screen.dart' deferred as desktop_lib;
 
-/// Routes owned by the dashboard feature.
 final List<GoRoute> dashboardRoutes = [
   GoRoute(
     path: '/desktop-app',

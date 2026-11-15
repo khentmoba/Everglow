@@ -48,7 +48,6 @@ void main() {
       expect(progress.xpTotal, 0);
       expect(progress.level, 1);
       expect(progress.streak, 0);
-      // lastActivity falls back to DateTime.now()
       expect(progress.lastActivity, isNotNull);
     });
 
@@ -68,7 +67,6 @@ void main() {
       expect(map['level'], 4);
       expect(map['streak'], 10);
       expect(map['lastActivity'], isA<Timestamp>());
-      // uid is NOT included in the map (it's the doc ID)
       expect(map.containsKey('uid'), isFalse);
     });
 
@@ -83,11 +81,11 @@ void main() {
 
       final updated = original.copyWith(xpTotal: 1500, level: 2);
 
-      expect(updated.uid, 'user3'); // unchanged
-      expect(updated.xpTotal, 1500); // changed
-      expect(updated.level, 2); // changed
-      expect(updated.streak, 2); // unchanged
-      expect(updated.lastActivity, original.lastActivity); // unchanged
+      expect(updated.uid, 'user3');
+      expect(updated.xpTotal, 1500);
+      expect(updated.level, 2);
+      expect(updated.streak, 2);
+      expect(updated.lastActivity, original.lastActivity);
     });
 
     test('copyWith with no args returns equivalent instance', () {
@@ -109,7 +107,6 @@ void main() {
     });
 
     test('XP to level formula: level = floor(xp / 200) + 1', () {
-      // This mirrors the curve in UserProgress.levelForXp.
       expect(UserProgress.levelForXp(0), 1);
       expect(UserProgress.levelForXp(199), 1);
       expect(UserProgress.levelForXp(200), 2);
@@ -125,8 +122,6 @@ void main() {
     });
 
     test('stored level eventually converges to the curve via addXp', () {
-      // addXp writes levelForXp(newXp), and fromMap keeps the stored value,
-      // so one award after a curve change heals the level. Simulate that.
       final healed = UserProgress.fromMap('uid-heal', {
         'xpTotal': 450,
         'level': UserProgress.levelForXp(450),

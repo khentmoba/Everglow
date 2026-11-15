@@ -124,7 +124,6 @@ void main() {
     );
     platform.delegates.single.finished(url);
     await tester.pump();
-    // Load sends the player state first, then the queued seek.
     Iterable<String> seeks() =>
         controller.scripts.where((s) => s.contains('animex-seek'));
     expect(seeks().single, contains('seconds:35'));
@@ -253,7 +252,6 @@ void main() {
     expect(state, contains('nextKind:"episode"'));
     expect(state, contains(animeXProxyOrigin));
 
-    // A cleared label reaches the player so it can hide the button.
     await tester.pumpWidget(
       const MaterialApp(
         home: AnimeXPlayerFrame(url: url, nextToken: null),

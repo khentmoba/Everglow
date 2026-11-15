@@ -432,10 +432,6 @@ class _PodiumArtwork extends StatelessWidget {
                   cacheWidth: 200,
                   errorWidget: const _ArtworkFallback(),
                   onError: () {
-                    // Reactive heal: a present-but-broken Last.fm URL
-                    // (stale CDN, expired proxy) refetches via iTunes /
-                    // Spotify instead of sticking the fallback tile.
-                    // Provider dedupes to one attempt per track per session.
                     final artist = artistName;
                     final track = trackName;
                     if (artist == null || track == null) return;

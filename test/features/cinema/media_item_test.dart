@@ -44,9 +44,6 @@ void main() {
     });
 
     test('anime film saved as tv with format Movie is still a movie', () {
-      // Regression: Drifting Home showed S1E1 on the dashboard because
-      // its doc carried mediaType tv with stale season/episode progress.
-      // format ('Movie'/Jikan, 'MOVIE'/AniList) is the backstop.
       for (final format in ['Movie', 'MOVIE', ' movie ']) {
         final film = _item(
           mediaType: 'tv',
@@ -72,8 +69,6 @@ void main() {
     });
 
     test('single-episode anime has no episode progress (ONA-listed film)', () {
-      // Drifting Home saves as tv + episodeCount 1 with stale S1E1
-      // progress: shelves must hide the badge instead of showing S1E1.
       final film = _item(
         mediaType: 'tv',
         currentEpisode: 1,
@@ -221,8 +216,6 @@ void main() {
     });
 
     test('garbage poster fields resolve to empty (placeholder, not 404)', () {
-      // Regression: stringified nulls and leaked titles built bogus URLs
-      // (.../w500null) that 404d forever instead of healing.
       for (final bad in ['', '   ', 'null', 'undefined', 'Yellow Jacket']) {
         expect(withPoster(bad).posterUrl, isEmpty, reason: bad);
       }
@@ -252,9 +245,6 @@ void main() {
     });
 
     test('legacy mismatched watching-khent on Clair doc resolves to clair', () {
-      // Pre-routing docs could store the other partner's suffix on the
-      // wrong owner's doc. userName wins so Clair's row never highlights
-      // Khent Watching.
       final item = owned('watching-khent', 'clairjassen');
       expect(item.resolveCoupleStatus(), 'watching-clair');
     });
@@ -285,7 +275,6 @@ void main() {
         'khentsgdz,clairjassen',
       );
       expect(both.resolveCoupleStatus(), 'watching-khent');
-      // Legacy self on a merged doc maps to Both (pre-merge behavior).
       final bothSelf = owned(
         'watching-self',
         'khentsgdz,clairjassen',
@@ -315,8 +304,6 @@ void main() {
 
   group('MediaItem season completion (finale auto-finish)', () {
     test('finale progress counts as watched, not watching (12/12, 11/11)', () {
-      // The Mushoku case: stored status still says watching, but the
-      // saved episode reached the season total — Finished/Completed now.
       for (final total in [11, 12]) {
         final done = _item(
           mediaType: 'tv',

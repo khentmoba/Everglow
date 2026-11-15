@@ -34,7 +34,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   DateTime _selectedDay = DateTime.now();
   DateTime _currentMonth = DateTime.now();
-  int _tabIndex = 0; // 0 = calendar, 1 = polls (Rallly)
+  int _tabIndex = 0;
 
   @override
   void initState() {
@@ -438,8 +438,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 }
 
-/// Featured spotlight for the very next date — a little countdown hero
-/// so Clair always sees what's coming first, big and warm.
 class _NextDateHero extends StatefulWidget {
   final CalendarEvent event;
   final VoidCallback onTap;

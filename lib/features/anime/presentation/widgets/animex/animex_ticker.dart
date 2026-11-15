@@ -5,7 +5,6 @@ import '../../../../cinema/data/models/media_item.dart';
 
 import 'animex_tokens.dart';
 
-/// Scrolling marquee of "Airing Today" items, pausing on hover.
 class AnimeXTicker extends StatefulWidget {
   final List<MediaItem> items;
   final void Function(MediaItem)? onTap;
@@ -87,7 +86,6 @@ class _AnimeXTickerState extends State<AnimeXTicker>
         clipBehavior: Clip.hardEdge,
         child: Row(
           children: [
-            // Fixed "Airing Today" label pinned to the left edge.
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -122,7 +120,6 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                 ],
               ),
             ),
-            // Scrolling marquee track with edge fades via ShaderMask.
             Expanded(
               child: AppMotion.reduceAmbientMotion(context)
                   ? ListView.builder(
@@ -187,7 +184,6 @@ class _AnimeXTickerState extends State<AnimeXTicker>
   }
 
   double _trackWidth(BuildContext context) {
-    // Approximate the rendered width of a single track copy.
     final perItem = widget.items.length * 230.0 + 120;
     return perItem;
   }

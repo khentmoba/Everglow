@@ -4,11 +4,7 @@ import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
-/// TMDB search endpoints (multi-search and targeted TV/movie search).
 class TMDBSearchService with TMDBBase, ConnectivityAware {
-  /// Search for movies and TV shows
-  /// Opt in to errors when the caller can offer a retry. Fallback callers
-  /// retain the historical empty-on-error behavior.
   Future<List<MediaItem>> searchMedia(
     String query, {
     int page = 1,
@@ -43,9 +39,6 @@ class TMDBSearchService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// Search TMDB for a TV show by title and year. Used as fallback when
-  /// ani.zip doesn't have a TMDB mapping for the MAL id. Returns the
-  /// first result's ID, or null on no match / API error.
   Future<int?> searchTvShow(String title, {String? firstAirDateYear}) async {
     final params = <String, String>{'query': title};
     if (firstAirDateYear != null && firstAirDateYear.isNotEmpty) {

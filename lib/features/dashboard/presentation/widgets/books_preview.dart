@@ -16,18 +16,6 @@ import 'shelf_widgets.dart';
 import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// "Our Books" shelf on the dashboard.
-///
-/// For couple users (khentsgdz / clairjassen) the shelf splits into
-/// two labeled sub-rows — "Me" and the partner — sourced from the
-/// shared `our_books` collection filtered by `addedBy`. This keeps the
-/// per-partner attribution consistent with the in-app "Our Books"
-/// screen.
-///
-/// Non-couple users fall back to the original single-row layout that
-/// streams the user's own `read_list` collection (the dashboard
-/// "Our Books" rail has always shown the personal read history for
-/// non-couple accounts).
 class BooksPreview extends StatelessWidget {
   const BooksPreview({super.key});
 
@@ -96,8 +84,6 @@ class _BooksHeaderState extends State<_BooksHeader> {
   }
 
   void _subscribe() {
-    // Header only shows the badge count: 24 docs is plenty instead of
-    // the full 300-doc collection stream.
     _sub = widget.ourBooksService
         .getOurBooksCountPreviewStream(limit: 24)
         .listen((items) {
@@ -165,8 +151,6 @@ class _OurBooksSubrowState extends State<_OurBooksSubrow> {
   }
 
   void _subscribe() {
-    // Preview cap (24): the rail renders up to 12 cards per sub-row.
-    // Full 300-doc history stays on the books screen.
     _sub = widget.ourBooksService
         .getOurBooksByAdderPreviewStream(widget.adder, limit: 24)
         .listen(
@@ -256,8 +240,6 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
   }
 
   void _bind() {
-    // Rail renders up to 12 cards: 24 docs is plenty instead of the
-    // 500-doc read-list stream.
     _stream = widget.userName.isEmpty
         ? null
         : _openLibraryService.getReadListStream(widget.userName, limit: 24);

@@ -16,8 +16,6 @@ TopMusicTrack _artlessTrack(String name, int plays, int rank) => TopMusicTrack(
   spotifyUrl: 'https://open.spotify.com/search/x',
 );
 
-/// Simulates a rate-limited boot: the first artwork lookup per track fails,
-/// later lookups succeed. Guards against caching the miss forever.
 class _FlakyArtworkSync extends MusicSyncService {
   _FlakyArtworkSync({required this.khentTracks, required this.clairTracks});
 
@@ -32,8 +30,6 @@ class _FlakyArtworkSync extends MusicSyncService {
     int page = 1,
     String period = 'overall',
   }) async =>
-      // Different tracks per user so neither lane can rescue the other
-      // through the shared artwork cache.
       username == 'clairjassen' ? clairTracks : khentTracks;
 
   @override
@@ -216,26 +212,18 @@ void main() {
         khentTracks: [_artlessTrack('Fine Line', 85, 1)],
         clairTracks: [_artlessTrack('Sweet Home', 84, 1)],
       );
-      // Zero cooldown: pumped fake time never advances DateTime.now(), so
-      // this stands in for the cooldown having expired in production.
       final provider = MusicStatsProvider(
         syncService: sync,
         artworkRetryCooldown: Duration.zero,
       );
-      // Disposed inline (not via addTearDown): the framework's pending-timer
-      // check runs before tear-downs, so the polling timers must already be
-      // cancelled when the body returns.
       try {
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
         await tester.pump(const Duration(seconds: 1));
         expect(provider.isLoading, isFalse);
         expect(provider.topTracks, hasLength(1));
-        // First enrichment wave failed: no cover yet, but the miss must
-        // stay retryable.
         expect(provider.topTracks.first.imageUrl, isNull);
 
-        // The 10-minute top-tracks timer refreshes and re-enriches.
         await tester.pump(const Duration(minutes: 11));
         await tester.pump(const Duration(seconds: 1));
 
@@ -275,7 +263,6 @@ void main() {
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.topTracks, hasLength(3));
-        // Must NOT return 835 (293+280+262) as total plays!
         expect(provider.khentTotalPlays, 0);
         expect(provider.isKhentLeader, isFalse);
       },
@@ -292,7 +279,7 @@ void main() {
         final provider = MusicStatsProvider(
           syncService: _FakeSync(
             topTracks: [_topTrack('Song A', 100)],
-            totalPlays: 0, // remote not available yet
+            totalPlays: 0,
           ),
         );
         addTearDown(provider.dispose);

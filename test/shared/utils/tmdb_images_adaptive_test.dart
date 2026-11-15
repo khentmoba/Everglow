@@ -45,7 +45,6 @@ void main() {
     test('normalizes full TMDB URLs produced by mapResultToMediaItem to the selected size', () {
       const fullTmdbUrl = 'https://image.tmdb.org/t/p/w500/sample.jpg';
 
-      // Fast network: card becomes w342, poster stays w500
       NetworkQualityService.debugOverrideQuality = NetworkQuality.fast;
       DeviceCapability.debugOverrideLowEnd = false;
       expect(
@@ -57,7 +56,6 @@ void main() {
         'https://image.tmdb.org/t/p/w500/sample.jpg',
       );
 
-      // Slow network: card becomes w185, poster becomes w342
       NetworkQualityService.debugOverrideQuality = NetworkQuality.slow;
       expect(
         TmdbImages.cardFor(fullTmdbUrl),
@@ -68,7 +66,6 @@ void main() {
         'https://image.tmdb.org/t/p/w342/sample.jpg',
       );
 
-      // External non-TMDB URLs stay untouched
       const externalUrl = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1.jpg';
       expect(TmdbImages.cardFor(externalUrl), externalUrl);
       expect(TmdbImages.posterFor(externalUrl), externalUrl);

@@ -4,7 +4,6 @@ import '../../../../core/theme/app_colors.dart';
 
 import '../../domain/models/calendar_event.dart';
 
-/// Accent hue used across calendar surfaces, keyed by event type.
 Color calendarEventHue(CalendarEventType type) {
   switch (type) {
     case CalendarEventType.dateNight:

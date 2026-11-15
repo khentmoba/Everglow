@@ -15,8 +15,6 @@ enum AnimeXBadgeKind {
   newBadge,
 }
 
-/// Compact status/quality badge (badge-* classes in the reference UI).
-/// Rendered as a frosted-glass pill so it stays legible over artwork.
 class AnimeXBadge extends StatelessWidget {
   final String label;
   final AnimeXBadgeKind kind;
@@ -173,7 +171,6 @@ class _PulsingDotState extends State<_PulsingDot>
   }
 }
 
-/// Maps an AniList/Jikan status string onto a badge.
 AnimeXBadge statusBadge(String? status) {
   final s = (status ?? '').toUpperCase();
   if (s.contains('RELEASING') || s.contains('AIRING')) {

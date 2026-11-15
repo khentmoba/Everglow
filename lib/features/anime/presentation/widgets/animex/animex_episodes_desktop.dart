@@ -1,6 +1,5 @@
 part of 'animex_watch_page.dart';
 
-/// PC sidebar episode row item matching Reference Image #1.
 class _DesktopEpisodeTile extends StatefulWidget {
   final AniListEpisode episode;
   final String fallbackPoster;
@@ -29,14 +28,11 @@ class _DesktopEpisodeTile extends StatefulWidget {
 class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
   bool _hovered = false;
 
-  /// Revealed inline on this row — no drawer.
   bool _revealed = false;
 
   @override
   void didUpdateWidget(covariant _DesktopEpisodeTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // The list is built by index, so a sort hands this state to a
-    // different episode; and un-hiding spoilers shows everything.
     if (oldWidget.episode.number != widget.episode.number) {
       _revealed = false;
     } else if (oldWidget.hideSpoilers && !widget.hideSpoilers) {
@@ -83,8 +79,6 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // The real episode, never the stripped one: a still gives no plot
-              // away, so thumbnails stay visible either way.
               _EpisodeThumbnail(
                 episode: widget.episode,
                 fallbackPoster: widget.fallbackPoster,
@@ -207,10 +201,6 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                             ],
                           )
                         else if (hasSynopsis)
-                          // Already watched, so the story shows inline — no
-                          // extra tap behind a "What happened" link. Tapping
-                          // the text still opens the full sheet for long
-                          // synopses.
                           GestureDetector(
                             onTap: widget.onInfoTap,
                             child: MouseRegion(
@@ -322,7 +312,6 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
   }
 }
 
-/// PC right-hand sidebar matching Reference Image #1.
 class _DesktopEpisodesSidebar extends StatefulWidget {
   final List<AniListEpisode> episodes;
   final int selectedEpisode;
@@ -460,7 +449,6 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header section
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Column(
@@ -536,7 +524,6 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
                 ],
                 const _HideSpoilersSwitch(),
                 const SizedBox(height: 12),
-                // Search bar and sort toggle
                 Row(
                   children: [
                     Expanded(
@@ -631,7 +618,6 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
             ),
           ),
           const Divider(height: 1, color: AnimeXTokens.border),
-          // Scrollable episode list
           Expanded(
             child: displayList.isEmpty
                 ? Center(

@@ -113,8 +113,6 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                 );
               }
 
-              // Both phones loaded the same ordered list, so the shared
-              // index IS the current question — never a wrong fallback.
               final total = widget.questions.length;
               final inRange =
                   total > 0 &&

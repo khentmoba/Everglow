@@ -4,11 +4,6 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Shared dashboard panel — distilled.
-///
-/// Drops one shadow layer, narrows hairline, softens gradient.
-/// Use dense spacing when inside a zone pair so cards breathe
-/// as a group rather than competing as 12 identical gems.
 class FeatureSection extends StatefulWidget {
   final IconData icon;
   final Color hue;
@@ -174,8 +169,6 @@ class _IconChip extends StatelessWidget {
   }
 }
 
-/// Pill link used in panel headers ("View all", "Calendar", ...).
-/// Same shape everywhere so the dashboard reads as one family.
 class SectionPillLink extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -222,7 +215,6 @@ class SectionPillLink extends StatelessWidget {
   }
 }
 
-/// Small chevron affordance used by tappable sections.
 class SectionChevron extends StatelessWidget {
   final Color hue;
 

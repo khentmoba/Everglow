@@ -3,25 +3,19 @@ import 'dart:convert';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/catalog_proxy_client.dart';
 
-/// One skippable stretch (opening or ending) inside an episode.
 class AniSkipTime {
-  /// Seconds from the episode start where the stretch begins.
   final double start;
 
-  /// Seconds where it ends — the jump destination.
   final double end;
 
   const AniSkipTime({required this.start, required this.end});
 
-  /// End as `m:ss` for button labels ("2:29").
   String get endLabel {
     final total = end.round();
     return '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
   }
 }
 
-/// Opening/ending skip times for one episode. Either side may be missing
-/// when the community hasn't marked it yet.
 class AniSkipTimes {
   final AniSkipTime? opening;
   final AniSkipTime? ending;
@@ -31,13 +25,6 @@ class AniSkipTimes {
   bool get isEmpty => opening == null && ending == null;
 }
 
-/// Parses an AniSkip v1 `skip-times` payload. Top-level (not a method) so
-/// unit tests cover it without touching the network.
-///
-/// Expected shape:
-/// `{"found":true,"results":[{"interval":{"start_time":..,"end_time":..},
-/// "skip_type":"op"|"ed", ...}]}`. Anything unexpected yields nulls —
-/// never throws.
 AniSkipTimes parseAniSkipTimes(Map<String, dynamic> json) {
   AniSkipTime? opening;
   AniSkipTime? ending;
@@ -65,16 +52,9 @@ AniSkipTimes parseAniSkipTimes(Map<String, dynamic> json) {
   return AniSkipTimes(opening: opening, ending: ending);
 }
 
-/// True while [position] (seconds) sits inside the skippable stretch —
-/// drives the auto-appearing skip buttons once Videasy reports position.
 bool skipVisibleAt(AniSkipTime time, double position) =>
     position >= time.start && position <= time.end;
 
-/// Community opening/ending timestamps for anime episodes (AniSkip).
-///
-/// Keyed by MAL id + episode number — exactly what the anime watch page
-/// already has. Routed through `proxyCatalog` like Jikan; responses are
-/// cached in memory because skip times never change.
 class AniSkipService {
   AniSkipService({CatalogProxyClient? proxy})
     : _proxy = proxy ?? CatalogProxyClient();
@@ -93,8 +73,6 @@ class AniSkipService {
         'v1/skip-times/$malId/$episode?types[]=op&types[]=ed',
       );
       if (response.statusCode == 404) {
-        // Normal: nobody has marked this episode yet. Cache the miss so
-        // re-opens don't re-ask.
         const empty = AniSkipTimes();
         _cache[key] = empty;
         return empty;

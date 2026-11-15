@@ -1,6 +1,5 @@
 part of 'study_screen.dart';
 
-/// Main-column + chat + composer builders for [_StudyScreenState].
 extension _StudyScreenBuilders on _StudyScreenState {
   Widget _buildMainColumn(bool canSend) {
     return Column(
@@ -380,8 +379,6 @@ extension _StudyScreenBuilders on _StudyScreenState {
                 }
                 return _AnswerBubble(
                   text: turn.text,
-                  // Always show: hiding past quizzes/cards when the toggle
-                  // is off strands them with no way to reopen.
                   showArtifacts: true,
                   keepFullText: keepFull,
                 );

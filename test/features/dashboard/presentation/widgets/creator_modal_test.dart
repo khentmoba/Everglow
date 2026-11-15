@@ -7,8 +7,6 @@ import 'package:everglow/features/dashboard/domain/models/hidden_note.dart';
 import 'package:everglow/features/dashboard/domain/models/milestone.dart';
 import 'package:everglow/features/guardian/data/models/guardian_message.dart';
 
-/// Offline fake: no Firebase, no network. Each stream returns empty so the
-/// modal can be pumped in isolation per the regression-guard policy.
 class _FakeCreatorService extends CreatorService {
   _FakeCreatorService() : super();
 
@@ -47,30 +45,25 @@ void main() {
       ),
     );
 
-    // Four Dusk Petal tabs.
     expect(find.text('Letters'), findsOneWidget);
     expect(find.text('Memories'), findsOneWidget);
     expect(find.text('Surprises'), findsOneWidget);
     expect(find.text('System'), findsOneWidget);
 
-    // System panel keeps the legacy 'System Tools' header.
     expect(find.text('System Tools'), findsNothing);
     await tester.tap(find.text('System'));
     await tester.pumpAndSettle();
     expect(find.text('System Tools'), findsOneWidget);
 
-    // Surprises panel: Guardian Whisperer + Date Night Spotlight.
     await tester.tap(find.text('Surprises'));
     await tester.pumpAndSettle();
     expect(find.text('Guardian Whisperer'), findsOneWidget);
     expect(find.text('Date Night Spotlight'), findsOneWidget);
 
-    // Memories panel: composer with live preview + multi-photo support.
     await tester.tap(find.text('Memories'));
     await tester.pumpAndSettle();
     expect(find.text('Live Card Preview'), findsOneWidget);
 
-    // Letters panel: composer + vault.
     await tester.tap(find.text('Letters'));
     await tester.pumpAndSettle();
     expect(find.text('Compose'), findsOneWidget);

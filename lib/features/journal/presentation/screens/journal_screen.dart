@@ -348,8 +348,6 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 }
 
-/// "Our story so far" — entries, words, days writing, plus the last two
-/// weeks as activity dots. Every number comes from the live list.
 class _StoryCard extends StatelessWidget {
   final List<JournalEntry> entries;
   const _StoryCard({required this.entries});
@@ -580,7 +578,6 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// Chapter rail — "All" plus one pill per category with live counts.
 class _ChapterRail extends StatelessWidget {
   final List<JournalEntry> entries;
   final JournalCategory? selected;
@@ -724,7 +721,6 @@ class _ChapterPill extends StatelessWidget {
   }
 }
 
-/// Author + pin/lock filters — slim second row under the chapters.
 class _AuthorRow extends StatelessWidget {
   final String? authorFilter;
   final bool pinnedOnly;
@@ -857,7 +853,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// "On this day" memory capsule — a golden peek at a past year.
 class _MemoryCapsule extends StatelessWidget {
   final JournalService service;
   const _MemoryCapsule({required this.service});
@@ -967,8 +962,6 @@ class _MemoryCapsule extends StatelessWidget {
   }
 }
 
-/// Journal list with month chapter dividers and cursor pagination past
-/// the live first page.
 class _PaginatedJournalList extends StatefulWidget {
   const _PaginatedJournalList({
     required this.firstPage,

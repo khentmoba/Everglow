@@ -2,10 +2,6 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-/// Browser side of the silent auto-update, used by [AppUpdateService].
-///
-/// Every member guards its own failures so tabs booted from an older
-/// deploy keep working.
 @JS('__everglowAnyVideoPlaying')
 external JSBoolean _anyVideoPlayingJS();
 
@@ -14,7 +10,6 @@ class AppUpdateBrowser {
 
   static final AppUpdateBrowser instance = AppUpdateBrowser._();
 
-  /// False on platforms without a page to update (native stub, VM tests).
   bool get supported => true;
 
   bool get isHidden {
@@ -33,8 +28,6 @@ class AppUpdateBrowser {
     }
   }
 
-  /// True while a native `<video>` is mid-playback, so the auto-reload
-  /// never interrupts movie night.
   bool get isVideoPlaying {
     try {
       return _anyVideoPlayingJS().toDart;
@@ -51,8 +44,6 @@ class AppUpdateBrowser {
     }
   }
 
-  /// Watches for tab-hide, tab-show, and back-online. Returns a cancel
-  /// function for [ChangeNotifier.dispose]-time cleanup.
   void Function() listen({
     required void Function() onHidden,
     required void Function() onVisible,

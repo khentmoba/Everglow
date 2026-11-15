@@ -3,9 +3,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// Keep the Admin SDK fully offline during tests: pin a project id and point
-// every service at emulator ports. These tests never perform I/O, but this
-// makes accidental network access impossible (including in CI).
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'demo-everglow';
 process.env.FIREBASE_AUTH_EMULATOR_HOST =
   process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
@@ -24,8 +21,6 @@ test('legacy namespace API is restored on firebase-admin v14+', () => {
 });
 
 test('admin.auth() returns a usable Auth instance', () => {
-  // Regression guard for the production failure
-  // "getAdmin(...).auth is not a function" (firebase-admin v14).
   const auth = getAdminCompat().auth();
   assert.equal(typeof auth.createCustomToken, 'function');
   assert.equal(typeof auth.getUserByEmail, 'function');

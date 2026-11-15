@@ -1,8 +1,5 @@
 import '../memory/memory_fact.dart';
 
-/// Abstract interface for memory repository operations.
-///
-/// Enables dependency injection and test mocking.
 abstract class IAIMemoryRepository {
   List<String> get all;
   List<MemoryFact> get facts;

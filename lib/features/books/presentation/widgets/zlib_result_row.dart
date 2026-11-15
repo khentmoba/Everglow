@@ -11,11 +11,6 @@ const _cRose = AppColors.roseQuartz;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Z-Library style dense search result row: small cover thumb, title,
-/// author, one metadata line (extension · language · year · size),
-/// and a single download action. Built for scanning long lists on a
-/// phone — one tap opens the detail page, the download icon saves
-/// straight to the device.
 class ZlibResultRow extends StatelessWidget {
   final BookSearchResult result;
   final VoidCallback onOpen;
@@ -115,8 +110,6 @@ class ZlibResultRow extends StatelessWidget {
   }
 }
 
-/// One-line metadata in Z-Lib order: publisher/year, then the file
-/// line (extension + size), then language. Dimmed gold so titles pop.
 class _MetaLine extends StatelessWidget {
   final BookSearchResult result;
   const _MetaLine({required this.result});

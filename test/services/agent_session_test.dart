@@ -81,7 +81,6 @@ void main() {
       addTearDown(() => FirebaseAuthPlatform.instance = previous);
       SharedPreferences.setMockInitialValues({});
       final auth = AuthService();
-      // Let the constructor finish its asynchronous preference loading first.
       await SharedPreferences.getInstance();
       await Future<void>.delayed(Duration.zero);
       var notifications = 0;

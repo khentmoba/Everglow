@@ -31,23 +31,15 @@ class _LetterboxViewState extends State<LetterboxView> {
   bool _hasError = false;
   int _retryCount = 0;
   static const int _maxRetries = 3;
-  // Dashboard rail only shows a short strip — a capped query avoids
-  // evaluating the `isCouple()` rule + downloading the whole collection
-  // on every dashboard open (the cold-start slowness).
   static const int _previewLimit = 10;
 
   @override
   void initState() {
     super.initState();
-    // Cache-first: if the archive (or a previous dashboard visit) already
-    // loaded letters, paint them immediately and revalidate silently.
-    // Only show the skeleton on a true cold start with nothing cached.
     final cached = _letterboxService.cachedNotes;
     if (cached.isNotEmpty) {
       _notes = cached.take(_previewLimit).toList();
       _isLoading = false;
-      // Cache-first paint counts as ready; report post-frame since
-      // notifyListeners must not fire during initState's build pass.
       WidgetsBinding.instance.addPostFrameCallback((_) => _reportLoaded());
     } else {
       _loadInitialCache();
@@ -97,11 +89,6 @@ class _LetterboxViewState extends State<LetterboxView> {
         _scheduleSilentRetry();
       },
       onDone: () {
-        // withFirestoreTimeout closes the stream without an error when the
-        // first snapshot never arrives (cold Firestore WebChannel on first
-        // load). Retry silently — the skeleton stays up, so the user never
-        // sees a spurious "Could not load letters". Only surface the error
-        // UI after retries are exhausted.
         if (!mounted) return;
         if (_isLoading) _scheduleSilentRetry();
       },
@@ -120,8 +107,6 @@ class _LetterboxViewState extends State<LetterboxView> {
         _isLoading = false;
         _hasError = true;
       });
-      // Retries exhausted: the error card is final, so the veil can
-      // stop waiting on us even though no letters arrived.
       _reportLoaded();
     }
   }
@@ -135,9 +120,6 @@ class _LetterboxViewState extends State<LetterboxView> {
     _subscribe();
   }
 
-  /// First-screen progress: letters have settled (cache, disk, snapshot,
-  /// or final error), so the load veil can count us. Marking is
-  /// idempotent — every settle path funnels here safely.
   void _reportLoaded() {
     if (!mounted) return;
     try {
@@ -224,9 +206,6 @@ class _LetterboxViewState extends State<LetterboxView> {
     try {
       await _letterboxService.seedInitialNotes();
       if (!mounted) return;
-      // Resubscribe with a fresh timeout stream so a previous
-      // withFirestoreTimeout that already fired doesn't stay closed and
-      // hide the newly seeded note (the "No letters yet" stuck bug).
       _retry();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -284,8 +263,6 @@ class _LetterboxViewState extends State<LetterboxView> {
           '${_notes.length} ${_notes.length == 1 ? 'letter' : 'letters'} · all read ♥';
     }
 
-    // Same outer shape as UpcomingCountdowns so the Today pair sits evenly.
-    // No panel onTap: each letter card handles its own tap (see OnThisDayCard).
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: FeatureSection(
@@ -320,13 +297,6 @@ class _LetterboxViewState extends State<LetterboxView> {
   }
 
   Widget _buildRail() {
-    // While loading — including silent background retries after a cold-start
-    // Firestore timeout — keep a rail-shaped shimmer up. It matches the
-    // final NoteCard size (150x180) so first paint doesn't jump, and the
-    // error card only appears after all retries are exhausted, so first
-    // load never flashes "Could not load letters".
-    // When cached letters are already on screen, keep showing them while
-    // the preview stream revalidates instead of flashing a skeleton.
     if (_isLoading && _notes.isEmpty) {
       return const EverglowSkeletonRow(
         count: 3,
@@ -359,9 +329,6 @@ class _LetterboxViewState extends State<LetterboxView> {
   }
 }
 
-/// Compact empty rail that fits inside the 200px Letterbox carousel.
-/// The previous EverglowEmptyState (96px medallion + CTA) overflowed the
-/// 200px SizedBox and bled into the Jukebox card below (screenshot bug).
 class _LetterboxRailEmpty extends StatelessWidget {
   final VoidCallback onSeed;
   const _LetterboxRailEmpty({required this.onSeed});

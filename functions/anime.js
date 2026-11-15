@@ -4,40 +4,11 @@ const crypto = require('crypto');
 const { streamMediaBody } = require('./stream_media_body');
 const { escHtml, hlsPlayerHtml } = require('./hls_player');
 
-/**
- * Everglow anime resolver — ad-free Megavid (+ legacy AnimePahe) playback.
- *
- * The app never talks to third-party anime APIs directly. It loads one of
- * these URLs in the sandboxed player frame:
- *
- *   GET /proxyAnime?source=megavid|animepahe&anilistId=<id>&malId=<id>
- *       &ep=<n>&audio=sub|dub&token=<firebase id token>
- *
- * The function resolves the episode server-side (through our own
- * self-hosted AnimePahe API instance, whose base
- * URL stays in a server env var) and serves a clean player page from OUR
- * domain — so no third-party ad script ever reaches Clair's phone.
- *
- * Self-host one instance (personal use only):
- *   - AnimePahe API: https://github.com/ElijahCodes12345/animepahe-api
- *                   (Docker or Railway; needs `npx playwright install`)
- * Then set ANIMEPAHE_API_BASE on
- * the functions (firebase functions .env) and redeploy.
- *
- * Auth: Firebase ID token via `Authorization: Bearer` header OR `?token=`
- * (player iframes cannot send headers). Failures always return an HTML
- * page containing the "no playable stream sources" marker, which the
- * app's dead-server probe already recognizes — so a missing backend or a
- * missing episode auto-advances to the next server instead of showing a
- * grey box.
- */
-
 const { getAdmin, getDb, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = require('./common.js');
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-/** Marker text the app probe recognizes as "try the next server". */
 const NO_SOURCE_MARKER = 'no playable stream sources';
 
 const SEGMENT_HOSTS = new Set(['kwik.cx', 'kwik.si', 'pahe.win']);
@@ -48,12 +19,6 @@ function normTitle(s) {
     .replace(/[^a-z0-9]+/g, '');
 }
 
-/**
- * Picks the upstream anime id whose title best matches one of ours.
- * Each candidate needs {key, title} (extra title keys are merged by the
- * caller). Exact normalized match wins, then prefix, then contains,
- * with a small bonus for a matching release year.
- */
 function pickBestMatch(candidates, titles, year) {
   const wants = titles.map(normTitle).filter(Boolean);
   if (!wants.length || !Array.isArray(candidates)) return null;
@@ -147,8 +112,6 @@ async function fetchJson(url, timeoutMs) {
 
 const DEFAULT_BASES = {};
 
-/** Our self-hosted API hosts come from env or default bases,
- *  and must be public https hosts — same SSRF guard as the other proxies. */
 async function envBase(name) {
   const raw = (process.env[name] || DEFAULT_BASES[name] || '')
     .trim()
@@ -165,7 +128,6 @@ async function envBase(name) {
   return raw;
 }
 
-/** Titles for upstream search, via the free keyless AniList API. */
 async function anilistTitles(anilistId, malId) {
   const query =
     'query($id:Int,$idMal:Int){Media(id:$id,idMal:$idMal,type:ANIME)' +
@@ -208,8 +170,6 @@ function firstM3u8(node, out) {
   walk(node);
   return found;
 }
-
-// ─── AnimePahe ───────────────────────────────────────────
 
 async function resolvePahe(base, titles, year, ep, audio) {
   const search = await fetchJson(
@@ -263,16 +223,6 @@ async function resolvePahe(base, titles, year, ep, audio) {
   return { m3u8: urls[0] };
 }
 
-// ─── Megavid & MegaPlay stream verification ──────────────────────────
-
-/** Megavid upstream hosts. Restricted allowlist so the HLS proxy below
- *  can never become an open proxy. Playlists are served from Megavid's own
- *  domain (incl. cp.megavid.buzz), and its video CDN has moved more than
- *  once: cdn.api-webs.com, then cdnx.aniwatchtv.site, and now the
- *  megavid.se apex (s-90.megavid.se and siblings). Leaving a media host out
- *  means rewritten playlists point the browser straight at a CDN without
- *  CORS headers - and the host rotates, so the apex is listed instead of
- *  one CDN subdomain. */
 const MEGAVID_HOSTS = new Set([
   'megavid.buzz',
   'cdn.api-webs.com',
@@ -280,10 +230,6 @@ const MEGAVID_HOSTS = new Set([
 ]);
 const MEGAVID_EXACT_HOSTS = new Set(['cdnx.aniwatchtv.site']);
 
-/** MegaPlay upstream and CDN hosts. MegaPlay serves video playlists from
- *  its own origin and distributes media chunks/subtitles across rotating
- *  CDNs (fetch.nexabloom.top, eclipseharbor.world/space, emeralddrift.world/space,
- *  and qeltrix.top). All hosts require Referer: https://megaplay.buzz/. */
 const MEGAPLAY_HOSTS = new Set([
   'megaplay.buzz',
   'nexabloom.top',
@@ -294,21 +240,14 @@ const MEGAPLAY_HOSTS = new Set([
   'emeralddrift.space',
 ]);
 
-/** Megavid's site origin. Its CDN (megavid.se) only answers for the site's
- *  own origin: the identical request without `Origin` comes back 403, which
- *  killed every episode in late October 2026 while the catalog still worked. */
 const MEGAVID_ORIGIN = 'https://megavid.buzz';
 
-/** MegaPlay's site origin. */
 const MEGAPLAY_ORIGIN = 'https://megaplay.buzz';
 
 const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
 const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
 
-/** Headers every request on Megavid's behalf must carry. The CDN checks the
- *  origin, the browser cannot set it on a cross-origin fetch, so we set it
- *  server-side. */
 function megavidHeaders(extra) {
   return Object.assign(
     {
@@ -350,15 +289,6 @@ function isAnimeCdnHost(hostname) {
   return isMegavidHost(hostname) || isMegaPlayHost(hostname);
 }
 
-/** MegaPlay serves segments from rotating throwaway domains
- *  (wintergrove.space, phantomharbor.space, goldenanchor.space, ...), a new
- *  one per title, so no allowlist keeps up: an unlisted host left the URL
- *  un-proxied, the browser got a 403 without MegaPlay's Referer, and the
- *  player buffered forever. Instead, every URL we read out of a MegaPlay
- *  playlist (or its subtitle list) is stamped with an HMAC, and the proxy
- *  accepts an unlisted host only with a valid stamp — nobody can point it
- *  at a URL MegaPlay didn't hand us. The key is one server-only Firestore
- *  doc (default-deny rules), read once per instance. */
 let cdnKeyPromise = null;
 function cdnKey() {
   if (!cdnKeyPromise) {
@@ -392,9 +322,6 @@ function validCdnStamp(key, url, stamp) {
   );
 }
 
-/** Proxy URL for a file MegaPlay pointed us at: plain for listed hosts,
- *  stamped for its rotating CDNs. Without a key it stays plain, which the
- *  proxy refuses for unlisted hosts (the old behaviour). */
 function megaplayProxyUrl(proxyBase, absUrl, key) {
   const url = megavidProxyUrl(proxyBase, absUrl);
   let host = '';
@@ -441,7 +368,6 @@ function makeMegaPlayToken(path) {
   return `${base64url(Buffer.from(payload))}.${base64url(hmac)}`;
 }
 
-/** Resolves a possibly-relative playlist URI against its playlist URL. */
 function resolvePlaylistUrl(ref, base) {
   try {
     const abs = new URL(String(ref || '').trim(), base).toString();
@@ -452,11 +378,6 @@ function resolvePlaylistUrl(ref, base) {
   }
 }
 
-/**
- * Non-comment URIs from an HLS playlist, resolved to absolute http(s) URLs.
- * With [variantsOnly], only URIs following an `#EXT-X-STREAM-INF` line are
- * returned (master playlist quality variants).
- */
 function playlistUris(text, base, { variantsOnly = false } = {}) {
   const lines = String(text || '').split(/\r?\n/);
   const out = [];
@@ -473,12 +394,6 @@ function playlistUris(text, base, { variantsOnly = false } = {}) {
   return out;
 }
 
-/**
- * Fetches an HLS playlist: it must answer 200 and actually parse as a
- * playlist. No CORS check here — server-side fetches ignore CORS, and
- * the browser never touches this URL directly (see proxyMegavidHls,
- * which re-serves everything from our own domain with `*`).
- */
 async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders()) {
   const res = await fetch(url, {
     headers,
@@ -493,13 +408,6 @@ async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders()) 
   return text;
 }
 
-/**
- * Downloads just the first bytes of a segment, key, or init map: proves
- * the file exists without pulling megabytes when the CDN ignores our
- * Range request. No CORS check — the browser streams through
- * proxyMegavidHls (same-origin + `*`), so upstream headers don't matter.
- * Returns the first chunk for content checks.
- */
 async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders()) {
   const h = Object.assign({}, headers, { Range: 'bytes=0-1023' });
   const res = await fetch(url, {
@@ -527,12 +435,6 @@ async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(
   }
 }
 
-/**
- * First segment bytes must look like MPEG-TS (sync byte 0x47) when the URL
- * points at a .ts file (or MegaPlay .jpg disguised TS segments). CDNs often
- * answer 200 with an HTML error page for removed files — fetchable, but it
- * can never play. Other containers (fmp4 segments) only need to be non-empty.
- */
 function assertPlayableHead(chunk, url, label) {
   const path = String(url).split('?')[0].toLowerCase();
   const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
@@ -544,7 +446,6 @@ function assertPlayableHead(chunk, url, label) {
   }
 }
 
-/** Total seconds of content in a media playlist. */
 function playlistDuration(text) {
   let total = 0;
   for (const line of String(text || '').split(/\r?\n/)) {
@@ -554,25 +455,8 @@ function playlistDuration(text) {
   return total;
 }
 
-/**
- * Minimum seconds for a playlist to plausibly be a full episode or movie.
- * Truncated uploads, trailers misfiled as episodes, and DMCA-gutted files
- * (seconds of valid video with a healthy structure) fail over instead of
- * playing a minute and dying. Rejecting here only demotes Megavid for the
- * title — the app still tries the next server.
- */
 const MIN_MEGAVID_SECONDS = 120;
 
-/**
- * Proves an HLS stream is actually playable before we serve our player
- * page for it: master playlist, every variant (the player auto-switches
- * quality, so each rendition must work — or the master itself when it
- * already lists segments), encryption key / init map when present, and
- * each variant's first segment must all fetch with playable bytes. Every
- * rendition must also hold a plausible amount of content. Anything dead
- * throws, and the endpoint answers with the failover marker so the app
- * advances to the next server instead of stalling on a spinner.
- */
 async function verifyStream(masterUrl, headers = megavidHeaders()) {
   const prefix = isMegaPlayHost(new URL(masterUrl).hostname) ? 'megaplay' : 'megavid';
   const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers);
@@ -622,22 +506,10 @@ async function verifyMegaPlayStream(masterUrl) {
   return verifyStream(masterUrl, megaplayHeaders());
 }
 
-// ─── Megavid (Proxied HLS Stream with NO ADS) ─────────────
-
-/** Builds our same-origin proxy URL for one upstream Megavid file.
- *  Pure: `proxyBase` is `https://<host>/proxyMegavidHls`. */
 function megavidProxyUrl(proxyBase, absUrl) {
-  // Deliberately token-free: nested playlist/segment/key URLs must never
-  // carry the viewer's login token (history + logs). The player sends
-  // identity as an Authorization header instead (see hlsPlayerHtml).
   return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
 }
 
-/** Rewrites every Megavid URI inside an HLS playlist to our proxy.
- *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
- *  Unlisted hosts are left untouched so a future mixed playlist can't
- *  turn the proxy into an open relay — unless [stampKey] is given (MegaPlay
- *  playlists only), which proxies them with a stamp (see cdnKey). */
 function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
   const rewriteUri = (uri) => {
     const abs = resolvePlaylistUrl(uri, playlistUrl);
@@ -678,8 +550,6 @@ function rewriteMegavidPlaylist(text, playlistUrl, proxyBase) {
   );
 }
 
-/** Own base URL for the Megavid HLS proxy, derived from the incoming
- *  request so staged and live hosts each rewrite to themselves. */
 function megavidProxyBase(req) {
   const host = (req.get && req.get('host')) || req.headers.host || '';
   const proto = req.protocol || 'https';
@@ -701,25 +571,13 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
   if (data.status !== 'ok' || !data.source) {
     throw new Error('megavid: no stream');
   }
-  // Removed episodes and stale CDN records answer "ok" with a playlist
-  // that never plays — verify first so the app fails over to the next
-  // server instead of stalling (see verifyMegavidStream).
   await verifyMegavidStream(data.source);
   const tracks = (Array.isArray(data.tracks) ? data.tracks : [])
     .filter((t) => t && t.file)
     .map((t) => ({
       ...t,
-      // Megavid's CDN answers only for its own origin, so subtitle files
-      // have to travel through our proxy like the media does - a browser
-      // fetch from the player page is rejected outright.
       file: megavidProxyUrl(megavidProxyBase(req), t.file),
     }));
-  // Megavid's CDN answers `access-control-allow-origin: https://megavid.buzz`
-  // for every playlist and segment — never `*`, never our origin — so a
-  // direct hls.js fetch from our player domain always dies on CORS and the
-  // player shows "This stream stalled". Route every playlist, variant, key,
-  // and segment through proxyMegavidHls (same-origin + `*`, Referer added
-  // server-side) so the browser never talks to Megavid directly.
   const token = (req && req.query && req.query.token) || '';
   const src = megavidProxyUrl(megavidProxyBase(req), data.source);
   return {
@@ -794,8 +652,6 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, req) {
   };
 }
 
-// ─── Endpoints ───────────────────────────────────────────
-
 const proxyAnime = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -809,11 +665,7 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
     return;
   }
 
-  // One page load per episode; resolving fans out to several upstream
-  // fetches, so cap anonymous page renders per IP.
   if (enforceRateLimit(req, res, { endpoint: 'proxyAnime', limit: 60, windowMs: 60000 })) return;
-  // Auth: token is validated if present; omitted/warming tokens are allowed
-  // so public anime streaming isn't interrupted by async token refresh.
   const token = req.get('Authorization') || req.query.token;
   if (token) {
     await verifyToken(req);
@@ -839,12 +691,6 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
       res.status(200).send(out.playerHtml);
       return;
     } catch (e) {
-      // Megavid has no stream for this episode — its API answers
-      // "missing" for unreleased or removed titles. The old code served
-      // the Megavid website embed here, but that page just spins its
-      // loader forever on missing episodes (and brings back the popunders
-      // the direct-stream path was built to avoid). Fail with the marker
-      // instead so the app auto-advances to the next server.
       sendFail('No stream found — try another server.');
       return;
     }
@@ -904,14 +750,6 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
   }
 });
 
-/** Megavid HLS proxy: re-serves playlists, keys, and segments from OUR
- *  domain so hls.js never hits Megavid's restrictive CORS (`allow-origin:
- *  https://megavid.buzz` only). Playlists are rewritten so every nested
- *  URI points back here; segments stream through with the Referer the
- *  CDN expects (browsers can't spoof it). Host allowlist keeps this from
- *  becoming an open proxy. Token is verified when present but optional —
- *  same public-anime rule as proxyAnime — so an expired token mid-episode
- *  never kills playback. */
 const proxyMegavidHls = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -925,12 +763,9 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'GET only' });
     return;
   }
-  // Playlists/keys re-fetch often during a stream; 240/min per IP is
-  // generous for 1-2 viewers and still cuts floods.
   if (enforceRateLimit(req, res, { endpoint: 'proxyMegavidHls', limit: 240, windowMs: 60000 })) return;
   const token = req.get('Authorization') || req.query.token;
   if (token) {
-    // Best-effort: keep playback alive even when the token expired.
     try {
       await verifyToken(req);
     } catch (_) {}
@@ -948,8 +783,6 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.status(400).json({ error: 'Invalid url' });
     return;
   }
-  // Unlisted hosts pass only with a stamp from a MegaPlay playlist we
-  // rewrote ourselves (see cdnKey), and then travel as MegaPlay.
   const stamped =
     !isAnimeCdnHost(parsed.hostname) &&
     typeof req.query.s === 'string' &&
@@ -985,7 +818,6 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       const text = await upstream.text();
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
-        // Nested URLs stay token-free (identity rides the header).
         const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
         const stampKey = megaplay ? await cdnKey().catch(() => null) : null;
         const rewritten = rewritePlaylistWithHosts(
@@ -1000,7 +832,6 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
         res.status(200).send(rewritten);
         return;
       }
-      // Falls through as a plain file when the body isn't a playlist.
     }
     const ct =
       upstream.headers.get('content-type') || 'application/octet-stream';
@@ -1033,9 +864,6 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
   }
 });
 
-/** Streams one upstream segment file with the headers the source needs
- *  (Kwik checks Referer, which browsers cannot spoof). Same token check
- *  as proxyAnime; host allowlist keeps it from becoming an open proxy. */
 const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -1053,7 +881,6 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
-  // A stream pulls a segment every few seconds; 240/min per viewer.
   if (enforceRateLimit(req, res, { endpoint: 'proxyAnimeSegment', limit: 240, windowMs: 60000, uid: authed.uid || '' })) return;
 
   const targetUrl = req.query.u;
@@ -1119,7 +946,6 @@ module.exports = {
   proxyAnime,
   proxyAnimeSegment,
   proxyMegavidHls,
-  // Pure helpers (unit-tested).
   normTitle,
   pickBestMatch,
   validateAnimeParams,

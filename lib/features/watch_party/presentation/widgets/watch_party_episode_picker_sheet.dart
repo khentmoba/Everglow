@@ -5,9 +5,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Season/episode picker shared by the title picker and the in-party
-/// episode button. Picking here is how one of you moves the room to a new
-/// episode; the other client follows on the next snapshot.
 class WatchPartyEpisodePickerSheet extends StatefulWidget {
   final String title;
   final bool isAnime;

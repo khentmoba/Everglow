@@ -26,10 +26,6 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// WeLib-style full book page: cover + title + meta chips + rating,
-/// expandable description, the Listen / Read / Download / Share /
-/// Save action row, and Downloads / Technical details / Similar
-/// tabs. Powers both the search results and the read list.
 class BookDetailScreen extends StatefulWidget {
   final BookDetailArgs args;
   const BookDetailScreen({super.key, required this.args});
@@ -65,8 +61,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   Future<void> _loadDetails() async {
     if (_result == null) {
-      // Build a bare result from the stored item so detail lookup
-      // still works for read-list entries.
       final ia = _item.iaId.isNotEmpty && !_item.iaId.startsWith('pg')
           ? _item.iaId
           : '';
@@ -114,10 +108,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       iaId: _item.iaId,
     );
   }
-
-  // ------------------------------------------------------------------
-  // Actions
-  // ------------------------------------------------------------------
 
   BookItem _bookForReading() {
     final result = _result;
@@ -199,7 +189,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  /// Download one file and remember it in the personal history.
   Future<void> _downloadFile(String format, String url) async {
     HapticFeedback.selectionClick();
     final fileName =
@@ -263,10 +252,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  // ------------------------------------------------------------------
-  // Build
-  // ------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
@@ -274,8 +259,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       backgroundColor: _cBlack,
       body: Stack(
         children: [
-          // Warm glow behind the cover; gradients only, no blur, so the
-          // page stays light on phones.
           Positioned(
             top: 0,
             left: 0,
@@ -495,8 +478,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  /// Main actions. Reading comes first (like Play on Netflix); download
-  /// takes the lead only when the book can't be read in the app.
   Widget _buildDownloadHero() {
     final best = _bestDownload;
     final canRead =
@@ -602,8 +583,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  /// Z-Lib style details card: the full metadata table up front
-  /// instead of hidden behind a tab.
   Widget _buildDetailsCard() {
     final rows = _detailRows();
     if (rows.isEmpty) return const SizedBox.shrink();
@@ -771,7 +750,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  /// Every file we can offer, nicest format first (EPUB > TXT > PDF ...).
   List<MapEntry<String, String>> get _downloads {
     final downloads = <String, String>{...?(_result?.downloadUrls)};
     if (downloads.isEmpty && _item.iaId.isNotEmpty) {

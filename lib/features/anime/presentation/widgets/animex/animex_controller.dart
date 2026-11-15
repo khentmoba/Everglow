@@ -22,9 +22,6 @@ enum AnimexPage {
   downloads,
 }
 
-/// Navigation + shared state for the anime section shell. Top-level pages
-/// live in an [IndexedStack] so their scroll/data survive tab switches;
-/// detail pages (watch, playlist detail) stack on top as full overlays.
 class AnimeXController extends ChangeNotifier {
   AnimeXController({
     Stream<List<MediaItem>> Function(String)? watchlistStream,
@@ -69,7 +66,6 @@ class AnimeXController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Browse-page preset applied when navigating from a "View All" link.
   String? browseSort;
   String? browseStatus;
   String? browseSeason;
@@ -86,7 +82,6 @@ class AnimeXController extends ChangeNotifier {
   bool get libraryLoading => _libraryLoading;
   bool get hasDetail => watchItem != null || playlistId != null || dmcaOpen;
 
-  /// Both History and Continue Watching read the same live account progress.
   List<AnimexHistoryEntry> get watchHistory => historyFromLibrary(_library);
   List<AnimexHistoryEntry> get continueWatching => watchHistory
       .where((entry) => entry.savedItem!.isCurrentlyWatching)
@@ -148,8 +143,6 @@ class AnimeXController extends ChangeNotifier {
     _libraryOwner = userName;
     _optimisticAnime.clearAll();
     _optimisticAddedAnime.clear();
-    // Drop the previous profile's subscription AND items immediately so
-    // one profile's My List never flashes for another on the same PWA.
     _watchlistSub?.cancel();
     _watchlistSub = null;
     _postersRefreshed = false;
@@ -179,7 +172,6 @@ class AnimeXController extends ChangeNotifier {
               }
             }
 
-            // Account progress/removals must not wait for optional poster work.
             _library
               ..clear()
               ..addAll(effective);
@@ -200,8 +192,6 @@ class AnimeXController extends ChangeNotifier {
                 return;
               }
               _postersRefreshed = true;
-              // Merge art only into still-present items, preserving optimistic
-              // additions/removals made while the poster request was pending.
               final posters = {
                 for (final item in refreshed) item.id: item.posterPath,
               };
@@ -299,8 +289,6 @@ class AnimeXController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Optimistically removes [item] from the in-memory library immediately,
-  /// then reconciles with Firestore in the background (rolling back on failure).
   Future<void> optimisticRemoveFromLibrary(
     MediaItem item,
     String userName,
@@ -327,8 +315,6 @@ class AnimeXController extends ChangeNotifier {
     );
   }
 
-  /// Optimistically adds [item] to the in-memory library immediately,
-  /// then reconciles with Firestore in the background (rolling back on failure).
   Future<void> optimisticAddToLibrary(
     MediaItem item,
     String userName, {

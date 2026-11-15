@@ -9,7 +9,7 @@ import 'package:everglow/features/anime/presentation/widgets/animex/animex_sched
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_schedule_page.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 
-final _now = DateTime(2026, 8, 17, 14); // Monday, device-local time.
+final _now = DateTime(2026, 8, 17, 14);
 
 MediaItem _media(
   String title, {
@@ -229,27 +229,24 @@ void main() {
 
       await tester.tap(find.text('All anime'));
       await tester.pumpAndSettle();
-      // The next episode appears twice on purpose: once in the NEXT UP card
-      // and once in the day list below it.
       expect(find.text('Other show'), findsWidgets);
       expect(find.text('NEXT UP'), findsOneWidget);
       expect(find.textContaining('Airs tonight'), findsOneWidget);
       expect(find.text('MY LIST'), findsOneWidget);
       expect(calls, [
         0,
-      ]); // View changes reuse public schedule, not personal matches.
+      ]);
 
-      controller.replaceLibrary([other]); // E.g. add/remove or profile switch.
+      controller.replaceLibrary([other]);
       await tester.pump();
       await tester.tap(find.widgetWithText(ChoiceChip, 'My List'));
       await tester.pumpAndSettle();
       expect(find.text('Saved show'), findsNothing);
       expect(find.text('Other show'), findsWidgets);
-      // The hero card comes first in the tree and opens the same title.
       await tester.tap(find.text('Other show').first);
       await tester.pump();
       expect(controller.watchItem, same(other));
-      expect(controller.watchEpisode, isNot(4)); // No EP 4 playback promise.
+      expect(controller.watchEpisode, isNot(4));
 
       controller.replaceLibrary([]);
       await tester.pump();
@@ -299,7 +296,7 @@ void main() {
       _app(
         AnimeXSchedulePage(
           controller: controller,
-          now: () => _now, // Monday 14:00.
+          now: () => _now,
           loadSchedule: (day) async => [
             _entry(_media('Already aired'), at: DateTime(2026, 8, 17, 10)),
             _entry(_media('Later today'), at: DateTime(2026, 8, 17, 19)),
@@ -323,7 +320,7 @@ void main() {
       _app(
         AnimeXSchedulePage(
           controller: controller,
-          now: () => _now, // Monday 14:00.
+          now: () => _now,
           loadSchedule: (day) async => day == 1
               ? [
                   _entry(
@@ -339,8 +336,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tue'));
     await tester.pumpAndSettle();
-    // The list says the time is unknown, so the card must not count down to
-    // midnight and claim "12:00 AM".
     expect(find.text('Time unavailable'), findsOneWidget);
     expect(find.text('NEXT UP'), findsNothing);
     expect(find.text('12:00 AM'), findsNothing);

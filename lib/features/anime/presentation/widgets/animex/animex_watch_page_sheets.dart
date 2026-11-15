@@ -1,6 +1,5 @@
 part of 'animex_watch_page.dart';
 
-// Keep spoiler metadata out of both text and thumbnail widgets (not blurred).
 AniListEpisode _episodeWithoutSpoilers(AniListEpisode episode) =>
     AniListEpisode(
       number: episode.number,

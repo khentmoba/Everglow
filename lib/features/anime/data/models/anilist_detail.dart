@@ -1,10 +1,3 @@
-/// Rich anime metadata returned by [AniListService.fetchDetails].
-///
-/// Bundles everything the [EpisodeDrawer] needs in one shape: synopsis,
-/// character + Japanese-VA cast, staff, related anime, recommendations,
-/// episode list, and a YouTube trailer key (AniList's `trailer.site ==
-/// 'youtube'` field). All fields are nullable except [id] and [titleEnglish]
-/// so callers can show a partial UI if AniList returns a slim payload.
 class AniListDetail {
   final int id;
   final int? malId;
@@ -32,12 +25,8 @@ class AniListDetail {
   final List<AniListEpisode> episodes;
   final List<AniListSeason> seasons;
 
-  /// Unix timestamp (seconds) of the next episode's air time. Only populated
-  /// for currently-airing anime where AniList provides `nextAiringEpisode`.
   final int? nextAiringAt;
 
-  /// Episode number of the next airing episode (from AniList's
-  /// `nextAiringEpisode.episode`).
   final int? nextAiringEpisode;
 
   const AniListDetail({
@@ -75,7 +64,7 @@ class AniListCharacter {
   final int id;
   final String name;
   final String imageUrl;
-  final String role; // MAIN, SUPPORTING, BACKGROUND
+  final String role;
   final List<AniListVoiceActor> voiceActors;
   const AniListCharacter({
     required this.id,
@@ -118,7 +107,7 @@ class AniListSeason {
   final String title;
   final String label;
   final String coverImageUrl;
-  final String format; // TV, MOVIE, OVA, ONA, SPECIAL
+  final String format;
   final int? year;
   final int month;
   final int day;
@@ -172,15 +161,9 @@ class AniListRelated {
   final int id;
   final String title;
   final String coverImageUrl;
-  final String relationType; // SEQUEL, PREQUEL, SIDE_STORY, etc.
-  final String format; // TV, MOVIE, OVA
+  final String relationType;
+  final String format;
 
-  /// MAL id for the related title. Critical for routing: the
-  /// [EpisodeDrawer] uses `MediaItem.tmdbId` as the MAL id for
-  /// anime-sourced items, so the AniList-native `id` alone can't be
-  /// looked up — we need the MAL id too. Optional because AniList
-  /// sometimes returns a relation node that hasn't been cross-linked
-  /// to MAL yet.
   final int? malId;
   const AniListRelated({
     required this.id,
@@ -197,7 +180,7 @@ class AniListRecommended {
   final int? malId;
   final String title;
   final String coverImageUrl;
-  final int? rating; // AniList user rating, 1-100
+  final int? rating;
   const AniListRecommended({
     required this.id,
     this.malId,
@@ -215,11 +198,6 @@ class AniListEpisode {
   final DateTime? airedAt;
   final int? duration;
 
-  /// Episode still/thumbnail URL from AniList's `streamingEpisodes`
-  /// payload. Western-licensed titles often have licensed stills
-  /// (Crunchyroll, Funimation, etc.) wired up; for others the field is
-  /// null and the episode tile falls back to the anime's poster or a
-  /// generated color block.
   final String? thumbnail;
   const AniListEpisode({
     required this.number,

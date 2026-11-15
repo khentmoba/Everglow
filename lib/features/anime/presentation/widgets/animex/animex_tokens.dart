@@ -2,19 +2,16 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Design tokens for the Everglow anime section, modeled on the reference
-/// anime streaming UI: near-black blue-tinted surfaces, the Everglow rose
-/// accent, Bebas Neue display type and DM Sans interface type.
 abstract final class AnimeXTokens {
   static const Color bg = Color(0xFF0A0A0F);
   static const Color surface = Color(0xFF111118);
   static const Color surfaceRaised = Color(0xFF1A1A26);
   static const Color border = Color(0x1FFFFFFF);
   static const Color borderStrong = Color(0x33FFFFFF);
-  static const Color accent = AppColors.deepRose; // Everglow deepRose
-  static const Color accentHover = Color(0xFFA0154A); // darker rose hover
-  static const Color accentWarm = AppColors.auroraRose; // Everglow auroraRose
-  static const Color accentGlow = AppColors.auroraRose; // glow / highlights
+  static const Color accent = AppColors.deepRose;
+  static const Color accentHover = Color(0xFFA0154A);
+  static const Color accentWarm = AppColors.auroraRose;
+  static const Color accentGlow = AppColors.auroraRose;
   static const Color textPrimary = Color(0xFFF8F8F8);
   static const Color textSecondary = Color(0xFF8B8B9E);
   static const Color textMuted = Color(0xFF4A4A5E);
@@ -25,7 +22,6 @@ abstract final class AnimeXTokens {
   static const Color cardHover = Color(0x14FFFFFF);
   static const Color white85 = Color(0xD9FFFFFF);
 
-  // Glass + glow treatments shared by cards, badges and popovers.
   static const Color glass = Color(0xB3121219);
   static const Color glassBorder = Color(0x2EFFFFFF);
   static const Color posterScrimBottom = Color(0xD9000000);
@@ -38,7 +34,7 @@ abstract final class AnimeXTokens {
   static const double radiusCard = 14;
   static const double radiusFull = 999;
 
-  static const double pageMaxWidth = 1536; // max-w-screen-2xl
+  static const double pageMaxWidth = 1536;
   static const double watchPageMaxWidth = 1400;
   static const double playerMaxHeight = 560;
   static const double rowPosterWidthMobile = 155;
@@ -49,10 +45,8 @@ abstract final class AnimeXTokens {
 
   static const double headerHeight = 60;
   static const double mobileNavHeight = 68;
-  // Full navigation needs room for the catalog links and profile controls.
   static const double desktopNavBreakpoint = 1200;
 
-  /// Soft accent glow used under hovered cards and primary actions.
   static List<BoxShadow> accentGlowShadow(double opacity) => [
         BoxShadow(
           color: accent.withValues(alpha: opacity),
@@ -61,7 +55,6 @@ abstract final class AnimeXTokens {
         ),
       ];
 
-  /// Deep drop shadow that lifts floating panels off the page.
   static const List<BoxShadow> popoverShadow = [
     BoxShadow(
       color: Color(0xCC000000),
@@ -76,7 +69,6 @@ abstract final class AnimeXTokens {
   ];
 }
 
-/// Display type: Bebas Neue, tight line height.
 TextStyle bebasStyle({
   double size = 20,
   Color color = AnimeXTokens.textPrimary,
@@ -92,7 +84,6 @@ TextStyle bebasStyle({
   );
 }
 
-/// Interface type: DM Sans.
 TextStyle dmSansStyle({
   double size = 14,
   Color color = AnimeXTokens.textPrimary,
@@ -111,10 +102,6 @@ TextStyle dmSansStyle({
   );
 }
 
-/// Interface type: DM Sans for long body copy (bundled).
-/// NOTE: this used to request 'Inter', which is not bundled in pubspec —
-/// CanvasKit fell back to a synthetic font and re-laid-out every anime
-/// body block. DM Sans is already shipped (assets/google_fonts/).
 TextStyle interBodyStyle({
   double size = 13,
   Color color = AnimeXTokens.textSecondary,

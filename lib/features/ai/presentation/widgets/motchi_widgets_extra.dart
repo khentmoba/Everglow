@@ -61,7 +61,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // A new stream is starting: show thinking notes again.
     if (oldWidget.isStreaming &&
         oldWidget.text.isNotEmpty &&
         widget.isStreaming &&
@@ -69,8 +68,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
       _showReasoning = true;
       return;
     }
-    // Once the visible answer starts arriving, collapse the thinking notes
-    // so the reply stays front and center.
     if (oldWidget.text.isEmpty &&
         widget.text.isNotEmpty &&
         widget.isStreaming) {
@@ -80,17 +77,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
-    // The model often starts replies with blank lines; trim them for a
-    // clean first line in the bubble (both while streaming and after).
     final bubbleText = widget.isUser ? widget.text : widget.text.trimLeft();
-    // Canvas / Artifacts: when Motchi answers a quiz / flashcards ask, the
-    // reply carries hidden quiz-json / flashcards-json blocks. Strip them
-    // so Clair never sees raw JSON — she sees warm text + one big tappable
-    // button (StudyArtifactEntry) that opens the interactive sheet
-    // (Q1 → answer → Next → Q2 … with score, flippable cards).
-    // The visible question list collapses too, unless she explicitly asked
-    // to see it inline (keepFullText) — an explicit ask always wins.
-    // Mid-stream, cut an unterminated fence too so half-JSON never flashes.
     final cleanBubbleText = widget.isUser
         ? bubbleText
         : widget.isStreaming
@@ -120,10 +107,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? DateFormat('MMM d, h:mm a').format(widget.timestamp!)
         : '';
 
-    // No entrance fade here on purpose: a whole-reply opacity animation sits
-    // at 0 until the first frame after the bubble mounts, which blanks the
-    // answer whenever frames are throttled (background tab, resumed app).
-    // The answering look lives on the avatar halo instead.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
@@ -283,10 +266,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Interactive canvas entry — one big obvious button
-                          // when the reply carries a quiz / flashcards.
-                          // Shown only once streaming finishes so the button
-                          // never flickers mid-stream.
                           if (!widget.isUser &&
                               !widget.isStreaming &&
                               widget.showArtifacts &&

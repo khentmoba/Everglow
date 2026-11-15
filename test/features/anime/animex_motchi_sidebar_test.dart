@@ -388,29 +388,24 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Initially, floating trigger is visible and sidebar is closed
       expect(find.byType(AnimeXMotchiFloatingTrigger), findsOneWidget);
       expect(
         find.text('Temporary anime chat · Nothing is saved'),
         findsNothing,
       );
 
-      // Tap trigger to open
       await tester.tap(find.byType(AnimeXMotchiFloatingTrigger));
       await tester.pumpAndSettle();
 
-      // Now sidebar is open and floating trigger is gone
       expect(
         find.text('Temporary anime chat · Nothing is saved'),
         findsOneWidget,
       );
       expect(find.byType(AnimeXMotchiFloatingTrigger), findsNothing);
 
-      // Tap close button to close
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
-      // Back to closed
       expect(
         find.text('Temporary anime chat · Nothing is saved'),
         findsNothing,
@@ -427,7 +422,6 @@ void main() {
 
         var toggled = false;
 
-        // 1. Browsing Home/Browse (watchItem is null) -> Motchi should NOT be shown in header
         controller.watchItem = null;
         await tester.pumpWidget(
           MultiProvider(
@@ -453,7 +447,6 @@ void main() {
 
         expect(find.text('Motchi'), findsNothing);
 
-        // 2. User starts watching an anime -> Motchi appears in header!
         controller.watchItem = MediaItem(
           id: 'watch-test-1',
           tmdbId: 100,
@@ -490,7 +483,6 @@ void main() {
         await tester.tap(find.text('Motchi'));
         expect(toggled, isTrue);
 
-        // 3. Cinema-only user watching an anime -> Motchi stays hidden
         final cinemaAuth = _FakeCinemaOnlyAuthService();
         await tester.pumpWidget(
           MultiProvider(
@@ -611,8 +603,6 @@ void main() {
         expect(convRepo.archiveCount, 0);
         expect(convRepo.assistant, isNull);
 
-        // Verify that sendTemporaryMessage starts without throwing state error
-        // and leaves repo clean
         expect(convRepo.saveCount, 0);
         expect(convRepo.archiveCount, 0);
       },
@@ -652,14 +642,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Tap a suggestion prompt to initiate send
         final promptFinder = find.text('Recommend an anime');
         expect(promptFinder, findsOneWidget);
         await tester.tap(promptFinder);
         await tester.pump();
 
-        // 1. In flight, before first token:
-        // Shows answering halo and 'thinking' badge
         expect(
           find.byKey(const ValueKey('motchi-answering-halo')),
           findsOneWidget,
@@ -668,32 +655,26 @@ void main() {
         await tester.pump(const Duration(seconds: 2));
         expect(tester.binding.hasScheduledFrame, isFalse);
 
-        // 2. Stream chunk arrives:
         fakeAi.emitStreamChunk('Slime isekai is great!');
         await tester.pump();
 
-        // Now shows 'replying' badge
         expect(find.text('replying'), findsOneWidget);
         await tester.pump(const Duration(seconds: 2));
         expect(tester.binding.hasScheduledFrame, isFalse);
         expect(find.text('thinking'), findsNothing);
         expect(find.textContaining('Slime isekai is great!'), findsOneWidget);
 
-        // Halo is still active
         expect(
           find.byKey(const ValueKey('motchi-answering-halo')),
           findsOneWidget,
         );
 
-        // Pump ticker to ensure animation runs cleanly
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull);
 
-        // 3. Complete reply:
         fakeAi.completeReply('Slime isekai is great!');
         await tester.pumpAndSettle();
 
-        // Badges and tail indicator gone
         expect(find.text('replying'), findsNothing);
         expect(find.text('thinking'), findsNothing);
         expect(

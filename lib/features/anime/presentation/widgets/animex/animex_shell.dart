@@ -26,12 +26,6 @@ import 'animex_seasonal_page.dart';
 import 'animex_tokens.dart';
 import 'animex_watch_page.dart';
 
-/// Full anime section shell: header, page stack.
-/// The legacy collapsible CinemaSidebar was removed per product request:
-///  - No sidebar is rendered for any user.
-///  - A single Cinema switch is shown ONLY to cinema-only profiles
-///    (breyan / octagram) inside AnimeXTopHeader; khent / clair see no
-///    cinema affordance here and use the Dashboard back arrow instead.
 class AnimeXShell extends StatefulWidget {
   final int? initialAnilistId;
   final int? initialMalId;
@@ -143,9 +137,6 @@ class _AnimeXShellState extends State<AnimeXShell> {
             size.width >= AnimeXTokens.desktopNavBreakpoint || isTv;
     final isCoupleUser =
         context.select<AuthService, bool>((a) => a.isCoupleUser);
-    // If the profile changed while the shell is mounted (logout/login on
-    // the same PWA), reload both the per-user history store and the
-    // per-user watchlist stream so no data bleeds across profiles.
     final authUser = context.select<AuthService, String?>((a) => a.currentUser);
     if (_lastUser != null && _lastUser != authUser) {
       _lastUser = authUser;
@@ -218,7 +209,6 @@ class _AnimeXShellState extends State<AnimeXShell> {
                             child: detailChild,
                           ),
                         ),
-                      // Floating trigger: ONLY when actually watching an anime
                       if (isCoupleUser && isWatchingAnime && !_controller.motchiOpen)
                         Positioned(
                           bottom: 20,
@@ -227,7 +217,6 @@ class _AnimeXShellState extends State<AnimeXShell> {
                             onTap: _controller.openMotchi,
                           ),
                         ),
-                      // Motchi Sidebar: ONLY when actually watching an anime
                       if (isCoupleUser && isWatchingAnime)
                         AnimeXMotchiSidebar(
                           isOpen: _controller.motchiOpen,

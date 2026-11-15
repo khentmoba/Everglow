@@ -7,7 +7,6 @@ import 'package:everglow/features/dashboard/presentation/widgets/deferred_sectio
 import 'package:everglow/shared/widgets/app_network_image.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
 
-/// Test widget representing a shelf of media poster cards.
 Widget _buildShelfRow({required bool isolateCards}) {
   return SizedBox(
     height: 220,
@@ -33,7 +32,6 @@ Widget _buildShelfRow({required bool isolateCards}) {
   );
 }
 
-/// Builds a full scroll scene with 20 sections.
 Widget _buildScene({
   required ScrollController controller,
   required bool useOptimizedDeferred,
@@ -99,11 +97,10 @@ class _TrackedSectionState extends State<_TrackedSection> {
 void main() {
   group('Ultra-Performance Scroll & Memory Benchmarks', () {
     testWidgets('Frame-1 mounts stay lazy and scrolling still works', (tester) async {
-      tester.view.physicalSize = const Size(390, 844); // iPhone 15 Pro viewport
+      tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);
 
-      // --- BASELINE (Unoptimized eager mounting without isolation) ---
       final baselineMounted = <int>{};
       final baselineController = ScrollController();
       addTearDown(baselineController.dispose);
@@ -117,9 +114,8 @@ void main() {
         ),
       );
       await tester.pump();
-      final baselineInitialMountCount = baselineMounted.length; // 20/20 mounted
+      final baselineInitialMountCount = baselineMounted.length;
 
-      // --- OPTIMIZED (Viewport-staged DeferredSection with RepaintBoundary isolation) ---
       final optimizedMounted = <int>{};
       final optimizedController = ScrollController();
       addTearDown(optimizedController.dispose);
@@ -135,13 +131,10 @@ void main() {
       await tester.pump();
       final optimizedInitialMountCount = optimizedMounted.length;
 
-      // 1. Verify Frame-1 mount reduction threshold (>= 80% cut, <= 4 mounts)
       expect(optimizedInitialMountCount, lessThanOrEqualTo(4));
       final mountReduction = (baselineInitialMountCount - optimizedInitialMountCount) / baselineInitialMountCount;
       expect(mountReduction, greaterThanOrEqualTo(0.80));
 
-      // Scrolling still works after the lazy-mount change, which is the
-      // regression this guard actually exists to catch.
       optimizedController.jumpTo(1200.0);
       await tester.pump();
       optimizedController.jumpTo(2400.0);
@@ -151,25 +144,12 @@ void main() {
       debugPrint('[PERF] Baseline Frame-1 Mounts: $baselineInitialMountCount');
       debugPrint('[PERF] Optimized Frame-1 Mounts: $optimizedInitialMountCount '
           '(${(mountReduction * 100).toStringAsFixed(1)}% reduction)');
-      // No frame-time assertions here on purpose. `tester.pump` runs no
-      // rasterizer, so any build/raster split derived from its wall clock is
-      // a synthetic proxy, and a threshold on it passes or fails with machine
-      // load rather than with the app. Real frame timings are measured in a
-      // browser via tool/perf/measure_scroll.mjs; see
-      // docs/pr-proof/pr-400/BENCHMARKS.md for why they cannot gate CI here.
     });
 
     test('decoded shelf memory is bounded using the shipped cacheWidth logic', () {
-      // Computed from AppNetworkImage.resolveCacheWidth/Height — the function
-      // the app actually calls — against the two real call sites, so this
-      // measures shipped behaviour instead of a hardcoded assumption.
-      //
-      // Dashboard ShelfCard: 128x186 logical, no explicit cacheWidth.
-      // Cinema/anime ShelfPosterCard: explicit cacheWidth 400.
-      const itemsPerSurface = 30; // a rail's worth, per the catalog size
-      const bytesPerPixel = 4; // RGBA8888
+      const itemsPerSurface = 30;
+      const bytesPerPixel = 4;
 
-      // TMDB's natural poster size, i.e. what an unsized decode allocates.
       const naturalWidth = 780;
       const naturalHeight = 1170;
       final naturalBytes = naturalWidth * naturalHeight * bytesPerPixel;
@@ -188,21 +168,15 @@ void main() {
           displayHeight: displayHeight,
           explicitWidth: declaredWidth,
         );
-        // A sized decode always forces the width; the height then follows the
-        // poster's own aspect (resolveCacheHeight deliberately returns null
-        // when an explicit width is set, so the image keeps its proportions).
         expect(w, isNotNull, reason: 'a sized decode must force a width');
         final usedWidth = w!;
         final height = h ?? (usedWidth * naturalHeight / naturalWidth).round();
         return usedWidth * height * bytesPerPixel;
       }
 
-      // Dashboard rail (ShelfCard, 128x186).
       final shelfCard = sizedBytesFor(displayWidth: 128, displayHeight: 186);
-      // Inside-screen rail (ShelfPosterCard, explicit 400).
       final posterCard = sizedBytesFor(declaredWidth: 400);
 
-      // Sanity: the shipped derivation is what produced these numbers.
       expect(
         AppNetworkImage.resolveCacheWidth(declaredCacheWidth: null, displayWidth: 128),
         256,
@@ -214,7 +188,7 @@ void main() {
         reason: 'an explicit cacheWidth must win over the derived one',
       );
 
-      final surfaces = itemsPerSurface * 2; // dashboard rail + inside-screen rail
+      final surfaces = itemsPerSurface * 2;
       final rawTotal = naturalBytes * surfaces;
       final sizedTotal = (shelfCard + posterCard) * itemsPerSurface;
       final reduction = (rawTotal - sizedTotal) / rawTotal;

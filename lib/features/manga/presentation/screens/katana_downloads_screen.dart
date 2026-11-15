@@ -11,8 +11,6 @@ import '../katana/katana_header.dart';
 import '../katana/katana_nav.dart';
 import '../katana/katana_theme.dart';
 
-/// Dedicated Manga Celestia Downloads Screen: lets Clair and Khent manage
-/// and read offline manga chapters and pages with the full native reader UI.
 class KatanaDownloadsScreen extends StatelessWidget {
   final bool embed;
 
@@ -193,7 +191,6 @@ class KatanaDownloadsScreen extends StatelessWidget {
     OfflineMediaService service,
     List<OfflineMediaItem> items,
   ) {
-    // Group manga chapters by manga slug / title
     final series = <String, List<OfflineMediaItem>>{};
 
     for (final item in items) {

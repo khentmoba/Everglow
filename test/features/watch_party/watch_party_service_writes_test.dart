@@ -1,4 +1,3 @@
-// Network-free SDK boundary; no emulator is needed for room write semantics.
 // ignore_for_file: subtype_of_sealed_class
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/features/watch_party/data/services/watch_party_service.dart';

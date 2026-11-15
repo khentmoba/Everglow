@@ -33,7 +33,6 @@ void main() {
       expect(e.amount, 0);
       expect(e.category, 'Other');
       expect(e.note, '');
-      // Falls back to now — just must not crash or be null.
       expect(e.createdAt.isBefore(DateTime.now().add(const Duration(minutes: 1))), isTrue);
     });
 
@@ -97,8 +96,6 @@ void main() {
 
   group('BudgetLimit.fromFirestore', () {
     test('falls back to doc id + 0 on garbage', () {
-      // fromMap-equivalent via fromFirestore needs a doc; exercise the
-      // parsing shape through a minimal fake instead.
       const limit = BudgetLimit(category: 'Food', amount: 8000);
       expect(limit.category, 'Food');
       expect(limit.amount, 8000);

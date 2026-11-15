@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../../core/system/tv_mode.dart';
 import 'animex_tokens.dart';
 
-/// Shared touch, hover and keyboard-focus behavior for AnimeX actions.
 class _HoverTap extends StatefulWidget {
   final VoidCallback? onTap;
   final Widget Function(BuildContext context, bool hovered) builder;
@@ -59,7 +58,6 @@ class _HoverTapState extends State<_HoverTap> {
   }
 }
 
-/// Accent-filled action button (btn-primary).
 class AnimeXPrimaryButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -122,7 +120,6 @@ class AnimeXPrimaryButton extends StatelessWidget {
   }
 }
 
-/// Translucent, blurred secondary button (btn-secondary / btn-more-info).
 class AnimeXSecondaryButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -179,7 +176,6 @@ class AnimeXSecondaryButton extends StatelessWidget {
   }
 }
 
-/// Text-only ghost button (btn-ghost).
 class AnimeXGhostButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -236,7 +232,6 @@ class AnimeXGhostButton extends StatelessWidget {
   }
 }
 
-/// White "Watch Now" button with a filled play triangle (btn-watch-now).
 class AnimeXWatchNowButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -282,7 +277,6 @@ class AnimeXWatchNowButton extends StatelessWidget {
   }
 }
 
-/// Login-style white pill button.
 class AnimeXLoginButton extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -331,7 +325,6 @@ class AnimeXLoginButton extends StatelessWidget {
   }
 }
 
-/// Small circular icon button (search, back).
 class AnimeXIconButton extends StatelessWidget {
   final IconData? icon;
   final Widget? iconWidget;

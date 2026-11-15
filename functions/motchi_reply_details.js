@@ -1,6 +1,5 @@
 'use strict';
 
-// Small, verified receipts — never ask the model to invent execution status.
 const WRITE_TOOL_RE = /^(add_|save_|set_|create_|edit_|update_|delete_|remove_|cancel_|complete_|mark_|log_|pin_|send_|remember_)/;
 const isWriteTool = (name) => WRITE_TOOL_RE.test(String(name));
 
@@ -41,7 +40,6 @@ function toolReceipt(tool, args, raw) {
   else if (result.error || result.success === false) status = 'failed';
   else if (result.scheduled === false) status = 'unscheduled';
   else if (write && result.success !== true) status = 'unknown';
-  // Don't expose raw provider errors or entire personal records in receipts.
   const title = String(
     result?.title || result?.fact || args?.title || args?.name || args?.query || urlHosts(args) || '',
   ).slice(0, 120);
@@ -51,9 +49,6 @@ function toolReceipt(tool, args, raw) {
   return { tool, status, write, title, target };
 }
 
-// read_web_page takes urls, not a query, so it used to be the one step
-// with a blank receipt — "Did not complete · read web page" told Clair
-// nothing. The host is what she recognises from the sources above it.
 function urlHosts(args) {
   const urls = Array.isArray(args?.urls) ? args.urls : [args?.url];
   const hosts = [];
@@ -61,7 +56,7 @@ function urlHosts(args) {
     try {
       const host = new URL(String(raw || '')).hostname.replace(/^www\./, '');
       if (host && !hosts.includes(host)) hosts.push(host);
-    } catch (_) { /* not a URL — nothing to show */ }
+    } catch (_) { }
   }
   return hosts.join(', ');
 }
