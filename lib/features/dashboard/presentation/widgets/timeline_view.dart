@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_elevation.dart';
@@ -520,31 +521,34 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: Container(
-                height: 500,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.silk, AppColors.velvet, AppColors.inkDeep],
-              stops: [0.0, 0.55, 1.0],
-            ),
-            borderRadius: AppRadius.radiusX3,
-            border: Border.all(
-              color: AppColors.blushGold.withValues(alpha: 0.32),
-            ),
-            boxShadow: [
-              ...AppElevation.e3,
-              ...AppElevation.glowRose,
-              BoxShadow(
-                color: AppColors.blushGold.withValues(alpha: 0.10),
-                blurRadius: 14,
-                spreadRadius: -6,
+            child: RepaintBoundary(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Container(
+                  height: 500,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.silk, AppColors.velvet, AppColors.inkDeep],
+                stops: [0.0, 0.55, 1.0],
               ),
-            ],
-          ),
+              borderRadius: AppRadius.radiusX3,
+              border: Border.all(
+                color: AppColors.blushGold.withValues(alpha: 0.32),
+              ),
+              boxShadow: kIsWeb
+                  ? AppElevation.e3
+                  : [
+                      ...AppElevation.e3,
+                      ...AppElevation.glowRose,
+                      BoxShadow(
+                        color: AppColors.blushGold.withValues(alpha: 0.10),
+                        blurRadius: 14,
+                        spreadRadius: -6,
+                      ),
+                    ],
+            ),
           child: ClipRRect(
             borderRadius: AppRadius.radiusX3,
             child: Column(
@@ -900,6 +904,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
           ),
               ),
             ),
+            ),
           ),
         ),
       ),
@@ -907,47 +912,59 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
   }
 
   Widget _buildFilmStripEdge({required bool isTop}) {
-    return Container(
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.inkDeep.withValues(alpha: 0.6),
-        border: isTop
-            ? Border(
-                bottom: BorderSide(
-                  color: AppColors.blushGold.withValues(alpha: 0.16),
-                ),
-              )
-            : Border(
-                top: BorderSide(
-                  color: AppColors.blushGold.withValues(alpha: 0.16),
-                ),
-              ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(
-          8,
-          (index) => Container(
-            width: 22,
-            height: 10,
-            decoration: BoxDecoration(
-              color: AppColors.moonlight.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.14),
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: AppColors.scrimMedium,
-                  blurRadius: 2,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-          ),
-        ),
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: _FilmStripEdgePainter(isTop: isTop),
+        child: const SizedBox(height: 30, width: double.infinity),
       ),
     );
   }
+}
+
+class _FilmStripEdgePainter extends CustomPainter {
+  const _FilmStripEdgePainter({required this.isTop});
+
+  final bool isTop;
+
+  static final Paint _bgPaint = Paint()
+    ..color = AppColors.inkDeep.withValues(alpha: 0.6);
+  static final Paint _borderPaint = Paint()
+    ..color = AppColors.blushGold.withValues(alpha: 0.16)
+    ..strokeWidth = 1.0;
+  static final Paint _holeFillPaint = Paint()
+    ..color = AppColors.moonlight.withValues(alpha: 0.2);
+  static final Paint _holeStrokePaint = Paint()
+    ..color = AppColors.moonlight.withValues(alpha: 0.14)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, _bgPaint);
+    final lineY = isTop ? size.height - 0.5 : 0.5;
+    canvas.drawLine(Offset(0, lineY), Offset(size.width, lineY), _borderPaint);
+
+    const padX = 14.0;
+    const holeW = 22.0;
+    const holeH = 10.0;
+    const count = 8;
+    final usable = size.width - padX * 2 - holeW * count;
+    final stepGap = usable / (count - 1);
+    final top = (size.height - holeH) * 0.5;
+    const radius = Radius.circular(3);
+
+    for (var i = 0; i < count; i++) {
+      final left = padX + i * (holeW + stepGap);
+      final rrect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, top, holeW, holeH),
+        radius,
+      );
+      canvas.drawRRect(rrect, _holeFillPaint);
+      canvas.drawRRect(rrect, _holeStrokePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FilmStripEdgePainter oldDelegate) =>
+      oldDelegate.isTop != isTop;
 }

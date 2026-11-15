@@ -1,5 +1,24 @@
 part of 'books_screen.dart';
 
+class _BookFeedSlice {
+  const _BookFeedSlice(this.results, this.items);
+
+  static const _BookFeedSlice empty = _BookFeedSlice(
+    <BookSearchResult>[],
+    <BookItem>[],
+  );
+
+  final List<BookSearchResult> results;
+  final List<BookItem> items;
+
+  factory _BookFeedSlice.fromResults(List<BookSearchResult> results) {
+    return _BookFeedSlice(
+      results,
+      List<BookItem>.unmodifiable(results.map((r) => r.toBookItem())),
+    );
+  }
+}
+
 abstract class _BooksScreenStateBase extends State<BooksScreen> {
   late final OpenLibraryService _service = OpenLibraryService();
   late final BookCatalogService _catalog =
@@ -17,8 +36,11 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   List<BookItem> _favorites = [];
   List<BookItem> _history = [];
 
-  List<BookSearchResult> _popular = [];
-  List<BookSearchResult> _recent = [];
+  final ValueNotifier<_BookFeedSlice> _popularFeed =
+      ValueNotifier<_BookFeedSlice>(_BookFeedSlice.empty);
+  final ValueNotifier<_BookFeedSlice> _recentFeed =
+      ValueNotifier<_BookFeedSlice>(_BookFeedSlice.empty);
+  final ValueNotifier<bool> _showHomeSkeleton = ValueNotifier<bool>(true);
   bool _isLoadingHome = true;
   bool _homeStarted = false;
   int _searchRequest = 0;
@@ -29,6 +51,8 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   bool _isSearching = false;
   bool _searchingMore = false;
   Timer? _searchDebounce;
+  final List<VoidCallback> _pendingHomeUpdates = <VoidCallback>[];
+  ValueNotifier<bool>? _scrollFlushNotifier;
   BookSort _searchSort = BookSort.relevant;
   String? _searchFiletype;
   String? _searchLanguage;
@@ -80,6 +104,12 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     _homeScroll.dispose();
     _resultsScroll.dispose();
     _searchDebounce?.cancel();
+    _scrollFlushNotifier?.removeListener(_drainPendingHomeUpdates);
+    _scrollFlushNotifier = null;
+    _pendingHomeUpdates.clear();
+    _popularFeed.dispose();
+    _recentFeed.dispose();
+    _showHomeSkeleton.dispose();
     super.dispose();
   }
 
@@ -109,29 +139,81 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     _readHistoryList = _readlist.where((item) => item.isRead).toList();
   }
 
+  void _syncHomeSkeleton() {
+    _showHomeSkeleton.value =
+        _isLoadingHome &&
+        _popularFeed.value.results.isEmpty &&
+        _recentFeed.value.results.isEmpty;
+  }
+
+  void _enqueueHomeUpdate(VoidCallback apply) {
+    if (!mounted) return;
+    final notifier = _homeScroll.hasClients
+        ? _homeScroll.position.isScrollingNotifier
+        : null;
+    if (notifier == null || !notifier.value) {
+      apply();
+      _syncHomeSkeleton();
+      return;
+    }
+    _pendingHomeUpdates.add(apply);
+    if (_scrollFlushNotifier == notifier) return;
+    _scrollFlushNotifier?.removeListener(_drainPendingHomeUpdates);
+    _scrollFlushNotifier = notifier;
+    notifier.addListener(_drainPendingHomeUpdates);
+  }
+
+  void _drainPendingHomeUpdates() {
+    final notifier = _scrollFlushNotifier;
+    if (notifier != null && notifier.value) return;
+    notifier?.removeListener(_drainPendingHomeUpdates);
+    _scrollFlushNotifier = null;
+    if (!mounted) {
+      _pendingHomeUpdates.clear();
+      return;
+    }
+    if (_pendingHomeUpdates.isEmpty) return;
+    final updates = List<VoidCallback>.of(_pendingHomeUpdates);
+    _pendingHomeUpdates.clear();
+    for (final update in updates) {
+      update();
+    }
+    _syncHomeSkeleton();
+  }
+
   Future<void> _fetchHomeData() async {
     _homeStarted = true;
-    setState(() => _isLoadingHome = true);
+    _isLoadingHome = true;
+    _syncHomeSkeleton();
     Future<void> row(
       Future<List<BookSearchResult>> future,
-      void Function(List<BookSearchResult>) apply,
+      void Function(_BookFeedSlice) apply,
     ) async {
       try {
         final items = await future;
-        if (mounted) setState(() => apply(items));
+        if (!mounted) return;
+        SectionFonts.warmFallbackGlyphs([
+          for (final item in items) ...[item.title, item.author],
+        ]);
+        final slice = _BookFeedSlice.fromResults(items);
+        _enqueueHomeUpdate(() => apply(slice));
       } catch (error, stack) {
         Logger.e('Books home feed failed', error: error, stackTrace: stack);
       }
     }
 
     await Future.wait([
-      row(_catalog.mostPopular(limit: 12), (items) => _popular = items),
-      row(_catalog.recentlyAdded(limit: 12), (items) => _recent = items),
+      row(
+        _catalog.mostPopular(limit: 12),
+        (slice) => _popularFeed.value = slice,
+      ),
+      row(
+        _catalog.recentlyAdded(limit: 12),
+        (slice) => _recentFeed.value = slice,
+      ),
     ]);
     if (!mounted) return;
-    setState(() {
-      _isLoadingHome = false;
-    });
+    _enqueueHomeUpdate(() => _isLoadingHome = false);
   }
 
   void _onSearchChanged(String query) {

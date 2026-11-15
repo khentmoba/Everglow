@@ -78,18 +78,22 @@ class CinemaHomeTab extends StatelessWidget {
 
   Widget _row(String title, List<MediaItem> items, {bool ranked = false}) {
     if (items.isEmpty && isLoadingHome) {
-      return SliverToBoxAdapter(child: NetflixLoadingRow(title: title));
+      return SliverToBoxAdapter(
+        child: RepaintBoundary(child: NetflixLoadingRow(title: title)),
+      );
     }
     return SliverToBoxAdapter(
-      child: NetflixRow(
-        title: title,
-        items: items,
-        ranked: ranked,
-        onTapItem: onMediaTap,
-        onPlayItem: onPlayItem,
-        onToggleListItem: onToggleListItem,
-        onRateItem: onRateItem,
-        isInList: isInList,
+      child: RepaintBoundary(
+        child: NetflixRow(
+          title: title,
+          items: items,
+          ranked: ranked,
+          onTapItem: onMediaTap,
+          onPlayItem: onPlayItem,
+          onToggleListItem: onToggleListItem,
+          onRateItem: onRateItem,
+          isInList: isInList,
+        ),
       ),
     );
   }

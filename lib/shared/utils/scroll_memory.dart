@@ -83,12 +83,31 @@ class RememberedScrollController extends ScrollController {
   static Duration saveDelay = const Duration(milliseconds: 500);
 
   Timer? _saveTimer;
+  bool _scrollDirty = false;
 
   String get _storageKey => 'scroll:$memoryKey';
 
   void _scheduleSave() {
-    _saveTimer?.cancel();
-    _saveTimer = Timer(saveDelay, _persist);
+    // Coalesce scroll ticks into a single active timer so continuous scrolling
+    // doesn't cancel and reallocate a Timer on every frame.
+    if (_saveTimer?.isActive ?? false) {
+      _scrollDirty = true;
+      return;
+    }
+    _scrollDirty = false;
+    _armSaveTimer(saveDelay);
+  }
+
+  void _armSaveTimer(Duration delay) {
+    _saveTimer = Timer(delay, () {
+      if (_scrollDirty) {
+        _scrollDirty = false;
+        final stepMs = max(16, saveDelay.inMilliseconds ~/ 5);
+        _armSaveTimer(Duration(milliseconds: stepMs));
+        return;
+      }
+      _persist();
+    });
   }
 
   Future<void> _persist() async {

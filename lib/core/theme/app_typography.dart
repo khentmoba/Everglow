@@ -157,6 +157,7 @@ class AppTypography {
   /// Outfit base -- white text, any size via copyWith.
   static const TextStyle outfitWhite = TextStyle(
     fontFamily: body,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w500,
     color: AppColors.petalWhite,
   );
@@ -164,6 +165,7 @@ class AppTypography {
   /// Outfit base -- muted text, any size via copyWith.
   static final TextStyle outfitMuted = TextStyle(
     fontFamily: body,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w500,
     color: AppColors.textMuted,
   );
@@ -171,6 +173,7 @@ class AppTypography {
   /// Outfit base -- medium text, any size via copyWith.
   static final TextStyle outfitMedium = TextStyle(
     fontFamily: body,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w500,
     color: AppColors.textMedium,
   );
@@ -178,6 +181,7 @@ class AppTypography {
   /// Outfit w600 white -- buttons/labels base.
   static const TextStyle outfitBold = TextStyle(
     fontFamily: body,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w600,
     color: AppColors.petalWhite,
   );
@@ -185,6 +189,7 @@ class AppTypography {
   /// Outfit w700 white -- headings base.
   static const TextStyle outfitHeading = TextStyle(
     fontFamily: body,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.petalWhite,
   );
@@ -192,6 +197,7 @@ class AppTypography {
   /// Cormorant w600 rose -- display headings base.
   static const TextStyle cormorantHeading = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w600,
     color: AppColors.roseQuartz,
   );
@@ -199,6 +205,7 @@ class AppTypography {
   /// Cormorant regular rose -- neutral display base.
   static const TextStyle cormorantRegular = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w400,
     color: AppColors.roseQuartz,
   );
@@ -206,6 +213,7 @@ class AppTypography {
   /// Cormorant w700 rose -- bold display base.
   static const TextStyle cormorantBold = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.roseQuartz,
   );
@@ -213,6 +221,7 @@ class AppTypography {
   /// Cormorant w700 white -- bold light display base.
   static const TextStyle cormorantBoldWhite = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.petalWhite,
   );
@@ -220,6 +229,7 @@ class AppTypography {
   /// Cormorant w600 white -- semi-bold light display base.
   static const TextStyle cormorantSemiBoldWhite = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w600,
     color: AppColors.petalWhite,
   );
@@ -227,6 +237,7 @@ class AppTypography {
   /// Cormorant extra-bold display base (clamped to w700 — 800 not bundled).
   static const TextStyle cormorantExtraBold = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.roseQuartz,
   );
@@ -234,6 +245,7 @@ class AppTypography {
   /// Cormorant extra-bold light display base (clamped to w700).
   static const TextStyle cormorantExtraBoldWhite = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.petalWhite,
   );
@@ -241,6 +253,7 @@ class AppTypography {
   /// Cormorant heavy display base (clamped to w700 — 900 not bundled).
   static const TextStyle cormorantBlack = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.roseQuartz,
   );
@@ -248,6 +261,7 @@ class AppTypography {
   /// Cormorant heavy light display base (clamped to w700).
   static const TextStyle cormorantBlackWhite = TextStyle(
     fontFamily: display,
+    fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.petalWhite,
   );

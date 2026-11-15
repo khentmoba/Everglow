@@ -10,6 +10,7 @@ import 'animex_badges.dart';
 import 'animex_navigation.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_motion.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
@@ -242,11 +243,254 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     super.dispose();
   }
 
+  void _handleCardTap(MediaItem item) {
+    if (AnimeXNavigation.isNewTabModifierPressed()) {
+      AnimeXNavigation.openInNewTab(item);
+    } else {
+      widget.onTap?.call();
+    }
+  }
+
+  Widget _buildCardFrame(
+    MediaItem item,
+    int? episodeCount,
+    double? score, {
+    required bool interactive,
+  }) {
+    final borderRadius = BorderRadius.circular(AnimeXTokens.radiusCard);
+    final border = Border.all(
+      color: (_hover || _focused)
+          ? AnimeXTokens.accent
+          : Colors.white.withValues(alpha: 0.08),
+      width: _focused ? 2.5 : 1,
+    );
+    final posterImage = interactive
+        ? AnimatedScale(
+            scale: _hover ? 1.06 : 1.0,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeOutCubic,
+            child: _posterImage(item),
+          )
+        : _posterImage(item);
+    final posterStack = AspectRatio(
+      aspectRatio: 2 / 3,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AnimeXTokens.radiusCard - 1),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            posterImage,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: interactive
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.12),
+                          Colors.transparent,
+                          AppColors.scrimStrong,
+                          AnimeXTokens.posterScrimBottom,
+                        ],
+                        stops: const [0, 0.4, 0.78, 1],
+                      )
+                    : const LinearGradient(
+                        begin: Alignment(0, 0.25),
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          AnimeXTokens.posterScrimBottom,
+                        ],
+                      ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Row(
+                children: [
+                  if (episodeCount != null && episodeCount > 0)
+                    AnimeXBadge(
+                      label:
+                          widget.episodeLabel ??
+                          (episodeCount >= 100
+                              ? '$episodeCount EP'
+                              : 'EP $episodeCount'),
+                      kind: AnimeXBadgeKind.episodes,
+                    ),
+                  if (item.airingStatus.isNotEmpty &&
+                      _isAiring(item.airingStatus)) ...[
+                    const SizedBox(width: 6),
+                    const AnimeXBadge(
+                      label: 'NEW',
+                      kind: AnimeXBadgeKind.newBadge,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (score != null && score > 0 && widget.hoverAction == null)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: AnimeXBadge(
+                  label: score.toStringAsFixed(1),
+                  kind: AnimeXBadgeKind.rating,
+                  icon: Icons.star_rounded,
+                ),
+              ),
+            if (widget.hoverAction != null && _hover)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: widget.hoverAction!,
+              ),
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 10,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (item.airingStatus.isNotEmpty &&
+                      _isAiring(item.airingStatus))
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: AnimeXBadge(
+                        label: 'Airing',
+                        kind: AnimeXBadgeKind.airing,
+                        dot: true,
+                      ),
+                    ),
+                  if (widget.progress != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: widget.progress!.clamp(0.0, 1.0),
+                        minHeight: 4,
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AnimeXTokens.accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final Widget decoratedPoster;
+    if (interactive) {
+      decoratedPoster = CompositedTransformTarget(
+        link: _link,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.translationValues(
+            0,
+            (_hover || _focused) ? -4 : 0,
+            0,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            border: border,
+            boxShadow: (_hover || _focused)
+                ? [
+                    const BoxShadow(
+                      color: AppColors.scrimStrong,
+                      blurRadius: 28,
+                      offset: Offset(0, 14),
+                    ),
+                    BoxShadow(
+                      color: AnimeXTokens.accent.withValues(
+                        alpha: _focused ? 0.55 : 0.28,
+                      ),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const [
+                    BoxShadow(
+                      color: AppColors.scrimStrong,
+                      blurRadius: 14,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+          ),
+          child: posterStack,
+        ),
+      );
+    } else {
+      decoratedPoster = DecoratedBox(
+        decoration: BoxDecoration(borderRadius: borderRadius, border: border),
+        child: posterStack,
+      );
+    }
+
+    return SizedBox(
+      width: widget.width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          decoratedPoster,
+          const SizedBox(height: 10),
+          Text(
+            item.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: dmSansStyle(
+              size: 13.5,
+              color: _hover ? Colors.white : AnimeXTokens.textPrimary,
+              weight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _metaLine(item),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: dmSansStyle(
+              size: 11.5,
+              color: AnimeXTokens.textSecondary,
+              weight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = _resolvedItem ?? widget.item;
     final episodeCount = item.episodeCount;
     final score = widget.score ?? item.score;
+    final compactMobile = AppMotion.reduceAmbientMotion(context);
+    if (compactMobile) {
+      return Listener(
+        onPointerDown: (event) {
+          if (AnimeXNavigation.isMiddleClick(event)) {
+            AnimeXNavigation.openInNewTab(item);
+          }
+        },
+        child: GestureDetector(
+          onTap: () => _handleCardTap(item),
+          child: _buildCardFrame(
+            item,
+            episodeCount,
+            score,
+            interactive: false,
+          ),
+        ),
+      );
+    }
 
     // The overlay portal renders the popover in the app overlay so it never
     // gets clipped by the horizontal scrollable it lives inside. The overlay
@@ -254,20 +498,73 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     // wrapped in an Align: Align keeps its own full-size box (for positioning)
     // but lays out the popover with loose constraints, letting the panel keep
     // its compact size instead of stretching across the screen.
-    return OverlayPortal(
-      controller: _portal,
-      overlayChildBuilder: (_) => CompositedTransformFollower(
-        link: _link,
-        showWhenUnlinked: false,
-        offset: Offset(
-          _popoverLeft ? -(_CardPopover.width + 12.0) : widget.width + 12.0,
-          0,
+    return RepaintBoundary(
+      child: OverlayPortal(
+        controller: _portal,
+        overlayChildBuilder: (_) => CompositedTransformFollower(
+          link: _link,
+          showWhenUnlinked: false,
+          offset: Offset(
+            _popoverLeft ? -(_CardPopover.width + 12.0) : widget.width + 12.0,
+            0,
+          ),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: MouseRegion(
+              onEnter: (_) => _onPopoverEnter(),
+              onExit: (_) => _onPopoverExit(),
+              child: Listener(
+                onPointerDown: (event) {
+                  if (AnimeXNavigation.isMiddleClick(event)) {
+                    AnimeXNavigation.openInNewTab(item);
+                  }
+                },
+                child: GestureDetector(
+                  onTap: () => _handleCardTap(item),
+                  child: _PopoverEntrance(
+                    fromLeft: _popoverLeft,
+                    child: _CardPopover(
+                      item: item,
+                      score: score,
+                      loadingDetails: _resolving && _resolvedItem == null,
+                      onOpenNewTab: () => AnimeXNavigation.openInNewTab(item),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-        child: Align(
-          alignment: Alignment.topLeft,
+        child: FocusableActionDetector(
+          onFocusChange: (focused) {
+            if (focused) {
+              Scrollable.ensureVisible(
+                context,
+                alignment: 0.5,
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+              );
+            }
+            setState(() => _focused = focused);
+          },
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+          },
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                _handleCardTap(item);
+                return null;
+              },
+            ),
+          },
           child: MouseRegion(
-            onEnter: (_) => _onPopoverEnter(),
-            onExit: (_) => _onPopoverExit(),
+            onEnter: (_) => _enter(),
+            onExit: (_) => _onCardExit(),
+            cursor: SystemMouseCursors.click,
             child: Listener(
               onPointerDown: (event) {
                 if (AnimeXNavigation.isMiddleClick(event)) {
@@ -275,272 +572,19 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                 }
               },
               child: GestureDetector(
-                onTap: () {
-                  if (AnimeXNavigation.isNewTabModifierPressed()) {
-                    AnimeXNavigation.openInNewTab(item);
-                  } else {
-                    widget.onTap?.call();
-                  }
-                },
-                child: _PopoverEntrance(
-                  fromLeft: _popoverLeft,
-                  child: _CardPopover(
-                    item: item,
-                    score: score,
-                    loadingDetails: _resolving && _resolvedItem == null,
-                    onOpenNewTab: () => AnimeXNavigation.openInNewTab(item),
-                  ),
+                onTap: () => _handleCardTap(item),
+                child: _buildCardFrame(
+                  item,
+                  episodeCount,
+                  score,
+                  interactive: true,
                 ),
               ),
             ),
           ),
         ),
       ),
-      child: FocusableActionDetector(
-        onFocusChange: (focused) {
-          if (focused) {
-            Scrollable.ensureVisible(
-              context,
-              alignment: 0.5,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-            );
-          }
-          setState(() => _focused = focused);
-        },
-        shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-        },
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              if (AnimeXNavigation.isNewTabModifierPressed()) {
-                AnimeXNavigation.openInNewTab(item);
-              } else {
-                widget.onTap?.call();
-              }
-              return null;
-            },
-          ),
-        },
-        child: MouseRegion(
-          onEnter: (_) => _enter(),
-          onExit: (_) => _onCardExit(),
-          cursor: SystemMouseCursors.click,
-          child: Listener(
-            onPointerDown: (event) {
-              if (AnimeXNavigation.isMiddleClick(event)) {
-                AnimeXNavigation.openInNewTab(item);
-              }
-            },
-            child: GestureDetector(
-              onTap: () {
-                if (AnimeXNavigation.isNewTabModifierPressed()) {
-                  AnimeXNavigation.openInNewTab(item);
-                } else {
-                  widget.onTap?.call();
-                }
-              },
-              child: SizedBox(
-              width: widget.width,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CompositedTransformTarget(
-                    link: _link,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      transform: Matrix4.translationValues(
-                        0,
-                        (_hover || _focused) ? -4 : 0,
-                        0,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(
-                          AnimeXTokens.radiusCard,
-                        ),
-                        border: Border.all(
-                          color: (_hover || _focused)
-                              ? AnimeXTokens.accent
-                              : Colors.white.withValues(alpha: 0.08),
-                          width: _focused ? 2.5 : 1,
-                        ),
-                        boxShadow: (_hover || _focused)
-                            ? [
-                                const BoxShadow(
-                                  color: AppColors.scrimStrong,
-                                  blurRadius: 28,
-                                  offset: Offset(0, 14),
-                                ),
-                                BoxShadow(
-                                  color: AnimeXTokens.accent.withValues(
-                                    alpha: _focused ? 0.55 : 0.28,
-                                  ),
-                                  blurRadius: 28,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ]
-                            : const [
-                                BoxShadow(
-                                  color: AppColors.scrimStrong,
-                                  blurRadius: 14,
-                                  offset: Offset(0, 6),
-                                ),
-                              ],
-                      ),
-                    child: AspectRatio(
-                      aspectRatio: 2 / 3,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          AnimeXTokens.radiusCard - 1,
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            AnimatedScale(
-                              scale: _hover ? 1.06 : 1.0,
-                              duration: const Duration(milliseconds: 450),
-                              curve: Curves.easeOutCubic,
-                              child: _posterImage(item),
-                            ),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.12),
-                                    Colors.transparent,
-                                    AppColors.scrimStrong,
-                                    const Color(0xD9000000),
-                                  ],
-                                  stops: const [0, 0.4, 0.78, 1],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Row(
-                                children: [
-                                  if (episodeCount != null && episodeCount > 0)
-                                    AnimeXBadge(
-                                      label:
-                                          widget.episodeLabel ??
-                                          (episodeCount >= 100
-                                              ? '$episodeCount EP'
-                                              : 'EP $episodeCount'),
-                                      kind: AnimeXBadgeKind.episodes,
-                                    ),
-                                  if (item.airingStatus.isNotEmpty &&
-                                      _isAiring(item.airingStatus)) ...[
-                                    const SizedBox(width: 6),
-                                    const AnimeXBadge(
-                                      label: 'NEW',
-                                      kind: AnimeXBadgeKind.newBadge,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            if (score != null &&
-                                score > 0 &&
-                                widget.hoverAction == null)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: AnimeXBadge(
-                                  label: score.toStringAsFixed(1),
-                                  kind: AnimeXBadgeKind.rating,
-                                  icon: Icons.star_rounded,
-                                ),
-                              ),
-                            if (widget.hoverAction != null && _hover)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: widget.hoverAction!,
-                              ),
-                            Positioned(
-                              left: 10,
-                              right: 10,
-                              bottom: 10,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (item.airingStatus.isNotEmpty &&
-                                      _isAiring(item.airingStatus))
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 8),
-                                      child: AnimeXBadge(
-                                        label: 'Airing',
-                                        kind: AnimeXBadgeKind.airing,
-                                        dot: true,
-                                      ),
-                                    ),
-                                  if (widget.progress != null) ...[
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: widget.progress!.clamp(0.0, 1.0),
-                                        minHeight: 4,
-                                        backgroundColor: Colors.white
-                                            .withValues(alpha: 0.18),
-                                        valueColor:
-                                            const AlwaysStoppedAnimation<Color>(
-                                              AnimeXTokens.accent,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: dmSansStyle(
-                    size: 13.5,
-                    color: _hover
-                        ? Colors.white
-                        : AnimeXTokens.textPrimary,
-                    weight: FontWeight.w700,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _metaLine(item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: dmSansStyle(
-                    size: 11.5,
-                    color: AnimeXTokens.textSecondary,
-                    weight: FontWeight.w500,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-    ),
-  );
+    );
   }
 
   Widget _posterImage(MediaItem item) {
@@ -768,7 +812,9 @@ class _CardPopover extends StatelessWidget {
                                     ? AnimeXTokens.success
                                     : AnimeXTokens.textMuted,
                                 shape: BoxShape.circle,
-                                boxShadow: airing
+                                boxShadow:
+                                    airing &&
+                                        !AppMotion.reduceAmbientMotion(context)
                                     ? [
                                         BoxShadow(
                                           color: AnimeXTokens.success

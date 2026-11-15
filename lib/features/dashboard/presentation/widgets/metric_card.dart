@@ -39,6 +39,7 @@ class MetricCard extends StatelessWidget {
         child: _MetricContent(label: label, value: value, isLive: isLive),
       );
     }
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     final borderColor = isLive
         ? AppColors.auroraRose.withValues(alpha: 0.35)
         : AppColors.moonlight.withValues(alpha: 0.16);
@@ -56,19 +57,21 @@ class MetricCard extends StatelessWidget {
         ),
         borderRadius: AppRadius.radiusXl,
         border: Border.all(color: borderColor, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-          if (isLive)
-            BoxShadow(
-              color: AppColors.auroraRose.withValues(alpha: 0.16),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-        ],
+        boxShadow: reduceAmbient
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+                if (isLive)
+                  BoxShadow(
+                    color: AppColors.auroraRose.withValues(alpha: 0.16),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
       ),
       child: Stack(
         children: [

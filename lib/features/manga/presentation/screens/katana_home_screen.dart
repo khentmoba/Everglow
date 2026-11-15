@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/section_fonts.dart';
 import '../../../../shared/utils/scroll_memory.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -56,6 +57,19 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     super.dispose();
   }
 
+  void _warmMangaGlyphs(Iterable<KatanaManga> items) {
+    SectionFonts.warmFallbackGlyphs([
+      for (final m in items) ...[
+        m.title,
+        m.updateText,
+        m.summary,
+        ?m.latestChapter?.title,
+        for (final ch in m.recentChapters) ch.displayTitle,
+        for (final g in m.genres) g.name,
+      ],
+    ]);
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -64,6 +78,11 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     try {
       final data = await _service.fetchHome();
       if (mounted) {
+        _warmMangaGlyphs([
+          ...data.latest,
+          ...data.hot,
+          ...data.hotUpdates,
+        ]);
         setState(() {
           _data = data;
           _loading = false;
@@ -102,6 +121,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
         orderBy: 'latest',
       );
       if (mounted) {
+        _warmMangaGlyphs(result.items);
         setState(() {
           _typeItems = result.items;
           _typeHasNext = result.hasNext;
@@ -199,31 +219,27 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
                 ),
               ),
             ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 60),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_type != 'all' && showItems && items.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    KatanaPagination(
-                      page: _typePage,
-                      hasPrev: _typePage > 1,
-                      hasNext: _typeHasNext,
-                      onPageChanged: _changeTypePage,
-                    ),
-                  ],
-                  if (_type == 'all') ...[
-                    const SizedBox(height: 20),
-                    _buildHotWidget(data.hot),
-                  ],
-                  const SizedBox(height: 20),
-                  _buildGenresWidget(data.genres),
-                ],
+          if (_type != 'all' && showItems && items.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              sliver: SliverToBoxAdapter(child: _buildTypePagination()),
+            ),
+          if (_type == 'all' && data.hot.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: RepaintBoundary(child: _buildHotWidget(data.hot)),
               ),
             ),
-          ),
+          if (data.genres.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 60),
+              sliver: SliverToBoxAdapter(
+                child: RepaintBoundary(child: _buildGenresWidget(data.genres)),
+              ),
+            )
+          else
+            const SliverToBoxAdapter(child: SizedBox(height: 60)),
         ],
       );
     }
@@ -488,6 +504,15 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     );
   }
 
+  Widget _buildTypePagination() {
+    return KatanaPagination(
+      page: _typePage,
+      hasPrev: _typePage > 1,
+      hasNext: _typeHasNext,
+      onPageChanged: _changeTypePage,
+    );
+  }
+
   Widget _buildHotWidget(List<KatanaManga> hot) {
     if (hot.isEmpty) return const SizedBox.shrink();
     return KatanaCard(
@@ -524,6 +549,12 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
 
   Widget _buildGenresWidget(List<KatanaGenre> genres) {
     if (genres.isEmpty) return const SizedBox.shrink();
+    final nameStyle = AppTypography.outfitWhite.copyWith(
+      color: KatanaColors.text,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+    );
+    final countStyle = KatanaType.small.copyWith(fontSize: 10.5);
     return KatanaCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -549,26 +580,19 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: KatanaColors.border),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          genre.name,
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: KatanaColors.text,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (genre.count > 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '(${genre.count})',
-                            style: KatanaType.small.copyWith(fontSize: 10.5),
-                          ),
-                        ],
-                      ],
-                    ),
+                    child: genre.count > 0
+                        ? Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: genre.name, style: nameStyle),
+                                TextSpan(
+                                  text: ' (${genre.count})',
+                                  style: countStyle,
+                                ),
+                              ],
+                            ),
+                          )
+                        : Text(genre.name, style: nameStyle),
                   ),
                 ),
             ],

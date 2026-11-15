@@ -99,6 +99,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   bool _isLoadingHome = true;
   int _homeRequest = 0;
+  Timer? _homeSetStateTimer;
+  bool _isVerticalScrolling = false;
+  bool _pendingHomeFlush = false;
+  bool _pendingCacheSave = false;
 
   /// How long saved Home rows are shown before Cinema asks TMDB again.
   /// Matches the proxy's own 10-minute catalogue cache.
@@ -156,6 +160,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   @override
   void dispose() {
+    _homeSetStateTimer?.cancel();
     _auth.removeListener(_syncProfile);
     _watchlistSubscription?.cancel();
     _desktopScrolled.dispose();
@@ -239,6 +244,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _saveHomeCache() {
+    if (!mounted) return;
+    if (_isVerticalScrolling) {
+      _pendingCacheSave = true;
+      return;
+    }
+    _pendingCacheSave = false;
     unawaited(
       CinemaHomeCache.save({
         'trendingGlobal': _trendingGlobal,
@@ -258,6 +269,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
     // Above-the-fold content (hero carousel + top 10 today) loads first so
     // the screen becomes interactive immediately without waiting on off-screen rails.
+    // Apply primary rows in one batched setState and discovery rows in a second
+    // batched setState so rapid responses don't trigger 12 separate tree rebuilds
+    // while the user is scrolling.
     final primaryFutures = [
       _loadRow(
         _tmdbService.fetchTrending(region: 'all', timeWindow: 'week'),
@@ -288,10 +302,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
     ];
 
     await Future.wait(primaryFutures);
-    _saveHomeCache();
-    if (mounted && request == _homeRequest) {
-      setState(() => _isLoadingHome = false);
-    }
+    if (!mounted || request != _homeRequest) return;
+    setState(() => _isLoadingHome = false);
 
     // Off-screen discovery shelves load progressively in the background.
     final discoveryFutures = [
@@ -311,7 +323,29 @@ class _CinemaScreenState extends State<CinemaScreen> {
         ),
     ];
     await Future.wait(discoveryFutures);
+    if (!mounted || request != _homeRequest) return;
+    _flushHomeState();
     _saveHomeCache();
+  }
+
+  void _flushHomeState() {
+    _homeSetStateTimer?.cancel();
+    if (!mounted) return;
+    if (_isVerticalScrolling) {
+      _pendingHomeFlush = true;
+      _homeSetStateTimer = Timer(const Duration(milliseconds: 120), () {
+        if (mounted && !_isVerticalScrolling) {
+          if (_pendingHomeFlush) {
+            _pendingHomeFlush = false;
+            setState(() {});
+          }
+          if (_pendingCacheSave) _saveHomeCache();
+        }
+      });
+      return;
+    }
+    _pendingHomeFlush = false;
+    setState(() {});
   }
 
   Future<void> _loadRow(
@@ -327,7 +361,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
       // A failed fetch comes back empty. Keep what is already on screen (the
       // saved rows on a repeat open) instead of blanking the row.
       if (visible.isEmpty) return;
-      setState(() => apply(visible));
+      apply(visible);
     } catch (e, st) {
       Logger.e('Cinema: home rail fetch failed', error: e, stackTrace: st);
     }
@@ -757,6 +791,14 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification is ScrollStartNotification) {
+      _isVerticalScrolling = true;
+      _homeSetStateTimer?.cancel();
+    } else if (notification is ScrollEndNotification) {
+      _isVerticalScrolling = false;
+      if (_pendingHomeFlush) _flushHomeState();
+      if (_pendingCacheSave) _saveHomeCache();
+    }
     final scrolled = notification.metrics.pixels > 12;
     _desktopScrolled.value = scrolled;
     return false;

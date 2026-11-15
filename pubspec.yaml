@@ -103,3 +103,7 @@ flutter:
       fonts:
         - asset: assets/google_fonts/Caveat-Regular.ttf
           weight: 400
+    - family: Roboto
+      fonts:
+        - asset: assets/google_fonts/DMSans-Regular.ttf
+          weight: 400

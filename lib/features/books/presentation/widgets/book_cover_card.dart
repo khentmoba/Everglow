@@ -4,6 +4,7 @@ import '../../../../shared/widgets/app_network_image.dart';
 import '../../data/models/book_item.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 
 /// A book cover at 2:3. When the image is missing or fails (Gutenberg
 /// covers often block web loads), it draws a cloth-bound cover with
@@ -43,13 +44,15 @@ class BookCover extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 14,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: AppMotion.reduceAmbientMotion(context)
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(radius),

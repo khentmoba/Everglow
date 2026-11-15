@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../../data/models/animex_models.dart';
 import '../../../../cinema/data/models/media_item.dart';
@@ -19,6 +20,8 @@ import 'animex_spotlight.dart';
 import 'animex_ticker.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_motion.dart';
+import '../../../../../core/theme/section_fonts.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 
@@ -61,13 +64,35 @@ class AnimeXHomePage extends StatefulWidget {
 
 class _AnimeXHomePageState extends State<AnimeXHomePage> {
   final AniListService _aniList = AniListService();
+  final ScrollController _homeScroll = ScrollController();
   final Map<String, _HomeRow> _rows = {};
   bool _allFailed = false;
+  Timer? _rowBatchTimer;
+  ValueNotifier<bool>? _scrollListening;
+  VoidCallback? _scrollWaitListener;
 
   @override
   void initState() {
     super.initState();
     _init();
+  }
+
+  void _clearScrollListener() {
+    final notifier = _scrollListening;
+    final listener = _scrollWaitListener;
+    if (notifier != null && listener != null) {
+      notifier.removeListener(listener);
+    }
+    _scrollListening = null;
+    _scrollWaitListener = null;
+  }
+
+  @override
+  void dispose() {
+    _rowBatchTimer?.cancel();
+    _clearScrollListener();
+    _homeScroll.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -171,17 +196,56 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
       );
     }
 
+    void flushRowsNow() {
+      if (!mounted) return;
+      final scrolling = _homeScroll.positions.length == 1
+          ? _homeScroll.position.isScrollingNotifier
+          : null;
+      if (scrolling != null && scrolling.value) {
+        if (_scrollListening == scrolling) return;
+        _clearScrollListener();
+        void onScrollChanged() {
+          if (!scrolling.value && mounted) {
+            _clearScrollListener();
+            setState(() {});
+          }
+        }
+        _scrollListening = scrolling;
+        _scrollWaitListener = onScrollChanged;
+        scrolling.addListener(onScrollChanged);
+        return;
+      }
+      setState(() {});
+    }
+
+    void scheduleRowFlush() {
+      if (_rowBatchTimer?.isActive ?? false) return;
+      _rowBatchTimer = Timer(const Duration(milliseconds: 16), flushRowsNow);
+    }
+
     try {
       final page = await (widget.loadRow?.call(id) ?? builder());
       if (!mounted) return false;
-      setState(() => _rows[id] = buildRow(page.items, loading: false));
+      SectionFonts.warmFallbackGlyphs([
+        for (final item in page.items) item.title,
+      ]);
+      _rows[id] = buildRow(page.items, loading: false);
+      if (id == 'trending') {
+        // Reveal hero immediately so first paint isn't gated on secondary feeds.
+        setState(() {});
+      } else {
+        scheduleRowFlush();
+      }
       return page.items.isNotEmpty;
     } catch (e, stack) {
       Logger.e('Anime home row $id failed', error: e, stackTrace: stack);
       if (!mounted) return false;
-      setState(() {
-        _rows[id] = buildRow(_rows[id]?.items ?? const [], loading: false);
-      });
+      _rows[id] = buildRow(_rows[id]?.items ?? const [], loading: false);
+      if (id == 'trending') {
+        setState(() {});
+      } else {
+        scheduleRowFlush();
+      }
       return false;
     }
   }
@@ -269,25 +333,30 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
     final trending = _rows['trending']!;
     final airing = _rows['airing']!;
 
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     return ListView(
+      controller: _homeScroll,
       physics: const BouncingScrollPhysics(),
+      scrollCacheExtent: ScrollCacheExtent.pixels(reduceAmbient ? 120 : 250),
       padding: const EdgeInsets.only(bottom: 64),
       children: [
-        AnimeXSpotlight(
-          items: trending.items.take(5).toList(),
-          loading: trending.loading,
-          onWatch: (item) => widget.controller.openWatch(item),
-          onMoreInfo: (item) => widget.controller.openWatch(item),
-          onTrailer: (item) => showAnimexTrailer(
-            context,
-            anilistId: item.anilistId,
-            malId: item.source == 'tmdb' ? null : item.tmdbId,
-            title: item.title,
+        RepaintBoundary(
+          child: AnimeXSpotlight(
+            items: trending.items.take(5).toList(),
+            loading: trending.loading,
+            onWatch: (item) => widget.controller.openWatch(item),
+            onMoreInfo: (item) => widget.controller.openWatch(item),
+            onTrailer: (item) => showAnimexTrailer(
+              context,
+              anilistId: item.anilistId,
+              malId: item.source == 'tmdb' ? null : item.tmdbId,
+              title: item.title,
+            ),
           ),
         ),
         if (history.isNotEmpty) ...[
           const SizedBox(height: 24),
-          _buildContinueWatching(context, history),
+          RepaintBoundary(child: _buildContinueWatching(context, history)),
         ],
         if (widget.controller.library.isNotEmpty)
           Padding(
@@ -299,9 +368,11 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
               loadSchedule: widget.loadSchedule,
             ),
           ),
-        AnimeXTicker(
-          items: airing.items.take(14).toList(),
-          onTap: (item) => widget.controller.openWatch(item),
+        RepaintBoundary(
+          child: AnimeXTicker(
+            items: airing.items.take(14).toList(),
+            onTap: (item) => widget.controller.openWatch(item),
+          ),
         ),
         if (_allFailed) ...[const SizedBox(height: 20), _buildOfflineBanner()],
         const SizedBox(height: 40),
@@ -376,7 +447,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
     return _KeepRowAlive(
       key: ValueKey('anime-row-${row.id}'),
       keepAlive: !row.loading && !empty,
-      child: _buildRowContent(context, row, empty),
+      child: RepaintBoundary(child: _buildRowContent(context, row, empty)),
     );
   }
 
@@ -546,16 +617,17 @@ class _ScheduleCtaState extends State<_ScheduleCta> {
 
   @override
   Widget build(BuildContext context) {
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
+      onEnter: reduceAmbient ? null : (_) => setState(() => _hover = true),
+      onExit: reduceAmbient ? null : (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          transform: Matrix4.translationValues(0, _hover ? -2 : 0, 0),
+        child: Container(
+          transform: reduceAmbient
+              ? null
+              : Matrix4.translationValues(0, _hover ? -2 : 0, 0),
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           decoration: BoxDecoration(
@@ -574,15 +646,17 @@ class _ScheduleCtaState extends State<_ScheduleCta> {
                 alpha: _hover ? 0.45 : 0.25,
               ),
             ),
-            boxShadow: _hover
-                ? AnimeXTokens.accentGlowShadow(0.22)
-                : const [
-                    BoxShadow(
-                      color: Color(0x4D000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 6),
-                    ),
-                  ],
+            boxShadow: reduceAmbient
+                ? null
+                : (_hover
+                      ? AnimeXTokens.accentGlowShadow(0.22)
+                      : const [
+                          BoxShadow(
+                            color: Color(0x4D000000),
+                            blurRadius: 16,
+                            offset: Offset(0, 6),
+                          ),
+                        ]),
           ),
           child: Row(
             children: [
@@ -596,7 +670,9 @@ class _ScheduleCtaState extends State<_ScheduleCta> {
                     colors: [AnimeXTokens.accent, AnimeXTokens.accentHover],
                   ),
                   borderRadius: BorderRadius.circular(AnimeXTokens.radiusXl),
-                  boxShadow: AnimeXTokens.accentGlowShadow(0.4),
+                  boxShadow: reduceAmbient
+                      ? null
+                      : AnimeXTokens.accentGlowShadow(0.4),
                 ),
                 child: const Icon(
                   Icons.schedule_rounded,
@@ -628,26 +704,43 @@ class _ScheduleCtaState extends State<_ScheduleCta> {
                   ],
                 ),
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                transform: Matrix4.translationValues(_hover ? 4 : 0, 0, 0),
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AnimeXTokens.accent.withValues(
-                    alpha: _hover ? 0.25 : 0.12,
-                  ),
-                  border: Border.all(
-                    color: AnimeXTokens.accent.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: AnimeXTokens.accentWarm,
-                  size: 18,
-                ),
-              ),
+              reduceAmbient
+                  ? Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AnimeXTokens.accent.withValues(alpha: 0.12),
+                        border: Border.all(
+                          color: AnimeXTokens.accent.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AnimeXTokens.accentWarm,
+                        size: 18,
+                      ),
+                    )
+                  : AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      transform: Matrix4.translationValues(_hover ? 4 : 0, 0, 0),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AnimeXTokens.accent.withValues(
+                          alpha: _hover ? 0.25 : 0.12,
+                        ),
+                        border: Border.all(
+                          color: AnimeXTokens.accent.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AnimeXTokens.accentWarm,
+                        size: 18,
+                      ),
+                    ),
             ],
           ),
         ),
@@ -666,6 +759,7 @@ class _ContinueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = entry.seriesProgress;
     final total = entry.totalEpisodes;
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
     return GestureDetector(
       onTap: onTap,
       child: MouseRegion(
@@ -675,13 +769,15 @@ class _ContinueCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AnimeXTokens.radius2xl),
             border: Border.all(color: AnimeXTokens.border),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.scrimLight,
-                blurRadius: 16,
-                offset: Offset(0, 6),
-              ),
-            ],
+            boxShadow: reduceAmbient
+                ? null
+                : const [
+                    BoxShadow(
+                      color: AppColors.scrimLight,
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(

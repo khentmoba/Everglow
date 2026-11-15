@@ -99,6 +99,13 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     if (!_active) return;
     _timer = Timer(_hold, () {
       if (!mounted || widget.items.length < 2) return;
+      final isScrolling =
+          Scrollable.maybeOf(context)?.position.isScrollingNotifier.value ??
+              false;
+      if (isScrolling) {
+        _startCycle();
+        return;
+      }
       final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
       // Trailer autoplay is desktop-only: arming on phones would fetch a
       // YouTube key + spin up a WebView the user never sees.

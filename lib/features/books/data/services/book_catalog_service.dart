@@ -279,6 +279,7 @@ class BookCatalogService {
       _openLibrary.fetchTrending().then(_fromOpenLibrary),
       _gutenberg.mostPopular(limit: limit),
     ]);
+    await Future<void>.delayed(Duration.zero);
     final merged = _merge(results.expand((r) => r).toList());
     return _applySort(merged, BookSort.popular).take(limit).toList();
   }

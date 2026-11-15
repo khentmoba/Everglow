@@ -39,55 +39,68 @@ class _QuickActionTileState extends State<QuickActionTile> {
   @override
   Widget build(BuildContext context) {
     final action = widget.action;
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
+    final decoration = BoxDecoration(
+      color: _hovered && !reduceAmbient
+          ? AppColors.velvet.withValues(alpha: 0.42)
+          : AppColors.surfaceGlass,
+      borderRadius: AppRadius.radiusLg,
+      border: Border.all(
+        color: _hovered && !reduceAmbient
+            ? action.hue.withValues(alpha: 0.30)
+            : AppColors.moonlight.withValues(alpha: 0.07),
+      ),
+      boxShadow: _hovered && !reduceAmbient
+          ? [
+              BoxShadow(
+                color: action.hue.withValues(alpha: 0.10),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ]
+          : null,
+    );
     return Semantics(
       button: true,
       label: action.label,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
+        onEnter: reduceAmbient ? null : (_) => setState(() => _hovered = true),
+        onExit: reduceAmbient ? null : (_) => setState(() => _hovered = false),
         child: EverglowKeyboardActivation(
           onActivate: () => context.push(action.route),
           child: GestureDetector(
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapUp: (_) {
-              setState(() => _pressed = false);
-              context.push(action.route);
-            },
-            onTapCancel: () => setState(() => _pressed = false),
-            child: AnimatedContainer(
-              duration: AppMotion.orZero(AppMotion.fast),
-              curve: AppMotion.easeOutStrong,
-              transform: Matrix4.identity()
-                ..translateByDouble(0.0, _hovered ? -2.0 : 0.0, 0.0, 1.0)
-                ..scaleByDouble(
-                  _pressed ? 0.94 : 1.0,
-                  _pressed ? 0.94 : 1.0,
-                  _pressed ? 0.94 : 1.0,
-                  1.0,
-                ),
+            onTapDown: reduceAmbient
+                ? null
+                : (_) => setState(() => _pressed = true),
+            onTapUp: reduceAmbient
+                ? (_) => context.push(action.route)
+                : (_) {
+                    setState(() => _pressed = false);
+                    context.push(action.route);
+                  },
+            onTapCancel: reduceAmbient
+                ? null
+                : () => setState(() => _pressed = false),
+            child: Container(
+              transform: reduceAmbient
+                  ? null
+                  : (Matrix4.identity()
+                      ..translateByDouble(
+                        0.0,
+                        _hovered ? -2.0 : 0.0,
+                        0.0,
+                        1.0,
+                      )
+                      ..scaleByDouble(
+                        _pressed ? 0.94 : 1.0,
+                        _pressed ? 0.94 : 1.0,
+                        _pressed ? 0.94 : 1.0,
+                        1.0,
+                      )),
               clipBehavior: Clip.antiAlias,
               padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-              decoration: BoxDecoration(
-                color: _hovered
-                    ? AppColors.velvet.withValues(alpha: 0.42)
-                    : AppColors.surfaceGlass,
-                borderRadius: AppRadius.radiusLg,
-                border: Border.all(
-                  color: _hovered
-                      ? action.hue.withValues(alpha: 0.30)
-                      : AppColors.moonlight.withValues(alpha: 0.07),
-                ),
-                boxShadow: _hovered
-                    ? [
-                        BoxShadow(
-                          color: action.hue.withValues(alpha: 0.10),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : null,
-              ),
+              decoration: decoration,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

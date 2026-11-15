@@ -95,4 +95,22 @@ void main() {
     expect(isDrifting(), isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('phone viewport stays static across scroll and settle', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(harness());
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(isDrifting(), isFalse);
+
+    scroll.jumpTo(120);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(isDrifting(), isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

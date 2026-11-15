@@ -336,34 +336,54 @@ class KatanaService {
   /// rows the site marks as "Go to" jump targets carry the chapter
   /// id in `data-jump` (`<tr data-jump="c30">`) instead of a number,
   /// and volume chapters link to `v6c147`-style paths.
+  static final RegExp _reChapterRow = RegExp(
+    r'<tr data-jump="[^"]*">.*?</tr>',
+    dotAll: true,
+  );
+  static final RegExp _reChapterRowHref = RegExp(
+    r'href="https://mangakatana\.com/manga/[^"]*/(' + chapterIdPattern + r')"',
+  );
+  static final RegExp _reChapterRowTitle = RegExp(
+    r'<div class="chapter"><a[^>]*>([^<]*)</a>',
+  );
+  static final RegExp _reChapterRowTime = RegExp(
+    r'class="update_time">([^<]*)</div>',
+  );
+  static final RegExp _reKatanaDate = RegExp(r'(\w{3})-(\d{1,2})-(\d{4})');
+  static final RegExp _reDigits = RegExp(r'(\d+)');
+  static final HtmlUnescape _staticUnescape = HtmlUnescape();
+  static const Map<String, int> _katanaMonths = {
+    'Jan': 1,
+    'Feb': 2,
+    'Mar': 3,
+    'Apr': 4,
+    'May': 5,
+    'Jun': 6,
+    'Jul': 7,
+    'Aug': 8,
+    'Sep': 9,
+    'Oct': 10,
+    'Nov': 11,
+    'Dec': 12,
+  };
+
   static List<KatanaChapter> parseChapterTable(String html) {
-    final unescape = HtmlUnescape();
     final chapters = <KatanaChapter>[];
-    final rows = RegExp(
-      r'<tr data-jump="[^"]*">.*?</tr>',
-      dotAll: true,
-    ).allMatches(html);
-    final hrefRe = RegExp(
-      r'href="https://mangakatana\.com/manga/[^"]*/(' +
-          chapterIdPattern +
-          r')"',
-    );
+    final rows = _reChapterRow.allMatches(html);
     for (final row in rows) {
       final block = row.group(0)!;
-      final hrefM = hrefRe.firstMatch(block);
+      final hrefM = _reChapterRowHref.firstMatch(block);
       if (hrefM == null) continue;
       final id = hrefM.group(1)!;
-      final titleM = RegExp(
-        r'<div class="chapter"><a[^>]*>([^<]*)</a>',
-      ).firstMatch(block);
-      final timeM = RegExp(
-        r'class="update_time">([^<]*)</div>',
-      ).firstMatch(block);
+      final titleM = _reChapterRowTitle.firstMatch(block);
+      final timeM = _reChapterRowTime.firstMatch(block);
       chapters.add(
         KatanaChapter(
           id: id,
           num: katanaChapterNumFromId(id),
-          title: unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
+          title: _staticUnescape.convert(
+            titleM?.group(1)?.trim() ?? 'Chapter $id',
+          ),
           updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
           // The site marks its own fresh rows with a New badge
           // (only the newest, and only when recently updated) —
@@ -378,23 +398,9 @@ class KatanaService {
   /// Parses "Aug-12-2026" style dates from chapter tables.
   static DateTime? _parseKatanaDate(String raw) {
     if (raw.trim().isEmpty) return null;
-    final m = RegExp(r'(\w{3})-(\d{1,2})-(\d{4})').firstMatch(raw);
+    final m = _reKatanaDate.firstMatch(raw);
     if (m == null) return null;
-    const months = {
-      'Jan': 1,
-      'Feb': 2,
-      'Mar': 3,
-      'Apr': 4,
-      'May': 5,
-      'Jun': 6,
-      'Jul': 7,
-      'Aug': 8,
-      'Sep': 9,
-      'Oct': 10,
-      'Nov': 11,
-      'Dec': 12,
-    };
-    final month = months[m.group(1)];
+    final month = _katanaMonths[m.group(1)];
     if (month == null) return null;
     return DateTime(int.parse(m.group(3)!), month, int.parse(m.group(2)!));
   }
@@ -403,7 +409,7 @@ class KatanaService {
   DateTime? _parseRelativeTime(String raw) {
     final text = raw.toLowerCase();
     final now = DateTime.now();
-    final numM = RegExp(r'(\d+)').firstMatch(text);
+    final numM = _reDigits.firstMatch(text);
     if (numM == null) return null;
     final n = int.parse(numM.group(1)!);
     if (text.contains('year')) return now.subtract(Duration(days: 365 * n));

@@ -458,10 +458,14 @@
       }).catch(function () { return false; });
     };
     function __everglowIdleLoadMedia() {
-      // On slow connections (2G/3G or saveData) or low-end devices (<=4 cores),
-      // DO NOT eagerly pre-download ~700KB of external media libraries in the background.
-      // They are loaded on-demand when the user actually plays a video or views 3D.
+      // On narrow phone viewports, slow connections, or low-core devices, do NOT
+      // eagerly download ~700KB of 3D/HLS libraries behind the user's back —
+      // phones show the bundled guardian avatar on the dashboard, and any route
+      // that needs HLS or 3D calls __everglowEnsureMediaLibs() on demand.
       try {
+        if (window.innerWidth && window.innerWidth < 768) {
+          return;
+        }
         var conn = navigator.connection;
         if (conn && (conn.saveData || /(^|-)2g|3g$/.test(conn.effectiveType || ''))) {
           return;
@@ -472,15 +476,16 @@
       } catch (_) {}
 
       var kick = function () {
+        if (document.hidden) return;
         try {
           var p = window.__everglowEnsureMediaLibs();
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
       };
       if ('requestIdleCallback' in window) {
-        requestIdleCallback(kick, { timeout: 4000 });
+        requestIdleCallback(kick);
       } else {
-        setTimeout(kick, 2500);
+        setTimeout(kick, 4500);
       }
     }
     window.addEventListener('flutter-first-frame', __everglowIdleLoadMedia, { once: true });

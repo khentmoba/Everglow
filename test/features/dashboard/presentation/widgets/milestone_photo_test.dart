@@ -62,7 +62,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(Image), findsOneWidget);
-      expect(tester.widget<Image>(find.byType(Image)).image, isA<AssetImage>());
+      final provider = tester.widget<Image>(find.byType(Image)).image;
+      final underlying =
+          provider is ResizeImage ? provider.imageProvider : provider;
+      expect(underlying, isA<AssetImage>());
     });
   });
 }

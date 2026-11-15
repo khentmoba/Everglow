@@ -1,9 +1,15 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+
+import 'app_typography.dart';
 
 /// Bundled section fonts load before their screen, rather than at the doorway.
 class SectionFonts {
   static Future<void>? _reading;
   static Future<void>? _anime;
+  static final Set<int> _warmedRunes = <int>{};
 
   static Future<void> reading() => _reading ??=
       _load('DM Sans', [
@@ -24,6 +30,49 @@ class SectionFonts {
         _anime = null;
         Error.throwWithStackTrace(error, stack);
       });
+
+  /// Measures any unseen non-ASCII glyphs right when catalog data arrives so
+  /// CanvasKit resolves web fallback fonts before scrolling begins instead of
+  /// triggering a full-tree paragraph relayout mid-swipe.
+  static void warmFallbackGlyphs(
+    Iterable<String> texts, {
+    @visibleForTesting bool force = false,
+  }) {
+    if (!kIsWeb && !force) return;
+    final unseen = <int>[];
+    for (final text in texts) {
+      if (text.isEmpty) continue;
+      for (final rune in text.runes) {
+        if (rune > 0x7F && _warmedRunes.add(rune)) {
+          unseen.add(rune);
+          if (unseen.length >= 256) break;
+        }
+      }
+      if (unseen.length >= 256) break;
+    }
+    if (unseen.isEmpty) return;
+    final sample = String.fromCharCodes(unseen);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: sample,
+          style: const TextStyle(
+            fontSize: 12,
+            fontFamily: AppTypography.body,
+            fontFamilyFallback: AppTypography.fontFallback,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painter.dispose();
+    });
+  }
+
+  @visibleForTesting
+  static int get warmedGlyphCountForTesting => _warmedRunes.length;
+
+  @visibleForTesting
+  static void resetWarmedGlyphsForTesting() => _warmedRunes.clear();
 
   static Future<void> _load(String family, List<String> files) {
     final loader = FontLoader(family);

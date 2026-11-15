@@ -41,36 +41,28 @@ class _FeatureSectionState extends State<FeatureSection> {
   @override
   Widget build(BuildContext context) {
     final interactive = widget.onTap != null;
-    return MouseRegion(
-      cursor: interactive ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AppMotion.orZero(AppMotion.medium),
-          curve: AppMotion.easeOutStrong,
-          transform: Matrix4.identity()
-            ..translateByDouble(0.0, _hovered ? -2.0 : 0.0, 0.0, 1.0),
-          decoration: BoxDecoration(
-            color: AppColors.velvet.withValues(alpha: 0.34),
-            borderRadius: AppRadius.radiusXl,
-            border: Border.all(
-              color: _hovered
-                  ? widget.hue.withValues(alpha: 0.22)
-                  : AppColors.moonlight.withValues(alpha: 0.07),
-              width: 1,
-            ),
-            boxShadow: [
+    final reduceAmbient = AppMotion.reduceAmbientMotion(context);
+    final boxDecoration = BoxDecoration(
+      color: AppColors.velvet.withValues(alpha: 0.34),
+      borderRadius: AppRadius.radiusXl,
+      border: Border.all(
+        color: _hovered && !reduceAmbient
+            ? widget.hue.withValues(alpha: 0.22)
+            : AppColors.moonlight.withValues(alpha: 0.07),
+        width: 1,
+      ),
+      boxShadow: reduceAmbient
+          ? null
+          : [
               BoxShadow(
                 color: AppColors.inkDeep.withValues(alpha: 0.18),
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
             ],
-          ),
-          child: Stack(
-            children: [
+    );
+    final stack = Stack(
+      children: [
               Positioned(
                 top: 0,
                 left: 22,
@@ -134,9 +126,29 @@ class _FeatureSectionState extends State<FeatureSection> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
+          );
+    final panel = reduceAmbient
+        ? DecoratedBox(decoration: boxDecoration, child: stack)
+        : AnimatedContainer(
+            duration: AppMotion.orZero(AppMotion.medium),
+            curve: AppMotion.easeOutStrong,
+            transform: Matrix4.identity()
+              ..translateByDouble(0.0, _hovered ? -2.0 : 0.0, 0.0, 1.0),
+            decoration: boxDecoration,
+            child: stack,
+          );
+    final interactivePanel = GestureDetector(onTap: widget.onTap, child: panel);
+    return RepaintBoundary(
+      child: reduceAmbient
+          ? interactivePanel
+          : MouseRegion(
+              cursor: interactive
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              onEnter: (_) => setState(() => _hovered = true),
+              onExit: (_) => setState(() => _hovered = false),
+              child: interactivePanel,
+            ),
     );
   }
 }
