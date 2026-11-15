@@ -226,3 +226,85 @@ for (const [mode, standalone] of [
     assert.equal(metas[0].content, expected);
   });
 }
+
+function runBootRecovery({online = true, stored = null} = {}) {
+  const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .find(match => match[1].includes("'eg-boot-retries'"))[1];
+  const listeners = {};
+  const session = new Map(stored == null ? [] : [['eg-boot-retries', stored]]);
+  const timers = [];
+  const page = {reloads: 0, session, timers, listeners, delays: []};
+  const window = {
+    location: {reload: () => { page.reloads++; }},
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
+  };
+  vm.runInNewContext(script, {
+    window,
+    navigator: {onLine: online},
+    sessionStorage: {
+      getItem: k => (session.has(k) ? session.get(k) : null),
+      setItem: (k, v) => session.set(k, String(v)),
+      removeItem: k => session.delete(k),
+    },
+    setTimeout: (fn, ms) => { timers.push(fn); page.delays.push(ms); },
+    Number, String,
+  });
+  page.fire = (type, event) => (listeners[type] || []).forEach(fn => fn(event));
+  page.flush = () => timers.splice(0).forEach(fn => fn());
+  return page;
+}
+
+test('a failed Firebase module import on boot reloads instead of freezing', () => {
+  for (const message of [
+    'Importing a module script failed.',
+    'Failed to fetch dynamically imported module: https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js',
+  ]) {
+    const page = runBootRecovery();
+    page.fire('unhandledrejection', {reason: new TypeError(message)});
+    page.fire('unhandledrejection', {reason: new TypeError(message)});
+    page.flush();
+    assert.equal(page.reloads, 1, message);
+    assert.equal(page.session.get('eg-boot-retries'), '1');
+  }
+});
+
+test('a failed boot script reloads, but unrelated errors do not', () => {
+  const page = runBootRecovery();
+  page.fire('unhandledrejection', {reason: new Error('permission-denied')});
+  page.fire('error', {target: {tagName: 'IMG'}});
+  page.flush();
+  assert.equal(page.reloads, 0);
+  page.fire('error', {target: {tagName: 'SCRIPT'}});
+  page.flush();
+  assert.equal(page.reloads, 1);
+});
+
+test('boot recovery backs off, stops after five tries, and resets once the app paints', () => {
+  const delays = ['0', '1', '2', '3', '4'].map(stored => {
+    const page = runBootRecovery({stored});
+    page.fire('error', {target: {tagName: 'SCRIPT'}});
+    return page.delays[0];
+  });
+  assert.deepEqual(delays, [1000, 2000, 4000, 8000, 15000]);
+
+  const capped = runBootRecovery({stored: '5'});
+  capped.fire('error', {target: {tagName: 'SCRIPT'}});
+  capped.flush();
+  assert.equal(capped.reloads, 0);
+
+  const booted = runBootRecovery({stored: '1'});
+  booted.fire('flutter-first-frame');
+  assert.equal(booted.session.has('eg-boot-retries'), false);
+  booted.fire('error', {target: {tagName: 'SCRIPT'}});
+  booted.flush();
+  assert.equal(booted.reloads, 0);
+});
+
+test('boot recovery waits for the network before reloading offline', () => {
+  const page = runBootRecovery({online: false});
+  page.fire('unhandledrejection', {reason: new TypeError('Importing a module script failed.')});
+  page.flush();
+  assert.equal(page.reloads, 0);
+  page.fire('online');
+  assert.equal(page.reloads, 1);
+});
