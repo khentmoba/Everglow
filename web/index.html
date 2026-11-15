@@ -332,10 +332,17 @@
     // while each route's background fills the installed app viewport.
     // Plain Safari tabs return 0/false here, leaving browser layout alone.
     (function () {
+      function isElementFullscreen() {
+        try {
+          return !!(document.fullscreenElement || document.webkitFullscreenElement);
+        } catch (_) {
+          return false;
+        }
+      }
       function isStandalone() {
         try {
           if (window.matchMedia('(display-mode: standalone)').matches) return true;
-          if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+          if (!isElementFullscreen() && window.matchMedia('(display-mode: fullscreen)').matches) return true;
         } catch (_) {}
         try { if (window.navigator.standalone === true) return true; } catch (_) {}
         return false;
@@ -355,9 +362,11 @@
       }
       function publish() {
         try {
-          var top = isStandalone() ? readTopInset() : 0;
+          if (isElementFullscreen()) return;
+          var standalone = isStandalone();
+          var top = standalone ? readTopInset() : 0;
           document.documentElement.style.setProperty('--eg-sat', top + 'px');
-          document.documentElement.classList.toggle('eg-standalone', isStandalone());
+          document.documentElement.classList.toggle('eg-standalone', standalone);
         } catch (_) {}
       }
       window.__everglowIsStandalone = isStandalone;

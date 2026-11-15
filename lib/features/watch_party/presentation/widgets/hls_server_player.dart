@@ -6,6 +6,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 import '../../data/services/watch_party_server_service.dart';
+import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Controls a real `<video>` element playing an HLS stream through
@@ -198,6 +199,7 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   JSFunction? _endedListener;
   JSFunction? _errorListener;
   JSFunction? _loadedListener;
+  JSFunction? _wheelListener;
   Timer? _bridgePollTimer;
 
   @override
@@ -337,6 +339,30 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
       _showSubtitles();
       _applyPendingStart();
     }).toJS;
+    _wheelListener = ((web.Event event) {
+      if (_destroyed || !mounted) return;
+      if (web.document.fullscreenElement != null) return;
+      final wheel = event as web.WheelEvent;
+      final delta = parseEverglowEmbedScrollDelta({
+        'type': 'everglow-embed-scroll',
+        'deltaY': wheel.deltaY,
+        'deltaMode': wheel.deltaMode,
+      });
+      if (delta == null) return;
+      final position = Scrollable.maybeOf(context)?.position;
+      if (position == null ||
+          !position.hasPixels ||
+          !position.hasContentDimensions) {
+        return;
+      }
+      final next = (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if (next != position.pixels) {
+        position.jumpTo(next);
+      }
+    }).toJS;
 
     video.addEventListener('timeupdate', _timeListener);
     video.addEventListener('play', _playListener);
@@ -344,6 +370,7 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     video.addEventListener('ended', _endedListener);
     video.addEventListener('error', _errorListener);
     video.addEventListener('loadedmetadata', _loadedListener);
+    video.addEventListener('wheel', _wheelListener);
 
     ui_web.platformViewRegistry.registerViewFactory(
       widget.viewType,
@@ -592,6 +619,9 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
       }
       if (_loadedListener != null) {
         video.removeEventListener('loadedmetadata', _loadedListener);
+      }
+      if (_wheelListener != null) {
+        video.removeEventListener('wheel', _wheelListener);
       }
       try {
         video.pause();

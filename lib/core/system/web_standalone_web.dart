@@ -105,7 +105,8 @@ class WebStandalone {
       // matchMedia unavailable (very old browser): fall through.
     }
     try {
-      if (web.window.matchMedia('(display-mode: fullscreen)').matches) {
+      if (web.document.fullscreenElement == null &&
+          web.window.matchMedia('(display-mode: fullscreen)').matches) {
         return true;
       }
     } catch (_) {
@@ -281,6 +282,7 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
   }
 
   void _refresh() {
+    if (web.document.fullscreenElement != null) return;
     final value = WebStandalone.safeAreaPadding();
     final keyboard = WebStandalone.keyboardInset();
     if (mounted && (value != _padding || keyboard != _keyboard)) {

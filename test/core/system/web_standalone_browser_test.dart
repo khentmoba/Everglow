@@ -121,6 +121,18 @@ void main() {
     await tester.pump();
     expect(measured.padding, const EdgeInsets.fromLTRB(44, 0, 44, 0));
     expect(measured.viewPadding, const EdgeInsets.fromLTRB(44, 0, 44, 21));
+
+    // While an element is in HTML5 fullscreen, resize events must not re-probe
+    // safe-area insets or shift MediaQuery padding mid-transition.
+    js(
+      "Object.defineProperty(document, 'fullscreenElement', {value: document.body, configurable: true});"
+      "window.egInsets = {paddingTop: '99px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px'};"
+      "window.dispatchEvent(new Event('resize'));",
+    );
+    await tester.pump();
+    expect(measured.padding, const EdgeInsets.fromLTRB(44, 0, 44, 0));
+    js("delete document.fullscreenElement;");
+
     await tester.pump(const Duration(milliseconds: 500));
   });
 

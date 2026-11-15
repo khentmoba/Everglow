@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,12 @@ import 'animex_buttons.dart';
 import 'animex_embed_policy.dart';
 import 'animex_tokens.dart';
 import 'animex_videasy_progress.dart';
+
+bool _fullscreenExitSettling = false;
+
+/// True while the browser is in element fullscreen or settling out of it.
+bool isPlayerFullscreenActive() =>
+    _fullscreenExitSettling || web.document.fullscreenElement != null;
 
 class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
@@ -83,6 +90,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   JSFunction? _videoTimeUpdateListener;
   JSFunction? _videoEndedListener;
   JSFunction? _videoErrorListener;
+  JSFunction? _videoWheelListener;
+  JSFunction? _onFullscreenChange;
+  Timer? _fullscreenSettleTimer;
 
   bool get _isDirectVideo =>
       widget.url.endsWith('.mp4') ||
@@ -166,6 +176,11 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         widget.onProgress?.call(ownedProgress);
         return;
       }
+      final scrollDelta = parseEverglowEmbedScrollDelta(obj);
+      if (scrollDelta != null) {
+        _applyEmbedScroll(scrollDelta);
+        return;
+      }
       // CineSrc episode changes arrive as objects (forwarded by our
       // embed.html wrapper, which already origin-checked the upstream).
       if (raw != null) {
@@ -218,6 +233,36 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (progress != null && mounted) widget.onProgress?.call(progress);
     }).toJS;
     web.window.addEventListener('message', _onMessage);
+    _onFullscreenChange = ((web.Event _) {
+      _fullscreenSettleTimer?.cancel();
+      if (web.document.fullscreenElement != null) {
+        _fullscreenExitSettling = false;
+      } else {
+        _fullscreenExitSettling = true;
+        _fullscreenSettleTimer = Timer(const Duration(milliseconds: 260), () {
+          _fullscreenExitSettling = false;
+          if (mounted) setState(() {});
+        });
+      }
+    }).toJS;
+    web.document.addEventListener('fullscreenchange', _onFullscreenChange);
+  }
+
+  void _applyEmbedScroll(double dy) {
+    if (!mounted || web.document.fullscreenElement != null) return;
+    final position = Scrollable.maybeOf(context)?.position;
+    if (position == null ||
+        !position.hasPixels ||
+        !position.hasContentDimensions) {
+      return;
+    }
+    final next = (position.pixels + dy).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (next != position.pixels) {
+      position.jumpTo(next);
+    }
   }
 
   @override
@@ -292,6 +337,11 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
 
   @override
   void dispose() {
+    _fullscreenSettleTimer?.cancel();
+    _fullscreenExitSettling = false;
+    if (_onFullscreenChange != null) {
+      web.document.removeEventListener('fullscreenchange', _onFullscreenChange!);
+    }
     if (_videoElement != null) {
       _videoElement!.pause();
       if (_videoLoadedListener != null) {
@@ -305,6 +355,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       }
       if (_videoErrorListener != null) {
         _videoElement!.removeEventListener('error', _videoErrorListener);
+      }
+      if (_videoWheelListener != null) {
+        _videoElement!.removeEventListener('wheel', _videoWheelListener);
       }
       _videoElement = null;
     }
@@ -323,18 +376,23 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: widget.aspectRatio,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+        ),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const ColoredBox(color: Colors.black),
             // The built-in factory does not retain a closure over this State
             // for every episode/server change.
             HtmlElementView.fromTagName(
               tagName: 'div',
               onElementCreated: (element) {
                 final host = element as web.HTMLElement;
+                host.style
+                  ..borderRadius = '${AnimeXTokens.radiusLg}px'
+                  ..overflow = 'hidden';
                 if (_isDirectVideo) {
                   _videoElement = web.HTMLVideoElement()
                     ..controls = true
@@ -375,11 +433,21 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
                       widget.onContentError?.call();
                     }
                   }).toJS;
+                  _videoWheelListener = ((web.Event event) {
+                    final wheel = event as web.WheelEvent;
+                    final delta = parseEverglowEmbedScrollDelta({
+                      'type': 'everglow-embed-scroll',
+                      'deltaY': wheel.deltaY,
+                      'deltaMode': wheel.deltaMode,
+                    });
+                    if (delta != null) _applyEmbedScroll(delta);
+                  }).toJS;
 
                   _videoElement!.addEventListener('loadeddata', _videoLoadedListener);
                   _videoElement!.addEventListener('timeupdate', _videoTimeUpdateListener);
                   _videoElement!.addEventListener('ended', _videoEndedListener);
                   _videoElement!.addEventListener('error', _videoErrorListener);
+                  _videoElement!.addEventListener('wheel', _videoWheelListener);
                   host.appendChild(_videoElement!);
                 } else {
                   host.appendChild(_iframe);

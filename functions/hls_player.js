@@ -65,6 +65,9 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'html,body{margin:0;height:100%;background:#08060e;overflow:hidden;' +
     'font-family:"DM Sans",-apple-system,BlinkMacSystemFont,sans-serif;color:#fff5f5;user-select:none}' +
     'video{width:100%;height:100%;background:#000;display:block}' +
+    '@keyframes egfs{from{opacity:.86;transform:scale(.982)}to{opacity:1;transform:scale(1)}}' +
+    'body.fs-settle video,body.fs-settle #hud{animation:egfs .22s cubic-bezier(.22,1,.36,1)}' +
+    '@media (prefers-reduced-motion:reduce){body.fs-settle video,body.fs-settle #hud{animation:none}}' +
     // Netflix-style subtitles: zero black background box, bold white text with crisp dark stroke + drop shadow
     'video::cue{background:transparent!important;background-color:transparent!important;' +
     'color:#fff;font-family:"DM Sans",sans-serif;font-weight:800;' +
@@ -280,7 +283,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '<button type="button" class="ib" id="btn-pip" aria-label="Picture in picture">' +
     '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><rect x="10.2" y="9.4" width="6" height="4.8" rx="1" fill="currentColor" stroke="none"/></svg></button>' +
     '<button type="button" class="ib" id="btn-fs" aria-label="Fullscreen">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
+    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path id="fs-p" d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
     '</div></div></div></div>\n' +
     '<div id="binge">' +
     '<div class="b-scrim" id="b-scrim" hidden></div>' +
@@ -351,6 +354,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var btnQ=document.getElementById("btn-q");' +
     'var qMenu=document.getElementById("q-menu");' +
     'var btnFs=document.getElementById("btn-fs");' +
+    'var fsP=document.getElementById("fs-p");' +
     'var btnSkip=document.getElementById("btn-skip");' +
     'var btnNext=document.getElementById("btn-next");' +
     'var btnSub=document.getElementById("btn-sub");' +
@@ -547,11 +551,29 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(btnCc&&ccMenu)btnCc.addEventListener("click",function(){' +
     'ccMenu.hidden=!ccMenu.hidden;' +
     'if(!ccMenu.hidden){buildCcMenu();if(qMenu)qMenu.hidden=true;if(spMenu)spMenu.hidden=true;}placeSubs();});' +
+    'var fsT=null;function isFs(){var d=document;return !!(d.fullscreenElement||d.webkitFullscreenElement);}' +
+    'function syncFsUi(){var on=isFs();if(document.body&&document.body.classList){' +
+    'document.body.classList.toggle("is-fs",on);document.body.classList.remove("fs-settle");' +
+    'document.body.classList.add("fs-settle");' +
+    'if(typeof clearTimeout==="function"&&fsT)clearTimeout(fsT);' +
+    'if(typeof setTimeout==="function"){fsT=setTimeout(function(){' +
+    'if(document.body&&document.body.classList)document.body.classList.remove("fs-settle");},240);}}' +
+    'if(btnFs){btnFs.setAttribute("aria-label",on?"Exit fullscreen":"Fullscreen");' +
+    'btnFs.classList.toggle("on",on);' +
+    'if(fsP)fsP.setAttribute("d",on?"M7 3v4H3M13 3v4h4M7 17v-4H3M13 17v-4h4":"M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4");}' +
+    'placeSubs();if(typeof wakeHud==="function")wakeHud();}' +
     'function toggleFs(){var doc=document;var root=doc.documentElement||v;' +
-    'if(doc.fullscreenElement){if(doc.exitFullscreen)doc.exitFullscreen();}' +
+    'if(isFs()){if(doc.exitFullscreen)doc.exitFullscreen();else if(doc.webkitExitFullscreen)doc.webkitExitFullscreen();}' +
     'else if(root.requestFullscreen){root.requestFullscreen();}' +
+    'else if(root.webkitRequestFullscreen){root.webkitRequestFullscreen();}' +
     'else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}}' +
+    'if(document.addEventListener){document.addEventListener("fullscreenchange",syncFsUi);' +
+    'document.addEventListener("webkitfullscreenchange",syncFsUi);}' +
     'if(btnFs)btnFs.addEventListener("click",toggleFs);' +
+    'function inOpenMenu(t){while(t){if((t===ccMenu||t===svMenu||t===qMenu||t===spMenu)&&!t.hidden)return true;t=t.parentNode||t.parentElement;}return false;}' +
+    'window.addEventListener("wheel",function(e){if(!e||isFs()||inOpenMenu(e.target))return;' +
+    'var dx=Number(e.deltaX)||0,dy=Number(e.deltaY)||0;if(!dx&&!dy)return;' +
+    'post({type:"everglow-embed-scroll",deltaX:dx,deltaY:dy,deltaMode:Number(e.deltaMode)||0});},{passive:true});' +
     'if(btnQ&&qMenu)btnQ.addEventListener("click",function(){qMenu.hidden=!qMenu.hidden;' +
     'if(!qMenu.hidden){if(ccMenu)ccMenu.hidden=true;if(spMenu)spMenu.hidden=true;}placeSubs();});' +
     'if(btnSpeed&&spMenu)btnSpeed.addEventListener("click",function(){' +

@@ -96,11 +96,14 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
         right: !_isFullscreen,
         child: Column(
           children: [
-            if (!_isFullscreen) _buildTopBar(),
+            Offstage(offstage: _isFullscreen, child: _buildTopBar()),
             // Scrollable body: video + metadata + server selector
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
+                physics: _isFullscreen
+                    ? const NeverScrollableScrollPhysics()
+                    : null,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -108,31 +111,37 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                     // Rebuilding HtmlElementView under a different parent can
                     // detach the iframe and restart the embed.
                     _buildPlayerArea(),
-                    if (!_isFullscreen) ...[
-                      // Episode Navigator for TV content
-                      if (widget.mediaType == 'tv' && !widget.isAnime)
-                        EpisodeNavigator(
-                          // Rebuild on auto-advance so the playing episode
-                          // highlight follows the Up Next flow.
-                          key: ValueKey(
-                            'ep-nav-$_currentSeason-$_currentEpisode',
-                          ),
-                          tmdbId: widget.tmdbId,
-                          initialSeason: _currentSeason,
-                          initialEpisode: _currentEpisode,
-                          title: widget.title,
-                          positionSeconds: _playbackPositionSeconds,
-                          durationSeconds: _playbackDurationSeconds,
-                          allEpisodesWatched: widget.allEpisodesWatched,
-                          currentEpisodeCompleted: _currentEpisodeCompleted,
-                          onSeasonChanged: _onSeasonChanged,
-                          onEpisodeChanged: _onEpisodeChanged,
-                        ),
-                      const CinemaViewingPreferences(compact: true),
-                      RepaintBoundary(child: _buildMetadataSection()),
-                      RepaintBoundary(child: _buildServerSelectorSection()),
-                      const SizedBox(height: 40),
-                    ],
+                    Offstage(
+                      offstage: _isFullscreen,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Episode Navigator for TV content
+                          if (widget.mediaType == 'tv' && !widget.isAnime)
+                            EpisodeNavigator(
+                              // Rebuild on auto-advance so the playing episode
+                              // highlight follows the Up Next flow.
+                              key: ValueKey(
+                                'ep-nav-$_currentSeason-$_currentEpisode',
+                              ),
+                              tmdbId: widget.tmdbId,
+                              initialSeason: _currentSeason,
+                              initialEpisode: _currentEpisode,
+                              title: widget.title,
+                              positionSeconds: _playbackPositionSeconds,
+                              durationSeconds: _playbackDurationSeconds,
+                              allEpisodesWatched: widget.allEpisodesWatched,
+                              currentEpisodeCompleted: _currentEpisodeCompleted,
+                              onSeasonChanged: _onSeasonChanged,
+                              onEpisodeChanged: _onEpisodeChanged,
+                            ),
+                          const CinemaViewingPreferences(compact: true),
+                          RepaintBoundary(child: _buildMetadataSection()),
+                          RepaintBoundary(child: _buildServerSelectorSection()),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -150,9 +159,16 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewportHeight = MediaQuery.sizeOf(context).height;
+        final computedWindowedHeight = (viewportHeight - 296)
+            .clamp(240.0, double.infinity)
+            .toDouble();
+        if (!_isNativeFullscreenActive ||
+            _lastWindowedMaxPlayerHeight == null) {
+          _lastWindowedMaxPlayerHeight = computedWindowedHeight;
+        }
         final maxPlayerHeight = _isFullscreen
             ? viewportHeight
-            : (viewportHeight - 296).clamp(240.0, double.infinity).toDouble();
+            : _lastWindowedMaxPlayerHeight!;
         // Keyboard forwarding and scroll calculations use this height, so
         // remember what the player actually occupies rather than guessing from the viewport.
         final laidOutHeight = maxPlayerHeight < constraints.maxWidth * 9 / 16

@@ -267,4 +267,50 @@ void main() {
     expect(progress, isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('everglow-embed-scroll from the player frame scrolls the enclosing scrollable', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SingleChildScrollView(
+          controller: controller,
+          child: const Column(
+            children: [
+              SizedBox(height: 300, child: AnimeXPlayerFrame(url: url)),
+              SizedBox(height: 1200),
+            ],
+          ),
+        ),
+      ),
+    );
+    final frame = await frameFor(tester);
+    final foreign = web.HTMLIFrameElement()..src = 'about:blank';
+    web.document.body!.appendChild(foreign);
+    addTearDown(() => foreign.remove());
+
+    message(foreign.contentWindow, animeXProxyOrigin, {
+      'type': 'everglow-embed-scroll',
+      'deltaY': 180,
+      'deltaMode': 0,
+    });
+    expect(controller.offset, 0);
+
+    message(frame.contentWindow, animeXProxyOrigin, {
+      'type': 'everglow-embed-scroll',
+      'deltaY': 180,
+      'deltaMode': 0,
+    });
+    expect(controller.offset, 180);
+
+    message(frame.contentWindow, animeXProxyOrigin, {
+      'type': 'everglow-embed-scroll',
+      'deltaY': -60,
+      'deltaMode': 0,
+    });
+    expect(controller.offset, 120);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
