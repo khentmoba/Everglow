@@ -1,16 +1,16 @@
 # Everglow is back in the cinema picker
 
-Proof for the change that brings the Everglow HLS row back and adds a working
-Everglow player shell.
+Proof for the change that brings the Everglow HLS row back and adds the
+Celestia player shell.
 
 ## What the shots show
 
 - `shot-picker.png`: the Switch Source sheet at 430px phone width. It lists
-  `Everglow Player` (selected), `Everglow` (the HLS row, back), `CineSrc`,
+  `Celestia` (selected), `Everglow` (the HLS row, back), `CineSrc`,
   `VidCore` and `VidLink`.
 - `shot-wrapper.png`: our own `web/embed.html` shell opened top level at the
   same width, loading the CineSrc upstream ("Fetching Media"). This is the
-  player the `Everglow Player` row opens.
+  player the `Celestia` row opens.
 
 Both shots come from a local release build of this branch
 (`dart tool/build_web.dart -- --release --no-source-maps`), served over
@@ -32,6 +32,6 @@ proven by these shots.
 
 The live Worker still answers `resolve 502, rows=0` for all three cinema smoke
 titles. fmov.my times out and vidbolt.xyz blocks Cloudflare's edge. Tapping the
-`Everglow` row therefore fails and the app falls through to `Everglow Player`.
+`Everglow` row therefore fails and the app falls through to `Celestia`.
 The HLS row starts working on its own when a cinema upstream answers from the
 edge again; no app change is needed.
