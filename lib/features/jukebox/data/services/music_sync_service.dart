@@ -111,6 +111,12 @@ class MusicSyncService {
   }
 
   final Map<String, int> _lastObservedTotalPlays = {};
+  int _transientFailureCount = 0;
+
+  /// Monotonic count of transient HTTP/network/API errors observed by this
+  /// service instance. Lets callers distinguish a genuine empty result from
+  /// a swallowed failure without changing `[]` fallback return types.
+  int get transientFailureCount => _transientFailureCount;
 
   /// Returns the latest total play count observed for [username] across any
   /// Last.fm response (`user.getinfo` or `user.getrecenttracks` @attr.total).
@@ -135,6 +141,7 @@ class MusicSyncService {
     final error = data is Map ? data['error'] : null;
     final message = data is Map ? data['message'] : null;
     if (error != null || message != null) {
+      _transientFailureCount++;
       Logger.w(
         'Jukebox Service: Last.fm error for $what ($username): '
         '[$error] $message',
@@ -195,15 +202,18 @@ class MusicSyncService {
           'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
         );
       } else {
+        _transientFailureCount++;
         Logger.e(
           'Jukebox Service Error ($username): Status ${response.statusCode} - ${response.body}',
         );
       }
     } on TimeoutException {
+      _transientFailureCount++;
       Logger.e(
         'Jukebox Service Timeout: API call for $username timed out after 10s.',
       );
     } catch (e) {
+      _transientFailureCount++;
       Logger.e('Jukebox Service Exception ($username)', error: e);
     }
     return [];
@@ -269,15 +279,18 @@ class MusicSyncService {
           period: period,
         );
       } else {
+        _transientFailureCount++;
         Logger.e(
           'Jukebox Service Error (top tracks, $username): Status ${response.statusCode} - ${response.body}',
         );
       }
     } on TimeoutException {
+      _transientFailureCount++;
       Logger.e(
         'Jukebox Service Timeout: Top tracks API call for $username timed out after 10s.',
       );
     } catch (e) {
+      _transientFailureCount++;
       Logger.e('Jukebox Service Exception (top tracks, $username)', error: e);
     }
     return [];
@@ -367,15 +380,18 @@ class MusicSyncService {
           _warnOnLastfmError(data, 'artist catalog tracks', trimmedArtist);
         }
       } else {
+        _transientFailureCount++;
         Logger.w(
           'Jukebox Service: Artist catalog tracks ($trimmedArtist) status ${response.statusCode}',
         );
       }
     } on TimeoutException {
+      _transientFailureCount++;
       Logger.w(
         'Jukebox Service Timeout: Artist catalog tracks for "$trimmedArtist" timed out.',
       );
     } catch (e) {
+      _transientFailureCount++;
       Logger.w(
         'Jukebox Service Exception (artist catalog tracks, $trimmedArtist)',
         error: e,
@@ -495,12 +511,16 @@ class MusicSyncService {
         }
       } else if (response.statusCode == 404) {
         _markInvalidUser(username);
+      } else {
+        _transientFailureCount++;
       }
     } on TimeoutException {
+      _transientFailureCount++;
       Logger.d(
         'Jukebox Service Timeout: track playcount for "$trimmedArtist - $trimmedTrack" timed out.',
       );
     } catch (e) {
+      _transientFailureCount++;
       Logger.w(
         'Jukebox Service Exception (track playcount, $trimmedArtist - $trimmedTrack, $username)',
         error: e,

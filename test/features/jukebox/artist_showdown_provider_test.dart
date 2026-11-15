@@ -248,7 +248,10 @@ void main() {
             ],
           },
         );
-        final provider = ArtistShowdownProvider(syncService: sync);
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          catalogTimeout: const Duration(milliseconds: 50),
+        );
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.artist, 'Ethel Cain');
@@ -655,7 +658,10 @@ void main() {
           },
         );
 
-        final provider = ArtistShowdownProvider(syncService: sync);
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          catalogTimeout: const Duration(milliseconds: 50),
+        );
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.hasHistory, isFalse);
@@ -698,7 +704,10 @@ void main() {
       'selectArtist recovers safely when network throws and does not get stuck in loading state',
       () async {
         final sync = _ThrowingSync();
-        final provider = ArtistShowdownProvider(syncService: sync);
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          catalogTimeout: const Duration(milliseconds: 50),
+        );
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.isLoading, isFalse);
@@ -805,7 +814,10 @@ void main() {
             'clairjassen': [_track('Strangers', 5)],
           },
         );
-        final provider = ArtistShowdownProvider(syncService: sync);
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          catalogTimeout: const Duration(milliseconds: 50),
+        );
         addTearDown(provider.dispose);
 
         await _waitFor(() => !provider.isLoading);
@@ -835,7 +847,10 @@ void main() {
       'refresh on empty showdown reloads when new plays appear',
       () async {
         final sync = _FakeSync(byUser: {});
-        final provider = ArtistShowdownProvider(syncService: sync);
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          catalogTimeout: const Duration(milliseconds: 50),
+        );
         addTearDown(provider.dispose);
 
         await _waitFor(() => !provider.isLoading);
@@ -869,7 +884,10 @@ void main() {
           gate: gate,
           gatedArtist: 'Ethel Cain',
         );
-        final provider = ArtistShowdownProvider(syncService: sync);
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          catalogTimeout: const Duration(milliseconds: 50),
+        );
         addTearDown(() {
           if (!gate.isCompleted) gate.complete();
           provider.dispose();
@@ -893,6 +911,30 @@ void main() {
         await _waitFor(() => !provider.isLoading);
 
         expect(provider.khentTotal, 50);
+      },
+    );
+
+    test(
+      'first load automatically retries once when transient failure returns empty',
+      () async {
+        final sync = _FailOnceSync(
+          byUser: {
+            'khentsgdz': [_track('American Teenager', 14)],
+            'clairjassen': [_track('American Teenager', 9)],
+          },
+        );
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          retryDelay: const Duration(milliseconds: 20),
+        );
+        addTearDown(provider.dispose);
+
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.hasData, isTrue);
+        expect(provider.khentTotal, 14);
+        expect(provider.clairTotal, 9);
+        expect(provider.tracks.first.trackName, 'American Teenager');
       },
     );
   });
@@ -951,5 +993,49 @@ class _ThrowingSync extends MusicSyncService {
     int maxPages = 10,
   }) async {
     throw StateError('Simulated catalog timeout');
+  }
+}
+
+class _FailOnceSync extends _FakeSync {
+  _FailOnceSync({required super.byUser});
+
+  int _topCalls = 0;
+  bool _failedCatalog = false;
+  int _failures = 0;
+
+  @override
+  int get transientFailureCount => _failures;
+
+  @override
+  Future<List<TopMusicTrack>> fetchTopTracks(
+    String username, {
+    int limit = 10,
+    int page = 1,
+    String period = 'overall',
+  }) async {
+    _topCalls++;
+    if (_topCalls <= 2) {
+      _failures++;
+      return const [];
+    }
+    return super.fetchTopTracks(username, limit: limit, page: page, period: period);
+  }
+
+  @override
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
+    String artist, {
+    int pageSize = 50,
+    int maxPages = 10,
+  }) async {
+    if (!_failedCatalog) {
+      _failedCatalog = true;
+      _failures++;
+      return const [];
+    }
+    return super.fetchArtistCatalogTracksAll(
+      artist,
+      pageSize: pageSize,
+      maxPages: maxPages,
+    );
   }
 }

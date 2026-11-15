@@ -54,11 +54,15 @@ class ArtistShowdownProvider extends ChangeNotifier {
   ArtistShowdownProvider({
     MusicSyncService? syncService,
     String initialArtist = ArtistShowdownProvider.defaultArtist,
-    Duration chartTimeout = const Duration(seconds: 5),
-    Duration discoveryTimeout = const Duration(seconds: 15),
+    Duration chartTimeout = const Duration(seconds: 12),
+    Duration catalogTimeout = const Duration(seconds: 10),
+    Duration discoveryTimeout = const Duration(seconds: 25),
+    Duration retryDelay = const Duration(milliseconds: 1200),
   }) : _sync = syncService ?? MusicSyncService(),
        _chartTimeout = chartTimeout,
-       _discoveryTimeout = discoveryTimeout {
+       _catalogTimeout = catalogTimeout,
+       _discoveryTimeout = discoveryTimeout,
+       _retryDelay = retryDelay {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     selectArtist(initialArtist);
@@ -77,7 +81,9 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
   final MusicSyncService _sync;
   final Duration _chartTimeout;
+  final Duration _catalogTimeout;
   final Duration _discoveryTimeout;
+  final Duration _retryDelay;
   late final String _khentUser;
   late final String _clairUser;
 
@@ -85,6 +91,8 @@ class ArtistShowdownProvider extends ChangeNotifier {
   bool _isLoading = true;
   bool _disposed = false;
   int _requestId = 0;
+  Timer? _retryTimer;
+  Completer<void>? _retryCompleter;
 
   int _khentTotal = 0;
   int _clairTotal = 0;
@@ -217,6 +225,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
     final isSameArtist = artist.toLowerCase() == _artist.toLowerCase();
     if (!force && isSameArtist) return;
     final request = ++_requestId;
+    _cancelRetryTimer();
     final key = artist.toLowerCase();
 
     if (force) {
@@ -253,36 +262,66 @@ class ArtistShowdownProvider extends ChangeNotifier {
       _tracks = const [];
     }
     _safeNotify();
-    var timedOut = false;
     (int, int, List<ShowdownTrack>)? localRows;
+    var finalTimedOut = false;
+    var finalHadFailure = false;
+    var finalRows = (0, 0, const <ShowdownTrack>[]);
+
     try {
-      final rows = await _fetchArtistShowdownRows(
-        artist,
-        onChartRows: (rows) {
-          if (_disposed || request != _requestId || rows.$3.isEmpty) return;
-          localRows = rows;
-          _khentTotal = rows.$1;
-          _clairTotal = rows.$2;
-          _tracks = rows.$3;
-          _safeNotify();
-        },
-      ).timeout(
-        _discoveryTimeout,
-        onTimeout: () {
-          timedOut = true;
-          Logger.w('ArtistShowdown: discovery timed out for "$artist"');
-          return localRows ??
-              (isSameArtist
-                  ? (_khentTotal, _clairTotal, _tracks)
-                  : (0, 0, const <ShowdownTrack>[]));
-        },
-      );
-      // A newer selectArtist won while these reads were in flight — drop them.
-      if (_disposed || request != _requestId) return;
-      _khentTotal = rows.$1;
-      _clairTotal = rows.$2;
-      _tracks = rows.$3;
-      if (!timedOut) {
+      for (var attempt = 0; attempt < 2; attempt++) {
+        var timedOut = false;
+        final result = await _fetchArtistShowdownRows(
+          artist,
+          onChartRows: (rows) {
+            if (_disposed || request != _requestId || rows.$3.isEmpty) return;
+            localRows = rows;
+            _khentTotal = rows.$1;
+            _clairTotal = rows.$2;
+            _tracks = rows.$3;
+            _safeNotify();
+          },
+        ).timeout(
+          _discoveryTimeout,
+          onTimeout: () {
+            timedOut = true;
+            Logger.w('ArtistShowdown: discovery timed out for "$artist"');
+            final fallback =
+                localRows ??
+                (isSameArtist
+                    ? (_khentTotal, _clairTotal, _tracks)
+                    : (0, 0, const <ShowdownTrack>[]));
+            return (fallback.$1, fallback.$2, fallback.$3, true);
+          },
+        );
+        if (_disposed || request != _requestId) return;
+
+        finalTimedOut = timedOut;
+        finalHadFailure = result.$4;
+        finalRows = (result.$1, result.$2, result.$3);
+        final isEmpty =
+            finalRows.$1 == 0 && finalRows.$2 == 0 && finalRows.$3.isEmpty;
+
+        if (isEmpty && (finalTimedOut || finalHadFailure) && attempt == 0) {
+          Logger.w(
+            'ArtistShowdown: retrying "$artist" after empty transient failure',
+          );
+          final completer = Completer<void>();
+          _retryCompleter = completer;
+          _retryTimer = Timer(_retryDelay, () {
+            if (!completer.isCompleted) completer.complete();
+          });
+          await completer.future;
+          if (_disposed || request != _requestId) return;
+          continue;
+        }
+        break;
+      }
+
+      _khentTotal = finalRows.$1;
+      _clairTotal = finalRows.$2;
+      _tracks = finalRows.$3;
+      final isEmpty = _khentTotal == 0 && _clairTotal == 0 && _tracks.isEmpty;
+      if (!finalTimedOut && !(isEmpty && finalHadFailure)) {
         _cache[key] = _CachedShowdown(
           khentTotal: _khentTotal,
           clairTotal: _clairTotal,
@@ -385,11 +424,13 @@ class ArtistShowdownProvider extends ChangeNotifier {
   ///
   /// If catalog discovery finds no plays (e.g. offline, mock test service,
   /// or zero scrobbles found), falls back to filtering the top tracks chart.
-  Future<(int, int, List<ShowdownTrack>)> _fetchArtistShowdownRows(
+  Future<(int, int, List<ShowdownTrack>, bool)> _fetchArtistShowdownRows(
     String artist, {
     required void Function((int, int, List<ShowdownTrack>)) onChartRows,
   }) async {
     final wanted = artist.trim().toLowerCase();
+    final failuresBefore = _sync.transientFailureCount;
+    var hadTransientFailure = false;
 
     final chartFuture =
         Future.wait([
@@ -398,6 +439,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
         ]).timeout(
           _chartTimeout,
           onTimeout: () {
+            hadTransientFailure = true;
             Logger.w('ArtistShowdown: chart fetch timed out for "$artist"');
             return <List<TopMusicTrack>>[const [], const []];
           },
@@ -407,6 +449,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
           }
           return charts;
         }).catchError((Object e, StackTrace st) {
+          hadTransientFailure = true;
           Logger.w('ArtistShowdown: chart fetch failed for "$artist"', error: e);
           return <List<TopMusicTrack>>[const [], const []];
         });
@@ -414,22 +457,43 @@ class ArtistShowdownProvider extends ChangeNotifier {
     // 1. Discover candidate tracks strictly for this artist in parallel.
     final catalogFuture = _sync
         .fetchArtistCatalogTracksAll(artist, pageSize: 50, maxPages: 2)
-        .timeout(const Duration(seconds: 4), onTimeout: () => const [])
+        .timeout(
+          _catalogTimeout,
+          onTimeout: () {
+            hadTransientFailure = true;
+            return const [];
+          },
+        )
         .catchError((Object e, StackTrace st) {
+          hadTransientFailure = true;
           Logger.w('ArtistShowdown: catalog fetch failed for "$artist"', error: e);
           return const <TopMusicTrack>[];
         });
     final recentKhentFuture = _sync
         .fetchRecentTracks(_khentUser, limit: 50)
-        .timeout(const Duration(seconds: 4), onTimeout: () => const [])
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            hadTransientFailure = true;
+            return const [];
+          },
+        )
         .catchError((Object e, StackTrace st) {
+          hadTransientFailure = true;
           Logger.w('ArtistShowdown: recent tracks fetch failed for "$artist"', error: e);
           return const <MusicStatus>[];
         });
     final recentClairFuture = _sync
         .fetchRecentTracks(_clairUser, limit: 50)
-        .timeout(const Duration(seconds: 4), onTimeout: () => const [])
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            hadTransientFailure = true;
+            return const [];
+          },
+        )
         .catchError((Object e, StackTrace st) {
+          hadTransientFailure = true;
           Logger.w('ArtistShowdown: recent tracks fetch failed for "$artist"', error: e);
           return const <MusicStatus>[];
         });
@@ -479,8 +543,15 @@ class ArtistShowdownProvider extends ChangeNotifier {
             candidateTracks: candidates,
             batchSize: 16,
           )
-          .timeout(const Duration(seconds: 6), onTimeout: () => const [])
+          .timeout(
+            const Duration(seconds: 12),
+            onTimeout: () {
+              hadTransientFailure = true;
+              return const [];
+            },
+          )
           .catchError((Object e, StackTrace st) {
+            hadTransientFailure = true;
             Logger.w(
               'ArtistShowdown: user artist tracks fetch failed for "$artist"',
               error: e,
@@ -494,8 +565,15 @@ class ArtistShowdownProvider extends ChangeNotifier {
             candidateTracks: candidates,
             batchSize: 16,
           )
-          .timeout(const Duration(seconds: 6), onTimeout: () => const [])
+          .timeout(
+            const Duration(seconds: 12),
+            onTimeout: () {
+              hadTransientFailure = true;
+              return const [];
+            },
+          )
           .catchError((Object e, StackTrace st) {
+            hadTransientFailure = true;
             Logger.w(
               'ArtistShowdown: user artist tracks fetch failed for "$artist"',
               error: e,
@@ -507,13 +585,19 @@ class ArtistShowdownProvider extends ChangeNotifier {
       final khent = _unionUserTracks(results[0], charts[0]);
       final clair = _unionUserTracks(results[1], charts[1]);
 
+      final failed =
+          hadTransientFailure || _sync.transientFailureCount > failuresBefore;
       if (khent.isNotEmpty || clair.isNotEmpty) {
-        return _merge(khent, clair);
+        final merged = _merge(khent, clair);
+        return (merged.$1, merged.$2, merged.$3, failed);
       }
     }
 
     // 3. Fallback: if candidate search found nothing new, return top tracks chart.
-    return _merge(charts[0], charts[1]);
+    final failed =
+        hadTransientFailure || _sync.transientFailureCount > failuresBefore;
+    final merged = _merge(charts[0], charts[1]);
+    return (merged.$1, merged.$2, merged.$3, failed);
   }
 
   /// Legacy fallback: pulls each user's top tracks chart and filters by artist.
@@ -697,9 +781,20 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
   }
 
+  void _cancelRetryTimer() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    final completer = _retryCompleter;
+    _retryCompleter = null;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    _cancelRetryTimer();
     super.dispose();
   }
 }

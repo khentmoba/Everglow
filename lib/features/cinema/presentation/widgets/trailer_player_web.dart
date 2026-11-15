@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
+import '../../../../core/utils/logger.dart';
 
 class TrailerPlayer extends StatefulWidget {
   final String videoKey;
@@ -31,7 +34,11 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
   web.HTMLIFrameElement get debugIframe => _iframe;
   late final web.HTMLDivElement _wrapper;
   JSFunction? _onLoadListener;
+  JSFunction? _onMessageListener;
+  Timer? _readyFallbackTimer;
+  Timer? _settleTimer;
   bool _loaded = false;
+  bool _notifiedReady = false;
   bool _active = true;
 
   String _buildEmbedUrl(String key) {
@@ -40,11 +47,12 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       'mute=${widget.muted ? 1 : 0}',
       'controls=0',
       'loop=${widget.loop ? 1 : 0}',
-      'playlist=$key', // playlist param is required for loop=1 to work in YT embeds
+      if (widget.loop) 'playlist=$key',
       'rel=0',
       'modestbranding=1',
       'showinfo=0',
       'iv_load_policy=3',
+      'cc_load_policy=0',
       'disablekb=1',
       'fs=0',
       'playsinline=1',
@@ -63,8 +71,19 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     } catch (_) {}
   }
 
+  void _notifyReady() {
+    if (_notifiedReady || !mounted || !_active) return;
+    _notifiedReady = true;
+    _readyFallbackTimer?.cancel();
+    _settleTimer?.cancel();
+    widget.onLoaded?.call();
+  }
+
   void _loadVideo(String key) {
     _loaded = false;
+    _notifiedReady = false;
+    _readyFallbackTimer?.cancel();
+    _settleTimer?.cancel();
     _iframe.src = _buildEmbedUrl(key);
   }
 
@@ -128,21 +147,52 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
     wrapper.appendChild(overlay);
 
+    _onMessageListener = ((web.MessageEvent event) {
+      if (!mounted || !_active || _notifiedReady) return;
+      if (event.source != _iframe.contentWindow) return;
+      final raw = event.data;
+      if (!raw.isA<JSString>()) return;
+      final text = (raw as JSString).toDart;
+      if (!text.contains('playerState')) return;
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is Map<String, dynamic>) {
+          final info = decoded['info'];
+          final state = info is Map<String, dynamic>
+              ? info['playerState']
+              : null;
+          if (state == 1) {
+            // Wait briefly so YouTube's initial playback OSD fades before
+            // the hero cross-fades the iframe into view.
+            _settleTimer?.cancel();
+            _settleTimer = Timer(const Duration(milliseconds: 350), _notifyReady);
+          }
+        }
+      } catch (e) {
+        Logger.d('TrailerPlayer: ignored non-JSON postMessage: $e');
+      }
+    }).toJS;
+    web.window.addEventListener('message', _onMessageListener);
+
     _onLoadListener = ((web.Event _) {
       _loaded = true;
       if (mounted && _active) {
-        if (!widget.muted) {
-          _postCommand('unMute');
-          _postCommand('setVolume', 100);
-        } else {
-          _postCommand('mute');
+        try {
+          _iframe.contentWindow?.postMessage(
+            '{"event":"listening"}'.toJS,
+            '*'.toJS,
+          );
+        } catch (e) {
+          Logger.d('TrailerPlayer: failed to subscribe to YT events: $e');
         }
         if (!widget.playing) {
           _postCommand('pauseVideo');
-        } else if (widget.autoplay) {
-          _postCommand('playVideo');
         }
-        widget.onLoaded?.call();
+        _readyFallbackTimer?.cancel();
+        _readyFallbackTimer = Timer(
+          const Duration(milliseconds: 2200),
+          _notifyReady,
+        );
       }
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
@@ -160,6 +210,9 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     if (_active == active) return;
     _active = active;
     _loaded = false;
+    _notifiedReady = false;
+    _readyFallbackTimer?.cancel();
+    _settleTimer?.cancel();
     _iframe.src = active ? _buildEmbedUrl(widget.videoKey) : 'about:blank';
   }
 
@@ -186,6 +239,11 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
   @override
   void dispose() {
+    _readyFallbackTimer?.cancel();
+    _settleTimer?.cancel();
+    if (_onMessageListener != null) {
+      web.window.removeEventListener('message', _onMessageListener);
+    }
     if (_onLoadListener != null) {
       _iframe.removeEventListener('load', _onLoadListener);
     }

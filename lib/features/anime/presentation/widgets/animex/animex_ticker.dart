@@ -76,9 +76,11 @@ class _AnimeXTickerState extends State<AnimeXTicker>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AnimeXTokens.surface.withValues(alpha: 0.9),
+              AnimeXTokens.bg,
+              AnimeXTokens.surface.withValues(alpha: 0.72),
               AnimeXTokens.bg,
             ],
+            stops: const [0, 0.45, 1],
           ),
           border: const Border(bottom: BorderSide(color: AnimeXTokens.border)),
         ),

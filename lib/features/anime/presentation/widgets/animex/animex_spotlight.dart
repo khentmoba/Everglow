@@ -279,7 +279,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
     return Container(
       constraints: BoxConstraints(minHeight: _heroHeight(context)),
-      clipBehavior: Clip.hardEdge,
+      clipBehavior: Clip.antiAlias,
       decoration: const BoxDecoration(color: AnimeXTokens.bg),
       child: Stack(
         fit: StackFit.passthrough,
@@ -339,8 +339,9 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
                     Colors.transparent,
                     Color(0xD90A0A0F),
                     AnimeXTokens.bg,
+                    AnimeXTokens.bg,
                   ],
-                  stops: [0, 0.4, 0.82, 1],
+                  stops: [0, 0.4, 0.80, 0.95, 1],
                 ),
               ),
             ),
