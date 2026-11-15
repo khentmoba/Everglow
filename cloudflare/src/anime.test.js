@@ -1434,13 +1434,19 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     dead: Object.assign(el(), { hidden: true }),
     'btn-cc': el(), 'cc-menu': Object.assign(el(), { hidden: true }),
     'btn-play': el(), 'btn-vol': el(), 'btn-speed': el(), 'btn-pip': el(), 'vol-range': el(),
-    's-fill': el(), 'time-lbl': el(), scrub: el(),
+    's-buf': el(), 's-hover': el(), 's-fill': el(), 's-thumb': el(),
+    'time-lbl': el(), scrub: el(), 'scrub-wrap': el(),
+    'scrub-prev': Object.assign(el(), { hidden: true }),
+    pv: Object.assign(el(), { removeAttribute() {}, load() {} }),
+    'pv-c': Object.assign(el(), { hidden: false }),
+    'pv-time': el(), 'pv-tag': Object.assign(el(), { hidden: true }),
     'sp-menu': Object.assign(el(), { hidden: true }),
     'q-menu': Object.assign(el(), { hidden: true }),
     'btn-sv': el(), 'sv-menu': Object.assign(el(), { hidden: true }),
     'btn-fs': el(), 'fs-p': el(),
     buf: Object.assign(el(), { hidden: true }) };
-  function Hls() {
+  function Hls(opts) {
+    this.opts = opts || {};
     this.destroyed = false;
     instances.push(this);
   }
@@ -1449,7 +1455,10 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
   Hls.ErrorTypes = {};
   const handlers = {};
   const instances = [];
-  Hls.prototype.on = function (event, fn) { handlers[event] = fn; };
+  Hls.prototype.on = function (event, fn) {
+    (this._handlers ||= {})[event] = fn;
+    handlers[event] = fn;
+  };
   const loads = [];
   Hls.prototype.loadSource = function (u) {
     // Real hls.js: loadSource() on a destroyed instance is a silent no-op.
@@ -2415,4 +2424,184 @@ test('fullscreenchange syncs the fullscreen button state and settle class', () =
   assert.equal(els['btn-fs'].getAttribute('aria-label'), 'Fullscreen');
   assert.equal(doc.body.classList.contains('is-fs'), false);
   assert.match(els['fs-p'].getAttribute('d') || '', /M3 7V3h4/, 'expand icon');
+});
+
+test('seek bar hover shows the Netflix-style preview card with timestamp, chapter tag, and clamped position', () => {
+  const { els, v, relay } = runPlayerDom({ tracks: [], trackEls: [] });
+  v.duration = 200;
+  els['scrub-wrap'].offsetWidth = 400;
+  els['scrub-prev'].offsetWidth = 168;
+  relay({ type: 'animex-skip-times', op: [20, 60], ed: [170, 195] });
+
+  // Hover inside intro range (25% -> 50s, px = 100 within [84, 316])
+  els.scrub.dispatch('pointermove', { clientX: 25, pointerType: 'mouse' });
+  assert.equal(els['scrub-prev'].hidden, false);
+  assert.equal(els['pv-time'].textContent, '00:50');
+  assert.equal(els['pv-tag'].hidden, false);
+  assert.equal(els['pv-tag'].textContent, 'Intro');
+  assert.equal(els['s-hover'].style.width, '25%');
+  assert.equal(els['scrub-prev'].style.left, '100px');
+
+  // Hover near left edge (2% -> 4s): clamped at half box width (84px)
+  els.scrub.dispatch('pointermove', { clientX: 2, pointerType: 'mouse' });
+  assert.equal(els['scrub-prev'].style.left, '84px');
+  assert.equal(els['pv-tag'].hidden, true);
+
+  // Hover near right edge inside ending range (95% -> 190s): clamped at 400 - 84 = 316px
+  els.scrub.dispatch('pointermove', { clientX: 95, pointerType: 'mouse' });
+  assert.equal(els['scrub-prev'].style.left, '316px');
+  assert.equal(els['pv-tag'].hidden, false);
+  assert.equal(els['pv-tag'].textContent, 'Ending');
+});
+
+test('leaving the seek bar hides the preview card and resets the hover bar', () => {
+  const { els, v } = runPlayerDom({ tracks: [], trackEls: [] });
+  v.duration = 100;
+  els.scrub.dispatch('pointermove', { clientX: 50, pointerType: 'mouse' });
+  assert.equal(els['scrub-prev'].hidden, false);
+  assert.equal(els['s-hover'].style.width, '50%');
+
+  els.scrub.dispatch('pointerleave');
+  assert.equal(els['scrub-prev'].hidden, true);
+  assert.equal(els['s-hover'].style.width, '0%');
+});
+
+test('preview Hls initializes lazily on hover at lowest level and resets on server switch', async () => {
+  const { els, v, instances, loads } = runPlayerDom({
+    tracks: [],
+    trackEls: [],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async () => ({ json: async () => ({ src: 'https://w/picked-2' }) }),
+  });
+  v.duration = 100;
+
+  assert.equal(instances.length, 1, 'boot starts only one Hls instance');
+
+  els.scrub.dispatch('pointermove', { clientX: 40, pointerType: 'mouse' });
+  assert.equal(instances.length, 2, 'hover lazily spins up preview Hls');
+  assert.equal(instances[1].opts.startLevel, 0, 'preview picks lowest rendition');
+  assert.equal(loads[1], 'https://x/y.m3u8');
+
+  // Switch server: active preview Hls must be destroyed and stale canvas hidden
+  els.scrub.dispatch('pointermove', { clientX: 40, pointerType: 'mouse' });
+  els['pv-c'].hidden = false;
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(instances[1].destroyed, true, 'server pick destroys old preview instance');
+  assert.equal(els['pv-c'].hidden, true, 'server pick clears previous preview canvas');
+
+  // Next hover loads the swapped source into a fresh preview Hls
+  els.scrub.dispatch('pointermove', { clientX: 60, pointerType: 'mouse' });
+  assert.equal(instances.length, 3);
+  assert.equal(loads[loads.length - 1], 'https://w/picked-2');
+});
+
+test('dragging the scrub bar shows preview and thumb without seeking until release', () => {
+  const { els, v, window, doc } = runPlayerDom({ tracks: [], trackEls: [] });
+  v.duration = 100;
+  v.currentTime = 10;
+
+  // Touch hover events are ignored; drag initiates normally on pointerdown
+  els.scrub.dispatch('pointermove', { clientX: 40, pointerType: 'touch' });
+  assert.equal(els['scrub-prev'].hidden, true);
+
+  els.scrub.dispatch('pointerdown', { clientX: 30, preventDefault() {} });
+  assert.equal(doc.body.classList.contains('scrubbing'), true);
+  assert.equal(els['scrub-prev'].hidden, false);
+  assert.equal(els['pv-time'].textContent, '00:30');
+  assert.equal(els['s-fill'].style.width, '30%');
+  assert.equal(els['s-thumb'].style.left, '30%');
+  assert.equal(v.currentTime, 10, 'drag does not commit seek mid-scrub');
+
+  window.dispatch('pointermove', { clientX: 70 });
+  assert.equal(els['pv-time'].textContent, '01:10');
+  assert.equal(v.currentTime, 10);
+
+  // Leaving scrub mid-drag and releasing outside closes the preview card
+  els.scrub.dispatch('pointerleave');
+  window.dispatch('pointerup', { clientX: 70, clientY: 999 });
+  assert.equal(doc.body.classList.contains('scrubbing'), false);
+  assert.equal(els['scrub-prev'].hidden, true);
+  assert.equal(v.currentTime, 70, 'release commits the final seek position');
+
+  // Cancelling a drag hides preview without seeking
+  els.scrub.dispatch('pointerdown', { clientX: 20, preventDefault() {} });
+  assert.equal(els['scrub-prev'].hidden, false);
+  window.dispatch('pointercancel');
+  assert.equal(els['scrub-prev'].hidden, true);
+  assert.equal(v.currentTime, 70, 'pointercancel discards uncommitted scrub');
+});
+
+test('fatal error on preview Hls shuts down preview once without retrying or condemning main playback', () => {
+  const { els, v, instances, window } = runPlayerDom({ tracks: [], trackEls: [] });
+  v.duration = 100;
+  const posted = [];
+  window.parent.postMessage = (msg) => posted.push(msg);
+
+  els.scrub.dispatch('pointermove', { clientX: 50, pointerType: 'mouse' });
+  assert.equal(instances.length, 2);
+  assert.equal(els['scrub-prev'].classList.contains('loading'), true);
+
+  instances[1]._handlers.e({}, { fatal: true, type: 'other' });
+  assert.equal(instances[1].destroyed, true, 'broken preview shuts itself down');
+  assert.equal(els['scrub-prev'].classList.contains('loading'), false);
+  assert.equal(instances[0].destroyed, false, 'main stream stays alive');
+  assert.deepEqual(posted, [], 'main player never gives up over a preview failure');
+
+  // Subsequent hovers must not respawn broken preview Hls or spin loading
+  els.scrub.dispatch('pointermove', { clientX: 60, pointerType: 'mouse' });
+  assert.equal(instances.length, 2, 'no preview retry storm after fatal error');
+  assert.equal(els['scrub-prev'].classList.contains('loading'), false);
+});
+
+test('preview seeks debounce, cache decoded frames, and fall back to video tag on canvas error', async () => {
+  const { els, v, doc } = runPlayerDom({ tracks: [], trackEls: [] });
+  v.duration = 100;
+  const drawn = [];
+  const offscreen = () => ({
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      drawImage(srcEl) { drawn.push(srcEl); },
+      clearRect() {},
+    }),
+  });
+  doc.createElement = offscreen;
+  els['pv-c'].getContext = () => ({
+    drawImage(srcEl) { drawn.push(srcEl); },
+    clearRect() {},
+  });
+  els.pv.readyState = 2;
+  els.pv.videoWidth = 640;
+  els.pv.videoHeight = 360;
+
+  els.scrub.dispatch('pointermove', { clientX: 50, pointerType: 'mouse' });
+  els.pv.dispatch('loadedmetadata');
+  await new Promise((r) => setTimeout(r, 70));
+  assert.equal(els.pv.currentTime, 50, 'debounced preview seek reaches target bucket');
+
+  els.pv.dispatch('seeked');
+  assert.equal(els['scrub-prev'].classList.contains('loading'), false);
+  assert.equal(els['pv-c'].hidden, false);
+  assert.ok(drawn.length >= 2, 'cached offscreen canvas and display canvas both populated');
+
+  // Re-hovering the same timestamp hits cache without starting another seek
+  const countBefore = drawn.length;
+  els.pv.currentTime = 0;
+  els.scrub.dispatch('pointermove', { clientX: 50, pointerType: 'mouse' });
+  assert.equal(drawn.length, countBefore + 1);
+  assert.equal(els.pv.currentTime, 0, 'cache hit skips redundant seek');
+
+  // If drawImage throws (e.g. CORS taint), canvas hides so underlying <video id="pv"> displays
+  els['pv-c'].getContext = () => ({
+    drawImage() { throw new Error('SecurityError'); },
+    clearRect() {},
+  });
+  els.pv.dispatch('seeked');
+  assert.equal(els['pv-c'].hidden, true, 'taint fallback hides canvas to reveal preview video');
 });
