@@ -25,6 +25,17 @@ function escHtml(s) {
  *  page for a dead one. */
 /** [kind] is 'anime' (default) or 'cinema'. Cinema has no sub/dub choice and
  *  no episode drawer of ours, so those controls are left out entirely. */
+const SEEK_ARC = {
+  rew: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  ff: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+};
+const FLASH_ICONS = {
+  play: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.5l13 7.5-13 7.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  rew: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + SEEK_ARC.rew + '</svg><b>10</b>',
+  ff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + SEEK_ARC.ff + '</svg><b>10</b>',
+};
+
 function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, current }) {
   const isCinema = kind === 'cinema';
   // The in-page server list. A resolver that has more than one upstream hands
@@ -74,7 +85,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.94),1.5px -1.5px 0 rgba(0,0,0,.94),' +
     '-1.5px 1.5px 0 rgba(0,0,0,.94),1.5px 1.5px 0 rgba(0,0,0,.94),' +
     '0 2px 5px rgba(0,0,0,.95),0 4px 12px rgba(0,0,0,.8)}' +
-    '#sub-box{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + var(--sub-lift,0px));width:88%;' +
+    '#sub-box{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + var(--sub-lift,0px));width:88%;' +
     'text-align:center;z-index:4;pointer-events:none;transition:bottom .24s cubic-bezier(.22,1,.36,1)}' +
     'body.idle #sub-box{bottom:30px}' +
     // 2.4vw tracks the picture, not the window: 22px was the old ceiling and
@@ -111,10 +122,11 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#dead{flex-direction:column;text-align:center;color:#f8f8f8;padding:0 28px}' +
     '#dead button{margin-top:14px;cursor:pointer;border:1px solid #c2185b;' +
     'border-radius:999px;padding:10px 24px;font-size:14px;color:#fff5f5;background:transparent}' +
-    // Sakura Broadcast HUD
+    // Netflix-inspired Everglow HUD (clean controls + pink tint)
     '#hud{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;' +
-    'background:linear-gradient(180deg,rgba(10,8,16,.78) 0%,transparent 22%,transparent 62%,rgba(10,8,16,.94) 100%);' +
-    'z-index:5;transition:opacity .26s cubic-bezier(.22,1,.36,1);pointer-events:none}' +
+    'background:linear-gradient(180deg,rgba(10,6,14,.78) 0%,rgba(10,6,14,.22) 14%,transparent 26%,' +
+    'transparent 50%,rgba(14,7,18,.62) 74%,rgba(14,7,18,.97) 100%);' +
+    'z-index:5;transition:opacity .3s cubic-bezier(.22,1,.36,1);pointer-events:none}' +
     // The gradient sheet covers the whole frame. Without this every tap on
     // the picture lands on the HUD instead of the video, so click-to-pause
     // looks dead. Only the two control bands take pointers back.
@@ -122,20 +134,43 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'body.idle #hud{opacity:0;pointer-events:none}' +
     'body.idle .h-top,body.idle .h-bot{pointer-events:none}' +
     'body.idle{cursor:none}' +
-    '.h-top{padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}' +
-    '#hud-title{font-size:15px;font-weight:800;letter-spacing:.02em;color:#fff5f5;' +
-    'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.h-top,.h-bot{transition:transform .34s cubic-bezier(.22,1,.36,1)}' +
+    'body.idle .h-top{transform:translateY(-14px)}body.idle .h-bot{transform:translateY(14px)}' +
+    '.h-top{padding:18px 26px;display:flex;justify-content:flex-end;align-items:center;gap:12px}' +
+    '#hud-title{display:block;max-width:100%;font-size:17px;font-weight:800;letter-spacing:.01em;color:#fff5f5;' +
+    'text-shadow:0 2px 8px rgba(0,0,0,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.h-top-r{display:flex;align-items:center;gap:8px;flex-shrink:0}' +
-    '.sd-box{display:flex;background:rgba(240,230,255,.08);border-radius:6px;padding:2px;' +
-    'border:1px solid rgba(240,230,255,.14)}' +
-    '.sd-b{border:0;background:transparent;padding:3px 8px;font-size:10.5px;font-weight:800;' +
-    'border-radius:4px;color:#d5adb9;cursor:pointer;font-family:inherit}' +
-    '.sd-b.on{background:#c2185b;color:#fff5f5}' +
-    '.h-bot{padding:0 20px 14px;display:flex;flex-direction:column;gap:9px}' +
+    '.sd-box{display:flex;background:rgba(18,10,24,.58);border-radius:999px;padding:2px;' +
+    'border:1px solid rgba(255,140,175,.18);backdrop-filter:blur(10px)}' +
+    '.sd-b{border:0;background:transparent;padding:3px 10px;font-size:10.5px;font-weight:800;' +
+    'border-radius:999px;color:#e4bfd0;cursor:pointer;font-family:inherit;transition:background .15s ease,color .15s ease}' +
+    '.sd-b:hover{color:#fff5f5}' +
+    '.sd-b.on{background:linear-gradient(135deg,#c2185b,#e91e63);color:#fff5f5;box-shadow:0 2px 10px rgba(194,24,91,.42)}' +
+    '.h-bot{padding:0 26px 18px;display:flex;flex-direction:column;gap:12px}' +
+    '.bar-row{display:flex;align-items:center;gap:16px}' +
+    // Phones and tablets get Netflix's big centre button. It fades with the
+    // HUD and is the only play control there, so the bottom row has room.
+    '.cplay{position:fixed;top:50%;left:50%;width:76px;height:76px;margin:-38px 0 0 -38px;' +
+    'border-radius:50%;border:2px solid rgba(255,140,175,.55);background:rgba(14,7,18,.5);' +
+    'color:#fff5f5;display:none;align-items:center;justify-content:center;cursor:pointer;' +
+    'box-shadow:0 0 30px rgba(194,24,91,.35);pointer-events:auto;' +
+    'transition:transform .2s cubic-bezier(.34,1.56,.64,1),background .15s ease}' +
+    '.cplay:active{transform:scale(.88)}.cplay svg{width:34px;height:34px}' +
+    'body.idle .cplay{pointer-events:none}' +
+    '#flash{position:fixed;top:50%;left:50%;width:84px;height:84px;margin:-42px 0 0 -42px;' +
+    'border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+    'background:rgba(14,7,18,.52);border:2px solid rgba(255,140,175,.55);' +
+    'box-shadow:0 0 30px rgba(194,24,91,.38);color:#fff5f5;z-index:6;pointer-events:none;opacity:0}' +
+    '#flash.l{left:26%}#flash.r{left:74%}' +
+    '#flash svg{width:32px;height:32px}' +
+    '#flash b{font-size:12px;font-weight:800;margin-top:1px;color:#ff8caf}' +
+    '#flash.go{animation:egflash .62s cubic-bezier(.22,1,.36,1)}' +
+    '@keyframes egflash{0%{opacity:0;transform:scale(.6)}25%{opacity:1;transform:scale(1.06)}' +
+    '60%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}' +
     // Skip/Next sit outside the HUD on purpose: reaching the opening or the
     // ending is exactly when nobody is touching the mouse, so the action has
     // to survive the controls fading out.
-    '#binge{position:fixed;left:0;right:0;bottom:104px;padding:0 20px;z-index:7;' +
+    '#binge{position:fixed;left:0;right:0;bottom:128px;padding:0 26px;z-index:7;' +
     'display:flex;justify-content:flex-end;align-items:center;min-height:34px;' +
     'pointer-events:none}' +
     '#binge .b-act{pointer-events:auto}' +
@@ -143,7 +178,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     // legibility wash, not a card: no edge, no border, no fill of its own.
     '.b-scrim{position:absolute;right:-20px;bottom:-14px;width:340px;height:120px;' +
     'pointer-events:none;background:radial-gradient(ellipse at 78% 62%,' +
-    'rgba(8,5,14,.82) 0%,rgba(8,5,14,.5) 45%,transparent 72%)}' +
+    'rgba(10,5,16,.84) 0%,rgba(10,5,16,.5) 45%,transparent 72%)}' +
     '#b-scrim[hidden]{display:none!important}' +
     '.b-act{position:relative;display:inline-flex;align-items:center;gap:8px;' +
     'padding:6px 2px 9px;border:0;background:transparent;font-family:inherit;' +
@@ -151,6 +186,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'text-shadow:0 2px 6px rgba(0,0,0,.9),0 4px 16px rgba(0,0,0,.7);' +
     'transition:color .15s ease}' +
     '.b-act:hover{color:#fff}' +
+    '.b-act:not([hidden]){animation:egbin .38s cubic-bezier(.22,1,.36,1)}' +
+    '@keyframes egbin{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}' +
     '.b-ico{display:inline-flex}' +
     '.b-skip .b-ico{color:#f5c97b}' +
     '.b-next .b-ico{color:#ff8caf}' +
@@ -162,74 +199,153 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'overflow:hidden;background:rgba(255,255,255,.14)}' +
     '.b-u i{display:block;height:100%;width:100%;transition:width .2s linear}' +
     '.b-skip .b-u i{background:#f5c97b}' +
-    '.b-next .b-u i{background:#c2185b}' +
-    '#scrub{position:relative;height:6px;border-radius:4px;background:rgba(240,230,255,.22);' +
-    'cursor:pointer;outline:none}' +
-    // A 6px bar is impossible to grab on a phone. This invisible band
+    '.b-next .b-u i{background:linear-gradient(90deg,#c2185b,#e91e63)}' +
+    '#scrub-wrap{position:relative;flex:1;min-width:0;padding:6px 0 2px}' +
+    '#scrub-prev{position:absolute;bottom:22px;left:0;transform:translateX(-50%);' +
+    'width:168px;pointer-events:none;z-index:10;display:flex;flex-direction:column;' +
+    'align-items:center;gap:6px;transition:opacity .12s ease}' +
+    '#scrub-prev[hidden]{display:none!important}' +
+    '#scrub-prev:not([hidden]){animation:egprev .18s cubic-bezier(.22,1,.36,1)}' +
+    '@keyframes egprev{from{opacity:0;transform:translateX(-50%) translateY(8px) scale(.9)}' +
+    'to{opacity:1;transform:translateX(-50%)}}' +
+    '.pv-box{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;' +
+    'background:#120916;border:1.5px solid rgba(255,111,145,.68);' +
+    'box-shadow:0 12px 30px rgba(0,0,0,.86),0 0 20px rgba(194,24,91,.34)}' +
+    '#pv,#pv-c{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}' +
+    '#pv-c[hidden]{display:none!important}' +
+    '#pv-load{position:absolute;left:0;right:0;bottom:0;height:2.5px;overflow:hidden;' +
+    'background:rgba(255,255,255,.12);opacity:0;transition:opacity .15s ease}' +
+    '#scrub-prev.loading #pv-load{opacity:1}' +
+    '#pv-load i{display:block;width:45%;height:100%;' +
+    'background:linear-gradient(90deg,transparent,#e91e63,transparent);' +
+    'animation:egpv 1s ease-in-out infinite}' +
+    '@keyframes egpv{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}' +
+    '.pv-meta{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;' +
+    'background:rgba(16,8,20,.9);border:1px solid rgba(255,140,175,.3);' +
+    'box-shadow:0 4px 12px rgba(0,0,0,.65)}' +
+    '#pv-time{font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;' +
+    'color:#fff5f5;letter-spacing:.02em}' +
+    '#pv-tag{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#ff8caf}' +
+    '#pv-tag[hidden]{display:none!important}' +
+    '#scrub{position:relative;height:4px;border-radius:999px;background:rgba(255,245,245,.22);' +
+    'cursor:pointer;outline:none;touch-action:none;transition:height .14s cubic-bezier(.22,1,.36,1)}' +
+    // A 4px bar is impossible to grab on a phone. This invisible band
     // widens the hit area without touching the painted bar.
-    '#scrub::before{content:"";position:absolute;left:0;right:0;top:-7px;bottom:-7px}' +
-    '#scrub:focus-visible{box-shadow:0 0 0 3px rgba(194,24,91,.55)}' +
-    '#s-buf{position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(240,230,255,.32);border-radius:4px}' +
-    '#s-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:#c2185b;z-index:2;border-radius:4px}' +
-    '.s-chap{position:absolute;top:0;bottom:0;background:rgba(245,201,123,.55);' +
+    '#scrub::before{content:"";position:absolute;left:0;right:0;top:-11px;bottom:-11px}' +
+    '#scrub:hover,body.scrubbing #scrub{height:7px}' +
+    '#scrub:focus-visible{box-shadow:0 0 0 3px rgba(255,111,145,.5)}' +
+    '#s-buf{position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(255,230,240,.28);border-radius:999px}' +
+    '#s-hover{position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(255,140,175,.38);' +
+    'border-radius:999px;pointer-events:none;z-index:1}' +
+    '#s-fill{position:absolute;left:0;top:0;bottom:0;width:0%;' +
+    'background:linear-gradient(90deg,#c2185b 0%,#e91e63 100%);' +
+    'box-shadow:0 0 10px rgba(255,111,145,.45);z-index:2;border-radius:999px}' +
+    '#s-thumb{position:absolute;top:50%;left:0%;width:12px;height:12px;border-radius:50%;' +
+    'background:#e91e63;border:2px solid #fff5f5;' +
+    'box-shadow:0 0 0 3px rgba(194,24,91,.35),0 2px 8px rgba(0,0,0,.6);' +
+    'transform:translate(-50%,-50%) scale(.82);opacity:0;z-index:4;pointer-events:none;' +
+    'transition:transform .14s ease,opacity .14s ease}' +
+    '#scrub:hover #s-thumb,body.scrubbing #s-thumb,#scrub:focus-visible #s-thumb{' +
+    'opacity:1;transform:translate(-50%,-50%) scale(1.08)}' +
+    '@media (hover:none),(pointer:coarse){#s-thumb{opacity:1;transform:translate(-50%,-50%) scale(.92)}}' +
+    '.s-chap{position:absolute;top:0;bottom:0;background:rgba(245,201,123,.62);' +
     'border-left:1px solid #f5c97b;border-right:1px solid #f5c97b;z-index:3;pointer-events:none}' +
-    '.ctrl-r{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#f1cbd2}' +
-    '.ctrl-l,.ctrl-rt{display:flex;align-items:center;gap:12px}' +
+    '.ctrl-r{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;font-size:12px;color:#f5dce4}' +
+    '.ctrl-l,.ctrl-rt{display:flex;align-items:center;gap:20px}' +
+    '.ctrl-l{justify-self:start}.ctrl-rt{justify-self:end;gap:16px}' +
+    '.ctrl-mid{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;max-width:38vw;text-align:center}' +
     '.ib{border:0;background:transparent;color:#fff5f5;display:inline-flex;align-items:center;' +
-    'justify-content:center;cursor:pointer;padding:2px;opacity:.92}' +
-    '.ib:hover{opacity:1;color:#c2185b}' +
-    '.ib.rose{color:#c2185b}' +
-    '#vol-wrap{display:flex;align-items:center;gap:7px}' +
-    '#vol-range{width:72px;height:16px;margin:0;padding:0;accent-color:#c2185b;' +
-    'background:transparent;cursor:pointer}' +
+    'justify-content:center;cursor:pointer;padding:6px;border-radius:50%;opacity:.94;' +
+    'transition:transform .2s cubic-bezier(.34,1.56,.64,1),color .15s ease,background .15s ease,opacity .15s ease}' +
+    '.ib svg{width:26px;height:26px;overflow:visible}' +
+    '.ib:hover{opacity:1;color:#ff8caf;background:rgba(255,111,145,.12);transform:scale(1.14)}' +
+    '.ib:active{transform:scale(.86)}' +
+    '.ib.on{color:#ff8caf}' +
+    '.ib.pop svg{animation:egpop .34s cubic-bezier(.34,1.56,.64,1)}' +
+    '.ib.spin-l svg{animation:egsl .5s cubic-bezier(.22,1,.36,1)}' +
+    '.ib.spin-r svg{animation:egsr .5s cubic-bezier(.22,1,.36,1)}' +
+    '@keyframes egpop{0%{transform:scale(.6)}100%{transform:scale(1)}}' +
+    '@keyframes egsl{0%{transform:rotate(0)}40%{transform:rotate(-50deg)}100%{transform:rotate(0)}}' +
+    '@keyframes egsr{0%{transform:rotate(0)}40%{transform:rotate(50deg)}100%{transform:rotate(0)}}' +
+    '#vol-wrap{display:flex;align-items:center;gap:6px}' +
+    '#vol-range{width:0;opacity:0;height:16px;margin:0;padding:0;accent-color:#e91e63;' +
+    'background:transparent;cursor:pointer;overflow:hidden;' +
+    'transition:width .2s cubic-bezier(.22,1,.36,1),opacity .18s ease}' +
+    '#vol-wrap:hover #vol-range,#vol-wrap:focus-within #vol-range{width:74px;opacity:1}' +
     // Hardware volume buttons are the right control on a phone; a slider
     // there is a row of pixels nobody can hit.
     '@media (hover:none),(pointer:coarse){#vol-range{display:none}}' +
-    '#btn-speed{min-width:36px}' +
+    '#btn-speed{min-width:32px}' +
     '#buf{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
     'z-index:6;pointer-events:none}' +
     '.buf-ring{width:38px;height:38px;border-radius:50%;' +
-    'border:3px solid rgba(255,245,245,.18);border-top-color:#c2185b;' +
+    'border:3px solid rgba(255,245,245,.18);border-top-color:#e91e63;' +
     'animation:egspin .85s linear infinite}' +
     '@keyframes egspin{to{transform:rotate(360deg)}}' +
-    '#time-lbl{font-variant-numeric:tabular-nums;font-weight:600;color:#fff5f5;font-size:12px}' +
-    '.chip{border:1px solid rgba(240,230,255,.16);background:rgba(240,230,255,.09);color:#fff5f5;' +
-    'border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;' +
-    'font-family:inherit;font-variant-numeric:tabular-nums}' +
-    '.chip.on{border-color:#c2185b;background:rgba(194,24,91,.28)}' +
-    '.eg-badge{display:inline-flex;align-items:center;gap:7px;padding:3px 9px 3px 4px;' +
-    'border-radius:999px;background:rgba(17,17,24,.82);border:1px solid rgba(255,255,255,.15);' +
-    'box-shadow:0 6px 16px rgba(0,0,0,.45)}' +
-    '.eg-cat{width:20px;height:20px;border-radius:50%;object-fit:cover;' +
-    'border:1.5px solid rgba(244,194,194,.7)}' +
-    '.eg-w{font-family:"Bebas Neue",Impact,sans-serif;font-size:16px;letter-spacing:.06em;line-height:1}' +
-    '.eg-w b{color:#f8f8f8;font-weight:400}' +
-    '.eg-w i{color:#c2185b;font-style:normal;text-shadow:0 2px 10px rgba(194,24,91,.65)}' +
-    '#q-menu,#cc-menu,#sp-menu,#sv-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
-    'backdrop-filter:blur(18px);border:1px solid rgba(240,230,255,.18);border-radius:10px;' +
-    'padding:6px;z-index:12;box-shadow:0 14px 32px rgba(0,0,0,.65)}' +
+    '#time-lbl{font-variant-numeric:tabular-nums;font-weight:700;color:rgba(255,245,245,.92);font-size:14px;white-space:nowrap}' +
+    '.chip{border:1px solid rgba(255,140,175,.22);background:rgba(18,10,24,.56);' +
+    'backdrop-filter:blur(10px);color:#fff5f5;border-radius:999px;padding:4px 11px;' +
+    'font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;font-variant-numeric:tabular-nums;' +
+    'transition:background .15s ease,border-color .15s ease,color .15s ease,transform .2s cubic-bezier(.34,1.56,.64,1)}' +
+    '.chip:active{transform:scale(.92)}' +
+    '.chip:hover{background:rgba(194,24,91,.28);border-color:rgba(255,111,145,.55)}' +
+    '.chip.on{border-color:rgba(255,111,145,.6);background:rgba(194,24,91,.34)}' +
+    '.ctrl-rt .chip{border-color:transparent;background:transparent;backdrop-filter:none;' +
+    'border-radius:6px;padding:4px 8px;font-size:13.5px;font-weight:800;color:rgba(255,245,245,.9)}' +
+    '.ctrl-rt .chip:hover{background:rgba(255,111,145,.18);border-color:transparent;color:#fff5f5}' +
+    '.ctrl-rt .chip.on{color:#ff8caf;background:rgba(194,24,91,.2);border-color:rgba(255,111,145,.34)}' +
+    '.eg-badge{display:inline-flex;align-items:center;gap:6px}' +
+    '.eg-cat{width:16px;height:16px;border-radius:50%;object-fit:cover;' +
+    'border:1.5px solid rgba(255,160,190,.75)}' +
+    '.eg-w{font-family:"Bebas Neue",Impact,sans-serif;font-size:14.5px;letter-spacing:.07em;line-height:1}' +
+    '.eg-w b{color:#fff5f5;font-weight:400}' +
+    '.eg-w i{color:#e91e63;font-style:normal;text-shadow:0 2px 10px rgba(255,111,145,.58)}' +
+    '#q-menu,#cc-menu,#sp-menu,#sv-menu{position:fixed;right:26px;bottom:96px;width:176px;' +
+    'background:rgba(16,9,20,.94);backdrop-filter:blur(18px);' +
+    'border:1px solid rgba(255,111,145,.26);border-radius:12px;' +
+    'padding:8px;z-index:12;box-shadow:0 16px 36px rgba(0,0,0,.78);transform-origin:bottom right}' +
+    '#q-menu:not([hidden]),#cc-menu:not([hidden]),#sp-menu:not([hidden]){animation:egmenu .22s cubic-bezier(.22,1,.36,1)}' +
+    '#sv-menu{top:62px;bottom:auto;transform-origin:top right}' +
+    '#sv-menu:not([hidden]){animation:egmenud .22s cubic-bezier(.22,1,.36,1)}' +
+    '@keyframes egmenu{from{opacity:0;transform:translateY(10px) scale(.95)}to{opacity:1;transform:none}}' +
+    '@keyframes egmenud{from{opacity:0;transform:translateY(-10px) scale(.95)}to{opacity:1;transform:none}}' +
     '.qi{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;' +
-    'background:transparent;color:#f1cbd2;padding:6px 8px;border-radius:6px;font-size:11.5px;' +
-    'font-weight:600;cursor:pointer;font-family:inherit;text-align:left}' +
-    '.qi.on{background:rgba(194,24,91,.28);color:#fff5f5}' +
-    '#cc-menu{width:238px;max-height:56vh;overflow-y:auto}' +
-    // Nine servers is 257px tall, and the in-app phone player is a 16:9 box
+    'background:transparent;color:#f3d2de;padding:6px 8px;border-radius:6px;font-size:11.5px;' +
+    'font-weight:600;cursor:pointer;font-family:inherit;text-align:left;' +
+    'transition:background .12s ease,color .12s ease,transform .16s cubic-bezier(.34,1.56,.64,1)}' +
+    '.qi:active{transform:scale(.96)}' +
+    '.qi:hover{background:rgba(255,111,145,.14);color:#fff5f5}' +
+    '.qi.on{background:rgba(194,24,91,.34);color:#fff5f5}' +
+    '#cc-menu{width:260px;max-height:56vh;overflow-y:auto}' +
+    // Nine servers is 257px tall, and the in-app phone frame is a 16:9 box
     // only 192px high: uncapped, the menu's top lands above the frame and the
     // first rows — including the current server — are clipped and untappable.
     '#sv-menu{max-height:calc(100vh - 76px);overflow-y:auto}' +
+    '@media (hover:none),(pointer:coarse){.cplay{display:flex}#btn-play{display:none}}' +
+    // Loading indicators keep moving: a frozen ring reads as a hung player.
+    '@media (prefers-reduced-motion:reduce){*:not(.wc):not(.buf-ring):not(#pv-load i){animation:none!important;transition:none!important}}' +
     '.cc-h{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;' +
-    'color:#b795a2;padding:8px 8px 3px}' +
+    'color:#c79ab0;padding:8px 8px 3px}' +
     '.cc-row{display:flex;gap:4px;align-items:center;padding:0 4px 4px}' +
     '.cc-row .qi{flex:1;justify-content:center;padding:5px 4px;text-align:center}' +
     '.chip[hidden]{display:none}' +
-    // Phones keep the Everglow badge (Clair watches here) and volume button;
-    // the volume slider, speed chip, and PiP button give up their room so
+    // Phones keep the Everglow badge (Clair watches here). Volume belongs to
+    // the hardware buttons there; speed and PiP give up their room so
     // fullscreen is never clipped off the right edge.
-    '@media (max-width:520px){.h-top{padding:10px 14px}.h-bot{padding:0 14px 10px}' +
-    '.ctrl-l,.ctrl-rt{gap:6px}.ctrl-r{gap:6px}#vol-range{display:none}#btn-speed{display:none}#btn-pip{display:none}' +
-    '#time-lbl{white-space:nowrap;font-size:11px}#binge{padding:0 14px;bottom:96px}' +
-    '.eg-w{display:none}.eg-badge{padding:2px;border-radius:50%}.eg-cat{width:17px;height:17px}' +
-    '.chip{padding:3px 7px;font-size:10.5px}#hud-title{font-size:13px}}' +
+    '@media (max-width:520px){.h-top{padding:10px 14px}.h-bot{padding:0 14px 10px;gap:8px}' +
+    '.ctrl-l,.ctrl-rt{gap:10px}.ctrl-r{gap:8px}#vol-wrap{display:none}#btn-speed{display:none}#btn-pip{display:none}' +
+    '.ib{padding:4px}.ib svg{width:22px;height:22px}.bar-row{gap:10px}' +
+    '#time-lbl{font-size:11.5px}#binge{padding:0 14px;bottom:104px}#sub-box{bottom:calc(96px + var(--sub-lift,0px))}' +
+    '#scrub-prev{width:124px;bottom:20px}.pv-meta{padding:1px 7px}#pv-time{font-size:10.5px}' +
+    '.ctrl-mid{max-width:34vw;gap:2px}.cplay{width:62px;height:62px;margin:-31px 0 0 -31px}.cplay svg{width:28px;height:28px}' +
+    '.eg-w{font-size:12px;letter-spacing:.05em}.eg-badge{gap:4px}.eg-cat{width:13px;height:13px}' +
+    '#q-menu,#cc-menu,#sp-menu{right:14px;bottom:78px}#sv-menu{right:14px;top:48px}' +
+    '.chip{padding:3px 8px;font-size:10.5px}.ctrl-rt .chip{padding:3px 6px;font-size:12px}#hud-title{font-size:13.5px}}' +
+    '@media (max-width:380px){.eg-w{display:none}}' +
+    // The in-app frame on a phone is ~240px tall: a full-size centre button
+    // would sit right on the subtitle line.
+    '@media (max-height:300px){.cplay{width:46px;height:46px;margin:-23px 0 0 -23px;top:40%}.cplay svg{width:20px;height:20px}' +
+    '#flash{width:58px;height:58px;margin:-29px 0 0 -29px}#flash svg{width:22px;height:22px}}' +
     '</style></head><body>' +
     '<video id="v" playsinline autoplay preload="auto" crossorigin="anonymous">' +
     (trackTags ? '\n    ' + trackTags : '') +
@@ -237,7 +353,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '<div id="sub-box"><span id="sub-txt"></span></div>\n' +
     '<div id="hud">' +
     '<div class="h-top">' +
-    '<span id="hud-title">' + displayTitle + '</span>' +
     '<div class="h-top-r">' +
     '<button type="button" class="chip" id="btn-sv" aria-haspopup="true"' +
     (serverList.length > 1 ? '' : ' hidden') + '>Servers</button>' +
@@ -246,45 +361,66 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
       : '<div class="sd-box">' +
         '<button type="button" class="sd-b' + (isDub ? '' : ' on') + '" id="btn-sub">SUB</button>' +
         '<button type="button" class="sd-b' + (isDub ? ' on' : '') + '" id="btn-dub">DUB</button>' +
-        '</div>' +
-        '<button type="button" class="chip" id="btn-eps">Episodes</button>') +
+        '</div>') +
     '</div></div>' +
+    '<button type="button" class="cplay" id="cplay" aria-label="Play or pause">' +
+    '<svg viewBox="0 0 20 20"><path id="cplay-p" fill="currentColor" d="M4 3h3.5v14H4zM12.5 3H16v14h-3.5z"/></svg></button>' +
     '<div class="h-bot">' +
+    '<div class="bar-row">' +
+    '<div id="scrub-wrap">' +
+    '<div id="scrub-prev" hidden>' +
+    '<div class="pv-box"><video id="pv" muted playsinline preload="none" crossorigin="anonymous"></video><canvas id="pv-c" hidden></canvas><div id="pv-load"><i></i></div></div>' +
+    '<div class="pv-meta"><span id="pv-time">00:00</span><span id="pv-tag" hidden></span></div>' +
+    '</div>' +
     '<div id="scrub">' +
     '<div id="s-buf"></div>' +
+    '<div id="s-hover"></div>' +
     '<div id="s-fill"></div>' +
     '<div class="s-chap" id="s-op" hidden></div>' +
     '<div class="s-chap" id="s-ed" hidden></div>' +
+    '<div id="s-thumb"></div>' +
+    '</div>' +
+    '</div>' +
+    '<span id="time-lbl">00:00</span>' +
     '</div>' +
     '<div class="ctrl-r">' +
     '<div class="ctrl-l">' +
-    '<button type="button" class="ib rose" id="btn-play" aria-label="Play or pause">' +
-    '<svg width="17" height="17" viewBox="0 0 20 20"><path id="play-p" fill="currentColor" d="M4 3h3.5v14H4zM12.5 3H16v14h-3.5z"/></svg></button>' +
+    '<button type="button" class="ib" id="btn-play" aria-label="Play or pause">' +
+    '<svg viewBox="0 0 20 20"><path id="play-p" fill="currentColor" d="M4 3h3.5v14H4zM12.5 3H16v14h-3.5z"/></svg></button>' +
     '<button type="button" class="ib" id="btn-rew" aria-label="Rewind 10 seconds">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9a7 7 0 1 0 2-4.9"/><polyline points="3.5 2 3.5 5.5 7 5.5"/></svg></button>' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.3" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif" font-size="7.5" font-weight="800">10</text></svg></button>' +
     '<button type="button" class="ib" id="btn-ff" aria-label="Forward 10 seconds">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9a7 7 0 1 1-2-4.9"/><polyline points="16.5 2 16.5 5.5 13 5.5"/></svg></button>' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.3" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif" font-size="7.5" font-weight="800">10</text></svg></button>' +
     '<span id="vol-wrap">' +
     '<button type="button" class="ib" id="btn-vol" aria-label="Mute or unmute">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="9 4 5 7.5 2 7.5 2 12.5 5 12.5 9 16 9 4" fill="currentColor"/><path id="vol-w" d="M12.5 7a4 4 0 0 1 0 6M15 4.8a7.2 7.2 0 0 1 0 10.4"/></svg></button>' +
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="9 4 5 7.5 2 7.5 2 12.5 5 12.5 9 16 9 4" fill="currentColor"/><path id="vol-w" d="M12.5 7a4 4 0 0 1 0 6M15 4.8a7.2 7.2 0 0 1 0 10.4"/></svg></button>' +
     '<input type="range" id="vol-range" min="0" max="1" step="0.01" value="1" aria-label="Volume">' +
     '</span>' +
-    '<span id="time-lbl">00:00 / 00:00</span>' +
     '</div>' +
-    '<div class="ctrl-rt">' +
+    '<div class="ctrl-mid">' +
+    '<span id="hud-title">' + displayTitle + '</span>' +
     '<div class="eg-badge">' +
     '<img class="eg-cat" src="https://everglow-1c6db.web.app/favicon.png" alt="">' +
     '<span class="eg-w"><b>EVER</b><i>GLOW</i></span>' +
-    '</div>' +
-    '<button type="button" class="chip on" id="btn-cc" aria-haspopup="true"' +
-    (trackTags ? '' : ' hidden') + '>CC</button>' +
-    '<button type="button" class="chip" id="btn-speed" aria-haspopup="true">1x</button>' +
-    '<button type="button" class="chip" id="btn-q">Auto</button>' +
+    '</div></div>' +
+    '<div class="ctrl-rt">' +
+    '<button type="button" class="ib" id="btn-nx" aria-label="Next episode" hidden>' +
+    '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 5l10 7-10 7zM16 5h3v14h-3z"/></svg></button>' +
+    (isCinema
+      ? ''
+      : '<button type="button" class="ib" id="btn-eps" aria-label="Episodes">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="9" rx="1.5"/><path d="M7 18h13V9"/></svg></button>') +
+    '<button type="button" class="ib on" id="btn-cc" aria-label="Subtitles" aria-haspopup="true"' +
+    (trackTags ? '' : ' hidden') + '>' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h3M13 9.5h3M8 12.5h6" stroke-linecap="round"/></svg></button>' +
+    '<button type="button" class="chip" id="btn-speed" aria-label="Playback speed" aria-haspopup="true">1x</button>' +
+    '<button type="button" class="chip" id="btn-q" aria-label="Quality">Auto</button>' +
     '<button type="button" class="ib" id="btn-pip" aria-label="Picture in picture">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><rect x="10.2" y="9.4" width="6" height="4.8" rx="1" fill="currentColor" stroke="none"/></svg></button>' +
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><rect x="10.2" y="9.4" width="6" height="4.8" rx="1" fill="currentColor" stroke="none"/></svg></button>' +
     '<button type="button" class="ib" id="btn-fs" aria-label="Fullscreen">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path id="fs-p" d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path id="fs-p" d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
     '</div></div></div></div>\n' +
+    '<div id="flash"></div>\n' +
     '<div id="binge">' +
     '<div class="b-scrim" id="b-scrim" hidden></div>' +
     '<button type="button" class="b-act b-skip" id="btn-skip" hidden>' +
@@ -333,11 +469,20 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var tap=document.getElementById("tap");' +
     'var dead=document.getElementById("dead");' +
     'var hudTitle=document.getElementById("hud-title");' +
+    'var scrubWrap=document.getElementById("scrub-wrap");' +
+    'var scrubPrev=document.getElementById("scrub-prev");' +
+    'var pv=document.getElementById("pv");' +
+    'var pvCanvas=document.getElementById("pv-c");' +
+    'var pvTime=document.getElementById("pv-time");' +
+    'var pvTag=document.getElementById("pv-tag");' +
     'var sFill=document.getElementById("s-fill");' +
     'var sBuf=document.getElementById("s-buf");' +
+    'var sHover=document.getElementById("s-hover");' +
+    'var sThumb=document.getElementById("s-thumb");' +
     'var sOp=document.getElementById("s-op");' +
     'var sEd=document.getElementById("s-ed");' +
     'var scrub=document.getElementById("scrub");' +
+    'var activeSrc=src;' +
     'var timeLbl=document.getElementById("time-lbl");' +
     'var btnPlay=document.getElementById("btn-play");' +
     'var playP=document.getElementById("play-p");' +
@@ -360,6 +505,20 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var btnSub=document.getElementById("btn-sub");' +
     'var btnDub=document.getElementById("btn-dub");' +
     'var btnEps=document.getElementById("btn-eps");' +
+    'var btnNx=document.getElementById("btn-nx");' +
+    'var cplay=document.getElementById("cplay");' +
+    'var cplayP=document.getElementById("cplay-p");' +
+    'var flashEl=document.getElementById("flash");' +
+    'var FLASH=' + JSON.stringify(FLASH_ICONS) + ';' +
+    // Restarting a CSS animation needs the class off, a reflow, then on.
+    'function kick(el,cls){if(!el||!el.classList)return;el.classList.remove(cls);' +
+    'void el.offsetWidth;el.classList.add(cls);}' +
+    // Touch screens already show the centre button, so play/pause only
+    // flashes for a mouse. Seeks flash everywhere, on the side they went.
+    'function flash(kind){if(!flashEl||!flashEl.classList||!FLASH[kind])return;' +
+    'if((kind==="play"||kind==="pause")&&!finePointer)return;' +
+    'flashEl.innerHTML=FLASH[kind];flashEl.className=kind==="rew"?"l":kind==="ff"?"r":"";' +
+    'kick(flashEl,"go");}' +
     'var subTxt=document.getElementById("sub-txt");' +
     'var subBox=document.getElementById("sub-box");' +
     'var skipTime=document.getElementById("skip-time");' +
@@ -409,8 +568,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     // was never marked. 90s covers a typical ED plus the preview card.
     'var nextToken=null,nextKind="episode",NEAR_END_SECONDS=90;' +
     'function fmt(s){if(!Number.isFinite(s)||s<0)return"00:00";' +
-    'var m=Math.floor(s/60),sec=Math.floor(s%60);' +
-    'return(m<10?"0":"")+m+":"+(sec<10?"0":"")+sec;}' +
+    'var h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=Math.floor(s%60);' +
+    'return(h?h+":":"")+(m<10?"0":"")+m+":"+(sec<10?"0":"")+sec;}' +
     'var start=new URLSearchParams(window.location.search).get("start");' +
     'var pendingSeek=start!==null&&/^\\d+(?:\\.\\d+)?$/.test(start)?Number(start):null;' +
     'if(!Number.isFinite(pendingSeek)){pendingSeek=null;}' +
@@ -441,7 +600,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'activeSkipEnd=null;btnSkip.hidden=true;updateBingeScrim();}' +
     // Next shows during the ending, or within the last 90s when nobody
     // marked one. No token means nothing follows, so it stays hidden.
-    'function updateNextBtn(){if(!btnNext)return;' +
+    'function updateNextBtn(){if(btnNx)btnNx.hidden=!nextToken&&nextKind!=="season";if(!btnNext)return;' +
     'if(!nextToken&&nextKind!=="season"){btnNext.hidden=true;updateBingeScrim();return;}' +
     'var t=v.currentTime,d=v.duration;' +
     'if(!Number.isFinite(t)||!Number.isFinite(d)||d<=0){btnNext.hidden=true;updateBingeScrim();return;}' +
@@ -454,14 +613,22 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(p===null)p=1-Math.min(1,Math.max(0,(d-t)/NEAR_END_SECONDS));' +
     'if(nextFill)nextFill.style.width=((1-p)*100)+"%";' +
     'btnNext.hidden=false;updateBingeScrim();}' +
+    'function updateBuffer(){if(!sBuf||!v.buffered||!Number.isFinite(v.duration)||v.duration<=0)return;' +
+    'var t=Number.isFinite(v.currentTime)?v.currentTime:0,end=0;' +
+    'for(var i=0;i<v.buffered.length;i++){try{if(t>=v.buffered.start(i)-0.5&&v.buffered.end(i)>end)end=v.buffered.end(i);}catch(e){}}' +
+    'if(!end&&v.buffered.length>0){try{end=v.buffered.end(v.buffered.length-1);}catch(e){}}' +
+    'sBuf.style.width=Math.min(100,Math.max(0,end/v.duration*100))+"%";}' +
+    'v.addEventListener("progress",updateBuffer);' +
     'function updateUi(){var p=v.currentTime,d=v.duration;' +
     'if(Number.isFinite(p)&&Number.isFinite(d)&&d>0){' +
-    'if(sFill&&!dragging)sFill.style.width=Math.min(100,Math.max(0,p/d*100))+"%";' +
-    'if(timeLbl&&!dragging)timeLbl.textContent=fmt(p)+" / "+fmt(d);' +
+    'var pctStr=Math.min(100,Math.max(0,p/d*100))+"%";' +
+    'if(sFill&&!dragging)sFill.style.width=pctStr;' +
+    'if(sThumb&&!dragging)sThumb.style.left=pctStr;' +
+    'if(timeLbl&&!dragging)timeLbl.textContent=fmt(d-p);' +
     'if(scrub){scrub.setAttribute("aria-valuenow",String(Math.round(p)));' +
     'scrub.setAttribute("aria-valuemin","0");' +
     'scrub.setAttribute("aria-valuemax",String(Math.round(d)));}}' +
-    'renderCues();updateSkipBtn();updateNextBtn();}' +
+    'updateBuffer();renderCues();updateSkipBtn();updateNextBtn();}' +
     'function applySeek(){if(!hasMetadata||pendingSeek===null||!Number.isFinite(v.duration)||v.duration<=0){return;}' +
     'try{v.currentTime=Math.min(pendingSeek,v.duration);pendingSeek=null;updateUi();}catch(e){}}' +
     'v.addEventListener("loadedmetadata",function(){hasMetadata=true;applySeek();updateChapters();updateUi();buildSpeedMenu();applySpeed();});' +
@@ -500,6 +667,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'lastProgress=now;post({type:"animex-progress",position:position,duration:duration,episode:episode});}' +
     'v.addEventListener("timeupdate",function(){updateUi();progress(false);});' +
     'v.addEventListener("pause",function(){if(playP)playP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
+    'if(cplayP)cplayP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
     'if(buf)buf.hidden=true;progress(true);});' +
     'v.addEventListener("ended",function(){progress(true);});' +
     'function hideBoot(){boot.style.display="none";}' +
@@ -528,16 +696,19 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     // when a stalled buffer resumes, and shutting the menu she opened by hand
     // mid-choice is the one thing the picker exists to prevent.
     'if(picking){picking=false;if(svMenu)svMenu.hidden=true;}' +
-    'if(playP)playP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");});' +
+    'if(playP)playP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");' +
+    'if(cplayP)cplayP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");});' +
     'v.addEventListener("canplay",function(){if(buf)buf.hidden=true;});' +
     // Before the first frame the boot wave is the right thing to show. After
     // it, a stall is a hiccup, not a boot — a small ring, not the wordmark.
     'v.addEventListener("waiting",function(){' +
     'if(!started){if(dead.hidden)boot.style.display="flex";return;}' +
     'if(buf)buf.hidden=false;});' +
-    'if(btnPlay)btnPlay.addEventListener("click",function(){if(v.paused)tryPlay();else v.pause();});' +
-    'if(btnRew)btnRew.addEventListener("click",function(){if(Number.isFinite(v.currentTime))v.currentTime=Math.max(0,v.currentTime-10);updateUi();});' +
-    'if(btnFf)btnFf.addEventListener("click",function(){if(Number.isFinite(v.currentTime)&&Number.isFinite(v.duration))v.currentTime=Math.min(v.duration,v.currentTime+10);updateUi();});' +
+    'if(btnPlay)btnPlay.addEventListener("click",function(){togglePlay();kick(btnPlay,"pop");});' +
+    'if(cplay)cplay.addEventListener("click",function(){togglePlay();kick(cplay,"pop");wakeHud();});' +
+    'if(btnRew)btnRew.addEventListener("click",function(){seekBy(-10);kick(btnRew,"spin-l");});' +
+    'if(btnFf)btnFf.addEventListener("click",function(){seekBy(10);kick(btnFf,"spin-r");});' +
+    'if(btnNx)btnNx.addEventListener("click",function(){post({type:"animex-action",action:"next-episode"});});' +
     'if(btnVol)btnVol.addEventListener("click",function(){v.muted=!v.muted;' +
     'prefs.muted=v.muted;savePrefs();' +
     'btnVol.style.opacity=v.muted?"0.45":"0.92";});' +
@@ -630,6 +801,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(seq!==pickSeq)return;' +
     'if(!d||!d.src)throw new Error("no src");' +
     'currentServer=s.id;' +
+    'activeSrc=d.src;if(typeof resetPreview==="function")resetPreview();' +
     // Read the playhead now, not before the fetch: a 3 s resolve used to
     // rewind her 3 s.
     'var at=Number.isFinite(v.currentTime)?v.currentTime:0;' +
@@ -738,11 +910,12 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'renderCues();}' +
     'v.addEventListener("loadedmetadata",function(){buildCcMenu();syncCues();});' +
     'if(v.textTracks&&v.textTracks.addEventListener)v.textTracks.addEventListener("addtrack",buildCcMenu);' +
+    'var hoveringScrub=false,dragging=false,dragPct=null;' +
     'var idleT=null;function wakeHud(){if(document.body&&document.body.classList){document.body.classList.remove("idle");}' +
     'if(typeof clearTimeout==="function"&&idleT)clearTimeout(idleT);' +
     'if(typeof setTimeout==="function"){idleT=setTimeout(function(){' +
-    'if(!v.paused&&(!ccMenu||ccMenu.hidden)&&(!spMenu||spMenu.hidden)&&document.body&&document.body.classList){' +
-    'document.body.classList.add("idle");if(qMenu)qMenu.hidden=true;}},2800);}}' +
+    'if(!v.paused&&!hoveringScrub&&!dragging&&(!ccMenu||ccMenu.hidden)&&(!spMenu||spMenu.hidden)&&document.body&&document.body.classList){' +
+    'document.body.classList.add("idle");if(qMenu)qMenu.hidden=true;if(typeof hidePreview==="function")hidePreview();}},2800);}}' +
     'window.addEventListener("mousemove",function(){if(finePointer)wakeHud();});' +
     // Touching the control bands wakes the HUD. A touch on the picture must
     // not, or the tap that hides the controls would re-show them first.
@@ -750,11 +923,13 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var topEl=document.querySelector?document.querySelector(".h-top"):null;' +
     'if(botEl)botEl.addEventListener("touchstart",wakeHud,{passive:true});' +
     'if(topEl)topEl.addEventListener("touchstart",wakeHud,{passive:true});' +
+    'if(cplay)cplay.addEventListener("touchstart",wakeHud,{passive:true});' +
     // Picture click toggles playback. A double click also fires two clicks
     // first, so pause+resume cancel out and fullscreen lands on the play
     // state she already had — no timer, no lag.
-    'function togglePlay(){if(v.paused){tryPlay();}else{v.pause();}}' +
+    'function togglePlay(){if(v.paused){flash("play");tryPlay();}else{flash("pause");v.pause();}}' +
     'function seekBy(delta){if(!Number.isFinite(v.currentTime))return;' +
+    'flash(delta<0?"rew":"ff");' +
     'var d=Number.isFinite(v.duration)&&v.duration>0?v.duration:Infinity;' +
     'v.currentTime=Math.max(0,Math.min(d,v.currentTime+delta));updateUi();}' +
     'function seekTo(sec){if(!Number.isFinite(v.duration)||v.duration<=0||!Number.isFinite(sec))return;' +
@@ -764,35 +939,122 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'prefs.vol=n;prefs.muted=v.muted;savePrefs();' +
     'if(volRange&&volRange.value!==String(n))volRange.value=String(n);' +
     'if(btnVol)btnVol.style.opacity=v.muted?"0.45":"0.92";}' +
+    'var pvHls=null,pvReady=false,pvFailed=false,pvLoadedSrc=null,pvTimer=null,pvPending=null;' +
+    'var pvCache=Object.create?Object.create(null):{},pvOrder=[];' +
+    'function pvStep(d){if(!Number.isFinite(d)||d<=0)return 2;return Math.max(1,Math.min(10,Math.round(d/300)));}' +
+    'function pvBucket(sec,d){var s=pvStep(d);return Math.round(sec/s)*s;}' +
+    'function drawFrameFrom(el,canvas){if(!el||!canvas||!canvas.getContext)return false;' +
+    'try{if((el.readyState||0)<2)return false;var w=canvas.width||240,h=canvas.height||135;' +
+    'if(el.videoWidth&&el.videoHeight){w=240;h=Math.max(90,Math.round(240*el.videoHeight/el.videoWidth));}' +
+    'if(canvas.width!==w)canvas.width=w;if(canvas.height!==h)canvas.height=h;' +
+    'var ctx=canvas.getContext("2d");if(!ctx)return false;ctx.drawImage(el,0,0,w,h);return true;}catch(e){return false;}}' +
+    'function paintCached(snap){if(!snap||!pvCanvas||!pvCanvas.getContext)return false;' +
+    'try{if(pvCanvas.width!==snap.width)pvCanvas.width=snap.width;if(pvCanvas.height!==snap.height)pvCanvas.height=snap.height;' +
+    'var ctx=pvCanvas.getContext("2d");if(!ctx)return false;ctx.drawImage(snap,0,0,snap.width,snap.height);' +
+    'pvCanvas.hidden=false;return true;}catch(e){return false;}}' +
+    'function storeCache(bucket){if(!pv||!document.createElement)return null;' +
+    'var c=document.createElement("canvas");if(!c||!c.getContext)return null;' +
+    'if(!drawFrameFrom(pv,c))return null;' +
+    'if(!pvCache[bucket]){if(pvOrder.length>=48){delete pvCache[pvOrder.shift()];}pvOrder.push(bucket);}' +
+    'pvCache[bucket]=c;return c;}' +
+    'function resetPreview(){pvReady=false;pvFailed=false;pvLoadedSrc=null;pvPending=null;' +
+    'if(typeof clearTimeout==="function"&&pvTimer){clearTimeout(pvTimer);pvTimer=null;}' +
+    'pvCache=Object.create?Object.create(null):{};pvOrder=[];' +
+    'if(pvCanvas){pvCanvas.hidden=true;if(pvCanvas.getContext){try{var pc=pvCanvas.getContext("2d");if(pc)pc.clearRect(0,0,pvCanvas.width||0,pvCanvas.height||0);}catch(e){}}}' +
+    'if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");' +
+    'if(pvHls){try{pvHls.destroy();}catch(e){}pvHls=null;}' +
+    'if(pv&&pv.removeAttribute){try{pv.removeAttribute("src");if(pv.load)pv.load();}catch(e){}}}' +
+    'function ensurePreview(){if(!pv||!activeSrc||pvFailed)return;if(pvLoadedSrc===activeSrc&&(pvHls||!window.Hls||!Hls.isSupported()))return;' +
+    'pvLoadedSrc=activeSrc;pvReady=false;' +
+    'if(window.Hls&&Hls.isSupported()){' +
+    'if(pvHls){try{pvHls.destroy();}catch(e){}pvHls=null;}' +
+    'try{' +
+    (token
+      ? 'pvHls=new Hls({startLevel:0,capLevelToPlayerSize:true,maxBufferLength:3,maxMaxBufferLength:6,backBufferLength:0,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});'
+      : 'pvHls=new Hls({startLevel:0,capLevelToPlayerSize:true,maxBufferLength:3,maxMaxBufferLength:6,backBufferLength:0});') +
+    'pvHls.on(Hls.Events.ERROR,function(ev,data){if(data&&data.fatal){pvFailed=true;try{pvHls.destroy();}catch(e){}pvHls=null;pvReady=false;if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");}});' +
+    'pvHls.attachMedia(pv);pvHls.loadSource(activeSrc);' +
+    '}catch(e){pvHls=null;pvFailed=true;if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");}}else{try{pv.preload="metadata";pv.src=activeSrc;if(pv.load)pv.load();}catch(e){pvFailed=true;if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");}}}' +
+    'if(pv&&pv.addEventListener){' +
+    'pv.addEventListener("loadedmetadata",function(){pvReady=true;' +
+    'if(pvPending!==null){try{pv.currentTime=pvPending;}catch(e){}}});' +
+    'pv.addEventListener("error",function(){if(!pvLoadedSrc)return;pvFailed=true;pvReady=false;' +
+    'if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");});' +
+    'pv.addEventListener("seeked",function(){' +
+    'var d=Number.isFinite(v.duration)&&v.duration>0?v.duration:(Number.isFinite(pv.duration)?pv.duration:0);' +
+    'if(d>0)storeCache(pvBucket(pv.currentTime,d));' +
+    'if(pvCanvas){if(drawFrameFrom(pv,pvCanvas)){pvCanvas.hidden=false;}else{pvCanvas.hidden=true;}}' +
+    'if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");});}' +
+    'function hidePreview(){hoveringScrub=false;pvPending=null;' +
+    'if(typeof clearTimeout==="function"&&pvTimer){clearTimeout(pvTimer);pvTimer=null;}' +
+    'if(sHover)sHover.style.width="0%";' +
+    'if(scrubPrev){scrubPrev.hidden=true;if(scrubPrev.classList)scrubPrev.classList.remove("loading");}}' +
+    'function showPreviewAt(pct){if(!scrubPrev||pct===null||!Number.isFinite(v.duration)||v.duration<=0)return;' +
+    'pct=Math.max(0,Math.min(1,pct));var t=pct*v.duration;' +
+    'if(pvTime)pvTime.textContent=fmt(t);' +
+    'if(pvTag){if(opRange&&t>=opRange[0]&&t<opRange[1]){pvTag.textContent="Intro";pvTag.hidden=false;}' +
+    'else if(edRange&&t>=edRange[0]&&t<edRange[1]){pvTag.textContent="Ending";pvTag.hidden=false;}' +
+    'else{pvTag.hidden=true;}}' +
+    'scrubPrev.hidden=false;' +
+    'var wrapW=(scrubWrap&&scrubWrap.offsetWidth)||(scrub&&scrub.offsetWidth)||0;' +
+    'var boxW=scrubPrev.offsetWidth||168;' +
+    'if(wrapW>0&&boxW>0){var half=boxW/2;' +
+    'scrubPrev.style.left=Math.max(half,Math.min(wrapW-half,pct*wrapW))+"px";' +
+    '}else{scrubPrev.style.left=(pct*100)+"%";}' +
+    'if(sHover&&!dragging)sHover.style.width=(pct*100)+"%";' +
+    'var bucket=pvBucket(t,v.duration);' +
+    'if(pvCache[bucket]&&paintCached(pvCache[bucket])){if(scrubPrev.classList)scrubPrev.classList.remove("loading");return;}' +
+    'if(pvCanvas&&Number.isFinite(v.currentTime)&&Math.abs(t-v.currentTime)<=1.2&&drawFrameFrom(v,pvCanvas)){' +
+    'pvCanvas.hidden=false;if(scrubPrev.classList)scrubPrev.classList.remove("loading");return;}' +
+    'if(pvReady&&(pv.readyState||0)>=2&&!pv.seeking&&Math.abs((pv.currentTime||0)-bucket)<=0.15){' +
+    'if(scrubPrev.classList)scrubPrev.classList.remove("loading");return;}' +
+    'if(pvFailed){if(scrubPrev.classList)scrubPrev.classList.remove("loading");return;}' +
+    'if(scrubPrev.classList)scrubPrev.classList.add("loading");' +
+    'ensurePreview();pvPending=Math.max(0,Math.min(v.duration,bucket));' +
+    'if(typeof setTimeout==="function"){if(pvTimer)clearTimeout(pvTimer);' +
+    'pvTimer=setTimeout(function(){pvTimer=null;if(pv&&pvReady&&pvPending!==null){try{pv.currentTime=pvPending;}catch(e){}}},45);' +
+    '}else if(pv&&pvReady&&pvPending!==null){try{pv.currentTime=pvPending;}catch(e){}}}' +
     // The bar is dragged, not clicked. Nothing is committed until the
     // pointer lifts, so a slow drag across a long film does not fire a seek
     // on every pixel and stall the buffer.
-    'var dragging=false,dragPct=null;' +
     'function pctFromX(clientX){if(!scrub||!scrub.getBoundingClientRect)return null;' +
     'if(!Number.isFinite(v.duration)||v.duration<=0)return null;' +
     'var r=scrub.getBoundingClientRect();if(!(r.width>0))return null;' +
     'return Math.max(0,Math.min(1,(clientX-r.left)/r.width));}' +
-    'function paintDrag(pct){if(pct===null)return;' +
-    'if(sFill)sFill.style.width=(pct*100)+"%";' +
-    'if(timeLbl&&Number.isFinite(v.duration))timeLbl.textContent=fmt(pct*v.duration)+" / "+fmt(v.duration);}' +
-    'function endDrag(commit){if(!dragging)return;dragging=false;' +
+    'function paintDrag(pct){if(pct===null)return;var w=(pct*100)+"%";' +
+    'if(sFill)sFill.style.width=w;if(sThumb)sThumb.style.left=w;' +
+    'if(timeLbl&&Number.isFinite(v.duration))timeLbl.textContent=fmt(v.duration-pct*v.duration);' +
+    'showPreviewAt(pct);}' +
+    'function endDrag(commit,e){if(!dragging)return;dragging=false;' +
+    'if(document.body&&document.body.classList)document.body.classList.remove("scrubbing");' +
     'var pct=dragPct;dragPct=null;' +
     'if(commit&&pct!==null&&Number.isFinite(v.duration)&&v.duration>0){' +
-    'try{v.currentTime=pct*v.duration;}catch(e){}}' +
-    'updateUi();}' +
+    'try{v.currentTime=pct*v.duration;}catch(err){}}' +
+    'if(e&&typeof e.clientX==="number"&&typeof e.clientY==="number"&&scrub&&scrub.getBoundingClientRect){' +
+    'var r=scrub.getBoundingClientRect();' +
+    'if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top-12||e.clientY>r.bottom+12){hoveringScrub=false;}}' +
+    'if(!hoveringScrub)hidePreview();' +
+    'updateUi();wakeHud();}' +
     'if(scrub){' +
     'scrub.setAttribute("role","slider");scrub.setAttribute("tabindex","0");' +
     'scrub.setAttribute("aria-label","Seek");' +
+    'function onHoverMove(e){if(dragging)return;if(e&&e.pointerType==="touch")return;' +
+    'var p=pctFromX(e.clientX);if(p===null)return;' +
+    'hoveringScrub=true;showPreviewAt(p);wakeHud();}' +
+    'scrub.addEventListener("pointermove",onHoverMove);' +
+    'scrub.addEventListener("pointerleave",function(){hoveringScrub=false;if(!dragging)hidePreview();});' +
     'scrub.addEventListener("pointerdown",function(e){' +
     'try{scrub.focus();}catch(fe){}' +
-    'dragging=true;dragPct=pctFromX(e.clientX);paintDrag(dragPct);wakeHud();' +
+    'dragging=true;if(document.body&&document.body.classList)document.body.classList.add("scrubbing");' +
+    'if(sHover)sHover.style.width="0%";' +
+    'dragPct=pctFromX(e.clientX);paintDrag(dragPct);wakeHud();' +
     'if(scrub.setPointerCapture&&e.pointerId!==undefined){' +
     'try{scrub.setPointerCapture(e.pointerId);}catch(err){}}' +
     'if(e.preventDefault)e.preventDefault();});' +
     'window.addEventListener("pointermove",function(e){if(!dragging)return;' +
     'dragPct=pctFromX(e.clientX);paintDrag(dragPct);});' +
-    'window.addEventListener("pointerup",function(){endDrag(true);});' +
-    'window.addEventListener("pointercancel",function(){endDrag(false);});' +
+    'window.addEventListener("pointerup",function(e){endDrag(true,e);});' +
+    'window.addEventListener("pointercancel",function(e){endDrag(false,e);});' +
     'scrub.addEventListener("keydown",function(e){var k=e.key;' +
     'if(k==="ArrowRight"){seekBy(10);}' +
     'else if(k==="ArrowLeft"){seekBy(-10);}' +
@@ -811,7 +1073,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var lastTap={t:0,x:0},tapTimer=null;' +
     'function toggleHud(){if(!document.body||!document.body.classList)return;' +
     'if(document.body.classList.contains("idle")){wakeHud();return;}' +
-    'document.body.classList.add("idle");closeMenus();' +
+    'document.body.classList.add("idle");hidePreview();closeMenus();' +
     'if(typeof clearTimeout==="function"&&idleT){clearTimeout(idleT);idleT=null;}}' +
     'function doubleTapSeek(x){' +
     'var r=scrub&&scrub.getBoundingClientRect?scrub.getBoundingClientRect():null;' +
