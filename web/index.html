@@ -229,6 +229,50 @@
   </script>
 
   <script>
+    // Boot recovery. A cold launch can run before the phone's network is
+    // back (an iPhone home-screen app opened after a long break). If a
+    // startup script fails then, Flutter waits forever on the splash:
+    // Firebase awaits a module import that rejected, and the browser keeps
+    // that failure for the rest of the page. Reload so the next try fetches
+    // again, waiting longer each time (about 30s of dead network in all),
+    // then stop so a lasting failure cannot loop.
+    (function () {
+      var KEY = 'eg-boot-retries';
+      var DELAYS = [1000, 2000, 4000, 8000, 15000];
+      var booted = false;
+      var pending = false;
+      window.addEventListener('flutter-first-frame', function () {
+        booted = true;
+        try { sessionStorage.removeItem(KEY); } catch (_) {}
+      }, { once: true });
+      function retry() {
+        if (booted || pending) return;
+        var tries = 0;
+        try { tries = Number(sessionStorage.getItem(KEY)) || 0; } catch (_) { return; }
+        if (tries >= DELAYS.length) return;
+        try { sessionStorage.setItem(KEY, String(tries + 1)); } catch (_) { return; }
+        pending = true;
+        function reload() { window.location.reload(); }
+        if (navigator.onLine === false) {
+          window.addEventListener('online', reload, { once: true });
+        } else {
+          setTimeout(reload, DELAYS[tries]);
+        }
+      }
+      window.addEventListener('unhandledrejection', function (e) {
+        var reason = e && e.reason;
+        var msg = String((reason && reason.message) || reason || '');
+        if (/Importing a module script failed|dynamically imported module/i.test(msg)) retry();
+      });
+      // Resource errors do not bubble; capture catches a failed <script>.
+      window.addEventListener('error', function (e) {
+        var el = e && e.target;
+        if (el && el.tagName === 'SCRIPT') retry();
+      }, true);
+    })();
+  </script>
+
+  <script>
     // Enforce viewport meta tag against Flutter Web's FullPageEmbeddingStrategy:
     // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
     // user-scalable=no & viewport-fit. Installed apps paint behind system areas;
