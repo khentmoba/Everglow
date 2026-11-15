@@ -59,6 +59,8 @@ void main() {
         reason: 'the cinema-only HLS config wins, no duplicate row',
       );
       expect(providers.first.id, 'everglow-shell');
+      expect(providers.first.name, 'Celestia');
+      expect(providers.first.shortName, 'Celestia');
       expect(
         providers.firstWhere((p) => p.id == 'everglow-embed').movieUrl,
         CinemaVideoSources.proxyCinemaBase,
@@ -97,6 +99,8 @@ void main() {
           'Remote CineSrc',
         );
         expect(providers.first.id, 'everglow-shell');
+      expect(providers.first.name, 'Celestia');
+      expect(providers.first.shortName, 'Celestia');
       },
     );
   });

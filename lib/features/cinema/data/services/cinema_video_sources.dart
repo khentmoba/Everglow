@@ -67,8 +67,8 @@ class CinemaVideoSources {
   /// episode events the app already understands.
   static const VideoSourceConfig everglowShell = VideoSourceConfig(
     id: 'everglow-shell',
-    name: 'Everglow Player',
-    shortName: 'Everglow',
+    name: 'Celestia',
+    shortName: 'Celestia',
     desc: 'No ads — our player',
     movieUrl: wrapperBase,
     tvUrl: wrapperBase,
