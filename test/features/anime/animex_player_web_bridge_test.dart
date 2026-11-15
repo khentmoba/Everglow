@@ -105,6 +105,25 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('the player Episodes button asks the page to show episodes', (
+    tester,
+  ) async {
+    var shown = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnimeXPlayerFrame(url: url, onShowEpisodes: () => shown++),
+      ),
+    );
+    final frame = await frameFor(tester);
+    const data = {'type': 'animex-action', 'action': 'episodes'};
+    message(frame.contentWindow, 'https://evil.example', data);
+    message(null, animeXProxyOrigin, data);
+    expect(shown, 0);
+    message(frame.contentWindow, animeXProxyOrigin, data);
+    expect(shown, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('cross-origin player messages use safe window identity', (
     tester,
   ) async {

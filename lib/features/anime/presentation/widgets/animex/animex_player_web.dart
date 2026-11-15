@@ -17,6 +17,10 @@ bool _fullscreenExitSettling = false;
 bool isPlayerFullscreenActive() =>
     _fullscreenExitSettling || web.document.fullscreenElement != null;
 
+void exitPlayerFullscreen() {
+  if (web.document.fullscreenElement != null) web.document.exitFullscreen();
+}
+
 class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
   final double aspectRatio;
@@ -35,6 +39,8 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final bool autoAdvance;
 
   final ValueChanged<String>? onAudioChanged;
+
+  final VoidCallback? onShowEpisodes;
 
   final void Function(int season, int episode)? onPlayerEpisodeChanged;
 
@@ -55,6 +61,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onNextEpisode,
     this.autoAdvance = true,
     this.onAudioChanged,
+    this.onShowEpisodes,
     this.onPlayerEpisodeChanged,
     this.sandbox = true,
   });
@@ -152,6 +159,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
             final act = obj['action'];
             if (act == 'next-episode') {
               widget.onNextEpisode?.call();
+            } else if (act == 'episodes') {
+              widget.onShowEpisodes?.call();
             } else if (act == 'audio') {
               final audio = obj['audio'];
               if (audio == 'sub' || audio == 'dub') {

@@ -89,23 +89,43 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
               playerColumn,
               if (_ready) ...[
                 const SizedBox(height: 24),
-                _MobileEpisodesSection(
-                  episodes: episodes,
-                  selectedEpisode: _selectedEpisode,
-                  animeTitle: _displayTitle,
-                  animeId: _watchItem.anilistId ?? _watchItem.tmdbId,
-                  fallbackPoster: _item.posterUrl,
-                  onSelectEpisode: _selectEpisode,
-                  onShowInfo: _openEpisodeInfo,
-                  seasons: _seasons,
-                  onSelectSeason: _openSeason,
-                  nextSeason: _nextSeason,
+                KeyedSubtree(
+                  key: _episodesKey,
+                  child: _MobileEpisodesSection(
+                    episodes: episodes,
+                    selectedEpisode: _selectedEpisode,
+                    animeTitle: _displayTitle,
+                    animeId: _watchItem.anilistId ?? _watchItem.tmdbId,
+                    fallbackPoster: _item.posterUrl,
+                    onSelectEpisode: _selectEpisode,
+                    onShowInfo: _openEpisodeInfo,
+                    seasons: _seasons,
+                    onSelectSeason: _openSeason,
+                    nextSeason: _nextSeason,
+                  ),
                 ),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showEpisodes() {
+    final wasFullscreen = isPlayerFullscreenActive();
+    exitPlayerFullscreen();
+    Future<void>.delayed(
+      wasFullscreen ? const Duration(milliseconds: 350) : Duration.zero,
+      () {
+        final target = _episodesKey.currentContext;
+        if (target == null || !target.mounted) return;
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      },
     );
   }
 
@@ -162,6 +182,7 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
               }
             },
             onAudioChanged: _setAudio,
+            onShowEpisodes: _showEpisodes,
             onPlayerEpisodeChanged: _onPlayerEpisodeChanged,
           );
 

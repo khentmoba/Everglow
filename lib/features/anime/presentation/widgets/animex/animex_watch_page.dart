@@ -101,6 +101,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   final AniZipService _aniZip = AniZipService();
   final AniSkipService _aniSkip = AniSkipService();
   final ScrollController _scrollCtrl = ScrollController();
+  final GlobalKey _episodesKey = GlobalKey();
 
   AniSkipTimes? _skipTimes;
 
