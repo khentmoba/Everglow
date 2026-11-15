@@ -1,4 +1,3 @@
-// Dependency-free Chrome/CDP plumbing. Every launch owns a unique temp profile.
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
@@ -38,8 +37,6 @@ const MIME = {
   '.mp4': 'video/mp4',
 };
 
-// Compression approximates hosting, not its CDN. Network shaping belongs to
-// Chrome's shared link, never an independent timer/bandwidth budget per response.
 export async function serve(root, port, { noStore = true } = {}) {
   root = resolve(root);
   const server = createServer((req, res) => {
@@ -152,15 +149,12 @@ export async function launch(cdpPort = 0, opts = {}) {
   throw new Error(`Chrome startup failed:\n${failures.join('\n')}`);
 }
 
-// The retry ends here: navigation, measurements and budget failures run once.
 async function launchOnce(binary, cdpPort, opts) {
   const { dpr = 3, width = 430, height = 932, extraFlags = [] } = opts;
   const userDataDir = mkdtempSync(join(tmpdir(), 'eg-perf-'));
   ownedProfiles.add(userDataDir);
   const proc = spawn(binary, [
     '--headless=new', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${userDataDir}`,
-    // GitHub Linux runners have tiny /dev/shm; SwiftShader software rendering
-    // exhausts it and OOM-kills the runner (PR #469 run 37306879221 hung 46m).
     '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--disable-extensions', '--disable-background-networking',
     '--enable-unsafe-swiftshader', '--hide-scrollbars',
     '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
@@ -184,8 +178,6 @@ async function launchOnce(binary, cdpPort, opts) {
       if (proc.signalCode != null) throw new Error(`Chrome exited with signal ${proc.signalCode}`);
       let page;
       try {
-        // Only connect to the endpoint printed by OUR process. A fixed port
-        // might already belong to somebody else's browser; never close it.
         if (!browserSocket) throw new Error('Chrome is still starting');
         const port = Number(new URL(browserSocket).port);
         const versionResponse = await fetch(`http://127.0.0.1:${port}/json/version`, {
@@ -217,7 +209,6 @@ async function launchOnce(binary, cdpPort, opts) {
     }
     throw new Error('Chrome did not expose a debuggable page');
   } catch (e) {
-    // Capture before cleanup changes the process's exit/signal state.
     const diagnostic = `${e.message}\nChrome: ${binary}; exit=${proc.exitCode ?? 'none'}; signal=${proc.signalCode ?? 'none'}; ` +
       `endpoint=${browserSocket ? 'advertised' : 'missing'}; versionVerified=${versionVerified}; pageFound=${pageFound}\n` +
       `Last discovery error: ${lastDiscoveryError || 'none'}\nChrome stderr (last 4096 characters):\n${stderr || '(empty)'}`;
@@ -232,7 +223,7 @@ async function launchOnce(binary, cdpPort, opts) {
 }
 
 export async function stop(chrome) {
-  try { await chrome.cdp?.send('Browser.close', {}, { timeoutMs: 2000 }); } catch { /* already exited */ }
+  try { await chrome.cdp?.send('Browser.close', {}, { timeoutMs: 2000 }); } catch { }
   chrome.cdp?.close();
   if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) {
     await Promise.race([new Promise((r) => chrome.proc.once('exit', r)), sleep(1500)]);
@@ -259,9 +250,6 @@ export async function prepare(cdp, { dpr = 3, width = 430, height = 932 } = {}) 
   });
 }
 
-// Explicit synthetic link presets, not measured/calibrated phone connections.
-// Kbps means decimal kilobits/second; CDP wants bytes/second. Latency is CDP's
-// minimum request-to-response-header delay, not a server sleep per chunk.
 export const NETWORK_PROFILES = {
   none: { latencyMs: 0, downloadKbps: 0, uploadKbps: 0 },
   fast3g: { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 },

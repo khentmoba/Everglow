@@ -19,29 +19,19 @@ test('index wraps the chat handler as proxyAI + proxyAIv2', () => {
 
 test('every persona renders its tool list from attached tools', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Fallback placeholder plus a runtime section for custom/Firestore
-  // personas — all receive the actual capabilities of this turn.
   assert.ok(src.includes('## Tools available this turn'));
-  // The prompt must never advertise tools that routing removed.
   assert.equal(src.split('%%MOTCHI_TOOL_LIST%%').length - 1, 3);
-  // nimMessages is built before routing, so the rendered prompt must be
-  // pushed back into it (otherwise the model sees the placeholder).
   assert.match(src, /nimMessages\[0\]\.content = systemPrompt/);
-  // The old static 50-tool list must stay out of the fallback persona.
   assert.ok(!src.includes('- get_trips — Read trips'));
 });
 
 test('fallback persona forbids dangling preambles after tool calls', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Motchi once left "Let me save the standouts:" hanging with no
-  // post-tool list — the persona must demand the finished summary.
   assert.ok(src.includes('never leave one hanging'));
 });
 
 test('non-streaming answers run the agent loop (Undo restores)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Both answer paths must execute tools — dropping non-streaming tool
-  // calls silently broke Motchi's Undo restores and one-shot callers.
   const executions = src.split('await executeToolCall(').length - 1;
   assert.ok(executions >= 2, `expected streaming + non-streaming executors, saw ${executions}`);
   assert.match(src, /for \(let round = 0; round < MAX_TOOL_ROUNDS; round\+\+\)/);
@@ -50,9 +40,6 @@ test('non-streaming answers run the agent loop (Undo restores)', () => {
 
 test('chess asks route to the Play Zone instead of an HTML copy', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // The model must send chess/scribble/table-tennis to the real games
-  // via an everglow-link block — a rushed HTML clone can never match
-  // Couple Chess, and long generations lose their closing fence.
   assert.ok(src.includes('everglow-link'));
   assert.ok(src.includes('/play-zone/chess'));
   assert.ok(src.includes('/play-zone/scribble'));
@@ -84,7 +71,6 @@ test('endsWithDanglingColon spots a promised list that never arrived', () => {
 
 test('dangling-list repair is wired on both answer paths', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Nudge const + streaming in-loop + streaming post-loop + non-streaming.
   const uses = src.split('DANGLING_REPLY_NUDGE').length - 1;
   assert.ok(uses >= 4, `expected nudge const + 3 uses, saw ${uses}`);
   assert.match(src, /didDanglingRepair/);
@@ -93,26 +79,17 @@ test('dangling-list repair is wired on both answer paths', () => {
 
 test('streaming dangling repair covers loop exits (repeat guard + round cap)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // The in-loop nudge only runs when a round ends with no tool calls —
-  // the repeat-guard break and the 8-round cap used to skip it and ship
-  // "Let me save the standouts:" with no list after it.
   assert.match(src, /Post-loop repair/);
   assert.match(src, /needsPostLoopRepair/);
-  // The post-loop call streams its text after the preamble as one reply.
   assert.ok(src.includes('sendEvent({ content: repairText })'));
-  // Bounded by the same per-message spend brake as the loop.
   assert.ok(src.includes('llmCalls < MAX_LLM_CALLS_PER_MESSAGE'));
 });
 
 test('exhausted tool rounds trigger final text synthesis so web searches finish', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Streaming: after round >= MAX_TOOL_ROUNDS, forceTextNextRound triggers a final
-  // text-only round to synthesize the gathered tool results.
   assert.match(src, /if \(toolRound >= MAX_TOOL_ROUNDS\) \{\s*forceTextNextRound = true;\s*\}/);
   assert.match(src, /while \(toolRound < MAX_TOOL_ROUNDS \|\| forceTextNextRound\)/);
-  // Post-loop repair clears streamInterrupted when text is generated.
   assert.match(src, /_streamedFinalReply \+= repairText;\s*sendEvent\(\{ content: repairText \}\);\s*streamInterrupted = false;/);
-  // Non-streaming: synthesizes when ending on a tool message.
   assert.match(src, /if \(nsInterrupted && nsMessages\[nsMessages\.length - 1\]\?\.role === 'tool'\)/);
 });
 
@@ -123,8 +100,6 @@ test('circling on repeat tool calls forces text synthesis instead of dropping th
 
 test('repair rounds detach tools so the model must answer in text', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // A repair nudge that still carries tools can be disobeyed with another
-  // tool call — both paths must send the nudge with no tools attached.
   assert.match(src, /forceTextNextRound/);
   assert.ok(src.includes('!noToolsThisRound ? { tools, tool_choice: \'auto\' } : {}'));
   assert.match(src, /callLlmOnce\(msgs, withoutTools = false\)/);
@@ -134,7 +109,6 @@ test('repair rounds detach tools so the model must answer in text', () => {
 
 test('missing-block repair is wired on both answer paths', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Nudge const + streaming use + non-streaming use.
   const uses = src.split('ARTIFACT_REPAIR_NUDGE').length - 1;
   assert.ok(uses >= 3, `expected nudge const + 2 uses, saw ${uses}`);
   assert.match(src, /didArtifactRepair/);
@@ -142,10 +116,7 @@ test('missing-block repair is wired on both answer paths', () => {
 
 test('streaming error catch preserves streamed content and isolates background tasks', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Background memory extraction & hallucination checks must be guarded
-  // so post-stream errors don't trigger the outer streaming error handler.
   assert.match(src, /post-reply tasks error/);
-  // Outer streaming catch must NOT send error event if content was already streamed.
   assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
 });
 
@@ -173,13 +144,6 @@ test('all Motchi model calls and deployment use Agnes Flash', () => {
 
 test('game guide only rides artifact asks (prompt diet)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // The ~2.5KB phone-first game guide used to ride every chat through
-  // the canvas section. Study mode keeps its ternary gate; the assistant
-  // section splits into CANVAS_FULL (artifact turns, guide inside) vs
-  // CANVAS_QUICK (plain chat pointer) — the guide must never leak into
-  // the slim pointer. Artifact follow-ups ("make it pink") keep it via
-  // the previous reply's block, and a bare yes to an offered quiz/game
-  // upgrades the build turn to the full guide.
   const gated = src.split("wantsArtifact ? HTML_GAME_GUIDE : ''").length - 1;
   assert.equal(gated, 1);
   assert.match(src, /wantsArtifact \? CANVAS_FULL : CANVAS_QUICK/);
@@ -232,13 +196,10 @@ test('stripStaleArtifacts leaves plain history and photo parts alone', () => {
 
 test('light chat skips context reads and the canvas section', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Greetings/smalltalk must not pay for Firestore context, memory rank,
-  // persona fetch, or the canvas guide — that prefill is TTFT.
   assert.match(src, /!context && !fastPath && !lightChat/);
   assert.match(src, /fastPath \|\| lightChat/);
   assert.match(src, /_cachedPersona \|\| lightChat/);
   assert.match(src, /feature === 'assistant' && !lightChat && \(canvasOn \|\| wantsArtifact\)/);
   assert.match(src, /LIGHT_CHAT_PROMPT/);
-  // Follow-through "ok" keeps full awareness (it executes an offered plan).
   assert.match(src, /hasOffer\(prevAssistantText\) && isBareYes/);
 });

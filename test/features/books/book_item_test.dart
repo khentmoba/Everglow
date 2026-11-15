@@ -114,7 +114,6 @@ void main() {
         'title': 'Tom Sawyer',
         'iaId': 'pg74',
         'status': 'to-read',
-        // No readSourceUrl — legacy document.
       }, 'doc1');
 
       expect(restored.readSourceUrl,

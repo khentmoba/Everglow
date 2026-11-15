@@ -1,6 +1,5 @@
 import 'lastfm_image_utils.dart';
 
-/// Entry from `user.getTopArtists`.
 class TopArtist {
   final int rank;
   final String name;

@@ -18,11 +18,6 @@ import '../widgets/bucket_item_card.dart';
 import '../widgets/bucket_kanban_board.dart';
 import '../widgets/bucket_ui.dart';
 
-/// Our Bucket List — "Starlit Journey".
-///
-/// A night-sky hero shows how far Khent + Clair have wandered, its stat
-/// segments double as the status filter, and one calm row holds the rest
-/// of the filters. One stream feeds hero + content so both always agree.
 class BucketListScreen extends StatefulWidget {
   const BucketListScreen({super.key});
 
@@ -32,21 +27,16 @@ class BucketListScreen extends StatefulWidget {
 
 enum _ViewMode { list, board }
 
-/// Max content width — phones go full-bleed, tablets stay centered + calm.
 const double _kMaxContentWidth = 720;
 
 class _BucketListScreenState extends State<BucketListScreen> {
-  BucketStatus? _filter; // null = all
+  BucketStatus? _filter;
   _ViewMode _viewMode = _ViewMode.list;
-  String? _assigneeFilter; // null=all, 'unassigned', or username
+  String? _assigneeFilter;
   BucketPriority? _priorityFilter;
   bool _overdueOnly = false;
 
-  /// Client-side filters (avoids extra composite indexes).
   List<BucketItem> _filteredItems(List<BucketItem> all) {
-    // Copy first: the list view sorts the result in place — sorting the
-    // stream snapshot itself would mutate shared data (and throw if the
-    // source is ever unmodifiable).
     var items = List<BucketItem>.of(all);
     if (_filter != null) {
       items = items.where((i) => i.status == _filter).toList();
@@ -112,12 +102,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
               errorMessage: 'Could not load bucket list',
               onRetry: () => setState(() {}),
               loadingView: const _LoadingDreams(),
-              // Empty states are handled inside the builder so the journey
-              // hero stays visible even with zero (or zero matching) dreams.
               isEmpty: (_) => false,
               builder: (context, all) {
                 final items = _filteredItems(all);
-                // List mode: priority first, then soonest due, then newest.
                 items.sort((a, b) {
                   final pr = b.priority.rank.compareTo(a.priority.rank);
                   if (pr != 0) return pr;
@@ -228,7 +215,6 @@ class _BucketListScreenState extends State<BucketListScreen> {
   }
 }
 
-/// Centers [child] and caps its width on tablets / desktop.
 class _Constrained extends StatelessWidget {
   final Widget child;
   const _Constrained({required this.child});
@@ -244,7 +230,6 @@ class _Constrained extends StatelessWidget {
   }
 }
 
-/// List ⇄ Board toggle pill in the header.
 class _ViewToggle extends StatelessWidget {
   final _ViewMode viewMode;
   final VoidCallback onTap;
@@ -292,10 +277,6 @@ class _ViewToggle extends StatelessWidget {
   }
 }
 
-// ── Journey hero ──────────────────────────────────────────────
-
-/// Night-sky panel: headline, golden dream-trail, and tappable stat
-/// segments that double as the status filter.
 class _JourneyHero extends StatelessWidget {
   final List<BucketItem> all;
   final BucketStatus? selected;
@@ -345,7 +326,6 @@ class _JourneyHero extends StatelessWidget {
           borderRadius: AppRadius.radiusX2,
           child: Stack(
             children: [
-              // Night gradient + warm horizon glow.
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -377,7 +357,6 @@ class _JourneyHero extends StatelessWidget {
               const Positioned.fill(
                 child: CustomPaint(painter: BucketStarsPainter()),
               ),
-              // Top candle-line.
               Positioned(
                 top: 0,
                 left: 24,
@@ -472,7 +451,6 @@ class _JourneyHero extends StatelessWidget {
   }
 }
 
-/// Golden progress trail with a star riding its tip.
 class _TrailBar extends StatelessWidget {
   final double progress;
   const _TrailBar({required this.progress});
@@ -549,7 +527,6 @@ class _TrailBar extends StatelessWidget {
   }
 }
 
-/// "N need attention" pill — appears only when dreams are overdue.
 class _OverdueNudge extends StatelessWidget {
   final int count;
   final bool active;
@@ -605,7 +582,6 @@ class _OverdueNudge extends StatelessWidget {
   }
 }
 
-/// Four tappable stat segments: All / Wishes / Planned / Done.
 class _StatusSegments extends StatelessWidget {
   final int total;
   final int wishes;
@@ -686,7 +662,6 @@ class _StatusSegments extends StatelessWidget {
         label: 'Filter by $label',
         toggled: isSelected,
         child: GestureDetector(
-          // Tapping the active segment clears back to All.
           onTap: () => onSelect(isSelected ? null : status),
           child: AnimatedContainer(
             duration: AppMotion.orZero(AppMotion.fast),
@@ -736,9 +711,6 @@ class _StatusSegments extends StatelessWidget {
   }
 }
 
-// ── Filter row ────────────────────────────────────────────────
-
-/// One calm scrollable row: who → priority → overdue.
 class _FilterRow extends StatelessWidget {
   final String? assigneeFilter;
   final BucketPriority? priorityFilter;
@@ -976,9 +948,6 @@ class _ClearPill extends StatelessWidget {
   }
 }
 
-// ── FAB + loading ─────────────────────────────────────────────
-
-/// Extended gradient "New dream" button.
 class _NewDreamFab extends StatelessWidget {
   final VoidCallback onTap;
   const _NewDreamFab({required this.onTap});
@@ -1032,7 +1001,6 @@ class _NewDreamFab extends StatelessWidget {
   }
 }
 
-/// Loading shimmer shaped like the hero + cards.
 class _LoadingDreams extends StatelessWidget {
   const _LoadingDreams();
 

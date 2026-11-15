@@ -4,23 +4,9 @@ import 'app_colors.dart';
 import 'app_typography.dart';
 import 'app_radius.dart';
 
-/// Dusk Petal v2 — Master theme.
-///
-/// This file wires the token files into a Flutter `ThemeData`.
-/// All token values live in their dedicated files:
-/// - `app_colors.dart`      — color & semantic tokens
-/// - `app_typography.dart`  — type scale & TextTheme
-/// - `app_spacing.dart`     — 4-pt grid spacing
-/// - `app_radius.dart`      — radius tokens
-/// - `app_elevation.dart`   — shadow tokens
-/// - `app_motion.dart`      — motion tokens (curves, durations, reduced)
-/// - `app_breakpoints.dart` — responsive breakpoints
 class AppTheme {
   AppTheme._();
 
-  // ── Re-export palette for backwards compat ─────────────────
-  // These now delegate to AppColors. Existing code that references
-  // `AppTheme.roseQuartz` etc. will continue to work.
   static const Color roseQuartz = AppColors.roseQuartz;
   static const Color deepRose = AppColors.deepRose;
   static const Color blushGold = AppColors.blushGold;
@@ -31,29 +17,24 @@ class AppTheme {
   static const Color warmAmber = AppColors.warmAmber;
   static const Color moonlight = AppColors.moonlight;
 
-  // ── Gradient / glass constants ─────────────────────────────
-
   static const LinearGradient gamifiedGradient = LinearGradient(
     colors: [AppColors.twilight, AppColors.velvet, AppColors.deepRose],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Rich "everglow dusk" backdrop used by the gateway and dashboards.
   static const LinearGradient duskGradient = LinearGradient(
     colors: [AppColors.inkDeep, AppColors.twilight, AppColors.velvet],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
-  /// Warm accent sweep for headers, buttons and highlight strips.
   static const LinearGradient roseGoldGradient = LinearGradient(
     colors: [AppColors.auroraRose, AppColors.deepRose, AppColors.blushGold],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Soft moonlight-to-lavender wash for glass panels.
   static const LinearGradient lilacWash = LinearGradient(
     colors: [AppColors.softLavender, AppColors.moonlight],
     begin: Alignment.topLeft,
@@ -62,8 +43,6 @@ class AppTheme {
 
   static const double glassBlur = 18.0;
   static const double glassOpacity = 0.08;
-
-  // ── ThemeData ──────────────────────────────────────────────
 
   static ThemeData get gamifiedTheme {
     return ThemeData(
@@ -204,8 +183,6 @@ class AppTheme {
       ),
     );
   }
-
-  // ── Accessibility ──────────────────────────────────────────
 
   static bool get shouldReduceMotion => WidgetsBinding
       .instance

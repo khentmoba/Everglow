@@ -1,9 +1,3 @@
-// Usage: node tool/perf/measure_boot.mjs [--build | --web-root DIR]
-//        [--runs 3] [--profile slow3g|fast3g|none] [--repeat]
-// --sw alone is rejected: a newly installing worker cannot be shaped in time.
-// flutter-first-frame is a frame marker, NOT proof that the UI is clickable.
-// Repeat measures a new document with a controlled SW and cached stamped core.
-// This is an online shaped-link test, never a claim of fully offline support.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -43,7 +37,6 @@ export function summarizeBoot(rows, expectedRuns, frameBudgetMs = 2500) {
   return {
     requestedRuns: expectedRuns, recordedRuns: rows.length,
     bar: { firstFlutterFrameMs: frameBudgetMs, longTaskMs: 200 }, verdict,
-    // No passing median can be made by silently removing missing/timed-out runs.
     median: complete ? { firstFlutterFrameMs: median(rows.map(r => r.firstFlutterFrameMs)) } : null,
     worst: complete ? {
       firstFlutterFrameMs: Math.max(...rows.map(r => r.firstFlutterFrameMs)),
@@ -64,7 +57,6 @@ async function firstFrame(cdp, timeoutMs) {
   throw new Error(`first Flutter frame timeout after ${timeoutMs}ms`);
 }
 
-// Must inspect the actual stamped core resource, not assume an 8s wait warmed it.
 async function cachedCore(cdp, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -107,19 +99,13 @@ async function once(label, url, options) {
       if (nav.result?.errorText) throw new Error(nav.result.errorText);
       await firstFrame(cdp, options.timeoutMs);
       warm = await cachedCore(cdp, options.timeoutMs);
-      // Leave the old document; navigating to an identical URL is not proof of
-      // a fresh timeOrigin. Keep the warmed worker in this disposable profile.
       await cdp.send('Page.navigate', {url:'about:blank'});
       result.warm = warm;
     }
-    // Fresh profiles + no-store responses isolate cold HTTP requests. Clear the
-    // warm HTTP cache without destroying CacheStorage. On Chrome, disabling the
-    // cache through CDP can hide initial script long tasks (regression control).
     await cdp.send('Network.clearBrowserCache');
     await cdp.send('Network.setCacheDisabled', {cacheDisabled:false});
-    await shapeNetwork(cdp, options.profile); // applies to COLD runs too
+    await shapeNetwork(cdp, options.profile);
     if (options.repeat) {
-      // Worker fetches have their own target. Page-only emulation is insufficient.
       const targets = await cdp.send('Target.getTargets');
       const workers = targets.result.targetInfos.filter(t => t.type === 'service_worker' && t.url === warm.workerUrl);
       if (!workers.length) throw new Error('controlled worker target missing; cannot apply network shaping');
@@ -158,7 +144,6 @@ async function once(label, url, options) {
     }
   } catch (e) {
     result.error = e.message;
-    // Keep useful freeze evidence even if the first-frame marker timed out.
     try {
       const t = await readLongTasks(cdp);
       Object.assign(result, {longTaskCount:t.count, longTaskWorstMs:t.worstMs, longTaskOver200ms:t.overBar});
@@ -187,7 +172,7 @@ export async function main(argv = process.argv.slice(2)) {
     buildWeb();
   }
   if (!existsSync(join(root,'index.html'))) throw new Error('no web artifact; use --build or --web-root');
-  const server = await serve(root,Number(flag('--port',8971))); // CacheStorage may still cache no-store responses
+  const server = await serve(root,Number(flag('--port',8971)));
   const url = `http://127.0.0.1:${server.address().port}/`;
   const rows = [];
   try {

@@ -2,8 +2,6 @@
 
 const { getCalendarEvents } = require('./calendar_core.js');
 
-// Motchi feature-context builders (Firestore reads for the AI system prompt).
-// Moved verbatim from index.js; index.js requires back only what it calls.
 const {
   getDb,
   getAdmin,
@@ -13,12 +11,6 @@ const {
 } = require('./common.js');
 const { selectBlockKeys, formatChatContext, formatSessionContext, phtDateLabel, phtDateString, PHT_OFFSET_MS } = require('./motchi_core.js');
 
-/**
- * In-memory cache for individual feature context blocks.
- * Caches blocks individually (with domain-appropriate TTLs) so subsequent
- * chat turns avoid repeated 20-query Firestore sweeps, and tool writes can
- * invalidate only their specific mutated blocks.
- */
 const _blockCache = new Map();
 
 function invalidateContextBlock(key) {
@@ -49,9 +41,6 @@ async function buildContextForFeature(feature, _callerUid, userMessage = '') {
     let result;
     switch (feature) {
       case 'assistant': {
-        // Pre-select BEFORE fetching: score block keys against the message
-        // so a turn reads ~7 cached blocks instead of sweeping ~20
-        // Firestore queries and discarding half of them.
         const wanted = selectBlockKeys(userMessage || '', 7);
         const fetchers = {
           mood: () => getCachedBlock('mood', 120000, getMoodContext),
@@ -74,10 +63,8 @@ async function buildContextForFeature(feature, _callerUid, userMessage = '') {
           budget: () => typeof getBudgetContext === 'function' ? getCachedBlock('budget', 300000, getBudgetContext) : Promise.resolve(''),
           subs: () => getCachedBlock('subs', 300000, getSubsContext),
         };
-        // Canonical order keeps the prompt stable turn-to-turn.
         const ordered = Object.keys(fetchers).filter((k) => wanted.includes(k));
         const values = await Promise.all(ordered.map((k) => fetchers[k]()));
-        // Proactive (birthdays/anniversary) is sync and free: always first.
         result = [getProactiveContext(), ...values].filter(Boolean).join('\n\n');
         break;
       }
@@ -115,11 +102,6 @@ async function buildContextForFeature(feature, _callerUid, userMessage = '') {
   }
 }
 
-// Always-on date line + near-day specials, computed in Philippine wall
-// time (the server runs on UTC, so server-local dates are off by a day
-// for the first 8 hours of every PHT morning). This block rides first in
-// every assistant prompt — without it Motchi can't reason about
-// weekends, tomorrows, or countdowns at all.
 function getProactiveContext(nowMs = Date.now()) {
   const pht = new Date(nowMs + PHT_OFFSET_MS);
   const y = pht.getUTCFullYear();
@@ -129,12 +111,10 @@ function getProactiveContext(nowMs = Date.now()) {
 
   const parts = [`Today is ${phtDateLabel(nowMs)} (Philippine time).`];
 
-  // Anniversary (Feb 14)
   const annivDays = daysUntil(1, 14);
   if (annivDays > 0) parts.push(`💕 Anniversary in ${annivDays} days (Feb 14)`);
   else if (annivDays === 0) parts.push(`💕 ANNIVERSARY TODAY!`);
 
-  // Birthdays
   const toKhent = daysUntil(9, 26);
   const toClair = daysUntil(1, 21);
   if (toKhent === 0) parts.push('🎂 Dada\'s birthday TODAY!');
@@ -190,7 +170,6 @@ async function getWatchContext() {
   } catch (_) { return ''; }
 }
 
-// TMDB API key — uses Firebase env config, falls back to client-side key for dev
 function getTmdbKey() {
   return process.env.TMDB_API_KEY || '';
 }
@@ -285,7 +264,6 @@ async function getStarlightContext() {
     if (snapshot.empty) return '';
     const notes = snapshot.docs.map(doc => {
       const d = doc.data();
-      // Cap each note: untrimmed notes could each be KBs of prompt.
       const content = String(d.content || '').slice(0, 200);
       return `- "${content}" — ${d.author || ''}`;
     }).join('\n');
@@ -305,7 +283,6 @@ async function getRecentChatContext() {
       const d = doc.data();
       return `${d.username || 'user'}: ${d.text || d.content || ''}`;
     }).toReversed();
-    // Slim: newest 12 lines + earlier-count (was: 30 full lines).
     return formatChatContext(lines);
   } catch (_) { return ''; }
 }
@@ -428,7 +405,6 @@ async function getSessionHistoryContext() {
       }
     }
 
-    // Slim: 6 summaries + 3 blocks capped at 8k chars (was 10 + 4/15k).
     return formatSessionContext(summaries, recentSessions);
   } catch (_) { return ''; }
 }

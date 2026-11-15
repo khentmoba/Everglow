@@ -4,8 +4,6 @@ import '../../../../../../core/theme/app_typography.dart';
 import '../drawer_helpers.dart';
 import '../../netflix/netflix_colors.dart';
 
-/// Cast rail for the enhanced Cinema drawer. Anime items show the
-/// character first and the voice actor underneath.
 class CinemaCastSection extends StatelessWidget {
   final List<Map<String, dynamic>> cast;
   final bool isLoading;

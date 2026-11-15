@@ -38,7 +38,6 @@ test('install page stays put in Safari and activates demo on a fresh installed l
   assert.match(page, /rel="manifest" href="manifest_screen.json"/);
   for (const [ios, displayMode, expected] of [[false, false, null], [true, false, href], [false, true, href]]) {
     let destination = null;
-    // No preferences or login state exist in this simulated new install.
     vm.runInNewContext(script, {
       URLSearchParams,
       navigator: {standalone: ios},

@@ -26,11 +26,6 @@ Future<void> showBucketItemDetail(
   builder: (_) => _DreamDetailSheet(item: item, currentUsername: username),
 );
 
-/// A dream ticket: big tap-to-fulfill ring, category + due + assignee pills.
-///
-/// Swipe right toggles fulfilled, swipe left deletes (with confirmation).
-/// Set [enableSwipe] to false when nested in the horizontally-scrolling
-/// board so card gestures never fight column scrolling.
 class BucketItemCard extends StatefulWidget {
   final BucketItem item;
   final String currentUsername;
@@ -120,7 +115,6 @@ class _BucketItemCardState extends State<BucketItemCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Priority edge (only loud priorities get a stripe).
                 Container(
                   width: 4,
                   height: 58,
@@ -266,7 +260,6 @@ class _BucketItemCardState extends State<BucketItemCard> {
     );
   }
 
-  /// Loud priorities get a glowing edge; calm ones stay invisible.
   Color _edgeHue() {
     switch (widget.item.priority) {
       case BucketPriority.urgent:
@@ -385,9 +378,6 @@ class _BucketItemCardState extends State<BucketItemCard> {
   }
 }
 
-// ── Card pieces ───────────────────────────────────────────────
-
-/// Big thumb-friendly ring: tap to fulfill / reopen a dream.
 class _FulfillRing extends StatelessWidget {
   final bool completed;
   final String title;
@@ -594,10 +584,6 @@ class _DuePill extends StatelessWidget {
   }
 }
 
-// ── Entrance ──────────────────────────────────────────────────
-
-/// Gentle rise-and-fade for new cards. Each dream animates once per app
-/// session (tracked by id) so scrolling back never replays it.
 class _DreamEntrance extends StatefulWidget {
   final String id;
   final Duration delay;
@@ -649,9 +635,6 @@ class _DreamEntranceState extends State<_DreamEntrance> {
   }
 }
 
-// ── Detail sheet ──────────────────────────────────────────────
-
-/// Full dream story: hero, journey stepper, tap-to-edit meta, actions.
 class _DreamDetailSheet extends StatelessWidget {
   final BucketItem item;
   final String currentUsername;
@@ -1079,7 +1062,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Wish → Planned → Fulfilled stepper with a connecting trail.
 class _JourneyStepper extends StatelessWidget {
   final BucketStatus status;
   final ValueChanged<BucketStatus> onMove;
@@ -1167,7 +1149,6 @@ class _JourneyStepper extends StatelessWidget {
   }
 }
 
-/// Tappable meta tile (dreamer / date / pace). Optional ✕ clears the value.
 class _MetaTile extends StatelessWidget {
   final String label;
   final String value;

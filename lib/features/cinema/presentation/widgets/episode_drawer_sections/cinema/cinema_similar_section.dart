@@ -4,9 +4,6 @@ import '../../../../../../core/theme/app_typography.dart';
 import '../../../../data/models/media_item.dart';
 import '../../netflix/netflix_colors.dart';
 
-/// "More Like This" section for the enhanced Cinema drawer:
-/// Supports either a horizontal carousel or a Netflix-style responsive grid
-/// of preview cards with match %, age badge, year, and synopsis preview.
 class CinemaSimilarSection extends StatelessWidget {
   final List<MediaItem> similar;
   final bool isLoading;
@@ -155,7 +152,6 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 16:9 Thumbnail
                 AspectRatio(
                   aspectRatio: 16 / 9,
                   child: Stack(
@@ -175,7 +171,6 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
                         )
                       else
                         const ColoredBox(color: NetflixColors.surface),
-                      // Duration or year badge overlay
                       Positioned(
                         right: 8,
                         top: 8,
@@ -202,7 +197,6 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
                     ],
                   ),
                 ),
-                // Card details
                 Padding(
                   padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
                   child: Column(

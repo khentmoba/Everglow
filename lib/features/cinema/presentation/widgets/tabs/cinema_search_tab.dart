@@ -9,7 +9,6 @@ import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_poster_card.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Netflix-style search: a quiet input, instant results, popular searches.
 class CinemaSearchTab extends StatefulWidget {
   final List<MediaItem> trendingGlobal;
   final void Function(MediaItem) onMediaTap;
@@ -48,7 +47,6 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
   bool _searchFailed = false;
   bool _isLoadingMore = false;
 
-  // Search filter state
   bool _filterMoviesOnly = false;
   bool _filterTVOnly = false;
   final Set<String> _filterYears = {};
@@ -423,8 +421,6 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
           ),
         );
         _searchPage = page;
-        // The list API has no total-pages metadata. A final empty page
-        // ends pagination even when anime filtering shortened this page.
         _searchHasMore = results.isNotEmpty && page < 500;
         _isSearching = false;
         _isLoadingMore = false;

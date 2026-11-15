@@ -28,16 +28,10 @@ void main() {
       ),
     );
 
-    // Immediately after build the TMDB fetch is still in flight, so the
-    // popover must show animated shimmer — not the static fallback copy.
-    // No extra pump here: the failed test-env fetch resolves on the next
-    // pump, which would close the loading window.
     expect(find.byType(EverglowLoadingBars), findsOneWidget);
     expect(find.byType(EverglowSkeleton), findsWidgets);
     expect(find.textContaining('Tap for details'), findsNothing);
 
-    // Once the fetch resolves ({} in tests — no Firebase), the fallback
-    // copy replaces the shimmer.
     await tester.pumpAndSettle(const Duration(seconds: 5));
     expect(find.byType(EverglowLoadingBars), findsNothing);
     expect(find.textContaining('Tap for details'), findsOneWidget);

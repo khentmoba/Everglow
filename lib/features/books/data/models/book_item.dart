@@ -1,15 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Universal book model — used for both personal "to-read / read" lists
-/// and the search results from Open Library. Mirrors the
-/// [MediaItem] shape used by the cinema feature so future shared
-/// widgets stay consistent.
-///
-/// We store an Open Library "work key" (e.g. `/works/OL45804W`) as
-/// the primary identifier because editions can proliferate but the
-/// work is canonical. We also persist an optional Internet Archive
-/// id (the `ia` field returned by Open Library's search API) so the
-/// reader can locate a borrowable full-text copy.
 class BookItem {
   final String id;
   final String workKey;
@@ -25,19 +15,11 @@ class BookItem {
   final List<String> subjects;
   final String status;
 
-  /// Owning user. Items in `read_list` are scoped per user so Khent,
-  /// Clair, and Breyan each see only their own queue / history.
   final String userName;
   final DateTime addedAt;
 
-  /// Where to read this book. Resolved by [OpenLibraryService] and
-  /// stored on the model so the reader can hit a single source URL
-  /// (Gutenberg plain text, IA djvu text, etc.) without re-deriving.
   final String readSourceUrl;
 
-  /// Hint about which provider powers the read source. Used to label
-  /// the reader chrome ("Gutenberg", "Internet Archive", "Open
-  /// Library", etc.). Not stored in Firestore.
   final String readSourceLabel;
 
   const BookItem({
@@ -77,15 +59,11 @@ class BookItem {
     return 'To Read';
   }
 
-  /// Open Library cover URL helper. Returns the supplied URL if it
-  /// already starts with `http`, otherwise derives the standard CDN
-  /// URL from the cover id.
   static String coverFromCoverId(int? coverId, {String size = 'L'}) {
     if (coverId == null || coverId <= 0) return '';
     return 'https://covers.openlibrary.org/b/id/$coverId-$size.jpg';
   }
 
-  /// Open Library cover URL by work key (`OL...W`).
   static String coverFromOlid(String? olid, {String size = 'L'}) {
     if (olid == null || olid.isEmpty) return '';
     return 'https://covers.openlibrary.org/b/olid/$olid-$size.jpg';
@@ -114,10 +92,6 @@ class BookItem {
       status: data['status'] ?? 'to-read',
       userName: data['userName'] ?? '',
       addedAt: _parseDateTime(data['addedAt']),
-      // Persist the source URL so the reader can hit a single
-      // address after a round-trip through Firestore. If the field
-      // is missing on a legacy document we re-derive it from the
-      // `iaId` / `workKey` instead of leaving the reader stranded.
       readSourceUrl:
           data['readSourceUrl'] ??
           deriveReadSourceUrl(iaId: iaId, workKey: workKey),
@@ -126,19 +100,6 @@ class BookItem {
     );
   }
 
-  /// Re-derive the read source URL when no explicit one was stored.
-  /// Mirrors the logic in `OpenLibraryService._resolveReadSources`
-  /// so the model stays self-sufficient after a Firestore round-trip.
-  /// The Open Library work page is only returned as a last resort
-  /// (for the "open in browser" button) when no plain-text source
-  /// is available.
-  ///
-  /// For non-Gutenberg Internet Archive ids (modern copyrighted
-  /// books that are borrow-only), the URL is the IA **details
-  /// page** rather than the `${iaId}_djvu.txt` file — the djvu text
-  /// is only accessible inside an active loan, so using it as the
-  /// "open in browser" target would just open a 404. The details
-  /// page is where the user can borrow and read the book.
   static String deriveReadSourceUrl({
     required String iaId,
     required String workKey,
@@ -191,10 +152,6 @@ class BookItem {
       'status': status,
       'userName': userName,
       'addedAt': Timestamp.fromDate(addedAt),
-      // Persist the resolved read source so the reader can find it
-      // after a round-trip. Without this, [fromFirestore] would
-      // always return an empty URL and the reader would refuse to
-      // load the book.
       'readSourceUrl': readSourceUrl,
       'readSourceLabel': readSourceLabel,
     };

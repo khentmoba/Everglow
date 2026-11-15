@@ -40,8 +40,6 @@ const _sortOptions = <(String, String)>[
   ('FAVOURITES_DESC', 'Favorites'),
 ];
 
-/// Browse / explore page: sort, format, genre and year filters plus a
-/// responsive grid and pagination.
 class AnimeXBrowsePage extends StatefulWidget {
   final AnimeXController controller;
   final AniListService? service;

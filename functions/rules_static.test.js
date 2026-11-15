@@ -1,15 +1,5 @@
 'use strict';
 
-// Static guardrails for firestore.rules / storage.rules.
-//
-// The Firestore emulator needs Java, which isn't available in this
-// environment, so these tests parse the rule sources instead of running
-// them: they assert the security invariants this audit introduced
-// (validators in helper scope, least-privilege academy writes, presence
-// ownership, update allow-lists, secure-default deny, couple Storage
-// reads). If the rules regress, these fail fast in CI without an
-// emulator.
-
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');

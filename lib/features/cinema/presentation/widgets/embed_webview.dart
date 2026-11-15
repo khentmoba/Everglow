@@ -9,37 +9,19 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 
-/// In-app WebView surface used by the native cinema players.
-///
-/// The web player hosts the provider embeds as iframes; Android can't render
-/// those, but a WebView can run the same embed URLs in-app. This widget keeps
-/// the loading and main-frame failure states visible so users never stare at
-/// a blank grey surface.
 class EmbedWebView extends StatefulWidget {
   final String url;
 
-  /// When provided, the player is letterboxed to this ratio. Otherwise it
-  /// expands to fill the parent's constraints.
   final double? aspectRatio;
 
-  /// Called once the main document finishes loading.
   final VoidCallback? onLoaded;
 
-  /// Called when the main document fails to load (e.g. 404 / refused).
   final VoidCallback? onError;
 
-  /// Optional corner rounding for framed player surfaces.
   final BorderRadius? borderRadius;
 
-  /// When set, main-frame navigations to any other host are blocked.
-  /// Third-party embeds use top-frame navigation for their worst ads
-  /// (app-store / app-open hijacks); media segments and subframes are
-  /// unaffected since only main-frame navigations are gated. Opt-in so
-  /// trailers and the cinema player keep their current behavior.
   final Set<String>? allowedHosts;
 
-  /// Called with page-bridged player events (JSON string) posted to the
-  /// `EverglowPlayer` JavaScript channel.
   final void Function(String message)? onPlayerMessage;
 
   const EmbedWebView({
@@ -53,9 +35,6 @@ class EmbedWebView extends StatefulWidget {
     this.onPlayerMessage,
   });
 
-  /// Parses a page-bridged `cinesrc:nextepisode` event into its
-  /// (season, episode) pair. Returns null for foreign bridge traffic —
-  /// malformed JSON, other message types, or missing numbers.
   static (int, int)? parsePlayerEpisode(String raw) {
     try {
       final decoded = jsonDecode(raw);
@@ -71,8 +50,6 @@ class EmbedWebView extends StatefulWidget {
     }
   }
 
-  /// Parses a trusted CineSrc timeupdate or Everglow HLS progress event
-  /// bridged by our owned player page.
   static (int, int)? parsePlayerProgress(String raw) {
     try {
       final decoded = jsonDecode(raw);
@@ -100,7 +77,6 @@ class EmbedWebView extends StatefulWidget {
     }
   }
 
-  /// Failure messages are accepted only from our owned player documents.
   static bool isOwnedPlayerUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https') return false;
@@ -131,14 +107,8 @@ class _EmbedWebViewState extends State<EmbedWebView> {
       'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 
-  /// How long to wait for the embed before treating the load as failed.
-  /// Mirrors the web player's [_loadTimeout] so a hung WebView lands on the
-  /// interactive error card instead of leaving the user staring at a spinner.
   static const Duration _loadTimeout = Duration(seconds: 15);
 
-  // YouTube embeds reject requests with no referrer (Error 153), and a
-  // WebView sends none by default. This public app origin is used as the
-  // embed referrer so trailer playback keeps working in-app.
   static const String _embedReferrer = 'https://everglow-1c6db.web.app';
 
   late WebViewController _controller;
@@ -186,8 +156,6 @@ class _EmbedWebViewState extends State<EmbedWebView> {
       controller.setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (request) {
-            // Main-frame only: the owned wrapper intentionally loads
-            // cross-origin upstream frames, which must not be blocked.
             if (request.isMainFrame &&
                 EmbedWebView.isOwnedPlayerUrl(widget.url) &&
                 Uri.tryParse(request.url)?.host !=
@@ -237,9 +205,6 @@ class _EmbedWebViewState extends State<EmbedWebView> {
       _failed = false;
       _loading = true;
     });
-    // Rebuild with a fresh controller. A dead WebView can linger as a
-    // platform view that keeps swallowing touches even underneath the
-    // Flutter error card, so the retry never reuses the failed instance.
     final controller = WebViewController();
     _controller = controller;
     await _configure(controller);
@@ -266,9 +231,6 @@ class _EmbedWebViewState extends State<EmbedWebView> {
     final player = Stack(
       fit: StackFit.expand,
       children: [
-        // Unmount the WebView on failure: on Android the platform view can
-        // keep intercepting taps in its bounds even when Flutter paints the
-        // error card above it, which makes the retry UI unresponsive.
         if (!_failed) WebViewWidget(controller: _controller),
         if (_loading && !_failed)
           Container(

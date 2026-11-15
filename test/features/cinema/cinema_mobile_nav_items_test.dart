@@ -9,8 +9,6 @@ void main() {
       final items = cinemaMobileNavItems(isCinemaOnlyUser: true);
       final labels = items.map((i) => i.label).toList();
 
-      // Regression: Breyan / Octagram had no ride to /anime on mobile —
-      // no dashboard, and the floating corner button is their logout.
       expect(labels, contains('Anime'));
       expect(labels, isNot(contains('Together')));
       expect(labels, contains('Downloads'));
@@ -139,8 +137,6 @@ void main() {
         onAnimeTap: () {},
       );
 
-      // currentIndex is 0 and the Anime entry carries tab 0 as a filler,
-      // but the link must not light up like the active Home tab.
       final animeStyle =
           tester.widget<Text>(find.text('Anime')).style!;
       final homeStyle = tester.widget<Text>(find.text('Home')).style!;

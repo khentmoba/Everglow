@@ -5,7 +5,6 @@ import '../../../../core/theme/app_radius.dart';
 import '../../data/services/spotify_auth_service.dart';
 import '../../data/services/spotify_player_service.dart';
 
-/// Shows Duo link status + connect button. Drop into JukeboxWidget header or dashboard.
 class SpotifyConnectCard extends StatelessWidget {
   const SpotifyConnectCard({super.key});
 

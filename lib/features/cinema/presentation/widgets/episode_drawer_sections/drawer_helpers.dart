@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Proxy URL for CORS-blocked anime thumbnail CDNs (Crunchyroll, etc.).
-/// Fetches the image server-side and returns it with permissive CORS headers.
 const proxyAnimeImageUrl =
     'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnimeImage';
 
-/// Strip trailing " Season X", " Season X Part Y", " 2nd Season", etc.
 String cleanTitle(String title) {
   return title.replaceAll(
     RegExp(

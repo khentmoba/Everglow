@@ -16,8 +16,6 @@ import {
   yumeSources,
 } from './yumezone.js';
 
-/** The wire cipher, inverted. `yumeDecrypt` XORs with a repeating key and a
- *  stride-3 counter, so the same loop encrypts. */
 function encrypt(payload, sig) {
   const key = new TextEncoder().encode(String(sig));
   const json = new TextEncoder().encode(JSON.stringify(payload));
@@ -35,7 +33,6 @@ test('the signature is deterministic for a fixed clock', async () => {
     await yumeSig(21, 1, ts),
     'd439a82bf3afdea594df6c493abc36210d9872eeedba2cde3c0849c680ff0d69',
   );
-  // A different clock is a different signature: the site rejects replays.
   assert.notEqual(await yumeSig(21, 1, ts + 1), await yumeSig(21, 1, ts));
 });
 
@@ -53,7 +50,6 @@ test('the payload cipher round-trips', async () => {
     subtitles: [{ label: 'English', file: 'https://x/en.ass' }],
   };
   assert.deepEqual(yumeDecrypt(encrypt(payload, sig), sig), payload);
-  // A wrong key must not throw a TypeError or return half a payload.
   assert.throws(() => yumeDecrypt(encrypt(payload, sig), 'f'.repeat(64)), /undecryptable/);
   assert.throws(() => yumeDecrypt('not base64!!', sig), /not base64/);
   assert.throws(() => yumeDecrypt(encrypt(payload, sig), ''), /empty cipher key/);
@@ -62,8 +58,6 @@ test('the payload cipher round-trips', async () => {
 test('subbed audio tries the hardsub servers first, dubbed audio the softsub ones', () => {
   const sub = yumeServerOrder('sub').map((s) => s.id);
   const dub = yumeServerOrder('dub').map((s) => s.id);
-  // Our player renders WebVTT only and YumeZone ships ASS/SRT, so a softsub
-  // server would play with no subtitles. Hardsub carries them in the picture.
   assert.deepEqual(sub.slice(0, 3), ['yume-1', 'yume-2', 'yume-3']);
   assert.deepEqual(dub.slice(0, 3), ['yume-4', 'yume-5', 'yume-6']);
   assert.deepEqual([...sub].sort(), [...dub].sort(), 'same servers, different order');
@@ -85,7 +79,6 @@ test('the master URL is the first absolute https HLS source', () => {
     yumeMasterUrl({ hls_sources: [{ url: 'https://a/b/master.m3u8' }] }),
     'https://a/b/master.m3u8',
   );
-  // A relative path is made absolute against the site, a bad entry is skipped.
   assert.equal(
     yumeMasterUrl({ hls_sources: [{ url: '/p/abc' }, { url: 'https://a/b/master.m3u8' }] }),
     `${YUME_ORIGIN}/p/abc`,

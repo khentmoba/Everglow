@@ -2,11 +2,9 @@ import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
-// The proof folder needs the PR number, which exists only once the PR does.
 const DRAFT_FIRST = 'Open the PR as a draft first (drafts skip this check), commit the shot under docs/pr-proof/pr-<number>/, push, pin that SHA, then mark it ready.';
 
 export function checkPrContract({body = '', draft = false, paths = []}, exists = () => true) {
-  // Drafts expose incomplete work honestly and cannot be merged.
   if (draft) return [];
   body = body.replace(/<!--[\s\S]*?-->/g, '');
   const errors = [];
@@ -49,15 +47,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const args = process.argv.slice(2);
     const flag = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
     if (flag('--body')) {
-      // Local, before opening or readying the PR:
-      //   node tool/ci/pr_contract.mjs --body body.md [--base origin/main]
       const paths = changedPaths([`${flag('--base') || 'origin/main'}...HEAD`]);
       const errors = checkPrContract({body: readFileSync(flag('--body'), 'utf8'), paths}, existsAtCommit);
       if (errors.length) throw new Error(errors.join('\n'));
     } else {
       const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH || args[0], 'utf8'));
       if (event.pull_request) {
-        // Checkout tests a PR merge; its first parent is the actual base, even if the event is stale.
         const errors = checkPrContract({...event.pull_request, paths: changedPaths(['HEAD^1', 'HEAD'])}, existsAtCommit);
         if (errors.length) throw new Error(errors.join('\n'));
       }

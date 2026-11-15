@@ -1,17 +1,8 @@
 'use strict';
 
-// Everglow Cloud Functions — Motchi stats group.
-// 7-day observability rollup for Khent's Creator tab.
-
 const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
 const { journeyMetrics } = require('./motchi_agent.js');
 
-/**
- * W5-F21: Eval harness — aggregate Motchi observability.
- * GET /motchiStats  (Auth required, couple-only)
- * Returns tool success rates, hallucination counts, and reminder stats
- * for the last 7 days. Used by a future dashboard.
- */
 const motchiStats = cappedHttps(5, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -21,7 +12,6 @@ const motchiStats = cappedHttps(5, async (req, res) => {
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
   if (enforceRateLimit(req, res, { endpoint: 'motchiStats', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
-  // Couple-only gate: verify username is khentsgdz/clairjassen
   const username = await getVerifiedUsername(decoded);
   if (!['khentsgdz', 'clairjassen'].includes(username || '')) {
     res.status(403).json({ error: 'Couple-only' });
@@ -61,9 +51,6 @@ const motchiStats = cappedHttps(5, async (req, res) => {
       total: (remSnap.docs || []).length,
       fired: (remSnap.docs || []).filter(d => d.data().fired === true).length,
     };
-    // Today's per-user API counters + recent anomaly alerts, so Khent's
-    // Creator tab can show usage without opening the Firestore console.
-    // Best-effort: never fail the whole stats call over this section.
     const usage = {};
     let recentAlerts = [];
     const usageDay = new Date().toISOString().slice(0, 10);
@@ -80,7 +67,6 @@ const motchiStats = cappedHttps(5, async (req, res) => {
       recentAlerts = (alertSnap.docs || []).map((a) => ({ message: a.data()?.message || '', at: a.data()?.lastAlertAt?.toDate?.()?.toISOString() || null }));
     } catch (_) {}
     let journeys;
-    // Opt-in, bounded diagnostic read; ordinary stats and chat pay nothing extra.
     if (req.query?.journeys === '1') {
       const sessions = await db.collection('motchi_sessions').orderBy('updatedAt', 'desc').limit(25).get();
       journeys = journeyMetrics(sessions.docs.flatMap((s) => (s.data().turns || []).slice(-50)));

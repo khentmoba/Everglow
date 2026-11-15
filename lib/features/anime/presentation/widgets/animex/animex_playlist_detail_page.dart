@@ -10,7 +10,6 @@ import 'animex_footer.dart';
 import 'animex_grid.dart';
 import 'animex_tokens.dart';
 
-/// Detail page for a single custom playlist.
 class AnimeXPlaylistDetailPage extends StatelessWidget {
   final AnimeXController controller;
 

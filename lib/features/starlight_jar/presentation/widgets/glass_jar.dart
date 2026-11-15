@@ -29,9 +29,6 @@ class GlassJar extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // The Frosty Glass Body
-            // No BackdropFilter here: on Flutter Web the blur renders as an
-            // opaque gray/white rectangle instead of a frosted panel.
             ClipPath(
               clipper: JarClipper(),
               child: Container(
@@ -53,7 +50,6 @@ class GlassJar extends StatelessWidget {
               ),
             ),
 
-            // Glossy Highlight
             Positioned(
               left: 40,
               top: 60,
@@ -67,7 +63,6 @@ class GlassJar extends StatelessWidget {
               ),
             ),
 
-            // Jar Lid (Frosty Pink)
             Positioned(
               top: 0,
               child: Container(

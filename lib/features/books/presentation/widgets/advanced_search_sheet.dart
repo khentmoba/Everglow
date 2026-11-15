@@ -12,17 +12,11 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Z-Library style advanced search: narrow the catalog by title,
-/// author, publisher, ISBN, and year range, with an exact-match
-/// toggle. Plain labels so Clair never has to guess what a field
-/// does. Returns the chosen [BookSearchFilters] via Navigator.pop.
 class AdvancedSearchSheet extends StatefulWidget {
   final BookSearchFilters initial;
 
   const AdvancedSearchSheet({super.key, required this.initial});
 
-  /// Opens the sheet and returns the picked filters, or null when
-  /// the user dismisses it without applying.
   static Future<BookSearchFilters?> open(
     BuildContext context,
     BookSearchFilters initial,
@@ -338,8 +332,6 @@ class _Field extends StatelessWidget {
   }
 }
 
-/// Small pill shown under the search box while advanced filters are
-/// active. Tapping it re-opens the sheet; the × clears the filters.
 class ActiveFiltersPill extends StatelessWidget {
   final BookSearchFilters filters;
   final VoidCallback onEdit;

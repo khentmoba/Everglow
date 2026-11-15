@@ -20,8 +20,6 @@ class AddJournalEntryDialog extends StatefulWidget {
   final JournalService? service;
   final XPService? xpService;
 
-  /// How long a new page waits for the server before closing as
-  /// "saved on this device".
   @visibleForTesting
   static Duration syncWait = const Duration(seconds: 4);
 
@@ -66,8 +64,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
       text: widget.existing?.content ?? '',
     );
     if (widget.existing == null) {
-      // New page: bring back half-written words after a killed tab/PWA.
-      // Edits always start from the saved entry — never from a draft.
       _titleController.loadDraft();
       _contentController.loadDraft();
     }
@@ -192,8 +188,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
           waited.future,
         ]).whenComplete(wait.cancel);
         if (!confirmed) {
-          // The queued write finishes on its own; keep the draft until the
-          // server confirms it, so the words survive a lost tab.
           unawaited(
             write.then(
               (_) => _afterNewEntrySaved(id, title: title, content: content),
@@ -220,8 +214,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
         await _afterNewEntrySaved(id);
       }
       if (widget.existing == null) {
-        // Words are saved now — forget the draft so it never comes back
-        // stale. (Edit-saves leave new-entry drafts alone.)
         await _titleController.clearDraft();
         await _contentController.clearDraft();
       }
@@ -284,8 +276,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
 
   static const _pendingIdKey = 'journal:new:pendingId';
 
-  /// One id per unsaved page, kept with its draft, so a retry — even from a
-  /// reopened dialog — rewrites the same entry instead of adding another.
   Future<String> _pendingEntryId(JournalService service) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -300,8 +290,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     }
   }
 
-  /// Server confirmed a new page: award XP, then forget its id and draft.
-  /// [title]/[content] guard drafts the user has since rewritten.
   Future<void> _afterNewEntrySaved(
     String id, {
     String? title,
@@ -453,7 +441,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ),
               ),
               SizedBox(height: sectionGap),
-              // Category
               Text(
                 'Category',
                 style: AppTypography.outfitBold.copyWith(
@@ -499,7 +486,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 }).toList(),
               ),
               SizedBox(height: sectionGap),
-              // Title
               TextField(
                 controller: _titleController,
                 style: AppTypography.outfitWhite.copyWith(
@@ -525,7 +511,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ),
               ),
               SizedBox(height: sectionGap),
-              // Content
               TextField(
                 controller: _contentController,
                 maxLines: compact ? 6 : 8,
@@ -554,7 +539,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              // Live word count — a little encouragement as they write.
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _contentController,
                 builder: (context, value, _) {
@@ -574,7 +558,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 },
               ),
               const SizedBox(height: AppSpacing.md),
-              // Mood row (heartbeat link)
               Text(
                 'Mood (optional)',
                 style: AppTypography.outfitBold.copyWith(
@@ -594,7 +577,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ],
               ),
               SizedBox(height: sectionGap),
-              // Tags
               Row(
                 children: [
                   Expanded(
@@ -664,7 +646,6 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ),
               ],
               SizedBox(height: sectionGap),
-              // Toggles lock/pin
               Row(
                 children: [
                   Expanded(

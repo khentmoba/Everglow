@@ -1,8 +1,5 @@
 part of 'books_screen.dart';
 
-/// Tune button next to the search box. Glows amber while advanced
-/// filters are active so Clair can see at a glance that the list
-/// is narrowed.
 class _AdvancedButton extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
@@ -42,7 +39,6 @@ class _AdvancedButton extends StatelessWidget {
   }
 }
 
-/// Z-Lib style "Load more" footer for the paged result list.
 class _LoadMoreRow extends StatelessWidget {
   final bool loading;
   final VoidCallback onTap;

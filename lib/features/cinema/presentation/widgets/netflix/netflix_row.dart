@@ -10,8 +10,6 @@ import 'netflix_hover_preview.dart';
 import 'netflix_poster_card.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Horizontal content rail with a Netflix-style title, edge arrows on
-/// desktop, and a floating hover preview that pops above the row.
 class NetflixRow extends StatefulWidget {
   final String title;
   final List<MediaItem> items;
@@ -22,7 +20,6 @@ class NetflixRow extends StatefulWidget {
   final bool Function(MediaItem)? isInList;
   final EdgeInsetsGeometry? padding;
 
-  /// Renders Top-10 numerals next to the first ten posters.
   final bool ranked;
 
   const NetflixRow({
@@ -92,26 +89,15 @@ class _NetflixRowState extends State<NetflixRow> {
   void _onCardHover(bool hovered, Rect rect, MediaItem item) {
     final generation = ++_hoverGeneration;
     if (!hovered) {
-      // A card exit only cancels a pending show. It never dismisses the
-      // open preview: the preview covers the card, so the card underneath
-      // fires exit/enter while the overlay settles — removing here kills
-      // the preview the same frame it appears. Dismissal belongs to the
-      // preview's own hover region, or to hovering another card.
       _previewTimer?.cancel();
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
-    // Start the trailer lookup immediately — the card already prefetches
-    // too, but this covers focus/keyboard hovers that bypass the card.
     unawaited(prefetchNetflixPreview(item));
-    // Hovering a different card should immediately retire the previous
-    // popover instead of letting overlapping entries trap each other.
     if (_previewItem != item) _removePreview();
     _previewTimer?.cancel();
     _previewTimer = Timer(const Duration(milliseconds: 260), () {
       if (!mounted || generation != _hoverGeneration) return;
-      // The covered card re-fires enter while the overlay settles; the
-      // preview for this card is already open, so there is nothing to do.
       if (_previewItem == item) return;
       _removePreview();
       _showPreview(rect, item);
@@ -136,8 +122,6 @@ class _NetflixRowState extends State<NetflixRow> {
         top: offset.dy,
         width: width,
         child: MouseRegion(
-          // The preview owns its own dismissal (see _onCardHover):
-          // leaving it is the only pointer path that closes it.
           onExit: (_) {
             _previewTimer?.cancel();
             _removePreview();
@@ -171,8 +155,6 @@ class _NetflixRowState extends State<NetflixRow> {
     _hovering = false;
     setState(() {});
     _previewTimer?.cancel();
-    // Never dismisses the open preview: it can overhang the row, so this
-    // fires while reaching for the overhang. The preview closes itself.
   }
 
   @override
@@ -267,7 +249,6 @@ class _NetflixRowState extends State<NetflixRow> {
   }
 }
 
-/// Continue-watching rail - landscape cards with progress bars.
 class NetflixContinueRow extends StatefulWidget {
   final List<MediaItem> items;
   final void Function(MediaItem) onTapItem;
@@ -318,14 +299,11 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
   void _onCardHover(bool hovered, Rect rect, MediaItem item) {
     final generation = ++_hoverGeneration;
     if (!hovered) {
-      // A card exit only cancels a pending show, never the open preview
-      // (it covers the card and owns its own dismissal — see NetflixRow).
       _previewTimer?.cancel();
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
     unawaited(prefetchNetflixPreview(item));
-    // Hovering a different card immediately retires the previous popover.
     if (_previewItem != item) _removePreview();
     _previewTimer?.cancel();
     _previewTimer = Timer(const Duration(milliseconds: 260), () {
@@ -348,8 +326,6 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
           top: offset.dy,
           width: width,
           child: MouseRegion(
-            // The preview owns its own dismissal: leaving it is the
-            // only pointer path that closes it.
             onExit: (_) {
               _previewTimer?.cancel();
               if (_previewItem == item) _removePreview();
@@ -417,8 +393,6 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
         SizedBox(
           height: rowHeight,
           child: MouseRegion(
-            // Only cancels a pending show; the open preview overhangs
-            // the row and dismisses itself on its own exit.
             onExit: (_) => _previewTimer?.cancel(),
             child: ListView.separated(
               controller: _controller,

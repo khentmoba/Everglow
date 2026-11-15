@@ -15,8 +15,6 @@ http.Response _jsonResponse(Map<String, dynamic> body, {int status = 200}) {
   return http.Response(jsonEncode(body), status, headers: _jsonHeaders);
 }
 
-/// Mirrors Last.fm's real `track.getinfo` response for tracks with no
-/// artwork: an album object whose image entries are all empty strings.
 http.Response _lastfmEmptyArtwork() {
   return _jsonResponse({
     'track': {
@@ -94,8 +92,6 @@ void main() {
         }
         final term = request.url.queryParameters['term'] ?? '';
         requestedTerms.add(term);
-        // The combined artist + track query misses because Last.fm stored
-        // the mangled artist name; the track-only retry hits.
         if (term.contains('Mat')) {
           return _jsonResponse({'resultCount': 0, 'results': []});
         }
@@ -274,15 +270,10 @@ void main() {
         track: 'Missing Track',
       );
 
-      // A near-miss must never become the cover: the row falls back to
-      // the music-note tile instead of wearing the wrong song's art.
       expect(artwork, isNull);
     });
 
     test('rejects the base version cover for a versioned title', () async {
-      // Live regression: "Crush - Stripped" wore the base "Crush"
-      // cover because iTunes has no exact "Stripped" title and the old
-      // code guessed with the top result.
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -359,8 +350,6 @@ void main() {
           }
           final term = request.url.queryParameters['term'] ?? '';
           requestedTerms.add(term);
-          // Combined query comes up empty (iTunes quirk); the track-only
-          // retry finds the exact song by the exact artist.
           if (term.contains('Ethel Cain')) {
             return _jsonResponse({'resultCount': 0, 'results': []});
           }
@@ -401,8 +390,6 @@ void main() {
         if (term.contains('Obscure')) {
           return _jsonResponse({'resultCount': 0, 'results': []});
         }
-        // A cover band shares the title; without the artist check the
-        // row would wear the original's cover.
         return _jsonResponse({
           'resultCount': 1,
           'results': [
@@ -432,7 +419,6 @@ void main() {
     test('ignores Last.fm covers for a fuzzy-matched track', () async {
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
-          // Last.fm resolved "Crush - Stripped" to base "Crush".
           return _jsonResponse({
             'track': {
               'name': 'Crush',
@@ -505,7 +491,6 @@ void main() {
       () async {
         final client = MockClient((request) async {
           if (request.url.queryParameters['method'] == 'track.getinfo') {
-            // Last.fm knows the exact song but carries no cover.
             return _jsonResponse({
               'track': {
                 'name': 'Strangers',
@@ -579,7 +564,6 @@ void main() {
           return _lastfmEmptyArtwork();
         }
         if (request.url.path.contains('proxySpotifySearch')) {
-          // Spotify carries the stripped single neither backend had.
           return _jsonResponse({
             'trackId': 'stripped123',
             'trackName': 'Crush - Stripped',
@@ -614,7 +598,6 @@ void main() {
           return _lastfmEmptyArtwork();
         }
         if (request.url.path.contains('proxySpotifySearch')) {
-          // No exact match server-side: the proxy answered base "Crush".
           return _jsonResponse({
             'trackId': 'base456',
             'trackName': 'Crush',
@@ -672,9 +655,6 @@ void main() {
     test(
       'accepts a collab artist when the stored name is one member',
       () async {
-        // Live regression: Clair's "Be Kind" (stored artist "Marshmello")
-        // stayed on the fallback tile because iTunes lists the artist as
-        // "Marshmello & Halsey" — same song, same cover, must match.
         final client = MockClient((request) async {
           if (request.url.queryParameters['method'] == 'track.getinfo') {
             return _lastfmEmptyArtwork();
@@ -705,8 +685,6 @@ void main() {
     );
 
     test('accepts featured-artist tags in the track title', () async {
-      // "Be Kind (with Halsey)" is the same recording as "Be Kind" —
-      // the feat tag strips before comparing, unlike version words.
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -736,8 +714,6 @@ void main() {
     });
 
     test('still rejects version suffixes after feat stripping', () async {
-      // Guard: feat stripping must not weaken the "Crush" vs
-      // "Crush - Stripped" rejection — "Stripped" is a version.
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -767,9 +743,6 @@ void main() {
     });
 
     test('keeps mid-title with and version tails', () async {
-      // "Be With You (Remix)" must not collapse to "Be" and match
-      // plain "Be With You" — mid-title "with" is part of the song
-      // name, and the version tail stays significant.
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -799,8 +772,6 @@ void main() {
     });
 
     test('strips bare with when two words precede it', () async {
-      // "Be Kind with Halsey" (no separator, no parens) is the same
-      // song as "Be Kind" — the feature strips, the base matches.
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -830,9 +801,6 @@ void main() {
     });
 
     test('does not strip feat inside ordinary words', () async {
-      // "Defeat" contains "feat" but is not a feature tag — the
-      // marker needs a word boundary, so "Defeat the Night" never
-      // collapses and mismatches its own title.
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -1203,7 +1171,6 @@ void main() {
         final client = MockClient((request) async {
           final page = request.url.queryParameters['page'] ?? '1';
           requestedPages.add(page);
-          // Page 1 is full (200 rows), page 2 is the tail (3 rows).
           final count = page == '1' ? 200 : 3;
           return _jsonResponse({
             'toptracks': {
@@ -1341,7 +1308,6 @@ void main() {
       final client = MockClient((request) async {
         final page = int.parse(request.url.queryParameters['page'] ?? '1');
         requestedPages.add('$page');
-        // Three pages of 2 rows each, as Last.fm reports via @attr.
         return _jsonResponse({
           'trackscrobbles': {
             '@attr': {
@@ -1379,9 +1345,6 @@ void main() {
     test(
       'fetchTrackScrobblesAll keeps paging when rows drop but pages remain',
       () async {
-        // A page can parse to fewer rows than it holds (undated entries are
-        // dropped). That must not be mistaken for the end of the list, or long
-        // histories get truncated — the original bug.
         final requestedPages = <String>[];
         final client = MockClient((request) async {
           final page = int.parse(request.url.queryParameters['page'] ?? '1');
@@ -1395,7 +1358,6 @@ void main() {
                 'total': '6',
               },
               'track': [
-                // Two undated rows (dropped) and one real scrobble per page.
                 {
                   'name': 'Strangers',
                   'artist': {'#text': 'Ethel Cain'},
@@ -1444,7 +1406,7 @@ void main() {
                       'name': 'American Teenager',
                       'artist': {'#text': 'Ethel Cain'},
                       'album': {'#text': 'Preacher\'s Daughter'},
-                      'date': {'uts': '1690000000'}, // older
+                      'date': {'uts': '1690000000'},
                     },
                   ],
                 },
@@ -1458,7 +1420,7 @@ void main() {
                       'name': 'Strangers',
                       'artist': {'#text': 'Ethel Cain'},
                       'album': {'#text': 'Preacher\'s Daughter'},
-                      'date': {'uts': '1695000000'}, // newer
+                      'date': {'uts': '1695000000'},
                     },
                   ],
                 },
@@ -1468,21 +1430,18 @@ void main() {
             return _jsonResponse({
               'recenttracks': {
                 'track': [
-                  // Duplicate of Strangers scrobble at 1695000000
                   {
                     'name': 'Strangers',
                     'artist': {'#text': 'Ethel Cain'},
                     'album': {'#text': 'Preacher\'s Daughter'},
                     'date': {'uts': '1695000000'},
                   },
-                  // Brand new recent play at 1700000000
                   {
                     'name': 'Sun Bleached Flies',
                     'artist': {'#text': 'Ethel Cain'},
                     'album': {'#text': 'Preacher\'s Daughter'},
                     'date': {'uts': '1700000000'},
                   },
-                  // Different artist - should be filtered out
                   {
                     'name': 'Cardigan',
                     'artist': {'#text': 'Taylor Swift'},
@@ -1507,7 +1466,6 @@ void main() {
           knownTracks: ['American Teenager', 'Strangers'],
         );
 
-        // Total 3 unique: Sun Bleached Flies (1700000000), Strangers (1695000000), American Teenager (1690000000)
         expect(history.length, 3);
         expect(history[0].trackName, 'Sun Bleached Flies');
         expect(history[1].trackName, 'Strangers');

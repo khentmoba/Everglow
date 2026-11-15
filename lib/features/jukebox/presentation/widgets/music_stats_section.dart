@@ -11,8 +11,6 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import 'stats_leaderboard_header.dart';
 import 'stats_track_rows.dart';
 
-/// Dashboard music stats for both people: each user's all-time top-10
-/// leaderboard followed by their five most recent scrobbles.
 class MusicStatsSection extends StatefulWidget {
   const MusicStatsSection({super.key});
 
@@ -217,7 +215,6 @@ class _MusicStatsBlock extends StatelessWidget {
       ],
     );
     if (!isClair) return content;
-    // Clair gets a subtle rose-pink card so her board is instantly distinct.
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(

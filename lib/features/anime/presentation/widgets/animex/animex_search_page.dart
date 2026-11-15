@@ -12,7 +12,6 @@ import 'animex_grid.dart';
 import 'animex_skeleton.dart';
 import 'animex_tokens.dart';
 
-/// Search page with debounced input, quick filter chips and a results grid.
 class AnimeXSearchPage extends StatefulWidget {
   final AnimeXController controller;
   final AniListService? service;
@@ -30,7 +29,7 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
   int _request = 0;
 
   String _query = '';
-  String _mode = 'all'; // all | trending | airing | movies | new
+  String _mode = 'all';
   List<MediaItem> _results = [];
   bool _loading = false;
   bool _searched = false;

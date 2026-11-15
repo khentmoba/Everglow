@@ -11,12 +11,6 @@ import '../screens/katana_genres_screen.dart';
 import '../screens/katana_reader_screen.dart';
 import '../screens/katana_search_results_screen.dart';
 
-/// Pushes a new Manga Katana screen on top of the manga section.
-///
-/// Tab destinations (home, catalogs, genres) switch in place when the
-/// caller is inside [KatanaTabShell], so the header stays put and only
-/// the content below it cross-fades. Detail, search, bookmarks, and
-/// reader pages are still real pushes — those genuinely are new pages.
 void pushHome(BuildContext context) {
   final shell = KatanaTabShell.maybeOf(context);
   if (shell != null) {
@@ -88,8 +82,6 @@ void pushDetail(BuildContext context, String slug, {KatanaManga? preview}) {
   );
 }
 
-/// Opens the reader and completes when it closes, so callers that show
-/// read state can refresh it once the reader has marked chapters read.
 Future<void> pushReader(
   BuildContext context, {
   required String slug,

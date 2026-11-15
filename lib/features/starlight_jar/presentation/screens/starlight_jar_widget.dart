@@ -48,24 +48,18 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   List<StarNote> _onThisDayNotes = [];
   bool _showOnThisDay = false;
 
-  // For the "drop" animation
   StarNote? _droppingStar;
   AnimationController? _dropController;
   Animation<Offset>? _dropAnimation;
 
-  // For the "float out" animation
   StarNote? _floatingStar;
   AnimationController? _floatController;
   Animation<double>? _floatAnimation;
 
-  // Single-flight guard so taps during an ongoing open/reveal flow can't
-  // start a second, racing fetch + animation.
   bool _jarBusy = false;
 
-  // Tap scale feedback
   double _tapScale = 1.0;
 
-  // Confetti for surprise reveal
   late final ConfettiController _surpriseConfetti;
 
   void _rebuildEffectiveNotes() {
@@ -147,8 +141,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     super.dispose();
   }
 
-  // ── Drop Star ──
-
   Future<void> _showDropDialog() async {
     final result = await showDialog<StarDropResult>(
       context: context,
@@ -209,8 +201,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       duration: const Duration(milliseconds: 1000),
     );
 
-    // Coordinates are relative to the 280x350 star layer box (not the
-    // screen), so the star falls from the jar mouth into the jar body.
     final start = const Offset(128, -40);
     final end = Offset(
       60 + _random.nextDouble() * 160,
@@ -246,8 +236,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
     setState(() {});
   }
-
-  // ── Jar Tap → Random Note ──
 
   Future<void> _onJarTap() async {
     if (_jarBusy || _shakeController.isAnimating) {
@@ -323,8 +311,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     });
   }
 
-  // ── Surprise Reveal ──
-
   Future<void> _surpriseReveal() async {
     if (_jarBusy || _shakeController.isAnimating) {
       return;
@@ -351,7 +337,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Confetti for surprise reveal
         Align(
           alignment: Alignment.topCenter,
           child: ConfettiWidget(
@@ -373,7 +358,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
         Column(
           children: [
-            // ── Header ──
             const EverglowFeatureHeader(
               title: 'Starlight Jar',
               subtitle: 'gratitude under the stars',
@@ -381,7 +365,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
               hue: AppColors.blushGold,
             ),
 
-            // ── On This Day Banner ──
             if (_showOnThisDay && _onThisDayNotes.isNotEmpty)
               Semantics(
                 label: 'On This Day memory from the past. Tap to view.',
@@ -453,12 +436,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                 ),
               ),
 
-            // ── Search & Filter Bar ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: Column(
                 children: [
-                  // Search field
                   TextField(
                     controller: _searchController,
                     style: AppTypography.outfitWhite.copyWith(
@@ -514,7 +495,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Category filter chips
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -535,10 +515,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
             const SizedBox(height: 4),
 
-            // ── Jar + Stars ──
-            // The jar glass and the star layer share the exact same
-            // 280x350 box at the same offset, so the glass is never
-            // clipped and the stars always sit inside the glass.
             SizedBox(
               height: 390,
               child: Center(
@@ -549,7 +525,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      // The Jar — with scale animation on tap
                       Positioned(
                         top: 20,
                         left: 0,
@@ -589,12 +564,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                         ),
                       ),
 
-                      // Star Count Badge
                       Positioned(
                         top: 22,
                         left: 0,
                         right: 0,
-                        // IgnorePointer so taps on the badge still reach the jar.
                         child: IgnorePointer(
                           child: Center(
                             child: _notes.isEmpty
@@ -632,11 +605,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                         ),
                       ),
 
-                      // Stars clipped to jar body — ClipRRect+RepaintBoundary
-                      // is cheaper than ClipPath+Path on SkWasm and isolates
-                      // the per-frame star tick (see DeferredSection fix).
-                      // Positioned at the same top:20 offset as the glass so
-                      // the two layers always line up.
                       Positioned(
                         top: 20,
                         left: 0,
@@ -648,7 +616,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                               height: 350,
                               child: Stack(
                                 children: [
-                                  // Idle floating stars
                                   Positioned.fill(
                                     child: IgnorePointer(
                                       child: AnimatedBuilder(
@@ -667,7 +634,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                     ),
                                   ),
 
-                                  // The Animating "Drop" Star
                                   if (_droppingStar != null &&
                                       _dropAnimation != null)
                                     IgnorePointer(
@@ -690,15 +656,12 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       ),
                                     ),
 
-                                  // The Animating "Float Out" Star
                                   if (_floatingStar != null &&
                                       _floatAnimation != null)
                                     IgnorePointer(
                                       child: AnimatedBuilder(
                                         animation: _floatAnimation!,
                                         builder: (context, child) {
-                                          // Jar-box relative: rise from
-                                          // inside the jar to just above it.
                                           const end = Offset(128, 60);
                                           const start = Offset(128, 250);
                                           final currentPos = Offset.lerp(
@@ -739,14 +702,12 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
           ],
         ),
 
-        // ── FABs ──
         Positioned(
           right: 20,
           bottom: 24,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Surprise Reveal FAB (smaller)
               FloatingActionButton(
                 onPressed: _surpriseReveal,
                 heroTag: 'surprise',
@@ -756,7 +717,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                 child: const Icon(Icons.casino_rounded, size: 20),
               ),
               const SizedBox(height: 10),
-              // Drop Star FAB (main)
               FloatingActionButton(
                 onPressed: _showDropDialog,
                 heroTag: 'drop',
@@ -770,8 +730,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       ],
     );
   }
-
-  // ── Helpers ──
 
   List<StarNote> _filterNotes(List<StarNote> notes) {
     var filtered = notes;
@@ -858,12 +816,10 @@ class _StarMotion {
 
   _StarMotion.fromSeed(int seed) {
     final r = Random(seed);
-    // Relative to the 280x350 star layer: spread across the full jar
-    // body with insets for the glass border (sides) and lid (top).
     baseX = 32 + r.nextDouble() * 196;
     baseY = 52 + r.nextDouble() * 224;
     baseSize =
-        20.0 + r.nextDouble() * 8.0; // natural size variation: 20 to 28 px
+        20.0 + r.nextDouble() * 8.0;
     ampX = 6 + r.nextDouble() * 10;
     ampY = 5 + r.nextDouble() * 8;
     speedX = 0.45 + r.nextDouble() * 0.40;
@@ -878,9 +834,6 @@ class _StarMotion {
   }
 }
 
-/// Paints the floating star field in a single CustomPainter pass. Motion
-/// parameters are cached per star, so each frame only evaluates a handful of
-/// trig expressions instead of rebuilding 200 Positioned/Icon widgets.
 class _JarStarFieldPainter extends CustomPainter {
   final List<StarNote> notes;
   final double t;
@@ -894,9 +847,6 @@ class _JarStarFieldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Bounds are relative to the 280x350 star layer canvas (not the old
-    // 400-wide outer Stack), so stars fill the glass instead of bunching
-    // on the right and getting clipped.
     final double jarLeft = 18.0;
     final double jarTop = 40.0;
     final double jarRight = size.width - 18.0;
@@ -923,11 +873,9 @@ class _JarStarFieldPainter extends CustomPainter {
       final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.35;
 
       final twinkleWave = sin(t * 2 * pi * 1.8 + m.twinklePhase);
-      // Keep opacity luminous and rich (0.70 - 1.0) so colors never turn murky
       final opacity = (0.86 + twinkleWave * 0.14).clamp(0.70, 1.0);
       final scale = 0.94 + sin(t * 2 * pi * 1.1 + m.phaseX) * 0.08;
       final glowIntensity = (0.68 + twinkleWave * 0.32).clamp(0.35, 1.0);
-      // When at the crest of the twinkle wave, show a delicate glint sparkle
       final sparkle = (twinkleWave - 0.60).clamp(0.0, 0.40) / 0.40;
 
       canvas.save();

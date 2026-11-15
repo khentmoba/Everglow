@@ -46,9 +46,6 @@ class _TimelineViewState extends State<TimelineView> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    // Preview cap: the rail shows one card at a time and auto-advances every
-    // 20s, so 12 is ~4 minutes of play. Keeps the realtime parse + photo
-    // queue small on first load; full history lives in the archive.
     _sub = _milestoneService.milestonesPreview(limit: 12).listen(
       (data) {
         if (!mounted) return;
@@ -75,10 +72,6 @@ class _TimelineViewState extends State<TimelineView> {
         }
       },
       onDone: () {
-        // withFirestoreTimeout can close without error after 5s if the
-        // first snapshot never arrived (offline/permission race). Treat a
-        // closed stream with no data as a retryable error so the skeleton
-        // doesn't stay forever.
         if (!mounted) return;
         if (_milestones.isEmpty && !_hasError) {
           if (_retryCount < _maxRetries) {
@@ -103,11 +96,6 @@ class _TimelineViewState extends State<TimelineView> {
       if (!_pageController.hasClients) return;
       final count = _milestonesCount;
       if (count <= 1) return;
-      // Guard hasContentDimensions before reading `page` — on first frame
-      // `position` is not yet attached and accessing `page` would throw
-      // "PageController not attached" which surfaces as the grey
-      // "Something went dark" overlay. On web this was previously surfaced
-      // as a RangeError / Stack Overflow in CanvasKit.
       double currentPage = 0;
       try {
         if (_pageController.position.hasContentDimensions) {
@@ -117,8 +105,6 @@ class _TimelineViewState extends State<TimelineView> {
         return;
       }
       final current = currentPage.round();
-      // Clamp current to valid range — Firestore can shrink the list while
-      // the controller is mid-animation (e.g. admin deletes a milestone).
       final clampedCurrent = current.clamp(0, count - 1);
       final next = (clampedCurrent + 1) % count;
       if (next == 0) {
@@ -244,16 +230,6 @@ class _TimelineViewState extends State<TimelineView> {
     return RepaintBoundary(
       child: PageView.builder(
         controller: _pageController,
-        // Do not keep huge offscreen cache on web — with viewportFraction 0.85
-        // the default cache would lay out neighboring pages + their image
-        // carousels, which blew the SkWasm stack when itemCount was 10000
-        // and still janks with smaller lists. Keep only the visible page.
-        // ClampingScrollPhysics prevents the PageView from fighting the
-        // outer CustomScrollView's vertical drag (gesture arena stack
-        // overflow seen as k1.IT/Ld at framework.dart:6944).
-        // NOTE: padEnds must stay true (the default). With viewportFraction
-        // < 1, padEnds:false left-aligns the first/last page, which pushed
-        // the Living Archive card left-of-center on mobile.
         physics: const ClampingScrollPhysics(),
         clipBehavior: Clip.hardEdge,
         allowImplicitScrolling: false,
@@ -265,11 +241,6 @@ class _TimelineViewState extends State<TimelineView> {
             animation: _pageController,
             builder: (context, child) {
               double value = 1.0;
-              // hasClients must be checked before touching `position` or `page`
-              // on the first frame the PageView is not yet attached and
-              // reading `position` throws — previously surfaced as the grey
-              // "Something went dark" overlay and as RangeError/Stack Overflow
-              // on CanvasKit/SkWasm.
               if (_pageController.hasClients) {
                 try {
                   if (_pageController.position.hasContentDimensions) {
@@ -308,7 +279,6 @@ class _TimelineViewState extends State<TimelineView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Section header — candlelit keepsake masthead.
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.x3,
@@ -428,7 +398,6 @@ class _TimelineViewState extends State<TimelineView> {
           ),
         ),
 
-        // Carousel Container
         SizedBox(height: 520, child: _buildCarousel()),
         const SizedBox(height: 20),
       ],
@@ -456,8 +425,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
   }
 
   void _startImgScroll() {
-    // Same hold as the memory carousel that hosts this photo strip, so the
-    // whole Together zone rotates at one speed.
     _imgTimer = Timer.periodic(AppMotion.carouselHold, (timer) {
       if (!mounted) return;
       if (!_imgController.hasClients) return;
@@ -514,10 +481,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
       label: 'Open memory ${milestone.title}',
       child: GestureDetector(
         onTap: _openMemory,
-        // Horizontal padding + maxWidth (instead of a fixed 320 width) so
-        // the card stays centered on narrow phones: a hard 320px width
-        // overflowed the 0.85-fraction page (~306px on a 360px phone) and
-        // got clipped off-center by the PageView's Clip.hardEdge.
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Center(
@@ -553,7 +516,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
             borderRadius: AppRadius.radiusX3,
             child: Column(
               children: [
-                // Candlelight hairline — warm glow across the top.
                 Container(
                   height: 1,
                   margin: const EdgeInsets.symmetric(horizontal: 28),
@@ -568,10 +530,8 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                   ),
                 ),
 
-                // Film leader (top)
                 _buildFilmStripEdge(isTop: true),
 
-                // Photo — full-bleed with scrims + floating keepsake pills.
                 Expanded(
                   flex: 3,
                   child: Stack(
@@ -600,7 +560,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                               MilestonePhoto(path: milestone.imageUrls[idx]),
                         ),
 
-                      // Top scrim for pill legibility.
                       Positioned(
                         top: 0,
                         left: 0,
@@ -622,7 +581,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                         ),
                       ),
 
-                      // Bottom scrim — melts the photo into the story below.
                       Positioned(
                         bottom: 0,
                         left: 0,
@@ -644,7 +602,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                         ),
                       ),
 
-                      // Category keepsake pill.
                       Positioned(
                         top: 12,
                         left: 12,
@@ -685,7 +642,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                         ),
                       ),
 
-                      // Photo counter.
                       if (imageCount > 1)
                         Positioned(
                           top: 12,
@@ -728,7 +684,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                           ),
                         ),
 
-                      // Date candle — gold pill stamped on the photo.
                       Positioned(
                         left: 12,
                         bottom: 12,
@@ -772,7 +727,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                         ),
                       ),
 
-                      // Image dots.
                       if (imageCount > 1 && imageCount <= 6)
                         Positioned(
                           right: 12,
@@ -802,7 +756,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                   ),
                 ),
 
-                // Story.
                 Expanded(
                   flex: 2,
                   child: Container(
@@ -897,7 +850,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                   ),
                 ),
 
-                // Film leader (bottom)
                 _buildFilmStripEdge(isTop: false),
               ],
             ),

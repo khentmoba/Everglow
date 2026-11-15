@@ -15,7 +15,6 @@ class StarlightService {
     return '$m-$d';
   }
 
-  /// All stars, newest first (for the jar visualization).
   Stream<List<StarNote>> getStarNotes() {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoStars);
@@ -31,7 +30,6 @@ class StarlightService {
         );
   }
 
-  /// Stars filtered by category.
   Stream<List<StarNote>> getStarsByCategory(String category) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(
@@ -50,7 +48,6 @@ class StarlightService {
         );
   }
 
-  /// Add a new star with category and tags.
   Future<void> addStar(
     String content,
     String author, {
@@ -75,7 +72,6 @@ class StarlightService {
     }
   }
 
-  /// Get a random star from the jar.
   Future<StarNote?> getRandomStarNote() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return AgentFixtures.demoStars.first;
@@ -100,7 +96,6 @@ class StarlightService {
     }
   }
 
-  /// "On This Day" — stars from the same month+day across all years.
   Future<List<StarNote>> getStarsFromThisDay() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return AgentFixtures.demoStars;
@@ -120,7 +115,6 @@ class StarlightService {
         label: 'starlight on-this-day',
       );
 
-      // Legacy stars predate the monthDay field; bound the fallback.
       if (snapshot.docs.isEmpty) {
         snapshot = await withGetTimeout(
           _db
@@ -148,8 +142,6 @@ class StarlightService {
     }
   }
 
-  /// Search stars by content (client-side full-text, one-shot so typing
-  /// doesn't re-query on every remote write).
   Future<List<StarNote>> searchStars(String query) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return AgentFixtures.demoStars;
@@ -173,7 +165,6 @@ class StarlightService {
         .toList();
   }
 
-  /// Delete a star note.
   Future<void> deleteStar(String id) async {
     if (AgentMode.isActive.value) return;
     try {

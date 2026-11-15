@@ -12,8 +12,6 @@ import '../../../features/manga/data/services/katana_service.dart';
 import 'offline_media_item.dart';
 import 'offline_media_storage.dart';
 
-/// Central management service for downloaded offline movies, TV show episodes,
-/// anime episodes, and manga chapters in Everglow.
 class OfflineMediaService extends ChangeNotifier {
   static final OfflineMediaService instance = OfflineMediaService._();
 
@@ -158,7 +156,6 @@ class OfflineMediaService extends ChangeNotifier {
 
   Future<void> _saveToStorage() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      // In-memory only in demo mode: do not pollute user storage
       return;
     }
     try {
@@ -170,14 +167,12 @@ class OfflineMediaService extends ChangeNotifier {
     }
   }
 
-  /// Seeds safe mock offline media fixtures for agent mode and offline testing.
   void _seedDemoData() {
     for (final item in _demoItems) {
       _items[item.id] = item;
     }
   }
 
-  /// Exposes demo seeding directly for testing fixtures.
   @visibleForTesting
   void seedDemoData() {
     _seedDemoData();
@@ -217,7 +212,6 @@ class OfflineMediaService extends ChangeNotifier {
       ..sort((a, b) => (a.chapterId ?? '').compareTo(b.chapterId ?? ''));
   }
 
-  /// Starts downloading a movie, TV show episode, or anime episode.
   Future<void> startDownloadMedia({
     required String id,
     required OfflineMediaType type,
@@ -316,7 +310,6 @@ class OfflineMediaService extends ChangeNotifier {
       }
     }
 
-    // If download cannot be completed, mark failed
     _items[id] = initial.copyWith(
       status: OfflineDownloadStatus.failed,
       progress: 0.0,
@@ -326,7 +319,6 @@ class OfflineMediaService extends ChangeNotifier {
     await _saveToStorage();
   }
 
-  /// Starts downloading a manga chapter with its pages.
   Future<void> startDownloadMangaChapter({
     required String slug,
     required String mangaTitle,
@@ -439,7 +431,6 @@ class OfflineMediaService extends ChangeNotifier {
       }
     }
 
-    // If manga pages cannot be completed, clean up and mark failed
     for (var i = 1; i <= pageUrls.length; i++) {
       await _storage.deleteBlob('${id}_p_$i', isManga: true);
     }

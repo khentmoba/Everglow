@@ -3,10 +3,6 @@ import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../models/book_search_result.dart';
 
-/// Searches Project Gutenberg through the Gutendex API
-/// (https://gutendex.com). All returned books are public domain, so
-/// every title here has a legal plain-text read source and
-/// downloadable epub / mobi / txt formats.
 class GutenbergService {
   static final GutenbergService _instance = GutenbergService._internal();
   factory GutenbergService() => _instance;
@@ -20,8 +16,6 @@ class GutenbergService {
     int limit = 20,
   }) async {
     if (query.trim().isEmpty) return const [];
-    // Trimmed so the proxied query string always fits the proxy's
-    // 300-char upstream-query budget.
     final q = query.trim().length > 120
         ? query.trim().substring(0, 120)
         : query.trim();
@@ -52,8 +46,6 @@ class GutenbergService {
     return const [];
   }
 
-  /// Most-downloaded public-domain books — the closest legal analog
-  /// to WeLib's "Most Popular".
   Future<List<BookSearchResult>> mostPopular({int limit = 20}) async {
     try {
       final response = await _proxy.get(
@@ -159,8 +151,6 @@ class GutenbergService {
   String? _firstFormat(Map<String, dynamic> formats, String key) {
     final value = formats[key];
     if (value is String && value.isNotEmpty) return value;
-    // Gutendex also exposes keys like "text/plain; charset=utf-8" —
-    // fall back to prefix matching.
     for (final entry in formats.entries) {
       if (entry.key.startsWith(key)) {
         final v = entry.value;

@@ -5,19 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Release fallback shown when a widget build crashes.
-///
-/// Web release: a transparent card with a retry tap instead of the opaque
-/// grey [ErrorWidget] box. The builder itself is guarded so it can never
-/// throw (a throwing builder recurses into ErrorWidget and blows the JS
-/// stack — the grey "Something went dark" overlay seen in the Together
-/// zone). Kept minimal and non-selectable on purpose.
 Widget buildEverglowErrorWidget(FlutterErrorDetails details) {
-  // Guard the builder itself — if *this* throws, Flutter will recurse
-  // into ErrorWidget again and blow the JS stack (RangeError: Maximum
-  // call stack size exceeded) which is exactly the grey "Something went
-  // dark" overlay seen in the Together zone. Keep it minimal and
-  // non-selectable so it can never throw.
   String msg;
   String shortStack;
   String widgetName = 'widget';
@@ -39,10 +27,6 @@ Widget buildEverglowErrorWidget(FlutterErrorDetails details) {
   if (kDebugMode) {
     return ErrorWidget(details.exception);
   }
-  // In release, keep background transparent so dashboard inkDeep shows
-  // through. Never use SelectableText with an unbounded stack trace —
-  // on CanvasKit it can re-enter layout and trigger the same Stack
-  // Overflow. Use plain Text with ellipsis and a constrained scroll.
   return Material(
     type: MaterialType.transparency,
     child: Center(
@@ -104,14 +88,9 @@ Widget buildEverglowErrorWidget(FlutterErrorDetails details) {
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: () {
-                    // Retry is best-effort: reassemble, then force a frame.
-                    // (A real web reload via JS interop was considered here
-                    // but never wired up — both paths always reassembled.)
                     try {
                       WidgetsBinding.instance.reassembleApplication();
                     } catch (_) {}
-                    // As a last resort, schedule a warm-up frame to
-                    // trigger a rebuild of the widget tree.
                     Future.microtask(() {
                       try {
                         WidgetsBinding.instance.scheduleWarmUpFrame();

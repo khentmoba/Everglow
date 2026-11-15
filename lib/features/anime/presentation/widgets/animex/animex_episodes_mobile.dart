@@ -1,6 +1,5 @@
 part of 'animex_watch_page.dart';
 
-/// Mobile episode card matching Reference Image #2 (horizontal swipeable card).
 class _MobileEpisodeCard extends StatefulWidget {
   final AniListEpisode episode;
   final String fallbackPoster;
@@ -27,16 +26,11 @@ class _MobileEpisodeCard extends StatefulWidget {
 }
 
 class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
-  /// Revealed inline on this card — no drawer. The list is a fixed
-  /// 300px rail, so the reveal swaps the card's text area rather than
-  /// growing it.
   bool _revealed = false;
 
   @override
   void didUpdateWidget(covariant _MobileEpisodeCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // The rail is built by index, so a sort hands this state to a
-    // different episode; and un-hiding spoilers shows everything.
     if (oldWidget.episode.number != widget.episode.number) {
       _revealed = false;
     } else if (oldWidget.hideSpoilers && !widget.hideSpoilers) {
@@ -50,7 +44,6 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
     final isPlaying = widget.isPlaying;
     final animeTitle = widget.animeTitle;
     final hidden = widget.hideSpoilers && !_revealed;
-    // Strip only while actually hiding, otherwise revealing shows nothing.
     final ep = hidden ? _episodeWithoutSpoilers(episode) : episode;
     final title = !hidden && ep.title != null && ep.title!.isNotEmpty
         ? ep.title!
@@ -82,8 +75,6 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // The real episode, never the stripped one: a still gives no
-            // plot away, so thumbnails stay visible either way.
             _EpisodeThumbnail(
               episode: episode,
               fallbackPoster: widget.fallbackPoster,
@@ -183,9 +174,6 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
                           ],
                         ),
                       ),
-                      // Already watched, so the story shows inline — no extra
-                      // "What happened" step. Tapping the text still opens
-                      // the full sheet for long synopses.
                     ] else if (hasSynopsis)
                       GestureDetector(
                         onTap: widget.onInfoTap,
@@ -292,7 +280,6 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
   }
 }
 
-/// Mobile episode selector matching Reference Image #2 (placed directly below player).
 class _MobileEpisodesSection extends StatefulWidget {
   final List<AniListEpisode> episodes;
   final int selectedEpisode;
@@ -360,7 +347,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
       (e) => e.number == widget.selectedEpisode,
     );
     if (activeIndex <= 0) return;
-    // Each card is width 260 + 12 gap = 272
     final target = (activeIndex * 272.0) - 20.0;
     _scrollCtrl.animateTo(
       target.clamp(0.0, _scrollCtrl.position.maxScrollExtent),
@@ -394,7 +380,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
 
   @override
   Widget build(BuildContext context) {
-    // ponytail: selected episode is the conservative boundary; no watch-status system.
     final hideSpoilers = context.select<AnimexStores?, bool>(
       (stores) => stores?.hideSpoilers ?? true,
     );
@@ -403,7 +388,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // EPISODES header row matching Reference Image #2
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -481,7 +465,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
                   ),
                   const SizedBox(width: 8),
                 ],
-                // Search pill button
                 GestureDetector(
                   onTap: () {
                     setState(() {
@@ -527,7 +510,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Sort button
                 GestureDetector(
                   onTap: () => setState(() => _sortAscending = !_sortAscending),
                   child: Container(
@@ -606,7 +588,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
 
         const SizedBox(height: 14),
 
-        // Horizontal scrolling episode cards
         if (displayList.isEmpty)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -660,7 +641,6 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
   }
 }
 
-/// Episode Information / "What Happened" modal bottom sheet.
 void _showEpisodeInfoSheet(
   BuildContext context, {
   required AniListEpisode episode,
@@ -716,12 +696,9 @@ void _showEpisodeInfoSheet(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Episode Header with Thumbnail
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // The real episode, never the stripped
-                              // one: a still gives no plot away.
                               _EpisodeThumbnail(
                                 episode: episode,
                                 fallbackPoster: fallbackPoster,
@@ -814,7 +791,6 @@ void _showEpisodeInfoSheet(
                           const Divider(height: 1, color: AnimeXTokens.border),
                           const SizedBox(height: 14),
 
-                          // "What Happened" Info Section
                           Row(
                             children: [
                               const Icon(
@@ -865,7 +841,6 @@ void _showEpisodeInfoSheet(
                           ],
                           const SizedBox(height: 20),
 
-                          // Action button
                           if (!isPlaying)
                             SizedBox(
                               width: double.infinity,
@@ -914,7 +889,6 @@ void _showEpisodeInfoSheet(
   );
 }
 
-/// Mobile Season Selector bottom sheet.
 void _showSeasonPickerSheet(
   BuildContext context, {
   required List<AniListSeason> seasons,

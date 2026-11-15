@@ -40,10 +40,10 @@ void main() {
 
     test('jank counts frames over the 60fps budget', () {
       final stats = FrameStats(capacity: 10)
-        ..add(4, 4) // 8ms — fine
-        ..add(8, 8) // 16ms — fine
-        ..add(9, 9) // 18ms — jank
-        ..add(20, 25); // 45ms — over two reference budgets
+        ..add(4, 4)
+        ..add(8, 8)
+        ..add(9, 9)
+        ..add(20, 25);
 
       expect(stats.jankPercent, 50);
       expect(stats.slowFramePercent, 25);
@@ -56,7 +56,7 @@ void main() {
       }
 
       expect(stats.frameCount, 3);
-      expect(stats.avgBuildMs, 8); // frames 7, 8, 9
+      expect(stats.avgBuildMs, 8);
       expect(stats.worstBuildMs, 9);
     });
 
@@ -151,9 +151,6 @@ void main() {
     });
 
     test('totalFrames keeps counting after the window saturates', () {
-      // Regression: frameCount is capped at capacity, so differencing it across
-      // meter ticks yields 0 once the window fills and the FPS readout dies
-      // after ~4s. totalFrames is the monotonic counter the meter must use.
       final stats = FrameStats(capacity: 4);
       for (var i = 0; i < 10; i++) {
         stats.add(1, 1);

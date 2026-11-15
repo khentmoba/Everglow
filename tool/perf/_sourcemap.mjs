@@ -1,16 +1,8 @@
-// Minimal source-map decoder for perf traces.
-//
-// dart2js release output is minified, so a CDP trace only ever names things
-// like `$1 @main.dart.js:54713`. Building with `--source-maps` does not change
-// the emitted code, so the same measurement can be resolved back to the Dart
-// function that actually spent the time. That is the difference between
-// guessing at a hotspot and knowing one.
 import { readFileSync } from 'node:fs';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const CHAR_TO_INT = new Map([...B64].map((c, i) => [c, i]));
 
-/** Decodes one VLQ segment into its signed integers. */
 function decodeSegment(segment) {
   const out = [];
   let value = 0;
@@ -30,15 +22,10 @@ function decodeSegment(segment) {
   return out;
 }
 
-/**
- * Loads a source map and exposes `lookup(line, column)` with 1-based line and
- * 0-based column, matching CDP's `callFrame.lineNumber` / `columnNumber`.
- */
 export function loadSourceMap(path) {
   const map = JSON.parse(readFileSync(path, 'utf8'));
   const sources = map.sources ?? [];
   const names = map.names ?? [];
-  // generated line (0-based) -> array of decoded segments
   const lines = [];
   let sourceIdx = 0;
   let origLine = 0;
@@ -74,7 +61,6 @@ export function loadSourceMap(path) {
 
   return {
     size: lines.length,
-    /** Resolves a generated position, or null when it has no mapping. */
     lookup(line, column) {
       const segments = lines[line - 1];
       if (!segments?.length) return null;
@@ -95,7 +81,6 @@ export function loadSourceMap(path) {
   };
 }
 
-/** Shortens an original path to something readable in a report. */
 export function shortSource(source) {
   return String(source).replace(/^.*?(lib[\\/]|package:)/, '$1').replace(/\\/g, '/');
 }

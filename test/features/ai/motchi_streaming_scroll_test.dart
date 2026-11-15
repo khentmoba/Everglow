@@ -347,8 +347,6 @@ void main() {
         await tester.tap(find.byTooltip('Close sidebar'));
         await tester.pump(const Duration(milliseconds: 400));
       }
-      // The desktop sidebar keeps its own search field, so match the
-      // composer by its hint rather than by tree order.
       final composer = find.byWidgetPredicate(
         (widget) =>
             widget is TextField &&
@@ -528,7 +526,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.byTooltip('Dictate message'), findsOneWidget);
-      // The notice timer starts after its entrance animation completes.
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(seconds: 5));
       await tester.pump(const Duration(milliseconds: 500));
@@ -914,7 +911,6 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    // Browser CI otherwise reports only "See exception logs above".
     final originalOnError = FlutterError.onError;
     FlutterError.onError = (details) {
       debugPrintSynchronously(details.toString());
@@ -957,7 +953,6 @@ void main() {
     await tester.pumpAndSettle();
     final field = find.byType(TextField).first;
     await tester.enterText(field, 'A quiet evening');
-    // Typing schedules the rebuild that enables the Send button.
     await tester.pump();
     await tester.tap(find.byTooltip('Send message'));
     await tester.pump();
@@ -1245,7 +1240,6 @@ void main() {
       await tester.enterText(composer, 'A cozy night in');
       await tester.pump();
       expect(find.text('A cozy night in'), findsOneWidget);
-      // Switching layouts keeps the controller but replaces the composer.
       for (final resizedWidth in [1280.0, 390.0]) {
         tester.view.physicalSize = Size(resizedWidth, 1000);
         await tester.pump();
@@ -1345,11 +1339,9 @@ void main() {
       final latest = find.widgetWithText(FilledButton, 'Latest message');
       expect(tester.getSize(latest).height, greaterThanOrEqualTo(48));
       await tester.tap(latest);
-      // The post-frame callback schedules the animation; its first tick starts it.
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
-      // Lazy rows can revise the extent after arriving at the estimated bottom.
       for (var frame = 0; frame < 6; frame++) {
         await tester.pump();
       }
@@ -1419,7 +1411,6 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // Before any text: the avatar and dots show progress without a side badge.
       expect(find.byKey(halo), findsOneWidget);
       expect(find.text('thinking'), findsNothing);
       expect(find.text('replying'), findsNothing);
@@ -1439,8 +1430,6 @@ void main() {
       ai.stream('Let me check the bracket draw.');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      // Mid-reply the glow is still there, there is no side badge, and the text
-      // is never hidden behind an entrance fade that has not run yet.
       expect(find.byKey(halo), findsOneWidget);
       expect(find.text('replying'), findsNothing);
       expect(find.text('thinking'), findsNothing);
@@ -1467,8 +1456,6 @@ void main() {
       expect(opacityAt('motchi-streaming-caret'), reducedCaret);
       expect(tester.takeException(), isNull);
 
-      // The tree comes down before dispose: a disposed notifier must not
-      // still have listeners attached.
       await tester.pumpWidget(const SizedBox.shrink());
       ai.dispose();
     });

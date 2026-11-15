@@ -1,4 +1,3 @@
-// Firestore SDK sealed types are used only as network-free test doubles.
 // ignore_for_file: subtype_of_sealed_class
 
 import 'dart:async';
@@ -132,7 +131,6 @@ void main() {
         ),
       );
       repo.setConversation('assistant', finishedReply);
-      // The send path checks this object after its save completes.
       final pendingArchive = saving.future.then((_) => finishedReply.toJson());
       db.sessions.data = {
         'messages': List.generate(
@@ -213,7 +211,6 @@ class _Firestore implements FirebaseFirestore {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-// Mutable controls let each test inject failures at the SDK boundary.
 // ignore: must_be_immutable
 class _Collection implements CollectionReference<Map<String, dynamic>> {
   Object? readError;

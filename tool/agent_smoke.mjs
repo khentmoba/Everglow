@@ -1,4 +1,3 @@
-// Runs the real release app in disposable Chrome, without login or couple data.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {launch, serve, sleep, stop} from './perf/_harness.mjs';

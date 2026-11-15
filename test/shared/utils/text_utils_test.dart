@@ -71,7 +71,6 @@ void main() {
         'here are some recommendations:\n'
         '1. Dune (2021)\n',
       );
-      // Intro line starts with lowercase so it's filtered out
       expect(result, ['Dune']);
     });
 

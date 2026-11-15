@@ -34,7 +34,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
   set _activeStroke(DoodleStroke? value) => _activeStrokeNotifier.value = value;
   late Stream<List<DoodleStroke>> _savedStrokes;
   List<DoodleStroke> _liveStrokes =
-      []; // Strokes currently being drawn by others
+      [];
   StreamSubscription? _liveSubscription;
   DateTime? _lastSyncTime;
   DateTime? _lastDoodlePresenceAt;
@@ -108,7 +108,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
       ),
       body: Stack(
         children: [
-          // 0. Atmosphere
           const Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
@@ -128,7 +127,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
               ],
             ),
           ),
-          // 1. Combined Strokes
           Positioned.fill(
             child: StreamBuilder<List<DoodleStroke>>(
               stream: _savedStrokes,
@@ -146,7 +144,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
                 final isLoading = !snapshot.hasData;
                 final historyStrokes = snapshot.data ?? [];
 
-                // Combine history with live strokes from others
                 final othersLiveStrokes = _liveStrokes
                     .where((s) => s.userId != userId)
                     .toList();
@@ -193,7 +190,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
             ),
           ),
 
-          // 2. Gesture Detector
           Positioned.fill(
             child: SelectionContainer.disabled(
               child: GestureDetector(
@@ -208,7 +204,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
             ),
           ),
 
-          // 3. Floating Toolbar
           Align(
             alignment: Alignment.bottomCenter,
             child: CanvasToolbar(
@@ -226,7 +221,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
             ),
           ),
 
-          // 4. Partner Doodle Presence Indicator
           const Positioned(
             top: 8,
             left: 0,
@@ -324,7 +318,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
           ],
         );
 
-        // Initial sync
         _canvasService.updateActiveStroke(userId, _activeStroke!);
         _lastSyncTime = DateTime.now();
       });
@@ -359,8 +352,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
           )..add(newPoint);
           _activeStroke = _activeStroke!.copyWith(points: updatedPoints);
 
-          // Real-time Throttled Sync: 250ms (~4fps) is smooth for the
-          // partner view and cuts live_canvas writes ~2.5x vs 100ms.
           final now = DateTime.now();
           if (_lastSyncTime == null ||
               now.difference(_lastSyncTime!) >
@@ -531,7 +522,6 @@ class _CanvasScreenState extends State<CanvasScreen> {
   void _onPanEnd(DragEndDetails details, String userId) async {
     if (_activeStroke == null) return;
 
-    // Clear live sync immediately
     _canvasService.clearActiveStroke(userId);
 
     if (_activeStroke!.points.length >= 2) {

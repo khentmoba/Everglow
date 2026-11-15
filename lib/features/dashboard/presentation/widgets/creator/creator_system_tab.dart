@@ -177,8 +177,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
     try {
       return context.read<MoodService>();
     } catch (_) {
-      // MoodService is often not provided at app root — fall back to
-      // a direct instance (Firestore-backed) for the inspector.
       try {
         return MoodService();
       } catch (_) {
@@ -194,7 +192,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Kept for the creator_modal regression guard.
           Text(
             'System Tools',
             textAlign: TextAlign.center,
@@ -213,7 +210,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
             ),
           ),
           const SizedBox(height: 16),
-          // ── Backend health ──
           _buildSectionCard(
             emoji: '🛰️',
             title: 'Backend Health',
@@ -310,7 +306,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
           ),
           const SizedBox(height: 16),
 
-          // ── API usage ──
           _buildSectionCard(
             emoji: '📊',
             title: 'API Usage',
@@ -374,7 +369,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
           ),
           const SizedBox(height: 16),
 
-          // ── Partner sync ──
           _buildSectionCard(
             emoji: '💞',
             title: 'Partner Sync',
@@ -383,7 +377,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
           ),
           const SizedBox(height: 16),
 
-          // ── Maintenance ──
           _buildSectionCard(
             emoji: '🧰',
             title: 'Quick Maintenance',

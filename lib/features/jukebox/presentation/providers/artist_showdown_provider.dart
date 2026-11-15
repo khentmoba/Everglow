@@ -7,7 +7,6 @@ import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/services/music_sync_service.dart';
 
-/// One song in an artist showdown: how many times each person played it.
 class ShowdownTrack {
   final String trackName;
   final int khentPlays;
@@ -27,7 +26,6 @@ class ShowdownTrack {
 
   int get combinedPlays => khentPlays + clairPlays;
 
-  /// 'khent' | 'clair' | null when tied.
   String? get leader {
     if (khentPlays > clairPlays) return 'khent';
     if (clairPlays > khentPlays) return 'clair';
@@ -35,21 +33,6 @@ class ShowdownTrack {
   }
 }
 
-/// Khent vs Clair for any artist: head-to-head total plus the song-by-song
-/// table. Results are cached per artist for the session so switching back
-/// and forth never refetches.
-///
-/// Every play shown belongs to a named song: rows union the artist's
-/// catalog (`fetchArtistCatalogTracksAll` + recent scrobbles, counted per
-/// song via `track.getInfo`) with each user's own top-tracks chart filtered
-/// to the artist, keeping the higher count when both name a song. The
-/// catalog finds deep cuts below the chart; the chart finds user-specific
-/// tracks (name variants, delisted songs) the global catalog misses.
-/// Headline totals are the row sums, so the column always adds up.
-///
-/// The older `user.getartisttracks` endpoint is deprecated since 2019 and
-/// returns individual scrobbles without playcounts from a stale backend,
-/// so it always collapsed to "No plays yet" live.
 class ArtistShowdownProvider extends ChangeNotifier {
   ArtistShowdownProvider({
     MusicSyncService? syncService,
@@ -70,13 +53,10 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
   static const String defaultArtist = 'Ethel Cain';
 
-  /// Page size for `user.gettoptracks` fallback.
   static const int _topTracksPageSize = 200;
 
-  /// How many 200-row pages to walk for the fallback path.
   static const int _topTracksMaxPages = 5;
 
-  /// Most songs of one artist to ask Last.fm about for the history timeline.
   static const int _historyMaxTracks = 50;
 
   final MusicSyncService _sync;
@@ -126,7 +106,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
   List<MusicStatus> get clairHistory => _clairHistory;
   bool get hasHistory => _khentHistory.isNotEmpty || _clairHistory.isNotEmpty;
 
-  /// 'khent' | 'clair' | null when tied or empty.
   String? get leader {
     if (!hasData) return null;
     if (_khentTotal > _clairTotal) return 'khent';
@@ -134,16 +113,12 @@ class ArtistShowdownProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Khent's share of the combined total (0..1) for the versus bar.
   double get khentShare {
     final total = _khentTotal + _clairTotal;
     if (total <= 0) return 0.5;
     return _khentTotal / total;
   }
 
-  /// Live autocomplete: type "lana del" and pick "Lana Del Rey".
-  /// Results are cached per query for the session; stale responses are
-  /// dropped via [_searchRequestId] so fast typing never shows old rows.
   Future<void> searchArtists(String query) async {
     final trimmed = query.trim();
     if (trimmed.length < 2) {
@@ -160,8 +135,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
       _suggestions = cached;
       _isSearching = false;
       _safeNotify();
-      // A retype can hit the cache while an earlier enrichment pass is
-      // still fetching photos — top up any rows still missing theirs.
       if (cached.any((s) => s.imageUrl == null)) {
         unawaited(_enrichSuggestionArtwork(_searchRequestId, key));
       }
@@ -176,16 +149,9 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _suggestions = results;
     _isSearching = false;
     _safeNotify();
-    // Last.fm ships no artist photos (placeholder-only since 2019), so
-    // rows would all show the initial tile. Enrich from Spotify in the
-    // background and pop photos in as they land.
     unawaited(_enrichSuggestionArtwork(request, key));
   }
 
-  /// Fills in missing suggestion photos from Spotify without blocking the
-  /// dropdown. Each hit updates the live list and the per-query cache so
-  /// retyping finds photos instantly. Photos are also cached per artist so
-  /// overlapping queries ("lana" vs "lana del") never refetch.
   Future<void> _enrichSuggestionArtwork(int request, String queryKey) async {
     for (var i = 0; i < _suggestions.length; i++) {
       if (_disposed || request != _searchRequestId) return;
@@ -209,7 +175,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
   }
 
-  /// Hides the dropdown (after picking, submitting, or clearing the box).
   void clearSuggestions() {
     _searchRequestId++;
     if (_suggestions.isEmpty && !_isSearching) return;
@@ -336,14 +301,9 @@ class ArtistShowdownProvider extends ChangeNotifier {
         _safeNotify();
       }
     }
-    // `user.gettoptracks` rarely ships real covers, so rows would all fall
-    // back to the music-note tile. Enrich missing artwork in the background
-    // (Last.fm track.getinfo, then iTunes) and pop covers in as they land.
     unawaited(_enrichArtwork(request, key, artist));
   }
 
-  /// Forces a reload of the current artist's showdown, evicting any cached
-  /// result so new scrobbles or network retries are fetched fresh.
   Future<void> refresh() async {
     final target = _artist.trim().isNotEmpty
         ? _artist.trim()
@@ -351,9 +311,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
     await selectArtist(target, force: true);
   }
 
-  /// Fills in missing covers for the current showdown without blocking the
-  /// table. Each hit updates the live list and the per-artist cache so
-  /// switching away and back keeps the artwork.
   Future<void> _enrichArtwork(
     int request,
     String cacheKey,
@@ -414,16 +371,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetches track rows for [artist] from two sources, unioned per user.
-  ///
-  /// Discovers all tracks belonging to [artist] via Last.fm catalog
-  /// (`artist.gettoptracks`), plus any recently scrobbled tracks for [artist]
-  /// to capture unreleased or newly played tracks, then queries each user's
-  /// exact playcount for those songs — and unions that with each user's own
-  /// top-tracks chart filtered to [artist].
-  ///
-  /// If catalog discovery finds no plays (e.g. offline, mock test service,
-  /// or zero scrobbles found), falls back to filtering the top tracks chart.
   Future<(int, int, List<ShowdownTrack>, bool)> _fetchArtistShowdownRows(
     String artist, {
     required void Function((int, int, List<ShowdownTrack>)) onChartRows,
@@ -454,7 +401,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
           return <List<TopMusicTrack>>[const [], const []];
         });
 
-    // 1. Discover candidate tracks strictly for this artist in parallel.
     final catalogFuture = _sync
         .fetchArtistCatalogTracksAll(artist, pageSize: 50, maxPages: 2)
         .timeout(
@@ -506,7 +452,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
       candidateMap[t.trackName.trim().toLowerCase()] = t;
     }
 
-    // Complement with any recent scrobbles matching this artist
     final recentKhent = await recentKhentFuture;
     final recentClair = await recentClairFuture;
     for (final s in [...recentKhent, ...recentClair]) {
@@ -530,11 +475,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
     final candidates = candidateMap.values.take(30).toList();
 
-    // 2. If candidate tracks were found for this artist, query per-track
-    // playcounts and union with each user's own chart: the catalog misses
-    // user-specific tracks (name variants, delisted songs), and the chart
-    // misses deep cuts below its pages. Unioned, every played song is a
-    // named row instead of unnamed filler.
     if (candidates.isNotEmpty) {
       final khentTracksFuture = _sync
           .fetchUserArtistTracks(
@@ -593,14 +533,12 @@ class ArtistShowdownProvider extends ChangeNotifier {
       }
     }
 
-    // 3. Fallback: if candidate search found nothing new, return top tracks chart.
     final failed =
         hadTransientFailure || _sync.transientFailureCount > failuresBefore;
     final merged = _merge(charts[0], charts[1]);
     return (merged.$1, merged.$2, merged.$3, failed);
   }
 
-  /// Legacy fallback: pulls each user's top tracks chart and filters by artist.
   Future<List<TopMusicTrack>> _tracksForArtistLegacy(
     String username,
     String artist,
@@ -616,10 +554,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
         .toList();
   }
 
-  /// Unions two same-user track lists into one row per song, keeping the
-  /// higher playcount when both sources name it. Both lists claim to report
-  /// the same all-time count, so the higher one wins and no confirmed play
-  /// is ever hidden; artwork falls back to whichever side has it.
   static List<TopMusicTrack> _unionUserTracks(
     List<TopMusicTrack> first,
     List<TopMusicTrack> second,
@@ -646,9 +580,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
     return byTrack.values.toList();
   }
 
-  /// Merges both users' track lists into one song-by-song table, sorted by
-  /// combined plays. Matching is case-insensitive so "Strangers" and
-  /// "strangers" count as the same song.
   static (int, int, List<ShowdownTrack>) _merge(
     List<TopMusicTrack> khent,
     List<TopMusicTrack> clair,
@@ -698,8 +629,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  /// Fetches listening history (scrobbles with dates and times) for the current
-  /// artist for both Khent and Clair. Caches per artist so re-opening is instant.
   Future<void> loadArtistHistory({bool forceRefresh = false}) async {
     final artist = _artist.trim();
     if (artist.isEmpty) return;
@@ -745,7 +674,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
       if (_disposed || request != _historyRequestId) return;
 
-      // Attach enriched artwork from _tracks if available and missing on scrobble
       final trackArtworks = <String, String>{};
       for (final t in _tracks) {
         if (t.imageUrl != null && t.imageUrl!.isNotEmpty) {

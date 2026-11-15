@@ -9,12 +9,9 @@ import 'animex_badges.dart';
 import 'animex_controller.dart';
 import 'animex_tokens.dart';
 
-/// Weekday is 0 = Monday .. 6 = Sunday, as in AniListService.
 typedef AnimexScheduleLoader =
     Future<List<AnimexScheduleEntry>> Function(int weekday);
 
-/// AniList IDs take precedence. Only Jikan-sourced tmdbId values are MAL IDs;
-/// a TMDB number must never accidentally match a MAL or AniList number.
 bool animexScheduleIsInLibrary(MediaItem media, Iterable<MediaItem> library) {
   return library.any((item) {
     final id = media.anilistId;
@@ -28,7 +25,6 @@ bool animexScheduleIsInLibrary(MediaItem media, Iterable<MediaItem> library) {
   });
 }
 
-/// Broadcast status only — never a claim that a server can play the episode.
 String animexAiringLabel(DateTime airingAt, DateTime now) {
   final local = airingAt.toLocal();
   final today = now.toLocal();
@@ -41,9 +37,6 @@ String animexAiringLabel(DateTime airingAt, DateTime now) {
   return local.hour >= 18 ? 'Airs tonight' : 'Airs today';
 }
 
-/// Shared by the schedule page and a small home teaser. Reads My List live
-/// from the controller, including removals and profile switches; never caches
-/// personal matches. The optional loader/clock keep widget tests offline.
 class AnimeXScheduleList extends StatefulWidget {
   final AnimeXController controller;
   final int weekday;
@@ -52,8 +45,6 @@ class AnimeXScheduleList extends StatefulWidget {
   final AnimexScheduleLoader? loadSchedule;
   final DateTime Function()? now;
 
-  /// Reports the day's raw entries after each load, so a parent can show a
-  /// "next up" summary without fetching the same day twice.
   final void Function(List<AnimexScheduleEntry> entries)? onEntries;
 
   const AnimeXScheduleList({
@@ -178,9 +169,6 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
               )
             else if (_failed)
               _message('Could not load the airing schedule.', retry: true)
-            // The service throws on failure (see _failed above), so an empty
-            // response means no entries for the day — none scheduled, or
-            // AniList has no data for it.
             else if (_entries.isEmpty)
               _message(
                 'No schedule data for this day. It may be unavailable.',
@@ -201,7 +189,6 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
                   entry: entry,
                   inMyList: animexScheduleIsInLibrary(entry.media, library),
                   now: now,
-                  // Open details, not a promised playable episode.
                   onTap: () => widget.controller.openWatch(entry.media),
                 ),
           ],

@@ -7,11 +7,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/system/tv_mode.dart';
 import '../state/gateway_state.dart';
 
-/// Elegant glass passcode keypad with gold accents and a shake-on-error.
-///
-/// Private-entry copy stays minimal on purpose: two quiet lines explain
-/// what this is without turning the door into a landing page. No signup,
-/// no links, no marketing.
 class PasscodeInput extends StatefulWidget {
   final String input;
   final Function(String) onDigitPressed;
@@ -64,8 +59,6 @@ class _PasscodeInputState extends State<PasscodeInput>
   void didUpdateWidget(PasscodeInput oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isError && !oldWidget.isError) {
-      // Reduced motion: skip the visual shake, keep the haptic nudge so
-      // the failure is still perceivable without animation.
       if (!AppMotion.reduced) {
         _shakeController.forward(from: 0);
       }
@@ -106,7 +99,6 @@ class _PasscodeInputState extends State<PasscodeInput>
         onKeyEvent: (node, event) {
           final before = widget.input;
           _handlePadKey(event);
-          // Only claim the event when it actually typed or deleted.
           if (event is! KeyDownEvent) return KeyEventResult.ignored;
           final key = event.logicalKey;
           final digit = TvMode.digitFromKey(key);
@@ -114,8 +106,6 @@ class _PasscodeInputState extends State<PasscodeInput>
           final isEscape =
               key == LogicalKeyboardKey.escape && widget.onClear != null;
           if ((digit != null || isBack || isEscape) && !widget.isVerifying) {
-            // If input didn't change (e.g. 5th digit while full), let it
-            // pass through instead of swallowing the keystroke.
             if (isBack && before.isEmpty) {
               return KeyEventResult.ignored;
             }
@@ -173,8 +163,6 @@ class _PasscodeInputState extends State<PasscodeInput>
             duration: AppMotion.orZero(const Duration(milliseconds: 220)),
             curve: AppMotion.easeOutStrong,
             margin: const EdgeInsets.symmetric(horizontal: 10),
-            // Keep width == height so BoxShape.circle stays a true circle.
-            // Filled dots grow + glow yellow, deleted dots shrink back.
             width: isFilled ? 18 : 14,
             height: isFilled ? 18 : 14,
             decoration: BoxDecoration(
@@ -211,8 +199,6 @@ class _PasscodeInputState extends State<PasscodeInput>
   }
 
   Widget _buildStatusLine() {
-    // Fixed height so swapping between progress / verifying / error never
-    // shifts the keypad underneath.
     return SizedBox(
       height: 30,
       child: Center(
@@ -433,8 +419,6 @@ class _KeyButtonState extends State<_KeyButton> {
               },
               onTapUp: (_) {
                 setState(() => _pressed = false);
-                // Move keyboard focus here too so Tab order stays where
-                // Clair tapped and Enter repeats the same key.
                 if (!_focusNode.hasFocus) _focusNode.requestFocus();
                 widget.onPressed();
               },

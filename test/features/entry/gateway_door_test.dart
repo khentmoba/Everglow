@@ -11,8 +11,6 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: GatewayPage()));
 
-    // The keypad must be clickable from the first frame, even before the
-    // door entrance animation finishes.
     expect(find.text('1'), findsOneWidget);
     await tester.tap(find.text('1'));
     await tester.pump(const Duration(milliseconds: 100));
@@ -39,9 +37,6 @@ void main() {
       notifier.appendDigit(digit);
     }
     await tester.pump(const Duration(milliseconds: 1200));
-    // Without a verifier wired, a couple code must NOT unlock the UI:
-    // firestore.rules needs a real Firebase session, so a local unlock
-    // would only show permission-denied shelves.
     expect(notifier.currentState, GatewayState.awaitingInput);
   });
 

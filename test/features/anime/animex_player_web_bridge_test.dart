@@ -13,8 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:web/web.dart' as web;
 
-// Detached platform roots stop any real provider request. Tests attach a
-// blank frame manually, retaining its genuine contentWindow/source identity.
 class _Registry extends ui_web.PlatformViewRegistry {
   @override
   Object getViewById(int id) => web.HTMLDivElement();
@@ -116,8 +114,6 @@ void main() {
         home: AnimeXPlayerFrame(url: url, onProgress: progress.add),
       ),
     );
-    // Without allow-same-origin, even about:blank has an opaque origin.
-    // This exercises the real WindowProxy restrictions of an external player.
     final frame = await frameFor(tester, opaqueOrigin: true);
     expect(
       () => frame.contentWindow!.getProperty('document'.toJS),
@@ -149,7 +145,6 @@ void main() {
         ),
       );
       await tester.pumpWidget(player(20));
-      // Property changes before load retain the latest request.
       await tester.pumpWidget(player(35));
       final frame = await frameFor(tester);
       final sent = <Object?>[];
@@ -162,7 +157,6 @@ void main() {
         }).toJS,
       );
       frame.dispatchEvent(web.Event('load'));
-      // Load sends the player state first, then the queued seek.
       List<Object?> seeks() => sent
           .whereType<Map>()
           .where((m) => m['type'] == 'animex-seek')
@@ -225,7 +219,6 @@ void main() {
     expect(state['next'], 'EP 20');
     expect(state['nextKind'], 'episode');
 
-    // A cleared label reaches the player so it can hide the button.
     await tester.pumpWidget(
       const MaterialApp(
         home: AnimeXPlayerFrame(url: url, nextToken: null),

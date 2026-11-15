@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web/web.dart' as web;
 
-// Keep the embedded provider detached: the test uses only the demo catalogue.
 class _Registry extends ui_web.PlatformViewRegistry {
   @override
   Object getViewById(int id) => web.HTMLDivElement();
@@ -116,8 +115,6 @@ void main() {
           .offset;
       expect(scrollBeforeTheater, greaterThan(0));
 
-      // Entering and exiting theater mode preserves both the open episode list
-      // and the page scroll offset instead of unmounting below-player sections.
       await tester.tap(find.byTooltip('Theater mode'));
       await tester.pump();
       expect(_exitButton, isNotNull, reason: 'manual theater is available');
@@ -258,9 +255,6 @@ void main() {
 
       mountPlayerNode(host, iframe);
 
-      // `replaceChildren` takes one node in package:web. A JS array argument
-      // stringifies the element into "[object HTMLIFrameElement]", so no embed
-      // ever loads and every server times out into the error card.
       expect(host.children.length, 1, reason: 'the host holds one child');
       expect(
         host.children.item(0)?.tagName,

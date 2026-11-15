@@ -39,7 +39,6 @@ test('cache key omits the server API key and sorts params', () => {
 test('Last.fm cache holds all-time reads longer than live ones', () => {
   const fiveMinutes = 5 * 60 * 1000;
   const thirtyMinutes = 30 * 60 * 1000;
-  // Exact per-artist playcount and all-time charts barely move between listens.
   assert.equal(catalog.lastfmCacheTtlMs('artist.getInfo'), thirtyMinutes);
   assert.equal(catalog.lastfmCacheTtlMs('artist.getTopTracks'), thirtyMinutes);
   assert.equal(
@@ -50,8 +49,6 @@ test('Last.fm cache holds all-time reads longer than live ones', () => {
     catalog.lastfmCacheTtlMs('user.gettopalbums', 'overall'),
     thirtyMinutes,
   );
-  // The jukebox live feed holds only 30s so song changes surface fast;
-  // other live reads keep the short default.
   assert.equal(catalog.lastfmCacheTtlMs('user.getrecenttracks'), 30 * 1000);
   assert.equal(
     catalog.lastfmCacheTtlMs('user.gettoptracks', '7day'),

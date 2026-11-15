@@ -19,10 +19,8 @@ class CelebrationDialog extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          // Background Sparkles/Confetti
           for (int i = 0; i < 15; i++) _buildSparkle(i),
 
-          // Main Card
           ElasticIn(
             duration: const Duration(milliseconds: 1000),
             child: Container(
@@ -102,7 +100,7 @@ class CelebrationDialog extends StatelessWidget {
   }
 
   Widget _buildSparkle(int index) {
-    final random = Random(index); // Use index as seed for consistent randomness
+    final random = Random(index);
     final angle = (index / 15) * 2 * pi;
     final distance = 160.0 + random.nextDouble() * 60;
     final icon = index % 2 == 0 ? Icons.star : Icons.circle;

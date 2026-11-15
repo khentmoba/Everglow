@@ -14,18 +14,6 @@ import '../../../../core/theme/app_colors.dart';
 
 export '../../data/models/media_ref.dart';
 
-/// Starts a party for [media] (or switches the running one to it) and
-/// opens the player.
-///
-/// Every entry point funnels through here: the poster buttons, the
-/// dashboard card, and the Watch Together tab's own title picker. Keeping
-/// one implementation is what stopped those surfaces from drifting —
-/// the tab used to have its own private copy of this logic, which is how
-/// it ended up unable to start a party from a searched title.
-///
-/// If a room is already live and [media] is a different title, the room
-/// is switched in place so the partner's client follows. Otherwise the
-/// most recent room is reused, or a new named room is created.
 Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   final auth = context.read<AuthService>();
   final myUid = auth.uid;
@@ -152,10 +140,6 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   }
 
   if (freshChat) {
-    // Each movie night starts with a clean conversation. The in-player
-    // chat is scoped to the room (now an auto id); the Watch Together
-    // temporary chat keeps the couple's deterministic id so it survives
-    // room changes.
     try {
       await WatchPartyChatService().clearMessages(toOpen.id);
     } catch (e) {
@@ -188,12 +172,7 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   );
 }
 
-/// Compact "Watch Together" button used on poster tiles. Tap to start
-/// (or join) a watch party. Gold "Resume" when a party is already live
-/// for this couple; rose "Start" otherwise.
 class StartWatchPartyButton extends StatefulWidget {
-  /// The media this button represents. Required for "Start" — we
-  /// need to know which movie/episode to open when the host taps.
   final MediaRef media;
 
   const StartWatchPartyButton({super.key, required this.media});
@@ -228,7 +207,6 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     final isCoupleUser =
         context.select<AuthService, bool>((a) => a.isCoupleUser);
     if (!isCoupleUser) {
-      // Cinema-only profiles (Breyan, Octagram) can't host a party.
       return const SizedBox.shrink();
     }
     return StreamBuilder<List<WatchPartyRoom>>(

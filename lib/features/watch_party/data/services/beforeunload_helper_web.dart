@@ -2,7 +2,6 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:flutter/foundation.dart';
 
-/// Installs a browser `beforeunload` hook so tab close can run cleanup.
 class BeforeUnloadHelper {
   web.EventListener? _listener;
 

@@ -1,19 +1,3 @@
-// Scrolls a REAL screen in agent mode and reports frame cost per phase.
-//
-// This is not the synthetic bench: it boots the release app at `/?agent=<screen>`,
-// which uses the isolated demo session, so no login or couple data is involved.
-//
-//   node tool/perf/probe_scroll.mjs [--web-root DIR] [--dpr 3] [--throttle 4]
-//                                   [--passes 2] [--json FILE]
-//                                   [--screen dashboard|cinema|anime|manga|books]
-//                                   [--profiles DIR]  (raw .cpuprofile per phase)
-//
-// Reports, per phase (first-down / repeat-down / repeat-up):
-//   worst reported frame span, worst build/raster, long tasks over 200ms,
-//   and the top self-time JS entries from a CDP CPU profile of the scroll.
-//
-// Desktop headless Chrome is not an iPhone. The numbers compare two builds on
-// the same rig; they are not a device FPS claim.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launch, prepare, serve, sleep, stop } from './_harness.mjs';
@@ -73,8 +57,6 @@ async function waitForMirror(cdp, timeoutMs = 30000) {
 
 async function scrollPhase(cdp, { label, direction, swipes }) {
   await cdp.eval('window.__egFlushLongTasks && window.__egFlushLongTasks()');
-  // Reset per phase so the worst frame belongs to this phase, not to an
-  // earlier one that happened to be slower.
   await cdp.eval('window.__everglowResetPerf && window.__everglowResetPerf()');
   await sleep(200);
   const before = await readMirror(cdp);
@@ -92,7 +74,6 @@ async function scrollPhase(cdp, { label, direction, swipes }) {
     });
     await sleep(90);
   }
-  // Let the fling settle and the meter publish its next reading.
   await sleep(900);
   const { result } = await cdp.send('Profiler.stop');
   if (profilesDir) {
@@ -120,7 +101,6 @@ async function scrollPhase(cdp, { label, direction, swipes }) {
   };
 }
 
-/** Names a CDP call frame, resolving through a source map when one exists. */
 function frameName(f) {
   const file = (f.url || '').split('/').pop();
   const original = sourceMapFor(file)?.lookup(f.lineNumber + 1, f.columnNumber) ?? null;
@@ -133,7 +113,6 @@ function frameName(f) {
 
 const pctOf = (hits, total) => Math.round((hits / (total || 1)) * 1000) / 10;
 
-/** Aggregates a CDP CPU profile into self time per function. */
 function topSelfTime(profile, limit) {
   if (!profile?.nodes) return [];
   const self = new Map();
@@ -150,15 +129,8 @@ function topSelfTime(profile, limit) {
     .map(([name, hits]) => ({ name, pct: pctOf(hits, total) }));
 }
 
-// Everglow's own code (not Flutter, not the engine), so the inclusive ranking
-// points at a widget or service rather than at shared framework plumbing.
 const APP_SOURCE = /^(\.\.\/)+lib\/(features|shared|core)\//;
 
-/**
- * Inclusive time per Everglow function: the share of busy samples with that
- * function anywhere on the stack. Self time is spread thin across the engine;
- * this shows which of our widgets the expensive frames were spent under.
- */
 function topAppInclusive(profile, limit) {
   if (!profile?.nodes || !profile.samples) return [];
   const parent = new Map();
@@ -190,9 +162,6 @@ function topAppInclusive(profile, limit) {
     .map(([name, hits]) => ({ name, pct: pctOf(hits, busy) }));
 }
 
-// `flutter build web --source-maps` adds maps next to main.dart.js and each
-// deferred part, so the profile can name Dart functions instead of minified
-// dart2js symbols. Without maps the minified names are printed.
 const sourceMaps = new Map();
 function sourceMapFor(file) {
   if (!/^main\.dart\.js(_\d+\.part\.js)?$/.test(file)) return null;
@@ -221,8 +190,6 @@ try {
   const t0 = Date.now();
   await cdp.send('Page.navigate', { url: `${origin}/?agent=${screen}&perf=1` });
 
-  // First frame → first dashboard paint. Cold-load timing is reported, not
-  // budgeted here; the scroll numbers are the point of this probe.
   const deadline = Date.now() + 60000;
   let painted = false;
   while (Date.now() < deadline) {
@@ -244,7 +211,6 @@ try {
   report.firstPaintMs = Date.now() - t0;
   if (screen === 'dashboard') report.firstDashboardPaintMs = report.firstPaintMs;
 
-  // Let the deferred sections above the fold mount before judging scroll cost.
   await waitForMirror(cdp);
   await sleep(2500);
   await cdp.eval('window.__everglowResetPerf && window.__everglowResetPerf()');

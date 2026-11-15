@@ -11,10 +11,6 @@ import '../../../../shared/widgets/everglow/everglow_card.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
 
-/// Warm, inviting hub for couples arcade and mini-games.
-///
-/// Designed with responsive layout, ambient glows, and distinct visual
-/// identities for Table Tennis, Scribble Together, and Couple Chess.
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
 
@@ -352,7 +348,6 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   }
 }
 
-/// Feature badge pill used inside the hero section.
 class _HeroPill extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -398,9 +393,6 @@ class _HeroPill extends StatelessWidget {
   }
 }
 
-/// Rich, tactile game card for the Play Zone hub.
-///
-/// Extracted so layout tests can easily verify rendering across screen sizes.
 class PlayZoneGameCard extends StatelessWidget {
   final String title;
   final String subtitle;

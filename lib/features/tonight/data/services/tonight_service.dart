@@ -35,8 +35,6 @@ class TonightService {
         '${now.day.toString().padLeft(2, '0')}';
   }
 
-  /// Realtime stream of the active tonight decision session.
-  /// Bounded to one doc for today's shared decision.
   Stream<TonightDecision?> watchActiveDecision() {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return _watchDemo();
@@ -67,7 +65,6 @@ class TonightService {
     _demoChanges.add(decision);
   }
 
-  /// Get the active decision once.
   Future<TonightDecision?> getActiveDecision() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return _demoDecision ?? AgentFixtures.demoDecision;
@@ -86,7 +83,6 @@ class TonightService {
     }
   }
 
-  /// Curated fallback games from Play Zone.
   static const List<TonightOption> availableGames = [
     TonightOption(
       id: 'game_scribble',
@@ -115,7 +111,6 @@ class TonightService {
     ),
   ];
 
-  /// Curated fallback date ideas when Firestore date_ideas is empty or offline.
   static const List<String> fallbackDateIdeas = [
     'Cook homemade pasta together by candlelight',
     'Blanket fort movie marathon with warm popcorn',
@@ -125,7 +120,6 @@ class TonightService {
     'Cozy tea talk sharing our top 5 favorite memories',
   ];
 
-  /// Prefer an unwatched film with a usable playback link.
   Future<TonightOption> fetchMovieSuggestion({int? maxMinutes}) async {
     try {
       final snap = await withGetTimeout(
@@ -140,8 +134,6 @@ class TonightService {
       final candidates = snap.docs.where((d) {
         final data = d.data();
         final status = (data['status'] as String? ?? '').toLowerCase();
-        // Pick a feature film, not a TV/anime series. Filter watched titles
-        // when the queue contains other choices, but allow a rewatch fallback.
         final mediaType = (data['mediaType'] as String? ?? 'movie')
             .toLowerCase();
         final duration = data['durationSeconds'];
@@ -198,7 +190,6 @@ class TonightService {
     return quietOptions.first;
   }
 
-  /// Fetch a random date idea from date_ideas collection or fallback.
   Future<TonightOption> fetchDateIdeaSuggestion() async {
     try {
       final snap = await withGetTimeout(
@@ -236,7 +227,6 @@ class TonightService {
     );
   }
 
-  /// Pick a game suggestion from Play Zone games.
   TonightOption fetchGameSuggestion() {
     return availableGames[Random().nextInt(availableGames.length)];
   }
@@ -336,7 +326,6 @@ class TonightService {
     return [movie, ...local.where((option) => option.id != movie.id).take(2)];
   }
 
-  /// Start a new session or re-roll suggestions.
   Future<TonightDecision> createOrShuffle({
     bool force = false,
     TonightPreferences preferences = const TonightPreferences(),
@@ -383,8 +372,6 @@ class TonightService {
     }
   }
 
-  /// Record a vote for a user.
-  /// Automatically crowns the winner if both Khent and Clair pick the same!
   Future<void> castVote({
     required String username,
     required String optionId,
@@ -427,7 +414,6 @@ class TonightService {
         String? winnerId = current.winnerOptionId;
         TonightStatus status = current.status;
 
-        // If both voted for the same option -> Instant Match!
         if (khentVote != null && clairVote != null && khentVote == clairVote) {
           winnerId = khentVote;
           status = TonightStatus.decided;
@@ -450,7 +436,6 @@ class TonightService {
     }
   }
 
-  /// Explicitly decide the winner (e.g. "We pick this together" or tie-breaker).
   Future<void> decideWinner({required String optionId}) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       final current = _demoDecision ?? AgentFixtures.demoDecision;
@@ -486,7 +471,6 @@ class TonightService {
     }
   }
 
-  /// Make the winning activity a planned CalendarEvent.
   Future<CalendarEvent?> makePlan({
     required TonightOption option,
     required DateTime planTime,
@@ -525,8 +509,6 @@ class TonightService {
       );
       final decisionRef = _collection.doc(activeDocId);
 
-      // Commit the event and decision together so a failed calendar write
-      // cannot leave Tonight claiming a plan exists when it doesn't.
       await _db.runTransaction((tx) async {
         final snap = await tx.get(decisionRef);
         if (!snap.exists || snap.data() == null) {
@@ -554,7 +536,6 @@ class TonightService {
     }
   }
 
-  /// Clear or reset the active decision so a new one can be started.
   Future<void> resetSession() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return;

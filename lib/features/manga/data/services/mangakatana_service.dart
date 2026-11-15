@@ -5,15 +5,6 @@ import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Scrapes mangakatana.com for chapter data and page images.
-/// MangaKatana is a sister site to MangaKakalot with broader coverage,
-/// especially for manhwa and manhua. It serves as a high-priority
-/// fallback when MangaDex and MangaKakalot don't have chapters.
-///
-/// Site structure:
-///   * Search       — `GET /?s={title}&search_type=title`
-///   * Chapter list — `GET /manga/{slug}`
-///   * Page images  — `GET /manga/{slug}/{chapterId}` (or similar)
 class MangakatanaService with ConnectivityAware {
   static const String _baseUrl = 'https://mangakatana.com';
 
@@ -51,21 +42,14 @@ class MangakatanaService with ConnectivityAware {
 
   final Map<String, MangaChapterPages> _pageCache = {};
 
-  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
-  /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
       '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
     );
   }
 
-  /// Search MangaKatana by title and return the manga slug.
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
-    // The site's real search param is `search` + `search_by` — the
-    // old `?s=…&search_type=title` URL is ignored and the site
-    // returns the home page, so the first link parsed was always a
-    // homepage rail item, not the searched series.
     final uri = Uri.parse(
       '$_baseUrl/?search=${Uri.encodeComponent(title)}&search_by=m_name',
     );
@@ -94,8 +78,6 @@ class MangakatanaService with ConnectivityAware {
     return '';
   }
 
-  /// Scrape the manga detail page for its chapter list.
-  /// [slug] is the MangaKatana slug (e.g. "that-time-i-got-reincarnated-as-a-slime").
   Future<List<MangaChapter>> getChapterFeed(String slug) async {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/manga/$slug');
@@ -113,14 +95,8 @@ class MangakatanaService with ConnectivityAware {
     return [];
   }
 
-  /// Parses the detail-page chapter list. Public and static so tests
-  /// can pin the slug filter with real row HTML (see
-  /// `katana_scraper_filter_test.dart`).
   static List<MangaChapter> parseChapterList(String html, String slug) {
     final chapters = <MangaChapter>[];
-    // Chapter links look like /manga/{slug}/c413, /manga/{slug}/c528.5
-    // or /manga/{slug}/v6c147 — the old `/chapter` regex matched
-    // nothing on the live site, so this feed always came back empty.
     final linkReg = RegExp(
       r'<a[^>]*href="([^"]*?/manga/[^"\s]*?/(?:(?:v\d+)?c[\d.]+(?:-[^"/]*)?|fc))"[^>]*>([^<]*)',
       caseSensitive: false,
@@ -131,15 +107,8 @@ class MangakatanaService with ConnectivityAware {
       final href = m.group(1)?.trim() ?? '';
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
-      // The detail page also lists other series (Latest Updates rail,
-      // Hot Manga, recommendations) — only keep links for the series
-      // we asked for, or foreign chapters (e.g. Ch. 1075 from another
-      // series) pollute this series' list with huge gaps.
       if (slug.isNotEmpty && !href.contains('/manga/$slug/')) continue;
       final id = href;
-      // Pull the number out of the id: c413 → 413, v6c147 → 147,
-      // c38-p11 → 38 (part suffix dropped so it sorts numerically),
-      // fc (first chapter) → '0' so it sorts first.
       final idPart = id.split('/').last.toLowerCase();
       final cIndex = idPart.lastIndexOf('c');
       final rawNum = idPart == 'fc'
@@ -165,8 +134,6 @@ class MangakatanaService with ConnectivityAware {
     return chapters;
   }
 
-  /// Scrape a chapter page for image URLs.
-  /// [chapterUrl] is the full URL or path to the chapter page.
   Future<MangaChapterPages?> getChapterPages(String chapterUrl) async {
     final cached = _pageCache[chapterUrl];
     if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {

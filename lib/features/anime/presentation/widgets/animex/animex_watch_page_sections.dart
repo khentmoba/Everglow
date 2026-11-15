@@ -1,6 +1,5 @@
 part of 'animex_watch_page.dart';
 
-/// Player + info section builders for [_AnimeXWatchPageState].
 extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
   Widget _buildPlayerSection(BuildContext context) {
     final episodes = _episodes;
@@ -11,9 +10,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         .clamp(240.0, AnimeXTokens.playerMaxHeight)
         .toDouble();
 
-    // The sidebar top-aligns with the player, so its height matches the
-    // player's effective 16:9 height exactly (the player column and the
-    // sidebar share the same row constraints).
     final contentWidth = (width - 48).clamp(
       0.0,
       AnimeXTokens.watchPageMaxWidth,
@@ -23,9 +19,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         .clamp(0.0, maxPlayerHeight)
         .toDouble();
 
-    // Only episode-metadata surfaces wait for resume (finding #7): the
-    // server/audio row carries no spoilers, so it renders immediately in
-    // its usual spot and its taps simply no-op until resume completes.
     final playerColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -116,8 +109,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
     );
   }
 
-  /// Loading frame: the show's backdrop dimmed behind the spinner, so the wait
-  /// reads as the title instead of an empty black box.
   Widget _buildLoadingBackdrop() {
     final art = _item.backdropUrl;
     return Stack(
@@ -142,10 +133,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
     final autoNext = stores?.autoNext ?? true;
     final skipIntro = stores?.skipIntro ?? true;
     final viewportHeight = MediaQuery.sizeOf(context).height;
-    // Cap height so the player never crowds out the server selector and episode
-    // list on shorter screens (such as laptops or landscape tablets).
-    // Freeze the in-page box while browser fullscreen is active or settling out
-    // so the player container never jumps behind the fullscreen frame.
     final computedMaxHeight = (viewportHeight - 280)
         .clamp(240.0, AnimeXTokens.playerMaxHeight)
         .toDouble();

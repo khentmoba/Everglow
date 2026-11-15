@@ -57,7 +57,6 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   String? _searchFiletype;
   String? _searchLanguage;
   bool _searchRan = false;
-  // Z-Lib style paging + advanced filters.
   static const int _searchPageSize = 30;
   int _searchTotal = 0;
   bool _searchHasMore = false;
@@ -276,8 +275,6 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     }
   }
 
-  /// Z-Lib "Load more": appends the next Open Library page to the
-  /// current result list.
   Future<void> _loadMoreSearch() async {
     if (_isLoadingMore || !_searchHasMore) return;
     final request = _searchRequest;

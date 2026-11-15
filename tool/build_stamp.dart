@@ -1,10 +1,3 @@
-// Shared build stamp: "<pubspec version>-<short commit>"
-// (e.g. "6.1.0+1-869a488").
-//
-// Used by generate_sw.dart (service-worker cache names + version.json) and
-// build_web.dart (core-shell cache-bust query) so every stamp in one build
-// agrees. The stamp is inherently a deploy-time value: committed copies in
-// web/ are refreshed by CI on every deploy.
 import "dart:io";
 
 String buildStamp() {

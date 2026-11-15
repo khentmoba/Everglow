@@ -28,7 +28,6 @@ void main() {
         {'x': 0.1, 'y': 0.2},
         {'x': 0.3, 'y': 0.4},
       ]);
-      // createdAt should be server timestamp when null
       expect(map['createdAt'], isNotNull);
     });
 
@@ -63,12 +62,12 @@ void main() {
 
       final copied = original.copyWith(color: '#98FB98', strokeWidth: 8.0);
 
-      expect(copied.id, 'orig'); // unchanged
-      expect(copied.color, '#98FB98'); // changed
-      expect(copied.strokeWidth, 8.0); // changed
+      expect(copied.id, 'orig');
+      expect(copied.color, '#98FB98');
+      expect(copied.strokeWidth, 8.0);
       expect(copied.canvasAspectRatio, original.canvasAspectRatio);
-      expect(copied.userId, 'user1'); // unchanged
-      expect(copied.points, original.points); // unchanged
+      expect(copied.userId, 'user1');
+      expect(copied.points, original.points);
     });
 
     test('copyWith with no arguments returns equivalent instance', () {

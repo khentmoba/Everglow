@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// verifyCouplePasscode is wired by GatewayPage -> AuthService for all profiles.
 
 enum GatewayState {
   initialLoad,
@@ -11,12 +10,6 @@ enum GatewayState {
   complete,
 }
 
-/// Why the last passcode attempt failed.
-///
-/// `invalidCode` means the server understood the request and said no.
-/// `connection` means we never got a definitive answer (offline,
-/// timeout, 5xx). The gateway shows a different line for each so a
-/// wrong code never feels like a server problem.
 enum GatewayFailureReason { invalidCode, connection }
 
 class GatewayNotifier extends ChangeNotifier {
@@ -30,9 +23,6 @@ class GatewayNotifier extends ChangeNotifier {
   String? get lastEnteredPasscode => _lastEnteredPasscode;
   GatewayFailureReason? get lastFailureReason => _lastFailureReason;
 
-  /// Lets the page report a post-validation failure (e.g. the code was
-  /// right but the Firebase session never materialised) as a connection
-  /// problem instead of a wrong code.
   void setFailureReason(GatewayFailureReason reason) {
     _lastFailureReason = reason;
     notifyListeners();
@@ -53,8 +43,6 @@ class GatewayNotifier extends ChangeNotifier {
   void appendDigit(String digit) {
     if (_currentInput.length < 4 &&
         _currentState == GatewayState.awaitingInput) {
-      // A new attempt clears the previous failure line so the error
-      // message never lingers once Clair starts typing again.
       _lastFailureReason = null;
       _currentInput += digit;
       notifyListeners();
@@ -80,16 +68,12 @@ class GatewayNotifier extends ChangeNotifier {
 
   Future<String?> Function(String passcode)? verifyCouplePasscode;
 
-  /// Offline "remember me", wired by GatewayPage -> AuthService.
-  /// Returns the remembered username when [passcode] is that user's own
-  /// code, null otherwise. Only consulted when the server is unreachable.
   String? Function(String passcode)? tryOfflineUnlock;
   bool Function()? hasOfflineRememberedCode;
 
   void _validatePasscode() async {
     updateState(GatewayState.evaluating);
 
-    // Brief pause to feel intentional but not sluggish
     await Future.delayed(const Duration(milliseconds: 220));
 
     if (verifyCouplePasscode != null) {
@@ -107,12 +91,8 @@ class GatewayNotifier extends ChangeNotifier {
           updateState(GatewayState.unlocking);
           return;
         }
-        // Server answered definitively: the code is simply wrong.
         _lastFailureReason = GatewayFailureReason.invalidCode;
       } catch (_) {
-        // No definitive answer (offline, timeout, 5xx). If this device
-        // already remembers Clair/Khent from an online login and the
-        // typed code is theirs, open their saved copy offline.
         final remembered = tryOfflineUnlock?.call(_currentInput);
         if (remembered == 'khentsgdz' || remembered == 'clairjassen') {
           _lastFailureReason = null;
@@ -120,19 +100,14 @@ class GatewayNotifier extends ChangeNotifier {
           updateState(GatewayState.unlocking);
           return;
         }
-        // Only this device's previously verified code is locally knowable.
         _lastFailureReason = hasOfflineRememberedCode?.call() == true
             ? GatewayFailureReason.invalidCode
             : GatewayFailureReason.connection;
       }
     } else {
-      // Verifier not wired (tests only): keep the old wrong-code path.
       _lastFailureReason = GatewayFailureReason.invalidCode;
     }
-    // Still here: no online login and no offline unlock. Stay on the
-    // gateway so a wrong code or a fresh offline device never opens the app.
     updateState(GatewayState.error);
-    // Wait for shake animation
     await Future.delayed(const Duration(milliseconds: 500));
     clearInput();
     updateState(GatewayState.awaitingInput);

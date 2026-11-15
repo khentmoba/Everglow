@@ -7,17 +7,6 @@ import '../../../core/theme/app_typography.dart';
 import 'everglow_markdown.dart';
 import '../../../core/perf/perf_settings.dart';
 
-/// Global chat bubble system — ONE look for Motchi, Study, and Sanctuary.
-///
-/// Why this exists: Motchi and Study each grew their own bubble containers,
-/// so a visual fix in one never reached the other (the "still bad UI"
-/// Khent flagged). Every assistant surface now builds on these two
-/// widgets, so an upgrade here upgrades the whole app at once.
-///
-/// - [EverglowUserBubble] — warm rose gradient, right-aligned.
-/// - [EverglowAssistantBubble] — frosted glass with Motchi header row,
-///   markdown body, copy button, and timestamp footer.
-/// - Both use Dusk Petal tokens only and stay selectable on web.
 class EverglowUserBubble extends StatelessWidget {
   final String text;
   final String? timeLabel;
@@ -125,12 +114,6 @@ class EverglowUserBubble extends StatelessWidget {
   }
 }
 
-/// Assistant bubble shared by Motchi chat and Study answers.
-///
-/// [title] is "Motchi" in chat, "MOTCHI" in Study; [subtitle] is the
-/// context hint ("from your PDFs", "private memory + Everglow context").
-/// Streaming callers pass [isStreaming] + [streamingFooter] to show the
-/// caret / progress bar instead of the timestamp row.
 class EverglowAssistantBubble extends StatelessWidget {
   final String text;
   final String title;
@@ -232,7 +215,6 @@ class EverglowAssistantBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header: MOTCHI · context + copy.
                 Row(
                   children: [
                     Container(
@@ -337,7 +319,6 @@ class EverglowAssistantBubble extends StatelessWidget {
   }
 }
 
-/// Small copy icon used in every assistant bubble header.
 class EverglowCopyIconButton extends StatelessWidget {
   final String textToCopy;
   const EverglowCopyIconButton({super.key, required this.textToCopy});
@@ -359,7 +340,6 @@ class EverglowCopyIconButton extends StatelessWidget {
   }
 }
 
-/// Shared copy + toast so every surface feels identical.
 void copyText(BuildContext context, String text) {
   HapticFeedback.selectionClick();
   Clipboard.setData(ClipboardData(text: text));

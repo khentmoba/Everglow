@@ -1,21 +1,4 @@
 // ignore_for_file: avoid_print
-// Everglow web build wrapper: prefers the engine-revision-pinned gstatic
-// CanvasKit CDN over self-hosting canvaskit/*.wasm (~7 MB).
-//
-// Why: the CDN URL contains the engine revision, so it is immutable per
-// Flutter version AND shared across every Flutter site — many users already
-// have it cached before their first Everglow visit. Self-hosted canvaskit/
-// files reuse stable filenames across builds, so they can never be marked
-// immutable safely.
-//
-// Safety: resolves the revision from `flutter --version --machine`, then
-// verifies the CDN file answers 200 before trusting it. A missing file,
-// offline CI, or unknown engine falls back to a plain self-hosted build
-// (slower cold start, still correct) — a bad CDN guess can never break
-// a deploy.
-//
-// Usage: dart tool/build_web.dart -- --release --no-source-maps
-//        [--dart-define=KEY=VALUE ...]
 import "dart:convert";
 import "dart:io";
 
@@ -38,7 +21,7 @@ Future<void> main(List<String> args) async {
     "flutter",
     cmd,
     mode: ProcessStartMode.inheritStdio,
-    runInShell: Platform.isWindows, // Flutter is a .bat command on Windows.
+    runInShell: Platform.isWindows,
   );
   final code = await proc.exitCode;
   if (code != 0) {
@@ -53,10 +36,6 @@ Future<void> main(List<String> args) async {
   _stampVersionJson(canvaskitUrl);
 }
 
-/// Discovers all deferred JS chunks in build/web, pairs them with the
-/// engine-pinned CanvasKit URL, and writes a rich version.json so the
-/// service worker and web idle preloader can warm the full offline app
-/// shell in the background without blocking first paint.
 void _stampVersionJson(String? canvaskitUrl) {
   final stamp = buildStamp();
   final busted = 'main.dart.js?v=$stamp';
@@ -84,20 +63,6 @@ void _stampVersionJson(String? canvaskitUrl) {
   print('[build_web] version.json stamped with ${parts.length} deferred parts');
 }
 
-/// Emits `<link rel="modulepreload">` for the Firebase JS SDK modules into the
-/// built index.html, so their ~500KB is fetched while the shell is still
-/// downloading instead of after `main.dart.js` has evaluated.
-///
-/// `firebase_core_web` injects these from `_initializeCore()`, which only runs
-/// inside `Firebase.initializeApp()` — measured at ~1230ms into a cold load,
-/// strictly serial behind the 1.3MB shell. They are ES modules, so a
-/// modulepreload lands in the module map that the later `import()` reuses.
-///
-/// The version comes from the resolved `firebase_core_web` package, never a
-/// hand-written constant, so a dependency bump cannot leave a stale preload
-/// downloading a module nothing imports. Fails the build when the placeholder
-/// or the version is missing: silently skipping would quietly restore the
-/// serial load this exists to remove.
 void _stampFirebasePreload() {
   const startMarker = "<!-- EVERGLOW_FIREBASE_PRELOAD_START -->";
   const endMarker = "<!-- EVERGLOW_FIREBASE_PRELOAD_END -->";
@@ -125,8 +90,6 @@ void _stampFirebasePreload() {
   print("[build_web] Firebase SDK preloaded at $version (5 modules)");
 }
 
-/// Reads `supportedFirebaseJsSdkVersion` from the resolved `firebase_core_web`
-/// package, i.e. the exact version `firebase_core` will import at runtime.
 String _firebaseJsSdkVersion() {
   final config = File(".dart_tool/package_config.json");
   if (!config.existsSync()) {
@@ -161,20 +124,6 @@ String _firebaseJsSdkVersion() {
   return match.group(1)!;
 }
 
-/// Rewrites the core-shell URL to `main.dart.js?v=<build stamp>` in the
-/// emitted Flutter loader, so every build is a distinct service-worker
-/// cache key (see generate_sw.dart). Without this, filenames are stable
-/// across Flutter builds and a post-deploy reload can boot stale bytes
-/// from the still-active old worker — near-certain on slow lines.
-///
-/// The page itself never references the shell: a `<link rel=preload>` for a
-/// worker-served URL is discarded by Chrome (cross-world mismatch) and only
-/// wastes the download, so index.html no longer carries one.
-///
-/// Only quoted references are touched, so a `main.dart.js.map` source-map
-/// reference (source-mapped builds) can never be corrupted. Fails the
-/// build loudly when the expected reference is missing: a silent miss
-/// here would mean silently stale updates.
 void _stampCoreShell() {
   final stamp = buildStamp();
   final busted = 'main.dart.js?v=$stamp';
@@ -185,8 +134,6 @@ void _stampCoreShell() {
   ]) {
     final file = File(path);
     if (!file.existsSync()) {
-      // flutter.js is an emitted spare (the page loads the inlined copy in
-      // flutter_bootstrap.js), so only the bootstrap is required.
       if (path.endsWith("flutter.js")) continue;
       throw StateError("[build_web] missing $path; cannot stamp core shell.");
     }

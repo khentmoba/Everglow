@@ -4,10 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'sse_cancellation.dart';
 
-/// Parses SSE lines from a streaming HTTP response.
-///
-/// Native implementation: uses [http.Client.send] with [StreamedResponse.stream],
-/// which yields data incrementally on mobile/desktop platforms.
 Future<String> streamSseResponse({
   required String url,
   required Map<String, String> headers,
@@ -40,8 +36,6 @@ Future<String> streamSseResponse({
         if (line.startsWith('data: ')) {
           final data = line.substring(6).trim();
           if (data == '[DONE]') break;
-          // Parse first (malformed chunks are skipped); server-sent errors
-          // are handled outside the try so the catch can't swallow them.
           Map<String, dynamic>? parsed;
           try {
             parsed = jsonDecode(data) as Map<String, dynamic>;
@@ -77,7 +71,6 @@ Future<String> streamSseResponse({
       return fullResponse.toString();
     }
 
-    // Handle error responses
     String errorMsg;
     try {
       final errorBody = await response.stream.bytesToString();

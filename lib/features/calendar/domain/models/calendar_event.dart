@@ -20,11 +20,10 @@ class CalendarEvent {
   final CalendarEventType type;
   final String createdBy;
   final String? color;
-  final String recurring; // 'none', 'monthly', 'yearly'
+  final String recurring;
 
-  // Phase 1 polish — Baïkal/Radicale extended fields
   final String? location;
-  final List<String> attendees; // usernames
+  final List<String> attendees;
   final bool isAllDay;
 
   const CalendarEvent({
@@ -89,9 +88,6 @@ class CalendarEvent {
     return CalendarEventType.custom;
   }
 
-  /// Expand this saved series into the requested [start, end) window.
-  /// Month-end and leap-day repeats clamp to that month's last day, while
-  /// keeping the original anchor so Jan 31 returns to Mar 31 after February.
   List<CalendarEvent> occurrencesBetween(DateTime start, DateTime end) {
     if (!end.isAfter(start)) return [];
     if (recurring != 'monthly' && recurring != 'yearly') {

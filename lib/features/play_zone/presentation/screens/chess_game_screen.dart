@@ -9,11 +9,6 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';  
 part 'chess_game_widgets.dart';
   
-// ──────────────────────────────────────────────────────────────  
-//  Couple Chess — Dusk Petal premium redesign  
-//  Local 2-player, full legal-move engine, polished UX.  
-// ──────────────────────────────────────────────────────────────  
-  
 class ChessGameScreen extends StatefulWidget {  
   const ChessGameScreen({super.key});  
   @override  
@@ -22,7 +17,6 @@ class ChessGameScreen extends StatefulWidget {
   
 class _ChessGameScreenState extends State<ChessGameScreen>  
     with SingleTickerProviderStateMixin {  
-  // ── board state ────────────────────────────────────────────  
   late Map<String, String> _board;  
   String _turn = 'w';  
   String? _selected;  
@@ -36,8 +30,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   bool _whiteRookHMoved = false;  
   bool _blackRookAMoved = false;  
   bool _blackRookHMoved = false;  
-  final List<String> _capturedByWhite = []; // black pieces taken by white  
-  final List<String> _capturedByBlack = []; // white pieces taken by black 
+  final List<String> _capturedByWhite = [];
+  final List<String> _capturedByBlack = [];
   final List<_Snapshot> _undoStack = [];  
   final List<String> _sanHistory = [];  
   bool _flipped = false;  
@@ -49,7 +43,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   String? _promotionTo;  
   late AnimationController _checkPulse;  
   
-  // ── piece values for material ──────────────────────────────  
   static const _values = {  
     'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0,  
     'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 0,  
@@ -71,7 +64,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     super.dispose();
   }
 
-  // ── helpers ────────────────────────────────────────────────
   int _fileOf(String sq) => sq.codeUnitAt(0) - 97;
   int _rankOf(String sq) => int.parse(sq[1]) - 1;
   String _sq(int f, int r) => String.fromCharCode(97 + f) + (r + 1).toString();
@@ -92,7 +84,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     return m[p] ?? '';
   }
 
-  // ── board setup ────────────────────────────────────────────
   void _resetBoard() {
     _board = {
       'a8': 'r', 'b8': 'n', 'c8': 'b', 'd8': 'q', 'e8': 'k', 'f8': 'b', 'g8': 'n', 'h8': 'r',
@@ -127,7 +118,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     setState(() {});
   }
 
-  // ── attack & move generation ───────────────────────────────
   String? _findKing(Map<String, String> board, bool white) {
     final k = white ? 'K' : 'k';
     for (final e in board.entries) {
@@ -405,7 +395,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     return san;
   }
 
-  // ── interaction ────────────────────────────────────────────
   void _onTapSquare(String sq) {
     if (_isCheckmate || _isStalemate) return;
     if (_promotionFrom != null) return;
@@ -639,7 +628,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     return s;
   }
 
-  // ── UI ───────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;

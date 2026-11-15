@@ -4,17 +4,6 @@ const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
 const { resolveKatanaServerCookie } = require('./media_proxy_core.js');
 const { streamMediaBody } = require('./stream_media_body');
 
-/**
- * Proxies scanlation-site chapter page images so Flutter web isn't
- * blocked by CORS or hotlink protection. Scanlation groups host images
- * on their own domains or common CDNs (Blogspot, WordPress, etc.).
- *
- * Accepts:
- *   GET /proxyScanlation?url=<encoded image url>
- *
- * The host is validated against a whitelist of known scanlation
- * domains. Mirrors the `proxyMangaKakalotImage` pattern.
- */
 const proxyScanlation = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -61,9 +50,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
     return;
   }
 
-  // ── Whitelisted scanlation domains & common image CDNs ─────
   const allowedSuffixes = [
-    // Scanlation group domains
     '.asurascans.com',
     '.asuracomic.net',
     '.reaperscans.com',
@@ -75,16 +62,12 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
     '.void-scans.com',
     '.rizzcomic.com',
     '.comick.io',
-    // Bato.to image CDN
     '.bato.to',
     '.img.bato.to',
-    // MangaSee123 image CDN
     '.mangasee123.com',
     '.scans-hot.xyz',
-    // MangaKatana image CDN
     '.mangakatana.com',
     '.mangakatana.net',
-    // Common image CDNs used by scanlation sites
     '.blogspot.com',
     '.bp.blogspot.com',
     '.googleusercontent.com',
@@ -127,29 +110,6 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
   }
 });
 
-/**
- * Proxies HTML scraping requests for manga services that scrape
- * external sites (MangaKakalot, MangaKatana, Bato.to, MangaSee123,
- * and scanlation group sites). These sites don't send CORS headers,
- * so direct browser fetches are blocked on Flutter Web.
- *
- * Accepts:
- *   GET /proxyFetchHtml?url=<encoded target URL>[&cookie=<server cookie>]
- *
- * The optional `cookie` param exists for MangaKatana's image-server
- * switch: the site picks Server 2/3 from a `s_r` cookie, the `?sv=`
- * query alone is ignored. Only the exact values `s_r=sv2` and
- * `s_r=sv3` are forwarded, and only to mangakatana.com hosts —
- * anything else is dropped.
- *
- * The function:
- *   1. Validates the URL against a whitelist of manga/scraping domains
- *   2. Fetches the HTML page server-side (with spoofed Referer)
- *   3. Returns the raw HTML with permissive CORS headers
- *
- * This follows the same pattern as proxyScanlation (image proxy) but
- * returns text/html instead of binary image data.
- */
 const proxyFetchHtml = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -164,10 +124,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  // HTML scraping is heavier than images, so the anonymous cap is lower.
   if (enforceRateLimit(req, res, { endpoint: 'proxyFetchHtml', limit: 60, windowMs: 60000 })) return;
-  // Allow anonymous for manga scraping (host allowlist restricts to public sites).
-  // If a token is provided, validate it.
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -199,22 +156,11 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     return;
   }
 
-  // ── Whitelisted manga scraping domains ─────────────────────
   const allowedSuffixes = [
-    // MangaKakalot
     '.mangakakalot.com',
-    // MangaKatana
     '.mangakatana.com',
-    // Bato.to
     '.bato.to',
-    // MangaSee123
     '.mangasee123.com',
-    // Anime embed probe (animex watch page): third-party anime embeds
-    // serve no CORS headers, so the app's dead-server probe can't read
-    // their error pages directly from Flutter Web. Same goes for our
-    // own player pages (Firebase Hosting sends no CORS headers, while
-    // the functions host is covered by direct CORS — belt and braces).
-    // Public pages, same guard as the rest.
     '.vidlink.pro',
     '.megaplay.buzz',
     '.megaplays.se',
@@ -227,7 +173,6 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     '.fmov.my',
     'everglow-1c6db.web.app',
     'us-central1-everglow-1c6db.cloudfunctions.net',
-    // Scanlation group sites
     '.asurascans.com',
     '.asuracomic.net',
     '.reaperscans.com',
@@ -247,20 +192,12 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     return;
   }
 
-  // MangaKatana picks its image server from a `s_r` cookie (Server 1 =
-  // no cookie, Server 2 = `s_r=sv2`, Server 3 = `s_r=sv3`). Without the
-  // cookie, Server 2/3 requests silently return Server 1's page URLs,
-  // so the app's server switch did nothing.
   const serverCookie = resolveKatanaServerCookie(
     parsed.hostname,
     req.query.cookie,
   );
 
   try {
-    // MangaKatana's bot protection answers rapid concurrent requests
-    // with 200 + an EMPTY body, which used to get cached and served
-    // to the app ("chapters never load"). Retry empty bodies and
-    // never cache them.
     let body = '';
     let status = 502;
     for (let attempt = 0; attempt < 3; attempt++) {

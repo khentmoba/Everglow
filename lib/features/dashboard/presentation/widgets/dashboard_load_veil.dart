@@ -4,15 +4,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 
-/// Full-screen loading veil with a 1% incremental progress counter, shown
-/// exclusively after passcode entry for Khent or Clair on the gateway.
-///
-/// Counts smoothly from 1% to 100% with a determinate progress bar and
-/// warm status lines that guide Clair and Khent into their sanctuary.
-///
-/// It never appears when opening the site for the first time or reloading;
-/// it is requested strictly via [requestPasscodeLoader] when either Khent
-/// or Clair inputs their passcode at the entry door.
 class DashboardLoadVeil extends StatefulWidget {
   const DashboardLoadVeil({
     super.key,
@@ -24,40 +15,32 @@ class DashboardLoadVeil extends StatefulWidget {
 
   final bool visible;
 
-  /// Called when Clair or Khent taps Skip, or when the 1% count completes.
   final VoidCallback? onSkip;
 
-  /// Optional completion hook called alongside [onSkip] when 100% is reached.
   final VoidCallback? onComplete;
 
-  /// Duration of the 1% to 100% incremental count animation.
   final Duration duration;
 
   static bool _requestedAfterPasscode = false;
 
-  /// Request the 1% incremental loading veil to appear after passcode entry.
   static void requestPasscodeLoader() {
     _requestedAfterPasscode = true;
   }
 
-  /// Consumes the request. Returns true only once per passcode entry.
   static bool consumePasscodeLoaderRequest() {
     final requested = _requestedAfterPasscode;
     _requestedAfterPasscode = false;
     return requested;
   }
 
-  /// For testing: inspect whether a request is pending.
   @visibleForTesting
   static bool get hasPendingPasscodeLoaderRequest => _requestedAfterPasscode;
 
-  /// For testing: reset state between tests.
   @visibleForTesting
   static void resetPasscodeLoaderRequest() {
     _requestedAfterPasscode = false;
   }
 
-  /// Warm status message tied to progress percentage.
   static String labelForPercent(int percent) {
     if (percent < 18) {
       return 'opening the door…';
@@ -100,7 +83,6 @@ class _DashboardLoadVeilState extends State<DashboardLoadVeil>
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        // Hold 100% briefly so they see it complete, then dismiss
         _completeTimer = Timer(
           AppMotion.orZero(const Duration(milliseconds: 250)),
           () {

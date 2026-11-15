@@ -6,16 +6,6 @@ import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Talks to the public Comick API for catalog browsing (search, popular,
-/// latest, details, cover images). Chapter pages come from MangaKakalot
-/// via [MangaKakalotService].
-///
-/// Comick endpoints used:
-///   * Search    — `GET /v1.0/search?q=...&type=comic`
-///   * Details   — `GET /comic/{hid}`
-///   * Chapters  — `GET /comic/{id}/chapters?lang=en`
-///
-/// No API key required. The descriptive User-Agent helps with rate limiting.
 class ComickService with ConnectivityAware {
   static const String _baseUrl = 'https://api.comick.dev';
   static const String _coverBase = 'https://meo.comick.pictures';
@@ -23,7 +13,6 @@ class ComickService with ConnectivityAware {
   static const String _proxyUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyComick';
 
-  // Singleton
   static final ComickService _instance = ComickService._internal();
   factory ComickService() => _instance;
   ComickService._internal();
@@ -55,9 +44,6 @@ class ComickService with ConnectivityAware {
     return Uri.parse('$_proxyUrl?path=${Uri.encodeComponent(pathAndQuery)}');
   }
 
-  // ── MAPPING HELPERS ──────────────────────────────────────
-
-  /// Status: 1=Ongoing, 2=Completed, 3=Cancelled, 4=On Hiatus
   static String _mapStatus(int? status) {
     switch (status) {
       case 1:
@@ -136,7 +122,6 @@ class ComickService with ConnectivityAware {
     return '';
   }
 
-  /// Map a search result item (from `/v1.0/search`) to [MangaItem].
   static MangaItem _mapSearchResult(Map<String, dynamic> data) {
     final hid = data['hid'] as String? ?? '';
     final country = data['country'] as String? ?? 'jp';
@@ -148,8 +133,6 @@ class ComickService with ConnectivityAware {
 
     final mangaDexId = data['md_id'] as String? ?? '';
 
-    // Extract alt titles from md_titles for fallback matching on
-    // MangaKakalot, MangaKatana, and Bato.to
     final altTitlesRaw = data['md_titles'] as List?;
     final altTitles = <String>[];
     if (altTitlesRaw != null) {
@@ -183,7 +166,6 @@ class ComickService with ConnectivityAware {
     );
   }
 
-  /// Map a detail response (from `/comic/{hid}`) to [MangaItem].
   static MangaItem _mapDetail(Map<String, dynamic> body) {
     final comic = body['comic'] as Map<String, dynamic>? ?? body;
     final hid = comic['hid'] as String? ?? '';
@@ -232,10 +214,6 @@ class ComickService with ConnectivityAware {
     );
   }
 
-  // ── API METHODS ──────────────────────────────────────────
-
-  /// Search Comick by title. Supports content-type filtering via
-  /// [country] (`jp`/`kr`/`cn`).
   Future<List<MangaItem>> search({
     required String query,
     String? country,
@@ -273,7 +251,6 @@ class ComickService with ConnectivityAware {
     return [];
   }
 
-  /// Fetch popular manga, optionally filtered by [country].
   Future<List<MangaItem>> fetchPopular({
     String? country,
     int limit = 20,
@@ -310,7 +287,6 @@ class ComickService with ConnectivityAware {
     return [];
   }
 
-  /// Fetch recently updated manga, optionally filtered by [country].
   Future<List<MangaItem>> fetchLatest({
     String? country,
     int limit = 20,
@@ -347,7 +323,6 @@ class ComickService with ConnectivityAware {
     return [];
   }
 
-  /// Fetch full details for a single comic by its `hid`.
   Future<MangaItem?> getDetails(String hid) async {
     if (hid.isEmpty) return null;
     final uri = Uri.parse('$_baseUrl/comic/$hid');
@@ -388,14 +363,6 @@ class ComickService with ConnectivityAware {
     );
   }
 
-  /// Fetch chapter feed for a comic by its Comick hid.
-  /// Returns chapters mapped to [MangaChapter]. Chapter page resolution
-  /// still goes through MangaDex / Bato.to / MangaSee123 / MangaKakalot.
-  ///
-  /// Comick counts every scanlation-group upload separately, so a
-  /// 357-chapter series can report 900+ entries — a single 500-entry
-  /// page would silently drop the oldest chapters. We paginate until
-  /// everything is fetched (capped at 4 pages for safety).
   Future<List<MangaChapter>> getChapterFeed(
     String hid, {
     String language = 'en',

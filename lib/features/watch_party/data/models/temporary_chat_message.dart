@@ -1,10 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../chat/domain/models/chat_message.dart';
 
-/// One message in the temporary Watch Together chat.
-///
-/// Reuses the canonical [ChatMessage] shape; only the Firestore path differs
-/// from the persistent party-room chat.
 class TemporaryChatMessage extends ChatMessage {
   TemporaryChatMessage({
     required super.id,

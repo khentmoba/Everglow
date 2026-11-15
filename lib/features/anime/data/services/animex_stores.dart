@@ -5,15 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/animex_models.dart';
 
-/// Local persistence for the anime section: watch history, custom
-/// playlists and small preferences (title language, schedule alerts).
-///
-/// Privacy: every key is scoped to the signed-in profile
-/// (`<base>_<username>`) so one profile's watches never leak into another
-/// profile on the same PWA/device. Before this, the keys were global and
-/// Khent's history showed up when Octagram logged in on the same phone.
-/// Legacy global keys are migrated once into the first couple profile
-/// (khent/clair) that loads them; cinema-only profiles never read legacy.
 class AnimexStores extends ChangeNotifier {
   AnimexStores._internal();
 
@@ -31,7 +22,6 @@ class AnimexStores extends ChangeNotifier {
   bool _skipIntro = true;
   final Map<String, bool> _scheduleAlerts = {};
   bool _loaded = false;
-  // A username check alone misses a switch away and back to the same profile.
   int _loadGeneration = 0;
   String _currentUser = '';
 
@@ -40,14 +30,10 @@ class AnimexStores extends ChangeNotifier {
   bool get titleJapanese => _titleJapanese;
   bool get hideSpoilers => _hideSpoilers;
 
-  /// Lets our own web player move on when an episode ends. The player's own
-  /// "Next episode" button stays manual and always works.
   bool get autoNext => _autoNext;
 
-  /// Uses AniSkip's intro/outro times in our own player.
   bool get skipIntro => _skipIntro;
 
-  /// Username this store is currently loaded for ('' when logged out).
   String get currentUser => _currentUser;
 
   static String _keyFor(String base, String user) =>
@@ -56,15 +42,11 @@ class AnimexStores extends ChangeNotifier {
   static bool _isCoupleUser(String user) =>
       user == 'khentsgdz' || user == 'clairjassen';
 
-  /// Loads this profile's store. Call with the signed-in username; call
-  /// with null/empty on logout. Switching users clears the previous
-  /// profile's data from memory immediately so the UI never flashes it.
   Future<void> load({String? username}) async {
     final user = username ?? '';
     if (_loaded && user == _currentUser) return;
     final generation = ++_loadGeneration;
 
-    // Switch: drop the previous profile's data first.
     _currentUser = user;
     _history = [];
     _playlists = [];
@@ -77,7 +59,6 @@ class AnimexStores extends ChangeNotifier {
     notifyListeners();
     if (generation != _loadGeneration) return;
 
-    // Logged out: stay empty and never touch shared keys.
     if (user.isEmpty) {
       _loaded = true;
       return;
@@ -92,9 +73,6 @@ class AnimexStores extends ChangeNotifier {
         prefsRaw: prefs.getString(_keyFor(_prefsKeyBase, user)),
       );
 
-      // One-time migration of the old global (unscoped) keys. Only couple
-      // profiles inherit legacy data, and only when their own store is
-      // empty — cinema-only profiles never see another profile's past.
       if (_history.isEmpty && _playlists.isEmpty && _isCoupleUser(user)) {
         final legacyHistory = prefs.getString(_historyKeyBase);
         final legacyPlaylists = prefs.getString(_playlistsKeyBase);
@@ -126,7 +104,6 @@ class AnimexStores extends ChangeNotifier {
     }
   }
 
-  /// Convenience for auth changes: `switchUser(auth.currentUser)`.
   Future<void> switchUser(String? username) => load(username: username);
 
   void _readInto({
@@ -162,12 +139,9 @@ class AnimexStores extends ChangeNotifier {
   }
 
   Future<void> _persist() async {
-    // Never write when logged out: there is no profile to own the data.
     final user = _currentUser;
     final generation = _loadGeneration;
     if (user.isEmpty) return;
-    // Capture both ownership and values before any await; a profile switch
-    // must never redirect the remaining writes or supply another user's data.
     final values = {
       _keyFor(_historyKeyBase, user): json.encode(
         _history.map((e) => e.toJson()).toList(),
@@ -189,8 +163,6 @@ class AnimexStores extends ChangeNotifier {
       await prefs.setString(entry.key, entry.value);
     }
   }
-
-  // ── Watch history ────────────────────────────────────────────────
 
   AnimexHistoryEntry? findHistory(String key) {
     for (final e in _history) {
@@ -238,8 +210,6 @@ class AnimexStores extends ChangeNotifier {
     notifyListeners();
     await _persist();
   }
-
-  // ── Playlists ───────────────────────────────────────────────────
 
   AnimexPlaylist? playlistById(String id) {
     for (final p in _playlists) {
@@ -320,8 +290,6 @@ class AnimexStores extends ChangeNotifier {
     await _persist();
   }
 
-  // ── Preferences ─────────────────────────────────────────────────
-
   Future<void> setHideSpoilers(bool value) async {
     if (_hideSpoilers == value) return;
     _hideSpoilers = value;
@@ -357,7 +325,6 @@ class AnimexStores extends ChangeNotifier {
     await _persist();
   }
 
-  /// Test-only reset so the singleton never leaks state between tests.
   @visibleForTesting
   void resetForTest() {
     _loadGeneration++;

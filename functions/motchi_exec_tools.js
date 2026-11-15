@@ -1,23 +1,5 @@
 'use strict';
 
-/* Motchi tool dispatcher — moved verbatim from motchi_chat.js
- * executeTool() (mechanical split, no behavior change).
- *
- * Per-domain executors live in motchi_exec_{media,memory,social,planning,
- * insights}.js. Shared services ride on ctx so executors stay pure
- * (ctx, args) => JSON string functions that unit tests can call with
- * stub services.
- *
- * Two small behavior hardenings vs the old inline switch:
- * - validateToolArgs gates every call (it was defined + tested but never
- *   wired in). Malformed calls fail fast with an explicit error instead
- *   of running with junk args.
- * - TOOL_TIMEOUT_MS / MAX_TOOL_ROUNDS come from motchi_tools.js
- *   (single source; the chat.js duplicates are gone).
- * - normalizeToolArgs cleans args pre-validation, validation errors
- *   carry a fix hint, and transient throws get one retry.
- */
-
 const { getSpotifyAppToken } = require('./spotify.js');
 const { isWriteTool } = require('./motchi_reply_details.js');
 const { actionKey } = require('./motchi_agent.js');
@@ -113,10 +95,6 @@ const {
   exec_propose_choices,
 } = require('./motchi_exec_insights.js');
 
-// ── XP curve (200 XP per level) ──────────────────────────
-// Mirrors lib/features/xp/domain/models/user_progress.dart so Motchi,
-// the client, and the progress bar always agree on the level.
-// Level math: level = floor(xp / 200) + 1.
 const XP_PER_LEVEL = 200;
 function levelForXp(xpTotal) {
   const xp = Number(xpTotal) || 0;
@@ -124,7 +102,6 @@ function levelForXp(xpTotal) {
   return Math.floor(xp / XP_PER_LEVEL) + 1;
 }
 
-/** Shared services for executors. Pass stubs in tests. */
 function createToolCtx({ callerUid, caller, authUid, userMessage } = {}) {
   const admin = getAdmin();
   return {
@@ -220,22 +197,11 @@ const TOOL_EXECUTORS = {
 const _timeout = (ms) =>
   new Promise((_, reject) => {
     const t = setTimeout(() => reject(new Error('Tool timeout')), ms);
-    // Don't hold the event loop: when the executor wins the race this
-    // timer is dead weight (in production the request holds the loop;
-    // in tests an unref'd timer delayed process exit by the full 25s).
     if (typeof t.unref === 'function') t.unref();
   });
 
-// Max gallery thumbnails attached as vision input per tool round.
-// Each image costs vision tokens, so the executor caps its side at 3
-// and the loop caps the merged total here too.
 const VISION_IMAGES_PER_ROUND = 3;
 
-/**
- * Builds a user message carrying tool-result images (OpenAI-style
- * image_url parts) for the next model call, or null when no tool
- * returned any. Pure — takes the FULL (untrimmed) result strings.
- */
 function visionMessageForResults(fullResults) {
   const urls = [];
   for (const r of fullResults || []) {
@@ -257,8 +223,6 @@ function visionMessageForResults(fullResults) {
   };
 }
 
-// Idempotency cache for creation tools: (caller + toolName + title + date) -> { result, ts }
-// Prevents duplicate records if mobile network drops, user double-taps, or model repeats a write.
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
 const _idempotencyCache = new Map();
 
@@ -291,12 +255,6 @@ function clearIdempotencyCache() {
   _idempotencyCache.clear();
 }
 
-/**
- * Validated, time-boxed tool call. Always resolves to a JSON string.
- * Args are normalized (trim/coerce/alias) before validation; validation
- * failures carry a fix hint; thrown transient errors (timeouts, 429/
- * 502/503, reset sockets) get exactly one retry after a short pause.
- */
 const TRANSIENT_TOOL_ERROR_RE = /tool timeout|timeout|timed out|econnreset|econnrefused|enotfound|etimedout|eai_again|429|502|503|rate.?limit|temporar|unavailable/i;
 
 async function executeToolCall(ctx, toolName, args, opts = {}) {
@@ -345,7 +303,6 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
     return JSON.stringify({ error: 'A previous write could not be confirmed. Check the saved record before trying again in a new request.', outcome_unknown: true });
   }
 
-  // Idempotency check: prevent duplicate creates within the cache window
   const isIdempotent = shouldCheckIdempotency(toolName, normalized);
   let idempKey = null;
   if (isIdempotent && opts.idempotent !== false) {
@@ -389,12 +346,9 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
   } catch (e) {
     const msg = (e && e.message) || 'Tool execution failed';
     if (isWriteTool(toolName)) {
-      // ponytail: pause this write tool for the turn; per-record locks only
-      // if a real workflow needs independent writes after an unknown result.
       ctx.uncertainWrites ??= new Set();
       ctx.uncertainWrites.add(toolName);
     }
-    // A timed-out write can still finish. Repeating it could save/send twice.
     if (!isWriteTool(toolName) && opts.retry !== false && TRANSIENT_TOOL_ERROR_RE.test(msg)) {
       await new Promise((r) => setTimeout(r, 800));
       try {

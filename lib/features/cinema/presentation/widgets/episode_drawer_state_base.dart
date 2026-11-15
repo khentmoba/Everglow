@@ -16,77 +16,42 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
   int? _tmdbMatchedSeason;
   List<dynamic> _episodes = [];
 
-  /// Season navigation entries for anime (built from AniList SEQUEL/PREQUEL
-  /// relations). Empty for TMDB-sourced items and for anime with no related
-  /// seasons. Rendered as a horizontal pill strip below the meta section.
-
   List<Map<String, dynamic>> _cast = [];
   List<Map<String, dynamic>> _reviews = [];
   List<MediaItem> _similar = [];
 
-  /// Selected Cast / Reviews / More tab. Only the selected tab is built
-  /// and fetched, so the phone never lays out what Clair hasn't opened.
   int _extraTab = 0;
   bool _castRequested = false;
   bool _reviewsRequested = false;
   bool _similarRequested = false;
-  // Status chips listen to this directly so tapping a chip only rebuilds
-  // the chips — not the hero/trailer/episodes/cast. A full-drawer setState
-  // on every tap relaid out the YouTube iframe on iPhone and read as a
-  // multi-second hang after undo. See _EpisodeDrawerStateCore2._updateStatus.
   late final ValueNotifier<String> _statusNotifier;
   String get _currentStatus => _statusNotifier.value;
   List<String> _genreNames = [];
 
-  /// AniList detail record, kept around for the synopsis / studio / format
-  /// fields. We mirror a small subset into [_details] so the existing
-  /// build logic (which reads `overview`, `genres`, etc. off the map) keeps
-  /// working unchanged.
   AniListDetail? _aniListDetail;
 
-  /// TMDB series ID found by the anime fallback (search or ani.zip). Used
-  /// by [_fetchReviews] to try TMDB reviews when Jikan reviews are empty.
   int? _aniSearchedTmdbId;
 
-  /// MAL ID resolved from the AniList detail response. Used for Jikan
-  /// API calls and VideoPlayer navigation instead of [widget.item.tmdbId],
-  /// which may be an AniList ID when navigating from season pills where
-  /// the SEQUEL/PREQUEL relation has no `malId` cross-link.
   int? _resolvedMalId;
 
-  /// Studio name when this is an anime item (e.g. "MAPPA"). Empty for
-  /// non-anime items so the meta row just skips it.
   String get _studio => _isAnimeSourced
       ? (_aniListDetail?.studios.isNotEmpty == true
             ? _aniListDetail!.studios.first
             : widget.item.studio)
       : '';
 
-  /// Format string (TV, TV Short, Movie, OVA, ONA, Special, Music) for
-  /// anime items. Empty otherwise.
   String get _format =>
       _isAnimeSourced ? (_aniListDetail?.format ?? widget.item.format) : '';
 
-  /// Airing status (Airing / Finished Airing / Not yet aired) for anime
-  /// items. Empty otherwise.
   String get _airingStatus => _isAnimeSourced
       ? (_aniListDetail?.airingStatus ?? widget.item.airingStatus)
       : '';
 
-  /// True when the item was sourced from Jikan or AniList (i.e. an anime that came
-  /// in via the Anime feature, not via TMDB discover). Drives which
-  /// service we route the detail-page fetches to.
   bool get _isAnimeSourced =>
       widget.item.isAnime ||
       widget.item.source == 'jikan' ||
       widget.item.source == 'anilist';
 
-  /// True when this title is a film and must show Play (never episodes).
-  /// Covers TMDB movies via [MediaItem.isMovie] plus ONA-listed anime
-  /// films (e.g. Drifting Home: tv + ONA + 1 x 120min) which AniList does
-  /// not mark as MOVIE. Mirrors AnimeXWatchPage._filmFor so both entry
-  /// points agree. Checks the live AniList detail first, then falls back
-  /// to the catalog item so legacy tv-stored docs still resolve.
   bool get _isFilm {
     if (widget.item.isMovie) return true;
     if (!_isAnimeSourced) return false;
@@ -98,8 +63,6 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
         durationMinutes: detail.duration,
       );
     }
-    // Detail not loaded yet: use the catalog snapshot so we don't flash
-    // episodes for known films while AniList resolves.
     return MediaItem.isSingleEpisodeFilm(
       format: widget.item.format,
       episodeCount: widget.item.episodeCount,
@@ -109,7 +72,6 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
 
   int get _effectiveMalId => _resolvedMalId ?? widget.item.tmdbId;
 
-  // Trailer state
   String? _trailerKey;
   bool _isLoadingTrailer = false;
   bool _isPlayingTrailer = false;
@@ -219,18 +181,9 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
 
   bool _isMobile = false;
 
-  /// Controller for the horizontal status chip scroll area. On web,
-  /// vertical mouse wheel deltas are converted to horizontal scroll
-  /// so all status options are reachable without a horizontal scroll
-  /// gesture or Shift+wheel.
   final _statusScrollCtrl = ScrollController();
-  // Serial queue for status taps. The old boolean guard silently dropped
-  // taps while a save/remove was in flight — on slow mobile network that
-  // read as a multi-second hang (tap does nothing, then works again).
-  // Chaining keeps writes sequential (no race) without ever losing a tap.
   Future<void> _statusQueue = Future.value();
 
-  // For header parallax/fade
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
 }
@@ -239,10 +192,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   @override
   void initState() {
     super.initState();
-    // Resolve "watched-self" / "watching-self" to the partner-specific
-    // variant so the correct chip is highlighted. Per-user Firestore
-    // docs store "self" variants, but couple chips expect "watched-khent",
-    // "watched-clair", etc.
     _statusNotifier = ValueNotifier(widget.item.resolveCoupleStatus());
     _fadeCtrl = AnimationController(
       vsync: this as TickerProvider,
@@ -251,13 +200,9 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fetchMediaDetails();
     _loadTrailer();
-    // Only the default (Cast) tab fetches on open. Reviews and Similar
-    // fetch the first time Clair taps their tab (see [_selectExtraTab]).
     _requestExtraTab(0);
   }
 
-  /// Fetches the data for [index] once. Later selections reuse the
-  /// cached lists, so switching tabs never refetches.
   void _requestExtraTab(int index) {
     switch (index) {
       case 0:
@@ -267,8 +212,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       case 1:
         if (_reviewsRequested) return;
         _reviewsRequested = true;
-        // Delay reviews by 4s so episode Jikan fetches can clear the
-        // queue, reducing the chance of 429 rate-limit collisions.
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted) _fetchReviews();
         });
@@ -304,18 +247,11 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     try {
       String? key;
       if (_isAnimeSourced) {
-        // AniList has a `trailer` field; we surface it for the hero
-        // player when it's a YouTube id. We still call this after
-        // [_fetchMediaDetails] has run, so we can read the resolved id
-        // off [_aniListDetail] if it's available; otherwise we kick off
-        // a fresh detail fetch and use it.
         final detail =
             _aniListDetail ??
             await _aniListService.fetchDetails(malId: _effectiveMalId);
         _aniListDetail ??= detail;
         key = detail?.trailerYoutubeId;
-        // Last-resort fallback: ask Jikan for the trailer. Jikan's
-        // /anime/{id} also embeds a YouTube trailer when licensed.
         key ??= await _jikanTrailerKey(_effectiveMalId);
       } else {
         key = await _tmdbService.fetchTrailerKey(
@@ -327,10 +263,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
         setState(() {
           _trailerKey = key;
           _isLoadingTrailer = false;
-          // The cinema variant auto-plays the trailer as soon as the key is
-          // ready, on every screen size, so the hero opens playing instead of
-          // asking the user to tap Watch Trailer. Dashboard previews keep
-          // their existing behavior: mobile auto-plays, desktop tap-to-play.
           if ((widget.cinemaVariant || _isMobile) && key != null) {
             _isPlayingTrailer = true;
           }
@@ -343,17 +275,12 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     }
   }
 
-  /// Pulls a YouTube trailer id from Jikan's /anime/{id} payload. Jikan
-  /// exposes a `trailer.youtube_id` field that's typically empty for
-  /// non-Western-licensed shows but sometimes the only trailer source
-  /// for older or niche anime.
   Future<String?> _jikanTrailerKey(int malId) async {
     try {
       final data = await _jikanService.fetchAnimeById(malId);
       final trailer = data?['trailer'] as Map<String, dynamic>?;
       final yt = trailer?['youtube_id'] as String?;
       if (yt != null && yt.isNotEmpty) return yt;
-      // Jikan also embeds the trailer URL — fall back to parsing its v= param.
       final url = trailer?['url'] as String?;
       if (url != null && url.contains('v=')) {
         return url.split('v=').last;
@@ -376,11 +303,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     }
   }
 
-  /// Anime-sourced path. Pulls the AniList detail (the rich source for
-  /// synopsis, genres, studio, characters, etc.) and projects it into
-  /// the same shape [_details] / [_genreNames] / [_episodes] hold for
-  /// TMDB-sourced items so the rest of the build method doesn't branch
-  /// on source.
   Future<void> _fetchAnimeDetails() async {
     final detail = await _aniListService.fetchDetailsWithFallback(
       anilistId: widget.item.anilistId,
@@ -422,9 +344,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       _genreNames = detail.genres;
     });
 
-    // Films never show episodes — not even one row. ONA-listed films
-    // (Drifting Home: ONA + 1 x 120min) used to fall through to the
-    // synthetic Season 1 below and render fake Episode 1..N rows.
     if (_isFilm) {
       if (mounted) {
         setState(() {
@@ -436,7 +355,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       return;
     }
 
-    // Try using TMDB seasons like cinema. Resolve MAL→TMDB via ani.zip.
     final malId = _resolvedMalId ?? widget.item.tmdbId;
     int? tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
     if (tmdbSeriesId == null && widget.item.year.isNotEmpty) {
@@ -475,7 +393,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       }
     }
 
-    // Fallback: synthetic Season 1 with Jikan episodes (legacy)
     final synthCount = detail.episodeCount != null && detail.episodeCount! > 0
         ? detail.episodeCount
         : 12;
@@ -488,8 +405,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     });
   }
 
-  /// TMDB path (unchanged). Kept as its own method so the source
-  /// branching in [_fetchMediaDetails] reads cleanly.
   Future<void> _fetchTmdbDetails() async {
     final details = await _tmdbService.fetchMediaDetails(
       widget.item.tmdbId,
@@ -528,8 +443,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   }
 
   Future<void> _fetchSeasonEpisodes(int seasonNumber) async {
-    // Films never load episodes — guards against stale season-change
-    // callbacks racing the _fetchAnimeDetails film early-return.
     if (_isFilm) {
       if (mounted) {
         setState(() {
@@ -545,7 +458,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       _tmdbMatchedSeason = null;
     });
     if (_isAnimeSourced && _aniSearchedTmdbId != null) {
-      // Use TMDB season data like cinema for anime with a TMDB mapping.
       final episodes = await _tmdbService.fetchSeasonEpisodes(
         _aniSearchedTmdbId!,
         seasonNumber,
@@ -559,7 +471,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       return;
     }
     if (_isAnimeSourced) {
-      // Fallback: Jikan-sourced episodes for anime without TMDB mapping.
       final malId = _resolvedMalId ?? widget.item.tmdbId;
       final episodes = await _fetchJikanEpisodes(malId);
       if (!mounted) return;
@@ -582,31 +493,7 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     }
   }
 
-  /// Pulls the full MAL episode list for an anime and projects it into
-  /// the TMDB-shaped map the existing [_buildEpisodeTile] reads. Keys:
-  /// `episode_number`, `name`, `overview`, `still_path`, `aired`,
-  /// `duration`.
-  ///
-  /// Four sources, merged in priority order:
-  ///   1. Jikan's `/anime/{id}/episodes` — real titles, air dates,
-  ///      durations for essentially every show.
-  ///   2. AniList's `streamingEpisodes` overlay — fills in titles and
-  ///      licensed stills (Western-licensed shows) for Jikan gaps.
-  ///   3. ani.zip's TVDB-sourced `episodes[].image` — per-episode
-  ///      stills. This is the primary thumbnail source for non-Western
-  ///      shows; it's also what the AniList streaming stills fall back
-  ///      to when AniList's payload is sparse.
-  ///   4. Placeholder `Episode N` — last resort when no source has a
-  ///      title for that slot.
-  ///
-  /// Thumbnails: when an AniList still exists for an episode we prefer
-  /// it (better-looking, already CDN-cached). Otherwise we use the
-  /// TVDB still from ani.zip. If both are missing, `still_path` stays
-  /// null and the [EpisodeTile] falls back to a gradient + episode
-  /// number — never a broken image box.
   Future<List<Map<String, dynamic>>> _fetchJikanEpisodes(int malId) async {
-    // Fire Jikan + ani.zip in parallel — they're independent and the
-    // network wait dominates the total time on slow links.
     final jikanFuture = _jikanService.fetchAnimeEpisodes(malId);
     final animeByIdFuture = _jikanService.fetchAnimeById(malId);
     final aniZipFuture = _aniZipService.fetchEpisodeImages(malId);
@@ -614,17 +501,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     final anime = await animeByIdFuture;
     final aniZipImages = await aniZipFuture;
 
-    // Pick the loop bound carefully. Three signals matter:
-    //   1. Jikan `/anime/{id}` → `episodes` = total announced episode
-    //      count for the whole series (e.g. 24 for an airing show).
-    //   2. Jikan `/anime/{id}/episodes` → only aired episodes with
-    //      titles (e.g. 10 for the same show mid-season).
-    //   3. ani.zip → TVDB-sourced, may cover aired + scheduled.
-    //
-    // If we blindly used #1, an airing show would render 14 placeholder
-    // "Episode N" rows for episodes that haven't aired yet. Instead we
-    // cap at the highest episode number we actually have *any* signal
-    // for — Jikan aired count or ani.zip count, whichever is bigger.
     final announcedCount = (anime?['episodes'] is num)
         ? (anime?['episodes'] as num).toInt()
         : 0;
@@ -639,17 +515,9 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
 
     int episodeCount;
     if (maxKnown > 0) {
-      // At least one source has aired/scheduled data. Cap to that so
-      // we don't render empty placeholders for unaired episodes.
       episodeCount = maxKnown;
-      // If Jikan's announced count is *lower* than what we've found
-      // (e.g. an OVA that bumps the count up after the main series
-      // finishes), respect the higher number.
       if (announcedCount > episodeCount) episodeCount = announcedCount;
     } else {
-      // No aired data from any source — fall back to the announced
-      // count or 12 as a last resort, so the UI still renders rows
-      // with placeholder titles.
       episodeCount = announcedCount > 0 ? announcedCount : 12;
     }
 
@@ -662,9 +530,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       if (th != null && th.isNotEmpty) anilistThumbs[ep.number] = th;
     }
 
-    // Always fetch TMDB episode data for overviews (descriptions).
-    // TMDB stills are only preferred as a fallback when anime-source
-    // thumbnails (AniList / ani.zip) are sparse.
     final needsTmdbFallback = (() {
       final withThumb = <int>{}
         ..addAll(anilistThumbs.keys)
@@ -726,11 +591,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     return out;
   }
 
-  /// TMDB fallback for anime episode stills + overviews. Matches the
-  /// anime's broadcast year (from AniList) against TMDB seasons'
-  /// air_date to find the right season number, then fetches per-episode
-  /// data. Returns the episode-number -> {stillUrl, overview} map;
-  /// empty on any miss.
   Future<Map<int, ({String? stillUrl, String? overview})>>
   _fetchTmdbEpisodeStills(int tmdbSeriesId, AniListDetail? detail) async {
     final details = await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
@@ -742,14 +602,12 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
         [];
     if (seasons.isEmpty) return {};
 
-    // Match by broadcast year. Different seasons of the same anime
-    // almost always air in different years, so year alone disambiguates.
     final animeYear = detail?.seasonYear ?? int.tryParse(widget.item.year);
     int? bestSn;
     int bestScore = 9999;
     for (final s in seasons) {
       final sn = (s['season_number'] as num?)?.toInt();
-      if (sn == null || sn <= 0) continue; // skip specials
+      if (sn == null || sn <= 0) continue;
       final ad = s['air_date'] as String?;
       int score = 0;
       if (animeYear != null && ad != null && ad.length >= 4) {
@@ -790,11 +648,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   Future<void> _fetchCast() async {
     List<Map<String, dynamic>> cast;
     if (_isAnimeSourced) {
-      // `_aniListDetail` is populated by the parallel `_fetchMediaDetails`
-      // call, but it almost always races ahead of us and reads as null
-      // on first open. Pull directly here — AniListService caches
-      // details in-memory for 30 min keyed on the MAL/AniList id, so
-      // this is a cache hit whenever `_fetchAnimeDetails` already ran.
       AniListDetail? detail = _aniListDetail;
       if (detail == null) {
         detail = await _aniListService.fetchDetails(
@@ -820,11 +673,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     }
   }
 
-  /// Convert AniList's character edges into the TMDB-shaped cast map
-  /// the existing UI renders. For each character we emit one entry per
-  /// Japanese voice actor (so a character with multiple VAs yields
-  /// multiple rows). `character` holds the role name, `name` holds the
-  /// VA, mirroring the TMDB convention.
   List<Map<String, dynamic>> _mapAniListCharacters(
     List<AniListCharacter> characters,
   ) {
@@ -848,7 +696,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       List<Map<String, dynamic>> reviews;
       if (_isAnimeSourced) {
         reviews = await _fetchJikanReviews(_effectiveMalId);
-        // If Jikan returned no reviews, try TMDB as a fallback.
         if (reviews.isEmpty) {
           int? tmdbId = _aniSearchedTmdbId;
           if (tmdbId == null && widget.item.year.isNotEmpty) {
@@ -884,14 +731,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     }
   }
 
-  /// Fetches MAL user reviews via Jikan's /anime/{id}/reviews endpoint
-  /// and projects them into the TMDB-shaped review map.
-  ///
-  /// Now routed through [JikanService.fetchAnimeReviews] so the call
-  /// respects the rate-limit queue and exponential backoff. The
-  /// previous direct `http.get` path used here was prone to 429
-  /// errors during the Editor's Picks fan-out — the queue serializes
-  /// requests and the exponential backoff is already tuned for Jikan.
   Future<List<Map<String, dynamic>>> _fetchJikanReviews(int malId) async {
     final entries = await _jikanService.fetchAnimeReviews(malId);
     return entries.take(8).map<Map<String, dynamic>>((r) {
@@ -912,13 +751,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   Future<void> _fetchSimilar() async {
     List<MediaItem> similar;
     if (_isAnimeSourced) {
-      // Race condition: `_fetchMediaDetails()` populates `_aniListDetail`
-      // asynchronously, but `_fetchSimilar()` is kicked off in the
-      // same `initState` burst, so reading `_aniListDetail` here
-      // almost always returns null and the AniList relations are
-      // silently dropped. We await the detail directly — the
-      // [AniListService] has its own 10-min cache so this is a
-      // cache-hit whenever `_fetchMediaDetails()` ran first.
       if (_aniListDetail == null) {
         final detail = await _aniListService.fetchDetailsWithFallback(
           anilistId: widget.item.anilistId,
@@ -929,10 +761,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
         }
       }
       similar = _mapAniListRelated();
-      // AniList's `recommendations` field is sparse for most titles
-      // (often zero entries) and `relations` is sometimes empty for
-      // one-shots. Fall back to Jikan's `/anime/{id}/recommendations`
-      // so the rail is rarely empty.
       if (similar.isEmpty) {
         similar = await _mapJikanRecommendations(_effectiveMalId);
       }
@@ -950,11 +778,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     }
   }
 
-  /// Pulls Jikan's user-recommendation rail and projects the entries
-  /// into [MediaItem]s the existing `_buildSimilarSection` can render
-  /// without changes. Jikan returns `entry` blocks where `mal_id` is
-  /// the recommended title and `images.jpg.large_image_url` is the
-  /// cover art.
   Future<List<MediaItem>> _mapJikanRecommendations(int malId) async {
     final entries = await _jikanService.fetchAnimeRecommendations(malId);
     final out = <MediaItem>[];
@@ -988,10 +811,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     return out;
   }
 
-  /// Combines AniList's relations (sequels, prequels, side stories) and
-  /// user recommendations into a single "More Like This" rail. Relations
-  /// come first because they share universe/characters and are usually
-  /// what the user is hunting for.
   List<MediaItem> _mapAniListRelated() {
     if (_aniListDetail == null) return const [];
     final out = <MediaItem>[];
@@ -1010,11 +829,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   }
 
   MediaItem _relatedToMediaItem(AniListRelated r) {
-    // The drawer treats `MediaItem.tmdbId` as the MAL id for
-    // anime-sourced items, so we need the MAL cross-reference here.
-    // AniList's native `id` was used previously — which silently
-    // routed every relation to a non-existent MAL entry and left
-    // the new drawer's detail page blank.
     final malId = r.malId ?? r.id;
     return MediaItem(
       id: '',

@@ -45,7 +45,6 @@ void main() {
         containsAll(['Everglow Emoji', 'Everglow Symbols']),
       );
     }
-    // The emoji fallback must not replace the app's text fonts.
     expect(AppTypography.cormorantBold.fontFamily, AppTypography.display);
     expect(AppTypography.outfitWhite.fontFamily, AppTypography.body);
   });

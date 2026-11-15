@@ -6,12 +6,6 @@ import '../../data/models/academy_question.dart';
 import '../../data/models/game_match.dart';
 import '../screens/academy_hub_screen.dart' deferred as academy_lib;
 
-/// Routes owned by the academy feature.
-///
-/// The whole hub (and with it solo study, the head-to-head board and the
-/// podium) rides one deferred chunk: the four screens share question/match
-/// models and navigation, so splitting them would download the same models
-/// twice for no boot win.
 final List<GoRoute> academyRoutes = [
   GoRoute(
     path: '/academy',
@@ -57,7 +51,6 @@ final List<GoRoute> academyRoutes = [
   ),
 ];
 
-/// Args for [SoloStudyScreen].
 class SoloStudyArgs {
   final List<AcademyQuestion> questions;
   final String category;
@@ -70,7 +63,6 @@ class SoloStudyArgs {
   });
 }
 
-/// Args for [GameBoardScreen].
 class GameBoardArgs {
   final String matchId;
   final String username;

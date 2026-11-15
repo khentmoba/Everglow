@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Categories for milestones.
 enum MilestoneCategory {
   firstDate('First Date', '💕'),
   trip('Trip', '✈️'),
@@ -14,12 +13,6 @@ enum MilestoneCategory {
 }
 
 class Milestone {
-  /// Milestone photos that were renamed from `.png` to `.jpg` after the
-  /// first memories were saved. Stored docs may still point at the deleted
-  /// `.png` files, which render as blank photos, so both the read path
-  /// ([fromFirestore]) and the one-time repair migration
-  /// (`MilestoneService.repairLegacyAssetPaths`) rewrite them.
-  /// Keep this map to exactly these renames — never add a live `.png`.
   static const Map<String, String> legacyAssetPathFixes = {
     'assets/images/milestones/valentines_khent_2.png':
         'assets/images/milestones/valentines_khent_2.jpg',
@@ -33,12 +26,9 @@ class Milestone {
         'assets/images/milestones/puting_bato_khent_3.jpg',
   };
 
-  /// Rewrites a stale seeded asset path to its current equivalent.
-  /// Returns [url] unchanged when it needs no repair.
   static String repairLegacyImageUrl(String url) =>
       legacyAssetPathFixes[url] ?? url;
 
-  /// Resolve retired bundle references without changing stored documents.
   static String? privateImagePath(String url) {
     const prefix = 'assets/images/milestones/';
     final repaired = repairLegacyImageUrl(url);

@@ -15,13 +15,6 @@ import 'shelf_widgets.dart';
 import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// "Watched" shelf on the dashboard.
-///
-/// For couple users (khentsgdz / clairjassen) the shelf splits into
-/// two labeled sub-rows — "Me" and the partner — so each partner can
-/// see what the other has finished without leaving the dashboard.
-/// Non-couple users keep the original single-row layout (one stream
-/// of their own watched items only).
 class CinemaPreview extends StatelessWidget {
   const CinemaPreview({super.key});
 
@@ -84,8 +77,6 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
       if (mounted) setState(() => _items = []);
       return;
     }
-    // Realtime (bounded by previewLimit via limit) so watched counts drop
-    // immediately on undo instead of lingering until reload.
     _streamSub?.cancel();
     _streamSub = _service
         .getWatchListStream(
@@ -95,9 +86,6 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
         .listen(
       (items) {
         if (!mounted) return;
-        // Cinema owns every watched movie (live-action or anime) plus
-        // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
-        // the Anime rail.
         final watched = items.watchedCinema;
         watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
         setState(() => _items = watched);
@@ -173,8 +161,6 @@ class _CinemaShelfState extends State<_CinemaShelf> {
       }
       return;
     }
-    // Realtime (bounded by previewLimit via limit) so undo/remove updates
-    // the shelf immediately. Mirrors the Currently Watching shelf.
     _streamSub?.cancel();
     _streamSub = _service
         .getWatchListStream(
@@ -184,9 +170,6 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         .listen(
       (items) {
         if (!mounted) return;
-        // Cinema owns every watched movie (live-action or anime) plus
-        // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
-        // the Anime rail.
         final watched = items.watchedCinema;
         watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
         setState(() {
@@ -198,8 +181,6 @@ class _CinemaShelfState extends State<_CinemaShelf> {
       },
       onError: (Object e) {
         if (!mounted) return;
-        // Report the failure instead of a false-empty shelf: a denied
-        // fetch means the data is unreachable, not absent.
         setState(() {
           _hasLoaded = true;
           _loadError = true;
@@ -208,10 +189,6 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     );
   }
 
-  /// Resolves posters for entries saved without one (e.g. older docs from
-  /// before `posterPath` was stored, or progress saves from the video
-  /// player). Mirrors the Currently Watching shelf — without this, Watched
-  /// cards fall back to the placeholder tile forever.
   Future<void> _backfillPosters(List<MediaItem> items) async {
     try {
       var updated = await _service.backfillMissingPosters(items);
@@ -222,9 +199,6 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     }
   }
 
-  /// Reactive heal: a cover URL that looks valid but 404s (stale TMDB
-  /// artwork) triggers one background heal instead of a permanent
-  /// placeholder tile. Deduped per doc id per session.
   void _handleImageError(MediaItem item) {
     if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
     _healAttempted.add(item.id);

@@ -11,8 +11,6 @@ class PresenceService {
   final FirebaseFirestore _db;
   static const String _collection = 'presence';
   static const String _sessionsCollection = 'presence_sessions';
-  // 180s heartbeat (cost): presence writes are ~15% of the free quota at 60s.
-  // Client onlineThreshold (4 min) and server sweep (6 min stale) allow 2 missed beats.
   static const Duration heartbeatInterval = Duration(seconds: 180);
   static const Duration doodleTouchThreshold = Duration(seconds: 15);
 
@@ -22,18 +20,14 @@ class PresenceService {
   String? _currentUsername;
   String? _doodlingUid;
 
-  // --- session tracking ---
   String? _activeSessionId;
 
-  // Agent demo must never read or write live presence documents.
   bool get _demo => AgentMode.isActive.value && AgentMode.useDemoData.value;
 
   DocumentReference _doc(String uid) => _db.collection(_collection).doc(uid);
   DocumentReference _sessionDoc(String id) =>
       _db.collection(_sessionsCollection).doc(id);
 
-  /// Streams the presence document for [uid]. Emits a default-empty
-  /// [PresenceStatus] when the document does not exist yet.
   Stream<PresenceStatus> watchPresence(String uid) {
     if (_demo) return Stream.value(PresenceStatus.empty(uid));
     return _doc(uid)
@@ -49,13 +43,10 @@ class PresenceService {
         });
   }
 
-  /// Starts a periodic heartbeat for [uid] marking them online. Safe to call
-  /// repeatedly with the same uid; the previous timer is cancelled.
   void startHeartbeat({required String uid, required String username}) {
     if (uid.isEmpty || _demo) return;
     if (_currentUid == uid && _heartbeatTimer != null) return;
 
-    // close previous session if switching user without explicit stopHeartbeat
     if (_currentUid != null && _currentUid != uid && _activeSessionId != null) {
       unawaited(_closeSessionInternal());
     }
@@ -87,14 +78,11 @@ class PresenceService {
     _doodlingUid = null;
   }
 
-  /// Stops the heartbeat timer and marks the user offline. Call this on
-  /// logout, app close, or when leaving the dashboard.
   Future<void> stopHeartbeat() async {
     final uid = _currentUid;
     _stopHeartbeat();
     _currentUid = null;
     _currentUsername = null;
-    // close session before marking offline so endedAt ~ lastSeen
     if (uid != null) {
       await _closeSessionInternal();
       await setOffline(uid);
@@ -102,8 +90,6 @@ class PresenceService {
       await _closeSessionInternal();
     }
   }
-
-  // ---- session helpers ----
 
   Future<void> _createSession(String uid, String username) async {
     try {
@@ -156,7 +142,6 @@ class PresenceService {
     }
   }
 
-  /// Marks [uid] as online right now. Updates the lastSeen timestamp.
   Future<void> setOnline({
     required String uid,
     required String username,
@@ -177,12 +162,8 @@ class PresenceService {
     }
   }
 
-  /// Marks [uid] as offline but keeps the lastSeen timestamp so we can still
-  /// compute "active X ago" on the partner's side.
   Future<void> setOffline(String uid) async {
     if (uid.isEmpty || _demo) return;
-    // A hidden app must not mark itself online again on the next heartbeat.
-    // Keep its session so returning resumes it instead of creating an orphan.
     if (_currentUid == uid) _stopHeartbeat();
     try {
       await _doc(uid).set({
@@ -196,9 +177,6 @@ class PresenceService {
     }
   }
 
-  /// Marks [uid] as actively doodling. Throttled internally so calling on
-  /// every pan-update is safe. Also starts an idle timer that automatically
-  /// clears the doodling flag if no further touches arrive.
   Future<void> markDoodling(String uid) async {
     if (uid.isEmpty || _demo) return;
     _doodlingUid = uid;
@@ -220,8 +198,6 @@ class PresenceService {
     });
   }
 
-  /// Clears the doodling flag for [uid]. Should be called when the user
-  /// leaves the canvas screen, or after the idle window expires.
   Future<void> clearDoodling(String uid) async {
     if (uid.isEmpty || _demo) return;
     if (_doodlingUid != uid) {
@@ -242,9 +218,7 @@ class PresenceService {
     }
   }
 
-  /// True if this service currently believes the local user is doodling.
   bool get isDoodling => _doodlingUid != null;
 
-  /// Current active session id, if any (for debugging / testing).
   String? get activeSessionId => _activeSessionId;
 }

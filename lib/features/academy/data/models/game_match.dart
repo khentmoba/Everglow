@@ -2,24 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GameMatch {
   final String matchId;
-  // Firebase Auth UIDs (rules compare against request.auth.uid).
   final String hostId;
   final String? participantId;
-  // Usernames (khentsgdz / clairjassen / ...) for display + scoring.
   final String? hostUsername;
   final String? participantUsername;
-  // Scores by side: host on the left, guest on the right.
   final int hostScore;
   final int guestScore;
-  final String status; // 'waiting', 'active', 'finished'
+  final String status;
   final String currentQuestionId;
   final int questionIndex;
-  // Shared question order, snapshotted at creation so both phones
-  // see the same questions. Empty on legacy docs (pre-refresh).
   final List<String> questionIds;
   final String category;
   final DateTime createdAt;
-  // Winner username or 'draw'.
   final String? winnerId;
   final bool isReplenishing;
 
@@ -69,7 +63,6 @@ class GameMatch {
       participantId: _toNullableStr(map['participantId']),
       hostUsername: _toNullableStr(map['hostUsername']),
       participantUsername: _toNullableStr(map['participantUsername']),
-      // Legacy docs stored khentScore / clairScore; read them as sides.
       hostScore: _toInt(map['hostScore'] ?? map['khentScore']),
       guestScore: _toInt(map['guestScore'] ?? map['clairScore']),
       status: _toStr(map['status'], fallback: 'waiting'),

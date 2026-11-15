@@ -186,8 +186,6 @@ void main() {
     await tester.pump();
     final before = tester.widget<CinemaHomeTab>(find.byType(CinemaHomeTab));
 
-    // Crossing the top used to rebuild the whole screen for a flag only the
-    // desktop bar reads.
     final home = tester.state<ScrollableState>(
       find
           .descendant(

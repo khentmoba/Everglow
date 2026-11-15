@@ -16,8 +16,6 @@
 
   var LOAD_TIMEOUT_MS = 12000;
 
-  // Watch Together drives playback through these. CineSrc exposes a
-  // postMessage control API; this wrapper only relays it (see below).
   var COMMANDS = ['play', 'pause', 'seek', 'setMuted', 'getPaused'];
   var EVENTS = [
     'cinesrc:ready',
@@ -60,20 +58,10 @@
     } catch (err) {}
   }, { passive: true });
 
-  // CineSrc announces internal episode changes (auto-play and its own
-  // episode picker) as {type:'cinesrc:nextepisode', season, episode} to
-  // this wrapper. Without forwarding, the app's episode list keeps
-  // highlighting the old episode while the player is already on the
-  // next one. Forward the event to the app window (Flutter Web listens
-  // for it) and to the native WebView bridge when present. Origin is
-  // checked so only the real upstream can drive the app's episode state.
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (!d || typeof d.type !== 'string') return;
 
-    // Parent (the watch party screen) -> player. Only the playback
-    // commands CineSrc understands are passed through, and only from
-    // our direct parent, so no other page can steer the player.
     if (d.type === 'cinesrc:command') {
       if (e.source !== window.parent || !frame.contentWindow) return;
       if (COMMANDS.indexOf(d.command) === -1) return;
@@ -86,7 +74,6 @@
       return;
     }
 
-    // Player -> parent. Only the real upstream frame may speak.
     if (e.origin !== 'https://cinesrc.st' || e.source !== frame.contentWindow) return;
 
     if (EVENTS.indexOf(d.type) !== -1) {

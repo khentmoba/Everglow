@@ -15,8 +15,6 @@ void main() {
 
     expect(find.byType(EverglowLoadingBars), findsOneWidget);
     expect(find.byType(EverglowSkeleton), findsNWidgets(3));
-    // The shared shimmer ticker must be running — this is what makes
-    // hover loading cards pulse instead of sitting as dead grey bars.
     expect(EverglowShimmerScope.activeCount, 3);
     expect(EverglowShimmerScope.controller, isNotNull);
   });

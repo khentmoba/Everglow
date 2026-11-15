@@ -1,12 +1,6 @@
 import '../models/video_source_config.dart';
 import 'cinema_video_sources.dart';
 
-/// Builds the embed URL for a [VideoSourceConfig].
-///
-/// Shared by the web iframe player and the native external-launch player so
-/// both platforms resolve the same provider URLs. The web player previously
-/// owned this logic; keep provider-specific quirks here so Android doesn't
-/// drift from the web behavior.
 String buildVideoSourceUrl(
   VideoSourceConfig provider, {
   required String mediaType,
@@ -40,11 +34,6 @@ String buildVideoSourceUrl(
     } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
       return '$tvBase$id?season=$season&episode=$episode';
     } else {
-      // vidlink:  https://vidlink.pro/tv/{id}/{season}/{episode}
-      // vidcore:  https://vidcore.org/embed/tv/{id}/{season}/{episode}
-      // vidsrc:   https://vidsrc.to/embed/tv/{id}/{season}/{episode}
-      // vidsrc ignores ?season=&episode= and answers "This media is
-      // unavailable at the moment." — it needs the path form.
       final separator = tvBase.endsWith('/') ? '' : '/';
       final base = '$tvBase$separator$id/$season/$episode';
       final url = isVideasy

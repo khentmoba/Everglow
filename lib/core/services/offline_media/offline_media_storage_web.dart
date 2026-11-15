@@ -4,12 +4,10 @@ import 'package:web/web.dart' as web;
 
 import '../../utils/logger.dart';
 
-/// Web Cache Storage and Blob URL manager for offline media and manga pages.
 class OfflineMediaStorage {
   OfflineMediaStorage._();
   static final OfflineMediaStorage instance = OfflineMediaStorage._();
 
-  /// Must match `OFFLINE_MEDIA` and `OFFLINE_MANGA` in `web/sw.js`.
   static const mediaCacheName = 'everglow-offline-media-v1';
   static const mangaCacheName = 'everglow-offline-manga-v1';
 

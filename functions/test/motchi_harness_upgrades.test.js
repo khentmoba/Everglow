@@ -73,17 +73,14 @@ test('propose_choices executor and validation', async () => {
 
 test('action hallucination guard spots unperformed action claims', () => {
   const { findActionClaimMismatch } = require('../motchi_chat.js');
-  // Claim made, but no steps completed
   const mismatch1 = findActionClaimMismatch('I have added Dune to your watchlist!', []);
   assert.equal(mismatch1?.mismatched, true);
   assert.equal(mismatch1?.tool, 'add_to_watchlist');
 
-  // Claim made, step was completed -> passes!
   const completed = [{ tool: 'add_to_watchlist', status: 'done' }];
   const match = findActionClaimMismatch('I have added Dune to your watchlist!', completed);
   assert.equal(match, null);
 
-  // Hypothetical question -> not a claim
   const question = findActionClaimMismatch('Do you want me to add Dune to your watchlist?', []);
   assert.equal(question, null);
 });

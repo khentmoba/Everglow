@@ -2,7 +2,6 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:flutter/foundation.dart';
 
-/// Registers browser page-lifecycle hooks used to flip presence offline.
 class DashboardLifecycle {
   final List<web.EventListener> _listeners = [];
 

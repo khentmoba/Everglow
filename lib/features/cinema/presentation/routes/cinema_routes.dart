@@ -5,12 +5,9 @@ import '../screens/cinema_screen.dart' deferred as cinema_lib;
 import '../screens/video_player_screen.dart' deferred as player_lib;
 import '../widgets/cinema_loading_shell.dart';
 
-/// Starts downloading the Cinema screen's code chunk before the first tap, so
-/// opening Cinema does not wait on a download. See [DeferredRouteLoader.warm].
 Future<void> warmCinemaLibrary() =>
     DeferredRouteLoader.warm('Cinema', cinema_lib.loadLibrary);
 
-/// Routes owned by the cinema feature.
 final List<GoRoute> cinemaRoutes = [
   GoRoute(
     path: '/cinema',

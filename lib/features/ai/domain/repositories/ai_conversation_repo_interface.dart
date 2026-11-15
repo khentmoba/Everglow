@@ -1,8 +1,5 @@
 import '../../domain/models/ai_conversation.dart';
 
-/// Abstract interface for conversation repository operations.
-///
-/// Enables dependency injection and test mocking.
 abstract class IAIConversationRepository {
   AIConversation? get assistant;
   AIConversation? get guardian;
@@ -16,23 +13,15 @@ abstract class IAIConversationRepository {
   Future<void> loadAssistant();
   void startFresh();
 
-  /// List all archived sessions, newest first.
   Future<List<AISession>> listSessions({int limit = 50});
 
-  /// Realtime stream of archived sessions, newest first.
-  ///
-  /// Same query as [listSessions] but live: any archive or delete —
-  /// on this device or another — pushes a fresh list automatically.
   Stream<List<AISession>> watchSessions({int limit = 50});
 
-  /// Load a specific session's messages into the assistant conversation.
   Future<void> loadSession(String sessionId);
 
-  /// Delete a specific archived session.
   Future<void> deleteSession(String sessionId);
 }
 
-/// Represents an archived conversation session.
 class AISession {
   final String id;
   final String feature;

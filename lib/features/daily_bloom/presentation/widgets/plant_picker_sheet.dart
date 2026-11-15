@@ -3,7 +3,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/plant_type.dart';
 
-/// Bottom sheet for selecting a garden plant type.
 class PlantPickerSheet extends StatelessWidget {
   final String currentPlantType;
   final ValueChanged<String> onSelected;
@@ -29,7 +28,6 @@ class PlantPickerSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
           Container(
             width: 40,
             height: 4,
@@ -154,7 +152,6 @@ class PlantPickerSheet extends StatelessWidget {
     );
   }
 
-  /// Show the plant picker as a modal bottom sheet.
   static Future<void> show(
     BuildContext context, {
     required String currentPlantType,

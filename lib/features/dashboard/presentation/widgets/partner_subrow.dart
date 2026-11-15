@@ -4,37 +4,15 @@ import 'shelf_widgets.dart';
 import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// One labeled horizontal rail inside a dashboard shelf, used to render
-/// the per-partner sub-rows that split each shelf into "Me" and the
-/// partner's contribution. Visual contract:
-///
-///   ME:        ▭ ▭ ▭ ▭ ▭ ▭        (small uppercase eyebrow + marquee)
-///
-/// For couple users each dashboard shelf renders two of these back to
-/// back — first the viewer's own ("Me"), then their partner's. For
-/// non-couple users the parent preview keeps the original single-row
-/// layout and does not include this widget.
 class PartnerSubrow extends StatelessWidget {
-  /// Eyebrow text shown above the rail. Typically `"ME"`, `"KHENT"`,
-  /// or `"CLAIR"` — caller is responsible for the right label.
   final String label;
 
-  /// Pre-built [ShelfCard] widgets to render in the marquee. Pass an
-  /// empty list to render the empty-state line instead.
   final List<Widget> children;
 
-  /// Accent used to tint the eyebrow and the empty-state line. Should
-  /// match the parent shelf's [ShelfAccent] for visual continuity.
   final ShelfAccent accent;
 
-  /// Optional friendly message shown when [children] is empty. Set to
-  /// `null` to render the sub-row as a completely empty (invisible)
-  /// gap — useful if the parent wants to hide partner sub-rows that
-  /// would otherwise be empty.
   final String? emptyMessage;
 
-  /// Pixel height reserved for the marquee. Defaults to 194 to match
-  /// the taller 128×186 ShelfCard with hover lift + shadow.
   final double height;
 
   const PartnerSubrow({

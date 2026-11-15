@@ -41,18 +41,10 @@ part 'episode_drawer_state_core2.dart';
 class EpisodeDrawer extends StatefulWidget {
   final MediaItem item;
 
-  /// When true, the drawer renders the cinematic Everglow Cinema variant
-  /// (hero poster, glass meta panel, large cast cards). Dashboard previews
-  /// keep the classic layout by leaving this false.
   final bool cinemaVariant;
 
-  /// Position in the cinema screen's Top 10 list (1-based), shown as a
-  /// "#N in the Philippines Today" badge. Null when the item is not in
-  /// the visible Top 10.
   final int? topTenRank;
 
-  /// The same Top 10 list the badge rank comes from, so a drawer opened
-  /// from this drawer ("similar titles") can resolve its own rank.
   final List<MediaItem>? topTenItems;
 
   const EpisodeDrawer({
@@ -67,9 +59,6 @@ class EpisodeDrawer extends StatefulWidget {
   State<EpisodeDrawer> createState() => _EpisodeDrawerState();
 }
 
-/// Rank of [item] inside [topTen] (1-based), or null when it sits outside
-/// the first ten. The list follows the Top 10 row's order, so position and
-/// rank are the same number.
 int? topTenRankFor(List<MediaItem> topTen, MediaItem item) {
   final index = topTen.indexWhere(
     (ranked) =>
@@ -115,9 +104,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     final rating = ratingNum != null
         ? ratingNum.toDouble().toStringAsFixed(1)
         : 'N/A';
-    // For anime we don't have TMDB's `release_date` / `first_air_date`,
-    // so we fall back to AniList's `seasonYear` and finally to whatever
-    // the MediaItem already remembers from Jikan's discover payload.
     String releaseDate;
     if (_isAnimeSourced) {
       releaseDate = widget.item.year;
@@ -130,9 +116,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
         ? releaseDate.split('-')[0]
         : widget.item.year;
     final episodeRunTimes = _details?['episode_run_time'] as List?;
-    // Anime-sourced runtime comes from AniList's `duration` field
-    // (in minutes per episode). We surface it in the same slot so the
-    // hero header shows a single "Xm" badge next to the rating.
     final runtime = _isAnimeSourced
         ? (_details?['_duration'])
         : (_details?['runtime'] ??
@@ -140,11 +123,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   ? episodeRunTimes.first
                   : null));
     final backdropPath = _details?['backdrop_path'];
-    // For anime, backdrop is a fully-qualified AniList CDN URL stored on
-    // `_details[_backdropUrl]`; for TMDB it's a path that we need to
-    // prefix with the image CDN. The MediaItem itself also carries a
-    // pre-built URL from discover/search which we use as a final
-    // fallback so the hero never renders as a flat gray rectangle.
     String backdropUrl;
     if (_isAnimeSourced) {
       final aniBackdrop = _details?['_backdropUrl'] as String?;
@@ -163,8 +141,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
 
-    // The Everglow Cinema variant gets its own cinematic layout; the
-    // dashboard previews keep the classic drawer below.
     if (widget.cinemaVariant) {
       return _buildCinemaEnhanced(
         year: year,
@@ -186,7 +162,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // ── HERO BACKDROP ──
               SliverToBoxAdapter(
                 child: TrailerSection(
                   backdropUrl: backdropUrl,
@@ -209,7 +184,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 ),
               ),
 
-              // ── META + ACTIONS ──
               SliverToBoxAdapter(
                 child: FadeTransition(
                   opacity: _fadeAnim,
@@ -244,24 +218,17 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Films never reach here (_isFilm true shows Play
-                      // above). ONA-listed films like Drifting Home used to
-                      // fall through and render fake Episode rows.
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                         child: _buildDiscordShareButton(
                           season: _selectedSeasonNumber,
                         ),
                       ),
-                      // Films never reach here (_isFilm true shows Play
-                      // above). ONA-listed films like Drifting Home used to
-                      // fall through and render fake Episode rows.
                       _buildEpisodeList(),
                     ],
                   ),
                 ),
 
-              // ── CAST / REVIEWS / MORE (lazy tabs — only the open tab builds) ──
               SliverToBoxAdapter(
                 child: DrawerExtraTabs(
                   selected: _extraTab,
@@ -279,8 +246,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     );
   }
 
-  /// Only the selected tab's section is built. Data stays cached in
-  /// [_cast]/[_reviews]/[_similar], so switching tabs never refetches.
   Widget _buildExtraTabBody() {
     switch (_extraTab) {
       case 1:
@@ -324,10 +289,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // META SECTION
-  // ═══════════════════════════════════════════════════════════════
-
   Widget _buildMetaSection(
     String year,
     String rating,
@@ -339,7 +300,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Genre chips
           if (_genreNames.isNotEmpty) ...[
             Wrap(
               spacing: 6,
@@ -349,9 +309,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             const SizedBox(height: 12),
           ],
 
-          // Anime-specific meta row: studio + format + airing status + next episode countdown.
-          // This is hidden for non-anime items because those fields
-          // don't have meaningful TMDB equivalents.
           if (_isAnimeSourced &&
               (_studio.isNotEmpty ||
                   _format.isNotEmpty ||
@@ -379,16 +336,11 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             const SizedBox(height: 18),
           ],
 
-          // Watchlist status heading
           Text(
             'Status',
             style: AppTypography.outfitHeading.copyWith(fontSize: 15),
           ),
           const SizedBox(height: 10),
-          // Only couple users (Khent/Clair) get the partner-specific chips;
-          // everyone else (Breyan, Octagram, guests) gets the generic
-          // \"Want to Watch\" / \"Currently Watching\" / \"Watched\" set so
-          // Khent/Clair semantics never leak.
           Builder(
             builder: (context) {
               final isCouple = context.select<AuthService, bool>(
@@ -498,7 +450,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           ),
           const SizedBox(height: 20),
 
-          // Overview
           if (_details?['overview'] != null &&
               (_details!['overview'] as String).isNotEmpty) ...[
             Text(
@@ -515,10 +466,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // PLAY BUTTON
-  // ═══════════════════════════════════════════════════════════════
 
   Widget _buildPlayButton() {
     return GestureDetector(
@@ -553,14 +500,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // ANIME SEASON NAV
-  // ═══════════════════════════════════════════════════════════════
-
-  // ═══════════════════════════════════════════════════════════════
-  // HELPERS
-  // ═══════════════════════════════════════════════════════════════
 
   Widget _buildMovieDownloadAction(BuildContext context) {
     final offline = context.watch<OfflineMediaService?>();
@@ -648,10 +587,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       ),
     );
   }
-
-  // ──────────────────────────────────────────────────────────────
-  // CINEMA ENHANCED VARIANT
-  // ──────────────────────────────────────────────────────────────
 
   Widget _buildCinemaEnhanced({
     required String year,
@@ -757,7 +692,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
         if (!_isFilm) ...[
           SliverToBoxAdapter(child: _buildEpisodeList(netflixStyle: true)),
         ],
-        // "More Like This" recommendation cards grid
         SliverToBoxAdapter(
           child: CinemaSimilarSection(
             similar: _similar,
@@ -766,7 +700,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             isGrid: true,
           ),
         ),
-        // Extra Tabs: Cast & Reviews
         SliverToBoxAdapter(
           child: DrawerExtraTabs(
             selected: _extraTab,
@@ -795,7 +728,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       color: Colors.transparent,
       child: Stack(
         children: [
-          // Dismiss barrier clicking outside the dialog card
           Positioned.fill(
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
@@ -805,7 +737,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           ),
           Center(
             child: GestureDetector(
-              onTap: () {}, // absorbs tap so clicking inside does not dismiss
+              onTap: () {},
               child: Container(
                 constraints: BoxConstraints(
                   maxWidth: 880,
@@ -920,7 +852,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Badges row: Match %, Year, Episodes / Duration, HD, CC
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -962,7 +893,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            // HD badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
@@ -978,7 +908,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 ),
               ),
             ),
-            // CC badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
@@ -997,7 +926,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           ],
         ),
         const SizedBox(height: 10),
-        // Rating & Advisory Row
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -1307,8 +1235,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     IconData icon = Icons.check_circle_rounded,
     Color activeColor = NetflixColors.accent,
   }) {
-    // Listens to the status directly so a tap repaints only the chips.
-    // The drawer body (hero/trailer/episodes) never rebuilds for this.
     return ValueListenableBuilder<String>(
       valueListenable: _statusNotifier,
       builder: (context, current, _) {
@@ -1357,9 +1283,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     );
   }
 
-  /// True when the title's release/first-air date is in the future.
-  /// Unparseable or missing dates read as released — the bell only
-  /// appears when we positively know the title isn't out yet.
   bool _isUnreleased(String releaseDate) {
     if (releaseDate.isEmpty) return false;
     final parsed = DateTime.tryParse(releaseDate);
@@ -1434,22 +1357,12 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     }
   }
 
-  /// Smaller chip used for anime-specific facts (studio, format, airing
-  /// status). Renders a leading icon and a tighter padding than the
-  /// genre chip so the three facts fit on one row at mobile width.
-
-  /// Live countdown chip showing time until the next episode airs. Uses a
-  /// one-minute timer to keep the countdown accurate without excessive
-  /// rebuilds. The chip is pulsing-animated to draw attention and only
-  /// rendered when AniList provides a `nextAiringAt` timestamp.
-
   Widget _buildStatusChip(
     String label,
     String status, {
     IconData icon = Icons.check_circle_rounded,
     Color activeColor = AppColors.deepRose,
   }) {
-    // Same isolation as the enhanced chip: only chips repaint on tap.
     return ValueListenableBuilder<String>(
       valueListenable: _statusNotifier,
       builder: (context, current, _) {
@@ -1495,16 +1408,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   }
 }
 
-/// Live countdown chip that ticks every minute showing time until the next
-/// episode airs. Self-contained StatefulWidget so it can manage its own
-/// timer lifecycle without cluttering the drawer state.
-
-/// "Remind me" bell for unreleased titles (cinema variant).
-///
-/// Self-contained: reads its initial state with one Firestore get and
-/// toggles the flag on the caller's own watchlist doc. No OS
-/// notification yet — the bell marks the title and surfaces it in the
-/// Library's Reminders filter.
 class _RemindMeButton extends StatefulWidget {
   final MediaItem item;
   const _RemindMeButton({required this.item});

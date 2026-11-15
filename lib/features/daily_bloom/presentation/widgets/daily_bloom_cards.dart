@@ -1,7 +1,5 @@
 part of 'daily_bloom.dart';
 
-/// Classic single-garden card: own plant, own stats. Used for cinema-only
-/// profiles and tests without an auth session.
 class _SingleGardenCard extends StatelessWidget {
   final GardenProvider provider;
   final GardenStats? stats;
@@ -28,7 +26,6 @@ class _SingleGardenCard extends StatelessWidget {
     final stageIndex = effectiveStage.clamp(0, 5);
     final stageName = plantType.stageDescriptions[stageIndex];
 
-    // Same outer shape as the other Today panels so the zone sits evenly.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Container(
@@ -174,8 +171,6 @@ class _SingleGardenCard extends StatelessWidget {
   }
 }
 
-/// Dual-garden card for Khent & Clair: both plants share one night scene,
-/// Clair on the left, Khent on the right.
 class _DualGardenCard extends StatelessWidget {
   final GardenProvider provider;
   final AuthService auth;
@@ -193,9 +188,6 @@ class _DualGardenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Keep the partner stream alive while the dashboard is up. Post-frame:
-    // watchPartner notifies, which must never fire during build. This also
-    // self-heals after the full /garden view stops watching on its way out.
     final partnerUid = auth.partnerUid;
     if (partnerUid != null &&
         partnerUid.isNotEmpty &&
@@ -396,7 +388,6 @@ class _DualGardenCard extends StatelessWidget {
   }
 }
 
-/// Panel header: teal garden badge + title + plant · stage subtitle.
 class _GardenHeader extends StatelessWidget {
   final PlantType plantType;
   final String stageName;
@@ -459,7 +450,6 @@ class _GardenHeader extends StatelessWidget {
   }
 }
 
-/// Dual header: names both gardens so Clair sees hers and Khent's at once.
 class _DualGardenHeader extends StatelessWidget {
   final PlantType clairPlant;
   final PlantType khentPlant;

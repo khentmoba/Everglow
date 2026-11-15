@@ -35,7 +35,6 @@ Map<String, Object> _profile(String user, String title) => {
   }),
 };
 
-// Hold the first native write to exercise switches between _persist's awaits.
 class _DelayedPreferences extends InMemorySharedPreferencesStore {
   _DelayedPreferences(Map<String, Object> values)
     : super.withData(
@@ -128,7 +127,7 @@ void main() {
     final first = stores.load(username: 'khentsgdz');
     final middle = stores.switchUser('clairjassen');
     final last = stores.switchUser('khentsgdz');
-    published.clear(); // Ignore the synchronous empty state on each switch.
+    published.clear();
     await Future.wait([first, middle, last]);
     expect(stores.currentUser, 'khentsgdz');
     expect(stores.history.single.title, 'Demo Khent');

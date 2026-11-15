@@ -6,9 +6,6 @@ import '../../../../../shared/utils/tmdb_images.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import '../netflix/netflix_colors.dart';
 
-/// Data class for anime season navigation entries. Each entry represents one
-/// season of a multi-season anime series, built from AniList SEQUEL/PREQUEL
-/// relations. The current season is marked with [isCurrent].
 class SeasonNavItem {
   final int id;
   final int? malId;
@@ -27,7 +24,6 @@ class SeasonNavItem {
   });
 }
 
-/// True when saved progress means this episode's details are already safe.
 bool shouldRevealEpisodeDetails({
   required int season,
   required int episode,
@@ -50,8 +46,6 @@ bool shouldRevealEpisodeDetails({
           currentPositionSeconds / currentDurationSeconds >= 0.95);
 }
 
-/// Renders the episodes section: season header with dropdown, loading state,
-/// empty state, and the list of episode tiles.
 class EpisodeListSection extends StatelessWidget {
   final List<dynamic> episodes;
   final List<dynamic> seasons;
@@ -61,7 +55,6 @@ class EpisodeListSection extends StatelessWidget {
   final void Function(int season, int episode, String title) onPlayEpisode;
   final void Function(int seasonNumber) onSeasonChanged;
 
-  /// Opt-in for Cinema only; anime keeps its existing metadata behavior.
   final bool hideSpoilers;
   final int? currentSeason;
   final int? currentEpisode;
@@ -69,8 +62,6 @@ class EpisodeListSection extends StatelessWidget {
   final int currentDurationSeconds;
   final bool allEpisodesWatched;
 
-  /// When true, renders Netflix-style wide episode rows with index numbers,
-  /// 16:9 thumbnail previews, title + duration, and overview snippets.
   final bool netflixStyle;
 
   const EpisodeListSection({
@@ -205,7 +196,6 @@ class EpisodeListSection extends StatelessWidget {
             ),
           ],
         ),
-        // Season dropdown
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
@@ -329,10 +319,6 @@ class EpisodeListSection extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// EPISODE TILE WIDGET
-// ══════════════════════════════════════════════════════════════════════════════
-
 class EpisodeTile extends StatefulWidget {
   final int epNum;
   final String epName;
@@ -340,7 +326,6 @@ class EpisodeTile extends StatefulWidget {
   final String? stillUrl;
   final VoidCallback onTap;
 
-  /// Highlights the tile as the currently playing episode (player use).
   final bool selected;
   final bool hideSpoilers;
   final bool revealedByProgress;
@@ -373,8 +358,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
   bool _pressed = false;
   bool _hovered = false;
 
-  /// Revealed inline on this row — no drawer. Scoped to the tile so
-  /// expanding one episode leaves its neighbours closed.
   bool _revealed = false;
 
   static const double _tileHeight = 80;
@@ -441,7 +424,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         : _buildNumberedRail(),
                   ),
                   const SizedBox(width: 12),
-                  // Title + overview
                   Expanded(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: hidden ? 0 : 6),
@@ -583,7 +565,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Episode number
               SizedBox(
                 width: 32,
                 child: Text(
@@ -599,7 +580,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                 ),
               ),
               const SizedBox(width: 14),
-              // Thumbnail (16:9)
               SizedBox(
                 width: 130,
                 height: 74,
@@ -628,7 +608,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                             size: 28,
                           ),
                         ),
-                      // Play icon overlay on hover
                       if (_hovered)
                         Center(
                           child: Container(
@@ -649,7 +628,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                             ),
                           ),
                         ),
-                      // Progress bar along bottom
                       if (widget.progress > 0)
                         Positioned(
                           left: 0,
@@ -669,7 +647,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                 ),
               ),
               const SizedBox(width: 16),
-              // Details: title + duration on top line, overview below
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

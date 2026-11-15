@@ -7,11 +7,6 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// 44px circular icon button with full accessibility.
-///
-/// Replaces `ShelfIconButton` and all bare `IconButton`/`GestureDetector`
-/// circles. Features: `Semantics(button, label)`, `Tooltip`,
-/// `FocusableActionDetector` focus glow, haptic, reduced-motion-aware.
 class EverglowIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onPressed;
@@ -36,7 +31,6 @@ class EverglowIconButton extends StatefulWidget {
     this.enabled = true,
   });
 
-  /// Back arrow variant (for screen headers).
   const EverglowIconButton.back({
     super.key,
     required this.onPressed,
@@ -49,7 +43,6 @@ class EverglowIconButton extends StatefulWidget {
     this.enabled = true,
   }) : icon = Icons.arrow_back_ios_new;
 
-  /// Close variant.
   const EverglowIconButton.close({
     super.key,
     required this.onPressed,

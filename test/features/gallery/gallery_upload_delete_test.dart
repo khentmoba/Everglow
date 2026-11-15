@@ -194,7 +194,6 @@ void main() {
       expect(decoded, isNotNull);
       expect(decoded!.width, 1600);
       expect(decoded.height, 800);
-      // Valid JPEG header
       expect(resizedBytes[0], 0xFF);
       expect(resizedBytes[1], 0xD8);
     });
@@ -385,7 +384,6 @@ void main() {
       expect(find.text('Delete Photo?'), findsOneWidget);
       expect(find.text('This action cannot be undone.'), findsOneWidget);
 
-      // Tap Cancel
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
@@ -466,7 +464,6 @@ void main() {
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      // The failure restores the photo and gives Clair a retry action.
       expect(find.text('Could not finish deleting. Please try again.'), findsOneWidget);
       expect(find.byType(SnackBarAction), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
@@ -605,7 +602,6 @@ void main() {
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      // Screen is popped back to root
       expect(deleted, isTrue);
       expect(find.text('Open Viewer'), findsOneWidget);
       expect(find.text('1 / 1'), findsNothing);

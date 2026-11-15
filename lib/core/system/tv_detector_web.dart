@@ -3,7 +3,6 @@ import 'package:web/web.dart' as web;
 import '../utils/logger.dart';
 import 'tv_mode.dart';
 
-/// Browser-specific TV detection via userAgent, input capabilities, and URL parameters.
 class TvDetector {
   TvDetector._();
 

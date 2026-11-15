@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/memory/memory_fact.dart';
 
-/// A single snapshot of "today in Everglow" used by Motchi's recap.
 class TodaySnapshot {
   final DateTime date;
   final List<({String uid, String mood})> moods;
@@ -22,9 +21,6 @@ class TodaySnapshot {
   });
 }
 
-/// Reads the small set of Firestore collections Motchi needs to compose
-/// a warm daily recap. Kept separate from the AI service so the recap
-/// screen can render even when the chat proxy is offline.
 class MotchiTodayService {
   final FirebaseFirestore _db;
 

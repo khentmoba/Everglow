@@ -1,6 +1,5 @@
 part of 'motchi_screen.dart';
 
-// Zero-duration AnimatedSize can notify layout while it is still laying out.
 class _MotchiAnimatedSize extends StatelessWidget {
   const _MotchiAnimatedSize({required this.child});
 
@@ -20,7 +19,6 @@ class _MotchiAnimatedSize extends StatelessWidget {
   }
 }
 
-/// Active actions wrap so every running tool remains visible on a phone.
 class _LiveToolStrip extends StatelessWidget {
   final AIService ai;
   const _LiveToolStrip({required this.ai});
@@ -49,9 +47,6 @@ class _LiveToolStrip extends StatelessWidget {
   }
 }
 
-/// Compact live pill showing one agent action Motchi is performing. The
-/// dot pulses while the tool runs; [_LiveToolStrip] removes the pill the
-/// moment the tool finishes.
 class _ToolStatusChip extends StatefulWidget {
   final String status;
 
@@ -144,7 +139,6 @@ class _ToolStatusChipState extends State<_ToolStatusChip>
   }
 }
 
-/// Sources remain readable and keyboard accessible without sideways scrolling.
 class WebSourcesCard extends StatelessWidget {
   final List<Map<String, String>> sources;
   const WebSourcesCard({super.key, required this.sources});
@@ -267,8 +261,6 @@ class _WebSourceTile extends StatelessWidget {
   }
 }
 
-/// Opens a source link outside Everglow. Failures stay silent — a dead
-/// link is not worth an error banner in the middle of Clair's chat.
 Future<void> _openWebSource(String url) async {
   final uri = Uri.tryParse(url.trim());
   if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) return;
@@ -276,6 +268,3 @@ Future<void> _openWebSource(String url) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   } catch (_) {}
 }
-
-/// Animated placeholder shown while Motchi is thinking before any text or
-/// tool activity has streamed in.

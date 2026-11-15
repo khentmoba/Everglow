@@ -56,8 +56,6 @@ class _GatewayPageState extends State<GatewayPage> {
               Uri.base.host == '127.0.0.1' ||
               Uri.base.host == '0.0.0.0'));
 
-  /// Where to go after a successful login: back to the deep-linked page
-  /// when the router remembered one (`/?from=...`), else the default home.
   String _postLoginTarget({
     required bool cinemaOnly,
     required String fallback,
@@ -69,10 +67,6 @@ class _GatewayPageState extends State<GatewayPage> {
   Future<void> _onStateChange() async {
     if (!mounted) return;
 
-    // Always rebuild so the passcode dots follow typing/deleting.
-    // Input length changes don't change GatewayState, so the
-    // state-equality guard below would otherwise skip the rebuild
-    // and the yellow dot would get stuck after the first digit.
     setState(() {});
 
     final newState = _notifier.currentState;
@@ -121,16 +115,9 @@ class _GatewayPageState extends State<GatewayPage> {
       final navDelay = Future.delayed(const Duration(milliseconds: 900));
       Future.wait([navDelay, authTask.catchError((_) {})]).then((_) {
         if (!mounted || _hasNavigated) return;
-        // Never enter the app without a real Firebase session — or an
-        // offline-remembered one (saved user + own code while unreachable),
-        // which renders cached Firestore data with an offline banner.
-        // Without either, every stream fails and the dashboard renders
-        // false-empty shelves.
         final hasRealSession =
             authService.user != null && !authService.isAnonymousSession;
         if (!hasRealSession && !authService.isOfflineMode) {
-          // The code validated but no Firebase session exists (offline or
-          // anonymous): a connection problem, never a wrong code.
           _notifier.setFailureReason(GatewayFailureReason.connection);
           _notifier.updateState(GatewayState.error);
           Future.delayed(const Duration(milliseconds: 500), () {
@@ -186,7 +173,6 @@ class _GatewayPageState extends State<GatewayPage> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Aurora glows behind everything.
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -222,7 +208,6 @@ class _GatewayPageState extends State<GatewayPage> {
             _buildMainContent(),
             if (_notifier.currentState != GatewayState.complete)
               _buildGatewayOverlay(),
-            // Petals drift over the scene while the door is closed.
             Positioned.fill(
               child: IgnorePointer(child: PetalShower(isVisible: !isRevealing)),
             ),
@@ -247,9 +232,6 @@ class _GatewayPageState extends State<GatewayPage> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              // Backdrop only. The door itself is painted above this clip
-              // because ClipPath also removes hit-testing inside the cut
-              // hole, which would make the keypad/handle unclickable.
               IgnorePointer(
                 child: ClipPath(
                   clipper: _DoorMaskClipper(
@@ -608,11 +590,6 @@ class _GatewayPageState extends State<GatewayPage> {
     final isRevealing =
         state == GatewayState.revealingSite || state == GatewayState.complete;
 
-    // Lightweight placeholder — mirrors Dashboard's EverglowBackground so the
-    // door reveal feels continuous, but doesn't open any Firestore streams.
-    // The old code mounted a full DashboardScreen here, which was disposed
-    // 1100ms later when `go('/dashboard')` mounted a second instance and
-    // caused the XP bar (and every other stream) to flash shrink->show.
     return AnimatedOpacity(
       opacity: isRevealing ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 500),
@@ -653,12 +630,6 @@ class _GatewayPageState extends State<GatewayPage> {
   }
 }
 
-/// Quiet mark shown behind the door while it swings open (~1s).
-///
-/// Deliberately has NO percent: the reveal is a fixed animation, not a
-/// measured load, so any number here would be fake — and it used to hit a
-/// fake 100% right before the dashboard's REAL percent started over from
-/// the bottom. The dashboard veil is the one honest loader.
 class _GatewayRevealMark extends StatelessWidget {
   const _GatewayRevealMark();
 
@@ -747,8 +718,6 @@ class _DoorMaskClipper extends CustomClipper<Path> {
       oldClipper.zoom != zoom || oldClipper.scale != scale;
 }
 
-/// Matches [AnimatedDoor]'s internal responsive scaling so the reveal
-/// mask hugs the door on narrow viewports.
 double _doorScale(BuildContext context) {
   final viewport = MediaQuery.sizeOf(context);
   return math.min(
@@ -757,9 +726,6 @@ double _doorScale(BuildContext context) {
   );
 }
 
-/// Quiet reassurance on the gate when offline with a remembered user:
-/// Clair still types her usual code and her saved copy opens.
-/// Hidden whenever online or on a fresh device with nobody remembered.
 class _OfflineRememberHint extends StatelessWidget {
   const _OfflineRememberHint();
 
@@ -769,8 +735,6 @@ class _OfflineRememberHint extends StatelessWidget {
     try {
       remembered = context.select<AuthService, String?>((a) => a.currentUser);
     } catch (_) {
-      // No auth provider above us (tests, odd shells): no hint, like the
-      // AppErrorPage fallback. Production always provides AuthService.
       return const SizedBox.shrink();
     }
     final name = remembered == 'clairjassen'

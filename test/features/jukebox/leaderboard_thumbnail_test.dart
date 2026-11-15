@@ -10,12 +10,6 @@ import 'package:everglow/features/jukebox/presentation/widgets/music_stats_secti
 import 'package:everglow/features/jukebox/presentation/widgets/stats_track_rows.dart';
 import 'package:everglow/shared/widgets/app_network_image.dart';
 
-/// Regression guard for the leaderboard thumbnails.
-///
-/// A row must attempt the network image whenever the track carries a usable
-/// cover and fall back to the music-note tile only when the cover is missing
-/// (or a Last.fm placeholder). Never `pumpAndSettle` here: podium shimmer
-/// and sparkle badges animate forever by design.
 TopMusicTrack _rowTrack({
   required String name,
   required int rank,
@@ -122,14 +116,9 @@ void main() {
         khentTracks: [
           _rowTrack(name: 'Fine Line', rank: 1, imageUrl: khentArt),
         ],
-        // Clair's chart-topper has no cover anywhere: it must render the
-        // fallback tile instead of an empty box.
         clairTracks: [_rowTrack(name: 'Sweet Home', rank: 1)],
       );
       final provider = MusicStatsProvider(syncService: sync);
-      // Disposed inline (not via addTearDown): the pending-timer check runs
-      // before tear-downs, so the polling timers must already be cancelled
-      // when the body returns.
       try {
         await tester.pumpWidget(
           MaterialApp(

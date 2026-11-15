@@ -23,7 +23,6 @@ void main() {
         unlockDate: now,
       );
 
-      // isAtSameMomentAs should match
       expect(note.isUnlocked, isTrue);
     });
 

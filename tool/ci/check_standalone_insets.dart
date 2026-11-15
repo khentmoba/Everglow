@@ -1,23 +1,8 @@
-// Standalone-inset gate: the iPhone Home Screen status-bar overlap must
-// stay fixed globally. Prevents the cinema-player class: content sliding
-// under the status bar (and its buttons going untappable) in the installed
-// web app, where Flutter's SafeArea reports zero padding.
-//
-// The fix lives in exactly one place — WebStandaloneInsets injected into
-// MediaQuery at the app root — so every SafeArea/AppBar/paddingOf reader
-// in the app clears the bar, including screens added in the future.
-// Per-screen padding widgets would double-pad on top of it, so they are
-// banned: this guard fails the PR when
-//   1. AppRoot stops applying WebStandaloneInsets, or
-//   2. the removed WebAppTopInset widget (or a new usage of it) reappears.
-//
-// Usage: dart tool/ci/check_standalone_insets.dart
 import 'dart:io';
 
 Future<void> main() async {
   final failures = <String>[];
 
-  // 1. The global coverage must stay wired at the app root.
   final appRoot = File('lib/core/di/app_root.dart');
   if (!await appRoot.exists()) {
     failures.add('lib/core/di/app_root.dart is missing.');
@@ -31,7 +16,6 @@ Future<void> main() async {
     }
   }
 
-  // 2. The injector itself must keep measuring + publishing the inset.
   final webImpl = File('lib/core/system/web_standalone_web.dart');
   if (!await webImpl.exists()) {
     failures.add('lib/core/system/web_standalone_web.dart is missing.');
@@ -51,8 +35,6 @@ Future<void> main() async {
     }
   }
 
-  // 3. No per-screen padding widgets: they double-pad under the global
-  // inset. (WebAppTopInset was removed when coverage moved to AppRoot.)
   final offenders = <String>[];
   await for (final entity in Directory('lib').list(recursive: true)) {
     if (entity is! File || !entity.path.endsWith('.dart')) continue;
@@ -60,7 +42,7 @@ Future<void> main() async {
     try {
       src = await entity.readAsString();
     } catch (_) {
-      continue; // Non-UTF8 asset-adjacent file: not a widget source.
+      continue;
     }
     if (src.contains('WebAppTopInset')) {
       offenders.add(entity.path);

@@ -1,15 +1,4 @@
-// Stream-limit guard: list queries must stay bounded.
-// Prevents the #36/#55 class: unbounded .snapshots() streams that blow
-// past Firestore rules/limits and cost cold-start jank on Clair's phone
-// (capped at 500 docs in tmdb_watchlist_service, audit in 34d615a).
-//
-// Rule (per query): each .snapshots() call must be either
-// - a single-doc read (.doc( within the preceding chain), or
-// - in a file containing `limit` (.limit(n) or a threaded limit
-//   parameter, e.g. watchSessions({int limit = 50})), or
 // - explicitly waived with `// ci:unbounded-stream: <reason>` for review.
-//
-// Usage: dart tool/ci/check_stream_limits.dart
 import 'dart:io';
 
 import '_io.dart';
@@ -37,9 +26,7 @@ Future<void> main() async {
       start = idx + 1;
       final chainStart = idx - 400 >= 0 ? idx - 400 : 0;
       final chain = src.substring(chainStart, idx);
-      // Walk back to the start of the current expression chain.
       final tail = chain.split(';').last.split('return').last;
-      // Single-doc read: bounded. Matches .doc(, _doc( helpers, doc(.
       if (RegExp(r'\b_?doc\(').hasMatch(tail)) continue;
       if (fileHasLimit) continue;
       failures.add(

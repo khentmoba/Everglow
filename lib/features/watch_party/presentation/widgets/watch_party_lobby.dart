@@ -15,12 +15,7 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
 import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 
-/// The room picker: every named room, who is hosting, what is playing,
-/// and one clear way to create another. Used as a full screen from the
-/// dashboard and inline inside Cinema's Watch Together tab.
 class WatchPartyLobby extends StatefulWidget {
-  /// The cinema tab already draws its own page header, so the embedded
-  /// copy skips the big title and keeps just the rooms.
   final bool embedded;
 
   const WatchPartyLobby({super.key, this.embedded = false});
@@ -296,8 +291,6 @@ class _WatchPartyLobbyState extends State<WatchPartyLobby> {
   }
 }
 
-/// One room in the picker. Public so the phone/tablet layout test can
-/// pump the exact card the app uses.
 class WatchPartyRoomCard extends StatelessWidget {
   final WatchPartyRoom room;
   final String myUid;

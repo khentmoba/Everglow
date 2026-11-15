@@ -1,10 +1,6 @@
 import 'package:everglow/core/router/app_error_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The cinema shell gives cinema-only profiles (Breyan / Octagram) an
-/// Anime button, but the router guard used to bounce `/anime` straight
-/// back to `/cinema` — so the button looked dead. This locks the
-/// allow-list: all four media sections pass, couple pages bounce.
 void main() {
   group('AppErrorPage.cinemaOnlyRedirect', () {
     test('lets cinema-only profiles reach anime', () {

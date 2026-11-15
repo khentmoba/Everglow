@@ -1,11 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
 
-/// The detail page embeds other series (Latest Updates rail, Hot Manga,
-/// recommendations). The chapter parser used to accept every
-/// `/manga/*/cNNN` link on the page, so foreign chapters (e.g. Ch. 1075
-/// or Ch. 462 from other series) polluted the list with huge gaps —
-/// "Ch. 385 suddenly goes to Ch. 462".
 void main() {
   const slug = 'i-am-the-fated-villain.26054';
   const html = '''

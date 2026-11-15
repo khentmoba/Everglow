@@ -20,15 +20,9 @@ import 'sse_streamer.dart';
 import 'sse_cancellation.dart';
 import 'study_artifact.dart';
 
-/// Core service for all AI interactions in Everglow.
-///
-/// Coordinates conversation, memory, and API calls by delegating to
-/// focused repositories and the Cloud Function proxy.
 class AIService extends ChangeNotifier {
   final IAIMemoryRepository _memoryRepo;
   final IAIConversationRepository _conversationRepo;
-  // Resolved lazily so AIService can be built with fake repos (tests)
-  // without initializing Firebase.
   FirebaseAuth get _auth => FirebaseAuth.instance;
 
   AIService({
@@ -37,7 +31,6 @@ class AIService extends ChangeNotifier {
   }) : _memoryRepo = memoryRepo ?? AIMemoryRepository(),
        _conversationRepo = conversationRepo ?? AIConversationRepository();
 
-  // Convenience helpers
   List<String> get memories => _memoryRepo.all;
   AIConversation? get assistantConversation => _conversationRepo.assistant;
   AIConversation? get guardianConversation => _conversationRepo.guardian;
@@ -60,13 +53,8 @@ class AIService extends ChangeNotifier {
   String? _lastError;
   String _draftResponse = '';
   String _draftReasoning = '';
-  // Names of the tools Motchi is running RIGHT NOW. A name is added when
-  // its `tool_status` event arrives and removed when its `tool_result`
-  // lands — the chat strip shows only in-flight work, never a history.
   List<String> _activeTools = [];
 
-  /// Per-token notifiers so the streaming bubble can repaint without
-  /// rebuilding the whole conversation list on every SSE chunk.
   final ValueNotifier<int> draftRevisionNotifier = ValueNotifier<int>(0);
   final ValueNotifier<String> draftResponseNotifier = ValueNotifier<String>('');
   final ValueNotifier<String> draftReasoningNotifier = ValueNotifier<String>(
@@ -86,18 +74,10 @@ class AIService extends ChangeNotifier {
   String get draftResponse => _draftResponse;
   String get draftReasoning => _draftReasoning;
 
-  /// How many recent messages ride along per request. Older turns live on
-  /// in archived sessions + summaries, which the server injects on demand —
-  /// resending all 50 stored messages every turn just burns upload bytes
-  /// and input tokens on long chats. Matches the ~20-message archive
-  /// cadence so live history and archives overlap without gaps.
   static const int historyLimit = 20;
 
-  /// The guardian mascot stays tiny: only the last few turns matter.
   static const int guardianHistoryLimit = 12;
 
-  /// Keeps only the trailing [limit] payloads (returns the list untouched
-  /// when it already fits). Pure so the trim rule is unit-testable.
   @visibleForTesting
   static List<Map<String, dynamic>> trimHistoryForRequest(
     List<Map<String, dynamic>> payloads, {
@@ -107,10 +87,6 @@ class AIService extends ChangeNotifier {
     return payloads.sublist(payloads.length - limit);
   }
 
-  /// Drops images from all but the last [keepLast] image-bearing messages
-  /// (older photo turns become text-only). Photos would otherwise be
-  /// re-read — and re-billed as vision tokens — on every later reply.
-  /// Pure so the rule is unit-testable.
   @visibleForTesting
   static List<Map<String, dynamic>> stripStaleImages(
     List<Map<String, dynamic>> payloads, {
@@ -145,9 +121,6 @@ class AIService extends ChangeNotifier {
     return out.reversed.toList();
   }
 
-  /// Pulls tappable web sources out of this turn's tool results so they
-  /// can ride on the finished assistant message (and survive reloads).
-  /// Dedups by URL, caps at 5. Pure so the rule is unit-testable.
   static List<Map<String, String>> webSourcesFromToolResults(
     List<Map<String, dynamic>> toolResults,
   ) {
@@ -185,8 +158,6 @@ class AIService extends ChangeNotifier {
           }
         }
       } else if (r['tool'] == 'browse_web' && r['status'] == 'COMPLETED') {
-        // Browsed pages carry a single url+title (RUNNING polls are skipped
-        // — the COMPLETED result in the same turn holds the source).
         final url = '${r['url'] ?? ''}';
         add('${r['title'] ?? ''}', url, _hostOf(url));
       }
@@ -202,9 +173,6 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  /// True when a streamed `tool_status` names a real tool call, as opposed
-  /// to a phase marker (`generating`, `executing`, `round_1_done`, ...).
-  /// Pure so the rule is unit-testable.
   @visibleForTesting
   static bool isToolActionStatus(String status) {
     if (status.isEmpty || status.contains(':')) return false;
@@ -262,20 +230,16 @@ class AIService extends ChangeNotifier {
     super.dispose();
   }
 
-  // ─── Core: Send a message to the AI ────────────────────────────
-
   Future<String> sendMessage({
     required String feature,
     required String message,
     String? contextOverride,
     bool stream = false,
     bool? enableThinking,
-    String? callerName, // 'khentsgdz' or 'clairjassen'
+    String? callerName,
     void Function(String toolStatus)? onToolStatus,
     void Function(Map<String, dynamic> result)? onToolResult,
     List<String> imageUrls = const [],
-    // Canvas toggle from the chat bar. When false the server must not
-    // create any interactive artifacts — plain text only, even for quizzes.
     bool canvasEnabled = true,
     String? actionScopeId,
   }) async {
@@ -300,13 +264,11 @@ class AIService extends ChangeNotifier {
 
     AIConversation? conversation;
 
-    // Determine who's chatting
     final caller = callerName ?? _auth.currentUser?.uid ?? 'unknown';
 
     try {
       conversation = await _getOrCreateConversation(feature);
 
-      // Add user message BEFORE notifying so the UI shows it immediately
       conversation.messages.add(
         AIMessage(
           role: 'user',
@@ -318,18 +280,11 @@ class AIService extends ChangeNotifier {
       _setConversation(feature, conversation);
       notifyListeners();
 
-      // Gather context: if contextOverride is set, use it directly.
-      // Otherwise, pass feature + caller to the server so it builds context
-      // server-side (Firestore reads from GCP region are near-instant).
       final context =
-          contextOverride ?? ''; // server builds from feature+caller
+          contextOverride ?? '';
 
-      // Chat memory is retrieved server-side. The Memory Book loads its
-      // own display cache; sending it here loses metadata and stays stale.
       const memoriesForRequest = <String>[];
 
-      // Build the API messages payload (recent history only — older turns
-      // live on in archived sessions + summaries server-side).
       final isGuardian = feature == 'guardian';
       final allPayloads = conversation.messages
           .map((m) => m.toApiPayload())
@@ -343,9 +298,6 @@ class AIService extends ChangeNotifier {
 
       final shouldThink =
           enableThinking ?? const MotchiQuality().shouldAutoThink(message);
-      // Big artifact builds (games, quizzes) stream far longer than chat —
-      // give them a roomier timeout so a slow generation still lands its
-      // closing fence (no fence = no Preview button).
       final artifactExpected = motchiWantsArtifact(message);
 
       String reply;
@@ -353,7 +305,6 @@ class AIService extends ChangeNotifier {
       var details = const MotchiReplyDetails();
 
       if (stream) {
-        // ── Streaming mode ─────────────────────────────
         reply = await _callProxyAIStream(
           recentMessages,
           context,
@@ -394,15 +345,10 @@ class AIService extends ChangeNotifier {
           canvasEnabled: canvasEnabled,
           artifactExpected: artifactExpected,
         );
-        // Superseded by cancelCurrentReply() or a newer request: that path
-        // already published its own state, so leave it untouched.
         if (myRequest != _activeRequest) return reply;
-        // Keep web sources before the draft state (and tool results)
-        // is cleared — they persist on the finished reply below.
         webSources = webSourcesFromToolResults(_toolResults);
         details = MotchiReplyDetails.fromResults(_toolResults);
       } else {
-        // ── Non-streaming mode ─────────────────────────
         reply = await _callProxyAI(
           recentMessages,
           context,
@@ -418,18 +364,12 @@ class AIService extends ChangeNotifier {
         }
       }
 
-      // An empty reply means the stream was cut before any text arrived
-      // (server timeout mid-tool-round, truncated generation). Surfacing
-      // an error with Retry beats silent no-reply — Clair should never
-      // stare at her own message wondering if Motchi heard her.
       if (reply.trim().isEmpty && !details.isEmpty) reply = details.summary;
       if (reply.trim().isEmpty) {
         throw Exception(
           'Motchi got distracted and lost her train of thought. Try asking again?',
         );
       }
-      // Strip the model's leading blank lines/whitespace so the reply
-      // starts right at the first real line instead of a visible gap.
       final cleaned = MotchiReplyDetails.visibleText(reply).trimLeft();
       conversation.messages.add(
         AIMessage(
@@ -441,25 +381,19 @@ class AIService extends ChangeNotifier {
         ),
       );
 
-      // Publish the finished reply to the UI immediately so the loading
-      // state ends as soon as the stream does; Firestore writes below can
-      // take seconds and must not hold the chat in "thinking".
       _isLoading = false;
       _lastError = null;
       _resetDraftState();
       _setConversation(feature, conversation);
       notifyListeners();
 
-      // Persist to Firestore (keep last 50 messages max)
       if (conversation.messages.length > 50) {
         conversation.messages.removeRange(0, conversation.messages.length - 50);
       }
       await _saveConversation(conversation);
 
-      // Auto-archive a session snapshot roughly every 20 messages
       if (conversation.messages.length >= 4 &&
           conversation.messages.length % 20 <= 1) {
-        // Archive without clearing — preserves history in sessions collection
         try {
           await _archiveSession(conversation);
         } catch (e) {
@@ -467,13 +401,8 @@ class AIService extends ChangeNotifier {
         }
       }
 
-      // W1-C10: Memory extraction now handled server-side (functions/index.js
-      // serverExtractAndSaveMemory) to avoid an extra client LLM round-trip.
-      // Client-side extraction disabled for latency/cost saving.
-
       return cleaned;
     } catch (e) {
-      // A superseded request must not clobber the newer request's state.
       if (myRequest != _activeRequest) return '';
       _isLoading = false;
       final details = MotchiReplyDetails.fromResults(
@@ -499,7 +428,6 @@ class AIService extends ChangeNotifier {
       }
       _resetDraftState();
       _lastError = e.toString();
-      // Roll back the optimistic user message so a retry doesn't duplicate it.
       if (conversation != null &&
           conversation.messages.isNotEmpty &&
           conversation.messages.last.role == 'user' &&
@@ -513,11 +441,6 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  /// Stops the in-flight assistant reply (user-pressed Stop).
-  ///
-  /// Keeps the optimistic user message and persists whatever partial text
-  /// has streamed so far. Late stream callbacks from the abandoned request
-  /// are ignored via [_activeRequest]. Returns false when nothing is running.
   bool cancelCurrentReply() {
     if (!_isLoading || _activeRequest == 0) return false;
     _activeRequest++;
@@ -551,7 +474,6 @@ class AIService extends ChangeNotifier {
     return true;
   }
 
-  /// Send a message without persisting to conversation history (for one-shot queries).
   Future<String> quickAsk({
     required String message,
     String? context,
@@ -606,16 +528,6 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  // ─── Study Mode (Notebook-style, session-only) ─────────────────
-
-  /// Streams one grounded answer for the Study screen.
-  ///
-  /// Unlike [sendMessage], nothing is persisted: no Firestore write, no
-  /// memory extraction, no conversation thread. [history] holds prior
-  /// display-only turns (question + answer text, never source material);
-  /// [sourcesBlock] is prepended to [question] so the model answers from
-  /// the attached PDFs only. Reuses the draft notifiers so the Study
-  /// screen streams exactly like Motchi chat.
   Future<String> streamStudyReply({
     required List<Map<String, String>> history,
     required String sourcesBlock,
@@ -686,11 +598,6 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  // ─── Temporary Chat Mode (Anime sidebar, session-only) ────────
-
-  /// Sends a temporary chat message without saving to Firestore conversations
-  /// or archiving sessions. Full Motchi agent capabilities (memories, tools,
-  /// streaming, reasoning) are preserved.
   Future<AIMessage> sendTemporaryMessage({
     required String message,
     required List<AIMessage> history,
@@ -815,8 +722,6 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  // ─── Feature-Specific Methods ──────────────────────────────────
-
   Future<String> getRecommendation({String? mood}) async {
     final moodContext = mood != null ? "My mood: $mood" : '';
     final prompt =
@@ -843,14 +748,11 @@ class AIService extends ChangeNotifier {
     return sendMessage(
       feature: 'guardian',
       message: message,
-      // Thinking mode off: mascot replies should be instant, not deep reasoned.
       enableThinking: false,
       contextOverride:
           'You are Motchi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
     );
   }
-
-  // ─── Permanent Memory System ───────────────────────────────────
 
   Future<void> saveMemory(String fact, {String category = 'fact'}) async {
     await _memoryRepo.save(fact, category: category);
@@ -864,9 +766,6 @@ class AIService extends ChangeNotifier {
 
   void resetMemories() => _memoryRepo.reset();
 
-  // ─── Starlight Jar Write Access ────────────────────────────────
-
-  /// Motchi writes a note to the Starlight Jar.
   Future<void> writeStarlightNote(String content, {String? author}) async {
     try {
       final db = FirebaseFirestore.instance;
@@ -887,11 +786,8 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  // ─── Cloud Function Call ───────────────────────────────────────
-
   String get _cloudFunctionUrl {
     if (kIsWeb) {
-      // V2 function (Cloud Run) — supports true SSE streaming
       return 'https://proxyaiv2-6pr4gqobxa-uc.a.run.app';
     }
     if (kDebugMode) {
@@ -931,13 +827,12 @@ class AIService extends ChangeNotifier {
             (e is Exception && e.toString().contains('502')) ||
             (e is Exception && e.toString().contains('429'));
         if (attempt < maxRetries && isTransient && feature != 'assistant') {
-          await Future.delayed(Duration(seconds: 1 << attempt)); // 1s, 2s
+          await Future.delayed(Duration(seconds: 1 << attempt));
           continue;
         }
         rethrow;
       }
     }
-    // unreachable
     throw Exception('Retry exhausted');
   }
 
@@ -992,8 +887,6 @@ class AIService extends ChangeNotifier {
     throw Exception(errorMsg);
   }
 
-  /// Stream a response from the AI via real SSE, calling [onChunk] with each
-  /// token as the model generates it.
   Future<String> _callProxyAIStream(
     List<Map<String, dynamic>> messages,
     String context,
@@ -1092,7 +985,7 @@ class AIService extends ChangeNotifier {
       'sessionId': sessionIdOverride ?? currentSessionId,
       if (!temporary && _actionScopeId != null) 'actionScopeId': _actionScopeId,
       if (temporary) 'temporary': true,
-      'stream': true, // enables real SSE streaming from the backend
+      'stream': true,
       'enableThinking': enableThinking,
       'canvas': canvasEnabled,
     });
@@ -1112,9 +1005,6 @@ class AIService extends ChangeNotifier {
       onToolResult: onToolResult,
       onError: onError,
       cancellation: cancellation,
-      // Artifact builds and thinking requests get 280s (inside the server's
-      // 300s function budget) so slow generations or multi-turn tool loops
-      // land cleanly. Everyday chat keeps 180s.
       timeout: artifactExpected
           ? const Duration(seconds: 285)
           : enableThinking
@@ -1123,7 +1013,6 @@ class AIService extends ChangeNotifier {
     );
   }
 
-  // Firestore Persistence
   final Map<String, Map<String, dynamic>> _demoCompanions = {};
 
   Future<Map<String, dynamic>> companionOperation(
@@ -1192,7 +1081,6 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  /// Opening chat needs only the conversation, not the Memory Book.
   Future<void> loadAssistantConversation() async {
     await _conversationRepo.loadAssistant();
     notifyListeners();
@@ -1207,20 +1095,12 @@ class AIService extends ChangeNotifier {
   Future<void> _archiveSession(AIConversation conversation) =>
       _conversationRepo.archiveSession(conversation);
 
-  // ─── Session Management ─────────────────────────────────────────
-
-  /// List all archived sessions, newest first.
   Future<List<AISession>> listSessions({int limit = 50}) =>
       _conversationRepo.listSessions(limit: limit);
 
-  /// Realtime stream of archived sessions, newest first.
-  ///
-  /// Powers the sidebar's auto-refresh: any archive or delete pushes a
-  /// fresh list without a manual reload.
   Stream<List<AISession>> watchSessions({int limit = 50}) =>
       _conversationRepo.watchSessions(limit: limit);
 
-  /// Switch to a specific archived session, loading its messages.
   Future<void> switchSession(String sessionId) async {
     if (_isLoading || _isNavigating) {
       throw StateError('Wait for the current chat action to finish.');
@@ -1230,7 +1110,6 @@ class AIService extends ChangeNotifier {
     try {
       await _conversationRepo.loadSession(sessionId);
       _currentSessionId = sessionId;
-      // Also save it as the current assistant conversation.
       final conv = _conversationRepo.assistant;
       if (conv != null) {
         await _conversationRepo.save(conv);
@@ -1241,13 +1120,11 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  /// Delete a specific archived session.
   Future<void> deleteSession(String sessionId) async {
     await _conversationRepo.deleteSession(sessionId);
     notifyListeners();
   }
 
-  /// Archive the current conversation as a new session.
   Future<void> archiveCurrentSession() async {
     final conv = _conversationRepo.assistant;
     if (conv != null && conv.messages.length >= 2) {

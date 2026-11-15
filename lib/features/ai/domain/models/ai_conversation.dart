@@ -1,13 +1,10 @@
 import '../motchi_reply_details.dart';
 
-/// A single message in an AI conversation.
 class AIMessage {
-  final String role; // 'user' or 'assistant'
+  final String role;
   final String content;
   final DateTime timestamp;
-  final List<String> imageUrls; // optional image URLs for vision tasks
-  /// Tappable web sources on assistant replies (from web_search /
-  /// read_web_page). Each entry: {title, url, site}. Empty otherwise.
+  final List<String> imageUrls;
   final List<Map<String, String>> sources;
   final MotchiReplyDetails details;
   final String? actionScopeId;
@@ -56,8 +53,6 @@ class AIMessage {
         [],
   );
 
-  /// Returns the payload for the Motchi proxy API.
-  /// If images are present, uses the multimodal content array format.
   Map<String, dynamic> toApiPayload() {
     if (imageUrls.isEmpty) {
       final receipts = role == 'assistant' && details.steps.isNotEmpty
@@ -65,7 +60,6 @@ class AIMessage {
           : '';
       return {'role': role, 'content': '$content$receipts'};
     }
-    // Multimodal format: array of text and image_url blocks
     final List<Map<String, dynamic>> contentBlocks = [];
     if (content.isNotEmpty) {
       contentBlocks.add({'type': 'text', 'text': content});
@@ -80,11 +74,10 @@ class AIMessage {
   }
 }
 
-/// A conversation thread for a specific AI feature.
 class AIConversation {
   final String id;
   final String
-  feature; // 'assistant', 'guardian', 'recommendations', 'date_ideas'
+  feature;
   final List<AIMessage> messages;
   final DateTime createdAt;
   final DateTime updatedAt;

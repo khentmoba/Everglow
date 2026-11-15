@@ -6,13 +6,6 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'stats_fx.dart';
 
-/// Leaderboard header with total listens pill and animated 1ST champion badge.
-///
-/// The header always shows the user's name and subtitle. When [totalPlays] is
-/// available a pill with the formatted count is shown on the trailing side.
-/// When [isLeader] is true the whole header is wrapped in a shimmering gold
-/// treatment and a pulsing "1ST" crown badge appears with particle sparkles
-/// so the current listening champion is instantly recognisable.
 class LeaderboardHeader extends StatelessWidget {
   final String displayName;
   final String username;
@@ -106,7 +99,6 @@ class LeaderboardHeader extends StatelessWidget {
         );
 
         if (isNarrow && hasTotal) {
-          // Stack vertically on very narrow widths to avoid overflow.
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -138,7 +130,6 @@ class LeaderboardHeader extends StatelessWidget {
 
     if (!isLeader) return headerRow;
 
-    // Champion treatment: soft gold container with animated shimmer and floating sparkles.
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -186,7 +177,6 @@ class LeaderboardHeader extends StatelessWidget {
             ],
           ),
         ),
-        // Floating sparkles that orbit the champion header.
         Positioned(
           top: -7,
           right: 10,
@@ -752,7 +742,6 @@ class _ChampionBadgeState extends State<_ChampionBadge>
               ),
             ],
           ),
-          // Subtle shimmer sweep across the badge.
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(99),

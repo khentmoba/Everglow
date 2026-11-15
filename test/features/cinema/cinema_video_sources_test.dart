@@ -211,7 +211,6 @@ void main() {
         ),
         isTrue,
       );
-      // A lookalike origin must never drive episode state.
       expect(
         CinemaVideoSources.trustsCinesrcEpisodeEvent(
           'flux-cinesrc',
@@ -226,9 +225,6 @@ void main() {
     });
 
     test('trusts wrapper forwards regardless of posting origin', () {
-      // embed.html origin-checks the upstream itself, so the app accepts
-      // its forwards from our origin, opaque ('null') sandboxed frames,
-      // and anything else the wrapper posts from.
       expect(
         CinemaVideoSources.trustsCinesrcEpisodeEvent(
           'everglow-embed',
@@ -277,7 +273,6 @@ void main() {
     });
 
     test('rejects events for providers that never send them', () {
-      // Stale events arriving after a server switch must not move state.
       expect(
         CinemaVideoSources.trustsCinesrcEpisodeEvent(
           'videasy',

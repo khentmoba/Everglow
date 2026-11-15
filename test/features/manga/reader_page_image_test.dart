@@ -6,9 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/manga/presentation/widgets/reader_page_image.dart';
 
-/// Cache backend that fails every load at once, so the retry path runs
-/// without real network or disk I/O (the default manager needs
-/// path_provider, which has no test implementation).
 class _FailingCacheManager extends CacheManager {
   _FailingCacheManager() : super(Config('reader-page-image-test'));
 
@@ -48,8 +45,6 @@ Widget _page({
 }
 
 void main() {
-  /// Steps past every backoff (50 + 100 + 200ms by default) while
-  /// letting each async failure propagate before the next timer.
   Future<void> pumpToExhaustion(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -73,11 +68,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // First failure schedules a silent retry — never a black gap.
       expect(find.text('Retrying page 7…'), findsOneWidget);
       expect(find.text('Page 7 failed to load'), findsNothing);
 
-      // Past every backoff: the error slot with a per-page retry.
       await pumpToExhaustion(tester);
       expect(find.text('Page 7 failed to load'), findsOneWidget);
       expect(find.text('Tap to retry'), findsOneWidget);
@@ -104,8 +97,6 @@ void main() {
       await tester.tap(find.text('Tap to retry'));
       await tester.pump();
 
-      // Retry resets the budget: the page goes back to loading /
-      // retrying instead of staying stuck on the error.
       expect(
         find.text('Page 7 failed to load'),
         findsNothing,
@@ -189,15 +180,11 @@ void main() {
         ),
       );
 
-      // Initially, page 1 is visible and mounted
       expect(find.byKey(const ValueKey('page-0')), findsOneWidget);
 
-      // Scroll far down to page 15 (7000 pixels down)
       controller.jumpTo(7000);
       await tester.pump();
 
-      // Page 1 is now far offscreen and must be unmounted (not kept alive),
-      // allowing ImageCache to reclaim memory instead of crashing iOS WebKit.
       expect(find.byKey(const ValueKey('page-0')), findsNothing);
       expect(find.byKey(const ValueKey('page-14')), findsOneWidget);
     });

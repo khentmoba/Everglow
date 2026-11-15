@@ -5,10 +5,6 @@ import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_motion.dart';
 
-/// Accessible circular icon button used in the inside-screen headers.
-/// Defaults to a 44×44 tap target (the iOS HIG / WCAG minimum) and
-/// surfaces a `tooltip` + `Semantics` label so screen readers and
-/// keyboard users can both reach it.
 class ShelfIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onTap;

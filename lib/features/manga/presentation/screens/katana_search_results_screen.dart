@@ -8,9 +8,6 @@ import '../katana/katana_nav.dart';
 import '../katana/katana_pagination.dart';
 import '../katana/katana_theme.dart';
 
-/// Full search results page. Shows the compact search cards from
-/// Manga Katana (cover, title, latest chapter, authors) with
-/// pagination, and supports searching by manga name or author.
 class KatanaSearchResultsScreen extends StatefulWidget {
   final String query;
   final String searchBy;

@@ -35,15 +35,12 @@ void main() {
         ),
       );
 
-      // Emit empty events list
       streamController.add([]);
       await tester.pumpAndSettle();
 
-      // Check header date
       expect(find.text('September 25, 2026'), findsOneWidget);
       expect(find.text('Friday'), findsOneWidget);
 
-      // Check empty state
       expect(find.text('No plans set for this day'), findsOneWidget);
       expect(find.text('Plan Something Special'), findsOneWidget);
       expect(find.text('QUICK ADD'), findsOneWidget);
@@ -102,7 +99,6 @@ void main() {
       expect(find.text('Khent, Clair'), findsOneWidget);
       expect(find.text('Love Note Reminder'), findsOneWidget);
 
-      // Verify empty state is NOT shown
       expect(find.text('No plans set for this day'), findsNothing);
 
       await streamController.close();

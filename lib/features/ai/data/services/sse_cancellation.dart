@@ -1,4 +1,3 @@
-/// Stops the current transport without adding another server request.
 class SseCancellation {
   bool _cancelled = false;
   void Function()? _abort;

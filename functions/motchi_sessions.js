@@ -2,27 +2,8 @@
 
 const common = require('./common.js');
 
-/** Maximum number of turns kept inline in a single session doc. */
 const MAX_TURNS_PER_SESSION = 50;
 
-/**
- * Persists a completed chat turn to Firestore under `motchi_sessions/{sessionId}`.
- * Completely fire-and-forget: failure must never break or delay the chat response.
- *
- * @param {Object} params
- * @param {string} [params.sessionId] - Client-provided session ID or null
- * @param {string} params.caller - 'khentsgdz' or 'clairjassen' or username
- * @param {string} [params.feature] - 'assistant', 'guardian', 'study', etc.
- * @param {string} params.userMessage - User's prompt text
- * @param {string} params.assistantReply - Motchi's reply text
- * @param {Array<Object>} [params.tools] - Tools executed: [{ name, args, resultSummary, elapsedMs }]
- * @param {string} [params.reasoning] - Model thinking / reasoning text
- * @param {string} [params.model] - Model name (e.g. agnes-3.0-flash)
- * @param {number} [params.durationMs] - Total turn duration in ms
- * @param {string} [params.error] - Error message if turn failed
- * @param {number} [params.imageCount] - Number of images attached
- * @returns {Promise<string>} The sessionId used
- */
 async function recordMotchiTurn({
   sessionId,
   caller = 'unknown',
@@ -51,8 +32,6 @@ async function recordMotchiTurn({
       ? sessionId.trim()
       : null;
 
-    // If client did not provide a sessionId, look for a recent active session
-    // for this caller updated within the last 30 minutes.
     if (!targetId) {
       try {
         const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
@@ -68,7 +47,6 @@ async function recordMotchiTurn({
           targetId = recents.docs[0].id;
         }
       } catch (_) {
-        // Query fallback (e.g. if index is warming up): generate new id below
       }
     }
 
@@ -82,7 +60,6 @@ async function recordMotchiTurn({
     const cleanReply = String(assistantReply || '').trim();
     const cleanReasoning = typeof reasoning === 'string' ? reasoning.trim() : '';
 
-    // Turn object representation
     const turnData = {
       timestamp: nowIso,
       userMessage: cleanUser.slice(0, 10000),
@@ -98,7 +75,6 @@ async function recordMotchiTurn({
       durationMs: Number(durationMs) || 0,
       error: error ? String(error).slice(0, 500) : null,
       imageCount: Number(imageCount) || 0,
-      // Numeric-only diagnostics: no prompts, memory text, or credentials.
       requestTrace: requestTrace ? Object.fromEntries(
         ['modelCalls', 'retries', 'toolRounds', 'repairs', 'firstTokenMs', 'preparedMs', 'contextChars', 'memoryCount', 'memoryChars', 'promptChars', 'attachedTools', 'completedWrites', 'unfinishedWrites', 'unknownWrites', 'interrupted']
           .map((key) => [key, Number.isFinite(requestTrace[key]) ? requestTrace[key] : null]),
@@ -109,7 +85,6 @@ async function recordMotchiTurn({
     const docSnap = await docRef.get();
 
     if (!docSnap.exists) {
-      // First turn of this session
       const firstLine = cleanUser.split('\n')[0].trim();
       const title = firstLine.length > 60 ? firstLine.substring(0, 60) + '…' : (firstLine || 'New conversation');
 
@@ -130,7 +105,6 @@ async function recordMotchiTurn({
         turns: [turnData],
       });
     } else {
-      // Subsequent turn
       const prevData = docSnap.data() || {};
       const prevTurns = Array.isArray(prevData.turns) ? prevData.turns : [];
       let updatedTurns = [...prevTurns, turnData];

@@ -19,17 +19,12 @@ void main() {
     });
 
     test('rejects short-substring false positives', () {
-      // "split".contains("it") is true at the string level, but "It" and
-      // "Split" are different films — short titles only match exactly.
       expect(TitleMatcher.titlesMatch('It', 'Split'), isFalse);
       expect(TitleMatcher.titlesMatch('Up', 'Up in the Air'), isFalse);
       expect(TitleMatcher.titlesMatch('Us', 'Sus'), isFalse);
     });
 
     test('strips generic media suffixes before matching', () {
-      // Live regression: stored "Yellow Jacket Television" and
-      // "Yellow Jacket Televison" (misspelling) never matched TMDB's
-      // "Yellowjackets", so the poster stayed blank forever.
       expect(
         TitleMatcher.titlesMatch('Yellow Jacket Television', 'Yellowjackets'),
         isTrue,

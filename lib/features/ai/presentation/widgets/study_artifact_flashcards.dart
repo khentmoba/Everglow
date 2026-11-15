@@ -1,7 +1,5 @@
 part of 'study_artifact_sheet.dart';
 
-// ─── Flashcards ───────────────────────────────────────────────
-
 class FlashcardsPlayView extends StatefulWidget {
   final List<Flashcard> cards;
 
@@ -130,7 +128,6 @@ class _FlashcardsPlayViewState extends State<FlashcardsPlayView> {
   }
 }
 
-/// A card that turns around on tap, like real flashcards.
 class _FlipCard extends StatefulWidget {
   final String front;
   final String back;
@@ -259,9 +256,6 @@ class _FlipCardState extends State<_FlipCard>
             ),
           ),
           const SizedBox(height: 12),
-          // Plain Text on purpose: SelectableText swallows taps for
-          // selection, which would break tap-to-flip on the words
-          // themselves (Clair taps the words, not the margins).
           Text(
             text,
             textAlign: TextAlign.center,

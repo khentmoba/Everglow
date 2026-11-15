@@ -6,7 +6,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/bucket_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Service for managing the shared couple bucket list.
 class BucketListService {
   static final BucketListService _instance = BucketListService._internal();
   factory BucketListService() => _instance;
@@ -28,7 +27,6 @@ class BucketListService {
         .map((doc) => doc.exists ? BucketItem.fromFirestore(doc) : null);
   }
 
-  /// All items, newest first.
   Stream<List<BucketItem>> watchAll() {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoBucketList);
@@ -46,10 +44,6 @@ class BucketListService {
           );
     }
 
-    // Re-attach when the first snapshot is slow: the dreams preview
-    // was flipping to "could not load" on cold dashboard loads while
-    // the WebChannel and auth token warm up. 12s x 3 attempts mirrors
-    // calendar-upcoming and garden-stats.
     return withFirestoreTimeout(
       subscribe(),
       resubscribe: subscribe,
@@ -59,10 +53,6 @@ class BucketListService {
     );
   }
 
-  // Capped preview for the dashboard Dreams card: it renders a progress
-  // ring plus 3 wishes, so a 100-doc realtime stream is 8x over-fetch
-  // on every dashboard visit. Full list stays on watchAll for the
-  // bucket-list screen.
   Stream<List<BucketItem>> watchPreview({int limit = 12}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoBucketList);
@@ -89,7 +79,6 @@ class BucketListService {
     );
   }
 
-  /// Items filtered by status.
   Stream<List<BucketItem>> watchByStatus(BucketStatus status) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(
@@ -112,7 +101,6 @@ class BucketListService {
     );
   }
 
-  /// Add a new bucket list item.
   Future<void> add(BucketItem item) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -123,7 +111,6 @@ class BucketListService {
     }
   }
 
-  /// Update an existing bucket list item.
   Future<void> update(BucketItem item) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -134,7 +121,6 @@ class BucketListService {
     }
   }
 
-  /// Delete a bucket list item.
   Future<void> delete(String id) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -145,7 +131,6 @@ class BucketListService {
     }
   }
 
-  /// Mark an item as completed.
   @visibleForTesting
   static Map<String, dynamic> buildMarkCompletePayload(
     String completedBy, {
@@ -171,7 +156,6 @@ class BucketListService {
     }
   }
 
-  /// Mark an item as uncomplete (back to wish).
   @visibleForTesting
   static Map<String, dynamic> buildMarkUncompletePayload() {
     return {
@@ -194,7 +178,6 @@ class BucketListService {
     }
   }
 
-  /// Mark an item as planned.
   Future<void> markPlanned(String id) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -207,7 +190,6 @@ class BucketListService {
     }
   }
 
-  /// Move item to any status (Kanban drag).
   @visibleForTesting
   static Map<String, dynamic> buildMoveStatusPayload(
     BucketStatus status, {
@@ -242,7 +224,6 @@ class BucketListService {
     }
   }
 
-  /// Assign / unassign.
   @visibleForTesting
   static Map<String, dynamic> buildAssignPayload(String? username) {
     if (username == null) {
@@ -264,7 +245,6 @@ class BucketListService {
     }
   }
 
-  /// Update priority.
   Future<void> setPriority(String id, BucketPriority priority) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -277,7 +257,6 @@ class BucketListService {
     }
   }
 
-  /// Update due date (null clears).
   @visibleForTesting
   static Map<String, dynamic> buildSetDueDatePayload(DateTime? dueDate) {
     if (dueDate == null) {
@@ -299,7 +278,6 @@ class BucketListService {
     }
   }
 
-  /// Client-side filtered streams (no extra indexes needed for MVP).
   Stream<List<BucketItem>> watchAssignedTo(String username) {
     return watchAll().map(
       (items) => items.where((i) => i.assignedTo == username).toList(),

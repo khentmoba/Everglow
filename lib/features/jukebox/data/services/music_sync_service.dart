@@ -30,18 +30,12 @@ class MusicSyncService {
   final CatalogProxyClient _proxy;
   final Future<Uri> Function(Uri url)? _signUrl;
 
-  /// Last.fm requests are signed and proxied server-side so the API key is
-  /// never embedded in the Flutter web bundle.
   final String _baseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
 
-  /// Spotify artist-photo lookups go through the same authed proxy path.
   final String _spotifyBaseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxySpotifySearch';
 
-  // ── Process-wide token cache shared across JukeboxProvider + MusicStatsProvider ──
-  // Without this, 8 concurrent proxyLastfm calls on dashboard boot each pay
-  // `getIdToken()` independently, serializing behind the auth bridge.
   static String? _cachedToken;
   static DateTime? _cachedAt;
   static Future<String?>? _inFlightToken;
@@ -88,15 +82,10 @@ class MusicSyncService {
     }
   }
 
-  // Usernames that Last.fm reported as invalid (HTTP 404 / error code 6
-  // "User not found"). Once we know a username is bad we stop hitting the
-  // API for it so the 30-second poll doesn't spam the console with errors
-  // and trigger downstream "Another exception was thrown" cascades.
   static final Set<String> _invalidUsers = <String>{};
 
   bool isUserInvalid(String username) => _invalidUsers.contains(username);
 
-  /// Resets the invalid-user cache (e.g. if a user later creates an account).
   static void resetInvalidUsers() => _invalidUsers.clear();
 
   static bool _isCoupleUser(String username) {
@@ -113,19 +102,11 @@ class MusicSyncService {
   final Map<String, int> _lastObservedTotalPlays = {};
   int _transientFailureCount = 0;
 
-  /// Monotonic count of transient HTTP/network/API errors observed by this
-  /// service instance. Lets callers distinguish a genuine empty result from
-  /// a swallowed failure without changing `[]` fallback return types.
   int get transientFailureCount => _transientFailureCount;
 
-  /// Returns the latest total play count observed for [username] across any
-  /// Last.fm response (`user.getinfo` or `user.getrecenttracks` @attr.total).
   int getLastObservedTotalPlays(String username) =>
       _lastObservedTotalPlays[username.toLowerCase()] ?? 0;
 
-  /// Normalizes a Last.fm list node to maps. Last.fm collapses a
-  /// single-element list to a bare object, so an `is List` check alone
-  /// would drop a user's only result.
   List<Map<String, dynamic>> _asMapList(dynamic node) {
     if (node is List) return node.whereType<Map<String, dynamic>>().toList();
     if (node is Map<String, dynamic>) return [node];
@@ -133,10 +114,6 @@ class MusicSyncService {
     return const [];
   }
 
-  /// Last.fm reports failures (rate limit, temp error, offline) as HTTP 200
-  /// with an `error` payload, which the proxy forwards untouched. Without
-  /// this check those are indistinguishable from "user has no scrobbles",
-  /// so they are logged loudly instead of as a quiet empty state.
   void _warnOnLastfmError(dynamic data, String what, String username) {
     final error = data is Map ? data['error'] : null;
     final message = data is Map ? data['message'] : null;
@@ -156,11 +133,6 @@ class MusicSyncService {
     return tracks.isEmpty ? null : tracks.first;
   }
 
-  /// Fetches the [limit] most recent scrobbles for [username].
-  ///
-  /// The first entry may carry a `nowplaying` flag instead of a timestamp
-  /// when the user is currently listening. Returns an empty list when the
-  /// user is unknown, the API key is missing, or the request fails.
   Future<List<MusicStatus>> fetchRecentTracks(
     String username, {
     int limit = 5,
@@ -193,10 +165,6 @@ class MusicSyncService {
           _warnOnLastfmError(data, 'tracks', username);
         }
       } else if (response.statusCode == 404) {
-        // Last.fm returns 404 with `{"error": 6, "message": "User not found"}`
-        // for usernames that don't exist (e.g. placeholders in env.txt).
-        // Mark the user as invalid so we never poll for them again this
-        // session and just surface a quiet empty state in the UI.
         _markInvalidUser(username);
         Logger.w(
           'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
@@ -219,10 +187,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches the user's most-played tracks from Last.fm.
-  ///
-  /// [period] defaults to `overall` (all-time stats). Returns an empty list
-  /// when the user is unknown, the API key is missing, or the request fails.
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
@@ -296,14 +260,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Walks the all-time top-track chart page by page.
-  ///
-  /// A single `user.gettoptracks` request accepts up to 1000 rows, but that
-  /// size 500s (Last.fm error 8) for active accounts, so a 200-row page is
-  /// the reliable unit. One page is not enough to be exact: any track below
-  /// the page size silently drops out for the artist, which is how the
-  /// showdown under-counted plays. Pages stop at the first short page (the
-  /// end of the chart) and are capped by [maxPages].
   Future<List<TopMusicTrack>> fetchTopTracksPaged(
     String username, {
     int pageSize = 200,
@@ -319,17 +275,12 @@ class MusicSyncService {
         period: period,
       );
       all.addAll(rows);
-      // A short page (or none at all) means we reached the end of the chart,
-      // or the request failed and there is no point paging further.
       if (rows.length < pageSize) break;
       if (_invalidUsers.contains(username)) break;
     }
     return all;
   }
 
-  /// Fetches top tracks of [artist] from Last.fm's artist discography
-  /// (`artist.gettoptracks`). Only fetches tracks for [artist], zero tracks
-  /// from any other artist.
   Future<List<TopMusicTrack>> fetchArtistCatalogTracks(
     String artist, {
     int page = 1,
@@ -400,10 +351,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Walks the full catalog of tracks for [artist] from Last.fm,
-  /// page by page, until all pages are retrieved.
-  /// Bounded by [maxPages] to prevent infinite loops, but deep enough to
-  /// cover the artist's full discography with zero other artists loaded.
   Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
     String artist, {
     int pageSize = 50,
@@ -428,9 +375,6 @@ class MusicSyncService {
     return all;
   }
 
-  /// Fetches [username]'s exact all-time playcount for [artist] via
-  /// Last.fm's `artist.getinfo&artist=...&username=...`.
-  /// Returns 0 if never played, user unknown, or request fails.
   Future<int> fetchArtistUserPlayCount({
     required String username,
     required String artist,
@@ -465,10 +409,6 @@ class MusicSyncService {
     return 0;
   }
 
-  /// Fetches [username]'s exact all-time playcount for a specific [track]
-  /// by [artist] via `track.getinfo&username=...`.
-  /// Returns 0 if never played, user unknown, or request fails.
-  /// Play count is an exact, uncapped integer (from 1 to 1,000,000+).
   Future<int> fetchTrackUserPlayCount({
     required String username,
     required String artist,
@@ -529,14 +469,6 @@ class MusicSyncService {
     return 0;
   }
 
-  /// Fetches all tracks by [artist] that [username] has scrobbled,
-  /// with exact, uncapped playcounts for each song.
-  ///
-  /// Takes a list of [candidateTracks] (from the artist's catalog and/or
-  /// recent scrobbles for that artist). Queries `track.getinfo` for each song
-  /// in parallel batches to stay responsive and avoid rate limits.
-  ///
-  /// Only tracks where the user has at least 1 play are returned.
   Future<List<TopMusicTrack>> fetchUserArtistTracks(
     String username,
     String artist, {
@@ -600,11 +532,6 @@ class MusicSyncService {
     return playedTracks;
   }
 
-  /// Deprecated: `user.getartisttracks` was deprecated by Last.fm in 2019
-  /// (stale legacy backend, entries carry no `playcount`). Kept for tests
-  /// and backwards compat — new code should pull `user.gettoptracks`
-  /// (limit 1000) and filter by artist locally, as ArtistShowdownProvider
-  /// now does.
   @Deprecated('Use fetchTopTracks(limit: 1000) filtered by artist instead')
   Future<List<TopMusicTrack>> fetchArtistTracks(
     String username,
@@ -672,11 +599,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches the user's all-time scrobble count via `user.getInfo`.
-  ///
-  /// Returns 0 when the user is unknown, the key is missing, or the request
-  /// fails. The caller should fall back to summing local top-track playCounts
-  /// when this returns 0 so the UI still shows a meaningful total.
   Future<int> fetchUserTotalPlays(String username) async {
     if (username.isEmpty || _invalidUsers.contains(username)) {
       return getLastObservedTotalPlays(username);
@@ -715,23 +637,6 @@ class MusicSyncService {
     return getLastObservedTotalPlays(username);
   }
 
-  /// Looks up real album artwork and metadata for a single track via `track.getinfo`.
-  ///
-  /// `user.gettoptracks` frequently returns Last.fm's default placeholder
-  /// image (or no image at all), so the dashboard enriches missing covers
-  /// with the track's actual album art. Prefers the MusicBrainz [mbid] when
-  /// available, otherwise falls back to artist + track lookup. When Last.fm
-  /// still has no usable cover, the iTunes Search API is queried next, and
-  /// Spotify's track search last (it carries singles and stripped versions
-  /// the other two miss — e.g. Ethel Cain's "Crush - Stripped"). Returns
-  /// null when every lookup fails.
-  ///
-  /// Matching is deliberately strict at every step: a cover is only
-  /// returned when the lookup result is verifiably the SAME song (title
-  /// and artist, ignoring case and punctuation). A missing cover falls
-  /// back to the music-note tile, which is always better than pairing a
-  /// row with the wrong song's art — e.g. the base "Crush" cover must
-  /// never land on "Crush - Stripped".
   Future<String?> fetchTrackArtwork({
     required String artist,
     required String track,
@@ -751,7 +656,6 @@ class MusicSyncService {
     return _fetchSpotifyArtwork(artist: artist, track: track);
   }
 
-  /// Looks up metadata (artwork URL and album name) for a track.
   Future<TrackMetadata?> fetchTrackMetadata({
     required String artist,
     required String track,
@@ -820,7 +724,6 @@ class MusicSyncService {
     return lastfmMeta;
   }
 
-  /// Looks up real album title for a track.
   Future<String?> fetchTrackAlbum({
     required String artist,
     required String track,
@@ -869,9 +772,6 @@ class MusicSyncService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final trackNode = data['track'];
-        // Last.fm can fuzzy-match the query to a different track (e.g.
-        // "Crush - Stripped" resolving to "Crush"). Only accept the
-        // album art when the returned song is verifiably the requested one.
         if (trackNode is Map &&
             _matchesTrack(
               trackNode['name'],
@@ -916,18 +816,6 @@ class MusicSyncService {
     return null;
   }
 
-  /// Fallback artwork lookup via the iTunes Search API (no key required).
-  ///
-  /// Queries `artist + track` first and only accepts a result whose title
-  /// AND artist both match (ignoring case and punctuation). Last.fm
-  /// sometimes stores mangled names (UTF-8 mojibake of accented names),
-  /// which can make the combined query return nothing, so the search is
-  /// retried with just the track name — but the retry still requires an
-  /// exact title match, and for clean ASCII artist names the artist must
-  /// match too. (Mangled names are unverifiable by nature, so the artist
-  /// check is skipped only when the name contains non-ASCII characters.)
-  /// Returns null rather than guessing: no `results.first` fallback, so a
-  /// cover is never paired with the wrong song.
   Future<String?> _fetchItunesArtwork({
     required String artist,
     required String track,
@@ -944,17 +832,10 @@ class MusicSyncService {
       final results = await _searchItunes('$artist $track');
       var selected = _selectItunesResult(results, track: track, artist: artist);
       if (selected == null) {
-        // The combined query can return results that still miss (wrong
-        // artist spelling, collab listed differently, iTunes quirk), so
-        // always retry track-only before giving up — the retry still
-        // requires a title match, and for clean ASCII names the artist
-        // must match too (collab-aware, see _artistMatches).
         final retry = await _searchItunes(track);
         selected = _selectItunesResult(
           retry,
           track: track,
-          // A mangled Last.fm artist name can never match iTunes' clean
-          // one, so only verifiable (ASCII) names keep the artist check.
           artist: _hasNonAscii(artist) ? null : artist,
         );
       }
@@ -986,15 +867,6 @@ class MusicSyncService {
     return null;
   }
 
-  /// Final artwork fallback via Spotify's track search.
-  ///
-  /// Catches the singles and alternate versions Last.fm and iTunes both
-  /// miss (stripped cuts, Spotify Singles, unreleased-tease uploads).
-  /// The proxy already prefers an exact title match server-side, but it
-  /// still answers its top result when nothing matches — so the reply is
-  /// verified here with [_matchesTrack] before its cover is trusted. The
-  /// base "Crush" art must never land on "Crush - Stripped", no
-  /// matter which backend answered.
   Future<String?> _fetchSpotifyArtwork({
     required String artist,
     required String track,
@@ -1064,8 +936,6 @@ class MusicSyncService {
     };
     http.Response response;
     if (kIsWeb) {
-      // Direct browser calls to itunes.apple.com redirect to musics:// and
-      // get blocked by browser CORS policy. Route through proxyCatalog.
       response = await _proxy.get(
         'itunes',
         'search',
@@ -1101,24 +971,9 @@ class MusicSyncService {
         return result;
       }
     }
-    // No exact match: return null so the row falls back to the music-note
-    // tile. Never guess with `results.first` — near-misses (the base
-    // "Crush" for "Crush - Stripped", or another artist's same-titled
-    // song) are exactly how wrong covers end up on leaderboard rows.
     return null;
   }
 
-  /// True when the candidate title (and, when [artist] is given, the
-  /// candidate artist) identify the requested song. Comparison ignores case
-  /// and punctuation so "Crush – Stripped" still matches "Crush -
-  /// Stripped", but version suffixes and different artists never match.
-  ///
-  /// Collaboration-aware: "Marshmello" matches "Marshmello & Halsey"
-  /// (same song, same cover), while "David Archuleta" never matches
-  /// "Ethel Cain". Featured-artist tags in titles ("Be Kind (with
-  /// Halsey)" vs "Be Kind") are stripped before comparing, but version
-  /// descriptors ("Stripped", "Acoustic", "Remix") stay significant
-  /// so "Crush" never lands on "Crush - Stripped".
   bool _matchesTrack(
     dynamic candidateTrack,
     dynamic candidateArtist, {
@@ -1134,14 +989,8 @@ class MusicSyncService {
     return _artistMatches(artist, candidateArtist);
   }
 
-  /// Strips featured-artist tags before normalizing, so the same song
-  /// listed with and without its feature still matches. Only feat/ft/
-  /// featuring/with markers are stripped — version words (stripped,
-  /// acoustic, remix, live, demo, sped up, slowed, instrumental, cover,
-  /// tribute) are significant and left intact.
   static String _normalizeTrackBase(String title) {
     var base = title;
-    // "Be Kind (feat. Halsey)" / "Be Kind [with Halsey]" -> "Be Kind".
     base = base.replaceAll(
       RegExp(
         r'\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\b[^\]\)]*[\]\)]',
@@ -1149,9 +998,6 @@ class MusicSyncService {
       ),
       '',
     );
-    // "Be Kind feat. Halsey" / "Be Kind - ft. Halsey" -> "Be Kind".
-    // The marker must start on a word boundary after whitespace, a
-    // separator, or string start, so "Defeat the Night" keeps its name.
     base = base.replaceAll(
       RegExp(
         r'(?:^|[\s–—:\-]+)(?:feat\.?|ft\.?|featuring)\b.*$',
@@ -1159,11 +1005,6 @@ class MusicSyncService {
       ),
       '',
     );
-    // Bare "with <artist>" strips only when 2+ words precede it:
-    // "Be Kind with Halsey" -> "Be Kind", but mid-title "with"
-    // ("Be With You") is part of the song name and stays — and so do
-    // version tails ("Be With You (Remix)" never matches the base).
-    // Paren-wrapped "(with X)" is handled by the first rule above.
     final withMatch = RegExp(
       r'^(.*\S)\s+with\b(.*)$',
       caseSensitive: false,
@@ -1175,10 +1016,6 @@ class MusicSyncService {
     return _normalizeForMatch(base);
   }
 
-  /// True when two artist strings identify overlapping artists. Handles
-  /// collaborations ("Marshmello" vs "Marshmello & Halsey"), ordering
-  /// ("Halsey, Marshmello"), and "The" prefixes ("Weeknd" vs
-  /// "The Weeknd") while rejecting genuinely different artists.
   static bool _artistMatches(String a, String b) {
     final na = _normalizeForMatch(a);
     final nb = _normalizeForMatch(b);
@@ -1189,21 +1026,15 @@ class MusicSyncService {
     for (final x in pa) {
       for (final y in pb) {
         if (x == y) return true;
-        // "weeknd" vs "theweeknd", "marshmello" vs "marshmellohalsey"
-        // (when the separator was stripped rather than split).
         if (x.length >= 4 && y.contains(x)) return true;
         if (y.length >= 4 && x.contains(y)) return true;
       }
     }
-    // Full-string fallback for unsplit forms (min length guards against
-    // short-string false positives like "al" matching "metallica").
     if (na.length >= 4 && nb.contains(na)) return true;
     if (nb.length >= 4 && na.contains(nb)) return true;
     return false;
   }
 
-  /// Splits an artist string on collaboration separators and normalizes
-  /// each part. "Marshmello & Halsey" -> ["marshmello", "halsey"].
   static List<String> _splitArtists(String value) {
     final parts = value.split(
       RegExp(
@@ -1214,8 +1045,6 @@ class MusicSyncService {
     return parts.map(_normalizeForMatch).where((p) => p.length >= 2).toList();
   }
 
-  /// Reads a Last.fm artist node, which is normally `{"name": ...}` but
-  /// is occasionally a bare string in older responses.
   static String? _artistNameOf(dynamic artistNode) {
     if (artistNode is Map) {
       final name = artistNode['name'];
@@ -1224,18 +1053,9 @@ class MusicSyncService {
     return artistNode is String ? artistNode : null;
   }
 
-  /// True when [value] contains non-ASCII characters — the telltale sign of
-  /// either a genuinely accented name or Last.fm UTF-8 mojibake, both of
-  /// which make byte-level artist comparison against iTunes unreliable.
   static bool _hasNonAscii(String value) =>
       value.runes.any((rune) => rune > 127);
 
-  /// Searches Last.fm's global artist catalog for autocomplete.
-  ///
-  /// Powers the Artist Showdown search dropdown: type "lana del" and pick
-  /// "Lana Del Rey" instead of guessing the exact spelling. Returns an
-  /// empty list for short/blank queries or on any failure so the UI simply
-  /// shows no dropdown.
   Future<List<ArtistSuggestion>> fetchArtistSuggestions(
     String query, {
     int limit = 6,
@@ -1276,14 +1096,6 @@ class MusicSyncService {
     return const [];
   }
 
-  /// Fetches one artist's photo from Spotify.
-  ///
-  /// Last.fm removed artist images from its API in 2019, so every
-  /// `artist.search` row only carries the white-star placeholder (filtered
-  /// to null by [ArtistSuggestion.fromJson]). Suggestion thumbnails come
-  /// from here instead. Returns null when Spotify has no photo, isn't
-  /// configured, or the lookup fails — the dropdown falls back to the
-  /// initial tile.
   Future<String?> fetchArtistImage(String artistName) async {
     final name = artistName.trim();
     if (name.isEmpty) return null;
@@ -1307,7 +1119,6 @@ class MusicSyncService {
     return null;
   }
 
-  /// Fetches the user's most-played artists from Last.fm.
   Future<List<TopArtist>> fetchTopArtists(
     String username, {
     int limit = 10,
@@ -1342,7 +1153,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches the user's most-played albums from Last.fm.
   Future<List<TopAlbum>> fetchTopAlbums(
     String username, {
     int limit = 10,
@@ -1377,7 +1187,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches the user's loved tracks from Last.fm.
   Future<List<LovedTrack>> fetchLovedTracks(
     String username, {
     int limit = 10,
@@ -1413,7 +1222,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches recent tracks in a specific timestamp window (used for heatmap / OTD).
   Future<List<MusicStatus>> fetchRecentTracksRange(
     String username, {
     int limit = 50,
@@ -1455,8 +1263,6 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches individual scrobbles for a specific [track] by [artist] for [username],
-  /// including timestamps, album, and artwork via `user.getTrackScrobbles`.
   Future<List<MusicStatus>> fetchTrackScrobbles(
     String username, {
     required String artist,
@@ -1474,10 +1280,6 @@ class MusicSyncService {
     return result.scrobbles;
   }
 
-  /// One page of `user.getTrackScrobbles`, plus the raw row count and the
-  /// reported total page count so a caller can tell "end of list" from
-  /// "rows dropped by the display filter" (a now-playing-style row with no
-  /// date shrinks the parsed list without meaning the list is over).
   Future<({List<MusicStatus> scrobbles, int rawCount, int? totalPages})>
   _fetchTrackScrobblesPage(
     String username, {
@@ -1552,13 +1354,6 @@ class MusicSyncService {
     return empty;
   }
 
-  /// Every scrobble of one [track] by [username], oldest pages included.
-  ///
-  /// A single page stops at [pageSize] (200 is the practical per-request
-  /// ceiling), so a song played 300 times used to report only its first
-  /// page's worth. Pages are walked until the reported `totalPages` is
-  /// reached, or until a short page means the list ended, with
-  /// [maxScrobbles] as a hard stop so one track can never run away.
   Future<List<MusicStatus>> fetchTrackScrobblesAll(
     String username, {
     required String artist,
@@ -1583,23 +1378,11 @@ class MusicSyncService {
         if (page >= totalPages) break;
         continue;
       }
-      // No page metadata (older response shape): a short page is the end.
       if (result.rawCount < pageSize) break;
     }
     return all;
   }
 
-  /// Fetches scrobbles for [artist] by [username], with dates and times.
-  ///
-  /// Gathers scrobbles across known tracks by calling `user.getTrackScrobbles`,
-  /// plus recent scrobbles matching [artist] (`user.getrecenttracks`).
-  /// All returned scrobbles are deduplicated and sorted newest first.
-  ///
-  /// Every known track is walked through *all* of its scrobble pages (see
-  /// [fetchTrackScrobblesAll]) so the timeline and its counts cover the whole
-  /// history instead of the first 50 plays of the dozen busiest songs. Track
-  /// requests run in small batches to stay polite to Last.fm, and [maxTracks]
-  /// caps how many songs one artist may contribute.
   Future<List<MusicStatus>> fetchArtistHistory(
     String username, {
     required String artist,
@@ -1618,7 +1401,6 @@ class MusicSyncService {
     final wantedArtist = trimmedArtist.toLowerCase();
     final allScrobbles = <MusicStatus>[];
 
-    // Filter and deduplicate known track names
     final uniqueTracks = <String>[];
     final seenTracks = <String>{};
     for (final t in knownTracks) {
@@ -1630,8 +1412,6 @@ class MusicSyncService {
       }
     }
 
-    // Overlap recent plays with the full-history reads instead of adding
-    // another network round trip after the final song batch.
     final recentFuture = () async {
       if (!includeRecent) return const <MusicStatus>[];
       try {
@@ -1652,8 +1432,6 @@ class MusicSyncService {
       }
     }();
 
-    // Walk each track's full scrobble list in small batches so a 20-song
-    // artist does not fire 20 parallel requests at Last.fm at once.
     const batchSize = 5;
     for (var i = 0; i < uniqueTracks.length; i += batchSize) {
       if (_invalidUsers.contains(username)) break;
@@ -1675,7 +1453,6 @@ class MusicSyncService {
 
     allScrobbles.addAll(await recentFuture);
 
-    // Deduplicate scrobbles: trackName (lowercase) + timestamp (ms)
     final deduplicated = <MusicStatus>[];
     final seenScrobbles = <String>{};
     for (final s in allScrobbles) {
@@ -1686,7 +1463,6 @@ class MusicSyncService {
       }
     }
 
-    // Sort newest first
     deduplicated.sort((a, b) {
       final aTs = a.timestamp?.millisecondsSinceEpoch ?? 0;
       final bTs = b.timestamp?.millisecondsSinceEpoch ?? 0;
@@ -1696,13 +1472,11 @@ class MusicSyncService {
     return deduplicated;
   }
 
-  // Alias for provider compatibility (older name).
   Future<List<LovedTrack>> fetchLovedTracksLegacyAlias(
     String u, {
     int limit = 10,
   }) => fetchLovedTracks(u, limit: limit);
 
-  /// Lowercases and strips punctuation for forgiving title comparisons.
   static String _normalizeForMatch(String value) {
     return value.toLowerCase().replaceAll(
       RegExp(r'[^\p{L}\p{N}]', unicode: true),

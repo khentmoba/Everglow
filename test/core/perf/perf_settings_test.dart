@@ -25,8 +25,6 @@ void main() {
       expect(PerfSettings.sizedAssetDecode.value, isTrue);
     });
 
-    // Sized decode is shipped on with a persisted rollback. The visual A/B
-    // report was informal; these tests pin settings, not Safari rendering.
     test('sized asset decode defaults to on', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       PerfSettings.debugReset();
@@ -34,8 +32,6 @@ void main() {
       await PerfSettings.load();
 
       expect(PerfSettings.sizedAssetDecode.value, isTrue);
-      // On the VM (non-web) the sized decode is used either way, matching the
-      // old `kIsWeb ? null : N` behaviour off-web.
       expect(PerfSettings.sizedDecodeWidth(108), 108);
     });
 
@@ -56,7 +52,6 @@ void main() {
             'otherwise lose the switch',
       );
 
-      // A later launch with no query string keeps it off.
       PerfSettings.debugReset();
       await PerfSettings.load();
       expect(PerfSettings.sizedAssetDecode.value, isFalse);
@@ -183,7 +178,6 @@ void main() {
       expect(find.textContaining('fps'), findsOneWidget);
       expect(find.textContaining('raster'), findsOneWidget);
 
-      // Dispose the meter so its periodic refresh timer is cancelled.
       await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     });
 
@@ -203,9 +197,6 @@ void main() {
     });
 
     testWidgets('sits bottom-left, clear of the app controls', (tester) async {
-      // Regression: it used to sit top-left, exactly over Khent's Creator
-      // Studio button, which left no way to reach the screen that turns the
-      // meter off again.
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -240,22 +231,16 @@ void main() {
       await tester.pump();
       final after = tester.getTopLeft(find.textContaining('fps'));
 
-      // Direction and rough magnitude only: the gesture arena eats a few
-      // pixels of the first move before the pan is recognised.
       expect(after.dx, greaterThan(before.dx + 20));
       expect(after.dy, lessThan(before.dy - 300));
       expect(tester.takeException(), isNull);
 
-      // Let the double-tap recogniser's timeout expire before tearing down,
-      // otherwise the test binding sees a pending timer.
       await tester.pump(const Duration(milliseconds: 400));
       PerfSettings.frameMeter.value = false;
       await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     });
 
     testWidgets('renders the render-scale line', (tester) async {
-      // Tap-to-cycle is web-only (it needs a reload to apply), so the tap path
-      // itself is covered by PerfSettings.nextRenderScale.
       PerfSettings.frameMeter.value = true;
 
       await tester.pumpWidget(

@@ -5,11 +5,6 @@ import '../../../data/models/media_item.dart';
 import 'netflix_colors.dart';
 import 'netflix_hover_preview.dart';
 
-/// Shows the hover preview as a centered dialog for touch screens.
-///
-/// Desktop gets [NetflixHoverPreview] on mouse hover; phones and tablets
-/// have no hover, so More options (or long-press) opens the same card
-/// (art, trailer, actions, metadata) in a dialog instead.
 Future<void> showTouchPreview({
   required BuildContext context,
   required MediaItem item,

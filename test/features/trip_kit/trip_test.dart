@@ -102,7 +102,6 @@ void main() {
       expect(trip.startDate, isNull);
       expect(trip.budgetTotal, 0);
       expect(trip.packing, isEmpty);
-      // Garbage scalar entries are skipped; maps with bad fields parse to defaults.
       expect(trip.expenses, hasLength(2));
       expect(trip.spentTotal, 0);
       expect(trip.places, hasLength(1));

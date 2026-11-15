@@ -7,11 +7,6 @@ import '../../data/models/bucket_item.dart';
 import '../widgets/bucket_item_card.dart';
 import '../widgets/bucket_ui.dart';
 
-/// Kanban board — Wish / Planned / Fulfilled columns.
-///
-/// Tap-to-move via each card's detail sheet (no drag, for web + touch
-/// reliability). Cards render swipe-free here so gestures never fight
-/// the horizontal column scroll.
 class BucketKanbanBoard extends StatelessWidget {
   final List<BucketItem> items;
   final String currentUsername;

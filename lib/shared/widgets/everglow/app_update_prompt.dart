@@ -7,13 +7,6 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Wraps the whole app and displays a warm, gentle notification banner when
-/// [AppUpdateService] detects that a new build is downloaded and ready.
-///
-/// The app never restarts forcefully on its own:
-/// - Users can tap "Restart" to apply the update immediately.
-/// - Users can tap the close button to dismiss the notification and reload
-///   manually on their own time without any interruptions.
 class AppUpdatePrompt extends StatelessWidget {
   final Widget child;
   final AppUpdateService? service;
@@ -99,11 +92,6 @@ class _UpdateBanner extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // No Tooltip here: this banner lives in MaterialApp.builder,
-                  // above Navigator/Overlay, where Tooltip crashes on hover
-                  // with "No Overlay widget found" and squeezes the Row
-                  // into vertical text + a 340px tall slab. Semantics keeps
-                  // the screen-reader label without needing an Overlay.
                   Semantics(
                     button: true,
                     label: 'Dismiss update notification',

@@ -193,7 +193,6 @@ class ReaderSettingsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Reading Mode
               Text(
                 'READING MODE',
                 style: AppTypography.outfitBold.copyWith(
@@ -227,7 +226,6 @@ class ReaderSettingsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 22),
 
-              // Background Theme
               Text(
                 'BACKGROUND THEME',
                 style: AppTypography.outfitBold.copyWith(
@@ -256,7 +254,6 @@ class ReaderSettingsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 22),
 
-              // Night Dimmer
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -305,7 +302,6 @@ class ReaderSettingsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 14),
 
-              // Tablet Two-Page Spread
               if (canTwoPage) ...[
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -327,7 +323,6 @@ class ReaderSettingsSheet extends StatelessWidget {
                 const SizedBox(height: 10),
               ],
 
-              // Backup Image Servers
               Text(
                 'BACKUP IMAGE SERVERS',
                 style: AppTypography.outfitBold.copyWith(

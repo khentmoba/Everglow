@@ -7,9 +7,6 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Token-driven card with hover lift and press feedback.
-///
-/// `Semantics` + `FocusableActionDetector` + 44px min target when tappable.
 class EverglowCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;

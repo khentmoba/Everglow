@@ -1,49 +1,24 @@
-/// A playback server available to the watch party.
-///
-/// This mirrors the AniChan `/api/watch/servers` contract: each server
-/// exposes a display label, a stable host identity, a normalized stream
-/// URL, and a `type` that tells the player whether to use hls.js or an
-/// embed iframe. Everglow uses the same shape so server lists can be
-/// pushed from Firestore (`config/watch_party_servers`) without a
-/// client release, exactly like AniChan's server API.
 class WatchPartyServer {
-  /// Stable id, e.g. "home-khent" or "plex-clair".
   final String id;
 
-  /// Full display name shown in the server picker.
   final String name;
 
-  /// Short label for compact UI (chips, header badges).
   final String shortName;
 
-  /// Machine identity reported with playback, e.g. "plex" or "home-server".
   final String host;
 
-  /// 'hls' (m3u8 played with hls.js) or 'embed' (iframe page).
   final String type;
 
-  /// Normalized stream URL. Relative URLs are resolved by the caller
-  /// against the server's configured origin.
   final String streamUrl;
 
-  /// Optional subtitle track (VTT) for HLS servers.
   final String? subtitleUrl;
 
-  /// Route the stream through `proxyWatchStream` for CORS/hotlink
-  /// protection. Mirrors AniChan routing streams through
-  /// `/api/watch/m3u8` and `/api/watch/vtt`.
   final bool proxyEnabled;
 
-  /// Promoted option, shown first with a star badge.
   final bool isRecommended;
 
-  /// True when the user added this server locally instead of it coming
-  /// from the shared Firestore config.
   final bool isCustom;
 
-  /// The built-in Everglow resolver. It has no fixed stream URL: the
-  /// watch party asks our streaming Worker for the manifest of whatever
-  /// title/episode the room is on.
   static const WatchPartyServer everglow = WatchPartyServer(
     id: 'everglow-builtin',
     name: 'Everglow',
@@ -102,8 +77,6 @@ class WatchPartyServer {
     };
   }
 
-  /// Build a server entry from the fields persisted on a watch party
-  /// room. Used when the partner joins after the host picked a server.
   factory WatchPartyServer.fromRoom({
     required String serverType,
     required String serverName,

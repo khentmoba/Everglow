@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 
-/// Groups of browse options used by the Cinema Browse tab.
 enum BrowseCategoryGroup { collection, genre, decade, language, sort }
 
-/// A browse option that maps to TMDB discovery parameters.
-/// Each option has an id, label, icon, color, and a group it belongs to.
 class BrowseCategoryOption {
   final String id;
   final String label;
@@ -13,29 +10,21 @@ class BrowseCategoryOption {
   final Color color;
   final BrowseCategoryGroup group;
 
-  /// Media type for TMDB discovery ('movie' or 'tv').
   final String mediaType;
 
-  /// TMDB genre id filter (for genre-type options).
   final int? genreId;
 
-  /// TMDB genre ids to exclude from discovery.
   final List<int>? withoutGenres;
 
-  /// Year range filter.
   final int? yearGte;
   final int? yearLte;
 
-  /// Vote average minimum filter.
   final double? voteAverageGte;
 
-  /// Vote count minimum filter.
   final int? voteCountGte;
 
-  /// Original language filter.
   final String? withOriginalLanguage;
 
-  /// Sort order for TMDB discover.
   final String sortBy;
 
   const BrowseCategoryOption({
@@ -56,7 +45,6 @@ class BrowseCategoryOption {
   });
 }
 
-/// All browse options for the Cinema screen.
 final List<BrowseCategoryOption> cinemaBrowseOptions = [
   const BrowseCategoryOption(
     id: 'collection-movies',
@@ -87,11 +75,9 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     sortBy: 'popularity.desc',
   ),
 
-  // ── Genre options (movies + TV) ────────────────────────────
   ..._movieGenreOptions,
   ..._tvGenreOptions,
 
-  // ── Decade options ──────────────────────────────────────────
   const BrowseCategoryOption(
     id: 'decade-2020s',
     label: '2020s',
@@ -148,7 +134,6 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     voteAverageGte: 7.0,
   ),
 
-  // ── Language options ──────────────────────────────────────────────
   const BrowseCategoryOption(
     id: 'lang-ko',
     label: 'Korean',
@@ -241,7 +226,6 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     voteAverageGte: 7.0,
   ),
 
-  // ── Sort options ────────────────────────────────────────────
   const BrowseCategoryOption(
     id: 'sort-popular',
     label: 'Popular',
@@ -278,7 +262,6 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
   ),
 ];
 
-/// TMDB movie genre options for the Browse tab.
 List<BrowseCategoryOption> get _movieGenreOptions => [
   const BrowseCategoryOption(
     id: 'genre-movie-28',
@@ -390,7 +373,6 @@ List<BrowseCategoryOption> get _movieGenreOptions => [
   ),
 ];
 
-/// TMDB TV genre options for the Browse tab.
 List<BrowseCategoryOption> get _tvGenreOptions => [
   const BrowseCategoryOption(
     id: 'genre-tv-10759',
@@ -493,7 +475,6 @@ List<BrowseCategoryOption> get _tvGenreOptions => [
   ),
 ];
 
-/// Group metadata for rendering browse group headers.
 class BrowseGroupMeta {
   final String title;
   final String subtitle;
@@ -508,7 +489,6 @@ class BrowseGroupMeta {
   });
 }
 
-/// Metadata lookup for each browse category group.
 BrowseGroupMeta browseGroupMeta(BrowseCategoryGroup group) {
   switch (group) {
     case BrowseCategoryGroup.collection:

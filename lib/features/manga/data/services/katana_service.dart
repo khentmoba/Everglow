@@ -14,16 +14,6 @@ part 'katana_service_social.dart';
 part 'katana_service_parse.dart';
 part 'katana_service_format.dart';
 
-/// Scrapes mangakatana.com exactly the way the site presents it:
-/// the home page (Latest Updates / Hot Manga / Genres), the Manga
-/// Directory with genre include/exclude filters and sorting, search
-/// results with author lookup, the manga detail page (full chapter
-/// table), and chapter pages whose inline JS arrays hold the page
-/// image URLs.
-///
-/// All HTML requests go through the `proxyFetchHtml` Cloud Function
-/// so Flutter Web isn't blocked by CORS; page images go through
-/// `proxyMangaKatana`.
 class KatanaService {
   static const String _baseUrl = 'https://mangakatana.com';
   static const String _proxyHtmlUrl =
@@ -40,10 +30,6 @@ class KatanaService {
 
   static const Duration _timeout = Duration(seconds: 9);
 
-  /// Matches every MangaKatana chapter id shape seen on the live
-  /// site: plain (`c413`), decimals (`c528.5`), part/version
-  /// suffixes (`c38-p11`, `c12-v2`), volume ids (`v6c147`) and the
-  /// first-chapter id (`fc`).
   static const String chapterIdPattern = r'(?:v\d+)?c[^"/]+|fc';
 
   Map<String, String> get _headers => const {
@@ -74,13 +60,6 @@ class KatanaService {
     return Uri.parse('$base&cookie=${Uri.encodeComponent(cookie)}');
   }
 
-  /// MangaKatana serves covers AVIF-first now (`<picture>` with `.avif`,
-  /// `.webp` and `.jpg` variants at the same path), but Flutter's image
-  /// codec cannot decode AVIF — an AVIF cover renders as a broken
-  /// placeholder. The site always serves a `.webp` twin alongside, so
-  /// rewrite to it. Works on direct URLs and already-proxied stored
-  /// ones (`.` survives `Uri.encodeComponent`, so `.avif` stays literal
-  /// inside `proxyMangaKatana?url=...`).
   static String rewriteAvifToWebp(String url) {
     if (url.isEmpty || !url.toLowerCase().contains('.avif')) return url;
     return url.replaceAll(
@@ -89,16 +68,8 @@ class KatanaService {
     );
   }
 
-  /// Proxies a page image (covers and chapter pages) through the
-  /// MangaKatana image Cloud Function. All covers now go through the
-  /// image proxy (which allows anonymous <img> loads via host allowlist)
-  /// so they work from Image.network without Authorization headers.
   static String proxyImageUrl(String url) {
     if (url.isEmpty) return '';
-    // AVIF never decodes in Flutter — point at the `.webp` twin first,
-    // before the already-proxied early return, so stored AVIF entries
-    // heal on read. Scoped to Katana URLs only; other hosts' AVIF (if
-    // any) is left alone since no `.webp` twin is guaranteed there.
     if (url.toLowerCase().contains('mangakatana')) {
       url = rewriteAvifToWebp(url);
     }
@@ -106,8 +77,6 @@ class KatanaService {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme) return url;
     final host = uri.host.toLowerCase();
-    // Note: mangakatana.net is a parked ad domain, not the manga site —
-    // deliberately not proxied (the server allowlist agrees).
     final isAllowed =
         host == 'mangakatana.com' ||
         host.endsWith('.mangakatana.com') ||
@@ -129,10 +98,6 @@ class KatanaService {
   }
 
   Future<String?> _rawFetchHtml(Uri uri, {String cookie = ''}) async {
-    // One retry for transient hiccups (cold Cloud Function instances
-    // occasionally answer 200 with an empty body, and the site or CDN
-    // sometimes drops a request). Keeps chapter loads and search from
-    // failing on the first volley.
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         final headers = await _authHeaders();
@@ -144,10 +109,8 @@ class KatanaService {
         }
         if (response.statusCode == 401) {
           Logger.e('KatanaService fetch 401 - auth required: $uri');
-          return null; // Retrying an auth failure won't help.
+          return null;
         }
-        // Non-200s used to fail silently, which made chapter loads
-        // look like the app hung. Log them so release builds show why.
         Logger.e('KatanaService fetch ${response.statusCode}: $uri');
       } catch (e) {
         Logger.e('KatanaService fetch failed: $uri', error: e);
@@ -159,8 +122,6 @@ class KatanaService {
     return null;
   }
 
-  // ── Detail ──────────────────────────────────────────────────────
-
   Future<KatanaManga?> fetchMangaDetail(String slug) async {
     if (slug.isEmpty) return null;
     final html = await _fetchHtml(Uri.parse('$_baseUrl/manga/$slug'));
@@ -168,16 +129,8 @@ class KatanaService {
     return _parseDetail(html, slug);
   }
 
-  // ── Chapter pages ───────────────────────────────────────────────
-
-  /// CDN hosts MangaKatana serves chapter images from. The site's own
-  /// reader retries a failed image on a different `iN.` host with the
-  /// same token path — the token stays valid across hosts.
   static const List<String> katanaCdnHosts = ['i1', 'i6', 'i7', 'i5', 'i2'];
 
-  /// Rewrites [url] to its [step]-th fallback CDN host (step 0 is the
-  /// URL unchanged). Returns [url] unchanged when it has no `iN.`
-  /// host or [step] runs past the available hosts.
   static String cdnFallbackUrl(String url, int step) {
     if (step <= 0) return url;
     final uri = Uri.tryParse(url);
@@ -190,8 +143,6 @@ class KatanaService {
     return url.replaceFirst('$current.', '${rest[step - 1]}.');
   }
 
-  /// How many silent CDN-host retries [url] gets before the reader
-  /// shows its tap-to-retry slot. Zero for non-`iN.` URLs.
   static int cdnFallbackCount(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return 0;
@@ -202,11 +153,6 @@ class KatanaService {
         : katanaCdnHosts.length;
   }
 
-  /// Maps the reader's server switch to the cookie the site itself
-  /// sets (`#switch_sv` in the chapter page): Server 1 is the absence
-  /// of the cookie, Server 2 is `s_r=sv2`, Server 3 is `s_r=sv3`.
-  /// Without the cookie, Server 2/3 requests silently return Server
-  /// 1's page URLs — the `?sv=` query alone is ignored by the site.
   static String cookieForServer(String server) {
     switch (server) {
       case '?sv=mk':
@@ -218,12 +164,6 @@ class KatanaService {
     }
   }
 
-  /// Resolves the page image URLs for a chapter. The site embeds two
-  /// image URL arrays in inline scripts (`thzq` plus the `ytaw`
-  /// fallback). The requested server is tried first — with the
-  /// cookie + query combination the site's own server switcher uses
-  /// — then the other two servers, so a down CDN never blocks the
-  /// chapter outright.
   Future<List<String>> fetchChapterPages(
     String slug,
     String chapterId, {
@@ -246,7 +186,6 @@ class KatanaService {
     return const [];
   }
 
-  /// Parses both `var thzq=[...]` and `var ytaw=[...]` arrays.
   static List<String> _parseImageArrays(String html) {
     final result = <String>[];
     for (final varName in ['thzq', 'ytaw']) {
@@ -271,23 +210,13 @@ class KatanaService {
 
   static String _katanaMangaId(String slug) => 'katana|$slug';
 
-  // ── Parsers ─────────────────────────────────────────────────────
-
-  /// Parses only the real "Search results" section of a search
-  /// page. The page also embeds the Latest Updates and Hot Manga
-  /// rails below the results — without this bound those rails were
-  /// parsed as search results, so a search for anything returned
-  /// dozens of unrelated homepage titles.
   List<String> _searchResultBlocks(String html) {
     final start = html.indexOf('Search results');
     if (start < 0) return const [];
-    // The section ends at the next widget header (Genres, Hot Manga…).
     final end = html.indexOf('widget-title', start + 20);
     return _blocksOfClass(html, 'item', start: start, end: end);
   }
 
-  /// Finds balanced `<div class="item" ...>...</div>` blocks starting
-  /// at or after [start].
   static List<String> _blocksOfClass(
     String html,
     String className, {
@@ -329,13 +258,6 @@ class KatanaService {
   List<KatanaChapter> _parseChapterTable(String html) =>
       parseChapterTable(html);
 
-  /// Parses the detail-page chapter table. Public so tests can feed
-  /// it real row HTML and pin the behavior.
-  ///
-  /// Two shapes used to slip through and silently drop chapters:
-  /// rows the site marks as "Go to" jump targets carry the chapter
-  /// id in `data-jump` (`<tr data-jump="c30">`) instead of a number,
-  /// and volume chapters link to `v6c147`-style paths.
   static final RegExp _reChapterRow = RegExp(
     r'<tr data-jump="[^"]*">.*?</tr>',
     dotAll: true,
@@ -385,9 +307,6 @@ class KatanaService {
             titleM?.group(1)?.trim() ?? 'Chapter $id',
           ),
           updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
-          // The site marks its own fresh rows with a New badge
-          // (only the newest, and only when recently updated) —
-          // mirror it instead of guessing.
           isNew: block.contains('class="new"'),
         ),
       );
@@ -395,7 +314,6 @@ class KatanaService {
     return chapters;
   }
 
-  /// Parses "Aug-12-2026" style dates from chapter tables.
   static DateTime? _parseKatanaDate(String raw) {
     if (raw.trim().isEmpty) return null;
     final m = _reKatanaDate.firstMatch(raw);
@@ -405,7 +323,6 @@ class KatanaService {
     return DateTime(int.parse(m.group(3)!), month, int.parse(m.group(2)!));
   }
 
-  /// Converts "58 minutes ago" / "2 hours ago" into a DateTime.
   DateTime? _parseRelativeTime(String raw) {
     final text = raw.toLowerCase();
     final now = DateTime.now();

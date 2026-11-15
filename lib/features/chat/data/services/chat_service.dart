@@ -69,14 +69,12 @@ class ChatService {
       });
     } catch (e) {
       if (e.toString().contains("permission-denied")) {
-        // Surface as a user-visible error in the chat screen instead of print.
         rethrow;
       }
       rethrow;
     }
   }
 
-  /// "On This Day" — chat messages from the same month+day in previous years.
   Future<List<ChatMessage>> getMessagesFromThisDay() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return [];
@@ -97,7 +95,6 @@ class ChatService {
         label: 'chat on-this-day',
       );
 
-      // Legacy messages predate the monthDay field; bound the fallback.
       if (snapshot.docs.isEmpty) {
         snapshot = await withGetTimeout(
           _db

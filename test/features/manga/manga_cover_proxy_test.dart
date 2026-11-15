@@ -28,8 +28,6 @@ void main() {
     });
 
     test('rewrites already-proxied Katana AVIF cover to webp twin', () {
-      // Dashboard entries stored while the parser picked AVIF heal on
-      // render without needing a Firestore rewrite.
       const proxied =
           'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.avif';
       expect(

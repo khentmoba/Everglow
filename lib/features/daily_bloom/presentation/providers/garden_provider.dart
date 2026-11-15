@@ -15,11 +15,6 @@ class GardenProvider extends ChangeNotifier {
   StreamSubscription<GardenStats>? _subscription;
   StreamSubscription<GardenStats>? _partnerSubscription;
 
-  /// Bounded re-subscribe loop for the own-garden stream. Without it, a
-  /// single transient failure (permission-denied racing the /users doc sync,
-  /// offline blip, or the withFirestoreTimeout silent close under WebChannel
-  /// contention) left [_stats] null forever — the dashboard then rendered a
-  /// giant empty DailyBloom with only a stage-0 pot and no chips.
   static const int _maxRetries = 5;
   Timer? _retryTimer;
   int _retryCount = 0;
@@ -29,10 +24,6 @@ class GardenProvider extends ChangeNotifier {
   Object? _lastPartnerError;
   bool _disposed = false;
 
-  /// True only when the own-garden stream has failed AND the retry budget
-  /// is spent. Unlike [hasError] — which also covers a transient blip
-  /// with a retry already scheduled — this means the failure is final,
-  /// so the dashboard load veil can count the garden as settled.
   bool _exhausted = false;
 
   GardenProvider({GardenStatsSource? service})
@@ -42,17 +33,10 @@ class GardenProvider extends ChangeNotifier {
   GardenStats? get partnerStats => _partnerStats;
   String? get partnerUid => _partnerUid;
 
-  /// True when the own-garden stream failed and no stats have arrived yet.
-  /// The UI uses this to offer a manual retry instead of a blank section.
   bool get hasError => _lastError != null && _stats == null;
 
-  /// True when the own-garden failure is final: retries are exhausted
-  /// and no stats ever arrived. The load veil waits for this (not
-  /// [hasError]) so its percent never climbs while a retry is still
-  /// in flight.
   bool get hasSettledError => _exhausted && _stats == null;
 
-  /// True when the partner-garden stream failed and no partner stats arrived yet.
   bool get hasPartnerError =>
       _lastPartnerError != null && _partnerStats == null;
 
@@ -94,8 +78,6 @@ class GardenProvider extends ChangeNotifier {
             _scheduleRetry(error);
           },
           onDone: () {
-            // withFirestoreTimeout closes silently when the first snapshot never
-            // arrives; treat a data-less close as a failure worth retrying.
             if (_stats == null) {
               Logger.e('Garden stats stream closed before first snapshot');
               _scheduleRetry(StateError('garden-stats closed without data'));
@@ -122,7 +104,6 @@ class GardenProvider extends ChangeNotifier {
     });
   }
 
-  /// Manual retry from the error UI. Resets the backoff budget.
   void retry() {
     if (_userId == null || _userId!.isEmpty || _disposed) return;
     _retryTimer?.cancel();
@@ -136,7 +117,6 @@ class GardenProvider extends ChangeNotifier {
     _subscription = null;
   }
 
-  /// Start watching partner's garden stats for the shared view.
   void watchPartner(String? partnerUid) {
     if (_partnerUid == partnerUid && _partnerSubscription != null) return;
 
@@ -170,8 +150,6 @@ class GardenProvider extends ChangeNotifier {
             if (!_disposed) notifyListeners();
           },
           onError: (Object error) {
-            // Keep the last known partner stats; a transient partner failure
-            // must not surface as an unhandled async error.
             Logger.e('Partner garden stats stream failed', error: error);
             _schedulePartnerRetry(error);
           },
@@ -205,7 +183,6 @@ class GardenProvider extends ChangeNotifier {
     });
   }
 
-  /// Manual retry for partner garden stream.
   void retryPartner() {
     if (_partnerUid == null || _partnerUid!.isEmpty || _disposed) return;
     _partnerRetryTimer?.cancel();
@@ -214,7 +191,6 @@ class GardenProvider extends ChangeNotifier {
     _subscribePartner();
   }
 
-  /// Stop watching partner stats (when leaving shared view).
   void stopWatchingPartner() {
     _partnerRetryTimer?.cancel();
     _partnerRetryCount = 0;
@@ -226,8 +202,6 @@ class GardenProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Optimistically increments interaction count and stage immediately,
-  /// then persists to Firestore and awards XP in the background.
   Future<void> recordInteraction() async {
     final uid = _userId;
     if (uid == null || uid.isEmpty) return;
@@ -260,7 +234,6 @@ class GardenProvider extends ChangeNotifier {
     );
   }
 
-  /// Optimistically changes the plant type immediately, then syncs to Firestore.
   Future<void> setPlantType(String plantType) async {
     final uid = _userId;
     if (uid == null || uid.isEmpty) return;

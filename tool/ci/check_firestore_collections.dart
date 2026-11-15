@@ -1,20 +1,3 @@
-// Firestore collection guard: fails the PR check on the exact breakage
-// classes seen in PR #63 and the rules-drift audits (#55/#57/#59).
-//
-// 1. Shell-corrupted literals: POSIX escaping baked into Dart strings
-//    (e.g. collection('"'"'watch_list'"'"'')) is valid Dart, so
-//    `flutter analyze` stays green while every Firestore listen is
-//    denied by rules. Forbids the corruption marker outright.
-// 2. Collection-name shape: names must match ^[a-z_]+$ so a typo with
-//    quotes, spaces, or capitals fails here instead of live.
-// 3. Rules coverage: every collection segment used in lib/ must appear
-//    as a `match /<segment>/...` in firestore.rules (nested matches
-//    count, e.g. users/{uid}/garden_stats covers garden_stats).
-//    A new collection without rules fails closed instead of shipping
-//    open or denied.
-//
-// Usage: dart tool/ci/check_firestore_collections.dart
-// Runs from the repo root; exit 0 = pass, exit 1 = fail with details.
 import 'dart:io';
 
 import '_io.dart';
@@ -38,10 +21,6 @@ Future<void> main() async {
   final shapePattern = RegExp(r'^[a-z_]+$');
   final used = <String, List<String>>{};
 
-  // The PR #63 corruption is the 5-char POSIX shell escape '"'"' baked
-  // into a Dart literal (e.g. collection('"'"'watch_list'"'"'')). Match
-  // exactly that sequence: shorter quote pairs like "'" in replaceAll
-  // are legitimate Dart.
   for (final file in dartFiles) {
     final src = await readTolerant(file);
     if (src.contains('\'"\'"\'')) {
@@ -67,10 +46,6 @@ Future<void> main() async {
     exit(2);
   }
   final rules = await readTolerant(rulesFile);
-  // Collect every path segment (top-level AND nested, e.g.
-  // users/{uid}/garden_stats covers garden_stats). {placeholders},
-  // the databases/{database}/documents boilerplate, and the {document=**}
-  // wildcard carry no collection name and are skipped.
   final matchPattern = RegExp(r'match\s+/([A-Za-z0-9_{}/]+)');
   final covered = <String>{};
   for (final m in matchPattern.allMatches(rules)) {

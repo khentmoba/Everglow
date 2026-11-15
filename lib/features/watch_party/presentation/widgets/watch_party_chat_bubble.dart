@@ -5,12 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// A single chat bubble for the Watch Together chat. Reuses the
-/// rose-quartz / deep-rose palette from the dashboard's Sanctuary
-/// Chat so the two surfaces feel like siblings, but kept as a
-/// separate widget so the Watch Together visual identity can drift
-/// independently later (different background, different bubble
-/// shapes, etc.).
 class WatchPartyChatBubble extends StatelessWidget {
   final String text;
   final bool isMe;

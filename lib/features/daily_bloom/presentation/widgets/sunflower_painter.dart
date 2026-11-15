@@ -69,7 +69,6 @@ class SunflowerPainter extends CustomPainter {
       ..strokeWidth = 4;
     canvas.drawPath(stemPath, paint);
 
-    // Leaves
     paint
       ..style = PaintingStyle.fill
       ..color = AppArt.leafOlive;
@@ -103,10 +102,8 @@ class SunflowerPainter extends CustomPainter {
       paint.color = Colors.green[300]!;
       canvas.drawCircle(top, 5, paint);
     } else if (stage <= 3) {
-      // Budding head
       paint.color = AppArt.sunflowerCenter;
       canvas.drawCircle(top, stage == 2 ? 8 : 12, paint);
-      // Green sepals
       paint.color = AppArt.stemOlive;
       for (int i = 0; i < 4; i++) {
         final angle = (pi / 2) * i;
@@ -121,11 +118,9 @@ class SunflowerPainter extends CustomPainter {
         canvas.restore();
       }
     } else {
-      // Full sunflower
       final petalCount = stage == 4 ? 10 : 16;
       final petalSize = stage == 4 ? 16.0 : 24.0;
 
-      // Outer petals (yellow)
       paint.color = AppArt.sunflowerPetal;
       for (int i = 0; i < petalCount; i++) {
         final angle = (2 * pi / petalCount) * i;
@@ -146,12 +141,10 @@ class SunflowerPainter extends CustomPainter {
         canvas.restore();
       }
 
-      // Center disk (brown)
       final centerRadius = stage == 4 ? 10.0 : 14.0;
       paint.color = AppArt.bark;
       canvas.drawCircle(top, centerRadius, paint);
 
-      // Center seeds texture
       paint.color = AppArt.barkDeep;
       for (int i = 0; i < 8; i++) {
         final angle = (2 * pi / 8) * i;

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/book_item.dart';
 
-/// Native fallback for the in-app web reader screen.
 class ReaderScreen extends StatelessWidget {
   final BookItem book;
   final bool startListening;

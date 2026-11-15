@@ -1,12 +1,6 @@
 import '../models/next_episode.dart';
 import 'tmdb_service.dart';
 
-/// Resolves the episode after the one Clair is watching.
-///
-/// The player calls [resolve] on load and on every episode change so the
-/// Up Next card and the persistent Next button always know where "next"
-/// goes — including the jump from a season finale to the next season's
-/// premiere. Returns null for the very last episode of a show.
 class NextEpisodeService {
   final TMDBService _tmdb;
 
@@ -17,11 +11,7 @@ class NextEpisodeService {
     required int season,
     required int episode,
   }) async {
-    // Same season first — one cheap call covers the common case.
     final current = await _tmdb.fetchSeasonEpisodes(tmdbId, season);
-    // An empty list means the fetch failed (the service reports errors
-    // as []) or the season has no episodes — either way there is
-    // nothing to advance from, so don't leap into the next season.
     if (current.isEmpty) return null;
     final sameSeason = nextInSeason(
       season: season,
@@ -30,7 +20,6 @@ class NextEpisodeService {
     );
     if (sameSeason != null) return sameSeason;
 
-    // Season finale — find the next season, then its first episode.
     final details = await _tmdb.fetchTVShowDetails(tmdbId);
     if (details == null) return null;
     final rawSeasons = (details['seasons'] as List?) ?? [];
@@ -49,10 +38,6 @@ class NextEpisodeService {
     return firstInSeason(season: nextSeason, episodes: nextEps);
   }
 
-  /// Estimated episode length in minutes, used to schedule the Up Next
-  /// fallback timer on providers that never report playback position
-  /// (Everglow / CineSrc). Returns null when TMDB has no runtime — the
-  /// caller falls back to a sensible default.
   Future<int?> fetchEpisodeRuntime({required int tmdbId}) async {
     final details = await _tmdb.fetchTVShowDetails(tmdbId);
     if (details == null) return null;

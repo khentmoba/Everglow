@@ -3,15 +3,11 @@ import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import 'tmdb_base.dart';
 
-/// Fetches YouTube trailer keys for movies and TV shows, with in-memory
-/// caching to avoid redundant network requests.
 class TMDBTrailerService with TMDBBase, ConnectivityAware {
-  /// Cache for trailer keys: 'mediaType_tmdbId' -> Trailer Key
   final Map<String, String?> _trailerCache = {};
 
   final _pendingTrailers = <String, Future<String?>>{};
 
-  /// Fetch YouTube trailer key for a movie or TV show, with caching.
   Future<String?> fetchTrailerKey(int id, String mediaType) async {
     final cacheKey = '${mediaType}_$id';
     if (_trailerCache.containsKey(cacheKey)) {
@@ -43,7 +39,6 @@ class TMDBTrailerService with TMDBBase, ConnectivityAware {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
-        // Prioritize official YouTube Trailer
         var trailer = results.firstWhere(
           (v) =>
               v['site'] == 'YouTube' &&
@@ -51,12 +46,10 @@ class TMDBTrailerService with TMDBBase, ConnectivityAware {
               v['official'] == true,
           orElse: () => null,
         );
-        // Fallback to any YouTube Trailer
         trailer ??= results.firstWhere(
           (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
           orElse: () => null,
         );
-        // Fallback to any YouTube video (Teaser, Clip, etc.)
         trailer ??= results.firstWhere(
           (v) => v['site'] == 'YouTube',
           orElse: () => null,

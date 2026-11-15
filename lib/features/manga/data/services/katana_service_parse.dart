@@ -1,6 +1,5 @@
 part of 'katana_service.dart';
 
-/// HTML parsers for [KatanaService].
 extension KatanaServiceParse on KatanaService {
   static final RegExp _reHtmlTags = RegExp(r'<[^>]+>');
   static final RegExp _reWhitespace = RegExp(r'\s+');
@@ -113,8 +112,6 @@ extension KatanaServiceParse on KatanaService {
     return _unescape.convert(withoutTags);
   }
 
-  /// Parses the expanded list-item layout used by Latest Updates,
-  /// the Manga Directory and genre/author/latest pages.
   List<KatanaManga> _parseExpandedItems(List<String> blocks) {
     final items = <KatanaManga>[];
     for (final block in blocks) {
@@ -197,10 +194,6 @@ extension KatanaServiceParse on KatanaService {
     );
   }
 
-  /// Parses the compact search / autocomplete layout: cover, title,
-  /// latest chapter and (where present) authors. Handles both the
-  /// search results layout (h3 title + chapter with icon) and the
-  /// autocomplete layout (title link + authors).
   List<KatanaManga> _parseCompactItems(List<String> blocks) {
     final items = <KatanaManga>[];
     for (final block in blocks) {
@@ -239,12 +232,6 @@ extension KatanaServiceParse on KatanaService {
     return items;
   }
 
-  /// Parses the Hot Updates rail at the very top of the home page
-  /// (`#hot_update .slick_book`, desktop only on the site): compact
-  /// cover + title + latest chapter, no status badge and no summary.
-  /// The item markup differs slightly from the Hot Manga widget
-  /// (whitespace inside `h3.title`, an `<i>` icon inside the chapter
-  /// link), so it gets its own tolerant parser.
   List<KatanaManga> _parseHotUpdateRail(String html) {
     final start = html.indexOf('id="hot_update"');
     if (start < 0) return const [];
@@ -284,8 +271,6 @@ extension KatanaServiceParse on KatanaService {
     return items;
   }
 
-  /// Parses the Hot Manga rail (compact cover + title + status +
-  /// latest chapter).
   List<KatanaManga> _parseHotItems(List<String> blocks) {
     final items = <KatanaManga>[];
     for (final block in blocks) {
@@ -417,8 +402,6 @@ extension KatanaServiceParse on KatanaService {
     );
   }
 
-  /// Parses genre links with counts (home Genres widget / directory
-  /// sidebar / genres page) and merges descriptions from the nav menu.
   List<KatanaGenre> _parseGenres(String html) {
     final bySlug = <String, KatanaGenre>{};
     for (final m in _reGenreChip.allMatches(html)) {

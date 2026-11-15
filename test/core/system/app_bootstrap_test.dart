@@ -69,7 +69,6 @@ void main() {
       probeHealth: () => probeGate.future,
     );
 
-    // run() must return while the probe is still pending.
     final result = await bootstrap.run();
     expect(result.health.status, 'checking');
 
@@ -98,7 +97,6 @@ void main() {
 
     final result = await bootstrap.run();
     expect(result.environmentLoaded, isTrue);
-    // Both must start before either ends (concurrent execution)
     expect(events.indexOf('env:start'), lessThan(events.indexOf('firebase:end')));
     expect(events.indexOf('firebase:start'), lessThan(events.indexOf('env:end')));
   });

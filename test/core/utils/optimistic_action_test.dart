@@ -90,7 +90,6 @@ void main() {
       final effective = set.applyTo(serverItems);
       expect(effective, containsAll(['a', 'b', 'c']));
 
-      // Server catches up:
       set.reconcile(['a', 'b', 'c']);
       expect(set.hasPendingChanges, isFalse);
       expect(set.contains('c', ['a', 'b', 'c']), isTrue);
@@ -105,7 +104,6 @@ void main() {
       expect(set.applyTo(serverItems), equals(['a', 'c']));
       expect(set.hasPendingChanges, isTrue);
 
-      // Server catches up:
       set.reconcile(['a', 'c']);
       expect(set.hasPendingChanges, isFalse);
       expect(set.contains('b', ['a', 'c']), isFalse);

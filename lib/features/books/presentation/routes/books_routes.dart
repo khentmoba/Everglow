@@ -14,11 +14,9 @@ import '../screens/our_books_screen.dart' deferred as our_books_lib;
 import '../screens/reader_screen.dart' deferred as reader_lib;
 import '../widgets/book_categories.dart';
 
-/// Fetches Books's code chunk before the first tap.
 Future<void> warmBooksLibrary() =>
     DeferredRouteLoader.warm('Books', books_lib.loadLibrary);
 
-/// Routes owned by the books feature.
 final List<GoRoute> booksRoutes = [
   GoRoute(
     path: '/books',
@@ -77,8 +75,6 @@ final List<GoRoute> booksRoutes = [
         },
       ),
       GoRoute(
-        // Accepts either a [BookCategory] (category grid) or a plain
-        // subject string (detail-page subject chips).
         path: 'category',
         builder: (_, state) {
           final category = extraOf<BookCategory>(state);

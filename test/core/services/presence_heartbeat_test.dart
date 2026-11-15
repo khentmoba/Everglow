@@ -11,7 +11,6 @@ class _Store extends Fake implements FirebaseFirestore {
       _Collection(this, path);
 }
 
-// Test-only Firestore doubles record writes without Firebase or a network.
 // ignore: subtype_of_sealed_class
 class _Collection extends Fake
     implements CollectionReference<Map<String, dynamic>> {

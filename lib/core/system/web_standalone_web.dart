@@ -5,36 +5,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
 
-/// iOS "Add to Home Screen" flag. Non-standard, so it is read through
-/// plain JS interop instead of `package:web`'s typed `Navigator`.
 @JS('navigator.standalone')
 external JSAny? get _iosNavigatorStandalone;
 
-/// Optional bridge published by `web/index.html`. Present on fresh deploys;
-/// missing on cached old shells, so every caller treats it as best-effort.
 @JS('__everglowSafeAreaTop')
 external JSNumber? _egSafeAreaTopBridge();
 
-/// Helpers for the installed-web-app case (Add to Home Screen / PWA).
-///
-/// Why this exists: with `viewport-fit=cover` the standalone web view
-/// stretches underneath the iPhone status bar (time / WiFi / battery).
-/// Flutter's `SafeArea` reports zero padding on web, so dashboard content
-/// started at y=0 and the top row rendered half-cut underneath the status
-/// bar. Normal mobile Safari is unaffected — Safari owns the top area and
-/// the viewport starts below it — so every member here returns false/zero
-/// outside standalone and leaves that path pixel-identical.
 class WebStandalone {
   WebStandalone._();
 
-  /// Keep the paint control inside the existing installed screen-test window.
   static void openPaintControl() {
     web.window.location.href = Uri.base
         .resolve('/screen_test.html?paint=1')
         .toString();
   }
 
-  /// Local-only measurements for the demo HUD; never sends device data.
   static String viewportReport() {
     String bounds(String selector) {
       final element = web.document.querySelector(selector);
@@ -89,12 +74,6 @@ class WebStandalone {
     ].join('\n');
   }
 
-  /// True only when running as an installed web app.
-  ///
-  /// Covers iOS Home Screen apps (`navigator.standalone`, including older
-  /// iOS that never fires `display-mode` queries) and Chromium-based
-  /// installed apps (`display-mode: standalone/fullscreen`). Plain browser
-  /// tabs — including mobile Safari — return false.
   static bool isStandalone() {
     if (!kIsWeb) return false;
     try {
@@ -123,13 +102,6 @@ class WebStandalone {
     return false;
   }
 
-  /// Live iPhone status-bar overlap in logical pixels, standalone only.
-  ///
-  /// Returns 0 in browsers, on native, and when the inset cannot be read.
-  /// Reads the `index.html` bridge first, then falls back to measuring
-  /// `env(safe-area-inset-top)` directly so cached old shells (without the
-  /// bridge) still get the inset. Clamped to a sane range so a bogus value
-  /// can never shove content off-screen.
   static double safeAreaTop() {
     if (!isStandalone()) return 0;
     try {
@@ -141,21 +113,17 @@ class WebStandalone {
     return probeSafeAreaTop();
   }
 
-  /// Measures `env(safe-area-inset-top)` with a throwaway probe node.
   @visibleForTesting
   static double probeSafeAreaTop() {
     return probeSafeAreaPadding().top;
   }
 
-  /// All system overlaps, so navigation backgrounds reach the home indicator
-  /// while controls also clear the notch when the phone rotates.
   static EdgeInsets safeAreaPadding() {
     if (!isStandalone()) return EdgeInsets.zero;
     final padding = probeSafeAreaPadding();
     return padding.copyWith(top: math.max(padding.top, safeAreaTop()));
   }
 
-  /// Embedded Flutter leaves viewInsets at zero, even on a mobile keyboard.
   static double keyboardInset() {
     final host = web.document.getElementById('eg-app');
     final viewport = web.window.visualViewport;
@@ -219,16 +187,6 @@ class WebStandalone {
   }
 }
 
-/// Teaches the widget tree the iPhone status-bar overlap, standalone-web
-/// only. Applied once at the app root: the measured inset is injected
-/// into [MediaQuery] padding, so every [SafeArea], [AppBar], and
-/// `MediaQuery.paddingOf` reader in the app clears the status bar
-/// automatically — including screens added in the future. Page backgrounds
-/// stay full-bleed (they live below the padding, outside any SafeArea).
-/// Everywhere else — Safari tabs, native, tests — the measured inset is 0
-/// and the tree is returned untouched, so those paths cannot shift by even
-/// a pixel. Insets protect content only; route and navigation backgrounds
-/// still paint all the way to the screen edges.
 class WebStandaloneInsets extends StatefulWidget {
   final Widget child;
 
@@ -270,8 +228,6 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
     } catch (_) {
       _resizeListener = null;
     }
-    // env() resolves after first layout in some standalone shells;
-    // re-read once the first frame and shortly after has landed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _refresh();
@@ -326,7 +282,6 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
       math.max(mq.viewPadding.right, _padding.right),
       math.max(mq.viewPadding.bottom, _padding.bottom),
     );
-    // A visible keyboard already covers the home indicator.
     final padding = EdgeInsets.fromLTRB(
       math.max(
         mq.padding.left,

@@ -4,15 +4,6 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Anniversary counter tile — distilled heirloom.
-///
-/// Keeps romance, drops weight: warm gradient wash, single shadow,
-/// calm gold numeral with a soft candle shadow. The live seconds tile
-/// gets a tiny rose dot so Clair can see it ticking, without pulsing
-/// the whole card.
-///
-/// [flat] renders the same numeral + label with no card chrome, for use
-/// as a cell inside a unified panel (see AnniversaryMetrics grid).
 class MetricCard extends StatelessWidget {
   final String label;
   final int value;
@@ -75,7 +66,6 @@ class MetricCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Specular hairline highlight
           Positioned(
             top: 0,
             left: 20,
@@ -105,8 +95,6 @@ class MetricCard extends StatelessWidget {
   }
 }
 
-/// Shared numeral + divider + label. One place so the card and flat
-/// cell always tick and read the same way.
 class _MetricContent extends StatelessWidget {
   final String label;
   final int value;
@@ -123,8 +111,6 @@ class _MetricContent extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // The seconds cell changes every second, so on phones the
-        // 300 ms swap would keep the screen redrawing nonstop.
         AnimatedSwitcher(
           duration: AppMotion.reduceAmbientMotion(context)
               ? Duration.zero

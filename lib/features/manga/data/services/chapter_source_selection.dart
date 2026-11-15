@@ -1,9 +1,7 @@
-/// All attempts start together, but lower-priority sources cannot delay a hit.
 Future<T?> firstUsableChapterSource<T>(
   List<Future<T?>> attempts,
   bool Function(T) isUsable,
 ) async {
-  // Attach error handlers immediately, including attempts we will not await.
   final settled = attempts.map((future) => future.then<T?>(
     (value) => value,
     onError: (Object _, StackTrace _) => null,

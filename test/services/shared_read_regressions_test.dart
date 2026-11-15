@@ -17,7 +17,6 @@ class LiveCollection extends TestCollection {
   }) => this.source.stream;
 }
 
-// Query options are mutable only in this network-free test double.
 // ignore: must_be_immutable
 class OrderedCollection extends TestCollection {
   OrderedCollection(List<Map<String, dynamic>> entries)

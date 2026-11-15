@@ -203,14 +203,12 @@ void main() {
     final maxScroll = controller.position.maxScrollExtent;
     expect(controller.position.pixels, closeTo(maxScroll, 1));
 
-    // User scrolls up by dragging
     await tester.drag(listFinder, const Offset(0, 100));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(controller.position.pixels, lessThan(maxScroll - 20));
 
-    // After settling frames, user position is maintained (no snap back to bottom)
     await tester.pumpAndSettle();
     expect(controller.position.pixels, lessThan(maxScroll - 20));
   });
@@ -223,7 +221,6 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      // Just slightly taller than the screen
       final moderateAnswer = List.generate(
         12,
         (i) => 'Line $i of moderate answer.',
@@ -269,12 +266,10 @@ void main() {
       final maxScroll = controller.position.maxScrollExtent;
       expect(maxScroll, greaterThan(10));
 
-      // Scroll to the top (pixels = 0)
       controller.jumpTo(0);
       await tester.pump();
       await tester.pumpAndSettle();
 
-      // Ensure it stays at 0 and is not yanked back to maxScrollExtent
       expect(controller.position.pixels, 0);
     },
   );
@@ -329,38 +324,31 @@ void main() {
       final list = tester.widget<ListView>(listFinder);
       final controller = list.controller!;
 
-      // Start streaming
       ai.startStreaming();
       ai.stream(List.filled(20, 'Stream chunk 1').join('\n'));
       await tester.pump();
       await tester.pump();
 
-      // Following is active: should be at bottom
       expect(
         controller.position.pixels,
         closeTo(controller.position.maxScrollExtent, 1),
       );
 
-      // User scrolls up during streaming by > 300px so the Latest message button appears
       await tester.drag(listFinder, const Offset(0, 350));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       final scrolledUpPosition = controller.position.pixels;
       expect(scrolledUpPosition, lessThan(controller.position.maxScrollExtent - 250));
 
-      // Stream more tokens while user is scrolled up
       ai.stream(List.filled(40, 'Stream chunk 2 with more lines').join('\n'));
       await tester.pump();
       await tester.pump();
 
-      // Motchi should NOT have yanked the user back to bottom
       expect(controller.position.pixels, closeTo(scrolledUpPosition, 5));
 
-      // Latest message button appears when scrolled away
       final latestBtn = find.widgetWithText(FilledButton, 'Latest message');
       expect(latestBtn, findsOneWidget);
 
-      // The post-frame callback schedules the animation; its first tick starts it.
       await tester.tap(latestBtn);
       await tester.pump();
       await tester.pump();
@@ -369,7 +357,6 @@ void main() {
         await tester.pump();
       }
 
-      // Now back at bottom and following
       expect(
         controller.position.pixels,
         closeTo(controller.position.maxScrollExtent, 1),
@@ -450,11 +437,9 @@ void main() {
       final latest = find.widgetWithText(FilledButton, 'Latest message');
       expect(tester.getSize(latest).height, greaterThanOrEqualTo(48));
       await tester.tap(latest);
-      // The post-frame callback schedules the animation; its first tick starts it.
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
-      // Lazy rows can revise the extent after arriving at the estimated bottom.
       for (var frame = 0; frame < 6; frame++) {
         await tester.pump();
       }

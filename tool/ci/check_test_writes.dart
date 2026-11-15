@@ -1,22 +1,7 @@
-// Tests must not name a tracked path.
-//
-// A test that writes into the repo dirties every working tree that runs the
-// suite, so `git status` stops being trustworthy and the next `git add -A`
-// ships an unrelated change. That already happened once: a proof-capture test
-// rewrote docs/pr-proof/pr-579/shot.png on every run and nearly landed it in
-// another PR (retro finding, PR 584 review round 1).
-//
-// The rule is the path literal, not the write call: a tracked path inside a
-// test is either a write (wrong) or a read (use Directory.current, or load it
-// through rootBundle). Artifacts go to Directory.systemTemp.
-//
-// Usage: dart tool/ci/check_test_writes.dart
 import 'dart:io';
 
 import '_io.dart';
 
-/// A `File(...)`/`Directory(...)` call whose first argument is a literal
-/// pointing at a tracked top-level folder.
 final _trackedLiteral = RegExp(
   r'''(?:File|Directory)\(\s*r?['"](?:docs|assets|lib|web|functions|tool|test)/''',
 );

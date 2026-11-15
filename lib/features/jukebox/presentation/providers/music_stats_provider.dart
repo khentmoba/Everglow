@@ -7,9 +7,6 @@ import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/services/music_sync_service.dart';
 
-/// Last.fm music statistics for both people in the couple.
-///
-/// Exposes each user's all-time top 10 tracks and 5 most recent scrobbles.
 class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
   MusicStatsProvider({
     MusicSyncService? syncService,
@@ -45,10 +42,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
   final List<TopMusicTrack> _clairTopTracks = [];
   final List<MusicStatus> _clairRecentTracks = [];
   final Map<String, String?> _artworkCache = {};
-  // One reactive heal per track per session: AppNetworkImage.onError fires
-  // on every rebuild while failed, so without this a permanently artless
-  // track would hammer the APIs. Periodic enrichment still retries after
-  // the cooldown, so a transient failure recovers on the next tick.
   final Set<String> _reactiveHealAttempted = {};
   bool _isLoading = true;
   bool _disposed = false;
@@ -78,8 +71,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// All-time scrobble totals from Last.fm (0 while loading or when
-  /// unavailable; cached in SharedPreferences across app sessions).
   int _khentTotalPlays = 0;
   int _clairTotalPlays = 0;
 
@@ -100,19 +91,15 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
       _clairTopTracks.isNotEmpty ||
       _clairRecentTracks.isNotEmpty;
 
-  /// All-time total plays from Last.fm scrobble counters.
   int get khentTotalPlays => _khentTotalPlays;
   int get clairTotalPlays => _clairTotalPlays;
 
-  /// Raw API totals (0 means not yet loaded / unavailable).
   int get khentRawTotalPlays => _khentTotalPlays;
   int get clairRawTotalPlays => _clairTotalPlays;
 
-  /// Whether Khent is the current listening champion (strictly more plays).
   bool get isKhentLeader =>
       hasData && khentTotalPlays > 0 && khentTotalPlays > clairTotalPlays;
 
-  /// Whether Clair is the current listening champion.
   bool get isClairLeader =>
       hasData && clairTotalPlays > 0 && clairTotalPlays > khentTotalPlays;
 
@@ -137,8 +124,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
       _safeNotify();
     }
 
-    // Last.fm returns its default placeholder image for tracks without
-    // artwork, so fill in real album covers in the background.
     unawaited(_enrichTopTrackArtwork(_topTracks));
     unawaited(_enrichRecentTrackArtwork(_recentTracks));
     unawaited(_enrichTopTrackArtwork(_clairTopTracks));
@@ -160,9 +145,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     _recentTracksTimer?.cancel();
     _topTracksTimer?.cancel();
 
-    // Recent scrobbles refresh frequently so a fresh listen shows up
-    // quickly; the all-time leaderboard barely changes, so it is polled
-    // far less often.
     _recentTracksTimer = Timer.periodic(
       const Duration(seconds: 60),
       (_) => _periodicRecentRefresh(),
@@ -201,10 +183,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _refreshRecent() async {
     if (_disposed || !_active) return;
-    // If the leaderboard is still empty (e.g. the boot fetch hit a
-    // transient Last.fm error payload), retry it here every minute
-    // instead of waiting up to 10 minutes for the top-tracks timer —
-    // otherwise one bad response sticks "No music stats yet" on screen.
     final needTop =
         _topTracks.isEmpty ||
         _clairTopTracks.isEmpty ||
@@ -292,8 +270,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     final khent = results[0];
     final clair = results[1];
     var changed = false;
-    // user.getInfo returns 0 on failure — never let a failed poll zero out
-    // a good total, or the leaderboard header loses its listens pill.
     if (khent > 0 && khent != _khentTotalPlays) {
       _khentTotalPlays = khent;
       changed = true;
@@ -312,10 +288,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     String username,
     List<TopMusicTrack> destination,
   ) async {
-    // A failed fetch returns [] (Last.fm error payloads, timeouts, auth).
-    // Keep the last good leaderboard instead of wiping it — an empty
-    // response must never stick "No music stats yet" over good data.
-    // Only the very first load (destination still empty) may stay empty.
     final tracks = await _syncService.fetchTopTracks(
       username,
       limit: _topTracksLimit,
@@ -371,10 +343,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     _safeNotify();
   }
 
-  /// Replaces missing (or placeholder) top-track artwork with the track's
-  /// real album art from `track.getinfo` and enriches the track's album name.
-  /// Runs in the background so the leaderboard renders immediately. Batched
-  /// with concurrency=4 so 10 tracks don't take 10×RTT serially.
   Future<void> _enrichTopTrackArtwork(List<TopMusicTrack> tracks) async {
     final indices = <int>[];
     for (var i = 0; i < tracks.length; i++) {
@@ -414,8 +382,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
         tracks[r.idx] = current.copyWith(imageUrl: newArt, albumName: newAlbum);
         changed = true;
       }
-      // Paint each batch as it lands so covers appear progressively
-      // instead of all at once after the slowest lookup finishes.
       if (changed) {
         _safeNotify();
         changed = false;
@@ -423,8 +389,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Same enrichment as [_enrichTopTrackArtwork] but for recent scrobbles.
-  /// Batched for the same reason.
   Future<void> _enrichRecentTrackArtwork(List<MusicStatus> tracks) async {
     final indices = <int>[];
     for (var i = 0; i < tracks.length; i++) {
@@ -461,7 +425,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
         changed = true;
       }
-      // Paint each batch as it lands (same as top tracks above).
       if (changed) {
         _safeNotify();
         changed = false;
@@ -469,26 +432,12 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// When a lookup last came up empty, so transient failures (Last.fm rate
-  /// limits, timeouts) are retried instead of blanking the track forever.
   final Map<String, DateTime> _artworkMissAt = {};
 
-  /// Default cooldown before a failed artwork lookup is retried. Keeps the
-  /// 1-minute recent-tracks tick from hammering the APIs for permanently
-  /// artless tracks while still recovering a few minutes after a transient
-  /// failure. Injectable via [artworkRetryCooldown] for tests, where the
-  /// fake-async clock never advances `DateTime.now()`.
   static const _defaultArtworkRetryCooldown = Duration(minutes: 10);
 
   final Duration _artworkRetryCooldown;
 
-  /// Reactive heal for a cover that looks valid but fails to load (stale
-  /// Last.fm CDN URL, expired proxy cache, ...). Called from the row's
-  /// image error builder — bypasses the miss cooldown so the broken tile
-  /// heals immediately instead of waiting up to 10 minutes, and updates
-  /// every matching row in both users' leaderboards. One attempt per
-  /// track per session (AppNetworkImage.onError fires on every rebuild
-  /// while failed); periodic enrichment still retries after the cooldown.
   Future<void> healTopTrackCover({
     required String artist,
     required String track,
@@ -523,7 +472,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (changed) _safeNotify();
   }
 
-  /// Same reactive heal as [healTopTrackCover] but for recent scrobbles.
   Future<void> healRecentTrackCover({
     required String artist,
     required String track,
@@ -539,8 +487,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (s.artistName == artist &&
             s.trackName == track &&
             s.imageUrl != artwork) {
-          // copyWith: preserves resolved Spotify fields (track id, embed
-          // and preview URLs) that a manual rebuild would drop.
           list[i] = s.copyWith(imageUrl: artwork);
           changed = true;
         }
@@ -565,9 +511,6 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
         DateTime.now().difference(missAt) < _artworkRetryCooldown) {
       return null;
     }
-    // One call returns both cover and album: the old artwork-then-album
-    // sequence ran the full Last.fm -> iTunes -> Spotify chain twice per
-    // track, doubling the top-10's load time.
     final meta = await _syncService.fetchTrackMetadata(
       artist: artist,
       track: track,

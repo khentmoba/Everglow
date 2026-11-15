@@ -1,7 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-/// Non-browser fallback for [web_standalone_web.dart]: never applies an
-/// inset, so native builds and VM tests render exactly as before.
 class WebStandalone {
   WebStandalone._();
 
@@ -23,7 +21,6 @@ class WebStandalone {
   static double probeSafeAreaTop() => 0;
 }
 
-/// Pass-through on non-web platforms: returns [child] untouched.
 class WebStandaloneInsets extends StatelessWidget {
   final Widget child;
 

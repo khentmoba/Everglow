@@ -8,15 +8,7 @@ import './tmdb/tmdb_search_service.dart';
 import './tmdb/tmdb_trailer_service.dart';
 import './tmdb/tmdb_watchlist_service.dart';
 
-/// Public facade over the focused TMDB sub-services.
-///
-/// All existing call-sites that use `TMDBService()` continue to work
-/// unchanged — every method is forwarded to the appropriate sub-service.
-/// Sub-services are also exposed as getters for callers that need direct
-/// access (e.g. stream subscriptions).
 class TMDBService with ConnectivityAware {
-  // ─── Sub-services ──────────────────────────────────────────────────────────
-
   late final TMDBDiscoveryService _discovery;
   late final TMDBSearchService _search;
   late final TMDBDetailsService _details;
@@ -24,16 +16,12 @@ class TMDBService with ConnectivityAware {
   late final TMDBWatchlistService _watchlist;
   late final TMDBTrailerService _trailer;
 
-  // ─── Sub-service getters ───────────────────────────────────────────────────
-
   TMDBDiscoveryService get discovery => _discovery;
   TMDBSearchService get search => _search;
   TMDBDetailsService get details => _details;
   TMDBPosterService get poster => _poster;
   TMDBWatchlistService get watchlist => _watchlist;
   TMDBTrailerService get trailer => _trailer;
-
-  // ─── Singleton ─────────────────────────────────────────────────────────────
 
   static final TMDBService _instance = TMDBService._internal();
   factory TMDBService() => _instance;
@@ -45,8 +33,6 @@ class TMDBService with ConnectivityAware {
     _watchlist = TMDBWatchlistService();
     _trailer = TMDBTrailerService();
   }
-
-  // ─── Discovery ─────────────────────────────────────────────────────────────
 
   Future<List<MediaItem>> fetchTrendingAnime() =>
       _discovery.fetchTrendingAnime();
@@ -165,8 +151,6 @@ class TMDBService with ConnectivityAware {
     failOnError: failOnError,
   );
 
-  // ─── Search ────────────────────────────────────────────────────────────────
-
   Future<List<MediaItem>> searchMedia(
     String query, {
     int page = 1,
@@ -175,8 +159,6 @@ class TMDBService with ConnectivityAware {
 
   Future<int?> searchTvShow(String title, {String? firstAirDateYear}) =>
       _search.searchTvShow(title, firstAirDateYear: firstAirDateYear);
-
-  // ─── Details ───────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> fetchCredits(int id, String mediaType) =>
       _details.fetchCredits(id, mediaType);
@@ -196,14 +178,11 @@ class TMDBService with ConnectivityAware {
   Future<Map<String, dynamic>?> fetchMediaDetails(int id, String mediaType) =>
       _details.fetchMediaDetails(id, mediaType);
 
-  /// IMDB id for a title, used by the cinema download sheet.
   Future<String?> fetchImdbId(int id, String mediaType) =>
       _details.fetchImdbId(id, mediaType);
 
   Future<bool> isAnimeByTmdbId(int tmdbId, String mediaType) =>
       _details.isAnimeByTmdbId(tmdbId, mediaType);
-
-  // ─── Poster ────────────────────────────────────────────────────────────────
 
   Future<String> fetchPosterUrl(int tmdbId, String mediaType) =>
       _poster.fetchPosterUrl(tmdbId, mediaType);
@@ -211,14 +190,10 @@ class TMDBService with ConnectivityAware {
   Future<List<MediaItem>> backfillMissingPosters(List<MediaItem> items) =>
       _poster.backfillMissingPosters(items);
 
-  /// Heals one item's poster (see [TMDBPosterService.healPoster]). Used by
-  /// dashboard shelves when a cover image fails to load.
   Future<MediaItem?> healPoster(MediaItem item) => _poster.healPoster(item);
 
   Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) =>
       _poster.refreshAnimePosters(items);
-
-  // ─── Watchlist CRUD ────────────────────────────────────────────────────────
 
   Future<void> saveToWatchList(
     MediaItem item,
@@ -236,12 +211,9 @@ class TMDBService with ConnectivityAware {
     skipPartnerFallback: skipPartnerFallback,
   );
 
-  /// Returns the Firestore userName of the partner that a partner-specific
-  /// status refers to (e.g. "watched-clair" → "clairjassen"), or null.
   static String? resolveStatusOwner(String status, String currentUser) =>
       TMDBWatchlistService.resolveStatusOwner(status, currentUser);
 
-  /// Clean stale partner-specific status from the current user's doc.
   Future<void> cleanStalePartnerStatus(
     MediaItem item,
     String userName,
@@ -307,8 +279,6 @@ class TMDBService with ConnectivityAware {
   Future<bool> isReminderSet(MediaItem item, String userName) =>
       _watchlist.isReminderSet(item, userName);
 
-  // ─── Watchlist Streams ─────────────────────────────────────────────────────
-
   Future<List<MediaItem>> getPreviewItems(
     String userName, {
     int limit = 30,
@@ -356,8 +326,6 @@ class TMDBService with ConnectivityAware {
     userB: userB,
   );
 
-  // ─── Progress / Heartbeat ──────────────────────────────────────────────────
-
   Future<void> heartbeatProgress(
     int catalogId,
     String userName, {
@@ -378,12 +346,8 @@ class TMDBService with ConnectivityAware {
     durationSeconds: durationSeconds,
   );
 
-  // ─── Migration ─────────────────────────────────────────────────────────────
-
   Future<int> migrateWatchListOwnership() =>
       _watchlist.migrateWatchListOwnership();
-
-  // ─── Trailer ───────────────────────────────────────────────────────────────
 
   Future<String?> fetchTrailerKey(int id, String mediaType) =>
       _trailer.fetchTrailerKey(id, mediaType);

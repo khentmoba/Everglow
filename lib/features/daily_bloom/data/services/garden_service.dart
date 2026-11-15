@@ -5,9 +5,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/garden_stats.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Source of garden stats. [GardenService] is the Firestore-backed
-/// implementation; tests substitute a fake so [GardenProvider]'s retry
-/// behavior can be verified without Firebase.
 abstract class GardenStatsSource {
   Stream<GardenStats> watchStats(String userId);
   Stream<GardenStats> watchPartnerStats(String partnerUid);
@@ -63,9 +60,8 @@ class GardenService implements GardenStatsSource {
       final now = DateTime.now();
 
       if (!snapshot.exists) {
-        // First visit ever
         final stats = GardenStats(
-          currentStage: 1, // Start at Stage 1 (Sprout) on first visit
+          currentStage: 1,
           lastVisit: now,
           streakCount: 1,
           totalInteractions: 1,
@@ -76,14 +72,12 @@ class GardenService implements GardenStatsSource {
 
       final currentStats = GardenStats.fromFirestore(snapshot);
 
-      // Calculate new streak
       int newStreak = currentStats.streakCount;
       if (_isYesterday(currentStats.lastVisit, now)) {
         newStreak += 1;
       } else if (!_isToday(currentStats.lastVisit, now)) {
-        newStreak = 1; // Streak broken
+        newStreak = 1;
       }
-      // If it's today, streak stays the same (already incremented for today)
 
       final newTotalInteractions = currentStats.totalInteractions + 1;
       final newStage = GardenStats.calculateStage(newTotalInteractions);
@@ -117,7 +111,6 @@ class GardenService implements GardenStatsSource {
         lastVisit.day == yesterday.day;
   }
 
-  /// Watch partner's garden stats for the shared garden view.
   @override
   Stream<GardenStats> watchPartnerStats(String partnerUid) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
@@ -147,7 +140,6 @@ class GardenService implements GardenStatsSource {
     );
   }
 
-  /// Update the user's selected plant type.
   @override
   Future<void> setPlantType(String userId, String plantType) async {
     if (AgentMode.isActive.value) return;
@@ -162,7 +154,6 @@ class GardenService implements GardenStatsSource {
       if (snapshot.exists) {
         txn.update(docRef, {'plantType': plantType});
       } else {
-        // Create initial stats with the selected plant type
         final stats = GardenStats(
           currentStage: 0,
           lastVisit: DateTime.now(),

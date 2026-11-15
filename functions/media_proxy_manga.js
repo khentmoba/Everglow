@@ -3,19 +3,6 @@
 const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
 const { streamMediaBody } = require('./stream_media_body');
 
-/**
- * Proxies manga chapter page images so Flutter web isn't blocked by
- * CORS or hotlink protection. The MangaDex at-home image server
- * doesn't send CORS headers, so a direct Image.network request from
- * the browser fails. This function fetches the image server-side and
- * streams it back to the client with permissive CORS headers.
- *
- * Accepts:
- *   GET /proxyMangaImage?url=<encoded image url>
- *
- * Mirrors the `proxyBookText` pattern: optional Firebase Auth token in
- * the Authorization header, validated if present.
- */
 const proxyMangaImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -30,12 +17,7 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  // Image chapters burst ~20-50 requests on open; 240/min per IP covers
-  // humans while cutting off bots. Anonymous by design for <img> tags.
   if (enforceRateLimit(req, res, { endpoint: 'proxyMangaImage', limit: 240, windowMs: 60000 })) return;
-  // Image proxies allow anonymous access for <img> tags that cannot send
-  // Authorization headers. If a token is provided in the header,
-  // validate it; otherwise allow based on host allowlist alone.
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -105,13 +87,6 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
   }
 });
 
-/**
- * Proxies MangaKakalot chapter page images so Flutter web isn't blocked
- * by CORS or hotlink protection.
- *
- * Accepts:
- *   GET /proxyMangaKakalotImage?url=<encoded image url>
- */
 const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -195,13 +170,6 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
   }
 });
 
-/**
- * Proxies MangaKatana chapter page images so Flutter web isn't blocked
- * by CORS or hotlink protection.
- *
- * Accepts:
- *   GET /proxyMangaKatana?url=<encoded image url>
- */
 const proxyMangaKatana = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -289,11 +257,6 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
   }
 });
 
-/**
- * Proxies Comick catalog API requests so Flutter web isn't blocked by CORS.
- * Same pattern as `proxyMangaDex` — forwards to api.comick.dev with
- * permissive CORS headers.
- */
 const proxyComick = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -361,25 +324,6 @@ const proxyComick = cappedHttps(30, async (req, res) => {
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
-
-/**
- * Proxies MangaDex catalog API requests so Flutter web isn't blocked
- * by CORS. The MangaDex API at api.mangadex.org doesn't send an
- * `Access-Control-Allow-Origin` header on its responses, so the
- * browser drops the body and the client sees an empty `data` array
- * (which is what causes the "Nothing here yet." placeholders in the
- * manga library). This function forwards the request server-side and
- * returns the body with permissive CORS headers.
- *
- * Accepts:
- *   GET /proxyMangaDex?path=<encoded api path with query,
- *                            e.g. "manga?limit=20&includes%5B%5D=cover_art">
- *
- * Only the api.mangadex.org host is allowed — the path is sanitized
- * to prevent abuse. Mirrors the `proxyMangaImage` pattern: optional
- * Firebase Auth token in the Authorization header, validated if
- * present.
- */
 
 const proxyMangaDex = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

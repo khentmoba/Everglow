@@ -20,17 +20,6 @@ import '../../../../core/theme/app_colors.dart';
 part 'reader_widgets.dart';
 part 'reader_screen_state_base.dart';
 
-/// In-app book reader. Mirrors the cinema's `video_player_screen`
-/// — it's the fullscreen experience for a single media item.
-///
-/// Pipeline:
-///   1. Fetch plain text from the book's `readSourceUrl` (typically
-///      `https://archive.org/download/{ia}/{ia}_djvu.txt`).
-///   2. Strip Gutenberg boilerplate.
-///   3. Split into [BookChapter]s by chapter / part / book markers.
-///   4. Render the active chapter with `flutter_html`.
-///   5. Persist progress in `SharedPreferences` per workKey so the
-///      next open resumes where the user left off.
 enum BookReaderMode { text, embed }
 
 class ReaderScreen extends StatefulWidget {
@@ -165,7 +154,6 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Chapter title
                 Text(
                   chapter.title,
                   style: AppTypography.cormorantBlack.copyWith(
@@ -175,8 +163,6 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Chapter body — render plain text via flutter_html so we
-                // get smart paragraphs, line wrapping, and we can theme it.
                 Html(
                   data: _bodyToHtml(chapter.body),
                   style: {
@@ -234,7 +220,6 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             onPressed: hasNext ? _nextChapter : null,
             icon: const Icon(Icons.chevron_right_rounded, size: 20),
             label: const Text('Next', style: AppTypography.outfitWhite),
-            // label after icon order swap
           ),
         ],
       ),
@@ -898,8 +883,6 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
     );
   }
 
-  /// Convert plain text into HTML with paragraph breaks so
-  /// flutter_html can render it with proper margins.
   String _bodyToHtml(String body) {
     final escaped = body
         .replaceAll('&', '&amp;')
@@ -913,8 +896,6 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
   }
 }
 
-/// Isolate entry point for book text splitting. Returns [title, body] pairs
-/// so the result is sendable back across the isolate boundary.
 List<List<String>> _splitBookTextIsolate(List<String> input) {
   final text = input[0];
   final fallbackTitle = input[1];
@@ -971,5 +952,3 @@ String _normalizeBookText(String text) {
       .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
 }
-
-/// Visual theme variants for the reader.

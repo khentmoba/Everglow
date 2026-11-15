@@ -3,12 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 import 'package:everglow/features/cinema/data/services/video_source_service.dart';
 
-/// A stale remote config: every retired server is still listed, and VidLink
-/// still carries `sandboxSafe: true` — which is exactly what made it answer
-/// "Please Disable Sandbox" instead of streaming.
-///
-/// `admirror` stands in for any ad-heavy provider so the ordering rule stays
-/// under test without depending on a real server that happens to be alive.
 const staleRemote = <VideoSourceConfig>[
   VideoSourceConfig(
     id: 'everglow-embed',
@@ -128,7 +122,6 @@ void main() {
       }
       expect(
         ids,
-        // No-ads group first (input order kept), ad-heavy mirrors last.
         ['everglow-embed', 'vidlink', 'vidcore', 'admirror'],
       );
     });
@@ -139,7 +132,6 @@ void main() {
       };
 
       expect(byId['vidlink']!.sandboxSafe, isFalse);
-      // Untouched: VidCore and Everglow both stream fine inside a sandbox.
       expect(byId['vidcore']!.sandboxSafe, isTrue);
       expect(byId['everglow-embed']!.sandboxSafe, isTrue);
     });
@@ -161,8 +153,6 @@ void main() {
           .map((p) => p.id)
           .toList();
 
-      // admirror is ad-heavy, so it sorts last even though the remote list
-      // placed it earlier.
       expect(ids.last, 'admirror');
       expect(ids.indexOf('vidcore'), lessThan(ids.indexOf('admirror')));
     });

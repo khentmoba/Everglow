@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import '../../domain/memory/memory_fact.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
 
-/// Firestore CRUD for Motchi's permanent memory (ai_memories/shared/facts).
 class AIMemoryRepository implements IAIMemoryRepository {
   final FirebaseFirestore _db;
   final User? _user;
@@ -21,14 +20,11 @@ class AIMemoryRepository implements IAIMemoryRepository {
   @override
   List<String> get all => List.unmodifiable(_memories);
 
-  /// Structured facts loaded from Firestore. Older facts fall back to
-  /// `fact`-only entries so the Memory Book can render everything.
   @override
   List<MemoryFact> get facts => List.unmodifiable(_facts);
   @override
   bool get isLoaded => _memoriesLoaded;
 
-  /// Load up to 200 facts from Firestore (once).
   @override
   Future<void> load() async {
     if (_memoriesLoaded) return;
@@ -63,7 +59,6 @@ class AIMemoryRepository implements IAIMemoryRepository {
     }
   }
 
-  /// Save a fact to Firestore and cache it.
   @override
   Future<void> save(String fact, {String category = 'fact'}) async {
     if (fact.trim().isEmpty) return;
@@ -96,12 +91,10 @@ class AIMemoryRepository implements IAIMemoryRepository {
     }
   }
 
-  /// Delete a fact from Firestore and cache.
   @override
   Future<void> delete(String factId) async {
     try {
       if (factId.isEmpty) {
-        // Backward-compatible path: delete by exact fact text.
         final snapshot = await _db
             .collection('ai_memories')
             .doc('shared')
@@ -132,8 +125,6 @@ class AIMemoryRepository implements IAIMemoryRepository {
     }
   }
 
-  /// Pin or unpin a fact by document id. Pinned facts get a permanent
-  /// boost in retrieval and are always visible in the Memory Book.
   @override
   Future<void> setPinned(String factId, bool pinned) async {
     if (factId.isEmpty) return;
@@ -152,8 +143,6 @@ class AIMemoryRepository implements IAIMemoryRepository {
     }
   }
 
-  /// Save a structured fact, reusing Firestore's existing schema and
-  /// adding the structured fields Motchi's trivia/search rely on.
   @override
   Future<void> saveStructured({
     required String fact,
@@ -202,7 +191,6 @@ class AIMemoryRepository implements IAIMemoryRepository {
     }
   }
 
-  /// Check if a normalized fact is already in the cache.
   @override
   bool isDuplicate(String fact) {
     final normalized = fact
@@ -220,7 +208,6 @@ class AIMemoryRepository implements IAIMemoryRepository {
     });
   }
 
-  /// Reset cache (call on logout).
   @override
   void reset() {
     _memories = [];

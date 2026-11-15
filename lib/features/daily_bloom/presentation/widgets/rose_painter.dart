@@ -3,15 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_art.dart';
 
-/// Hand-drawn rose for Khent's garden.
-///
-/// Stages: 0 = empty pot, 1 = sprout, 2-3 = bud, 4 = half bloom, 5 = full bloom.
-/// Web-safe: glow is layered translucent circles, no blur filters.
-/// Matches [LilyPainter]'s sway, stem height, and pot size so the two
-/// sit evenly side by side in the dual-garden scene.
 class RosePainter extends CustomPainter {
   final int stage;
-  final double animationValue; // 0..1 breathing loop
+  final double animationValue;
 
   RosePainter({required this.stage, required this.animationValue});
 
@@ -36,7 +30,6 @@ class RosePainter extends CustomPainter {
       height: potHeight,
     );
 
-    // Soil the stem grows out of.
     paint
       ..shader = null
       ..color = AppArt.barkDeep.withValues(alpha: 0.9);
@@ -58,7 +51,6 @@ class RosePainter extends CustomPainter {
       paint,
     );
 
-    // Pot body with gradient.
     paint.color = AppColors.petalWhite;
     paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
@@ -70,7 +62,6 @@ class RosePainter extends CustomPainter {
       paint,
     );
 
-    // Soft side shade so the pot feels round.
     paint.shader = null;
     paint.color = AppArt.roseRim.withValues(alpha: 0.35);
     canvas.drawRRect(
@@ -86,7 +77,6 @@ class RosePainter extends CustomPainter {
       paint,
     );
 
-    // Rim + top light-catch.
     paint.color = AppArt.roseRim;
     final rim = Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8);
     canvas.drawRRect(
@@ -104,7 +94,6 @@ class RosePainter extends CustomPainter {
   }
 
   void _drawRose(Canvas canvas, Offset center, Paint paint) {
-    // Same sway + height as the lily so both fit the 150px card.
     final sway = (animationValue - 0.5) * 5.0;
     final stemHeight = 20.0 + stage * 11.0 + animationValue * 3.0;
     final base = Offset(center.dx, center.dy);
@@ -131,7 +120,6 @@ class RosePainter extends CustomPainter {
       ..moveTo(base.dx, base.dy)
       ..quadraticBezierTo(control.dx, control.dy, top.dx, top.dy);
 
-    // Main stem — deeper green than the lily's, roses are woodier.
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -140,7 +128,6 @@ class RosePainter extends CustomPainter {
       ..color = AppArt.stemDark;
     canvas.drawPath(path, paint);
 
-    // Roundness highlight.
     final highlight = Path()
       ..moveTo(base.dx + 1.2, base.dy - 2)
       ..quadraticBezierTo(control.dx + 1.2, control.dy, top.dx + 0.8, top.dy);
@@ -150,7 +137,6 @@ class RosePainter extends CustomPainter {
     canvas.drawPath(highlight, paint);
   }
 
-  /// Point on the quadratic stem curve at [t] (0 = base, 1 = bloom).
   Offset _stemPoint(Offset base, Offset control, Offset top, double t) {
     final u = 1 - t;
     return Offset(
@@ -159,7 +145,6 @@ class RosePainter extends CustomPainter {
     );
   }
 
-  /// Tangent angle of the stem curve at [t], so thorns stick out sideways.
   double _stemAngle(Offset base, Offset control, Offset top, double t) {
     final dx =
         2 * (1 - t) * (control.dx - base.dx) + 2 * t * (top.dx - control.dx);
@@ -180,7 +165,6 @@ class RosePainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..shader = null
       ..color = AppArt.stemDark.withValues(alpha: 0.9);
-    // Small curved prickles, alternating sides, kept tiny at card size.
     const spots = [(0.30, 1.0), (0.48, -1.0), (0.63, 1.0)];
     for (final spot in spots) {
       final t = spot.$1;
@@ -211,7 +195,6 @@ class RosePainter extends CustomPainter {
     Offset top,
     Paint paint,
   ) {
-    // More leaves as the plant grows: 1 → 4.
     final count = stage.clamp(1, 4);
     const fractions = [0.22, 0.42, 0.58, 0.72];
     for (var i = 0; i < count; i++) {
@@ -223,7 +206,6 @@ class RosePainter extends CustomPainter {
     }
   }
 
-  /// Glossy oval rose leaf with a pointed tip, toothed hint, and veins.
   void _drawRoseLeaf(
     Canvas canvas,
     Offset pos,
@@ -254,7 +236,6 @@ class RosePainter extends CustomPainter {
         pos.dy,
       );
 
-    // Glossy body: deep base melting into a lighter tip.
     paint
       ..style = PaintingStyle.fill
       ..color = AppColors.petalWhite
@@ -268,7 +249,6 @@ class RosePainter extends CustomPainter {
           );
     canvas.drawPath(leaf, paint);
 
-    // Thin dark edge.
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -276,7 +256,6 @@ class RosePainter extends CustomPainter {
       ..color = AppArt.stemDark.withValues(alpha: 0.7);
     canvas.drawPath(leaf, paint);
 
-    // Center vein + two side veins.
     paint
       ..strokeWidth = 1
       ..strokeCap = StrokeCap.round
@@ -289,7 +268,6 @@ class RosePainter extends CustomPainter {
     canvas.drawLine(mid, mid + Offset(dir * -5, -width * 0.5), paint);
     canvas.drawLine(mid, mid + Offset(dir * -4, width * 0.35), paint);
 
-    // Gloss catch near the base.
     paint
       ..style = PaintingStyle.fill
       ..color = AppColors.petalWhite.withValues(alpha: 0.28);
@@ -329,7 +307,6 @@ class RosePainter extends CustomPainter {
     final w = 12.0 + stage * 2.0;
     final h = 22.0 + stage * 3.0;
 
-    // Long pointed sepals hugging the bud.
     paint
       ..style = PaintingStyle.fill
       ..shader = null
@@ -352,7 +329,6 @@ class RosePainter extends CustomPainter {
       canvas.drawPath(sepal, paint);
     }
 
-    // Plump teardrop bud: deep base melting into a glowing tip.
     final bud = Path()
       ..moveTo(top.dx, top.dy + 2)
       ..cubicTo(
@@ -386,7 +362,6 @@ class RosePainter extends CustomPainter {
         );
     canvas.drawPath(bud, paint);
 
-    // Petal seams + highlight.
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -417,8 +392,6 @@ class RosePainter extends CustomPainter {
     paint.style = PaintingStyle.fill;
   }
 
-  /// Half-open rose: a goblet cup with petals unfurling over the rim
-  /// and the swirl heart peeking out of the opening.
   void _drawHalfBloom(Canvas canvas, Offset top, double sway, Paint paint) {
     final breathe = 1.0 + animationValue * 0.04;
     final radius = 15.0 * breathe;
@@ -429,14 +402,12 @@ class RosePainter extends CustomPainter {
     canvas.rotate(sway * 0.012);
     canvas.translate(-top.dx, -top.dy);
 
-    // Faint halo.
     paint
       ..style = PaintingStyle.fill
       ..shader = null
       ..color = AppColors.accentPink.withValues(alpha: 0.10);
     canvas.drawCircle(top.translate(0, -radius * 0.5), radius * 1.5, paint);
 
-    // Sepals hugging the cup base.
     paint.color = AppArt.stemDark;
     for (final dir in [-1.0, 1.0]) {
       final sepal = Path()
@@ -456,7 +427,6 @@ class RosePainter extends CustomPainter {
       canvas.drawPath(sepal, paint);
     }
 
-    // Goblet cup: deep base melting into a glowing rim.
     final cup = Path()
       ..moveTo(top.dx - radius * 0.55, top.dy + 2)
       ..cubicTo(
@@ -502,7 +472,6 @@ class RosePainter extends CustomPainter {
         );
     canvas.drawPath(cup, paint);
 
-    // Cup highlight on the left edge.
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -521,7 +490,6 @@ class RosePainter extends CustomPainter {
       paint,
     );
 
-    // Dark opening inside the rim.
     paint.style = PaintingStyle.fill;
     paint.color = AppColors.roseDark;
     canvas.drawOval(
@@ -533,7 +501,6 @@ class RosePainter extends CustomPainter {
       paint,
     );
 
-    // Three petals unfurling over the rim.
     for (final tilt in [-0.55, 0.0, 0.55]) {
       final h = radius * (tilt == 0.0 ? 0.85 : 0.65);
       final tipX = top.dx + tilt * radius * 1.1;
@@ -566,7 +533,6 @@ class RosePainter extends CustomPainter {
             ),
           );
       canvas.drawPath(petal, paint);
-      // Pale lip on the petal tip.
       paint
         ..shader = null
         ..style = PaintingStyle.stroke
@@ -580,7 +546,6 @@ class RosePainter extends CustomPainter {
       paint.style = PaintingStyle.fill;
     }
 
-    // The swirl heart peeking out of the middle.
     _drawRoseHeart(canvas, Offset(top.dx, rimY - 1), radius * 0.26, paint);
 
     canvas.restore();
@@ -596,7 +561,6 @@ class RosePainter extends CustomPainter {
     canvas.rotate(sway * 0.012);
     canvas.translate(-top.dx, -top.dy);
 
-    // Warm halo (layered circles — cheap on web, no blur).
     paint
       ..style = PaintingStyle.fill
       ..shader = null
@@ -605,13 +569,11 @@ class RosePainter extends CustomPainter {
     paint.color = AppColors.roseQuartz.withValues(alpha: 0.10);
     canvas.drawCircle(top, radius * 1.05, paint);
 
-    // Outer ring: 5 broad open petals, cupped with shaded bases.
     for (var i = 0; i < 5; i++) {
       final angle = (2 * pi / 5) * i - pi / 2 + 0.2;
       _drawOuterPetal(canvas, top, angle, radius, paint);
     }
 
-    // Middle ring: 5 smaller petals, offset, brighter.
     for (var i = 0; i < 5; i++) {
       final angle = (2 * pi / 5) * i - pi / 2 + 0.2 + pi / 5;
       _drawMiddlePetal(canvas, top, angle, radius * 0.68, paint);
@@ -619,7 +581,6 @@ class RosePainter extends CustomPainter {
 
     _drawRoseHeart(canvas, top, radius * 0.38, paint);
 
-    // Dew sparkle on one outer petal.
     final sparklePos = top + Offset(radius * 0.62, -radius * 0.35);
     paint
       ..style = PaintingStyle.fill
@@ -635,7 +596,6 @@ class RosePainter extends CustomPainter {
     paint.style = PaintingStyle.fill;
   }
 
-  /// One broad outer petal: shaded cup at the base, glowing curled rim.
   void _drawOuterPetal(
     Canvas canvas,
     Offset center,
@@ -653,14 +613,12 @@ class RosePainter extends CustomPainter {
       ..cubicTo(w, -radius * 0.25, w * 0.9, -radius * 0.75, 0, -radius)
       ..cubicTo(-w * 0.9, -radius * 0.75, -w, -radius * 0.25, 0, 2);
 
-    // Soft offset shadow for depth.
     paint
       ..style = PaintingStyle.fill
       ..shader = null
       ..color = AppColors.roseDark.withValues(alpha: 0.35);
     canvas.drawPath(petal.shift(const Offset(1.4, 2.0)), paint);
 
-    // Petal body: deep cup melting into a glowing rim.
     paint.color = AppColors.petalWhite;
     paint.shader = const LinearGradient(
       begin: Alignment.bottomCenter,
@@ -674,7 +632,6 @@ class RosePainter extends CustomPainter {
     ).createShader(Rect.fromLTWH(-w, -radius, w * 2, radius));
     canvas.drawPath(petal, paint);
 
-    // Curled rim light.
     paint
       ..shader = null
       ..style = PaintingStyle.stroke
@@ -693,7 +650,6 @@ class RosePainter extends CustomPainter {
       paint,
     );
 
-    // Cup crease.
     paint
       ..strokeWidth = 1
       ..color = AppColors.roseDark.withValues(alpha: 0.45);
@@ -703,7 +659,6 @@ class RosePainter extends CustomPainter {
     paint.style = PaintingStyle.fill;
   }
 
-  /// One middle petal: brighter, more upright, hugging the heart.
   void _drawMiddlePetal(
     Canvas canvas,
     Offset center,
@@ -753,14 +708,12 @@ class RosePainter extends CustomPainter {
     paint.style = PaintingStyle.fill;
   }
 
-  /// The signature rose swirl: dark cup with a light spiral unfolding.
   void _drawRoseHeart(
     Canvas canvas,
     Offset center,
     double radius,
     Paint paint,
   ) {
-    // Cup.
     paint
       ..style = PaintingStyle.fill
       ..shader = null
@@ -769,7 +722,6 @@ class RosePainter extends CustomPainter {
     paint.color = AppColors.deepRose;
     canvas.drawCircle(center, radius * 0.8, paint);
 
-    // Spiral unfurling clockwise.
     paint
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -786,7 +738,6 @@ class RosePainter extends CustomPainter {
     }
     canvas.drawPath(spiral, paint);
 
-    // Deep center + tiny light-catch.
     paint.style = PaintingStyle.fill;
     paint.color = AppColors.roseDark;
     canvas.drawCircle(center, radius * 0.22, paint);

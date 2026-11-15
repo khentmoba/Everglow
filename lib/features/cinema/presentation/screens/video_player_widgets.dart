@@ -1,10 +1,5 @@
 part of 'video_player_screen_web.dart';
 
-/// Show name only for the player chrome. Routes used to carry
-/// `Show: Episode 3` in the title while the S/E badge below said it
-/// again — strip any trailing episode suffix so the badge is the single
-/// episode label. Iterates because a title can stack suffixes
-/// (`Show Episode 3 Episode 3`).
 String _playerDisplayTitle(String raw) {
   var title = raw.trim();
   if (title.isEmpty) return title;
@@ -102,7 +97,6 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
   }
 }
 
-/// Compact square glass icon button for the player chrome.
 class _PlayerIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onTap;
@@ -162,7 +156,6 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
   }
 }
 
-/// Live status dot with a soft pulse for the server selector card.
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot();
 
@@ -243,8 +236,6 @@ class _PulsingDotState extends State<_PulsingDot>
   }
 }
 
-/// Cinematic buffering state shown over the video area while the embed
-/// loads. Purely visual; pointer events pass through it.
 class _CinematicLoader extends StatefulWidget {
   final String providerName;
 

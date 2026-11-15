@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Draws an origami lucky star (wishing star) with 3D faceted folds,
-/// radiant glowing halo, crisp creases, and a luminous starlight core.
 void drawOrigamiStar(
   Canvas canvas, {
   required Color color,
@@ -17,13 +15,9 @@ void drawOrigamiStar(
   if (effectiveOpacity <= 0.001) return;
 
   final outerRadius = size * 0.50;
-  // Cute, plump ratio for origami lucky stars (valley at 52% of outer radius)
   final innerRadius = size * 0.26;
   final glowRadius = size * 1.25;
 
-  // 1. Soft atmospheric luminous halo (celestial glow).
-  // On web, layered circles avoid allocating dozens of RadialGradient GPU
-  // shaders during the star jar's first paint frame.
   if (glowIntensity > 0.05) {
     if (kIsWeb) {
       final glowPaint = Paint()
@@ -53,7 +47,6 @@ void drawOrigamiStar(
     }
   }
 
-  // 2. Precalculate 5 tips and 5 valleys
   const points = 5;
   final tips = List<Offset>.generate(points, (i) {
     final a = -pi / 2 + i * 2 * pi / points;
@@ -64,8 +57,6 @@ void drawOrigamiStar(
     return Offset(cos(a) * innerRadius, sin(a) * innerRadius);
   });
 
-  // 3. Draw 10 faceted triangles meeting at center (0, 0)
-  // Simulated gentle directional light from top-left gives each fold tactile 3D volume.
   final facetPath = Path();
   final facetPaint = Paint()..style = PaintingStyle.fill;
 
@@ -77,10 +68,8 @@ void drawOrigamiStar(
     final tipAngle = -pi / 2 + i * 2 * pi / points;
     final tipDirX = cos(tipAngle);
     final tipDirY = sin(tipAngle);
-    // Light source from upper-left
     final lightDot = -0.5 * tipDirX - 0.7 * tipDirY;
 
-    // Facet 1 (center -> tip -> next valley): softer side
     final f1Factor = (0.15 + lightDot * 0.18 - 0.10).clamp(-0.20, 0.35);
     final f1Color = f1Factor >= 0
         ? Color.lerp(color, AppColors.petalWhite, f1Factor)!
@@ -94,7 +83,6 @@ void drawOrigamiStar(
     facetPath.close();
     canvas.drawPath(facetPath, facetPaint);
 
-    // Facet 2 (center -> prev valley -> tip): illuminated highlight side
     final f2Factor = (0.28 + lightDot * 0.20 + 0.12).clamp(-0.12, 0.45);
     final f2Color = f2Factor >= 0
         ? Color.lerp(color, AppColors.petalWhite, f2Factor)!
@@ -109,7 +97,6 @@ void drawOrigamiStar(
     canvas.drawPath(facetPath, facetPaint);
   }
 
-  // 4. Subtle crisp origami crease lines from center to each tip
   final creasePaint = Paint()
     ..color = AppColors.petalWhite.withValues(
       alpha: (0.32 * effectiveOpacity).clamp(0.0, 1.0),
@@ -120,7 +107,6 @@ void drawOrigamiStar(
     canvas.drawLine(Offset.zero, tips[i], creasePaint);
   }
 
-  // 5. Luminous starlight center highlight / jewel gleam
   final coreRadius = size * 0.16;
   if (kIsWeb) {
     final coreGlowPaint = Paint()
@@ -147,7 +133,6 @@ void drawOrigamiStar(
     canvas.drawCircle(Offset.zero, coreRadius, corePaint);
   }
 
-  // Tiny crisp specular pinprick at the central apex
   canvas.drawCircle(
     Offset.zero,
     size * 0.05,
@@ -157,7 +142,6 @@ void drawOrigamiStar(
       ),
   );
 
-  // 6. Delicate 4-pointed sparkle glint (✦) when sparkling
   if (sparkle > 0.05) {
     final sparkleLen = size * 0.55 * sparkle;
     final sparkleWidth = size * 0.11 * sparkle;

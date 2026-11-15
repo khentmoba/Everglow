@@ -14,7 +14,6 @@ Widget _bar({required double width, double height = 16}) => EverglowSkeleton(
   highlightColor: NetflixColors.hairline,
 );
 
-/// Keep the large surfaces still; only small bars repaint during loading.
 class NetflixLoadingBillboard extends StatelessWidget {
   const NetflixLoadingBillboard({super.key});
 

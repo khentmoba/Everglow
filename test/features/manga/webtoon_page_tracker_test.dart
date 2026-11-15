@@ -30,9 +30,6 @@ void main() {
     });
 
     test('pageAtOffset walks real heights, not a linear ratio', () {
-      // A tall first page is exactly the case the old ratio math broke:
-      // 3000 + 900 + 900 = 4800 total, so a linear guess would call
-      // offset 2400 "page 2" (index 1) when it is still page 1.
       final tracker = WebtoonPageTracker(defaultPageHeight: 800)
         ..reset(3)
         ..measure(0, 3000)
@@ -48,7 +45,6 @@ void main() {
     });
 
     test('estimates unmeasured pages from the median, not the mean', () {
-      // One tall spread must not drag the estimate for every page after it.
       final tracker = WebtoonPageTracker(defaultPageHeight: 800)
         ..reset(10)
         ..measure(0, 4000)
@@ -123,7 +119,6 @@ void main() {
         ..measure(1, 1000);
       expect(tracker.estimatedPageHeight, 1000);
 
-      // Same value again must not invalidate or change anything.
       tracker.measure(0, 1000);
       expect(tracker.estimatedPageHeight, 1000);
       expect(tracker.measuredCount, 2);

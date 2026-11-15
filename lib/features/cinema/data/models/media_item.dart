@@ -14,84 +14,45 @@ class MediaItem {
   final String year;
   final String status;
 
-  /// True for Japanese animation (anime). Auto-detected from TMDB details
-  /// (original_language == 'ja' + Animation genre) when the title is saved
-  /// to the watchlist. Powers the dedicated "Anime" rail and screen.
   final bool isAnime;
 
-  /// Owning user. Items in `watch_list` are scoped per user so Khent, Clair,
-  /// and Breyan each see only their own queue / watched history.
   final String userName;
   final DateTime addedAt;
 
-  /// Where this item was sourced from. `'tmdb'` for general cinema (movies /
-  /// non-anime TV) and `'jikan'` for anime (MAL-sourced). Defaults to `'tmdb'`
-  /// so existing watchlist entries don't need to be migrated.
   final String source;
 
-  /// AniList numeric ID, when known. Lets the [EpisodeDrawer] skip the
-  /// `idMal -> id` lookup when opening an anime detail. Optional — when
-  /// null we resolve via AniList's `idMal` filter at detail-open time.
   final int? anilistId;
 
-  /// Long-form synopsis / description. Populated for Jikan-sourced items
-  /// (AniList's `description` field) so the [EpisodeDrawer] can show a
-  /// real anime plot summary instead of TMDB's truncated `overview`.
   final String synopsis;
 
-  /// Total episode count for the series (anime only). `null` for movies
-  /// or TMDB-sourced items where we don't have authoritative counts.
   final int? episodeCount;
 
-  /// MAL/Jikan status string (e.g. `'Airing'`, `'Finished Airing'`,
-  /// `'Not yet aired'`). Anime-only; null for TMDB-sourced items.
   final String airingStatus;
 
-  /// MAL/Jikan format string (e.g. `'TV'`, `'TV Short'`, `'Movie'`, `'OVA'`,
-  /// `'ONA'`, `'Special'`, `'Music'`). Anime-only; null for TMDB-sourced
-  /// items.
   final String format;
 
-  /// Studio / production company that made this anime. Anime-only.
   final String studio;
 
-  /// Genre names for this anime (e.g. `['Action', 'Fantasy']`).
-  /// Populated from Jikan/AniList; empty for TMDB-sourced items.
   final List<String> genres;
 
-  /// MAL/Jikan score on a 0-10 scale when known, used by the anime
-  /// section's rating chips. `null` for TMDB-sourced items.
   final double? score;
 
-  /// Current viewer's rating. `-1` is thumbs down and `1` is thumbs up.
   final double? userRating;
 
-  /// When the current viewer last changed their rating.
   final DateTime? ratedAt;
 
-  /// Season the user is currently on (TV series / anime only).
   final int? currentSeason;
 
-  /// Episode the user is currently on (TV series / anime only).
   final int? currentEpisode;
 
-  /// Timestamp in seconds into the movie / current episode.
   final int? currentTimestamp;
 
-  /// Duration in seconds for the movie / current episode, when reported
-  /// by an embed. Required to render a truthful playback-progress bar.
   final int? durationSeconds;
 
-  /// When the progress was last updated.
   final DateTime? progressUpdatedAt;
 
-  /// "Remind me" flag for unreleased titles. Optional in Firestore —
-  /// missing reads as false so old documents need no migration.
   final bool remindMe;
 
-  /// YouTube trailer key (e.g. `dQw4w9WgXcQ`), when known. Used by the
-  /// anime spotlight hero to stream the official trailer in place of
-  /// the backdrop still.
   final String? trailerYoutubeId;
 
   MediaItem({
@@ -126,12 +87,8 @@ class MediaItem {
     this.trailerYoutubeId,
   });
 
-  /// Normalized status for comparisons — guards against stray whitespace
-  /// or casing in Firestore so shelves never silently empty out.
   String get _normalizedStatus => status.trim().toLowerCase();
 
-  /// Seconds to resume from, or null when starting over is the better
-  /// default: nothing saved, already watched, or parked in the credits.
   int? get resumeSeconds {
     final at = currentTimestamp ?? 0;
     if (at <= 0 || isWatched) return null;
@@ -140,26 +97,16 @@ class MediaItem {
     return at;
   }
 
-  /// Catalog identity, shared by database matching and optimistic shelf state.
-  /// Numeric IDs alone are not unique across TMDB movies, TV, and MAL anime.
   String get catalogKey =>
       '$source\u0000${mediaType.trim().toLowerCase() == 'tv' ? 'tv' : 'movie'}'
       '\u0000${tmdbId > 0 ? tmdbId : (anilistId ?? 0)}';
 
-  /// MAL-style auto-complete: an episodic series whose saved progress
-  /// reached its final episode (EP 12/12) counts as finished even when
-  /// the stored status still says watching, so completed seasons leave
-  /// Continue Watching / Watching Now for the Finished / Completed
-  /// shelves without a manual status tap. Movies and unknown/single-
-  /// episode totals never auto-complete.
   bool get isSeriesCompleted => isCompletedProgress(
     episode: currentEpisode,
     totalEpisodes: episodeCount,
     isMovie: isMovie,
   );
 
-  /// Shared finale rule for [isSeriesCompleted], progress writes, and
-  /// the drawer rewatch reset — one definition so every shelf agrees.
   static bool isCompletedProgress({
     required int? episode,
     required int? totalEpisodes,
@@ -179,21 +126,11 @@ class MediaItem {
       _normalizedStatus == 'watched-self' ||
       isSeriesCompleted;
 
-  /// True when this title is a film rather than an episodic series.
-  /// Anything that is not a TV series (`mediaType != 'tv'`, e.g. movies
-  /// and anime films) is treated as a movie so episode progress labels
-  /// are never rendered for it. Anime films sometimes persist with
-  /// `mediaType == 'tv'` (legacy docs, relations), so `format`
-  /// (`'Movie'` from Jikan / `'MOVIE'` from AniList) is honored too.
   bool get isMovie {
     if (mediaType.trim().toLowerCase() != 'tv') return true;
     return format.trim().toLowerCase() == 'movie';
   }
 
-  /// True when season/episode labels are meaningful for this title.
-  /// Films never show them. Single-episode anime neither: ONA/OVA-listed
-  /// films (e.g. Drifting Home: tv + episodeCount 1) save with stale S1E1
-  /// progress, and S1E1 is noise for a single sitting.
   bool get hasEpisodeProgress {
     if (isMovie) return false;
     if (isAnime && episodeCount == 1) return false;
@@ -205,12 +142,6 @@ class MediaItem {
     caseSensitive: false,
   );
 
-  /// Season number to show in shelves.
-  ///
-  /// Anime seasons are separate catalog entries whose titles already carry
-  /// the season ("Black Clover Season 2") while progress is saved per-entry
-  /// as season 1 — so showing the saved 1 contradicts the title Clair sees.
-  /// Prefer the season in the title when present, otherwise the saved season.
   int get displaySeason {
     final match = _seasonInTitleRegex.firstMatch(title);
     if (match != null) {
@@ -220,17 +151,8 @@ class MediaItem {
     return currentSeason ?? 1;
   }
 
-  /// True for anime series (TV) — the only anime that lives exclusively
-  /// in the Anime rail. Anime *movies* belong in the cinema shelves too
-  /// (see [isCinemaItem]) so film lovers never lose them from
-  /// Currently Watching / Watched.
   bool get isAnimeSeries => isAnime && !isMovie;
 
-  /// True when AniList lists a title as a single long episode (e.g.
-  /// Drifting Home: format ONA + 1 x 120min) but it is really a film.
-  /// AniList marks some Netflix films as ONA, so `format == MOVIE` alone
-  /// misses them. Mirrors `AnimeXWatchPage._filmFor` so every entry
-  /// point agrees on what a film is.
   static bool isSingleEpisodeFilm({
     required String format,
     int? episodeCount,
@@ -240,22 +162,10 @@ class MediaItem {
     return episodeCount == 1 && (durationMinutes ?? 0) >= 60;
   }
 
-  /// True when this title belongs in the cinema rails: every movie
-  /// (live-action or anime) plus non-anime TV. Anime TV series return
-  /// false here — the Anime rail owns those.
   bool get isCinemaItem => !isAnime || isMovie;
 
-  /// Always returns a full image URL. If [posterPath] is already absolute
-  /// (starts with `http`), it is returned as-is. When it is a relative
-  /// TMDB path like `/abc.jpg`, the w500 base URL is prepended.
-  /// Blank, stringified-null, and whitespace-containing values resolve to
-  /// `''` so callers reliably fall back to the placeholder tile instead of
-  /// fetching a bogus URL. See [TmdbImages.isUsablePath].
   String get posterUrl => TmdbImages.posterFor(posterPath);
 
-  /// Always returns a full backdrop URL, or `''` when none is available.
-  /// Mirrors [posterUrl] so relative TMDB paths stored in Firestore (e.g.
-  /// `/abc.jpg`) resolve against the image CDN instead of failing to load.
   String get backdropUrl => TmdbImages.backdropFor(backdropPath, large: true);
 
   bool get isToWatch => _normalizedStatus == 'to-watch';
@@ -268,28 +178,6 @@ class MediaItem {
           _normalizedStatus == 'watching-both' ||
           _normalizedStatus == 'watching-self');
 
-  /// Maps stored statuses to the partner-specific variant based on the
-  /// item's [userName], which is the ground truth for single-owner docs.
-  /// Per-user Firestore docs store "self" variants, but the couple drawer
-  /// chips expect `watched-khent`, `watched-clair`, `watched-both`, etc.
-  /// This resolves the mismatch so the correct chip is highlighted when
-  /// the drawer opens.
-  ///
-  /// Single-owner couple docs (e.g. `userName == 'clairjassen'`) always
-  /// resolve to that owner's chip — even for legacy docs that still carry
-  /// a generic (`watching` / `watched`) or mismatched partner status
-  /// (`watching-khent` on Clair's doc from before statuses were routed
-  /// to the owner's doc). Without this, opening Clair's Currently Watching
-  /// item (e.g. Odyssey) highlights "Khent Watching" instead of
-  /// "Clair Watching".
-  ///
-  /// Merged couple items (`userName` contains both partners) already carry
-  /// the merged status — returned unchanged so a Khent-only title is never
-  /// upgraded to Both. The one exception is legacy `*-self` on a merged doc
-  /// (pre-merge code mapped those to Both), preserved here so the Both chip
-  /// still highlights. Non-couple usernames (Breyan, Octagram) and empty
-  /// owners (search results) keep the original status so generic chips
-  /// (`watching-self`) keep working.
   String resolveCoupleStatus() {
     switch (status) {
       case 'watched-both':
@@ -306,7 +194,6 @@ class MediaItem {
         break;
     }
     final partners = partnerUsernames;
-    // Merged item with both owners: status is already merged, keep it.
     if (partners.length > 1) return status;
     if (partners.length == 1) {
       final owner = partners.first;
@@ -320,13 +207,8 @@ class MediaItem {
         if (isCurrentlyWatching) return 'watching-clair';
         return status;
       }
-      // Non-couple single owner (Breyan, Octagram, guests): keep as-is
-      // so generic `watching-self` / `watched-self` chips still match.
       return status;
     }
-    // No owner (e.g. search/discover results): keep as-is. Old code mapped
-    // self-variants via _resolveByUserName which returned self again, so
-    // this is behavior-preserving.
     return status;
   }
 
@@ -344,10 +226,6 @@ class MediaItem {
     return 'To Watch';
   }
 
-  /// Returns the list of partner usernames (e.g. `['khentsgdz']`,
-  /// `['clairjassen']`, or `['khentsgdz', 'clairjassen']`) by splitting the
-  /// `userName` field on commas. Used to render the khent/clair/both
-  /// attribution in the combined couple watchlist view.
   List<String> get partnerUsernames {
     return userName
         .split(',')
@@ -356,9 +234,6 @@ class MediaItem {
         .toList();
   }
 
-  /// Short label for which partner(s) have the title in their queue.
-  /// For a couple's combined wishlist this is rendered as the
-  /// khent/clair/both chip in the grid.
   String get wanterDisplay {
     final partners = partnerUsernames;
     final hasKhent = partners.contains('khentsgdz');
@@ -471,8 +346,6 @@ class MediaItem {
     };
   }
 
-  /// Compact JSON form used by the local anime home-row cache. Keeps the
-  /// fields the home cards and watch page need without watchlist state.
   Map<String, dynamic> toJson() {
     return {
       'tmdbId': tmdbId,
@@ -606,33 +479,21 @@ class MediaItem {
   }
 }
 
-/// Shared status filters for cinema/anime shelves.
-///
-/// Every tab and preview splits the same watchlist the same way
-/// (`watching` / `to-watch` / `watched`, cinema vs anime). Use these
-/// instead of repeating `.where((i) => ...)` one-liners.
 extension MediaItemLists on List<MediaItem> {
-  /// Cinema rails: every movie plus non-anime TV (see [MediaItem.isCinemaItem]).
   List<MediaItem> get cinemaItems => where((i) => i.isCinemaItem).toList();
 
-  /// Currently watching, any shelf.
   List<MediaItem> get currentlyWatching =>
       where((i) => i.isCurrentlyWatching).toList();
 
-  /// Queued to watch, any shelf.
   List<MediaItem> get toWatch => where((i) => i.isToWatch).toList();
 
-  /// Watched, any shelf.
   List<MediaItem> get watched => where((i) => i.isWatched).toList();
 
-  /// Watched cinema titles (dashboard shelves, library counts).
   List<MediaItem> get watchedCinema =>
       where((i) => i.isWatched && i.isCinemaItem).toList();
 
-  /// Currently-watching cinema titles.
   List<MediaItem> get watchingCinema =>
       where((i) => i.isCurrentlyWatching && i.isCinemaItem).toList();
 
-  /// Titles with the "Remind me" bell set, any shelf.
   List<MediaItem> get reminded => where((i) => i.remindMe).toList();
 }

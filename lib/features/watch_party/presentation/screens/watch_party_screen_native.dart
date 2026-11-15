@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/watch_party_room.dart';
 
-/// Native fallback for the synchronized iframe watch party screen.
 class WatchPartyScreen extends StatelessWidget {
   final WatchPartyRoom initialRoom;
   final bool isHost;

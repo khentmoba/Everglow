@@ -15,8 +15,6 @@ import '../providers/music_stats_provider.dart';
 import 'artist_showdown_history_sheet.dart';
 import 'listen_along_popup.dart';
 
-/// Khent vs Clair for any artist: a head-to-head total plus the song-by-song
-/// table. Opens on Ethel Cain; the search box and quick picks switch artists.
 class ArtistShowdownCard extends StatefulWidget {
   const ArtistShowdownCard({super.key});
 
@@ -150,8 +148,6 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
     );
   }
 
-  /// Quick picks: Ethel Cain first, then the unique artists from both
-  /// Top 10s (already loaded — zero extra calls).
   List<String> _suggestions(MusicStatsProvider stats) {
     final seen = <String>{};
     final picks = <String>[ArtistShowdownProvider.defaultArtist];
@@ -450,9 +446,6 @@ class _ArtistSearchState extends State<_ArtistSearch> {
   }
 }
 
-/// Autocomplete dropdown under the search box: tap a name to load its
-/// showdown. Solid fill (no blur) and a capped height so it stays cheap
-/// on web and never pushes the card into an unbounded list.
 class _SuggestionDropdown extends StatelessWidget {
   final ArtistShowdownProvider showdown;
   final ValueChanged<String> onPick;
@@ -629,9 +622,6 @@ class _SuggestionRow extends StatelessWidget {
   }
 }
 
-/// Initial tile shown while an artist photo loads (or when Spotify has
-/// none). A big letter on the house gradient reads as intentional, where
-/// the old tiny person glyph looked like a broken image.
 class _ArtistInitial extends StatelessWidget {
   final String name;
   const _ArtistInitial({required this.name});
@@ -974,8 +964,6 @@ class _SongRow extends StatelessWidget {
       'clair' => AppColors.cinemaPink,
       _ => AppColors.textMuted,
     };
-    // Last.fm sometimes ships its default star/disc placeholder instead of a
-    // real cover — treat it as missing so the row falls back to the note.
     final art = cleanLastfmImageUrl(track.imageUrl);
     return GestureDetector(
       onTap: () => showDialog(

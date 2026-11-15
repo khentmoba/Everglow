@@ -66,8 +66,6 @@ class CalendarPollService {
     }
   }
 
-  /// Close the poll and save its event atomically. A stable event id makes
-  /// retries safe, without duplicate dates or a closed poll with no event.
   Future<void> finalize(
     String pollId,
     String winning,

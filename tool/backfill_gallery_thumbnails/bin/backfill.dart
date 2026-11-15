@@ -1,17 +1,3 @@
-// One-off repair: legacy gallery photos were uploaded before the
-// resize+thumbnail feature existed. They store full original resolution
-// with no thumbUrl, so the grid downloads multi-MB images and photos
-// larger than ~16MP fail to decode on iOS Safari / GPU-limited devices.
-//
-// For each gallery doc without a thumbUrl:
-//   1. Download the current full image.
-//   2. Re-encode a 1600px full (matches upload path) + a 400px thumb.
-//   3. Upload both to Storage, update the Firestore doc.
-//   4. Delete the old oversized full object.
-//
-// Auth: reuses the firebase-tools OAuth access token from configstore.
-// Run:  dart run bin/backfill.dart
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -59,7 +45,6 @@ Uint8List? _resizedJpeg(Uint8List bytes, int maxSize) {
   return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
 }
 
-/// Uploads bytes to Storage, returns a download URL with a fresh token.
 Future<String?> _upload(String storagePath, Uint8List bytes) async {
   final uri = Uri.parse(
     'https://firebasestorage.googleapis.com/v0/b/$bucket/o'
@@ -88,7 +73,6 @@ Future<String?> _upload(String storagePath, Uint8List bytes) async {
 }
 
 Future<bool> _deleteObject(String fullUrl) async {
-  // https://.../o/<encoded path>?alt=media&token=...
   final uri = Uri.parse(fullUrl);
   final path = uri.pathSegments.last;
   final delUri = Uri.parse(
@@ -128,7 +112,6 @@ Future<bool> _updateDoc(String docId, String imageUrl, String thumbUrl) async {
 }
 
 Future<void> main() async {
-  // 1. List all gallery docs via Firestore REST.
   final qUri = Uri.parse(
     'https://firestore.googleapis.com/v1/projects/$projectId/'
     'databases/(default)/documents:runQuery',
@@ -158,8 +141,6 @@ Future<void> main() async {
   }
 
   final docs = <Map<String, dynamic>>[];
-  // Firestore REST returns a single pretty-printed JSON array of
-  // per-document result objects; split top-level {..} blocks.
   final joined = qResp.body.trim();
   final blocks = <String>[];
   var depth = 0;
@@ -256,7 +237,6 @@ Future<void> main() async {
     }
     stdout.writeln('  firestore updated');
 
-    // Only delete the old object after the doc points at the new ones.
     final deleted = await _deleteObject(oldUrl);
     stdout.writeln('  old object deleted: $deleted');
     stdout.writeln('  DONE: $id');

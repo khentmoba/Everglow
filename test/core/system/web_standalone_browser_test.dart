@@ -122,8 +122,6 @@ void main() {
     expect(measured.padding, const EdgeInsets.fromLTRB(44, 0, 44, 0));
     expect(measured.viewPadding, const EdgeInsets.fromLTRB(44, 0, 44, 21));
 
-    // While an element is in HTML5 fullscreen, resize events must not re-probe
-    // safe-area insets or shift MediaQuery padding mid-transition.
     js(
       "Object.defineProperty(document, 'fullscreenElement', {value: document.body, configurable: true});"
       "window.egInsets = {paddingTop: '99px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px'};"
@@ -152,8 +150,6 @@ void main() {
     (tester) async {
       const action = Key('action');
       late MediaQueryData measured;
-      // Unregistering the stub alone still drops messages in web widget tests.
-      // Let the engine create its real DOM text field for this regression.
       final environment = ui_web.TestEnvironment.instance;
       ui_web.TestEnvironment.setUp(
         ui_web.TestEnvironment(

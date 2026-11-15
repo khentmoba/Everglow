@@ -8,9 +8,6 @@ import '../../data/services/katana_service.dart';
 import './katana_nav.dart';
 import './katana_theme.dart';
 
-/// The expanded list item used on the home page and every directory
-/// page: cover + status badge on the left, title, update time, first
-/// chapter, genres, summary and recent chapters on the right.
 class KatanaItemCard extends StatefulWidget {
   final KatanaManga manga;
   final bool dense;
@@ -86,7 +83,6 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Cover
                 _Cover(
                   url: widget.manga.coverUrl,
                   width: coverWidth,
@@ -94,7 +90,6 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
                   status: widget.manga.status,
                 ),
                 const SizedBox(width: 12),
-                // Text
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,9 +184,6 @@ class _KatanaItemCardState extends State<KatanaItemCard> {
         ),
         if (manga.latestChapter != null)
           GestureDetector(
-            // Opens the reader at the true first chapter (`fc`). The old
-            // code passed latestChapter here, so "First Chapter"
-            // actually opened the NEWEST chapter.
             onTap: () => pushReader(
               context,
               slug: manga.slug,
@@ -415,7 +407,6 @@ class _Cover extends StatelessWidget {
   }
 }
 
-/// Compact cover card used by the Hot Manga rail and bookmark grid.
 class KatanaCompactCard extends StatefulWidget {
   final KatanaManga manga;
   final double width;
@@ -531,9 +522,6 @@ class _KatanaCompactCardState extends State<KatanaCompactCard> {
           ),
           if (widget.manga.latestChapter != null)
             GestureDetector(
-              // Like the site's rail: tapping the chapter link opens
-              // the reader at that chapter, while the rest of the
-              // card opens the detail page.
               onTap: () {
                 final latest = widget.manga.latestChapter!;
                 pushReader(

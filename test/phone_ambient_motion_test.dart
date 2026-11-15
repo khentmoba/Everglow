@@ -45,7 +45,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(tester.binding.hasScheduledFrame, isTrue);
 
-    // Landscape phone remains light and stops the existing tablet ticker.
     tester.view.physicalSize = const Size(1792, 828);
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));

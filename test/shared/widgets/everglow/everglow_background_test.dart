@@ -8,12 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
 
-/// The pre-optimisation structure: every glow painted as a full-screen
-/// rectangle, with the gradient centred by `Alignment` inside that rectangle.
-///
-/// This lives in the test on purpose — the point is to prove the bounded
-/// version in `lib/` draws the same pixels, so the reference has to stay how it
-/// was rather than follow it.
 class _FullScreenGlows extends StatelessWidget {
   const _FullScreenGlows({required this.glows, required this.baseColor});
 
@@ -64,7 +58,6 @@ Future<Uint8List> capture(WidgetTester tester, Widget widget, Size size) async {
 
   final boundary =
       key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  // Image work needs the real (non-fake) async zone, or it never completes.
   final bytes = await tester.runAsync(() async {
     final image = await boundary.toImage();
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -75,7 +68,6 @@ Future<Uint8List> capture(WidgetTester tester, Widget widget, Size size) async {
 }
 
 void main() {
-  // The dashboard's own glow setup.
   const glows = <RadialGlow>[
     RadialGlow(
       color: AppColors.deepRose,
@@ -132,8 +124,6 @@ void main() {
       'differing=$differing/$total',
     );
 
-    // Bit-identical, not "close enough": both trees are rendered by the same
-    // rasterizer in the same test, so any difference is a real geometry change.
     expect(maxDelta, 0);
     expect(differing, 0);
   });
@@ -141,14 +131,11 @@ void main() {
   testWidgets('a glow paints only its own circle, not the whole screen', (
     tester,
   ) async {
-    // What the saving is: the circle's box intersected with the viewport, which
-    // is what gets filled each frame instead of the whole screen.
     const size = Size(390, 844);
     final glow = glows[2];
     final rect = EverglowBackground.glowRect(glow, size);
     final visible = rect.intersect(Offset.zero & size);
 
-    // Centre and pixel radius are unchanged (radius = size x shortestSide).
     expect(rect.center, glow.alignment.withinRect(Offset.zero & size));
     expect(rect.width / 2, glow.size * 390);
     expect(

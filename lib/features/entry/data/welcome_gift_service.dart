@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/utils/firestore_stream_utils.dart';
 import '../../../core/utils/logger.dart';
 
-/// Private gift content and its receipt stay in the recipient's own progress.
 class WelcomeGiftService {
   final FirebaseFirestore? _firestore;
   WelcomeGiftService({FirebaseFirestore? firestore}) : _firestore = firestore;
@@ -25,7 +24,6 @@ class WelcomeGiftService {
 
   Future<String?> pendingHtml(String uid) async {
     try {
-      // Server-only prevents a stale device cache from replaying a finished gift.
       final snapshot = await withGetTimeout(
         _gift(uid).get(const GetOptions(source: Source.server)),
         label: 'welcome gift',

@@ -7,7 +7,6 @@ import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/catalog_proxy_client.dart';
 import 'tmdb_service.dart';
 
-/// One downloadable copy of a title, as the torrent index describes it.
 @immutable
 class TorrentCopy {
   const TorrentCopy({
@@ -23,23 +22,16 @@ class TorrentCopy {
   final String infoHash;
   final String filename;
 
-  /// Resolution or rip label: `4K`, `1080p`, `BDRip`, … Empty when the
-  /// index only listed seeders.
   final String quality;
 
-  /// Human size as the index reported it, e.g. `2.04 GB`.
   final String size;
   final int seeders;
 
-  /// Where the index found it, e.g. `1337x`.
   final String provider;
 
-  /// Ready-to-open magnet link.
   final String magnet;
 }
 
-/// What the download sheet shows: either copies, or one plain reason why
-/// there are none.
 class TorrentSearch {
   const TorrentSearch({this.copies = const [], this.reason});
 
@@ -49,11 +41,6 @@ class TorrentSearch {
   bool get isEmpty => copies.isEmpty;
 }
 
-/// Resolves magnet links for the title playing in the cinema.
-///
-/// The index is looked up by IMDB id through `proxyCatalog`, so the
-/// browser never talks to the index host itself and the response rides
-/// the same 20-minute cache as the rest of the catalogue.
 class TorrentIndexService {
   TorrentIndexService({CatalogProxyClient? client, TMDBService? tmdb})
     : _client = client ?? CatalogProxyClient(),
@@ -61,12 +48,8 @@ class TorrentIndexService {
 
   static const String _index = 'torrentio';
 
-  /// A phone-sized list. Deeper results are almost all dead copies.
   static const int maxCopies = 12;
 
-  /// Movie entries usually arrive with no tracker list. A magnet without
-  /// trackers still works on DHT, but the common public trackers make the
-  /// first peer connect much faster.
   static const List<String> _fallbackTrackers = [
     'udp://tracker.opentrackr.org:1337/announce',
     'udp://open.stealth.si:80/announce',
@@ -76,14 +59,9 @@ class TorrentIndexService {
   final CatalogProxyClient _client;
   final TMDBService _tmdb;
 
-  /// IMDB id for a cinema title, or null when TMDB has no match.
   Future<String?> imdbIdFor({required int tmdbId, required String mediaType}) =>
       _tmdb.fetchImdbId(tmdbId, mediaType);
 
-  /// Copies for the exact title on screen.
-  ///
-  /// TV needs a season and episode: a series id alone would return the
-  /// whole show, which is not what the user is watching.
   Future<TorrentSearch> search({
     required int tmdbId,
     required String mediaType,
@@ -125,13 +103,6 @@ class TorrentIndexService {
     }
   }
 
-  /// Turns an index payload into sorted, de-duplicated copies.
-  ///
-  /// Every stream carries `infoHash` plus two info lines: the provider
-  /// label (`Torrentio\n1080p`) and a metadata line with seeders, size
-  /// and the index it came from. Titles and encodings vary a lot, so
-  /// each field is read with a narrow pattern and left empty when the
-  /// index did not say.
   @visibleForTesting
   static List<TorrentCopy> parseCopies(String body) {
     dynamic decoded;
@@ -184,7 +155,6 @@ class TorrentIndexService {
     return sorted.take(maxCopies).toList();
   }
 
-  /// Magnet link for one copy, with as many trackers as the index gave.
   static String magnetFor({
     required String hash,
     required String filename,
@@ -199,8 +169,6 @@ class TorrentIndexService {
     return 'magnet:?${parts.join('&')}';
   }
 
-  /// Demo rows for Agent Mode, so a proof screenshot never calls out to a
-  /// real index. Hashes are fake and match nothing.
   static const List<TorrentCopy> demoCopies = [
     TorrentCopy(
       infoHash: '00000000000000000000000000000000000000a1',
@@ -237,10 +205,6 @@ class TorrentIndexService {
     ),
   ];
 
-  // ---------------------------------------------------------------------
-  // Parsing helpers
-  // ---------------------------------------------------------------------
-
   static String _quality(String name) {
     final label = name.split('\n').skip(1).join(' ').toLowerCase();
     if (label.contains('4k') || label.contains('2160')) return '4K';
@@ -262,12 +226,9 @@ class TorrentIndexService {
     final match = RegExp('$marker\\s*([^\\n]+)').firstMatch(text);
     if (match == null) return '';
     final value = match.group(1)!.trim();
-    // Seeders and size share the metadata line; stop at the next marker.
     return value.split('👤').first.split('💾').first.split('⚙️').first.trim();
   }
 
-  /// The first line that looks like a file name, falling back to the
-  /// provider label so the row is never blank.
   static String _filenameFrom(String title, String name) {
     for (final line in title.split('\n')) {
       final trimmed = line.trim();
@@ -285,8 +246,6 @@ class TorrentIndexService {
     return name.split('\n').first.trim();
   }
 
-  /// Trackers the index attached to a copy (`tracker:udp://…`), skipping
-  /// its own DHT bookkeeping entries.
   static List<String> _trackers(dynamic sources) {
     if (sources is! List) return const [];
     final out = <String>[];

@@ -8,7 +8,6 @@ class AcademyQuestion {
   final List<String> options;
   final int correctOptionIndex;
   final String category;
-  // One-line kind explainer, written by Motchi. Null on older / seed docs.
   final String? explanation;
 
   AcademyQuestion({

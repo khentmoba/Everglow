@@ -143,18 +143,15 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // Find the player box widget.
       final playerFinder = find.byKey(const Key('animex-player-box'));
       expect(playerFinder, findsOneWidget);
 
       final playerSize = tester.getSize(playerFinder);
 
-      // Verify the player is smaller and does NOT span 1920 or 1536.
       expect(playerSize.width, lessThanOrEqualTo(AnimeXTokens.watchPageMaxWidth));
       expect(playerSize.width, lessThan(1536));
       expect(playerSize.height, lessThanOrEqualTo(AnimeXTokens.playerMaxHeight));
 
-      // With horizontal padding 24 on each side, content width should be 952.
       expect(playerSize.width, closeTo(952.0, 1.0));
       expect(playerSize.height, closeTo(952.0 * 9 / 16, 1.0));
 
@@ -180,9 +177,7 @@ void main() {
 
       final playerSize = tester.getSize(playerFinder);
 
-      // On 560px viewport height, height cap is (560 - 280) = 280px.
       expect(playerSize.height, lessThanOrEqualTo(280.0));
-      // At 16:9, width should be 280 * 16 / 9 ~ 497.8px.
       expect(playerSize.width, closeTo(280.0 * 16 / 9, 2.0));
 
       await tester.pump(const Duration(milliseconds: 500));
@@ -207,7 +202,6 @@ void main() {
 
       final playerSize = tester.getSize(playerFinder);
 
-      // Width is 768 - 48 = 720
       expect(playerSize.width, closeTo(720.0, 1.0));
       expect(playerSize.height, closeTo(720.0 * 9 / 16, 1.0));
 
@@ -272,9 +266,6 @@ void main() {
         'https://tryembed.us.cc/embed/anime/21/1/sub',
       );
 
-      // The chip tag tells Clair what she is about to open: our own resolver
-      // or shell is Ad-free, a third-party player is an Embed. Named rather
-      // than indexed so inserting a server does not renumber the assertions.
       expect(byName(servers, 'Everglow').tag, 'Ad-free');
       expect(byName(servers, 'CineSrc').tag, 'Ad-free');
       expect(byName(servers, 'TryEmbed').tag, 'Embed');
@@ -305,9 +296,6 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      // MegaPlay, Megavid and YumeZone's nine all live behind Everglow's
-      // in-player picker, so they cost one row instead of eleven. Episode
-      // and dub ride the query string the function validates.
       expect(
         byName(servers, 'Everglow').urlBuilder(2, 'dub'),
         'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
@@ -365,7 +353,6 @@ void main() {
         'https://fmov.my/embed/anime/209867/1/3',
       );
 
-      // MAL-only routes still get every MAL-keyed server.
       for (final name in [
         'Everglow',
         'CineSrc',
@@ -401,7 +388,6 @@ void main() {
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=2&e=2',
       );
-      // Episodes without a slot fall back to season 1 and the number itself.
       expect(
         cineSrc.urlBuilder(3, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
@@ -442,8 +428,6 @@ void main() {
     });
 
     test('buildServers uses the movie endpoint for films', () {
-      // Drifting Home: ani.zip has no TMDB id and its film id only
-      // plays through the movie endpoint — the TV endpoint opens nothing.
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 139643,
         malId: 49938,
@@ -476,7 +460,6 @@ void main() {
         byName(servers, 'Fmov').urlBuilder(1, 'sub'),
         'https://fmov.my/embed/movie/877957',
       );
-      // Series keep the season/episode TV endpoint by default.
       final series = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
@@ -549,7 +532,6 @@ void main() {
       });
 
       test('rejects year, kind, and title mismatches', () {
-        // Wrong year.
         expect(
           AnimeXWatchPage.pickTmdbFallbackId(
             results: [
@@ -566,7 +548,6 @@ void main() {
           ),
           isNull,
         );
-        // TV entry for a film.
         expect(
           AnimeXWatchPage.pickTmdbFallbackId(
             results: [
@@ -583,7 +564,6 @@ void main() {
           ),
           isNull,
         );
-        // Near-miss title and empty inputs never guess.
         expect(
           AnimeXWatchPage.pickTmdbFallbackId(
             results: [
@@ -648,9 +628,6 @@ void main() {
     });
 
     test('resolveMappingsMalId prefers the AniList detail MAL id', () {
-      // The reported bug: route carries only an AniList id (slot reads
-      // 0), so mappings must use the MAL id from the AniList detail —
-      // otherwise ani.zip returns nothing and only Everglow shows.
       expect(
         AnimeXWatchPage.resolveMappingsMalId(
           detailMalId: 21,
@@ -658,7 +635,6 @@ void main() {
         ),
         21,
       );
-      // No detail (offline) — fall back to the route slot.
       expect(
         AnimeXWatchPage.resolveMappingsMalId(
           detailMalId: null,
@@ -666,7 +642,6 @@ void main() {
         ),
         21,
       );
-      // Invalid detail id — fall back to the route slot.
       expect(
         AnimeXWatchPage.resolveMappingsMalId(
           detailMalId: 0,
@@ -674,7 +649,6 @@ void main() {
         ),
         21,
       );
-      // Nothing anywhere — 0 means skip the mappings call.
       expect(
         AnimeXWatchPage.resolveMappingsMalId(
           detailMalId: null,
@@ -690,12 +664,10 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      // Fresh visits use the player with progress and resume support.
       expect(
         AnimeXWatchPage.defaultServerIndex(servers),
         0,
       );
-      // An explicit remembered choice still wins.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
@@ -703,8 +675,6 @@ void main() {
         ),
         1,
       );
-      // Megavid and Yume now live inside Everglow's picker, so a remembered
-      // choice for either reopens the row that holds them.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
@@ -719,7 +689,6 @@ void main() {
         ),
         0,
       );
-      // Saved 'MegaPlay' normalizes to 'Everglow'.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
@@ -727,8 +696,6 @@ void main() {
         ),
         0,
       );
-      // A remembered server that no longer exists (AniXo, VidLink)
-      // falls back to Everglow, never to a dead entry.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
@@ -736,7 +703,6 @@ void main() {
         ),
         0,
       );
-      // When only CineSrc is available (e.g. no AniList or MAL source):
       final tmdbOnly = AnimeXWatchPage.buildServers(
         anilistId: null,
         malId: 0,
@@ -747,7 +713,6 @@ void main() {
         1,
       );
       expect(tmdbOnly[1].name, 'CineSrc');
-      // Nothing available yet — index 0 until _load resolves.
       final none = AnimeXWatchPage.buildServers(
         anilistId: null,
         malId: 0,
@@ -756,9 +721,6 @@ void main() {
     });
 
     test('mapPlayerEpisodeToMal maps plain 1:1 shows straight across', () {
-      // The reported bug: CineSrc auto-played 1 -> 2 inside the frame while
-      // the list still highlighted episode 1. The player reports TMDB S/E;
-      // plain shows map season 1 straight to our episode numbers.
       expect(
         AnimeXWatchPage.mapPlayerEpisodeToMal(
           tmdbSeason: 1,
@@ -777,8 +739,6 @@ void main() {
         ),
         12,
       );
-      // A jump into another season belongs to another catalog entry —
-      // never guess, or history and the highlight rewind to episode 1.
       expect(
         AnimeXWatchPage.mapPlayerEpisodeToMal(
           tmdbSeason: 2,
@@ -788,7 +748,6 @@ void main() {
         ),
         isNull,
       );
-      // Out-of-range and empty inputs never map.
       expect(
         AnimeXWatchPage.mapPlayerEpisodeToMal(
           tmdbSeason: 1,
@@ -828,8 +787,6 @@ void main() {
     });
 
     test('mapPlayerEpisodeToMal resolves mid-series entries via slots', () {
-      // Attack on Titan season 2 style: MAL episodes 1..2 play as
-      // TMDB S2E1..2 — the reverse table must land back on MAL numbers.
       const slots = {
         1: (season: 2, episode: 1),
         2: (season: 2, episode: 2),
@@ -852,7 +809,6 @@ void main() {
         ),
         2,
       );
-      // Episodes with no slot (unmapped tail, other seasons) never guess.
       expect(
         AnimeXWatchPage.mapPlayerEpisodeToMal(
           tmdbSeason: 2,
@@ -871,7 +827,6 @@ void main() {
         ),
         isNull,
       );
-      // A slot pointing outside our episode list is corrupt — ignore it.
       expect(
         AnimeXWatchPage.mapPlayerEpisodeToMal(
           tmdbSeason: 1,
@@ -885,22 +840,14 @@ void main() {
 
     test('normalizeServerName converts legacy names to provider names', () {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Everglow');
-      // Server 2 (VidLink) was removed, but old saved choices still
-      // normalize here and fall back to the first available server.
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'VidLink');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Everglow');
-      // Prior spellings map forward so remembered choices survive.
       expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName('MegaPlay'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName('Anixo'), 'AniXo');
       expect(AnimeXWatchPage.normalizeServerName('CineSrc'), 'CineSrc');
       expect(AnimeXWatchPage.normalizeServerName('Everglow'), 'Everglow');
-      // Server 4 (Anivexa) was removed — the legacy name stays unmapped
-      // so an old saved preference renders as its raw string, never as
-      // a server that no longer exists.
       expect(AnimeXWatchPage.normalizeServerName('Server 4'), 'Server 4');
-      // Megavid and Yume are streams inside Everglow now, not rows of
-      // their own, so a remembered choice reopens Everglow.
       expect(AnimeXWatchPage.normalizeServerName('Megavid'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName('Yume'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName(''), '');
@@ -908,15 +855,12 @@ void main() {
     });
 
     test('isProviderErrorPage matches every known dead-embed page', () {
-      // VidLink 404s its anime embeds with a Next.js not-found shell.
       const vidLink404 =
           '<!DOCTYPE html><html lang="en" class="dark"><head>'
           '<title>404: This page could not be found.</title></head>'
           '<body><script>self.__next_f.push("notFound")</script></body>'
           '</html>';
       expect(AnimeXWatchPage.isProviderErrorPage(vidLink404), isTrue);
-      // ...and once its bundle runs, the visible card text (with the
-      // site's own "coudn't" typo) is the marker.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           "We Coudn't Find This Episode — Please Check back another time",
@@ -929,20 +873,16 @@ void main() {
         ),
         isTrue,
       );
-      // MegaPlay's real 410 page (HTTP 200 with the error text, so the
-      // status check can't catch it — the title and code must).
       const megaPlay410 =
           '<title>Error - MegaPlay</title>'
           "<h2>We're Sorry!</h2>"
           '<p>removed due a copyright violation.</p>'
           '<p>Error Code: <span>410</span></p>';
       expect(AnimeXWatchPage.isProviderErrorPage(megaPlay410), isTrue);
-      // AniXo's firewall 403 page (title + leech cards).
       const anixo403 =
           '<title>403 Forbidden - Leech Protection Engaged</title>'
           '<h2>403 Leech Block Engaged</h2>';
       expect(AnimeXWatchPage.isProviderErrorPage(anixo403), isTrue);
-      // Our own failure pages carry the failover marker.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           'no playable stream sources — try another server.',
@@ -952,8 +892,6 @@ void main() {
     });
 
     test('isProviderErrorPage passes healthy embeds and our own player', () {
-      // Our Megavid/AnimePahe player page must never read as dead — the
-      // in-player stall card deliberately avoids the failover markers.
       const healthyPlayer =
           '<!DOCTYPE html><html><head><title>Episode 1</title></head>'
           '<body><video id="v" controls playsinline autoplay></video>'
@@ -963,27 +901,19 @@ void main() {
           '<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>'
           '</body></html>';
       expect(AnimeXWatchPage.isProviderErrorPage(healthyPlayer), isFalse);
-      // A healthy VidLink embed page.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           '<title>VidLink</title><div id="player"></div>',
         ),
         isFalse,
       );
-      // Empty body (proxy failure) is ambiguous, not an error page.
       expect(AnimeXWatchPage.isProviderErrorPage(''), isFalse);
-      // Megavid's healthy player page carries the same Embed Only text
-      // as its 403 block page (a hidden div) — the probe tells them
-      // apart by status code, never by body text.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           '<h2>Embed Only</h2><div id="player"></div>',
         ),
         isFalse,
       );
-      // Megavid's healthy page also hides a We're Sorry error template
-      // (shown only when its own stream fails at runtime) — the sorry
-      // text alone must never read as dead.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           "<title>KissKH Player</title><h2>We're Sorry!</h2>"
@@ -991,9 +921,6 @@ void main() {
         ),
         isFalse,
       );
-      // AniXo's healthy page hides its sandbox overlay markup plus an
-      // all-stream-servers toast string — both must pass, since the
-      // frame embeds AniXo unsandboxed and the overlay never shows.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           '<div class="cp-sandbox-msg">please remove sandbox from '
@@ -1035,19 +962,11 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // VidLink and AniXo were removed: VidLink 404s sitewide since
-      // Sep 2026, and AniXo is a bot-gated relay over MegaPlay. Megavid
-      // and Yume are streams inside Everglow's own picker now, so they
-      // are not rows here either.
       expect(find.text('VidLink'), findsNothing);
       expect(find.text('AniXo'), findsNothing);
       expect(find.text('Megavid'), findsNothing);
       expect(find.text('Yume'), findsNothing);
-      // No TMDB mapping resolves in tests, so CineSrc hides and the
-      // visible row matches the Everglow order.
       expect(find.text('Everglow'), findsOneWidget);
-      // The CineSrc wrapper is TMDB-keyed; ani.zip can't resolve an id
-      // in tests, so the option stays hidden.
       expect(find.text('CineSrc'), findsNothing);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
@@ -1089,10 +1008,6 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // Drive a real mouse through the framework's hover hit test: the
-      // tracker's active cursor is what the browser actually shows.
-      // (Checking widget ancestors alone is not enough — a region can
-      // exist in the tree yet miss the hit path.)
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       await tester.pump();
@@ -1112,8 +1027,6 @@ void main() {
       await expectClickCursor('SUB');
       await expectClickCursor('DUB');
 
-      // Flush the catalog throttle timers (~0.6s) so no timer is still
-      // pending when the tree disposes; a short pump flakes in full runs.
       await tester.pump(const Duration(seconds: 2));
     });
 
@@ -1129,21 +1042,17 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // On desktop, the sidebar shows "Episodes", "Find episode", and "Oldest" sort
       expect(find.text('Episodes'), findsOneWidget);
       expect(find.text('Find episode'), findsOneWidget);
       expect(find.text('Oldest'), findsOneWidget);
 
-      // Verify sort toggle works
       await tester.tap(find.text('Oldest'));
       await tester.pump();
       expect(find.text('Newest'), findsOneWidget);
 
-      // Verify search input filters
       await tester.enterText(find.byType(TextField).first, 'Episode 2');
       await tester.pump();
 
-      // Verify server notice banner is removed
       expect(
         find.text(
           "If the current server doesn't work, feel free to try the other available servers.",
@@ -1166,12 +1075,10 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // On mobile, the header is "EPISODES" with Search and swap_vert buttons
       expect(find.text('EPISODES'), findsOneWidget);
       expect(find.text('Search'), findsOneWidget);
       expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
 
-      // Tapping Search opens the search bar
       await tester.tap(find.text('Search'));
       await tester.pump();
       expect(
@@ -1194,12 +1101,10 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // Find episode 2 in the sidebar and tap it
       expect(find.text('Episode 2'), findsWidgets);
       await tester.tap(find.text('Episode 2').first);
       await tester.pump();
 
-      // Selected episode is updated to 2
       expect(find.text('Episode 2'), findsWidgets);
 
       await tester.pump(const Duration(milliseconds: 500));
@@ -1639,8 +1544,6 @@ void main() {
     test(
       'AniListService.mapEpisodesForTesting caps known counts but retains unknown feeds',
       () {
-        // AniList's real feed is descending, has no number field, and includes
-        // Season 2 titles on this 11-episode Season 1 entry.
         final streaming = List.generate(
           24,
           (i) => {'title': 'Episode ${24 - i} - Later-season title'},

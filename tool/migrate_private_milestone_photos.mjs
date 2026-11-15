@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Dry-run by default. Upload preserved local legacy photos privately with ADC;
-// does not create download tokens or modify Firestore.
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

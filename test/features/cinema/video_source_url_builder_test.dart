@@ -56,8 +56,6 @@ void main() {
     });
 
     test('builds VidSrc TV URLs with season and episode in the path', () {
-      // vidsrc.to ignores ?season=&episode= and answers "This media is
-      // unavailable at the moment."; the path form streams. Verified live.
       expect(
         buildVideoSourceUrl(
           vidsrc,

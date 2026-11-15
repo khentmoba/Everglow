@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// Non-web fallback for WebTtsService so VM widget tests never touch
-/// `package:web`. Every method is a safe no-op.
 class WebTtsService {
   WebTtsService._();
   static final WebTtsService instance = WebTtsService._();

@@ -1,8 +1,6 @@
-// SDK @sealed types are deliberately implemented only as network-free test doubles.
 // ignore_for_file: subtype_of_sealed_class
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Network-free Firestore boundary for calendar/journal regression tests.
 class TestFirestore implements FirebaseFirestore {
   final TestCollection entries;
   TestFirestore(this.entries);
@@ -74,7 +72,6 @@ class TestCollection implements CollectionReference<Map<String, dynamic>> {
 
   final List<String> _issued = [];
 
-  /// Ids of documents written through [TestDocument.set].
   final List<String> docIds = [];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -107,7 +104,6 @@ class TestDocument implements DocumentReference<Map<String, dynamic>> {
   @override
   final String id;
 
-  /// When set, writes follow the collection's [TestCollection.failWrites].
   final TestCollection? owner;
   @override
   Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {

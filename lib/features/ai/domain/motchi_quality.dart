@@ -1,13 +1,6 @@
-/// Heuristics that decide when Motchi should spend the extra reasoning
-/// tokens on a deep-thinking pass instead of replying on the fast path.
-///
-/// Pure and deterministic so the behavior is unit-testable and stable
-/// across client releases.
 class MotchiQuality {
   const MotchiQuality();
 
-  // High-signal reasoning triggers only. Removed generic conversational
-  // words (why, how, think, suggest, recommend) that fired on everyday chat.
   static const Set<String> _thinkingTriggers = {
     'plan',
     'planning',
@@ -28,12 +21,9 @@ class MotchiQuality {
     'why are we',
   };
 
-  /// A message gets deep thinking when it is genuinely complex: long,
-  /// asks for analysis or planning, or touches both partners.
   bool shouldAutoThink(String message) {
     final text = message.trim();
     if (text.length < 12) return false;
-    // Substantial paragraphs (40+ words) get reasoning headroom.
     if (text.length >= 240) return true;
     final lower = text.toLowerCase();
     if ('?'.allMatches(lower).length >= 2) return true;
@@ -54,9 +44,6 @@ class MotchiQuality {
   }
 }
 
-/// Server-side context blocks are cheap to fetch but expensive to feed
-/// a model. [selectContextBlocks] keeps the most relevant blocks for
-/// the current question and always preserves the proactive digest.
 class ContextSelector {
   const ContextSelector();
 

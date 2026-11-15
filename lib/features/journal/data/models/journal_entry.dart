@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Category for journal entries — DailyTxT / Memos inspired.
 enum JournalCategory {
   daily('Daily', '📔'),
   gratitude('Gratitude', '🙏'),
@@ -14,7 +13,6 @@ enum JournalCategory {
   const JournalCategory(this.displayName, this.emoji);
 }
 
-/// Mood snapshot linked to heartbeat — optional.
 enum JournalMood {
   happy('happy', '😊'),
   calm('calm', '😌'),
@@ -37,19 +35,18 @@ class JournalEntry {
   final Map<String, String> perspectives;
   final String id;
   final String title;
-  final String content; // markdown
-  final String author; // username lowercased
+  final String content;
+  final String author;
   final DateTime createdAt;
   final DateTime updatedAt;
   final JournalCategory category;
   final JournalMood? mood;
   final List<String> tags;
   final bool isPinned;
-  final bool isLocked; // soft lock — UI gate, DailyTxT inspired
-  final String? coverColor; // hex or null
+  final bool isLocked;
+  final String? coverColor;
   final int wordCount;
 
-  /// Saved on this device but not yet confirmed by the server. Not stored.
   final bool isSyncing;
 
   const JournalEntry({
@@ -177,15 +174,6 @@ class JournalEntry {
     };
   }
 
-  /// JSON shape for the on-device preview cache.
-  ///
-  /// Timestamps become ISO-8601 strings rather than epoch millis: [fromMap]
-  /// reads both through [_parseTs], but only the string form keeps the
-  /// original zone, so a cached entry round-trips to an identical DateTime
-  /// instead of silently becoming local time. Every other field is already
-  /// JSON-safe. A cached entry and a live one therefore parse through the same
-  /// code path, which is what keeps the first painted frame identical to the
-  /// revalidated one.
   Map<String, dynamic> toCacheJson() {
     return {
       ...toFirestore(),

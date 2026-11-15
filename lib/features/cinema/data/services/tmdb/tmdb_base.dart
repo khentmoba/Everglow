@@ -11,13 +11,6 @@ import '../../models/media_item.dart';
 import '../../../../../shared/utils/title_matcher.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
 
-/// Process-wide ID token cache shared by all TMDB sub-services.
-///
-/// `getIdToken()` is the main bottleneck on dashboard boot — 6+ Last.fm
-/// and TMDB calls fire concurrently, each calling it independently. Firebase
-/// already caches the JWT for ~1h, but the async call still pays a bridge
-/// + storage lookup. This coalesces concurrent callers onto one in-flight
-/// future and caches the result for 4 minutes.
 String? _tmdbCachedToken;
 DateTime? _tmdbCachedAt;
 Future<String?>? _tmdbInFlight;
@@ -42,22 +35,15 @@ Future<String?> _getIdTokenCached() async {
   }
 }
 
-/// Shared constants, Firestore access, and mapping helpers for all TMDB
-/// sub-services. Mix this into each sub-service alongside [ConnectivityAware].
 mixin TMDBBase {
-  /// All metadata requests go through the app's authenticated Cloud Function
-  /// so the TMDB key remains server-side and is never compiled into web JS.
   final String tmdbBaseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyTmdb';
   final String imageBaseUrl = TmdbImages.poster;
   final String imageBaseBackdrop = TmdbImages.backdrop;
   final String profileBaseUrl = TmdbImages.profile;
 
-  /// Lazy on purpose: an eager `FirebaseFirestore.instance` field crashes
-  /// unit tests (no Firebase app), while every caller only needs it lazily.
   FirebaseFirestore get firestore => FirebaseFirestore.instance;
 
-  /// Sends a signed TMDB request.
   Future<http.Response> tmdbGet(Uri url) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       final data = agentTmdbResponse(url);
@@ -76,7 +62,6 @@ mixin TMDBBase {
         .timeout(const Duration(seconds: 12));
   }
 
-  /// Generic mapping helper: TMDB result -> MediaItem
   MediaItem mapResultToMediaItem(
     Map<String, dynamic> item, {
     String? forcedMediaType,
@@ -107,13 +92,6 @@ mixin TMDBBase {
     );
   }
 
-  /// Best-effort anime detection from a TMDB result payload.
-  ///
-  /// Anime on TMDB is just a TV show with `original_language == 'ja'` and
-  /// the Animation genre (id 16). The exact list of genre ids is sometimes
-  /// absent from search/discover payloads (only `genre_ids` is present on
-  /// list endpoints, while nested `genres` is only available on /details),
-  /// so we handle both shapes here.
   bool detectAnime(Map<String, dynamic> item) {
     final lang = (item['original_language'] ?? '').toString();
     if (lang != 'ja') return false;
@@ -143,7 +121,6 @@ mixin TMDBBase {
     return false;
   }
 
-  /// Fuzzy title matching to verify poster/title correspondence.
   bool titlesMatch(String storedTitle, String tmdbTitle) =>
       TitleMatcher.titlesMatch(storedTitle, tmdbTitle);
 }

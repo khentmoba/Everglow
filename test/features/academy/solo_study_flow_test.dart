@@ -69,7 +69,6 @@ void main() {
     expect(find.textContaining('Lovely'), findsOneWidget);
     expect(find.textContaining('Beta is simply the best.'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    // Flush the 2.2s advance timer before teardown.
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -86,7 +85,6 @@ void main() {
 
     expect(find.textContaining('Almost, love'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    // Flush the 2.2s advance timer before teardown.
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -97,7 +95,6 @@ void main() {
     );
 
     await tester.tap(find.text('Beta'));
-    // Answer feedback shows, then the set finishes after 2.2s.
     await tester.pump(const Duration(milliseconds: 2300));
     await tester.pump(const Duration(milliseconds: 500));
 

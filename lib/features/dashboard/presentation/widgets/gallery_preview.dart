@@ -40,8 +40,6 @@ class _GalleryPreviewState extends State<GalleryPreview> {
     return StreamBuilder<List<MemoryPhoto>>(
       stream: _recentPhotos,
       builder: (context, snapshot) {
-        // Error (or timeout-closed with no data) must never masquerade as
-        // "empty" — the gallery screen would still show photos on tap.
         if (snapshot.hasError ||
             (!snapshot.hasData &&
                 snapshot.connectionState == ConnectionState.done)) {
@@ -80,7 +78,6 @@ class _GalleryPreviewState extends State<GalleryPreview> {
           );
         }
 
-        // Waiting for the first snapshot is loading, not empty.
         if (!snapshot.hasData) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

@@ -1,7 +1,5 @@
 import '../../../cinema/data/models/media_item.dart';
 
-/// Paginated result from AniList page queries used by the anime section.
-/// Scores are kept aligned with [items] so grids can show ratings.
 class AnimexMediaPage {
   final List<MediaItem> items;
   final List<double> scores;
@@ -20,7 +18,6 @@ class AnimexMediaPage {
   bool get isEmpty => items.isEmpty;
 }
 
-/// One row of the weekly airing schedule.
 class AnimexScheduleEntry {
   final MediaItem media;
   final int? episode;
@@ -35,7 +32,6 @@ class AnimexScheduleEntry {
   });
 }
 
-/// A watch-history entry persisted on the device.
 class AnimexHistoryEntry {
   final String key;
   final int? anilistId;
@@ -44,13 +40,9 @@ class AnimexHistoryEntry {
   final String coverUrl;
   final int episode;
 
-  /// Total episodes when known (0 = unknown, 1 = film). Anime servers
-  /// never report within-episode position, so resume progress is
-  /// series-based: completed episodes over this total.
   final int totalEpisodes;
   final DateTime updatedAt;
 
-  /// The account watchlist owns progress; old local entries remain readable.
   final MediaItem? savedItem;
   int? get resumeSeconds => savedItem?.resumeSeconds;
   bool get isMovie => savedItem?.isMovie ?? totalEpisodes == 1;
@@ -85,8 +77,6 @@ class AnimexHistoryEntry {
     );
   }
 
-  /// Completed-episodes share, or null when there is nothing truthful
-  /// to draw (unknown total, or a single-episode film).
   double? get seriesProgress {
     if (totalEpisodes <= 1 || episode <= 0) return null;
     return ((episode - 1) / totalEpisodes).clamp(0.0, 1.0);
@@ -119,7 +109,6 @@ class AnimexHistoryEntry {
   }
 }
 
-/// A user-created playlist (custom list) with an emoji avatar.
 class AnimexPlaylist {
   final String id;
   final String name;
@@ -220,8 +209,6 @@ class AnimexPlaylistItem {
   }
 }
 
-/// Builds a [MediaItem] from a watch-history entry so history and
-/// continue-watching surfaces can open the watch page directly.
 MediaItem mediaItemFromHistory(AnimexHistoryEntry e) {
   if (e.savedItem != null) return e.savedItem!;
   return MediaItem(

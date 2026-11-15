@@ -4,11 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer_sections/cinema/cinema_hero.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer_sections/trailer_section.dart';
 
-/// Regression guard for the iPhone Home-Screen-web bug where the cinema
-/// drawer's close X rendered at a fixed `top: 10/14` under the status bar
-/// (clock/battery), so Clair couldn't tap it. Both hero variants must add
-/// the live top inset to their fixed offsets — and stay pixel-identical
-/// when the inset is zero (desktop/browsers).
 Future<Offset> _closeIconOffset(
   WidgetTester tester,
   Widget hero, {
@@ -88,7 +83,6 @@ void main() {
       _cinemaHero(),
       padding: EdgeInsets.zero,
     );
-    // Fixed design offset is top:10 — the guard fails if the base moves.
     expect(offset.dy, closeTo(10, 2));
   });
 

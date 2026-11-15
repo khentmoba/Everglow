@@ -1,7 +1,3 @@
-/// Result of probing the backend health endpoint.
-///
-/// `status` mirrors the Cloud Function response: `ok`, `degraded`, or
-/// `unreachable` when the client could not reach the API at all.
 class SystemStatus {
   final String status;
   final String? service;

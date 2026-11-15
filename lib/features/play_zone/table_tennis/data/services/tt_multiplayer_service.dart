@@ -87,9 +87,6 @@ class TTMultiplayerService {
   }
 
   Stream<TTRoom> watchRoom(String roomId) {
-    // Generous first-event guard: match joins on slow networks can take
-    // a few seconds; after the first snapshot the stream passes through
-    // untouched for the whole rally.
     return withFirestoreTimeout(
       _doc(roomId).snapshots().map((snap) {
         return TTRoom.fromDoc(snap.id, snap.data());

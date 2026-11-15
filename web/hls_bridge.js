@@ -1,11 +1,3 @@
-/**
- * HLS bridge for the watch-party player.
- *
- * Flutter web creates a real <video> element in a platform view, then
- * this bridge attaches hls.js to it. The bridge keeps the Hls instance
- * in a small registry so Dart can seek/destroy by id instead of holding
- * JS objects across the interop boundary.
- */
 (function () {
   'use strict';
   if (window.EverglowHlsBridge) return;
@@ -68,7 +60,6 @@
       try {
         entry.hls.destroy();
       } catch (e) {
-        // Already destroyed; ignore.
       }
       players.delete(id);
     },

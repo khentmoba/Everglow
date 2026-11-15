@@ -1,11 +1,6 @@
 import 'package:everglow/core/router/route_helpers.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The router bounces logged-out deep links to `/?from=<intended page>`
-/// so a PR preview link lands straight on the fixed screen after one
-/// login. `deepLinkTarget` reads that value back; the `from` param comes
-/// from the URL bar, so anything but a safe internal path must fall back
-/// to the default home.
 void main() {
   group('deepLinkTarget', () {
     test('returns the remembered page for a plain internal path', () {

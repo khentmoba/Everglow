@@ -1,11 +1,6 @@
 import '../../core/network/network_quality_service.dart';
 import '../../core/perf/device_capability.dart';
 
-/// Single source of truth for TMDB image CDN base URLs.
-///
-/// Previously these string literals were duplicated across
-/// `TMDBBase`, `MediaItem`, dashboard cards, shelf widgets and the
-/// watch-party widgets. Import this instead of hardcoding a new copy.
 class TmdbImages {
   TmdbImages._();
 
@@ -20,22 +15,12 @@ class TmdbImages {
   static const String backdropLarge = '$_cdn/w1280';
   static const String profile = '$_cdn/w185';
 
-  /// Whether current environment should use bandwidth/CPU-optimized smaller assets.
   static bool get _useLowDataVariant =>
       NetworkQualityService.instance.isSlowConnection ||
       DeviceCapability.isLowEndDevice;
 
-  /// Strings that mean "no image" when stored in Firestore. TMDB returns
-  /// `poster_path: null` for artwork-less titles; if that null ever gets
-  /// stringified on save ("null", "undefined", ...), the shelf would
-  /// otherwise build a bogus `.../w500null` URL that 404s forever instead
-  /// of healing. Matching is case-insensitive on the trimmed value.
   static const _nullLike = {'null', 'undefined', 'false', 'none', 'nan'};
 
-  /// True when [path] can actually produce a fetchable image URL: not
-  /// blank, not a stringified null, and free of whitespace (TMDB paths
-  /// never contain spaces — a value like "Yellow Jacket" is a title
-  /// that leaked into the poster field, not a path).
   static bool isUsablePath(String? path) {
     if (path == null) return false;
     final trimmed = path.trim();
@@ -51,18 +36,13 @@ class TmdbImages {
   static String _resolve(String? path, String base) {
     if (!isUsablePath(path)) return '';
     final trimmed = path!.trim();
-    // Bundled artwork (agent demo fixtures) is a local asset, not a TMDB path.
     if (trimmed.startsWith('assets/')) return trimmed;
-    // Normalize existing TMDB full URLs so adaptive sizing reaches mapped items.
     final tmdbMatch = _tmdbUrlPattern.firstMatch(trimmed);
     if (tmdbMatch != null) {
       final relative = tmdbMatch.group(1)!;
       return '$base$relative';
     }
-    // External non-TMDB images (e.g. AniList/OpenLibrary) stay untouched.
     if (trimmed.startsWith('http')) return trimmed;
-    // TMDB paths always start with '/'. If the slash was ever stripped
-    // on save ("abc.jpg"), restoring it beats a guaranteed 404.
     final relative = trimmed.startsWith('/') ? trimmed : '/$trimmed';
     return '$base$relative';
   }
@@ -72,8 +52,6 @@ class TmdbImages {
     return _resolve(path, base);
   }
 
-  /// Small-grid variant: w342 for regular lines, or w185 on slow connections /
-  /// low-end devices (saving ~78% bytes and 4x decode memory per card).
   static String cardFor(String? path, {bool forceFullQuality = false}) {
     final base = (forceFullQuality || !_useLowDataVariant) ? card : cardLow;
     return _resolve(path, base);

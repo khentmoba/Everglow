@@ -14,25 +14,17 @@ import '../../../../../core/theme/app_motion.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// Poster card used across the anime section rows and grids. Matches the
-/// reference UI: 2:3 poster with rounded corners, status/EP/rating badges,
-/// a hover scale + glow, and a hover popover with score, genres, synopsis
-/// and metadata that flips to the left near the right edge of the screen.
 class AnimeXPosterCard extends StatefulWidget {
   final MediaItem item;
   final double width;
   final VoidCallback? onTap;
 
-  /// Score out of 10 (0-10 scale).
   final double? score;
 
-  /// 0..1 playback progress bar shown over the poster.
   final double? progress;
 
-  /// Overrides the EP badge text (e.g. "EP 12").
   final String? episodeLabel;
 
-  /// Small overlay action shown top-right on hover (e.g. remove from list).
   final Widget? hoverAction;
 
   const AnimeXPosterCard({
@@ -73,11 +65,8 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   Timer? _showTimer;
   Timer? _hideTimer;
 
-  /// Session cache of hover-enriched items, keyed by AniList (`a{id}`) or
-  /// MAL (`m{id}`) id, so each anime resolves its details once.
   static final Map<String, MediaItem> _resolvedCache = {};
 
-  /// Item enriched with lazily-fetched details, when the original is slim.
   MediaItem? _resolvedItem;
   bool _resolving = false;
 
@@ -125,10 +114,6 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     if (_active == this) _active = null;
   }
 
-  /// Lazily fills in missing hover details (synopsis, genres, score) for
-  /// items from slim sources — history, playlists, old watchlist entries,
-  /// fallbacks. Starts the moment the pointer enters so the data is
-  /// usually ready by the time the popover appears.
   void _maybeResolveDetails() {
     final item = widget.item;
     if (item.synopsis.isNotEmpty && item.genres.isNotEmpty) return;
@@ -492,12 +477,6 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
       );
     }
 
-    // The overlay portal renders the popover in the app overlay so it never
-    // gets clipped by the horizontal scrollable it lives inside. The overlay
-    // hands its children tight full-screen constraints, so the popover is
-    // wrapped in an Align: Align keeps its own full-size box (for positioning)
-    // but lays out the popover with loose constraints, letting the panel keep
-    // its compact size instead of stretching across the screen.
     return RepaintBoundary(
       child: OverlayPortal(
         controller: _portal,
@@ -629,7 +608,6 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   }
 }
 
-/// The hover detail panel anchored beside the card.
 class _CardPopover extends StatelessWidget {
   static double get width => AnimeXTokens.popoverWidth;
 
@@ -894,7 +872,6 @@ class _CardPopover extends StatelessWidget {
   }
 }
 
-/// Fades + slides the popover in the moment the overlay shows it.
 class _PopoverEntrance extends StatelessWidget {
   final bool fromLeft;
   final Widget child;

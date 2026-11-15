@@ -2,14 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Dusk Petal v2 — Elevation / shadow token system.
-///
-/// Provides a cohesive shadow scale using deep black + romantic
-/// glow accents (deepRose, blushGold, softLavender).
 class AppElevation {
   AppElevation._();
-
-  // ── Black shadow scale ─────────────────────────────────────
 
   static const List<BoxShadow> e1 = [
     BoxShadow(blurRadius: 8, offset: Offset(0, 2), color: AppColors.scrimLight),
@@ -24,8 +18,6 @@ class AppElevation {
     BoxShadow(blurRadius: 32, offset: Offset(0, 14), color: AppColors.scrimMedium),
   ];
 
-  // ── Romantic glow accents ──────────────────────────────────
-
   static List<BoxShadow> get glowRose => [
     BoxShadow(blurRadius: 24, color: AppColors.glowRose),
   ];
@@ -36,14 +28,10 @@ class AppElevation {
     BoxShadow(blurRadius: 18, color: AppColors.glowLavender),
   ];
 
-  // ── Combo: card default (e2 + subtle glow) ────────────────
-
   static List<BoxShadow> get card => [
     ...e2,
     BoxShadow(blurRadius: 16, color: AppColors.glowRose),
   ];
-
-  // ── Combo: floating element (e3 + glow) ────────────────────
 
   static List<BoxShadow> get floating => [
     ...e3,

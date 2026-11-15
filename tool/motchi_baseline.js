@@ -1,8 +1,4 @@
 'use strict';
-// Motchi agent baseline probe — offline, zero LLM cost.
-// Measures live routing (selectToolsForRequest) + context pre-select +
-// fast-path over functions/test/motchi_eval_cases.json.
-// Run: node tool/motchi_baseline.js
 const { selectToolsForRequest, MOTCHI_TOOLS } = require('../functions/motchi_tool_schemas.js');
 const { matchFastPath, CORE_TOOLS } = require('../functions/motchi_tools.js');
 const { estimateTokens, selectBlockKeys } = require('../functions/motchi_core.js');
@@ -28,7 +24,6 @@ for (const c of evalCases) {
   if (hit) recallHits++; else misses.push(`${c.id}: want=[${want}] got ${names.length} tools`);
   if (want.length === 0) {
     noToolTotal++;
-    // plain chat should attach few tools (smalltalk/greeting path or awareness set)
     if (names.length <= 11) noToolCorrect++;
   }
   if (names.length > 20) oversize.push(`${c.id}: ${names.length}`);

@@ -30,7 +30,6 @@ void main() {
       'heals "Yellow Jacket Televison" (0-poster TMDB movie 1714066) to "Yellowjackets" TV show',
       () async {
         final detailsService = _TestDetailsService((url) async {
-          // Details lookup for 1714066: returns student movie with NO poster
           if (url.path.contains('/movie/1714066') ||
               url.path.contains('/tv/1714066')) {
             return http.Response(
@@ -67,7 +66,6 @@ void main() {
               headers: {'content-type': 'application/json'},
             );
           }
-          // The raw query "Yellow Jacket Televison" only returns the 0-poster movie
           if (query == 'Yellow Jacket Televison') {
             return http.Response(
               jsonEncode({
@@ -94,7 +92,7 @@ void main() {
         final posterService = TMDBPosterService(detailsService, searchService);
 
         final unhealed = MediaItem(
-          id: '', // Empty id skips Firestore call
+          id: '',
           tmdbId: 1714066,
           title: 'Yellow Jacket Televison',
           mediaType: 'movie',

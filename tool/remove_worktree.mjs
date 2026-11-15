@@ -1,4 +1,3 @@
-// Node 22+. Dry-run by default. Supply a fresh complete T3 inventory.
 import {execFileSync} from 'node:child_process';
 import {readFileSync, realpathSync, lstatSync} from 'node:fs';
 import {resolve, dirname, join} from 'node:path';
@@ -46,7 +45,6 @@ export function removeWorktree(target, inventoryFile, {remove = false} = {}) {
   }
   git('fetch', 'origin', 'main');
   git('merge-base', '--is-ancestor', 'HEAD', 'origin/main');
-  // Read last, immediately before removal. An unavailable/stale inventory fails closed.
   checkOwnership(JSON.parse(readFileSync(inventoryFile, 'utf8')), target);
   if (remove) git('worktree', 'remove', target);
   return `${remove ? 'Removed' : 'Safe to remove (dry-run)'}: ${target}`;

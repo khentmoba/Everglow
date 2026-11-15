@@ -32,11 +32,11 @@ class CanvasToolbar extends StatelessWidget {
   });
 
   static const List<String> palette = [
-    '#FFC0CB', // Pink
-    '#B0E0E6', // Powder Blue
-    '#FFFACD', // Lemon Chiffon (Yellow)
-    '#98FB98', // Pale Green
-    '#E6E6FA', // Lavender
+    '#FFC0CB',
+    '#B0E0E6',
+    '#FFFACD',
+    '#98FB98',
+    '#E6E6FA',
   ];
 
   @override
@@ -67,7 +67,6 @@ class CanvasToolbar extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Tool Selection
                   _ToolButton(
                     icon: Icons.edit_rounded,
                     isActive: activeTool == CanvasTool.pen,
@@ -89,7 +88,6 @@ class CanvasToolbar extends StatelessWidget {
 
                   const _VerticalDivider(),
 
-                  // History
                   _ToolButton(
                     icon: Icons.undo_rounded,
                     isActive: false,
@@ -111,7 +109,6 @@ class CanvasToolbar extends StatelessWidget {
 
                   const _VerticalDivider(),
 
-                  // Color Palette - Scrollable for mobile
                   ...palette.map(
                     (hex) => _ColorButton(
                       hex: hex,
@@ -126,13 +123,10 @@ class CanvasToolbar extends StatelessWidget {
 
                   const _VerticalDivider(),
 
-                  // Stroke Width Slider
                   Semantics(
                     label: 'Stroke width: ${strokeWidth.round()}',
                     child: SizedBox(
                       width: 80,
-                      // Slider fills its bounded max height in newer Flutter
-                      // versions; pin the height so the toolbar stays compact.
                       height: 48,
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
@@ -161,7 +155,6 @@ class CanvasToolbar extends StatelessWidget {
 
                   const _VerticalDivider(),
 
-                  // Clear Button
                   _ToolButton(
                     icon: Icons.delete_outline_rounded,
                     isActive: false,

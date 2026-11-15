@@ -16,7 +16,6 @@ import '../../data/models/trip.dart';
 import '../../data/services/trip_kit_service.dart';
 import '../widgets/trip_ui.dart';
 
-/// Trip Kit — every lakad on one card: packing + budget + places.
 class TripListScreen extends StatefulWidget {
   final TripKitService? service;
   const TripListScreen({super.key, this.service});
@@ -97,8 +96,6 @@ class _TripListScreenState extends State<TripListScreen> {
     );
   }
 }
-
-// ── Trip card ─────────────────────────────────────────────────
 
 class TripCard extends StatelessWidget {
   final Trip trip;
@@ -262,9 +259,6 @@ class TripCard extends StatelessWidget {
   }
 }
 
-// ── Create / edit sheet ───────────────────────────────────────
-
-/// Bottom sheet for a new trip — or editing details of [trip].
 class _TripEditSheet extends StatefulWidget {
   final String createdBy;
   final TripKitService service;
@@ -562,7 +556,6 @@ class _TripEditSheetState extends State<_TripEditSheet> {
   }
 }
 
-/// Shared with the detail screen's edit button.
 void showTripEditSheet(
   BuildContext context,
   Trip trip, {
@@ -579,8 +572,6 @@ void showTripEditSheet(
     ),
   );
 }
-
-// ── FAB + loading ─────────────────────────────────────────────
 
 class _NewTripFab extends StatelessWidget {
   final VoidCallback onTap;

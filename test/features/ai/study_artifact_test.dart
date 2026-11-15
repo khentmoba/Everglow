@@ -109,7 +109,6 @@ D. It uses only circular shapes to represent components
       expect(stripped, isNot(contains('It shows every wire')));
       expect(stripped, isNot(contains('1. What is a key')));
       expect(stripped, isNot(contains('quiz-json')));
-      // The interactive sheet still gets the full question.
       expect(parseStudyArtifacts(text).quiz, hasLength(1));
     });
 
@@ -369,9 +368,6 @@ void main() {}
     });
 
     test('final strip cuts a trailing unterminated html fence', () {
-      // A reply cut off by the output budget mid-game must render as clean
-      // text in the saved bubble, never a raw HTML dump — and it still
-      // yields no (broken) Preview button.
       const text =
           'Made you a Memory Match game!\n```html-artifact\n<!DOCTYPE html><html><head><title>Memory Match</title></head><body><div id="board">';
       final stripped = stripArtifactBlocks(text);
@@ -388,9 +384,6 @@ void main() {}
     });
 
     test('block-less game announcement parses to no artifacts', () {
-      // The live "Memory Match" failure: warm text with no hidden block
-      // means nothing to preview — the fix is upstream (prompt + output
-      // budget), the bubble itself must simply stay clean text.
       const text =
           'Aww yes! Made you two a Memory Match game! Tap cards to flip them and find matching pairs!';
       expect(parseStudyArtifacts(text).isEmpty, isTrue);

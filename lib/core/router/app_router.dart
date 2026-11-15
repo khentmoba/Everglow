@@ -33,18 +33,8 @@ import 'route_memory.dart';
 import 'route_helpers.dart';
 import '../di/app_providers.dart' as di;
 
-/// App-wide router configuration.
-///
-/// Each feature owns its route modules under `presentation/routes/`; this
-/// file only composes them. Simple routes use URL parameters. Complex object
-/// routes use `extra`.
-/// Navigation examples:
-///   context.go('/dashboard')
-///   context.push('/cinema/video/123?title=Foo&type=movie')
-///   context.push('/books/reader', extra: bookItem)
 GoRouter createAppRouter() {
   final browserUri = Uri.base;
-  // Keep root query jumps (for example `/?agent=cinema`) ahead of a saved page.
   final initialLocation = browserUri.path == '/' && browserUri.hasQuery
       ? '${browserUri.path}?${browserUri.query}'
       : RouteMemory.bootLocation ?? '/';
@@ -54,7 +44,6 @@ GoRouter createAppRouter() {
       final loc = state.matchedLocation;
       final uri = state.uri;
 
-      // Agent mode activation from query parameter (?agent=1, ?agent=khent, ?agent=cinema, ?agent=anime, ?agent=manga, etc.)
       final agentParam =
           uri.queryParameters['agent'] ?? uri.queryParameters['demo'];
       final jumpParam =
@@ -90,49 +79,25 @@ GoRouter createAppRouter() {
         if (!targetRoute.startsWith('/')) targetRoute = '/$targetRoute';
       }
 
-      // If opening doorway with an agent destination target, navigate directly
       if (loc == '/' && targetRoute != null && targetRoute != '/') {
         return agentJumpLocation(uri, targetRoute);
       }
 
-      // The perf bench is reachable logged out (it carries its own fake data),
-      // but only in builds made with --dart-define=EG_PERF_BENCH=true. Prefix
-      // rather than exact-match so every bench scene stays reachable without
-      // re-listing its path here; the guard is a compile-time constant, so none
-      // of this exists in production builds.
-      // In Agent Mode, all routes are accessible without bouncing to the gateway door.
       final isPublic =
           loc == '/' ||
           (kPerfBenchCompiledIn && loc.startsWith('/perf-bench')) ||
           AgentMode.isActive.value;
 
-      // If the persisted session is still loading from disk, do NOT bounce
-      // away from the requested location yet; wait for AuthService to notify.
       if (!di.authService.isSessionLoaded) return null;
 
-      // Allow offline fallback (SharedPreferences currentUser) to reach dashboard
-      // even when Firebase Auth is still pending; Firestore rules still enforce
-      // server-side access, but the UI should not bounce.
       final authed =
           di.authService.isAuthenticated || di.authService.currentUser != null;
-      // Boot restore (one-shot): a bare gateway reopens the remembered page
-      // after a killed tab/PWA — directly when logged in, via the login's
-      // `?from=` hop when logged out. Real links always win (any path or
-      // any query skips this), so deep links and previews are untouched.
-      // Not authed -> bounce to gate, remembering where the link pointed
-      // so the gateway can take the user straight there after login
-      // (PR preview deep links like <preview>/cinema).
       if (!authed && !isPublic) {
         return Uri(
           path: '/',
           queryParameters: {'from': state.uri.toString()},
         ).toString();
       }
-      // Cinema-only users stay inside the four media sections (see
-      // [AppErrorPage.cinemaOnlyRedirect]): couple pages would only
-      // render empty for them (Firestore rules deny every read), so
-      // anything else — deep links and restored pages included —
-      // bounces to /cinema. (In Agent Mode, free navigation is allowed).
       if (authed &&
           di.authService.isCinemaOnlyUser &&
           !AgentMode.isActive.value) {
@@ -142,10 +107,6 @@ GoRouter createAppRouter() {
       return null;
     },
 
-    // Reopen where she left off after a killed tab/PWA: go_router uses
-    // initialLocation only when the browser URL is exactly `/`, so real
-    // links always win (any path or query skips the restore untouched).
-    // Logged-out boots bounce through the usual `?from=` login hop below.
     initialLocation: initialLocation,
     debugLogDiagnostics: false,
     routes: [
@@ -187,10 +148,6 @@ GoRouter createAppRouter() {
     ],
     errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
   );
-  // Remember every page so a killed tab/PWA reopens where Clair left off.
-  // Unsafe pages (gateway, extra-only routes) are filtered inside.
-  // The listener skips the boot route itself, so it is recorded too:
-  // without this, opening a bookmarked page would never be remembered.
   void recordCurrentRoute() {
     RouteMemory.remember(
       router.routerDelegate.currentConfiguration.uri.toString(),

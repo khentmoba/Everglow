@@ -89,7 +89,6 @@ void main() {
       expect(find.text('27 stars'), findsOneWidget);
       expect(find.byType(CustomPaint), findsWidgets);
 
-      // Cleanly dispose widget tree
       await tester.pumpWidget(const SizedBox());
     });
   });

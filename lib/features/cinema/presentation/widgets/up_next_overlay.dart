@@ -5,12 +5,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../data/models/next_episode.dart';
 import 'netflix/netflix_colors.dart';
 
-/// Netflix-style Up Next card shown over the player when the current
-/// episode is almost over.
-///
-/// Shows "Next episode in {secondsLeft}..." with a countdown bar, the
-/// next episode's season/episode (and title when TMDB knows it), plus
-/// "Play now" and "Cancel" actions. Pure UI — the player owns the timer.
 class UpNextOverlay extends StatelessWidget {
   final NextEpisode next;
   final int secondsLeft;

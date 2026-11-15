@@ -16,19 +16,6 @@ import 'shelf_widgets.dart';
 import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// "Anime" shelf on the dashboard.
-///
-/// For couple users (khentsgdz / clairjassen) the shelf splits into
-/// two labeled sub-rows — "Me" and the partner — so each partner can
-/// see what the other has finished watching in the anime column.
-/// Non-couple users keep the original single-row layout (one stream
-/// of their own watched anime only).
-///
-/// "Watching Now" anime no longer lives in the generic *Currently
-/// Watching* shelf — it now lives here so the two rails never
-/// duplicate the same title. Each partner's currently-watching anime
-/// is rendered just above their finished row under a small
-/// "WATCHING NOW" divider.
 class AnimePreview extends StatelessWidget {
   const AnimePreview({super.key});
 
@@ -46,7 +33,6 @@ class AnimePreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _AnimeHeader(userName: userName),
-          // ── WATCHING NOW ──────────────────────────────────────
           const _AnimeSectionLabel(
             label: 'WATCHING NOW',
             icon: Icons.play_circle_fill_rounded,
@@ -60,7 +46,6 @@ class AnimePreview extends StatelessWidget {
             ),
           ] else
             _AnimeWatchingShelf(userName: userName, label: null, isSelf: true),
-          // ── FINISHED ──────────────────────────────────────────
           const _AnimeSectionLabel(
             label: 'FINISHED',
             icon: Icons.check_circle_rounded,
@@ -173,8 +158,6 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;
-      // Count both watching and finished so the header never reads
-      // "0 titles" while a watching-now row is populated.
       final visible = items
           .where((i) => i.isAnime && (i.isWatched || i.isCurrentlyWatching))
           .toList();
@@ -282,9 +265,6 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
     }
   }
 
-  /// Reactive heal: a cover URL that looks valid but 404s (stale artwork)
-  /// triggers one background heal instead of a permanent placeholder tile.
-  /// Deduped per doc id per session.
   void _handleImageError(MediaItem item) {
     if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
     _healAttempted.add(item.id);
@@ -337,7 +317,6 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       parts.add('S${item.displaySeason}E${item.currentEpisode}');
       if (item.year.isNotEmpty) parts.add(item.year);
     } else if (item.currentEpisode == null) {
-      // No progress yet: show what the title is, not where the viewer is.
       if (item.format.isNotEmpty) {
         parts.add(item.format);
       } else if (item.studio.isNotEmpty) {
@@ -345,8 +324,6 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       }
       if (item.year.isNotEmpty) parts.add(item.year);
     } else {
-      // Single-episode anime with progress (e.g. an ONA-listed film):
-      // season/episode labels are meaningless, so show just the year.
       if (item.year.isNotEmpty) parts.add(item.year);
     }
     return parts.isNotEmpty ? parts.join(' • ') : null;
@@ -458,8 +435,6 @@ class _AnimeShelfState extends State<_AnimeShelf> {
       }
       return;
     }
-    // Realtime (bounded by previewLimit via limit) so undo updates
-    // immediately, mirroring the Watching Now shelf.
     _streamSub?.cancel();
     _streamSub = _service
         .getAnimeWatchListStream(
@@ -488,9 +463,6 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     );
   }
 
-  /// Resolves posters for finished entries saved without one, mirroring
-  /// the anime Watching Now shelf — without this, finished cards fall
-  /// back to the placeholder tile forever.
   Future<void> _backfillPosters(List<MediaItem> items) async {
     try {
       var updated = await _service.backfillMissingPosters(items);
@@ -501,9 +473,6 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     }
   }
 
-  /// Reactive heal: a cover URL that looks valid but 404s (stale artwork)
-  /// triggers one background heal instead of a permanent placeholder tile.
-  /// Deduped per doc id per session.
   void _handleImageError(MediaItem item) {
     if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
     _healAttempted.add(item.id);

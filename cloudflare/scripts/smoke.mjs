@@ -1,18 +1,3 @@
-// Plays real titles through a Worker running on Cloudflare's edge.
-//
-// Local tests mock every upstream, so they cannot see what an upstream sends
-// to a datacenter. Vidrock passed them, then handed the edge one dead decoy URL
-// for every title (#595, removed in #597). This asks the edge itself.
-//
-//   node scripts/smoke.mjs --remote
-//       your branch on the edge, compared with the live Worker right now
-//   node scripts/smoke.mjs --url <origin> [--save <file> | --compare <file>]
-//       a deployed Worker; the deploy saves before and compares after
-//
-// Upstreams die and some answer differently per region, so an absolute check
-// stays red for reasons no change caused. Both sides of a comparison run from
-// the same place at the same time: only what the change broke fails. Titles or
-// rows that fail on both sides are printed as warnings, never hidden.
 import {spawn, execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {pathToFileURL, fileURLToPath} from 'node:url';
@@ -28,15 +13,12 @@ export const CASES = [
 export const LIVE = 'https://everglow-stream.khentplaysmoba.workers.dev';
 const TIMEOUT_MS = 30000;
 
-// results: [{name, played, rows: [{id, played}]}]
 const rowsPlayed = (results) => {
   const rows = new Map();
   for (const r of results) for (const row of r.rows) rows.set(row.id, rows.get(row.id) || row.played);
   return rows;
 };
 
-// Absolute: a case fails when nothing plays; a picker row fails when it
-// played none of the titles it was offered for, a button that can only fail.
 export function judge(results) {
   const failures = [];
   for (const r of results) if (!r.played) failures.push(`${r.name}: no stream played`);
@@ -46,8 +28,6 @@ export function judge(results) {
   return failures;
 }
 
-// Relative to a baseline taken from the same place moments before. Fails on
-// what stopped playing, and on a new row that plays nothing (Vidrock, #595).
 export function compare(before, after) {
   const failures = [];
   const outages = [];
@@ -77,8 +57,6 @@ async function fetchWithTimeout(url) {
   }
 }
 
-// Plays = the resolver answered and the playlist it handed out is a real HLS
-// playlist when fetched back through the Worker.
 async function plays(origin, query) {
   try {
     const url = new URL('/proxyAnime', origin);
@@ -87,8 +65,6 @@ async function plays(origin, query) {
     if (res.status !== 200) return {ok: false, why: `resolve ${res.status}`};
     const body = await res.json();
     if (!body.src) return {ok: false, why: 'no src'};
-    // Back through the Worker under test: `wrangler dev --remote` stamps the
-    // live hostname into src, and the live Worker cannot open our smoke key.
     const src = new URL(body.src, origin);
     const list = await fetchWithTimeout(new URL(src.pathname + src.search, origin));
     const text = list.status === 200 ? await list.text() : '';
@@ -117,7 +93,6 @@ export async function collect(origin, log = console.log) {
 
 function startRemote(port) {
   const cwd = fileURLToPath(new URL('..', import.meta.url));
-  // One fixed string: Windows needs a shell to find npx.
   const child = spawn(`npx wrangler dev --remote --port ${Number(port)} --var CDN_STAMP_KEY:smoke-only-key`,
     {cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe']});
   let output = '';
@@ -146,7 +121,6 @@ function startRemote(port) {
 }
 
 function report({failures, outages}) {
-  // GitHub turns ::warning lines into visible annotations on the run.
   const warn = process.env.GITHUB_ACTIONS ? '::warning::' : 'warning: ';
   for (const o of outages) console.log(`${warn}upstream outage, not this change: ${o}`);
   if (failures.length) {

@@ -7,14 +7,12 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/utils/text_utils.dart';
 import '../../data/models/subscription.dart';
 
-/// Hue per payer, so Clair can tell at a glance who pays what.
 Color subPayerHue(SubPayer payer) => switch (payer) {
       SubPayer.khent => AppColors.auroraTeal,
       SubPayer.clair => AppColors.auroraRose,
       SubPayer.shared => AppColors.blushGold,
     };
 
-/// One subscription row: name + price, payer chip, renewal countdown.
 class SubCard extends StatelessWidget {
   final Subscription sub;
   final VoidCallback onTap;
@@ -54,7 +52,6 @@ class SubCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Price monogram: first letter on a payer-tinted disc.
               Container(
                 width: 46,
                 height: 46,
@@ -132,7 +129,6 @@ class SubCard extends StatelessWidget {
   }
 }
 
-/// Countdown pill: "today", "in 3d", or the date when far away.
 class _RenewalPill extends StatelessWidget {
   final int days;
   const _RenewalPill({required this.days});

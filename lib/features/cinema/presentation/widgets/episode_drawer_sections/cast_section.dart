@@ -4,9 +4,6 @@ import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Renders the horizontal cast/voice-actor rail. Shows a loading
-/// skeleton while fetching, an empty-state message when no cast is
-/// available, or a horizontal scrollable list of circular avatar cards.
 class CastSection extends StatelessWidget {
   final List<Map<String, dynamic>> cast;
   final bool isLoading;
@@ -73,8 +70,6 @@ class CastSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 7),
-                    // For anime: character name is primary (bold), VA is secondary.
-                    // For cinema: VA name is primary, character/role is secondary.
                     if (isAnimeSourced && character.isNotEmpty) ...[
                       Text(
                         character,

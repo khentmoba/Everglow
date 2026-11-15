@@ -9,13 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/watch_party_server.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 
-/// Data-driven list of self-hosted playback servers for the watch party.
-///
-/// Mirrors AniChan's `/api/watch/servers` approach: the server list is
-/// configuration, not code. Everglow loads a shared list from Firestore
-/// (`config/watch_party_servers`) and merges servers the user adds
-/// locally (persisted in SharedPreferences). The active server is
-/// stored on the room document so the partner follows automatically.
 class WatchPartyServerService extends ChangeNotifier {
   static final WatchPartyServerService _instance =
       WatchPartyServerService._internal();
@@ -33,9 +26,6 @@ class WatchPartyServerService extends ChangeNotifier {
   bool _loading = false;
   bool _loaded = false;
 
-  /// Ordered list of all servers: shared Firestore entries first, then
-  /// locally-added custom servers. Empty while the background fetch is
-  /// still in flight.
   List<WatchPartyServer> get servers {
     if (!_loaded) _load();
     return [...?_shared, ..._custom];
@@ -50,7 +40,6 @@ class WatchPartyServerService extends ChangeNotifier {
     return null;
   }
 
-  /// The recommended entry, or the first entry overall.
   WatchPartyServer? get defaultServer {
     final list = servers;
     for (final s in list) {
@@ -59,16 +48,11 @@ class WatchPartyServerService extends ChangeNotifier {
     return list.isNotEmpty ? list.first : null;
   }
 
-  /// Route a stream URL through the Cloud Function passthrough proxy,
-  /// mirroring AniChan's `/api/watch/m3u8` and `/api/watch/vtt` routes.
-  /// Callers should only use this when [WatchPartyServer.proxyEnabled]
-  /// is true; direct CORS-enabled servers can skip the hop.
   static String proxyUrlFor(String url) {
     return '$functionsBase/proxyWatchStream?url='
         '${Uri.encodeComponent(url)}';
   }
 
-  /// Exchange Firebase auth for a stream-only URL that native Safari can load.
   static Future<String> authorizeStreamUrl(
     String url, {
     Future<String?> Function()? getToken,
@@ -112,15 +96,12 @@ class WatchPartyServerService extends ChangeNotifier {
     }
   }
 
-  /// Final playback URL for a server: proxied when configured, otherwise
-  /// the raw stream URL.
   String resolveStreamUrl(WatchPartyServer server) {
     return server.proxyEnabled
         ? proxyUrlFor(server.streamUrl)
         : server.streamUrl;
   }
 
-  /// Add a user-configured server and persist it locally.
   Future<WatchPartyServer> addCustomServer({
     required String name,
     required String shortName,
@@ -147,7 +128,6 @@ class WatchPartyServerService extends ChangeNotifier {
     return server;
   }
 
-  /// Remove a locally-added server.
   Future<void> removeCustomServer(String id) async {
     _custom = _custom.where((s) => s.id != id).toList();
     await _saveCustom();

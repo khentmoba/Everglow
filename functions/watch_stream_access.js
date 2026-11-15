@@ -32,7 +32,6 @@ function validStreamSignature(url, access, supplied, now = Date.now()) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(supplied, 'hex'));
 }
 
-// Cover nested playlists, segments, AES keys, init maps, audio and subtitles.
 function rewritePlaylist(text, base, access) {
   return text.split(/\r?\n/).map((line) => {
     if (!line.trim()) return line;

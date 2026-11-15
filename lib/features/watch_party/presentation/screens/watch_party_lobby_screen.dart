@@ -4,9 +4,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../widgets/watch_party_lobby.dart';
 
-/// Full-screen room picker reached from the dashboard and from
-/// `/watch-party`. The cinema tab embeds the same [WatchPartyLobby]
-/// widget so both entry points show the same rooms.
 class WatchPartyLobbyScreen extends StatelessWidget {
   const WatchPartyLobbyScreen({super.key});
 

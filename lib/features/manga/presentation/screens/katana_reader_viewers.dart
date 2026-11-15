@@ -1,6 +1,5 @@
 part of 'katana_reader_screen.dart';
 
-/// Page viewer builders + page recovery for [_KatanaReaderScreenState].
 extension _KatanaReaderViewers on _KatanaReaderScreenState {
   Widget _buildReaderBody() {
     if (_loading) {
@@ -77,7 +76,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     }
   }
 
-  // ── Webtoon Continuous Mode ───────────────────────────────────────
   Widget _buildWebtoonViewer() {
     final width = MediaQuery.sizeOf(context).width;
     final maxContentWidth = width > 850 ? 850.0 : double.infinity;
@@ -94,11 +92,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
           physics: desktopWeb
               ? const NeverScrollableScrollPhysics()
               : const BouncingScrollPhysics(),
-          // Virtualize aggressively: neighbours within 1200px are kept
-          // built for smooth 60fps scrolling, but offscreen strips are
-          // unmounted so their decoded GPU textures are evicted by ImageCache.
-          // Disabling automatic keep-alives and web repaint boundaries
-          // prevents WebGL texture accumulation that trips iOS WebKit Jetsam.
           scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
           addAutomaticKeepAlives: false,
           addRepaintBoundaries: !kIsWeb,
@@ -123,9 +116,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
       behavior: HitTestBehavior.translucent,
       onTap: _toggleChrome,
       onDoubleTap: _handleDoubleTap,
-      // InteractiveViewer maps upward mouse-wheel notches to zoom on
-      // desktop web. Omit it there and forward wheel events explicitly;
-      // touch/mobile web and native builds retain pinch/double-tap zoom.
       child: desktopWeb
           ? desktopContent
           : InteractiveViewer(
@@ -144,7 +134,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     );
   }
 
-  // ── Paged Mode (RTL for Manga, LTR for Western) ───────────────────
   Widget _buildPagedViewer() {
     final isRTL = _mode == ReaderMode.pagedRTL;
     final useTwoPage = _useTwoPage;
@@ -159,7 +148,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
         final screenWidth = MediaQuery.sizeOf(context).width;
         final dx = details.localPosition.dx;
 
-        // Left 28% edge
         if (dx < screenWidth * 0.28) {
           if (isRTL) {
             _advancePaged(1);
@@ -167,7 +155,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
             _advancePaged(-1);
           }
         }
-        // Right 28% edge
         else if (dx > screenWidth * 0.72) {
           if (isRTL) {
             _advancePaged(-1);
@@ -175,7 +162,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
             _advancePaged(1);
           }
         }
-        // Center 44% zone: toggle chrome
         else {
           _toggleChrome();
         }
@@ -186,16 +172,10 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
         physics: const BouncingScrollPhysics(),
         itemCount: totalItems,
         onPageChanged: (pageIndex) {
-          // The controller is built with a page index before the two-page
-          // preference is known, so ignore its first report until the
-          // starting spread has actually been applied.
           if (!_pagedInitialJumpDone) return;
           if (useTwoPage) {
             final firstPageIndex = pageIndex * 2;
             _onPageChanged(math.min(firstPageIndex, _pages.length - 1));
-            // The spread shows two pages but the callback reports the
-            // first, so reaching the spread that holds the last page has
-            // to count as finishing the chapter.
             if (firstPageIndex + 1 >= _pages.length - 1) {
               _markChapterRead();
             }
@@ -243,8 +223,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   }
 
   Widget _buildSinglePagedImage(int index) {
-    // Fit height ON resizes the page into the viewport (the site's
-    // default); OFF shows it full-width with vertical scroll.
     if (!_fitHeight) {
       return SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -254,9 +232,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     return _readerPage(index, fit: BoxFit.contain, height: double.infinity);
   }
 
-  /// One page image with persistent cache and per-page retries.
-  /// Keyed by the CDN-host step so a silent host switch remounts
-  /// the image for the new URL with a fresh retry budget.
   Widget _readerPage(int index, {required BoxFit fit, double? height}) {
     return ReaderPageImage(
       key: ValueKey('p$index-s${_cdnStep[index] ?? 0}'),
@@ -281,9 +256,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     if (!_pageController.hasClients) return;
     final current = _pageController.page?.round() ?? 0;
     final target = current + delta;
-    // Two-page mode packs two pages into one PageView item, so the last
-    // reachable item is ceil(pages / 2), not pages.length — the old bound
-    // let the reader scroll past the end into blank space.
     final lastItem = lastPagedItem(_pages.length, twoPage: _useTwoPage);
     if (target >= 0 && target <= lastItem) {
       _pageController.animateToPage(
@@ -294,8 +266,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     }
   }
 
-  /// Proxied URL for page [index], including whatever CDN-host
-  /// fallback step the page has silently advanced to after failures.
   String _proxiedPageUrl(int index) {
     final origin = KatanaService.cdnFallbackUrl(
       _pages[index],
@@ -304,12 +274,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     return _service.proxiedImageUrl(origin);
   }
 
-  /// Failure hook for page [index], called by [ReaderPageImage].
-  /// Like the site's reader, a failed image first retries silently
-  /// on the other CDN hosts; only when every host fails is the page
-  /// recorded for the token-URL refresh. The visible loading and
-  /// tap-to-retry slots live in [ReaderPageImage] itself, so a slow
-  /// or broken page never shows as a black gap.
   void _onReaderPageError(int index) {
     final origin = index < _pages.length ? _pages[index] : '';
     if (origin.isEmpty) return;
@@ -330,14 +294,7 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     _notePageFailed(index);
   }
 
-  /// Records a page whose every CDN host failed. When several pages
-  /// fail together the chapter's token URLs have usually expired, so
-  /// — like the site's own refresh — the URLs are fetched fresh once
-  /// instead of leaving Clair with a broken chapter.
   void _notePageFailed(int index) {
-    // A resume target that will never load must not freeze the reader on its
-    // pending correction: the scroll listener skips tracking while one is
-    // set. Give it up so the pill and progress keep working.
     if (_pendingResumePage == index) _pendingResumePage = null;
     if (!_failedPages.add(index)) return;
     _maybeRefreshTokens();
@@ -356,8 +313,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     );
     _refreshingTokens = false;
     if (!mounted) return;
-    // Only swap when the fresh list matches page-for-page, exactly
-    // like the site, which refuses to remap a mismatched refresh.
     if (fresh.isEmpty || fresh.length != _pages.length) return;
     _tokenRefreshed = true;
     _refresh(() {
@@ -368,8 +323,6 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     _showSnack('Page links refreshed — retry the failed pages.');
   }
 
-  /// Cycles Server 1 → 2 → 3 → 1, like the site's "Click another
-  /// server if the images is not displayed" switch.
   void _cycleServer() {
     const order = ['', '?sv=mk', '?sv=3'];
     const labels = ['Server 1', 'Server 2', 'Server 3'];

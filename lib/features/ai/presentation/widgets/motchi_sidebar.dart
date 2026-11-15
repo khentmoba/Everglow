@@ -17,9 +17,6 @@ import '../../../../core/utils/logger.dart';
 part 'motchi_sidebar_panel.dart';
 part 'motchi_sidebar_tiles.dart';
 
-/// Sidebar showing Motchi's conversation history and feature shortcuts.
-/// Mobile/Tablet: backdrop scrim + smooth slide-in drawer with swipe to dismiss.
-/// Desktop (≥ 1024): persistent collapsible rail.
 class MotchiSidebar extends StatefulWidget {
   final bool isOpen;
   final VoidCallback onClose;
@@ -102,8 +99,6 @@ class _MotchiSidebarState extends State<MotchiSidebar>
     _sessionsSub?.cancel();
     _ai = ai;
     ai.addListener(_onAiChanged);
-    // Live Firestore stream: archives and deletes push a fresh list on
-    // their own, so the sidebar never needs a manual refresh.
     _sessionsSub = ai
         .watchSessions(limit: 50)
         .listen(_onSessionsData, onError: _onSessionsError);
@@ -138,14 +133,11 @@ class _MotchiSidebarState extends State<MotchiSidebar>
     }
   }
 
-  /// The in-memory conversation isn't archived yet — AIService only calls
-  /// notifyListeners, so rebuild the synthetic entry on every change.
   void _onAiChanged() {
     if (!mounted) return;
     setState(() => _reconcileActiveId(_liveSession != null));
   }
 
-  /// Synthetic entry for the conversation being typed in right now.
   AISession? get _liveSession {
     final live = _ai?.assistantConversation;
     if (live == null || live.messages.isEmpty) return null;
@@ -166,8 +158,6 @@ class _MotchiSidebarState extends State<MotchiSidebar>
     );
   }
 
-  /// Archived sessions plus the live entry on top (unless it duplicates
-  /// the most recent archived snapshot).
   List<AISession> get _sessions {
     final live = _liveSession;
     if (live == null) return _archived;
@@ -482,7 +472,6 @@ class _MotchiSidebarState extends State<MotchiSidebar>
           },
           child: Stack(
             children: [
-              // Tinted scrim overlay (no heavy blur over big area per web stability policy)
               Positioned.fill(
                 child: FadeTransition(
                   opacity: _fadeAnimation,
@@ -495,7 +484,6 @@ class _MotchiSidebarState extends State<MotchiSidebar>
                   ),
                 ),
               ),
-              // Slide-in drawer with horizontal swipe-to-dismiss
               SlideTransition(
                 position: _slideAnimation,
                 child: Align(

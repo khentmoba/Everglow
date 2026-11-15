@@ -3,7 +3,6 @@ import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
-/// Detects hardware capability (cores, RAM, low-end profile) on web.
 class DeviceCapability {
   DeviceCapability._();
 
@@ -23,7 +22,6 @@ class DeviceCapability {
     debugOverrideMemory = null;
   }
 
-  /// Logical processor count from `navigator.hardwareConcurrency`.
   static int get hardwareConcurrency {
     if (debugOverrideCores != null) return debugOverrideCores!;
     try {
@@ -32,10 +30,9 @@ class DeviceCapability {
     } catch (_) {
       // hardwareConcurrency unavailable on this browser.
     }
-    return 4; // Safe default
+    return 4;
   }
 
-  /// Approximate RAM in gigabytes from `navigator.deviceMemory`.
   static double? get deviceMemory {
     if (debugOverrideMemory != null) return debugOverrideMemory;
     try {
@@ -50,12 +47,6 @@ class DeviceCapability {
     return null;
   }
 
-  /// Whether the device is constrained by CPU or memory.
-  ///
-  /// Low-end criteria on web:
-  /// - 4 or fewer CPU cores (budget phones, cheap tablets, throttled chips)
-  /// - 4 GB or less RAM when reported by the browser
-  /// - URL parameter `?lowend=1` or `?lowend=true` override
   static bool get isLowEndDevice {
     if (debugOverrideLowEnd != null) return debugOverrideLowEnd!;
 

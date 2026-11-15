@@ -10,7 +10,6 @@ import '../../data/models/garden_stats.dart';
 import '../../data/models/plant_type.dart';
 import 'garden_plant_view.dart';
 
-/// Shared view showing both partners' gardens side by side.
 class SharedGardenView extends StatefulWidget {
   const SharedGardenView({super.key});
 
@@ -53,7 +52,6 @@ class _SharedGardenViewState extends State<SharedGardenView> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
@@ -81,7 +79,6 @@ class _SharedGardenViewState extends State<SharedGardenView> {
             ),
             const SizedBox(height: 16),
 
-            // Gardens side by side
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {

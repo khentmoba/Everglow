@@ -12,11 +12,8 @@ import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
-/// Manga Directory and its sibling list pages (Latest update, New
-/// Manga, genre and author pages). Mirrors Manga Katana: expanded
-/// item list on the left, Filter + Genres widgets on the right.
 class KatanaDirectoryScreen extends StatefulWidget {
-  final String mode; // directory | latest | new | genre | author
+  final String mode;
   final String slug;
   final String title;
 
@@ -28,8 +25,6 @@ class KatanaDirectoryScreen extends StatefulWidget {
     this.embed = false,
   });
 
-  /// When true, renders just the tab content so [KatanaTabShell] can
-  /// keep one header mounted while tabs switch underneath it.
   final bool embed;
 
   @override
@@ -208,8 +203,6 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
 
     if (widget.embed) return _buildContent(desktop);
 
-    // Standalone route (e.g. opened from a detail page): wrap in the
-    // tab shell so header tabs still switch in place.
     return KatanaTabShell(
       initialTab: _activeNav,
       initialMode: widget.mode,
@@ -218,7 +211,6 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
     );
   }
 
-  /// Headerless tab content for [KatanaTabShell].
   Widget _buildContent(bool desktop) {
     return Center(
       child: ConstrainedBox(

@@ -318,8 +318,6 @@ class _GreetingEmptyState extends StatelessWidget {
   }
 }
 
-// ─── Message bubble ──────────────────────────────────────────────
-
 class _MessageBubble extends StatefulWidget {
   final String text;
   final bool isUser;
@@ -328,14 +326,8 @@ class _MessageBubble extends StatefulWidget {
   final String? reasoning;
   final List<String> imageUrls;
   final VoidCallback? onUseAsDraft;
-  // Canvas toggle from the chat bar — when false the bubble stays plain
-  // text (hidden blocks still stripped so raw JSON never shows).
   final bool showArtifacts;
 
-  /// When true the bubble keeps the full visible question/option list
-  /// (the user explicitly asked to see it inline — see
-  /// [userAskedForVisibleQuiz]). Defaults to false: collapse into the
-  /// "Try the quiz" button.
   final bool keepFullText;
 
   const _MessageBubble({
@@ -354,7 +346,3 @@ class _MessageBubble extends StatefulWidget {
   @override
   State<_MessageBubble> createState() => _MessageBubbleState();
 }
-
-/// Renders attached images inside a message bubble. The URLs are base64
-/// data URIs (sent to the vision API), so they are decoded and shown with
-/// [Image.memory].

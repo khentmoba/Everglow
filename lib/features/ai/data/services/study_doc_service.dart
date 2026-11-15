@@ -3,22 +3,14 @@ import 'package:flutter/foundation.dart' show Uint8List, compute, kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
-/// Max PDF file size Motchi will open (10 MB keeps memory and payloads sane).
 const int kMaxStudyPdfBytes = 10 * 1024 * 1024;
 
-/// Max sources per study session. Source text itself is uncapped — the
-/// whole PDF goes to Motchi every turn.
 const int kMaxStudyDocs = 3;
 
-/// A PDF study doc attached to the current Motchi study session.
-/// The live session keeps the full text; history stores a snapshot
-/// (see trimSourcesForStorage) so giant PDFs still fit Firestore.
 class StudyDoc {
   final String fileName;
   final String text;
 
-  /// True only for older history restores (or trimmed history snapshots)
-  /// where just the start of the PDF was kept.
   final bool truncated;
 
   const StudyDoc({
@@ -28,7 +20,6 @@ class StudyDoc {
   });
 }
 
-/// Friendly failure for anything the user can fix (too big, no text, ...).
 class StudyDocException implements Exception {
   final String message;
   StudyDocException(this.message);
@@ -37,18 +28,12 @@ class StudyDocException implements Exception {
   String toString() => message;
 }
 
-/// Trims [text] to [maxChars], reporting whether anything was cut.
-/// Live sessions no longer trim; only history snapshots use this so giant
-/// PDFs still fit Firestore (see trimSourcesForStorage).
 ({String text, bool truncated}) truncateStudyText(String text, int maxChars) {
   final cleaned = text.trim();
   if (cleaned.length <= maxChars) return (text: cleaned, truncated: false);
   return (text: cleaned.substring(0, maxChars).trimRight(), truncated: true);
 }
 
-/// Formats attached sources as the grounding block prepended to every
-/// study question. Display text never contains this — chat bubbles show
-/// the question only, so long PDFs never flood the screen.
 String buildSourcesBlock(List<StudyDoc> docs) {
   final buffer = StringBuffer()
     ..writeln(
@@ -67,7 +52,6 @@ String buildSourcesBlock(List<StudyDoc> docs) {
   return buffer.toString();
 }
 
-/// One-tap study asks used as quick chips while a doc is attached.
 abstract final class StudyPrompts {
   static const summarize =
       'Summarize this for us so we can study it — key points first, then details. Keep it warm and simple.';
@@ -91,20 +75,15 @@ abstract final class StudyPrompts {
     ('Explain simply 💡', explain),
   ];
 
-  /// Plain-text Quiz ask for when the Canvas toggle is OFF — no hidden
-  /// block instruction, so Motchi creates no interactive data at all.
   static const quizPlain =
       'Quiz us on this! Ask 5 multiple-choice questions based ONLY on the material above. '
       'Ask them all now with A–D options, wait for our answers, then correct us gently. '
       'Plain text only — no hidden blocks.';
 
-  /// Plain-text Flashcards ask for when the Canvas toggle is OFF.
   static const flashcardsPlain =
       'Make us flashcards from this — show each card as "Front: ..." then "Back: ..." lines, 10 cards max, based ONLY on the material above. '
       'Plain text only — no hidden blocks.';
 
-  /// Chips honoring the Canvas toggle: when OFF, Quiz/Flashcards ask in
-  /// plain text so Motchi creates no interactive quiz data at all.
   static List<(String, String)> chipsFor({required bool canvasOn}) {
     if (canvasOn) return chips;
     return [
@@ -116,8 +95,6 @@ abstract final class StudyPrompts {
   }
 }
 
-/// Picks a single PDF file: its display name plus raw bytes.
-/// Returns null when the user cancels.
 typedef PickPdfFile = Future<({String name, Uint8List bytes})?> Function();
 
 Future<({String name, Uint8List bytes})?> pickPdfFile() async {
@@ -125,13 +102,11 @@ Future<({String name, Uint8List bytes})?> pickPdfFile() async {
     type: FileType.custom,
     allowedExtensions: const ['pdf'],
   );
-  if (file == null) return null; // user cancelled
+  if (file == null) return null;
   final bytes = await file.readAsBytes();
   return (name: file.name, bytes: bytes);
 }
 
-/// Picks a PDF and extracts its text. Thin wrapper around file_picker +
-/// Syncfusion so the screen stays dumb; pure helpers above hold the rules.
 class StudyDocService {
   final PickPdfFile pickFile;
 
@@ -139,7 +114,7 @@ class StudyDocService {
 
   Future<StudyDoc?> pickAndExtract() async {
     final file = await pickFile();
-    if (file == null) return null; // user cancelled
+    if (file == null) return null;
     final bytes = file.bytes;
     if (bytes.lengthInBytes > kMaxStudyPdfBytes) {
       throw StudyDocException('That PDF is over 10 MB — try a smaller one.');
@@ -154,7 +129,6 @@ class StudyDocService {
   }
 }
 
-/// Native extraction runs in an isolate; web yields between complete pages.
 Future<String> extractPdfTextAsync(Uint8List bytes) async {
   if (!kIsWeb) return compute(extractPdfText, bytes);
   await Future<void>.delayed(Duration.zero);
@@ -177,8 +151,6 @@ Future<String> extractPdfTextAsync(Uint8List bytes) async {
   }
 }
 
-/// Extracts plain text from PDF [bytes]. Throws [StudyDocException] when
-/// the file is not a readable PDF.
 String extractPdfText(Uint8List bytes) {
   try {
     final document = PdfDocument(inputBytes: bytes);

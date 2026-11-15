@@ -12,13 +12,6 @@ import '../../../../core/config/env_config.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Handles Spotify OAuth (Authorization Code + PKCE) for Everglow Duo.
-///
-/// Each Firebase user links their own Spotify account. Tokens are stored
-/// server-side in `spotify_tokens/{uid}` written by Cloud Functions, but
-/// this service reads the link status for UI.
-///
-/// Scopes needed for Web Playback + reading currently playing.
 class SpotifyAuthService extends ChangeNotifier {
   static const _verifierKey = 'spotify_code_verifier';
   static const _scopes = [
@@ -47,19 +40,13 @@ class SpotifyAuthService extends ChangeNotifier {
   }
 
   String _redirectUriForCurrentOrigin() {
-    // On web, the redirect must match the Spotify Dashboard allowlist.
-    // For prod: https://everglow-1c6db.web.app/spotify/callback
-    // For local: http://localhost:5000/spotify/callback
     if (kIsWeb) {
-      final origin = Uri.base.origin; // e.g. https://everglow-1c6db.web.app
-      // If running on web, use that origin
+      final origin = Uri.base.origin;
       if (origin.contains('localhost') || origin.contains('127.0.0.1')) {
         return '$origin/spotify/callback';
       }
-      // Prod hosts are everglow-1c6db.web.app + everglow-1c6db.firebaseapp.com
       return '$origin/spotify/callback';
     }
-    // Fallback
     return 'https://everglow-1c6db.web.app/spotify/callback';
   }
 
@@ -86,7 +73,6 @@ class SpotifyAuthService extends ChangeNotifier {
     });
   }
 
-  /// Starts listening to link status for current Firebase user.
   void start() {
     _authSub?.cancel();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -101,7 +87,6 @@ class SpotifyAuthService extends ChangeNotifier {
       }
       _listenToTokenDoc(user.uid);
     });
-    // Also kick immediately for already-authed case (guarded: single sub).
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null && _sub == null) {
       _listenToTokenDoc(uid);
@@ -127,7 +112,6 @@ class SpotifyAuthService extends ChangeNotifier {
     return base64UrlEncode(digest.bytes).replaceAll('=', '');
   }
 
-  /// Step 1: Redirect to Spotify authorize. Call from UI button.
   Future<void> linkSpotify() async {
     final clientId = EnvConfig.spotifyClientId;
     if (clientId.isEmpty) {
@@ -152,9 +136,6 @@ class SpotifyAuthService extends ChangeNotifier {
       'show_dialog': 'false',
     });
     Logger.d('SpotifyAuth authorize -> $uri');
-    // On web, externalApplication uses window.open which can be blocked.
-    // Try externalApplication first, then platformDefault, then give a
-    // helpful error that the UI can surface in a SnackBar.
     var opened = false;
     try {
       opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -175,7 +156,6 @@ class SpotifyAuthService extends ChangeNotifier {
     }
   }
 
-  /// Step 2: Called on `/spotify/callback?code=...` to exchange code.
   Future<bool> handleCallback(String code) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -183,7 +163,6 @@ class SpotifyAuthService extends ChangeNotifier {
       final redirectUri = _redirectUriForCurrentOrigin();
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) throw Exception('Not authenticated');
-      // Try Cloud Function base then hosting rewrite
       final payload = <String, dynamic>{
         'code': code,
         'redirectUri': redirectUri,
@@ -238,8 +217,6 @@ class SpotifyAuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reads stored access_token (client-side cache) - prefer server proxy for now.
-  /// Never throws: callers treat null as "link Spotify first".
   Future<String?> getStoredAccessToken() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
@@ -255,7 +232,6 @@ class SpotifyAuthService extends ChangeNotifier {
     }
   }
 
-  /// Proxies currently-playing via Cloud Function (keeps token server-side).
   Future<Map<String, dynamic>?> fetchCurrentlyPlaying() async {
     try {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();

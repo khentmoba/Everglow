@@ -1,7 +1,5 @@
 part of 'upcoming_countdowns.dart';
 
-/// Warm invite shown when no dates are planned yet — a golden calendar
-/// tile plus the reason to tap, instead of a bare text row.
 class _EmptyDatesCta extends StatelessWidget {
   const _EmptyDatesCta();
 
@@ -125,9 +123,6 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
             ),
             if (isImminent)
               BoxShadow(
-                // Ambient halo, not an edge shadow. Same reasoning as the
-                // Time Together bloom: tighter and slightly stronger reads
-                // the same at these alphas for a third of the blur area.
                 color: hue.withValues(alpha: 0.13),
                 blurRadius: 18,
                 spreadRadius: -8,

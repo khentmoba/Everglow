@@ -5,7 +5,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../data/services/cinema_preferences.dart';
 import 'netflix/netflix_colors.dart';
 
-/// Shared by My List and the player; no Provider registration needed.
 class CinemaViewingPreferences extends StatelessWidget {
   final CinemaPreferences? preferences;
   final bool compact;

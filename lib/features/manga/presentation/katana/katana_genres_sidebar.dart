@@ -4,8 +4,6 @@ import '../../data/models/katana_models.dart';
 import './katana_nav.dart';
 import './katana_theme.dart';
 
-/// The "Genres" sidebar widget with counts, like the site's directory
-/// sidebar.
 class KatanaGenresSidebar extends StatelessWidget {
   final List<KatanaGenre> genres;
 

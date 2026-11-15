@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 
-/// Native fallback for the iframe-based multiplayer table tennis match.
 class TTMultiplayerGameScreen extends StatelessWidget {
   final String roomId;
   final bool isHost;

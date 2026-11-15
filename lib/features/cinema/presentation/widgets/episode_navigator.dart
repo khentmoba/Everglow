@@ -10,9 +10,6 @@ import 'episode_drawer_sections/episode_list_section.dart';
 import 'netflix/netflix_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Horizontal scrollable season selector + episode grid for TV content.
-/// Fetches season/episode data from TMDB and lets the user pick an episode
-/// to play. Uses TMDB still images (w400) for episode thumbnails.
 class EpisodeNavigator extends StatefulWidget {
   final int tmdbId;
   final int initialSeason;
@@ -76,7 +73,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
       final rawSeasons = (details['seasons'] as List?) ?? [];
       _seasons = rawSeasons.map((s) => s as Map<String, dynamic>).where((s) {
         final seasonNum = s['season_number'];
-        // Filter out season 0 (specials) unless it's the only one
         return seasonNum is int && seasonNum > 0;
       }).toList();
     }
@@ -120,7 +116,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
       builder: (context, _) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Toggle bar
           GestureDetector(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Container(
@@ -180,7 +175,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
               ),
             ),
           ),
-          // Expanded content
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: _buildContent(),
@@ -202,7 +196,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Season selector
           if (_isLoadingSeasons)
             _buildLoadingSkeleton()
           else if (_seasons.isEmpty)
@@ -210,7 +203,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
           else ...[
             _buildSeasonSelector(),
             const SizedBox(height: 8),
-            // Episode grid
             if (_isLoadingEpisodes)
               _buildLoadingSkeleton()
             else if (_episodes.isEmpty)
@@ -268,11 +260,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
     );
   }
 
-  /// Vertical episode list shared with the details drawer ([EpisodeTile]).
-  ///
-  /// The player used to render its own horizontal thumbnail grid, so the
-  /// same episodes looked different in two places. Reusing the drawer tile
-  /// keeps one episode UI everywhere, with the playing episode highlighted.
   Widget _buildEpisodeList() {
     return Center(
       child: ConstrainedBox(

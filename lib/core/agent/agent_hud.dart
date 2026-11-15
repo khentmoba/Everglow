@@ -9,12 +9,6 @@ import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'agent_mode.dart';
 
-/// Mounts the floating [AgentHud] across the app when Agent Mode is active.
-///
-/// Designed for local dev and agent verification sessions:
-/// - Provides 1-click jumps across all major features.
-/// - Allows switching profiles (Khent / Clair / Cinema guest).
-/// - Can be collapsed into a tiny corner badge for clean PR screenshot capture.
 class AgentHudOverlay extends StatelessWidget {
   final Widget child;
 
@@ -247,8 +241,6 @@ class _AgentHudState extends State<AgentHud> {
                       },
                     ),
                     const Spacer(),
-                    // This HUD sits above the Navigator in MaterialApp.builder,
-                    // so it has no Overlay ancestor for a Tooltip.
                     Semantics(
                       button: true,
                       label: 'Collapse HUD (clean screenshot mode)',

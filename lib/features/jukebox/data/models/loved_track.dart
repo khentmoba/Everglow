@@ -1,6 +1,5 @@
 import 'lastfm_image_utils.dart';
 
-/// Entry from `user.getLovedTracks`.
 class LovedTrack {
   final String trackName;
   final String artistName;

@@ -69,9 +69,6 @@ class _HistoryFakeSync extends MusicSyncService {
     String? mbid,
   }) async => null;
 
-  // MusicStatsProvider enriches via fetchTrackMetadata (single call for
-  // cover + album); without this the base implementation would attempt
-  // real network calls in fake async.
   @override
   Future<TrackMetadata?> fetchTrackMetadata({
     required String artist,
@@ -170,9 +167,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      // Header button
       expect(find.text('History'), findsOneWidget);
-      // Main banner
       expect(find.text('LISTENING HISTORY'), findsOneWidget);
       expect(find.text('When Khent & Clair played Ethel Cain'), findsOneWidget);
       expect(find.text('View timeline'), findsOneWidget);
@@ -215,18 +210,15 @@ void main() {
       await tester.pumpWidget(_buildHarness(showdown: showdown, stats: stats));
       await tester.pumpAndSettle();
 
-      // Tap View timeline banner
       await tester.tap(find.text('View timeline'));
       await tester.pump();
       await tester.pumpAndSettle();
 
-      // Verify sheet is open
       expect(find.text('LISTENING TIMELINE'), findsOneWidget);
       expect(find.text('Both'), findsOneWidget);
       expect(find.text('Khent'), findsWidgets);
       expect(find.text('Clair'), findsWidgets);
 
-      // Verify scrobble information rendered
       expect(find.text('American Teenager'), findsWidgets);
       expect(find.text('Strangers'), findsWidgets);
       expect(find.text('KHENT'), findsWidgets);
@@ -251,8 +243,8 @@ void main() {
           'clairjassen': [],
         },
         historyByUser: {
-          'khentsgdz': [khentPlay2], // Strangers only
-          'clairjassen': [clairPlay1], // American Teenager only
+          'khentsgdz': [khentPlay2],
+          'clairjassen': [clairPlay1],
         },
       );
 
@@ -265,25 +257,19 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Both are visible initially in the timeline
       expect(find.text('Strangers'), findsWidgets);
       expect(find.text('American Teenager'), findsWidgets);
 
-      // Tap Khent filter pill
       await tester.tap(find.text('Khent'));
       await tester.pumpAndSettle();
 
-      // Strangers (Khent) remains in timeline, American Teenager (Clair) is gone from timeline
       expect(find.text('Strangers'), findsWidgets);
-      // Only the filter chip remains for American Teenager, timeline item is gone
       expect(find.text('CLAIR'), findsNothing);
       expect(find.text('KHENT'), findsOneWidget);
 
-      // Tap Clair filter pill
       await tester.tap(find.text('Clair'));
       await tester.pumpAndSettle();
 
-      // American Teenager (Clair) is in timeline, Strangers (Khent) is gone from timeline
       expect(find.text('American Teenager'), findsWidgets);
       expect(find.text('KHENT'), findsNothing);
       expect(find.text('CLAIR'), findsOneWidget);

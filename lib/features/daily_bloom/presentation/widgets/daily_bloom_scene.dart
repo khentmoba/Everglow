@@ -1,7 +1,5 @@
 part of 'daily_bloom.dart';
 
-/// Night-garden scene: gradient sky, moon glow, stars, seasonal weather,
-/// ground shadow, and the breathing plant. Tap the plant for its story.
 class _GardenScene extends StatelessWidget {
   final PlantType plantType;
   final int effectiveStage;
@@ -39,7 +37,6 @@ class _GardenScene extends StatelessWidget {
         alignment: Alignment.bottomCenter,
         clipBehavior: Clip.none,
         children: [
-          // Moonlight glow, top right.
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -54,7 +51,6 @@ class _GardenScene extends StatelessWidget {
               ),
             ),
           ),
-          // Ground glow the plant grows out of.
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -69,19 +65,16 @@ class _GardenScene extends StatelessWidget {
               ),
             ),
           ),
-          // Static stars — one cheap repaint-free layer.
           const Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(painter: _StarfieldPainter()),
             ),
           ),
-          // Seasonal weather particles (snow / petals / motes / leaves).
           Positioned.fill(
             child: GardenWeatherOverlay(
               season: GardenWeatherOverlay.currentSeason(),
             ),
           ),
-          // Soft shadow under the pot.
           Positioned(
             bottom: 12,
             child: IgnorePointer(
@@ -204,8 +197,6 @@ class _GardenScene extends StatelessWidget {
   }
 }
 
-/// Dual night-garden scene: Clair's plant left, Khent's right, sharing one
-/// sky. Each plant owns its tap for its own story.
 class _DualGardenScene extends StatelessWidget {
   final PlantType clairPlant;
   final PlantType khentPlant;
@@ -254,7 +245,6 @@ class _DualGardenScene extends StatelessWidget {
         alignment: Alignment.bottomCenter,
         clipBehavior: Clip.none,
         children: [
-          // Moonlight glow, top right.
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -269,7 +259,6 @@ class _DualGardenScene extends StatelessWidget {
               ),
             ),
           ),
-          // Ground glow the plants grow out of.
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -284,20 +273,16 @@ class _DualGardenScene extends StatelessWidget {
               ),
             ),
           ),
-          // Static stars — one cheap repaint-free layer.
           const Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(painter: _StarfieldPainter()),
             ),
           ),
-          // Seasonal weather particles (snow / petals / motes / leaves).
           Positioned.fill(
             child: GardenWeatherOverlay(
               season: GardenWeatherOverlay.currentSeason(),
             ),
           ),
-          // Both plants share the sky. Narrow phones get ~150px each;
-          // the pot still reads clearly at that size.
           Positioned.fill(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 34, top: 40),
@@ -313,7 +298,6 @@ class _DualGardenScene extends StatelessWidget {
                       onTap: () => onPlantTap('clair'),
                     ),
                   ),
-                  // Soft divider so the two pots read as their own gardens.
                   Container(
                     width: 1,
                     margin: const EdgeInsets.symmetric(vertical: 24),
@@ -422,7 +406,6 @@ class _DualGardenScene extends StatelessWidget {
   }
 }
 
-/// One side of the dual scene: breathing plant, soft shadow, name pill.
 class _DualPlant extends StatelessWidget {
   final String name;
   final PlantType plantType;
@@ -492,7 +475,6 @@ class _DualPlant extends StatelessWidget {
   }
 }
 
-/// Twelve fixed stars. Static paint, zero animation cost.
 class _StarfieldPainter extends CustomPainter {
   const _StarfieldPainter();
 

@@ -1,11 +1,5 @@
 import 'dart:convert';
 
-/// Playback position reported by the Videasy player.
-///
-/// The player posts JSON-string progress events to the parent window with
-/// `timestamp` (position seconds), `duration` (total seconds) and `episode`
-/// (see Videasy docs, "Watch Progress Tracking").
-/// Top-level and pure so unit tests cover it without a browser.
 class VideasyProgress {
   final double positionSeconds;
   final double durationSeconds;
@@ -18,16 +12,11 @@ class VideasyProgress {
   });
 }
 
-/// Origins accepted for progress events. `player.videasy.net` 301s to
-/// `player.videasy.to`, so live iframes report the latter — both are
-/// accepted; anything else is dropped to avoid cross-provider noise.
 const videasyProgressOrigins = {
   'https://player.videasy.to',
   'https://player.videasy.net',
 };
 
-/// Parses one Videasy progress postMessage. Returns null for foreign
-/// origins, malformed JSON, or impossible numbers — never throws.
 VideasyProgress? parseVideasyProgress(String origin, String data) {
   if (!videasyProgressOrigins.contains(origin)) return null;
   try {
@@ -57,8 +46,6 @@ VideasyProgress? parseVideasyProgress(String origin, String data) {
 const animeXProxyOrigin =
     'https://everglow-stream.khentplaysmoba.workers.dev';
 
-/// Our Megavid, MegaPlay (Everglow), and YumeZone HTML implements the
-/// seek/progress protocol.
 bool isAnimeXProxyPlayerUrl(String url) {
   try {
     final uri = Uri.tryParse(url);
@@ -78,8 +65,6 @@ bool isAnimeXProxyPlayerUrl(String url) {
   }
 }
 
-/// Called only after the web bridge has checked event.source as well.
-/// Videasy's documented redirect is the only cross-origin exception.
 bool animeXPlayerMessageOriginAllowed(String frameUrl, String origin) {
   final uri = Uri.tryParse(frameUrl);
   if (uri == null ||
@@ -94,8 +79,6 @@ bool animeXPlayerMessageOriginAllowed(String frameUrl, String origin) {
   return origin == uri.origin;
 }
 
-/// Our object progress events use strict numeric seconds and an episode
-/// matching the loaded URL. Never accept another function on our origin.
 VideasyProgress? parseAnimeXProgress(
   String origin,
   String frameUrl,
@@ -136,9 +119,6 @@ VideasyProgress? parseAnimeXProgress(
   }
 }
 
-/// Extracts the vertical scroll delta (in logical pixels) from an
-/// `everglow-embed-scroll` postMessage sent by our owned HLS player or
-/// `web/embed.html` shell. Returns null for any other message or zero delta.
 double? parseEverglowEmbedScrollDelta(Object? data) {
   try {
     final decoded = data is String ? jsonDecode(data) : data;

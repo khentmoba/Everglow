@@ -8,8 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Shaped like a real index payload: two info lines, emoji metadata,
-/// optional trackers, and a few junk entries that must be dropped.
 const _payload = {
   'streams': [
     {
@@ -31,7 +29,6 @@ const _payload = {
       'behaviorHints': {'filename': 'Moonlit.Cinema.2025.2160p.HDR.mkv'},
     },
     {
-      // Same copy as the first row with worse seeding: deduped, max kept.
       'name': 'Torrentio\n1080p',
       'title':
           'Moonlit Cinema 2025 1080p WEB-DL x264\n👤 12 💾 2.04 GB ⚙️ 1337x',
@@ -41,7 +38,6 @@ const _payload = {
       },
     },
     {
-      // Series row: no filename hint, trackers attached.
       'name': 'Torrentio\n720p',
       'title': 'Moonlit Cinema S01E03 720p HDTV\n👤 300 💾 780.5 MB ⚙️ EZTV',
       'infoHash': 'cccccccccccccccccccccccccccccccccccccccc',
@@ -51,7 +47,6 @@ const _payload = {
       ],
     },
     {
-      // Not a torrent (direct URL) and a malformed hash: both skipped.
       'name': 'Torrentio\n1080p',
       'title': 'direct link\n👤 5 💾 1 GB ⚙️ Web',
       'url': 'https://example.test/stream.mp4',
@@ -104,8 +99,6 @@ void main() {
         series.magnet,
         contains('tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce'),
       );
-      // Movies come without trackers; public ones are added so the first
-      // peer connect does not depend on DHT alone.
       expect(copies.first.magnet, contains('tracker.opentrackr.org'));
     });
 

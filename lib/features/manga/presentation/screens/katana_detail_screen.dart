@@ -11,10 +11,6 @@ import '../katana/katana_nav.dart';
 import '../katana/katana_theme.dart';
 import '../../../../core/services/auth_service.dart';
 
-/// The manga detail page: cover and meta, first chapter / read offline
-/// actions plus a per-couple "Khent Reading" / "Claire Reading" button,
-/// description and the full chapter table with a reverse-order toggle,
-/// exactly like Manga Katana.
 class KatanaDetailScreen extends StatefulWidget {
   final String slug;
   final KatanaManga? preview;
@@ -31,22 +27,18 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   bool _loading = true;
   String? _error;
   bool _isReading = false;
-  bool _reversed = true; // site shows newest first
-  int? _selectedRangeBucket; // null = All, 0 = 1..50, 1 = 51..100, etc.
+  bool _reversed = true;
+  int? _selectedRangeBucket;
   String _chapterQuery = '';
   final TextEditingController _chapterFilterController =
       TextEditingController();
   KatanaBookmark? _partnerProgress;
   KatanaBookmark? _recommendation;
 
-  /// This user's bookmark record for the series: which chapters are
-  /// finished, and where they last stopped.
   KatanaBookmark? _myBookmark;
 
   Set<String> get _readChapterIds => _myBookmark?.readChapterIds ?? const {};
 
-  /// True once there is a chapter to resume, so "Continue" can reopen it at
-  /// her page instead of restarting it.
   bool get _hasProgress => _myBookmark?.hasProgress ?? false;
 
   String get _user => context.read<AuthService>().currentUser ?? '';
@@ -76,8 +68,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       final manga = await _service.fetchMangaDetail(widget.slug);
       if (!mounted) return;
       if (manga == null) {
-        // Keep any list-passed preview instead of wiping to a dead
-        // breadcrumb-only page; without one the error UI offers retry.
         setState(() {
           _loading = false;
           _error = 'Could not load this manga.';
@@ -298,8 +288,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     setState(() => _myBookmark = bookmark);
   }
 
-  /// "Khent Reading" for Khent, "Claire Reading" for Clair, and nothing
-  /// for Breyan / Octagram so the couple-only feature stays private.
   String? get _readingButtonLabel {
     switch (_user) {
       case 'khentsgdz':
@@ -354,10 +342,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     ).then((_) => _loadReadState());
   }
 
-  /// "Continue" opens the first chapter Clair has not finished, so it
-  /// stops re-opening chapter 1 on a series she is 40 chapters into. When
-  /// that chapter is the one she stopped in, it reopens at her page
-  /// instead of restarting it.
   void _openContinue() {
     final bookmark = _myBookmark;
     final next = nextUnreadChapter(
@@ -372,8 +356,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     _openReader(next, initialPage: resumePage);
   }
 
-  /// True once the user has opened this series at all, so "First Chapter"
-  /// becomes "Continue" even mid-way through chapter 1.
   bool get _hasStartedSeries => _hasProgress || _readChapterIds.isNotEmpty;
 
   void _openFirstChapter() {
@@ -743,8 +725,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     );
   }
 
-  /// Phone layout: label above value so long alt names never squeeze
-  /// into a 30px column next to the cover (iPhone vertical-wrap bug).
   Widget _metaStack(String label, String value, {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

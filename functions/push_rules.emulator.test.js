@@ -1,8 +1,5 @@
 'use strict';
 
-// Emulator-only push registration coverage. Run with the other rule tests:
-// firebase emulators:exec --only firestore --config firebase.emulators.json \
-//   --project demo-everglow "node --test functions/*.emulator.test.js"
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -73,7 +70,6 @@ test('FCM registrations are private and scoped to the verified couple profile', 
     assert.equal((await request(`users/${uid}`, 'owner', 'PATCH', { username })).status, 200);
   }
 
-  // The parent may not exist: each installation can create only its own child.
   assert.equal((await writeDevice('clairjassen', clairUid, clair, 'phone')).status, 200);
   assert.equal((await writeDevice('clairjassen', khentUid, clair, 'wrong-uid')).status, 403);
   assert.equal((await request(
@@ -82,8 +78,6 @@ test('FCM registrations are private and scoped to the verified couple profile', 
   assert.equal((await writeDevice('khentsgdz', clairUid, clair, 'foreign')).status, 403);
   assert.equal((await writeDevice('clairjassen', cinemaUid, cinema, 'cinema')).status, 403);
 
-  // Historical single-token docs are server-only, so they cannot be revived
-  // by an old client after logout. Motchi fields remain server-managed there.
   assert.equal((await request('fcm_tokens/clairjassen', 'owner', 'PATCH', {
     token: 'legacy-token', motchi: 'legacy-preferences',
   })).status, 200);

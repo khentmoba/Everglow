@@ -5,12 +5,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Unified atmospheric background for ALL screens.
-///
-/// Replaces both `GamifiedBackground` and `ShelfAtmosphericBackdrop`.
-/// Provides radial glows over a dark base — "atmospheric, never flat."
-///
-/// Honors `AppMotion.reduced` — renders a static gradient when enabled.
 class EverglowBackground extends StatefulWidget {
   final Color baseColor;
   final List<RadialGlow> glows;
@@ -36,7 +30,6 @@ class EverglowBackground extends StatefulWidget {
     this.showPetals = false,
   });
 
-  /// Cinema/anime variant with darker glows.
   const EverglowBackground.cinema({
     super.key,
     this.baseColor = AppColors.animeBackground,
@@ -57,27 +50,6 @@ class EverglowBackground extends StatefulWidget {
     this.showPetals = false,
   });
 
-  /// The bounding box of a glow's visible circle.
-  ///
-  /// [RadialGradient.radius] is a fraction of the box's *shortest side*, so the
-  /// circle's radius in pixels is `glow.size * shortestSide`. A square of
-  /// `2 * radius` with the radius fraction set to 0.5 keeps that exact centre
-  /// and radius while painting only the pixels the circle can reach. Everything
-  /// outside the circle used to be shaded with a fully-transparent gradient:
-  /// invisible, and paid for on every frame, since Flutter Web re-draws the
-  /// whole visible canvas each frame. The surrounding [Stack] clips whatever
-  /// falls off screen, so what actually gets filled is the circle's box
-  /// intersected with the viewport.
-  ///
-  /// The box is deliberately *not* trimmed further. Trimming it below the
-  /// gradient's real radius would drop the outer, near-transparent ring (alpha
-  /// still under ~0.07 there) and roughly halve the fill, which is tempting —
-  /// but it stops this drawing pixel-identical to the old full-screen version,
-  /// and that bit-identity is exactly what
-  /// `test/shared/widgets/everglow/everglow_background_test.dart` pins. A
-  /// sub-visible-looking change is still a change to Clair's backdrop, and the
-  /// brief for this work is zero visual degradation. The safe win is the
-  /// bounding itself; the rest is not free.
   static Rect glowRect(RadialGlow glow, Size size) {
     final radius = glow.size * math.min(size.width, size.height);
     final center = glow.alignment.withinRect(Offset.zero & size);
@@ -88,11 +60,9 @@ class EverglowBackground extends StatefulWidget {
     );
   }
 
-  /// The glow's gradient, drawn inside a box that is exactly its own circle.
   static Decoration glowDecoration(RadialGlow glow) => BoxDecoration(
     gradient: RadialGradient(
       center: Alignment.center,
-      // Half of the box, i.e. the real radius.
       radius: 0.5,
       colors: [
         glow.color.withValues(alpha: glow.opacity),
@@ -171,8 +141,6 @@ class _EverglowBackgroundState extends State<EverglowBackground>
                   final size = constraints.biggest;
                   return Stack(
                     children: [
-                      // Radial glows, each painted inside its own circle's
-                      // bounding box instead of the whole screen.
                       for (final g in widget.glows)
                         Positioned.fromRect(
                           rect: EverglowBackground.glowRect(g, size),
@@ -180,7 +148,6 @@ class _EverglowBackgroundState extends State<EverglowBackground>
                             decoration: EverglowBackground.glowDecoration(g),
                           ),
                         ),
-                      // Optional animated petal overlay (only when not reduced)
                       if (widget.showPetals &&
                           !AppMotion.reduced &&
                           _controller != null)
@@ -204,7 +171,6 @@ class _EverglowBackgroundState extends State<EverglowBackground>
   }
 }
 
-/// Configuration for a single radial glow.
 class RadialGlow {
   final Color color;
   final Alignment alignment;
@@ -219,7 +185,6 @@ class RadialGlow {
   });
 }
 
-/// Subtle petal field painter (decorative only).
 class _PetalPainter extends CustomPainter {
   final double progress;
   _PetalPainter(this.progress);

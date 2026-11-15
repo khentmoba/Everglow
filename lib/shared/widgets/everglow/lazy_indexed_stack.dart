@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Mount tabs on first visit, preserving their scroll/data on later switches.
-/// Hidden tabs disable tickers; media widgets must also respect TickerMode.
 class LazyIndexedStack extends StatefulWidget {
   const LazyIndexedStack({
     super.key,

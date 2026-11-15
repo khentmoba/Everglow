@@ -5,14 +5,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Ambient shimmer controller shared across ALL skeletons in the app.
-///
-/// Instead of every skeleton running its own 60fps [AnimationController]
-/// (which previously meant dozens of discordant tickers and gradient allocations
-/// when loading shelves or search results), this single ref-counted ticker runs
-/// only when at least one motion-enabled skeleton is on an active page.
-///
-/// All skeletons pulse in unified harmony, and frame overhead drops to near zero.
 class EverglowShimmerScope {
   EverglowShimmerScope._();
 
@@ -85,21 +77,11 @@ class _AmbientShimmerTickerProvider implements TickerProvider {
   }
 }
 
-/// Unified skeleton/loading placeholder.
-///
-/// The ONE loading pattern for the entire app. Replaces `ShimmerBox`,
-/// `ShimmerPosterRow`, and all `CircularProgressIndicator` usage in
-/// content areas.
-///
-/// Shows a pulsing shimmer when motion is allowed, or a static dim
-/// fill when `AppMotion.reduced` is true.
-/// Phones also use the still fill to avoid continuous loading repaints.
 class EverglowSkeleton extends StatefulWidget {
   final double width;
   final double height;
   final double radius;
 
-  /// Opt in for brief loading feedback on phones, rather than ambient motion.
   final bool animateOnPhone;
   final Color baseColor;
   final Color highlightColor;
@@ -228,12 +210,6 @@ class _EverglowSkeletonPainter extends CustomPainter {
   }
 }
 
-/// Animated placeholder lines for hover preview cards while details load.
-///
-/// Shared by anime + cinema hover popovers so a loading card shimmers
-/// instead of showing dead grey bars. Uses [EverglowSkeleton] so every
-/// instance shares the global shimmer ticker and respects
-/// [AppMotion.reduced] (static fill when reduced motion is on).
 class EverglowLoadingBars extends StatelessWidget {
   final List<double> widthFactors;
   final double barHeight;
@@ -267,10 +243,6 @@ class EverglowLoadingBars extends StatelessWidget {
   }
 }
 
-/// Animated placeholder chips for hover preview genre rows while loading.
-///
-/// Same shared ticker as [EverglowLoadingBars] — anime + cinema popovers
-/// use this when genres are still resolving.
 class EverglowLoadingChips extends StatelessWidget {
   final int count;
   final double height;
@@ -302,10 +274,6 @@ class EverglowLoadingChips extends StatelessWidget {
   }
 }
 
-/// A row of shimmer poster placeholders.
-///
-/// Use for horizontal scrolling content (cinema shelves, anime rows, etc.)
-/// while data is loading.
 class EverglowSkeletonRow extends StatelessWidget {
   final int count;
   final double itemWidth;
@@ -337,7 +305,6 @@ class EverglowSkeletonRow extends StatelessWidget {
   }
 }
 
-/// A shimmer grid placeholder.
 class EverglowSkeletonGrid extends StatelessWidget {
   final int count;
   final int crossAxisCount;
@@ -381,11 +348,6 @@ class EverglowSkeletonGrid extends StatelessWidget {
   }
 }
 
-/// Centered loading spinner with optional message.
-///
-/// The ONE spinner for the entire app. Use this instead of raw
-/// `CircularProgressIndicator` in content areas so every screen shows
-/// the same deep-rose spinner.
 class EverglowLoadingState extends StatelessWidget {
   final String? message;
   const EverglowLoadingState({super.key, this.message});

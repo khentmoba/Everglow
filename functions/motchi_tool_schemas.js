@@ -1,11 +1,5 @@
 'use strict';
 
-/* Motchi tool schemas + per-request selection — moved verbatim
- * from motchi_chat.js handleProxyAI() (mechanical split).
- * MOTCHI_TOOLS is the full function-calling schema array;
- * selectToolsForRequest prunes it per feature/greeting/intent.
- */
-
 const { CORE_TOOLS, selectToolNames, FOLLOW_THROUGH_TOOLS, isBareYes, hasOffer } = require('./motchi_tools.js');
 
 const MOTCHI_TOOLS = [
@@ -1104,14 +1098,6 @@ const MOTCHI_TOOLS = [
   },
 ];
 
-// Light chat: a bare greeting or smalltalk one-liner with no real ask.
-// The chat handler skips Firestore context + memory + persona reads for
-// these and answers from a slim prompt — same warmth, far faster TTFT.
-// Anchored whole-message patterns: compound asks ("hi, remember X")
-// don't match, so they keep the full pipeline. Both accept an optional
-// " motchi" tail ("hi motchi", "thanks motchi!", "hi, motchi") —
-// real greetings name her, and without this the fast lane only caught
-// bare "hi" while the most common messages paid full price.
 const PURE_GREETING_RE = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)(?:[!.,\s]+(?:motchi+|mochi+))?[!.,\s]*$/i;
 const SMALLTALK_RE = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)(?:[!.,\s]+(?:motchi+|mochi+))?[!.,\s?]*$/i;
 
@@ -1130,18 +1116,12 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
   }
   const trimmed = String(userMsg || '').trim().toLowerCase();
-  // Follow-through beats smalltalk: "ok" to an offered plan must keep
-  // the write tools, not the core-only smalltalk set.
   if (hasOffer(prevAssistantText) && isBareYes(trimmed)) {
     const wanted = new Set([...CORE_TOOLS, ...FOLLOW_THROUGH_TOOLS]);
     return MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
   }
   const isPureGreeting = PURE_GREETING_RE.test(trimmed);
   if (isPureGreeting) {
-    // A bare greeting never needs tools — answer warm and free.
-    // Compound asks ("hi, remember X") don't match, so they keep
-    // full tools. Both request builders omit `tools`/`tool_choice`
-    // entirely when this list is empty.
     return [];
   }
   const isSmallTalk = SMALLTALK_RE.test(trimmed);
@@ -1149,9 +1129,6 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
     const smallTalkAllowed = new Set(['set_mood', 'remember_fact', 'add_xp']);
     return MOTCHI_TOOLS.filter(t => smallTalkAllowed.has(t.function.name));
   }
-  // Intent routing: core tools + only the groups the message asks
-  // for (typically a third of the schemas). Falls back to full tools if
-  // the router ever returns nothing, so Motchi never goes blind.
   try {
     const wanted = new Set(selectToolNames(userMsg, prevAssistantText, prevUserText));
     const routed = MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
@@ -1162,13 +1139,6 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
 
 const REQUEST_TOOLS_SCHEMA = MOTCHI_TOOLS.find(t => t.function.name === 'request_tools');
 
-/**
- * Initial tool set for a chat turn under the Zero-Tool Start architecture.
- * Pure greetings start with 0 tools (immediate text stream).
- * Active plan follow-throughs ("yes" to an offer) keep write tools immediately.
- * Assistant turns start with ONLY the `request_tools` meta-tool: Motchi replies
- * in text for chatting/affection, or calls `request_tools` to mount exact tools.
- */
 function selectInitialToolsForTurn(reqFeature, userMsg, prevAssistantText = '', _prevUserText = '') {
   if (reqFeature === 'guardian') {
     const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
@@ -1179,8 +1149,6 @@ function selectInitialToolsForTurn(reqFeature, userMsg, prevAssistantText = '', 
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
   }
   const trimmed = String(userMsg || '').trim().toLowerCase();
-  // Follow-through beats smalltalk: "ok" to an offered plan must keep
-  // the write tools immediately, so the plan can execute without an extra mount round.
   if (hasOffer(prevAssistantText) && isBareYes(trimmed)) {
     const wanted = new Set([...CORE_TOOLS, ...FOLLOW_THROUGH_TOOLS]);
     return MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));

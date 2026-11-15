@@ -59,14 +59,12 @@ void main() {
     }
 
     final vertical = tester.state<ScrollableState>(_vertical()).position;
-    // Bring the first poster row into view and scroll it sideways.
     vertical.jumpTo(600);
     await tester.pump();
     final rowState = tester.state<ScrollableState>(_rowScroller(0));
     rowState.position.jumpTo(300);
     await tester.pump();
 
-    // Far past the row: a lazy list would have thrown it away by now.
     vertical.jumpTo(vertical.maxScrollExtent);
     await tester.pump();
     expect(

@@ -28,11 +28,6 @@ void main() {
   testWidgets('hovering a poster shows the preview, leaving closes it', (
     tester,
   ) async {
-    // Widget tests default to Android (touch highlight mode), where
-    // FocusableActionDetector suppresses hover highlights. Real desktop
-    // browsers run in traditional mode, so mirror that here. The override
-    // must be cleared before the test body ends (the framework verifies
-    // foundation vars after the body, before tearDowns).
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(1440, 900);
@@ -53,7 +48,6 @@ void main() {
                 items: List.generate(6, _item),
                 onTapItem: (_) {},
               ),
-              // Empty space below the row to move the pointer onto.
               const Expanded(child: SizedBox.expand()),
             ],
           ),
@@ -77,8 +71,6 @@ void main() {
       reason: 'hovering a poster for 260ms+ should show the preview',
     );
 
-    // Moving off the preview dismisses it (the preview owns dismissal:
-    // the covered card's exit/enter must not kill it, see #311 follow-up).
     await gesture.moveTo(const Offset(1300, 800));
     await tester.pump();
 

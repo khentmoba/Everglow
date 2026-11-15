@@ -4,12 +4,6 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/hidden_note.dart';
 
-/// A love-letter card for the Letterbox rail.
-///
-/// One envelope shape, three moods:
-/// - sealed (locked): deep plum + gold wax seal, countdown pill
-/// - unread: rose glow + NEW ribbon, inviting Clair to open it
-/// - read: quiet resting state
 class NoteCard extends StatefulWidget {
   final HiddenNote note;
   final VoidCallback onTap;
@@ -108,7 +102,6 @@ class _NoteCardState extends State<NoteCard> {
                 borderRadius: BorderRadius.circular(22),
                 child: Stack(
                   children: [
-                    // Envelope sheen across the top.
                     Positioned(
                       top: 0,
                       left: 24,
@@ -126,7 +119,6 @@ class _NoteCardState extends State<NoteCard> {
                         ),
                       ),
                     ),
-                    // Faint envelope watermark.
                     Positioned(
                       right: -12,
                       bottom: -12,
@@ -212,8 +204,6 @@ class _NoteCardState extends State<NoteCard> {
   }
 }
 
-/// Wax-seal medallion: gold lock while sealed, glowing heart when new,
-/// quiet envelope once read.
 class _SealMedallion extends StatelessWidget {
   final Color hue;
   final bool isNew;
@@ -285,7 +275,6 @@ class _SealMedallion extends StatelessWidget {
   }
 }
 
-/// Bottom pill: countdown while sealed, invite when new, rest when read.
 class _StatePill extends StatelessWidget {
   final HiddenNote note;
   final Color hue;

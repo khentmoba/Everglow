@@ -1,10 +1,5 @@
 'use strict';
 
-/* Unit tests for the Motchi tool dispatcher + executors.
- * Executors are (ctx, args) => JSON string, so tests pass stub services
- * instead of touching Firestore or the network.
- */
-
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -19,11 +14,6 @@ const {
   levelForXp,
   XP_PER_LEVEL,
 } = require('../motchi_exec_tools.js');
-
-// ── Minimal Firestore stub ──────────────────────────────────
-// Supports exactly the call shapes the tested executors use:
-//   db.collection(a).doc(b).collection(c).doc(d).get()/set()/delete()
-//   db.collection(a).add(doc)
 
 function makeDocStub({ exists = true, data = {} } = {}) {
   const calls = { set: [], deleted: false };
@@ -55,8 +45,6 @@ function makeDbStub({ leafDoc = null, added = null } = {}) {
   const chain = {
     doc: () => ({ ...terminal, collection: () => chain }),
     collection: () => chain,
-    // Query-chain no-ops returning empty results, so the split-injury guard
-    // below can run read executors (orderBy/limit/get) without a real DB.
     where: () => chain,
     orderBy: () => chain,
     limit: () => chain,
@@ -205,14 +193,14 @@ test('add_xp clamps the amount and reports the new total', async () => {
   const { ctx, doc } = makeCtx({ leafDoc: leaf });
   const out = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 500, reason: 'test' }));
   assert.equal(out.success, true);
-  assert.equal(out.amount, 100); // clamped from 500
+  assert.equal(out.amount, 100);
   assert.equal(out.xpTotal, 250);
   assert.equal(out.level, 2);
   assert.equal(doc.calls.set.length, 1);
-  assert.equal(doc.calls.set[0].doc.streak, 3); // streak preserved
+  assert.equal(doc.calls.set[0].doc.streak, 3);
 
   const out2 = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 'junk' }));
-  assert.equal(out2.amount, 25); // non-numeric falls back to 25
+  assert.equal(out2.amount, 25);
 });
 
 test('add_xp grants the remainder when the request exceeds the cap', async () => {
@@ -223,7 +211,7 @@ test('add_xp grants the remainder when the request exceeds the cap', async () =>
   const { ctx, doc } = makeCtx({ leafDoc: leaf });
   const partial = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 100 }));
   assert.equal(partial.success, true);
-  assert.equal(partial.amount, 50); // remainder up to the 200 cap
+  assert.equal(partial.amount, 50);
   assert.equal(partial.dayTotal, 200);
   assert.equal(partial.xpTotal, 1050);
   assert.equal(doc.calls.set[0].doc.motchiXpDayTotal, 200);
@@ -239,8 +227,8 @@ test('add_xp refuses when the day total already hit the cap', async () => {
   const out = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 25 }));
   assert.equal(out.success, false);
   assert.equal(out.capped, true);
-  assert.equal(out.xpTotal, 1000); // untouched
-  assert.equal(doc.calls.set.length, 0); // no write at all
+  assert.equal(out.xpTotal, 1000);
+  assert.equal(doc.calls.set.length, 0);
 });
 
 test('add_xp resets the day total on a new Philippine day', async () => {
@@ -274,7 +262,7 @@ test('delete_memory with confirm soft-deletes to trash, then deletes', async () 
   );
   assert.equal(out.success, true);
   assert.equal(out.memory_id, 'm1');
-  assert.equal(addedDocs.length, 1); // trash copy first
+  assert.equal(addedDocs.length, 1);
   assert.equal(addedDocs[0].originalId, 'm1');
   assert.equal(addedDocs[0].deletedBy, 'khentsgdz');
   assert.equal(doc.calls.deleted, true);
@@ -287,8 +275,6 @@ test('delete_memory reports missing memories and missing ids', async () => {
   const noId = JSON.parse(await executeToolCall(ctx, 'delete_memory', {}));
   assert.match(noId.error, /memory_id required/);
 });
-
-// ── Reminder executors ────────────────────────────────────
 
 function makeReminderDoc(id, data, updates) {
   return {
@@ -390,10 +376,7 @@ test('cancel_reminder by title confirms first, then cancels matches', async () =
   assert.match(nomatch.error, /No pending reminder/);
 });
 
-// ── Journal / calendar / bucket cleanup executors ───────────
-
 function makeCollectionCtx(seed) {
-  // seed: { collectionName: [{ id, data }] }
   const writes = [];
   const db = {
     collection: (name) => {
@@ -529,7 +512,7 @@ test('complete_bucket_item completes once, with client-parity fields', async () 
   const again = JSON.parse(await executeToolCall(ctx, 'complete_bucket_item', { id: 'b2' }));
   assert.equal(again.success, true);
   assert.equal(again.already_completed, true);
-  assert.equal(writes.length, 1); // no second write
+  assert.equal(writes.length, 1);
 });
 
 test('delete_bucket_item confirms first', async () => {
@@ -543,8 +526,6 @@ test('delete_bucket_item confirms first', async () => {
   assert.equal(done.success, true);
   assert.equal(writes.length, 1);
 });
-
-// ── Gallery vision ────────────────────────────────────────
 
 test('get_gallery stays text-only unless include_images is set', async () => {
   const { ctx } = makeCollectionCtx({
@@ -561,12 +542,11 @@ test('get_gallery attaches up to 3 thumbnails when asked', async () => {
     id: `g${i}`,
     data: { caption: `Photo ${i}`, imageUrl: `https://full/${i}`, thumbUrl: `https://thumb/${i}` },
   }));
-  // One photo with full-size URL only (no thumbnail backfilled yet).
   docs.push({ id: 'g6', data: { caption: 'Old one', imageUrl: 'https://full/6' } });
   const { ctx } = makeCollectionCtx({ gallery: docs });
   const out = JSON.parse(await executeToolCall(ctx, 'get_gallery', { include_images: true }));
   assert.equal(out.vision_images.length, 3);
-  assert.equal(out.vision_images[0].url, 'https://thumb/1'); // thumbnails first
+  assert.equal(out.vision_images[0].url, 'https://thumb/1');
   assert.equal(out.vision_images[0].caption, 'Photo 1');
 });
 
@@ -590,20 +570,17 @@ test('visionMessageForResults builds image input, capped per round', () => {
   ]);
   assert.equal(msg.role, 'user');
   const images = msg.content.filter((p) => p.type === 'image_url');
-  assert.equal(images.length, 3); // merged total capped
+  assert.equal(images.length, 3);
   assert.deepEqual(images.map((p) => p.image_url.url), ['a', 'b', 'c']);
   assert.equal(msg.content[0].type, 'text');
 });
 
 test('createToolCtx builds a live ctx (smoke: shape only)', () => {
-  // getAdmin() throws outside Cloud Functions without credentials, so a
-  // live ctx can only be built where Firebase is configured. When it
-  // builds, it must carry every service executors expect.
   let ctx;
   try {
     ctx = createToolCtx({ callerUid: 'khentsgdz', caller: 'khentsgdz' });
   } catch (_) {
-    return; // no credentials here — shape covered by makeCtx above
+    return;
   }
   for (const key of ['admin', 'db', 'callerUid', 'caller', 'levelForXp',
     'phtDateString', 'getTmdbKey', 'sendFCMToUser', 'getSpotifyAppToken',
@@ -613,13 +590,6 @@ test('createToolCtx builds a live ctx (smoke: shape only)', () => {
 });
 
 test('every tool runs without ReferenceError (split-injury guard)', async () => {
-  // The motchi_chat.js -> motchi_exec_*.js split moved executors without
-  // their helpers (parseFactStructure, rankMemories, getEmbedding,
-  // PARTNER_UID), so remember_fact and friends threw on every call while
-  // Motchi told Khent the memory book had a hiccup. This guard runs all
-  // 58 tools with validation-passing args against both a missing and an
-  // existing doc; any 'X is not defined' fails loudly. Other errors are
-  // fine — stubs have no network or real data.
   const realFetch = global.fetch;
   global.fetch = async () => ({
     ok: false, status: 500, json: async () => ({}), text: async () => '',
@@ -929,7 +899,6 @@ test('edit executors patch by title and reject bad fields', async () => {
       callerUid: 'khentsgdz',
     };
   };
-  // Bucket: title lookup + patch + enum guard.
   let out = JSON.parse(await planning.exec_edit_bucket_item(
     mkCtx([{ id: 'b1', data: { title: 'Siargao surfing' } }]),
     { title: 'Siargao', priority: 'high' },
@@ -948,14 +917,12 @@ test('edit executors patch by title and reject bad fields', async () => {
     { title: 'Siargao' },
   ));
   assert.ok(/Nothing to update/.test(out.error));
-  // Habit: ambiguity asks for confirmation.
   out = JSON.parse(await planning.exec_edit_habit(
     mkCtx([{ id: 'h1', data: { title: 'morning run' } }, { id: 'h2', data: { title: 'morning pages' } }]),
     { title: 'morning', frequency: 'weekly' },
   ));
   assert.equal(out.needs_confirmation, true);
   assert.equal(out.candidates.length, 2);
-  // Reminder: rescheduling parses PHT time and re-arms.
   updates.length = 0;
   out = JSON.parse(await planning.exec_edit_reminder(
     mkCtx([{ id: 'r1', data: { title: 'water plants' } }]),
@@ -969,7 +936,6 @@ test('edit executors patch by title and reject bad fields', async () => {
     { title: 'plants', remind_at: 'someday maybe' },
   ));
   assert.ok(/Could not understand/.test(out.error));
-  // Trip: dates + searchKey refresh on rename.
   updates.length = 0;
   out = JSON.parse(await planning.exec_edit_trip(
     mkCtx([{ id: 't1', data: { title: 'Cebu trip', description: 'beaches' } }]),
@@ -1043,9 +1009,7 @@ test('subs executors roll renewals forward and guard add args', async () => {
   assert.equal(all.count, 2);
   assert.equal(all.items[0].name, 'Netflix');
   assert.equal(all.items[0].days_until, 3);
-  // Stale yearly date rolls forward instead of going negative.
   assert.ok(all.items[1].days_until > 300);
-  // Yearly folds into the monthly total: 549 + 1200/12.
   assert.equal(all.monthly_total, 649);
 
   const soon = JSON.parse(await planning.exec_get_subscriptions(ctx, { renewing_within_days: 7 }));
@@ -1228,10 +1192,6 @@ test('search_anime returns empty results safely when both sources fail without t
 });
 
 
-// ── read_web_page: one blocked page must not discard the rest ──
-// Mirrors the anime sidechat receipt: web_search landed, one read landed,
-// one read did not. The reply was complete; only the provenance is partial.
-
 function withFetch(handler, fn) {
   const realFetch = global.fetch;
   global.fetch = handler;
@@ -1289,7 +1249,6 @@ test('a read that did not complete never alarms, a write that did still does', (
     toolReceipt('read_web_page', { urls: ['https://facebook.com/muse'] }, { error: 'Reading the page timed out' }),
   ];
   assert.deepEqual(readOnly.map((s) => s.status), ['done', 'done', 'failed']);
-  // The rows stay meaningful — which site each read was for.
   assert.equal(readOnly[1].title, 'fandom.com');
   assert.equal(readOnly[2].title, 'facebook.com');
   const writeFailed = toolReceipt('add_calendar_event', { title: 'Date night' }, { error: 'bad date' });
@@ -1297,14 +1256,6 @@ test('a read that did not complete never alarms, a write that did still does', (
   assert.equal(writeFailed.write, true);
 });
 
-// ── Free-first web search ──────────────────────────────────────
-// The paid key costs $0.005 a query, so ordinary lookups go out on the
-// keyless free stack first and only fall back to the wallet. These pin
-// the ordering: free answers, free failure is survivable, and the filters
-// the free path cannot do still go paid.
-
-// Real lite.duckduckgo.com markup, trimmed: anchors carry the title, the
-// td carries the snippet, and every target sits behind a uddg= redirect.
 const DDG_LITE_HTML = `
 <table><tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fvalorantesports.com%2Foverview&amp;rut=aa" class='result-link'>Champions Shanghai Standings</a></td></tr>
 <tr><td class='result-snippet'>The top two teams from each territory compete for the title.</td></tr></table>
@@ -1453,7 +1404,7 @@ test('read_web_page keeps the paid error when the free reader also comes up empt
     if (opts && opts.body) {
       return { ok: true, status: 200, json: async () => ({ results: [], errors: [{ url: 'https://x.example/gated', error: 'bot_protected' }] }) };
     }
-    return { ok: true, status: 200, text: async () => 'tiny' }; // too short to be a page
+    return { ok: true, status: 200, text: async () => 'tiny' };
   };
   try {
     const out = JSON.parse(await executeToolCall(ctx, 'read_web_page', {

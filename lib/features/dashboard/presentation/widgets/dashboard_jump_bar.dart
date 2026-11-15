@@ -4,11 +4,6 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_keyboard_activation.dart';
 
-/// Distilled zone jump bar — 4 zones instead of 5 scattered anchors.
-/// Today / Together / Our World / Play
-/// Each chip scrolls to a DashboardZoneHeader anchor. Replaces the
-/// previous 5-item bar (Today/Watching/Shelves/Timeline/Moments) which
-/// leaked shelf concerns back onto the dashboard.
 class DashboardJumpBar extends StatelessWidget {
   const DashboardJumpBar({super.key, required this.onJump});
   final void Function(String id) onJump;

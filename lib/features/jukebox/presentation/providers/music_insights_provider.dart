@@ -12,7 +12,7 @@ class DiscoveryEntry {
   final String artistName;
   final DateTime? khentFirst;
   final DateTime? clairFirst;
-  final String? winner; // 'khent' | 'clair' | 'tie' | null
+  final String? winner;
   DiscoveryEntry({
     required this.artistName,
     this.khentFirst,
@@ -22,7 +22,7 @@ class DiscoveryEntry {
 }
 
 class HeatmapData {
-  final Map<DateTime, int> counts; // date (midnight) -> plays
+  final Map<DateTime, int> counts;
   final int totalPlays;
   final int currentStreak;
   final int longestStreak;
@@ -48,7 +48,6 @@ class MusicInsightsProvider extends ChangeNotifier {
   late final String _khentUser;
   late final String _clairUser;
 
-  // ── Top artists/albums (overall) ──
   List<TopArtist> _khentArtists = [];
   List<TopArtist> _clairArtists = [];
   List<TopAlbum> _khentAlbums = [];
@@ -56,7 +55,6 @@ class MusicInsightsProvider extends ChangeNotifier {
   List<LovedTrack> _khentLoved = [];
   List<LovedTrack> _clairLoved = [];
 
-  // Weekly (7day)
   List<TopMusicTrack> _khentWeeklyTracks = [];
   List<TopMusicTrack> _clairWeeklyTracks = [];
   List<TopArtist> _khentWeeklyArtists = [];
@@ -64,14 +62,11 @@ class MusicInsightsProvider extends ChangeNotifier {
   List<TopAlbum> _khentWeeklyAlbums = [];
   List<TopAlbum> _clairWeeklyAlbums = [];
 
-  // Heatmap
   HeatmapData? _khentHeatmap;
   HeatmapData? _clairHeatmap;
 
-  // On This Day (last year same date)
   List<MusicStatus> _khentOnThisDay = [];
   List<MusicStatus> _clairOnThisDay = [];
-  // Anniversary (Feb 14 last year)
   List<MusicStatus> _khentAnniversary = [];
   List<MusicStatus> _clairAnniversary = [];
 
@@ -81,7 +76,6 @@ class MusicInsightsProvider extends ChangeNotifier {
   bool _disposed = false;
   bool _artworkCachingDone = false;
 
-  // Getters
   String get khentUser => _khentUser;
   String get clairUser => _clairUser;
   bool get isLoading => _loading;
@@ -114,7 +108,6 @@ class MusicInsightsProvider extends ChangeNotifier {
 
   List<DiscoveryEntry> get discovery => _discovery;
 
-  // Compatibility
   int get compatibilityScore {
     if (_khentArtists.isEmpty || _clairArtists.isEmpty) return 0;
     final khentSet = _khentArtists
@@ -129,11 +122,7 @@ class MusicInsightsProvider extends ChangeNotifier {
     final union = khentSet.union(clairSet).length;
     if (union == 0) return 0;
     final jaccard = inter / union;
-    // also check track overlap boost
-    // we don't have tracks here but we can weight by shared top track artists
-    // Scale to 0-100 with a boost so small overlaps still feel meaningful
     final boosted = (jaccard * 100 * 1.6).clamp(0, 100).round();
-    // Ensure at least showing something if there's any overlap
     if (inter > 0 && boosted < 12) return 12 + inter * 2;
     return boosted.clamp(0, 98);
   }
@@ -229,7 +218,6 @@ class MusicInsightsProvider extends ChangeNotifier {
   }
 
   Future<void> _loadHeatmapAndHistory() async {
-    // Heatmap: last 84 days (12 weeks)
     final now = DateTime.now();
     final from84 = now.subtract(const Duration(days: 84));
     final fromSec = (from84.millisecondsSinceEpoch / 1000).floor();
@@ -272,7 +260,6 @@ class MusicInsightsProvider extends ChangeNotifier {
     _khentHeatmap = _buildHeatmap(khentAll, days: 84);
     _clairHeatmap = _buildHeatmap(clairAll, days: 84);
 
-    // On This Day: same month/day last year 00:00-23:59
     final lastYear = DateTime(now.year - 1, now.month, now.day);
     final lFrom = DateTime(
       lastYear.year,
@@ -308,11 +295,9 @@ class MusicInsightsProvider extends ChangeNotifier {
     _khentOnThisDay = otdResults[0];
     _clairOnThisDay = otdResults[1];
 
-    // Anniversary: Feb 14 last year (or this year if after Feb 14)
     final annYear = now.month > 2 || (now.month == 2 && now.day >= 14)
         ? now.year
         : now.year - 1;
-    // Show the most recent Feb 14 that is in the past
     final annDate = DateTime(annYear, 2, 14);
     final annFrom = DateTime(annDate.year, annDate.month, annDate.day, 0, 0, 0);
     final annTo = DateTime(
@@ -323,7 +308,6 @@ class MusicInsightsProvider extends ChangeNotifier {
       59,
       59,
     );
-    // If annDate is today, use last year's Feb14 instead for "anniversary soundtrack"
     DateTime effFrom = annFrom;
     DateTime effTo = annTo;
     if (annDate.year == now.year &&
@@ -351,7 +335,6 @@ class MusicInsightsProvider extends ChangeNotifier {
     _khentAnniversary = annResults[0];
     _clairAnniversary = annResults[1];
 
-    // Discovery race: find earliest for shared artists among those recent 200+200
     _discovery = _buildDiscovery(khentAll, clairAll);
 
     _safeNotify();
@@ -360,7 +343,6 @@ class MusicInsightsProvider extends ChangeNotifier {
   HeatmapData _buildHeatmap(List<MusicStatus> tracks, {required int days}) {
     final now = DateTime.now();
     final map = <DateTime, int>{};
-    // init all days 0
     for (var i = 0; i < days; i++) {
       final d = DateTime(
         now.year,
@@ -379,7 +361,6 @@ class MusicInsightsProvider extends ChangeNotifier {
     final maxDaily = map.values.isEmpty
         ? 0
         : map.values.reduce((a, b) => a > b ? a : b);
-    // streak: consecutive days from today backwards with >0
     int currentStreak = 0;
     for (var i = 0; i < days; i++) {
       final d = DateTime(
@@ -391,14 +372,12 @@ class MusicInsightsProvider extends ChangeNotifier {
         currentStreak++;
       } else {
         if (i == 0) {
-          // if today is 0, current streak is 0
           break;
         } else {
           break;
         }
       }
     }
-    // longest streak in period
     int longest = 0;
     int cur = 0;
     for (var i = days - 1; i >= 0; i--) {
@@ -427,7 +406,6 @@ class MusicInsightsProvider extends ChangeNotifier {
     List<MusicStatus> khentAll,
     List<MusicStatus> clairAll,
   ) {
-    // shared artists = intersection of artist names in the fetched windows plus top artists
     final khentArtists = {
       for (final t in khentAll) t.artistName.toLowerCase(): t.artistName,
     };
@@ -437,12 +415,10 @@ class MusicInsightsProvider extends ChangeNotifier {
     final sharedKeys = khentArtists.keys.toSet().intersection(
       clairArtists.keys.toSet(),
     );
-    // also include shared top artists if not in recent window
     for (final a in sharedArtists) {
       sharedKeys.add(a.name.toLowerCase());
     }
     if (sharedKeys.isEmpty) return [];
-    // build earliest map
     Map<String, DateTime?> khentEarliest = {};
     Map<String, DateTime?> clairEarliest = {};
     for (final key in sharedKeys) {
@@ -489,7 +465,6 @@ class MusicInsightsProvider extends ChangeNotifier {
         ),
       );
     }
-    // sort: winners first, then alphabetical
     entries.sort((a, b) {
       if (a.winner == 'khent' && b.winner != 'khent') return -1;
       if (b.winner == 'khent' && a.winner != 'khent') return 1;
@@ -499,7 +474,6 @@ class MusicInsightsProvider extends ChangeNotifier {
   }
 
   Future<void> _enrichWeeklyArtwork() async {
-    // enrich weekly tracks missing artwork via MusicSyncService
     for (final list in [_khentWeeklyTracks, _clairWeeklyTracks]) {
       for (var i = 0; i < list.length; i++) {
         final t = list[i];

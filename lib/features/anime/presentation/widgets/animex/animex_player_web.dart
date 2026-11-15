@@ -14,7 +14,6 @@ import 'animex_videasy_progress.dart';
 
 bool _fullscreenExitSettling = false;
 
-/// True while the browser is in element fullscreen or settling out of it.
 bool isPlayerFullscreenActive() =>
     _fullscreenExitSettling || web.document.fullscreenElement != null;
 
@@ -25,39 +24,20 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final VoidCallback? onContentError;
   final void Function(VideasyProgress progress)? onProgress;
 
-  /// In-place seek for our Megavid player; other providers ignore it.
   final int? seekSeconds;
   final int seekRequest;
   final AniSkipTimes? skipTimes;
 
-  /// Destination token the player prints beside its next action (`EP 20`),
-  /// or null when nothing follows (a film, or the last episode of the last
-  /// season). The player only shows that action during the ending or the
-  /// last 90 seconds. [nextIsSeason] switches the wording to "Next season".
   final String? nextToken;
   final bool nextIsSeason;
   final VoidCallback? onNextEpisode;
 
-  /// Whether this frame may move on by itself when an episode ends. The
-  /// player's own "Next episode" button and the `n` shortcut are manual and
-  /// always work; only the automatic advance respects this switch.
   final bool autoAdvance;
 
   final ValueChanged<String>? onAudioChanged;
 
-  /// Fires when the embed changes episodes on its own (CineSrc
-  /// auto-play or its built-in episode picker), reporting the TMDB
-  /// season/episode it moved to. Our embed.html wrapper forwards the
-  /// event after origin-checking the upstream, so the app can keep its
-  /// episode list on the truth instead of the stale loaded episode.
   final void Function(int season, int episode)? onPlayerEpisodeChanged;
 
-  /// When true the embed runs inside a sandbox that traps popups and
-  /// top-frame navigation (the ad engines behind third-party anime
-  /// servers rely on both). MegaPlay and AniXo refuse sandboxed iframes
-  /// outright, so the frame skips the attribute for them (see
-  /// AnimeXEmbedPolicy); every other provider stays caged.
-  /// Trailers pass false — YouTube owns its embed and needs no cage.
   final bool sandbox;
 
   const AnimeXPlayerFrame({
@@ -110,9 +90,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   @override
   void initState() {
     super.initState();
-    // Per-host policy: MegaPlay/AniXo block sandboxed frames, and all
-    // three third-party servers reject referrer-less loads — without
-    // this the frame shows their 410/403/Embed-Only cards instead.
     final sandboxed =
         widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url);
     final referrer = AnimeXEmbedPolicy.referrerFor(
@@ -130,11 +107,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%';
-    // No `allow-popups` / `allow-top-navigation`: without them the
-    // sandbox swallows window.open + top-frame hijacks (the TikTok /
-    // YouTube app-open spam) while scripts + same-origin keep the
-    // HLS player itself alive. Mirrors web/embed.html and the cinema
-    // player, which cage their upstreams the same way.
     if (sandboxed) {
       _iframe.setAttribute(
         'sandbox',
@@ -150,14 +122,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
-    // No wheel forwarding by design: wheel events inside a
-    // cross-origin iframe never reach this document, so a listener on
-    // the iframe element can never fire.
-
     _onMessage = ((web.MessageEvent event) {
-      // Origin alone also admits unrelated iframes from the same host.
-      // Gate EVERY message, including errors and episode changes. Identity
-      // avoids Dart equality inspecting a cross-origin WindowProxy.
       if (!mounted ||
           _iframe.contentWindow == null ||
           !identical(event.source, _iframe.contentWindow) ||
@@ -181,8 +146,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         _applyEmbedScroll(scrollDelta);
         return;
       }
-      // CineSrc episode changes arrive as objects (forwarded by our
-      // embed.html wrapper, which already origin-checked the upstream).
       if (raw != null) {
         try {
           if (obj is Map && obj['type'] == 'animex-action') {
@@ -227,8 +190,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         widget.onContentError?.call();
         return;
       }
-      // Videasy progress ticks (other servers stay silent — their skip
-      // buttons simply remain manual). Origin-checked inside the parser.
       final progress = parseVideasyProgress(event.origin, data);
       if (progress != null && mounted) widget.onProgress?.call(progress);
     }).toJS;
@@ -316,9 +277,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     );
   }
 
-  /// Sends the opening/ending windows and the next-episode label. Sent on
-  /// load and on every change, even with no skip times, so the player can
-  /// clear a label that no longer applies.
   void _sendPlayerState() {
     if (!_loaded || !isAnimeXProxyPlayerUrl(widget.url)) return;
     final op = widget.skipTimes?.opening;
@@ -384,8 +342,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // The built-in factory does not retain a closure over this State
-            // for every episode/server change.
             HtmlElementView.fromTagName(
               tagName: 'div',
               onElementCreated: (element) {
@@ -553,8 +509,6 @@ class AnimeXTrailerModal extends StatelessWidget {
               child: AnimeXPlayerFrame(
                 url: url,
                 referrerPolicy: 'strict-origin-when-cross-origin',
-                // YouTube owns this embed — caging it could break its
-                // player API / fullscreen, and it serves no popunders.
                 sandbox: false,
               ),
             ),

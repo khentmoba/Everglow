@@ -56,7 +56,6 @@ Future<void> _pumpGarden(
 }
 
 void main() {
-  // NOTE: no pumpAndSettle — the weather overlay breathes forever.
   group('DailyBloom sanctuary card', () {
     testWidgets('shows plant, growth, stats, and actions', (tester) async {
       final provider = GardenProvider(service: _FakeSource(_stats()));
@@ -95,9 +94,7 @@ void main() {
       expect(find.text('Opening bloom'), findsNothing);
       await tester.tap(find.byType(GardenPlantView));
       await tester.pump();
-      // Tooltip appears near the top of the scene; the stage story reads out.
       expect(find.text('Opening bloom'), findsOneWidget);
-      // Let the tooltip's 3s auto-dismiss timer expire before teardown.
       await tester.pump(const Duration(seconds: 4));
     });
   });

@@ -1,16 +1,3 @@
-// Custom Flutter web bootstrap (replaces the SDK default template).
-//
-// The default template registers Flutter's own service worker, which is a
-// deprecated self-unregistering shim — and Everglow ships its own worker
-// (web/sw.js, cache-first shell + immutable assets) registered from
-// index.html. Two workers on the same scope would flap and reload-loop, so
-// this bootstrap intentionally passes NO serviceWorkerSettings: Flutter
-// never touches service workers and ours owns the scope alone.
-//
-// Placeholders below are substituted at build time by flutter_tools.
-// Clean up deprecated Intl.v8BreakIterator ahead of Flutter's browser detection
-// so it cleanly chooses standard CanvasKit ICU text segmentation instead of
-// triggering Chrome's deprecation warning.
 try {
   if (typeof window !== 'undefined' && window.Intl) {
     delete window.Intl.v8BreakIterator;
@@ -19,8 +6,6 @@ try {
   try { window.Intl.v8BreakIterator = undefined; } catch (__) {}
 }
 
-// Hook Dart's deferred library loader so part files carry the build version
-// query parameter, matching main.dart.js and preventing stale CDN/browser cache hits.
 if (typeof window !== 'undefined') {
   window.dartDeferredLibraryLoader = function (uri, successCallback, errorCallback) {
     var script = document.createElement('script');

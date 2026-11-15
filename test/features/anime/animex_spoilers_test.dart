@@ -198,14 +198,12 @@ void main() {
         }
         expect(find.text('First secret romaji'), findsNothing);
         expect(find.text('Episode 1'), findsWidgets);
-        // Whichever cards the rail has built still show their frame.
         expect(_imageUrls(tester), contains(_episodes.first.thumbnail));
         if (desktop) {
           expect(find.text('Playing Episode 1'), findsOneWidget);
           expect(find.text('Up next: Episode 2'), findsOneWidget);
         }
 
-        // Revealed on the episode itself, never in a drawer.
         expect(_sheet, findsNothing);
         await tester.tap(find.text('Reveal details').hitTestable().first);
         await tester.pumpAndSettle();
@@ -275,17 +273,14 @@ void main() {
       '$layout watched episodes show the story inline, not behind What happened',
       (tester) async {
         await _pumpSelector(tester, desktop: desktop, selectedEpisode: 2);
-        // Episode 1 is done: title and story show with no extra tap.
         expect(find.text(_episodes.first.title!), findsOneWidget);
         expect(find.text(_episodes.first.synopsis!), findsOneWidget);
         expect(find.text('What happened'), findsNothing);
         expect(find.text('What happened \u2192'), findsNothing);
-        // Episodes 2-3 are playing/upcoming: still guarded.
         for (final episode in _episodes.skip(1)) {
           expect(find.text(episode.title!), findsNothing);
           expect(find.text(episode.synopsis!), findsNothing);
         }
-        // Tapping the inline story still opens the full sheet.
         final story = find.text(_episodes.first.synopsis!);
         await tester.ensureVisible(story);
         await tester.pumpAndSettle();
@@ -342,7 +337,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(_sheet, findsNothing);
         expect(find.text(_episodes[1].synopsis!), findsOneWidget);
-        // The episode itself still plays; no drawer holds the only button.
         await tester.tap(find.text(_episodes[1].title!).hitTestable().first);
         await tester.pumpAndSettle();
         expect(selected, 2);

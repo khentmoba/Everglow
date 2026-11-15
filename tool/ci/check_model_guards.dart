@@ -1,17 +1,3 @@
-// Model-guard gate: Firestore parsing must tolerate hostile stored data.
-// Prevents the #107-#110 class: one odd stored doc blanking a whole
-// surface — GardenStats hard-cast on lastVisit (4d83936), gallery photo
-// with text tags / string coords throwing mid-stream (5a0477f), chat
-// month-day padding and bad timestamps (bd505ea), mood check-in retry
-// (b24eca9), canvas stroke hard-cast on points bricking the shared
-// canvas for both partners (this sweep).
-//
-// Rule: the pinned guard tests below must exist and must exercise bad
-// input (null / wrong-type markers). Deleting or hollowing them fails
-// the PR. When adding a new fromFirestore/fromMap model, add a companion
-// test with null + garbage cases and pin it here.
-//
-// Usage: dart tool/ci/check_model_guards.dart
 import 'dart:io';
 
 import '_io.dart';
@@ -44,7 +30,6 @@ Future<void> main() async {
     }
   }
 
-  // Advisory only: models with fromFirestore but no companion test.
   final untested = <String>[];
   await for (final e in Directory('lib').list(recursive: true)) {
     if (e is! File || !e.path.endsWith('.dart')) continue;

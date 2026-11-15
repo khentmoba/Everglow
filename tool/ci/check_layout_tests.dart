@@ -1,15 +1,3 @@
-// Layout-overflow gate: card widgets must keep phone/tablet tests.
-// Prevents the #54/#56/#58 class: poster/book/shelf cards overflowing on
-// Clair's phone and tablet (the top "looks broken" report). The repo
-// convention is a layout test per card asserting no overflow at small
-// surfaces (e.g. netflix_poster_card_layout_test, book_cover_card_layout,
-// shelf_poster_card_layout, feature_section_layout).
-//
-// Rule: the pinned layout tests below must exist and mention small
-// surfaces (phone/tablet/overflow markers). Deleting them fails the PR.
-// New card/rail widgets should follow the same pattern and be pinned here.
-//
-// Usage: dart tool/ci/check_layout_tests.dart
 import 'dart:io';
 
 const pinned = {

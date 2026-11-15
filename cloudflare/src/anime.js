@@ -1,22 +1,3 @@
-// Everglow streaming resolvers on Cloudflare Workers.
-//
-// Ported from functions/anime.js. Same routes and same player page — the
-// runtime changed (WebCrypto instead of node:crypto, Response/ReadableStream
-// instead of Express, a Worker secret instead of the Firestore stamp key) and
-// so did the transport: every upstream URL now travels inside an AES-GCM
-// sealed token, so a playlist names no host at all.
-//
-// Deliberately NOT ported:
-//   - AnimePahe (needs a self-hosted API base; the app no longer offers it)
-//   - proxyAnimeSegment (Kwik only, same reason)
-//   - Firebase ID-token verification (optional before, and the app never
-//     sends a token to these routes)
-//   - DNS-based SSRF checks (no resolver in Workers; the seal and the
-//     host allowlists already pin every URL to one we handed out)
-//   - per-IP rate limiting (two viewers; add Durable Objects if that changes)
-
-// The player page is shared with the Firebase functions so the two cannot
-// drift (they already did once: #571 landed on Firebase only).
 import { hlsPlayerHtml } from '../../functions/hls_player.js';
 import {
   YUME_SERVER_IDS,
@@ -31,7 +12,6 @@ const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/** Marker text the app probe recognizes as "try the next server". */
 const NO_SOURCE_MARKER = 'no playable stream sources';
 
 const MEGAVID_ORIGIN = 'https://megavid.buzz';
@@ -54,16 +34,6 @@ const MEGAPLAY_HOSTS = new Set([
 
 const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt']);
 
-/** Cinema's fixed server table — the rows that are always offered.
- *
- *  `id` travels in the URL and is deliberately opaque; `label` is what she
- *  reads, so it is short, warm, and says nothing about the upstream. Same
- *  rule as YumeZone's table: the provider name is ours to know, not something
- *  the browser needs.
- *
- *  These are the providers' own source lists, which do not change per title.
- *  A source that has nothing for this film is still a row: it fails in about a
- *  second, which is cheap next to hiding a row that would have worked. */
 const CINEMA_SERVERS = [
   { id: 'cine-1', label: 'Reel', provider: 'fmov', key: 'valence' },
   { id: 'cine-2', label: 'Matinee', provider: 'fmov', key: 'vector' },
@@ -78,31 +48,15 @@ const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
 const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
 
-/** Hard ceiling for one Cinema resolve. The app treats a player page that
- *  has not loaded in 15 s as dead and moves to CineSrc, so a slow-but-healthy
- *  answer after that is wasted. Every source races inside this budget. */
 const CINEMA_BUDGET_MS = 10000;
-/** A pick from the player's picker is not a page load: the player is already
- *  up, nothing else is racing, and there is no fallback to fall back to. It is
- *  allowed to be slower, because a cold CDN pulls from origin and took 6-10 s
- *  the first time we asked. */
 const CINEMA_PICK_BUDGET_MS = 15000;
 const CINEMA_PICK_PLAYLIST_MS = 12000;
-/** One budget for the whole YumeZone server walk, so nine dead servers fail
- *  inside the app's load timer instead of past it. */
 const YUME_BUDGET_MS = 12000;
-/** One budget for the whole Everglow walk (MegaPlay, then Megavid, then
- *  YumeZone's servers). Eleven upstreams share it, so a dead episode fails
- *  inside the app's load timer instead of one 10 s timeout per server. */
 const EVERGLOW_BUDGET_MS = 12000;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-// ─── Small runtime helpers ───────────────────────────────
-
-/** fetch with a hard timeout. Workers have no AbortSignal.timeout on every
- *  compatibility date, and a leaked timer keeps the isolate awake. */
 async function fetchT(url, init, ms, outer) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
@@ -146,8 +100,6 @@ async function hmacSha256(secret, message) {
   return crypto.subtle.sign('HMAC', key, enc.encode(String(message)));
 }
 
-/** Pads or truncates a string to exactly [len] bytes, like the Node
- *  padKeyBytes it replaces. */
 function padKeyBytes(str, len) {
   const raw = enc.encode(String(str));
   const out = new Uint8Array(len);
@@ -168,8 +120,6 @@ function normTitle(s) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '');
 }
-
-// ─── Host predicates ─────────────────────────────────────
 
 function isMegavidHost(hostname) {
   const h = String(hostname || '').toLowerCase();
@@ -240,23 +190,9 @@ function streamHostPrefix(url) {
   return 'megavid';
 }
 
-// ─── Sealed transport ────────────────────────────────────
-//
-// Every media URL the browser receives is an opaque sealed token: AES-GCM
-// ciphertext over {provider, relay endpoint, folder}, never a host, a path,
-// or a query string. The GCM tag is also the MAC, so a token cannot be forged,
-// re-scoped, or replayed under another provider.
-//
-// This replaced a plaintext `?d=<folder>&s=<hmac>` pair. The HMAC proved the
-// scope was ours, but the scope itself was readable — anyone who opened a
-// playlist learned the upstream CDN and could fetch it directly. Sealing keeps
-// the same one-token-per-folder cost and removes the disclosure.
-
 const SEAL_AAD = 'everglow.seal.v1';
 const sealCiphers = new Map();
 
-/** Derives the AES-GCM key from the CDN_STAMP_KEY secret. Cached because a
- *  single playlist seals one token per folder, and a film has several. */
 async function sealCipher(key) {
   const raw = String(key || '');
   if (!raw) return null;
@@ -272,7 +208,6 @@ async function sealCipher(key) {
   return cipher;
 }
 
-/** Seals one payload into a URL-safe token, or '' when no key is configured. */
 async function sealTarget(key, payload) {
   const cipher = await sealCipher(key);
   if (!cipher) return '';
@@ -291,8 +226,6 @@ async function sealTarget(key, payload) {
   return bytesToBase64Url(out);
 }
 
-/** Opens a sealed token. Null for anything we did not mint, including a token
- *  lifted from another provider's playlist and replayed here. */
 async function openSeal(key, token) {
   const cipher = await sealCipher(key);
   if (!cipher || !token) return null;
@@ -302,7 +235,6 @@ async function openSeal(key, token) {
   } catch {
     return null;
   }
-  // 12-byte IV, 16-byte tag, and at least one byte of body.
   if (raw.length < 29) return null;
   try {
     const plain = await crypto.subtle.decrypt(
@@ -317,29 +249,16 @@ async function openSeal(key, token) {
   }
 }
 
-/** Hosts that run an open "fetch anything" relay. A folder stamp on them
- *  would vouch for every URL on the internet, so they are only ever reached
- *  in relay mode, where the stamp covers the relay's exact endpoint and the
- *  folder of the URL it fetches. */
 function isRelayHost(hostname) {
   const h = String(hostname || '').toLowerCase();
   return h === 'fmov.my' || h.endsWith('.fmov.my') || h.endsWith('.workers.dev');
 }
 
-/** True when any query parameter carries a URL — the signature of a relay. */
 function hasUrlParam(absUrl) {
   const q = absUrl.indexOf('?');
   return q >= 0 && /(?:^|&)[^=&#]*=(?:https?:|https?%3a)/i.test(absUrl.slice(q + 1));
 }
 
-/** Splits an upstream URL into the relay endpoint and the URL it fetches.
- *
- *  fmov.my/api/proxy?url=… and VidBolt's dash-hls-bridge Workers fetch
- *  whatever `url=` says. A stamp over the relay's folder reopened the open
- *  proxy (any public player page handed one out), so in relay mode the stamp
- *  covers `relay endpoint | folder of the inner URL` instead. Returns null for
- *  a URL we must never stamp: a nested relay, or a direct URL on a relay host
- *  or carrying a URL-valued parameter. */
 function stampParts(absUrl) {
   const clean = String(absUrl || '').split('#')[0];
   const q = clean.indexOf('?');
@@ -356,9 +275,6 @@ function stampParts(absUrl) {
       }
     }
     if (inner !== null && /^https?:\/\//i.test(inner)) {
-      // Relay mode. A second `url=` (which value does the relay honour?) or
-      // any other URL-valued parameter besides the header hints it takes
-      // could aim the relay somewhere the stamp never covered.
       for (const kv of pairs) {
         if (/^url=/i.test(kv)) continue;
         const eq = kv.indexOf('=');
@@ -381,8 +297,6 @@ function stampParts(absUrl) {
   return { relay: '', inner: clean };
 }
 
-/** True when a path remainder cannot climb out of its sealed folder.
- *  Decoded first, so `..%2F..%2Fx` is caught as well as `../x`. */
 function safeRemainder(rel) {
   if (!rel) return null;
   let decoded;
@@ -396,19 +310,11 @@ function safeRemainder(rel) {
   return rel;
 }
 
-/** Builds a sealed proxy URL for one upstream file. The whole target travels
- *  inside the token, so a master playlist or a subtitle track costs one seal
- *  and the browser learns nothing but the token. */
 async function sealedUrl(proxyBase, absUrl, provider, key) {
   const parts = stampParts(absUrl);
   if (!parts) return null;
   const sp = splitForTransport(absUrl);
   if (!sp) {
-    // No folder to scope. A relay URL is refused here because this path is
-    // used by resolvers, where the relay endpoint comes from a provider and
-    // sealing it whole would vouch for a URL we did not choose. The playlist
-    // rewriter (`emit`) does seal one whole, and that is fine: the token pins
-    // exactly one URL and `scopedTarget` re-vets it with `stampParts`.
     if (parts.relay) return null;
     const whole = await sealTarget(key, { p: provider, u: parts.inner });
     return whole ? `${proxyBase}?t=${whole}` : null;
@@ -430,31 +336,17 @@ async function sealedUrl(proxyBase, absUrl, provider, key) {
   return `${proxyBase}?t=${token}&r=${encodeURIComponent(sp.r)}`;
 }
 
-/** Proxy URL for a single file a provider pointed us at (a master playlist,
- *  a subtitle track). Null when the URL may never be sealed. */
 async function scopedUrl(proxyBase, absUrl, provider, key) {
   return sealedUrl(proxyBase, absUrl, provider, key);
 }
 
-/** Proxy URL for a file a Cinema provider pointed us at. */
 function cinemaProxyUrl(proxyBase, absUrl, provider, key) {
   return scopedUrl(proxyBase, absUrl, provider, key);
 }
 
-/** A caption that names a website is an advert, not dialogue. Some releases
- *  repackage the subtitle track with one spliced in — "Visit hoofoot.ru to
- *  watch all sports livestream and highlights for free" sits at the start and
- *  again past the runtime, and every English track for Breaking Bad carries
- *  it. It is not in the video, so it is dropped here rather than shown.
- *
- *  Checked against 6,800 cues from four real tracks: this matched only the
- *  advert, never a line of dialogue. */
 const AD_URL_RE =
   /(?:https?:\/\/|www\.)\S+|\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:ru|com|net|org|to|tv|io|me|xyz|site|live|cc|info|biz|co)\b/i;
 
-/** Drops advert cues from a WebVTT file. Anything that is not a cue (the
- *  `WEBVTT` header, NOTE blocks, cue identifiers) is left exactly as it was;
- *  a file with nothing to drop is returned untouched. */
 function stripAdCues(vtt) {
   if (typeof vtt !== 'string' || !vtt.includes('-->')) return vtt;
   const blocks = vtt.split(/\r?\n\r?\n/);
@@ -463,7 +355,6 @@ function stripAdCues(vtt) {
   for (const block of blocks) {
     if (!block.trim()) continue;
     const lines = block.split(/\r?\n/);
-    // Text starts after the timing line; a header block has no timing line.
     const arrow = lines.findIndex((l) => l.includes('-->'));
     if (arrow >= 0 && AD_URL_RE.test(lines.slice(arrow + 1).join(' '))) {
       dropped += 1;
@@ -475,17 +366,10 @@ function stripAdCues(vtt) {
   return `${kept.join('\n\n')}\n`;
 }
 
-/** Proxy URL for a file MegaPlay pointed us at. Sealed like everything else:
- *  the allowlisted-host shortcut only saved a signature, and it printed the
- *  CDN host into the playlist. */
 async function megaplayProxyUrl(proxyBase, absUrl, key) {
   return scopedUrl(proxyBase, absUrl, 'megaplay', key);
 }
 
-/** Reconstructs the upstream URL a proxy request names from its sealed token.
- *  Returns {provider, target, relay, scope}, or null. The seal is the only
- *  authorization: a token we did not mint cannot be opened, and one we did
- *  mint is re-checked against `stampParts` before any fetch. */
 async function scopedTarget(params, key) {
   const sealed = await openSeal(key, params.get('t') || '');
   if (!sealed) return null;
@@ -497,8 +381,6 @@ async function scopedTarget(params, key) {
   if (!target) {
     if (!scope.startsWith('https://') || !scope.endsWith('/')) return null;
     if (relay) {
-      // Relay form: the inner URL keeps the relay's own encoding, so only the
-      // part after the (encoded) scope travels, plus any extra query params.
       const rr = safeRemainder(params.get('rr'));
       const rq = params.get('rq') || '';
       if (rr === null) return null;
@@ -517,16 +399,11 @@ async function scopedTarget(params, key) {
   } catch {
     return null;
   }
-  // The rebuilt target must still live under the folder we sealed, and a
-  // relay token must still name the relay endpoint we sealed. Both are
-  // positive checks, so no encoding trick can widen the scope.
   if (scope && !innerHref.startsWith(normalizeHref(scope))) return null;
   if (relay && parts.relay !== relay) return null;
   return { provider, target, relay: parts.relay, scope };
 }
 
-/** `new URL(...).href` form of a folder, so a folder holding a space or a
- *  non-ASCII character compares equal to the href it is checked against. */
 function normalizeHref(url) {
   try {
     return new URL(url).href;
@@ -535,11 +412,6 @@ function normalizeHref(url) {
   }
 }
 
-// ─── Playlist helpers ────────────────────────────────────
-
-/** Precomputed base for resolving playlist URIs. Parsing the base once per
- *  playlist instead of once per URI is most of the difference between a
- *  60 ms rewrite and a 5 ms one on a 1,000-segment film. */
 function baseContext(base) {
   let b;
   try {
@@ -554,10 +426,6 @@ function baseContext(base) {
   };
 }
 
-/** Resolves one playlist URI against a precomputed base. Absolute URLs —
- *  the common case, every segment of a real film — take a string fast path
- *  and never build a URL object. Same-origin `api_key` is preserved because
- *  VidBolt's Orion CDN needs it on child playlists. */
 function resolveWithContext(ctx, ref) {
   const r = String(ref || '').trim();
   if (!r || r.startsWith('#')) return null;
@@ -584,7 +452,6 @@ function resolveWithContext(ctx, ref) {
   }
 }
 
-/** Resolves a possibly-relative playlist URI against its playlist URL. */
 function resolvePlaylistUrl(ref, base) {
   try {
     return resolveWithContext(baseContext(base), ref);
@@ -593,8 +460,6 @@ function resolvePlaylistUrl(ref, base) {
   }
 }
 
-/** Non-comment URIs from an HLS playlist. With [variantsOnly], only URIs
- *  following an `#EXT-X-STREAM-INF` line are returned. */
 function playlistUris(text, base, { variantsOnly = false } = {}) {
   const lines = String(text || '').split(/\r?\n/);
   const out = [];
@@ -627,7 +492,6 @@ function firstM3u8(node, out) {
   return found;
 }
 
-/** Total seconds of content in a media playlist. */
 function playlistDuration(text) {
   let total = 0;
   for (const line of String(text || '').split(/\r?\n/)) {
@@ -637,25 +501,9 @@ function playlistDuration(text) {
   return total;
 }
 
-/** Minimum seconds for a playlist to plausibly be a full episode or movie. */
 const MIN_MEGAVID_SECONDS = 120;
 
 
-/** Rewrites every URI in a playlist to a proxy URL covered by ONE stamp
- *  over the playlist's directory. URIs that escape that directory fall back
- *  to a stamp over their own, so a mixed playlist stays correct at the cost
- *  of an extra signature or two. Listed hosts (MegaPlay) need no stamp.
- *
- *  Deliberately synchronous on the common path: a 1,043-segment film used to
- *  allocate a promise per segment, which cost more CPU than the signatures
- *  it replaced. Now the whole playlist is one signature and one string pass. */
-/** Splits one absolute playlist URI for transport, with string operations
- *  only (this runs once per segment). Returns the stamp group it belongs to
- *  and how to rebuild it, or null to leave the URI untouched.
- *
- *  This is not the security check: a stamp signs only (provider, relay,
- *  folder), and the Worker re-derives and validates every target itself
- *  (scopedTarget + stampParts). A wrong split here can only break playback. */
 function splitForTransport(abs) {
   const hash = abs.indexOf('#');
   const clean = hash < 0 ? abs : abs.slice(0, hash);
@@ -673,8 +521,6 @@ function splitForTransport(abs) {
         const cut = rawPath.toUpperCase().lastIndexOf('%2F');
         if (cut < 0) return null;
         const encFolder = raw.slice(0, cut + 3);
-        // Only rest that comes AFTER url= can be rebuilt; anything before it
-        // falls back to the full form.
         const before = at > 0 ? query.slice(0, at - 1) : '';
         return {
           relay: clean.slice(0, q),
@@ -696,13 +542,10 @@ function splitForTransport(abs) {
   return { relay: '', group: `|${folder}`, folder, r: clean.slice(slash + 1), lossless: hash < 0 };
 }
 
-/** Rewrites every URI in a playlist to a sealed proxy URL. One seal per
- *  (relay endpoint, folder): a 1,043-segment film is one AES-GCM call. */
 async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key) {
   const ctx = baseContext(playlistUrl);
   const lines = String(text || '').split(/\r?\n/);
 
-  // Pass 1: resolve every URI once and collect its seal group.
   const items = new Map();
   const consider = (ref) => {
     if (items.has(ref)) return;
@@ -721,15 +564,10 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     }
   }
 
-  // Seal each group once. A group that cannot be scoped (a URL with no
-  // directory) falls back to a whole-URL seal per URI in pass 2.
   const groups = new Map();
   for (const item of items.values()) {
     if (!item || groups.has(item.split.group)) continue;
     const sp = item.split;
-    // A member that cannot travel as a folder tail must not touch the group:
-    // storing `null` for it also nulled every sealable sibling in the same
-    // folder, so one fragment URI turned a whole playlist into ?t=0.
     if (!sp.lossless) continue;
     let scope;
     try {
@@ -742,16 +580,12 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     groups.set(sp.group, token ? { t: token } : null);
   }
 
-  // Pass 2: emit. Only a bare filename or relay tail travels in the clear.
   const emit = async (ref) => {
     const item = items.get(ref);
     if (!item) return null;
     const sp = item.split;
     const g = sp.lossless ? groups.get(sp.group) : null;
     if (!g) {
-      // No usable group — this URI cannot ride a folder seal, so seal it whole.
-      // A relay URL is allowed here (unlike in `sealedUrl`): the token pins
-      // one exact URL, and `scopedTarget` still re-vets it with `stampParts`.
       const token = await sealTarget(key, { p: provider, u: item.abs });
       return token ? `${proxyBase}?t=${token}` : null;
     }
@@ -764,10 +598,6 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     return `${proxyBase}?t=${g.t}&r=${encodeURIComponent(sp.r)}`;
   };
 
-  // A URI we could not seal must never leave as itself: an absolute upstream
-  // URL in a playlist hands the browser a host we spent this whole transport
-  // hiding, and it would be fetched directly. Point it at the proxy with an
-  // unopenable token instead — same-origin, and refused with a 400.
   const dead = `${proxyBase}?t=0`;
   const out = [];
   for (const line of lines) {
@@ -795,18 +625,13 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
   return out.join('\n');
 }
 
-/** Cinema playlists: every URI is sealed under the playlist's directory. */
 function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key) {
   return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key);
 }
 
-/** MegaPlay playlists. The allowlisted-host shortcut is gone: it only saved a
- *  signature and printed the CDN host into the playlist. */
 function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, provider, stampKey) {
   return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, stampKey);
 }
-
-// ─── Stream verification ─────────────────────────────────
 
 async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders(), signal) {
   const res = await fetchT(url, { headers }, timeoutMs, signal);
@@ -819,8 +644,6 @@ async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders(), 
   return text;
 }
 
-/** Downloads just the first bytes of a segment, key, or init map: proves
- *  the file exists without pulling megabytes when the CDN ignores Range. */
 async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(), signal) {
   const res = await fetchT(
     url,
@@ -849,10 +672,6 @@ async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(
   }
 }
 
-/** First segment bytes must look like MPEG-TS (sync byte 0x47) when the URL
- *  points at a .ts file, or a MegaPlay .jpg / VidBolt .png disguised TS
- *  segment. CDNs answer 200 with an HTML error page for removed files —
- *  fetchable, but it can never play. Other containers only need bytes. */
 function assertPlayableHead(chunk, url, label) {
   const path = String(url).split('?')[0].toLowerCase();
   const prefix = streamHostPrefix(url);
@@ -867,14 +686,6 @@ function assertPlayableHead(chunk, url, label) {
   }
 }
 
-/** Proves an HLS stream is actually playable before we serve our player
- *  page: master playlist, every variant, key / init map when present, and
- *  each variant's first segment must fetch with playable bytes. Anything
- *  dead throws, and the endpoint answers with the failover marker so the
- *  app advances to the next server instead of stalling on a spinner. */
-/** One pass over a media playlist for both its duration and its URIs.
- *  verifyStream used to split and scan the same 480 KB playlist twice per
- *  variant, which dominated the resolve's CPU. */
 function parseMediaPlaylist(text, { stopAfterSeconds = 0 } = {}) {
   let duration = 0;
   const uris = [];
@@ -889,19 +700,11 @@ function parseMediaPlaylist(text, { stopAfterSeconds = 0 } = {}) {
       continue;
     }
     uris.push(t);
-    // A 1,043-segment film is proven long enough after ~15 lines; scanning
-    // the rest only costs CPU. `duration` is then a lower bound, which is all
-    // the "long enough to be an episode" check needs.
     if (stopAfterSeconds > 0 && duration >= stopAfterSeconds) break;
   }
   return { duration, uris };
 }
 
-/** Proves an HLS stream is actually playable before we serve our player
- *  page: master playlist, the first variant, key / init map when present,
- *  and each variant's first segment must fetch with playable bytes. Anything
- *  dead throws, and the endpoint answers with the failover marker so the app
- *  advances to the next server instead of stalling on a spinner. */
 async function verifyStream(masterUrl, headers = megavidHeaders(), signal, opts = {}) {
   const prefix = streamHostPrefix(masterUrl);
   const playlistMs = opts.playlistMs || 8000;
@@ -968,8 +771,6 @@ function verifyCinemaStream(masterUrl, provider, signal, opts) {
   return verifyStream(masterUrl, cinemaHeaders(provider), signal, opts);
 }
 
-// ─── Upstream resolvers ──────────────────────────────────
-
 async function decryptMegaPlayPayload(encStr) {
   const keyBytes = padKeyBytes(MEGAPLAY_ENC_KEY, 32);
   const iv = padKeyBytes(MEGAPLAY_ENC_IV, 16);
@@ -1011,8 +812,6 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
   const data = await res.json();
   if (data.status !== 'ok' || !data.source) throw new Error('megavid: no stream');
   await verifyMegavidStream(data.source, opts.signal);
-  // `sealedUrl` is async, so the map must be too: a bare promise here used to
-  // survive the filter (a promise is truthy) and reach the player as `{}`.
   const tracks = await Promise.all(
     (Array.isArray(data.tracks) ? data.tracks : [])
       .filter((t) => t && t.file)
@@ -1085,21 +884,11 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts
   };
 }
 
-/** The player's picker list, in the order the walk tries it.
- *
- *  `label` is what Clair reads, so it is short, warm and light-themed to match
- *  Everglow, and says nothing about the upstream — the provider name is ours
- *  to know, not something the browser needs. Nova is MegaPlay, Iris is
- *  Megavid, and the nine YumeZone streams keep the names they already had. */
 const EVERGLOW_DIRECT_SERVERS = [
   { id: 'megaplay', label: 'Nova', source: 'megaplay' },
   { id: 'megavid', label: 'Iris', source: 'megavid' },
 ];
 
-/** Every stream the Everglow source can play, picker order.
- *
- *  YumeZone keys on AniList ids only, so a MAL-only title leaves its nine
- *  streams out: a row that can never play is worse than no row. */
 function everglowServerList(audio, { anilistId = 0 } = {}) {
   const list = EVERGLOW_DIRECT_SERVERS.map((s) => ({ ...s }));
   if (anilistId > 0) {
@@ -1110,11 +899,6 @@ function everglowServerList(audio, { anilistId = 0 } = {}) {
   return list;
 }
 
-/** The player's in-page server list.
- *
- *  Each entry is a URL the player can fetch to switch to that server without
- *  reloading the page. They are lazy on purpose: resolving all eleven up front
- *  would cost eleven upstream calls and verifications for the one she watches. */
 function everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }) {
   let origin;
   try {
@@ -1133,13 +917,6 @@ function everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }) {
   }));
 }
 
-/** Resolves the Everglow source: MegaPlay, then Megavid, then YumeZone's
- *  servers in audio order, all under one budget.
- *
- *  With [serverId] only that upstream is tried — the player's picker must not
- *  quietly play something other than what she tapped. Without it the first
- *  playable stream wins, so one dead upstream costs a couple of seconds
- *  instead of the whole episode. */
 async function resolveEverglow(
   anilistId,
   malId,
@@ -1195,15 +972,6 @@ async function resolveEverglow(
   throw new Error('everglow: no playable stream', { cause: lastError });
 }
 
-/** Resolves one YumeZone server to our sealed proxy URL.
- *
- *  With [serverId] only that server is tried — the player's picker must not
- *  quietly play something other than what she tapped. Without it, the servers
- *  are tried in [yumeServerOrder] and the first playable one wins.
- *
- *  No subtitle tracks are returned: YumeZone ships ASS and SRT, and a `<track>`
- *  element only renders WebVTT. The hardsub servers carry them in the picture,
- *  which is why they lead the order for subbed audio. */
 async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, opts = {}) {
   if (!anilistId || anilistId <= 0) throw new Error('yumezone: needs an AniList id');
   if (!key) throw new Error('yumezone: seal key unavailable');
@@ -1213,16 +981,10 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
     if (!picked) throw new Error(`yumezone: unknown server ${serverId}`);
     order = [picked];
   }
-  // Nine servers tried in order, each with a 9 s lookup and a verification
-  // behind it, would run far past the app's own 15 s load timer and show the
-  // stalled card instead of reaching the first live server. One budget covers
-  // the whole walk, like Cinema's.
   const budgetMs = opts.budgetMs || YUME_BUDGET_MS;
   const deadline = Date.now() + budgetMs;
   const ctrl = new AbortController();
   const budgetTimer = setTimeout(() => ctrl.abort(), budgetMs);
-  // An outer walk (Everglow) owns a bigger deadline: when it gives up, this
-  // walk must stop too, or it keeps fetching for a page nobody will see.
   const outer = opts.signal;
   const onAbort = () => ctrl.abort();
   if (outer) {
@@ -1275,11 +1037,6 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
   throw new Error('yumezone: no playable stream', { cause: lastError });
 }
 
-/**
- * Picks up to 8 WebVTT subtitle tracks, ordering clean English captions
- * first and deduplicating numbered mirrors so English never gets pushed off
- * the 8-track cap by alphabetical lists.
- */
 function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
   if (!Array.isArray(rawTracks)) return [];
   const candidates = [];
@@ -1393,8 +1150,6 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
   };
 }
 
-/** Fmov's four sources, in the order that answers fastest for this media
- *  type. Display order lives in [CINEMA_SERVERS]; this is only the race. */
 function fmovSourceOrder(isTv) {
   return isTv
     ? ['vector', 'core', 'titan', 'valence']
@@ -1405,7 +1160,6 @@ function cinemaServer(id) {
   return CINEMA_SERVERS.find((s) => s.id === id) || null;
 }
 
-/** Which picker row is playing, so the menu can mark it. */
 function cinemaServerId(hit) {
   const row = CINEMA_SERVERS.find(
     (s) => s.provider === hit.provider && (hit.provider === 'vidbolt' || s.key === hit.key),
@@ -1413,11 +1167,6 @@ function cinemaServerId(hit) {
   return row ? row.id : '';
 }
 
-/** The player's in-page server list for Cinema.
- *
- *  Every row is a lazy `format=json` URL: the player fetches one only when it
- *  is picked, so five servers cost nothing until she tries a second one.
- *  Same shape as [yumeServerLinks], so the picker needs no new code. */
 function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep) {
   let origin;
   try {
@@ -1436,13 +1185,6 @@ function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep) {
   }));
 }
 
-/** Resolves a TMDB movie or episode to our ad-free HLS player page.
- *
- *  Fmov's sources and VidBolt race in parallel; the first verified
- *  stream wins. With [opts.server] only that one server is tried — the
- *  player's picker must play the row she tapped, not whichever answered
- *  first. Throws (so the app moves on to CineSrc) when nothing verifies
- *  within the budget or the stamp key is unavailable. */
 async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts = {}) {
   const isTv = mediaType === 'tv';
   if (!key) throw new Error('cinema: stamp key unavailable');
@@ -1451,10 +1193,6 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   if (opts.server && !picked) throw new Error('cinema: unknown server');
   const budgetMs = opts.budgetMs || (picked ? CINEMA_PICK_BUDGET_MS : CINEMA_BUDGET_MS);
   const verifyOpts = picked ? { playlistMs: CINEMA_PICK_PLAYLIST_MS } : undefined;
-  // Every provider resolves in parallel (one fetch + one JSON parse each),
-  // then only the winner is verified. Verifying inside each attempt meant
-  // paying for five playlist verifications and using one, which was the
-  // resolve's whole CPU bill; batching them instead doubled wall time.
   const remaining = picked
     ? [picked.provider === 'fmov' ? picked.key : picked.provider]
     : [...fmovSourceOrder(isTv), 'vidbolt'];
@@ -1462,9 +1200,6 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error('cinema: timed out')), budgetMs);
   });
-  // Verification is the slow half, so it gets the same budget: without this a
-  // provider that answers fast but verifies slowly ran past the app's own
-  // 15 s load timer and the work was thrown away.
   const budgetCtrl = new AbortController();
   const budgetTimer = setTimeout(() => budgetCtrl.abort(), budgetMs);
   let hit = null;
@@ -1486,13 +1221,9 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
         lastError = e;
         break;
       } finally {
-        // The moment one provider answers, the rest are cancelled so their
-        // payloads are never parsed.
         losers.abort();
         for (const a of attempts) a.catch(() => {});
       }
-      // Drop the source that answered, by its source key — not the provider
-      // name, which is shared by all four Fmov sources.
       const at = remaining.indexOf(candidate.key);
       if (at >= 0) remaining.splice(at, 1);
       try {
@@ -1533,18 +1264,11 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     tracks,
     title: isTv ? `S${season} E${ep}` : 'Movie',
     ep: isTv ? ep : 1,
-    // The player's own picker. Lazy rows, so a resolve still costs one fetch
-    // and one verification; the rest are only paid for if she picks one.
     servers: cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep),
     server: cinemaServerId(hit),
   };
 }
 
-// ─── Player page ─────────────────────────────────────────
-
-/** [notify] also posts `animex-content-error` to the embedding app. Cinema
- *  needs it: its player has no dead-server probe reading the marker text, so
- *  without the message it would sit on this page until its load timer. */
 function failHtml(title, detail, { notify = false } = {}) {
   return (
     '<!DOCTYPE html><html><head><meta charset="utf-8">' +
@@ -1601,9 +1325,6 @@ function validateAnimeParams(query) {
     if (!Number.isFinite(ep) || ep < 1 || ep > 5000) {
       return { error: 'e must be 1..5000' };
     }
-    // The player's picker names a row from [CINEMA_SERVERS]. Anything else is
-    // refused here rather than resolved: an unknown id must not fall back to
-    // "whichever answers first", which is the opposite of what a pick means.
     const rawServer = String(query.server || '').trim();
     if (rawServer && !CINEMA_SERVER_IDS.has(rawServer)) {
       return { error: 'unknown server' };
@@ -1625,9 +1346,6 @@ function validateAnimeParams(query) {
     return { error: 'audio must be sub or dub' };
   }
   const rawServer = String(query.server || '').trim();
-  // The picker pins a Yume stream with `server=`; Everglow's two direct
-  // upstreams can be pinned the same way, so a deep link can name any of the
-  // eleven. A direct id on any other source is a mistake, not a shortcut.
   const pinnedDirect =
     source === 'everglow' && EVERGLOW_DIRECT_SERVERS.some((s) => s.id === rawServer);
   if (rawServer && !YUME_SERVER_IDS.has(rawServer) && !pinnedDirect) {
@@ -1637,7 +1355,6 @@ function validateAnimeParams(query) {
 }
 
 export {
-  // pure helpers (unit-tested)
   normTitle,
   validateAnimeParams,
   failHtml,

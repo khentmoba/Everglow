@@ -8,11 +8,6 @@ import '../../data/models/journal_entry.dart';
 import 'journal_detail_sheet.dart';
 import 'journal_ui.dart';
 
-/// A journal entry rendered as a romantic love letter.
-///
-/// Warm paper feel: category accent thread on top, serif title, author
-/// avatar footer. Locked entries stay sealed until opened. Tapping opens
-/// the shared [JournalDetailSheet] (or [onTap] when the list overrides).
 class JournalEntryCard extends StatelessWidget {
   final JournalEntry entry;
   final VoidCallback? onTap;
@@ -71,7 +66,6 @@ class JournalEntryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Category accent thread
             Container(
               height: 3.5,
               decoration: BoxDecoration(

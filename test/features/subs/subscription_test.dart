@@ -61,7 +61,6 @@ void main() {
     });
 
     test('month-end renewal clamps instead of overflowing', () {
-      // Jan 31 -> Feb would overflow to Mar 3 without clamping.
       final sub = _sub(renewalDate: DateTime.utc(2026, 1, 31));
       expect(
         sub.nextRenewal(now: DateTime.utc(2026, 2, 10)),
@@ -91,7 +90,6 @@ void main() {
       expect(odd.cycle, SubCycle.monthly);
       expect(odd.payer, SubPayer.shared);
       expect(odd.createdBy, '');
-      // Still computes a renewal instead of throwing.
       expect(odd.daysUntilRenewal() >= 0, isTrue);
     });
 

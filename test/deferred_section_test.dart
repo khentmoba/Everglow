@@ -15,7 +15,6 @@ class _PaintCounter extends CustomPainter {
   bool shouldRepaint(covariant _PaintCounter oldDelegate) => false;
 }
 
-/// Counts which sections actually got mounted.
 class _Section extends StatefulWidget {
   const _Section({required this.id, required this.built});
 
@@ -63,13 +62,11 @@ Widget harness({
   );
 }
 
-/// Scrolls to the very bottom of the list, deterministically.
 Future<void> scrollToEnd(
   WidgetTester tester,
   ScrollController controller,
 ) async {
   controller.jumpTo(controller.position.maxScrollExtent);
-  // Let staggered reveals land, then settle any extent change they caused.
   await tester.pumpAndSettle();
   if (controller.position.pixels < controller.position.maxScrollExtent) {
     controller.jumpTo(controller.position.maxScrollExtent);
@@ -95,7 +92,6 @@ void main() {
     controller.jumpTo(3000);
     await tester.pump();
     var lastCount = built.length;
-    // Several nearby cards share the same reveal deadline after a fast jump.
     await tester.pump(const Duration(milliseconds: 81));
     expect(built.length - lastCount, lessThanOrEqualTo(1));
     for (var frame = 0; frame < 6; frame++) {
@@ -104,7 +100,6 @@ void main() {
       expect(built.length - lastCount, lessThanOrEqualTo(1));
     }
     expect(built.difference(before).length, greaterThanOrEqualTo(2));
-    // Once revealed, scrolling back must not unload existing cards.
     controller.jumpTo(0);
     await tester.pumpAndSettle();
     expect(built, containsAll(before));
@@ -133,7 +128,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 100));
-    // One already-granted mount can finish; waiting cards must not join it.
     expect(built.difference(before).length, lessThanOrEqualTo(1));
     (controller.position as ScrollPositionWithSingleContext).goIdle();
     await tester.pumpAndSettle();
@@ -171,9 +165,8 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 121));
       await tester
-          .pumpAndSettle(); // finish the initial screen before the fling
+          .pumpAndSettle();
       final before = Set<int>.of(built);
-      // Real ballistic activity; jumpTo has no sustained fling velocity.
       (controller.position as ScrollPositionWithSingleContext).goBallistic(
         6000,
       );
@@ -184,7 +177,6 @@ void main() {
       expect(built, before, reason: 'do not mount cards during a fast fling');
 
       (controller.position as ScrollPositionWithSingleContext).goIdle();
-      // Stopping must trigger recovery without another pixel notification.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 121));
       await tester.pump();
@@ -391,9 +383,6 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
   testWidgets('reveals through the dashboard wrapper patterns', (tester) async {
-    // Mirrors how the dashboard actually uses this widget: an entrance-motion
-    // wrapper around the child, and one DeferredSection per column of a
-    // DashboardPair on phone width.
     final built = <int>{};
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -415,7 +404,6 @@ void main() {
                 ),
               ),
             ),
-            // The pair's two halves each defer on their own.
             SliverToBoxAdapter(
               child: Column(
                 children: [
@@ -446,11 +434,6 @@ void main() {
   testWidgets('a section reveals when it moves into range without a scroll', (
     tester,
   ) async {
-    // The failure that must never come back: a visibility check that quietly
-    // stops firing leaves the section as an empty placeholder forever (this is
-    // how the Together zone turned into a grey slab). Nothing notifies here —
-    // no scroll event, no dependency change — so only the safety net can save
-    // it.
     final built = <int>{};
     final spacer = ValueNotifier<double>(3000);
     addTearDown(spacer.dispose);
@@ -478,11 +461,10 @@ void main() {
     await tester.pump();
     expect(built, isNot(contains(1)));
 
-    // The section is now at the top of the viewport, but nothing told it so.
     spacer.value = 0;
-    await tester.pump(); // applies the new layout
-    await tester.pump(const Duration(milliseconds: 500)); // safety-net tick
-    await tester.pump(); // builds the revealed section
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
 
     expect(built, contains(1));
   });
@@ -490,9 +472,6 @@ void main() {
   testWidgets('a CustomScrollView builds every sliver child eagerly', (
     tester,
   ) async {
-    // The fact this whole widget exists for: inside a CustomScrollView the
-    // framework skips layout and paint for far-away slivers, but it still
-    // *builds* them all. So laziness has to come from the child, not the sliver.
     final built = <int>{};
     await tester.pumpWidget(
       MaterialApp(
@@ -536,8 +515,6 @@ void main() {
   testWidgets('deferMs never mounts a section that is offscreen', (
     tester,
   ) async {
-    // The regression that made the whole dashboard mount on web: the old web
-    // branch waited `deferMs` and then revealed regardless of position.
     final built = <int>{};
     await tester.pumpWidget(harness(built: built, deferMs: 40));
     await tester.pump(const Duration(milliseconds: 200));
@@ -580,7 +557,6 @@ void main() {
       harness(built: built, controller: controller, warm: true),
     );
     await tester.pump();
-    // Keep moving faster than the stillness delay for several seconds.
     for (var i = 0; i < 12; i++) {
       controller.jumpTo(i.isEven ? 10 : 0);
       await tester.pump(const Duration(milliseconds: 300));
@@ -600,7 +576,6 @@ void main() {
     await tester.pumpWidget(harness(built: built, warm: true));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpWidget(const SizedBox.shrink());
-    // flutter_test fails the test if a warm-up timer is still pending here.
     await tester.pump(DeferredSection.warmIdleDelay * 2);
     expect(built, isNot(contains(19)));
     expect(tester.takeException(), isNull);
@@ -643,13 +618,11 @@ void main() {
       );
       await tester.pump();
 
-      // Fling past the top sections so some sit unbuilt above the viewport.
       (controller.position as ScrollPositionWithSingleContext).goBallistic(6000);
       await tester.pump(const Duration(milliseconds: 200));
       (controller.position as ScrollPositionWithSingleContext).goIdle();
       await tester.pump();
 
-      // Pick an on-screen section and record its global top.
       int? onScreenIndex;
       double? beforeTop;
       for (var i = 0; i < 20; i++) {
@@ -665,7 +638,6 @@ void main() {
       }
       expect(onScreenIndex, isNotNull);
 
-      // Let idle warm-up run to completion.
       await tester.pump(DeferredSection.warmIdleDelay);
       for (var i = 0; i < 30; i++) {
         await tester.pump(DeferredSection.warmGap);
@@ -675,7 +647,6 @@ void main() {
           keys[onScreenIndex!].currentContext?.findRenderObject() as RenderBox?;
       final afterTop = afterBox!.localToGlobal(Offset.zero).dy;
       expect(afterTop, beforeTop);
-      // Sections below the viewport still warmed.
       expect(built, contains(19));
 
       await tester.pumpWidget(const SizedBox.shrink());

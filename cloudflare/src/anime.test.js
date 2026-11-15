@@ -50,9 +50,6 @@ import { yumeSig } from './yumezone.js';
 const KEY = 'demo-cdn-key';
 const HOST = 'https://everglow-stream.example.workers.dev';
 
-/** The upstream URL a proxy URL points at. The token is sealed, so this opens
- *  it with the demo key — the test can still assert on the real target even
- *  though the transport never prints it. */
 async function upstreamOf(proxyUrl, key = KEY) {
   const u = proxyUrl instanceof URL ? proxyUrl : new URL(proxyUrl);
   const sealed = await openSeal(key, u.searchParams.get('t') || '');
@@ -66,7 +63,6 @@ async function upstreamOf(proxyUrl, key = KEY) {
   return scope + (u.searchParams.get('r') || '');
 }
 
-/** fmov's open relay and a CDN folder it fetches from, as real films use. */
 const RELAY = 'https://fmov.my/api/proxy';
 const CDN = 'https://srv323.truawk.cyou/aes/0/abc/film.mp4/';
 const relayOf = (inner) => `${RELAY}?url=${encodeURIComponent(inner)}`;
@@ -76,7 +72,6 @@ test('validateAnimeParams accepts the sources the app actually offers', () => {
     const p = validateAnimeParams({ source, anilistId: 21, ep: 1, audio: 'sub' });
     assert.equal(p.error, undefined, source);
   }
-  // AnimePahe is gone: it needed a self-hosted API base the app never uses.
   assert.ok(validateAnimeParams({ source: 'animepahe', malId: 21, ep: 1 }).error);
   assert.ok(validateAnimeParams({ source: 'megaplay', ep: 1 }).error);
   assert.ok(validateAnimeParams({ source: 'megaplay', anilistId: 21, ep: 0 }).error);
@@ -111,7 +106,6 @@ test('host predicates match the Node originals', () => {
   assert.equal(isMegaPlayHost('fetch.nexabloom.top'), true);
   assert.equal(isMegaPlayHost('nexabloom.top.evil.com'), false);
 
-  // Cinema hosts are deliberately NOT on the open allowlist.
   assert.equal(isAnimeCdnHost('fmov.my'), false);
   assert.equal(isAnimeCdnHost('proxy.vidbolt.xyz'), false);
     assert.deepEqual([...CINEMA_PROVIDERS].sort(), ['fmov', 'vidbolt']);
@@ -129,7 +123,6 @@ test('stampParts splits relays and refuses URLs that must never be stamped', () 
   assert.deepEqual(stampParts(direct), { relay: '', inner: direct });
   const bridge = `https://dash-hls-bridge.someone.workers.dev/?url=${encodeURIComponent(`${CDN}m.m3u8`)}`;
   assert.equal(stampParts(bridge).relay, 'https://dash-hls-bridge.someone.workers.dev/');
-  // Never stampable: a relay host in direct mode, a nested relay, a URL-valued param.
   assert.equal(stampParts('https://fmov.my/api/proxy?url=master.m3u8'), null);
   assert.equal(stampParts('https://fmov.my/api/'), null);
   assert.equal(stampParts(relayOf(relayOf('https://example.com/'))), null);
@@ -140,7 +133,6 @@ test('Cinema seals bind provider + relay endpoint + inner folder', async () => {
   const url = relayOf(`${CDN}index.m3u8`);
   const proxied = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, url, 'fmov', KEY));
   assert.equal(await upstreamOf(proxied), url);
-  // Nothing about the upstream survives in the URL itself.
   for (const leak of ['d', 's', 'u', 'rp', 'p']) {
     assert.equal(proxied.searchParams.get(leak), null, `no ${leak} param`);
   }
@@ -152,7 +144,6 @@ test('Cinema seals bind provider + relay endpoint + inner folder', async () => {
   assert.equal(sealed.r, RELAY);
   assert.equal(sealed.s, CDN);
 
-  // A token from another key is refused, and so is a tampered one.
   assert.equal(await openSeal('other-key', proxied.searchParams.get('t')), null);
   const t = proxied.searchParams.get('t');
   const flipped = t.slice(0, -2) + (t.endsWith('AA') ? 'BB' : 'AA');
@@ -210,8 +201,6 @@ test('a URI outside the playlist directory gets its own scope; a relay URI is ne
   const lines = out.split('\n');
   const sealed = await openSeal(KEY, new URL(lines[1]).searchParams.get('t'));
   assert.equal(sealed.s, 'https://other.example/deep/');
-  // A relay URI is never folder-sealed, so it cannot be sealed at all: it is
-  // pointed at the proxy instead of being echoed upstream.
   assert.equal(lines[2], `${HOST}/proxyMegavidHls?t=0`, 'not echoed, so the proxy refuses it');
 });
 
@@ -223,8 +212,6 @@ test('a URI we cannot seal is never echoed, so no upstream host reaches the brow
     'vidbolt',
     KEY,
   );
-  // An absolute upstream URL used to be printed verbatim, which handed the
-  // browser a host the whole transport exists to hide.
   assert.ok(!out.includes('fmov.my'), 'no upstream host in the rewritten playlist');
   assert.ok(out.includes(`${HOST}/proxyMegavidHls?t=0`), 'unsealable URIs point at the proxy');
   const lines = out.split('\n').filter(Boolean);
@@ -233,9 +220,6 @@ test('a URI we cannot seal is never echoed, so no upstream host reaches the brow
 });
 
 test('one unsealable URI does not poison its sealable neighbours', async () => {
-  // A fragment makes a URI non-lossless. It used to store `null` for the
-  // shared folder group, which turned the perfectly sealable seg1.ts into
-  // ?t=0 too — the outcome depended on which line came first.
   const out = await rewriteCinemaPlaylist(
     '#EXTM3U\nhttps://cdn.example/a/seg0.ts#t=1\nseg1.ts\n',
     'https://cdn.example/a/index.m3u8',
@@ -249,14 +233,11 @@ test('one unsealable URI does not poison its sealable neighbours', async () => {
     const sealed = await scopedTarget(new URL(link).searchParams, KEY);
     assert.ok(sealed, `${link} opens`);
   }
-  // The fragment rides along in the whole-URL seal; fetch ignores it.
   assert.ok((await upstreamOf(new URL(links[0]))).startsWith('https://cdn.example/a/seg0.ts'));
   assert.equal(await upstreamOf(new URL(links[1])), 'https://cdn.example/a/seg1.ts');
 });
 
 test('a relay URI with a param before url= still gets a real token', async () => {
-  // `?tok=x&url=…` is not lossless, so it travels as a whole-URL seal rather
-  // than being nulled by the group it shares with the plain segments.
   const out = await rewriteCinemaPlaylist(
     '#EXTM3U\n/api/proxy?tok=x&url=' +
       encodeURIComponent('https://cdn.example/a/seg0.ts') +
@@ -280,8 +261,6 @@ test('a folder holding a space or a non-ASCII character still plays', async () =
   const base = 'https://cdn.example/a b/ëpisode/index.m3u8';
   const out = await rewriteCinemaPlaylist('#EXTM3U\nseg0.ts\n', base, `${HOST}/proxyMegavidHls`, 'fmov', KEY);
   const link = out.split('\n').find((l) => l.startsWith(HOST));
-  // `innerHref` is a normalized href while the sealed scope was the raw
-  // folder, so every segment 400'd on any folder with a space in it.
   const sealed = await scopedTarget(new URL(link).searchParams, KEY);
   assert.ok(sealed, 'the sealed link opens');
   assert.equal(sealed.target, 'https://cdn.example/a%20b/%C3%ABpisode/seg0.ts');
@@ -295,7 +274,6 @@ test('rewritePlaylistWithHosts seals every host, allowlisted or not', async () =
     'megaplay',
     KEY,
   );
-  // The allowlisted-host shortcut is gone: both hosts leave as opaque tokens.
   assert.ok(!out.includes('megavid.se'), 'allowlisted host is not printed');
   assert.ok(!out.includes('evil.example'), 'unlisted host is not printed');
   const urls = out.split('\n').filter((l) => l.startsWith(HOST)).map((l) => new URL(l));
@@ -390,7 +368,6 @@ test('hlsPlayerHtml escapes, keeps the failover marker out, and its script runs'
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   new vm.Script(code);
 
-  // It must actually start the stream, not just parse.
   const calls = { loadSource: [], attachMedia: [], handlers: {} };
   const element = () => ({
     style: {}, hidden: true, src: '', currentTime: 0, duration: NaN, listeners: {},
@@ -424,8 +401,6 @@ test('hlsPlayerHtml escapes, keeps the failover marker out, and its script runs'
 });
 
 test('decryptMegaPlayPayload matches the Node implementation byte for byte', async () => {
-  // Same ciphertext the Firebase test pins: proves the WebCrypto port is
-  // decrypting identically, not merely without throwing.
   const enc =
     'wdeBruh3qqn_i5wUNnyaPcXqidp1UWP84FfPHzGyKXA2hDZBfMCmZ4FLvs7_pQuH549Eptax8UOjAJyRIZfrRhUGUKy9OBeGh2yB_-m_JLAlLnWTLzYZC3_C5I4ltveYoiaU66Do9RgI9bCetmk_o87-sd66brXnWV1MbjhLnjw';
   const data = await decryptMegaPlayPayload(enc);
@@ -545,8 +520,6 @@ test('the Worker answers format=json with the resolved stream for the watch part
     const src = new URL(body.src);
     assert.equal(src.pathname, '/proxyMegavidHls');
     assert.equal(await upstreamOf(src), relayOf(`${CDN}index.m3u8`));
-    // Fmov + VidBolt rows only: this mock has no Vidrock answer, so the
-    // picker lists nothing it cannot promise.
     assert.deepEqual(
       body.servers.map((s) => s.label),
       ['Reel', 'Matinee', 'Marquee', 'Encore', 'Premiere'],
@@ -562,7 +535,6 @@ test('the Worker answers format=json errors as JSON', async () => {
   const u = new URL(`${HOST}/proxyAnime`);
   u.searchParams.set('source', 'cinema');
   u.searchParams.set('format', 'json');
-  // Missing tmdbId: validateAnimeParams returns an error before any fetch.
   const res = await handleProxyAnime(new Request(u.toString()), { CDN_STAMP_KEY: KEY });
   assert.equal(res.status, 400);
   assert.match(res.headers.get('content-type'), /application\/json/);
@@ -609,7 +581,6 @@ test('a picker pick resolves only that row, and reports which row is playing', a
     const sealed = await openSeal(KEY, new URL(out.src).searchParams.get('t'));
     assert.equal(sealed.p, 'fmov');
 
-    // An unknown row is refused instead of silently racing every provider.
     await assert.rejects(
       resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY, { server: 'cine-99' }),
       /unknown server/,
@@ -636,8 +607,6 @@ test('validateAnimeParams accepts a cinema picker row and refuses anything else'
     validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603', server: 'cine-99' }).error,
     /unknown server/,
   );
-  // Every row in the table is a valid pick, so the picker can never build one
-  // the Worker then refuses.
   for (const server of CINEMA_SERVERS) {
     assert.equal(
       validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603', server: server.id }).error,
@@ -673,10 +642,6 @@ test('resolveCinema fails closed without a stamp key', async () => {
   );
 });
 
-// ─── Megavid ─────────────────────────────────────────────
-
-/** A fetch stub for the Megavid chain: the source lookup, the master, its
- *  variant, and the first segment. */
 function mockMegavid(source, { tracks = [] } = {}) {
   return async (url) => {
     const u = String(url);
@@ -705,8 +670,6 @@ test('resolveMegavid seals the stream and its subtitle tracks', async () => {
     assert.equal(typeof out.src, 'string');
     assert.equal(await upstreamOf(new URL(out.src)), master);
     assert.equal(out.tracks.length, 1);
-    // A promise here survives the filter (a promise is truthy) and reaches
-    // the player as `{}`, so the track silently never loads.
     assert.equal(typeof out.tracks[0].file, 'string', 'tracks are awaited, not promises');
     assert.equal(await upstreamOf(new URL(out.tracks[0].file)), 'https://megavid.buzz/subs/en.vtt');
   } finally {
@@ -747,10 +710,6 @@ test('a keyless Worker answers with the failover marker, not a dead player page'
   }
 });
 
-// ─── YumeZone ────────────────────────────────────────────
-
-/** Encrypts a payload the way YumeZone does, so the resolver's real decrypt
- *  path runs instead of a stubbed one. */
 function yumeEncrypt(payload, sig) {
   const key = new TextEncoder().encode(sig);
   const json = new TextEncoder().encode(JSON.stringify(payload));
@@ -762,9 +721,6 @@ function yumeEncrypt(payload, sig) {
 const YUME_TS = 1767225600;
 const YUME_MASTER = 'https://yumezone.live/p/abc/master.m3u8?pk=t';
 
-/** A fetch stub for the whole YumeZone chain: the signed source lookup, the
- *  master, its variant, and the first segment. `answers` maps a provider name
- *  to a payload, or to 'fail' for a dead server. */
 function mockYume(answers, { calls = [] } = {}) {
   return async (url, init) => {
     const u = String(url);
@@ -801,9 +757,6 @@ test('validateAnimeParams accepts yumezone and rejects an unknown server', () =>
   const picked = validateAnimeParams({ source: 'yumezone', anilistId: '21', ep: '1', server: 'yume-5' });
   assert.equal(picked.server, 'yume-5');
 
-  // Everglow's picker can name any of the eleven, including the two direct
-  // upstreams the walk tries first. The pin has to survive validation or the
-  // documented `server=<id>` only works for nine of them.
   for (const id of ['megaplay', 'megavid', 'yume-1']) {
     const pin = validateAnimeParams({ source: 'everglow', anilistId: '21', ep: '1', server: id });
     assert.equal(pin.error, undefined, id);
@@ -835,8 +788,6 @@ test('resolveYumeZone seals the master and hands the player its server list', as
     assert.equal(sealed.p, 'yumezone');
     assert.ok(!out.src.includes('yumezone.live'), 'the upstream never reaches the browser');
 
-    // Eleven lazy links back to the Worker: MegaPlay and Megavid first,
-    // then YumeZone's hardsub servers. Nothing is resolved yet.
     assert.equal(out.servers.length, 11);
     assert.deepEqual(out.servers.slice(0, 4).map((s) => s.id), [
       'megaplay',
@@ -857,7 +808,6 @@ test('resolveYumeZone seals the master and hands the player its server list', as
       }
       assert.ok(server.label);
     }
-    // Only the winning server was asked.
     assert.equal(calls.filter((u) => u.includes('/api/yume/watch/sources')).length, 1);
     assert.equal(out.tracks.length, 0, 'ASS/SRT cannot ride a <track>');
   } finally {
@@ -892,7 +842,6 @@ test('a picked YumeZone server is the only one tried, so the picker cannot lie',
   const calls = [];
   globalThis.fetch = mockYume({ 'Karl - 3': yumeAnswer() }, { calls });
   try {
-    // Yume 6 is dead here; Yume 1 would have worked. Picking 6 must fail.
     await assert.rejects(
       resolveYumeZone(21, 1, 'sub', 'yume-6', `${HOST}/proxyMegavidHls`, KEY),
       /no playable stream/,
@@ -939,10 +888,6 @@ test('the Worker answers format=json for yumezone with the server list', async (
   }
 });
 
-// ─── Everglow (the whole shelf) ───────────────────────────
-
-/** A fetch stub that serves MegaPlay, Megavid and YumeZone side by side, so a
- *  walk can cross providers. `dead` names the upstreams that answer 404/500. */
 function mockShelf({ dead = [], calls = [], megavid = null, yume = null } = {}) {
   const megavidStub = megavid || mockMegavid('https://megavid.buzz/stream/master.m3u8?token=t');
   const yumeStub = yume || mockYume({ 'Karl - 3': yumeAnswer() }, { calls });
@@ -974,13 +919,9 @@ test('the Everglow picker lists every stream under a warm name', () => {
     ],
   );
   assert.equal(sub.length, 11);
-  // Subbed audio leads with the hardsub Yume servers, dubbed with the
-  // softsub ones, exactly like the YumeZone walk.
   assert.equal(sub[2].id, 'yume-1');
   assert.equal(everglowServerList('dub', { anilistId: 21 })[2].id, 'yume-4');
-  // The provider name is ours to know: no label names an upstream.
   for (const s of sub) assert.doesNotMatch(s.label, /mega|yume|vid/i, s.label);
-  // YumeZone keys on AniList ids only, so a MAL-only title leaves it out.
   assert.deepEqual(
     everglowServerList('sub', { anilistId: 0 }).map((s) => s.id),
     ['megaplay', 'megavid'],
@@ -1035,7 +976,6 @@ test('resolveEverglow reaches YumeZone when both direct upstreams die', async ()
     const out = await resolveEverglow(21, 21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY);
     assert.equal(out.server, 'yume-1');
     assert.equal(await upstreamOf(new URL(out.src)), YUME_MASTER);
-    // Only the winning Yume server was asked; the rest stay lazy.
     assert.equal(calls.filter((u) => u.includes('/api/yume/watch/sources')).length, 1);
   } finally {
     globalThis.fetch = realFetch;
@@ -1050,8 +990,6 @@ test('a pinned Everglow server is the only one tried, so the picker cannot lie',
   const calls = [];
   globalThis.fetch = mockShelf({ dead: ['megaplay'], calls });
   try {
-    // MegaPlay is dead and Megavid would have answered. Pinning MegaPlay must
-    // fail instead of quietly playing Megavid.
     await assert.rejects(
       resolveEverglow(21, 21, 1, 'sub', 'megaplay', `${HOST}/proxyMegavidHls`, KEY),
       /no playable stream/,
@@ -1069,7 +1007,6 @@ test('a pinned Everglow server is the only one tried, so the picker cannot lie',
 
 test('resolveEverglow fails inside its budget instead of walking forever', async () => {
   const realFetch = globalThis.fetch;
-  // A fetch that never answers but does honour the abort, like the real one.
   globalThis.fetch = (url, init) =>
     new Promise((_, reject) => {
       const signal = init && init.signal;
@@ -1115,8 +1052,6 @@ test('the Worker answers format=json for everglow with the whole shelf', async (
   }
 });
 
-// ─── Worker request handling ─────────────────────────────
-
 function hlsRequest(query) {
   const u = new URL(`${HOST}/proxyMegavidHls`);
   for (const [k, v] of Object.entries(query)) u.searchParams.set(k, v);
@@ -1132,31 +1067,24 @@ test('the Worker refuses every way of pointing a token at a URL we never issued'
   };
   try {
     const evilRelay = relayOf('https://example.com/');
-    // The attack that worked against the old plaintext transport: read the
-    // folder out of a real playlist and aim it somewhere else.
     const real = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, relayOf(`${CDN}index.m3u8`), 'fmov', KEY));
     const token = real.searchParams.get('t');
     const relayFolder = 'https://fmov.my/api/';
     const cases = [
-      // No token at all, and the old plaintext params are simply ignored.
       { u: evilRelay },
       { u: evilRelay, p: 'fmov', d: relayFolder, s: 'f'.repeat(16) },
       { u: 'https://img.rousav.tech/media/a/index.m3u8' },
       { u: 'http://fmov.my/api/proxy' },
-      // A token we did not mint, and a tampered one.
       { t: 'not-a-token' },
       { t: await sealTarget('some-other-key', { p: 'fmov', u: evilRelay }) },
       { t: token.slice(0, -4) + 'AAAA' },
-      // A genuine token, aimed elsewhere through the path params.
       { t: token, r: '..%2F..%2F..%2Fx' },
       { t: token, r: '/etc/passwd' },
       { t: token, r: 'https://evil.example/x.ts' },
       { t: token, rr: '..%2F..%2Fx' },
       { t: token, rr: 'https://evil.example/x.ts' },
-      // A second url= or an unknown URL-valued param: which one does fmov honour?
       { t: token, rr: 'index.m3u8', rq: `url=${encodeURIComponent('https://example.com/')}` },
       { t: token, rr: 'index.m3u8', rq: `target=${encodeURIComponent('https://example.com/')}` },
-      // A token minted over a relay host's own folder, if one ever were.
       { t: await sealTarget(KEY, { p: 'fmov', s: relayFolder }) },
       { t: await sealTarget(KEY, { p: 'fmov', s: relayFolder, r: RELAY }) },
     ];
@@ -1166,13 +1094,10 @@ test('the Worker refuses every way of pointing a token at a URL we never issued'
     }
     assert.deepEqual(fetched, [], 'nothing reached an upstream');
 
-    // The genuine token still works, and only for the URL it was issued for.
     const ok = await handleProxyHls(new Request(real.toString()), { CDN_STAMP_KEY: KEY });
     assert.equal(ok.status, 200);
     assert.deepEqual(fetched, [relayOf(`${CDN}index.m3u8`)]);
 
-    // Legacy params are inert: `rp` cannot aim the relay anywhere, because
-    // the relay endpoint lives inside the token.
     fetched.length = 0;
     const legacy = await handleProxyHls(
       hlsRequest({ t: token, rr: 'index.m3u8', rp: 'https://evil.example/proxy' }),
@@ -1181,7 +1106,6 @@ test('the Worker refuses every way of pointing a token at a URL we never issued'
     assert.equal(legacy.status, 200);
     assert.deepEqual(fetched, [relayOf(`${CDN}index.m3u8`)], 'the sealed relay is used, not rp');
 
-    // A genuine MegaPlay token for a rotating CDN still works too.
     fetched.length = 0;
     const rotating = 'https://wintergrove.space/seg.jpg';
     const mp = await megaplayProxyUrl(`${HOST}/proxyMegavidHls`, rotating, KEY);
@@ -1189,7 +1113,6 @@ test('the Worker refuses every way of pointing a token at a URL we never issued'
     assert.equal(mpRes.status, 200);
     assert.deepEqual(fetched, [rotating]);
 
-    // And a Worker with no key mints nothing and accepts nothing.
     fetched.length = 0;
     const noKey = await handleProxyHls(new Request(real.toString()), {});
     assert.equal(noKey.status, 400);
@@ -1227,9 +1150,6 @@ test('the Worker serves a sealed relayed playlist with that provider headers', a
 });
 
 test('a VidBolt-sealed URL plays back with VidBolt headers, not Megavid ones', async () => {
-  // This is the bug that shipped once already: verification used the
-  // provider's own headers and playback fell through to Megavid's, so the CDN
-  // answered `Upstream 403` for a stream that had just verified.
   const realFetch = globalThis.fetch;
   let seen;
   globalThis.fetch = async (url, init) => {
@@ -1255,15 +1175,10 @@ test('a VidBolt-sealed URL plays back with VidBolt headers, not Megavid ones', a
 });
 
 test('every Cinema provider has a picker row, so "current" can never point at nothing', () => {
-  // cinemaServerId returns '' when a provider has no row, and the player then
-  // highlights row 0 — a row that is not playing. This keeps the invariant
-  // honest for any provider added later.
   for (const provider of CINEMA_PROVIDERS) {
     const rows = CINEMA_SERVERS.filter((s) => s.provider === provider);
     assert.ok(rows.length > 0, `${provider} has no row in the picker`);
   }
-  // The id list and the resolver must agree, or the picker builds a row that
-  // validateAnimeParams accepts and resolveCinema then refuses.
   for (const id of CINEMA_SERVER_IDS) {
     assert.ok(cinemaServer(id), `${id} is a valid id with no server behind it`);
   }
@@ -1296,8 +1211,6 @@ test('a sealed MegaPlay master rewrites to playable links, and nothing else is r
     );
   try {
     const master = 'https://fetch.nexabloom.top/anime/a/b/master.m3u8?token=t';
-    // The old shortcut let an allowlisted host through unstamped. It is gone:
-    // an unsealed request is refused even on a host we own the allowlist for.
     const refused = await handleProxyHls(hlsRequest({ u: master }), { CDN_STAMP_KEY: KEY });
     assert.equal(refused.status, 400);
 
@@ -1367,7 +1280,6 @@ test('only the default subtitle track drives the captions (no random language)',
   assert.equal(tracks[1].oncuechange, null, 'Icelandic can no longer overwrite English');
 });
 
-/** Runs the player script in a fake DOM and returns the handles it built. */
 function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true, servers = [], current = '', fetchImpl = null } = {}) {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
@@ -1410,7 +1322,6 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
         return this.children.some((c) => c === target || (c && typeof c.contains === 'function' && c.contains(target)));
       },
     };
-    // `innerHTML = ''` must drop the old rows, or every rebuild stacks up.
     Object.defineProperty(node, 'innerHTML', {
       get() { return ''; },
       set() { node.children.length = 0; },
@@ -1429,7 +1340,6 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     pause() { this.paused = true; },
   });
   const els = { v, 'sub-txt': el(), 'sub-box': el(), boot: el(),
-    // The real markup ships these with the `hidden` attribute.
     tapw: Object.assign(el(), { hidden: true }), tap: el(),
     dead: Object.assign(el(), { hidden: true }),
     'btn-cc': el(), 'cc-menu': Object.assign(el(), { hidden: true }),
@@ -1461,8 +1371,6 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
   };
   const loads = [];
   Hls.prototype.loadSource = function (u) {
-    // Real hls.js: loadSource() on a destroyed instance is a silent no-op.
-    // Checked against 1.7.4 — no event, no throw, nothing plays.
     if (this.destroyed) return;
     loads.push(u);
   };
@@ -1505,7 +1413,6 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
   return { els, v, html, window: win, doc, fire, key, tap, relay, loads, handlers, instances, Hls };
 }
 
-/** The row that follows a section header inside the CC panel. */
 function ccRow(menu, header) {
   const at = menu.children.findIndex((c) => c.textContent === header);
   assert.ok(at >= 0, `CC panel has a "${header}" section`);
@@ -1556,41 +1463,27 @@ test('picking a server swaps the source and keeps the playhead', async () => {
   });
   v.currentTime = 42;
 
-  // Open the picker: it rebuilds from the list every time.
   els['btn-sv'].dispatch('click');
   assert.equal(els['sv-menu'].hidden, false);
   assert.equal(els['sv-menu'].children.length, 2);
-  // The row that is playing is scrolled into view: the in-app phone player is
-  // a 16:9 box, and with eight rows the current one opens below the fold.
-  // Compared by value: the nodes live in the player's VM context, so their
-  // objects have a different prototype than this one.
   assert.deepEqual(
     els['sv-menu'].children.map((c) => (c.scrolled ? c.scrolled.block : null)),
     ['nearest', null],
     'only the current row is scrolled into view',
   );
 
-  // Pick the second one. Rows are plain buttons with an onclick.
   els['sv-menu'].children[1].onclick();
   await new Promise((r) => setTimeout(r, 0));
 
   assert.deepEqual(asked, ['https://w/proxyAnime?server=yume-2']);
-  // The picker stays open until a source actually plays: closing it here would
-  // leave the stalled card up with no reachable control if the pick never
-  // starts.
   assert.equal(els['sv-menu'].hidden, false, 'the menu waits for a play');
   assert.equal(els['btn-sv'].textContent, 'Servers', 'the button is not left saying Loading');
-  // A real loadSource resets the playhead, so zero it here: the restore must
-  // come from pendingSeek, not from the fake never having moved.
   v.currentTime = 0;
   for (const h of v.listeners.loadedmetadata || []) h();
   assert.equal(v.currentTime, 42, 'the playhead is restored after the swap');
 });
 
 test('a pick swaps the captions with the source, never leaving stale tracks', async () => {
-  // MegaPlay ships WebVTT captions; YumeZone ships ASS/SRT and has none. A
-  // pick that kept the old <track> elements would list English over a stream
-  // that cannot show it, and picking it would render nothing.
   const oldTrack = { kind: 'captions', label: 'English', src: 'https://x/English.vtt' };
   const { els, v } = runPlayerDom({
     tracks: [],
@@ -1641,8 +1534,6 @@ test('a pick attaches the new source\'s captions', async () => {
 });
 
 test('a pick keeps her caption language when the new source still has it', async () => {
-  // Tapping the server she is already on is a retry, not a reason to drop
-  // her from Spanish back to the first track.
   const store = new Map();
   const { els, v } = runPlayerDom({
     tracks: ['English', 'Spanish'],
@@ -1673,8 +1564,6 @@ test('a pick keeps her caption language when the new source still has it', async
   els['sv-menu'].children[0].onclick();
   await new Promise((r) => setTimeout(r, 0));
 
-  // syncCues enables the picked track and disables the rest, so the modes are
-  // what she would actually see after the retry.
   assert.equal(v.textTracks[1].mode, 'hidden', 'Spanish is still the live track');
   assert.equal(v.textTracks[0].mode, 'disabled', 'English did not take over');
   const prefs = JSON.parse(store.get('everglow.player.prefs'));
@@ -1682,8 +1571,6 @@ test('a pick keeps her caption language when the new source still has it', async
 });
 
 test('a pick onto a source with no captions keeps her remembered language', async () => {
-  // YumeZone ships ASS/SRT, so its streams arrive with no <track> at all. That
-  // must not wipe the language she picked on a source that has captions.
   const store = new Map();
   const { els } = runPlayerDom({
     tracks: ['English', 'Spanish'],
@@ -1710,8 +1597,6 @@ test('a pick onto a source with no captions keeps her remembered language', asyn
 });
 
 test('a pick marks default on the first caption it actually attaches', async () => {
-  // The server-rendered markup marks `default` on the first track with a
-  // file, so the swap has to skip a fileless entry the same way.
   const { els, v } = runPlayerDom({
     tracks: [],
     trackEls: [],
@@ -1754,9 +1639,6 @@ test('a failed server pick stays in the player and never condemns the server', a
   els['sv-menu'].children[1].onclick();
   await new Promise((r) => setTimeout(r, 0));
 
-  // `animex-content-error` means "this whole server is dead" to the app: it
-  // moves off Yume, overwrites her remembered server, and ends the picker.
-  // One dead upstream must not do that.
   assert.deepEqual(posted, [], 'the app is not told the server died');
   assert.equal(els['btn-sv'].textContent, 'Server failed', 'the player says so itself');
   assert.equal(els['sv-menu'].hidden, false, 'the menu reopens so she can try another');
@@ -1784,12 +1666,11 @@ test('the last tap wins when two server picks overlap', async () => {
   });
 
   els['btn-sv'].dispatch('click');
-  els['sv-menu'].children[1].onclick(); // Yume 2, slow
+  els['sv-menu'].children[1].onclick();
   els['sv-menu'].hidden = false;
-  els['sv-menu'].children[2].onclick(); // Yume 3, fast
+  els['sv-menu'].children[2].onclick();
   await new Promise((r) => setTimeout(r, 0));
 
-  // The slow answer arrives last and must not overwrite the newer pick.
   releaseFirst();
   await new Promise((r) => setTimeout(r, 0));
 
@@ -1819,13 +1700,8 @@ test('a stream that dies after a pick does not condemn the whole server', async 
   await new Promise((r) => setTimeout(r, 0));
   assert.deepEqual(posted, [], 'a successful pick says nothing');
 
-  // The picked stream then dies. Before the guard this posted the
-  // app-level error, which moves her off Yume and overwrites her choice —
-  // even though the picker is still open and another server may work.
   die();
   assert.deepEqual(posted, [], 'one dead pick is not a dead source');
-  // The stalled card covers the Servers chip, so without reopening the menu
-  // the only live control is Retry → reload, which discards her pick.
   assert.equal(els['sv-menu'].hidden, false, 'the picker is reachable again');
   assert.equal(els['sv-menu'].children.length, 2, 'and it is rebuilt');
 });
@@ -1842,16 +1718,12 @@ test('a working pick clears the stalled card', async () => {
     fetchImpl: async () => ({ json: async () => ({ src: 'https://w/picked' }) }),
   });
 
-  // First pick dies, so the card is up and the menu is open.
   els['btn-sv'].dispatch('click');
   els['sv-menu'].children[1].onclick();
   await new Promise((r) => setTimeout(r, 0));
   for (let i = 0; i < 4; i++) handlers.e({}, { fatal: true, type: 'other' });
   assert.equal(els.dead.hidden, false, 'the card is up');
 
-  // A second pick works. The card and the picker both stay up until it
-  // actually plays, so a pick that cannot start never leaves a blank frame
-  // with no reachable control.
   els['sv-menu'].children[0].onclick();
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(els.dead.hidden, false, 'card up while the pick loads');
@@ -1864,9 +1736,6 @@ test('a working pick clears the stalled card', async () => {
 });
 
 test('a recovery attempt that throws still kills the instance', async () => {
-  // If startLoad/recoverMediaError throws, the instance must be destroyed, not
-  // just marked dead: a live-but-dead instance keeps its handlers and shares
-  // the outer `fatal`, so it can later call giveUp() over a playing stream.
   const { handlers, instances, Hls } = runPlayerDom({ tracks: [], trackEls: [] });
   assert.equal(instances.length, 1, 'one instance at boot');
   Hls.ErrorTypes.NETWORK_ERROR = 'net';
@@ -1878,9 +1747,6 @@ test('a recovery attempt that throws still kills the instance', async () => {
 });
 
 test('a stray play does not close a picker she opened by hand', () => {
-  // `playing` also fires when a stalled buffer resumes. Closing the menu then
-  // shuts the picker while she is choosing — on a flaky stream, the exact case
-  // it exists for.
   const { els, fire } = runPlayerDom({ tracks: [], trackEls: [] });
   els['btn-sv'].dispatch('click');
   assert.equal(els['sv-menu'].hidden, false, 'she opened it');
@@ -1889,9 +1755,6 @@ test('a stray play does not close a picker she opened by hand', () => {
 });
 
 test('a pick after a dead stream really loads', async () => {
-  // hls.js cannot revive a destroyed instance, so the player must build a new
-  // one. Before this, a pick after a stall fetched fine, cleared the card, and
-  // played nothing: no boot wave, no card, no error, no way out.
   const { els, handlers, loads } = runPlayerDom({
     tracks: [],
     trackEls: [],
@@ -1931,15 +1794,12 @@ test('CC is hidden when the source has no subtitles', () => {
     tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
   });
   assert.doesNotMatch(some, /id="btn-cc"[^>]*hidden/);
-  // And the script hides it at runtime too, for sources that add tracks late.
   const { els } = runPlayerDom({ tracks: [], trackEls: [] });
   assert.equal(els['btn-cc'].hidden, true);
 });
 
 test('the picture is clickable, not buried under the HUD gradient', () => {
   const { html } = runPlayerDom({ tracks: [], trackEls: [] });
-  // Regression: #hud is a fixed inset:0 sheet with no pointer-events rule,
-  // so it ate every tap on the video and play/pause looked broken.
   assert.match(html, /#hud\{[^}]*pointer-events:none/);
   assert.ok(html.includes('.h-top,.h-bot{pointer-events:auto}'));
   assert.ok(html.includes('v.addEventListener("click"'));
@@ -2041,7 +1901,6 @@ test('the picture-in-picture button hands the video to the browser', () => {
   els['btn-pip'].dispatch('click');
   assert.equal(asked, 1, 'standard W3C PiP requested');
 
-  // Safari / iPadOS webkit presentation mode fallback
   const safari = runPlayerDom({ tracks: [], trackEls: [] });
   let safariMode = '';
   safari.v.requestPictureInPicture = null;
@@ -2057,7 +1916,6 @@ test('a mid-play stall shows a ring, not the boot wave', () => {
   const boot = els.boot;
   const buf = els.buf;
 
-  // Before the first frame the wordmark is the right thing to show.
   fire('waiting');
   assert.equal(boot.style.display, 'flex');
   assert.equal(buf.hidden, true);
@@ -2066,7 +1924,6 @@ test('a mid-play stall shows a ring, not the boot wave', () => {
   assert.equal(buf.hidden, true);
   boot.style.display = '';
 
-  // After it, a stall is a hiccup, not a boot.
   fire('waiting');
   assert.equal(buf.hidden, false);
   assert.equal(boot.style.display, '', 'the wordmark stays gone');
@@ -2082,7 +1939,6 @@ test('the scrubber does not seek twice on one key', () => {
     preventDefault() {},
     stopPropagation() { stopped += 1; },
   });
-  // Without this the key bubbles to the window handler and seeks twice.
   assert.equal(stopped, 1, 'the window handler must not see the same key');
 });
 
@@ -2090,15 +1946,12 @@ test('captions scale with the picture instead of capping at 22px', () => {
   const { html } = runPlayerDom({ tracks: [], trackEls: [] });
   const m = html.match(/font-size:calc\(clamp\(15px,2\.4vw,(\d+)px\)/);
   assert.ok(m, 'caption size is a clamp');
-  // The old 22px ceiling left the captions tiny on a fullscreen screen.
   assert.ok(Number(m[1]) >= 40, `ceiling ${m[1]}px must scale with the picture`);
   assert.ok(html.includes('var(--sub-scale,1)'), 'the size control still applies');
 });
 
 test('Skip and Next sit outside the HUD so they survive the fade', () => {
   const { html } = runPlayerDom({ tracks: [], trackEls: [] });
-  // Regression: a dropped </div> nested #binge inside #hud, so the whole
-  // row inherited the HUD's opacity:0 and vanished with the controls.
   const at = html.indexOf('id="binge"');
   const open = html.lastIndexOf('<div', at);
   let depth = 0;
@@ -2153,7 +2006,6 @@ test('the CC panel holds captions, language, delay and size', () => {
   assert.equal(menu.children[0].className, 'qi on', 'captions start on');
   assert.equal(menu.children[2].className, 'qi on', 'first track is the default');
 
-  // Delay row: minus, the value (tap resets), plus.
   const delayRow = ccRow(menu, 'Subtitle delay');
   assert.deepEqual(delayRow.children.map((b) => b.textContent), ['\u2212', '0.0s', '+']);
   delayRow.children[2].onclick();
@@ -2165,14 +2017,12 @@ test('the CC panel holds captions, language, delay and size', () => {
   ccRow(menu, 'Subtitle delay').children[0].onclick();
   assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '-0.1s');
 
-  // Size row.
   const sizeRow = ccRow(menu, 'Text size');
   assert.deepEqual(sizeRow.children.map((b) => b.textContent), ['Small', 'Medium', 'Large']);
   assert.equal(sizeRow.children[1].className, 'qi on', 'medium is the default');
   sizeRow.children[2].onclick();
   assert.equal(els['sub-txt'].style.getPropertyValue('--sub-scale'), '1.3', 'large text');
 
-  // Picking a language moves the only loaded track.
   menu.children[3].onclick();
   assert.deepEqual(v.textTracks.map((t) => t.mode), ['disabled', 'hidden']);
   assert.equal(menu.hidden, false, 'the panel stays open for more tuning');
@@ -2196,7 +2046,6 @@ test('subtitle delay shifts which line is on screen', () => {
   fire('timeupdate');
   assert.equal(sub.textContent, 'hello');
 
-  // +1.0s: the line now belongs at 11.5, so 10.5 is still silent.
   bump(10);
   v.currentTime = 10.5;
   fire('timeupdate');
@@ -2205,7 +2054,6 @@ test('subtitle delay shifts which line is on screen', () => {
   fire('timeupdate');
   assert.equal(sub.textContent, 'hello');
 
-  // Back to -1.0s: it shows a second early instead.
   bump(-20);
   v.currentTime = 9.5;
   fire('timeupdate');
@@ -2214,7 +2062,6 @@ test('subtitle delay shifts which line is on screen', () => {
   fire('timeupdate');
   assert.equal(sub.textContent, '');
 
-  // Turning captions off silences the overlay even mid-cue.
   els['cc-menu'].children[0].onclick();
   v.currentTime = 9.5;
   fire('timeupdate');
@@ -2230,8 +2077,6 @@ test('the CC panel lifts the captions instead of covering them', () => {
 
   els['btn-cc'].dispatch('click');
   assert.equal(menu.hidden, false);
-  // The panel sits where the captions live, so tuning the delay needs them
-  // moved out of the way without clipping off the top on phones.
   assert.equal(box.style.getPropertyValue('--sub-lift'), '142px', 'panel height - 18px');
 
   els['btn-cc'].dispatch('click');
@@ -2267,8 +2112,6 @@ test('subtitle settings survive the next episode', () => {
 });
 
 test('stripAdCues removes the advert spliced into a subtitle track', () => {
-  // Shape taken from the real Breaking Bad S01E01 English track: the advert
-  // sits at the start and again past the runtime.
   const vtt = [
     'WEBVTT',
     '',
@@ -2388,7 +2231,6 @@ test('the player forwards wheel events to the parent page except in menus or ful
     { type: 'everglow-embed-scroll', deltaX: 0, deltaY: 120, deltaMode: 0 },
   ]);
 
-  // Open the CC menu and scroll inside it: the menu scrolls itself, not the page.
   els['btn-cc'].dispatch('click');
   assert.equal(els['cc-menu'].hidden, false);
   window.dispatch('wheel', {
@@ -2399,7 +2241,6 @@ test('the player forwards wheel events to the parent page except in menus or ful
   });
   assert.equal(posted.length, 1, 'scrolling inside an open menu stays in the menu');
 
-  // Enter fullscreen: wheel events must not scroll the hidden page behind the player.
   els['btn-cc'].dispatch('click');
   doc.fullscreenElement = doc.documentElement;
   window.dispatch('wheel', { deltaX: 0, deltaY: 120, deltaMode: 0, target: v });
@@ -2433,7 +2274,6 @@ test('seek bar hover shows the Netflix-style preview card with timestamp, chapte
   els['scrub-prev'].offsetWidth = 168;
   relay({ type: 'animex-skip-times', op: [20, 60], ed: [170, 195] });
 
-  // Hover inside intro range (25% -> 50s, px = 100 within [84, 316])
   els.scrub.dispatch('pointermove', { clientX: 25, pointerType: 'mouse' });
   assert.equal(els['scrub-prev'].hidden, false);
   assert.equal(els['pv-time'].textContent, '00:50');
@@ -2442,12 +2282,10 @@ test('seek bar hover shows the Netflix-style preview card with timestamp, chapte
   assert.equal(els['s-hover'].style.width, '25%');
   assert.equal(els['scrub-prev'].style.left, '100px');
 
-  // Hover near left edge (2% -> 4s): clamped at half box width (84px)
   els.scrub.dispatch('pointermove', { clientX: 2, pointerType: 'mouse' });
   assert.equal(els['scrub-prev'].style.left, '84px');
   assert.equal(els['pv-tag'].hidden, true);
 
-  // Hover near right edge inside ending range (95% -> 190s): clamped at 400 - 84 = 316px
   els.scrub.dispatch('pointermove', { clientX: 95, pointerType: 'mouse' });
   assert.equal(els['scrub-prev'].style.left, '316px');
   assert.equal(els['pv-tag'].hidden, false);
@@ -2486,7 +2324,6 @@ test('preview Hls initializes lazily on hover at lowest level and resets on serv
   assert.equal(instances[1].opts.startLevel, 0, 'preview picks lowest rendition');
   assert.equal(loads[1], 'https://x/y.m3u8');
 
-  // Switch server: active preview Hls must be destroyed and stale canvas hidden
   els.scrub.dispatch('pointermove', { clientX: 40, pointerType: 'mouse' });
   els['pv-c'].hidden = false;
   els['btn-sv'].dispatch('click');
@@ -2495,7 +2332,6 @@ test('preview Hls initializes lazily on hover at lowest level and resets on serv
   assert.equal(instances[1].destroyed, true, 'server pick destroys old preview instance');
   assert.equal(els['pv-c'].hidden, true, 'server pick clears previous preview canvas');
 
-  // Next hover loads the swapped source into a fresh preview Hls
   els.scrub.dispatch('pointermove', { clientX: 60, pointerType: 'mouse' });
   assert.equal(instances.length, 3);
   assert.equal(loads[loads.length - 1], 'https://w/picked-2');
@@ -2506,7 +2342,6 @@ test('dragging the scrub bar shows preview and thumb without seeking until relea
   v.duration = 100;
   v.currentTime = 10;
 
-  // Touch hover events are ignored; drag initiates normally on pointerdown
   els.scrub.dispatch('pointermove', { clientX: 40, pointerType: 'touch' });
   assert.equal(els['scrub-prev'].hidden, true);
 
@@ -2522,14 +2357,12 @@ test('dragging the scrub bar shows preview and thumb without seeking until relea
   assert.equal(els['pv-time'].textContent, '01:10');
   assert.equal(v.currentTime, 10);
 
-  // Leaving scrub mid-drag and releasing outside closes the preview card
   els.scrub.dispatch('pointerleave');
   window.dispatch('pointerup', { clientX: 70, clientY: 999 });
   assert.equal(doc.body.classList.contains('scrubbing'), false);
   assert.equal(els['scrub-prev'].hidden, true);
   assert.equal(v.currentTime, 70, 'release commits the final seek position');
 
-  // Cancelling a drag hides preview without seeking
   els.scrub.dispatch('pointerdown', { clientX: 20, preventDefault() {} });
   assert.equal(els['scrub-prev'].hidden, false);
   window.dispatch('pointercancel');
@@ -2553,7 +2386,6 @@ test('fatal error on preview Hls shuts down preview once without retrying or con
   assert.equal(instances[0].destroyed, false, 'main stream stays alive');
   assert.deepEqual(posted, [], 'main player never gives up over a preview failure');
 
-  // Subsequent hovers must not respawn broken preview Hls or spin loading
   els.scrub.dispatch('pointermove', { clientX: 60, pointerType: 'mouse' });
   assert.equal(instances.length, 2, 'no preview retry storm after fatal error');
   assert.equal(els['scrub-prev'].classList.contains('loading'), false);
@@ -2590,14 +2422,12 @@ test('preview seeks debounce, cache decoded frames, and fall back to video tag o
   assert.equal(els['pv-c'].hidden, false);
   assert.ok(drawn.length >= 2, 'cached offscreen canvas and display canvas both populated');
 
-  // Re-hovering the same timestamp hits cache without starting another seek
   const countBefore = drawn.length;
   els.pv.currentTime = 0;
   els.scrub.dispatch('pointermove', { clientX: 50, pointerType: 'mouse' });
   assert.equal(drawn.length, countBefore + 1);
   assert.equal(els.pv.currentTime, 0, 'cache hit skips redundant seek');
 
-  // If drawImage throws (e.g. CORS taint), canvas hides so underlying <video id="pv"> displays
   els['pv-c'].getContext = () => ({
     drawImage() { throw new Error('SecurityError'); },
     clearRect() {},

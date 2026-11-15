@@ -1,8 +1,6 @@
 part of 'katana_reader_screen.dart';
 
-/// End card + top/bottom chrome for [_KatanaReaderScreenState].
 extension _KatanaReaderChrome on _KatanaReaderScreenState {
-  // ── End of Chapter Card ───────────────────────────────────────────
   Widget _buildEndCard() {
     final next = _nextChapter;
     return Container(
@@ -219,9 +217,6 @@ extension _KatanaReaderChrome on _KatanaReaderScreenState {
     );
   }
 
-  /// MangaKatana-style quick toolbar: image server switch, Fit
-  /// height toggle and Darken slider, right under the chapter nav
-  /// like the site's reader options row.
   Widget _buildReaderToolbar() {
     final darken = ((1.0 - _brightness) * 100).clamp(0.0, 80.0);
     final paged = _mode != ReaderMode.webtoon;
@@ -373,7 +368,6 @@ extension _KatanaReaderChrome on _KatanaReaderScreenState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Scrubber Row
               if (_pages.isNotEmpty) ...[
                 Row(
                   children: [

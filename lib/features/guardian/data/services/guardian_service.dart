@@ -26,14 +26,6 @@ class GuardianService {
 
   List<GuardianMessage> get cachedMessages => _cachedMessages;
 
-  /// Initializes the service by fetching messages from Firestore.
-  /// Seeds the database if empty. Single read, dedupes concurrent calls,
-  /// and reuses fresh cache within [_cacheTtl].
-  ///
-  /// Retries silently with backoff when the first load is slow: on a cold
-  /// start the Firestore WebChannel is still warming up while every
-  /// dashboard preview attaches, so one 8s timeout left the guardian
-  /// with no messages until the next app restart.
   Future<void> initialize() async {
     if (_inflight != null) return _inflight!;
 
@@ -100,8 +92,6 @@ class GuardianService {
           error: e,
         );
       }
-      // Keep stale cache if we have one; otherwise stay empty until the
-      // retry in [_initializeWithRetry] runs.
     }
   }
 
@@ -113,8 +103,6 @@ class GuardianService {
     _byCategory = map;
   }
 
-  /// Selects a random [GuardianMessage] from the cached list.
-  /// Avoids repeating the same message twice in a row when possible.
   GuardianMessage? getRandomMessage({String? category}) {
     final List<GuardianMessage> pool;
     if (category != null) {
@@ -133,8 +121,6 @@ class GuardianService {
     return picked;
   }
 
-  /// Seeds initial messages from local JSON asset to Firestore.
-  /// Chunked to stay under the 500-write batch limit.
   Future<void> seedMessages() async {
     try {
       final String jsonString = await rootBundle.loadString(

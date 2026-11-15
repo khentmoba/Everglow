@@ -10,7 +10,6 @@ import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_row.dart';
 import '../netflix/netflix_loading.dart';
 
-/// Personal picks and discovery shelves, with the full catalogue in Browse.
 class CinemaHomeTab extends StatelessWidget {
   final bool isLoadingHome;
   final List<MediaItem> trendingCarousel;

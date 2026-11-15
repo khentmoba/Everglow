@@ -8,18 +8,6 @@ import 'creator/creator_memories_tab.dart';
 import 'creator/creator_surprises_tab.dart';
 import 'creator/creator_system_tab.dart';
 
-/// Creator Studio — Khent's private workshop for Clair.
-///
-/// Four focused tabs replacing the legacy CreatorModal:
-/// * Letters — compose + Letterbox vault with unlock scheduling
-/// * Memories — multi-photo milestones with live preview + history
-/// * Surprises — Guardian whispers, love bursts, teaser countdowns,
-///   date-night spotlight
-/// * System — backend health, partner sync, maintenance tools
-///
-/// The widget stays build-safe without Firebase or providers so the
-/// regression test can pump it in isolation; each tab degrades to an
-/// empty state when its stream cannot attach.
 class CreatorModal extends StatefulWidget {
   final CreatorService? creatorService;
 

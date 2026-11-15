@@ -12,7 +12,6 @@ const font = "/assets/fonts/MaterialIcons-Regular.otf";
 const manifest = "/assets/FontManifest.json";
 
 function worker() {
-  // Exercise the generator, not a potentially stale checked-in sw.js.
   const dart = readFileSync(path.join(root, "tool/generate_sw.dart"), "utf8");
   const source = dart.match(/final sw\s*=\s*"""([\s\S]*?)""";/)[1]
       .replaceAll("$buildConst", "test-build")
@@ -46,7 +45,7 @@ function worker() {
   };
   const context = vm.createContext({
     URL, Response, caches,
-    navigator: {onLine: false}, // No unrelated shell warm-up during activation.
+    navigator: {onLine: false},
     self: {
       location: {origin},
       clients: {async claim() {}},
@@ -88,7 +87,6 @@ for (const asset of [font, manifest]) {
     const response = await w.request(asset);
     assert.equal(await response.text(), "current-build");
     assert.equal(w.calls[0].cache, "no-cache", "bypass old immutable HTTP bytes");
-    // Let the worker's asynchronous cache write finish.
     await new Promise((resolve) => setImmediate(resolve));
     w.offline();
     assert.equal(await (await w.request(asset)).text(), "current-build");

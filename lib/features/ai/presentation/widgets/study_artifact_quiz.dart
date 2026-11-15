@@ -1,7 +1,5 @@
 part of 'study_artifact_sheet.dart';
 
-// ─── Quiz ───────────────────────────────────────────────────────
-
 class QuizPlayView extends StatefulWidget {
   final List<QuizQuestion> questions;
 

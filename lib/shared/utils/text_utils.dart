@@ -3,13 +3,11 @@ import 'package:intl/intl.dart';
 final _pesoWhole = NumberFormat('#,##0', 'en_PH');
 final _pesoCents = NumberFormat('#,##0.00', 'en_PH');
 
-/// `549` → `₱549`, `129.5` → `₱129.50`. Cents only when needed.
 String formatPeso(num amount) {
   final hasCents = (amount - amount.truncate()).abs() > 0.004;
   return '₱${(hasCents ? _pesoCents : _pesoWhole).format(amount)}';
 }
 
-/// Strip common markdown formatting from text.
 String stripMarkdown(String text) {
   return text
       .replaceAll('**', '')
@@ -23,9 +21,6 @@ String stripMarkdown(String text) {
       .replaceAll('# ', '');
 }
 
-/// Extract media titles from an AI recommendation response.
-///
-/// Parses numbered/bulleted lists and returns clean title strings.
 List<String> extractTitles(String text) {
   final titles = <String>[];
   final lines = text.split('\n');
@@ -54,8 +49,6 @@ List<String> extractTitles(String text) {
   return titles;
 }
 
-/// Pretty profile name for a username (`khentsgdz` → `Khent`).
-/// Unknown names are capitalized; null/empty becomes `Love`.
 String displayNameFor(String? username) {
   switch (username) {
     case 'khentsgdz':

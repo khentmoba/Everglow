@@ -7,7 +7,6 @@ import 'sunflower_painter.dart';
 import 'tulip_painter.dart';
 import 'sakura_painter.dart';
 
-/// A garden plant view that renders the correct painter for a given plant type.
 class GardenPlantView extends StatefulWidget {
   final PlantType plantType;
   final int stage;

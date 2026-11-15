@@ -1,8 +1,5 @@
 'use strict';
 
-// Everglow Cloud Functions — Discord group.
-// Watch-party posts + button taps + stale-session sweep.
-
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
@@ -137,8 +134,6 @@ const notifyDiscordWatch = cappedHttps(10, async (req, res) => {
 
 const discordInteractions = onRequest({ invoker: 'public', maxInstances: 10 }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
-  // Public by necessity (Discord calls us); signature-checked below and
-  // per-IP capped here so forged floods die cheaply.
   if (enforceRateLimit(req, res, { endpoint: 'discordInteractions', limit: 120, windowMs: 60000 })) return;
   const sig = req.get('X-Signature-Ed25519') || '';
   const ts = req.get('X-Signature-Timestamp') || '';
@@ -191,7 +186,6 @@ module.exports = {
   notifyDiscordWatch,
   discordInteractions,
   sweepStaleDiscordWatch,
-  // Pure builders, exported for unit tests.
   buildWatchPost,
   buildEndedPost,
   postToWebhook,

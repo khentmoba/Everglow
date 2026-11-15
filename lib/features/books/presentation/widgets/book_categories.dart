@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// One browsable book category: display name, Open Library subject
-/// query, icon, and accent color.
 class BookCategory {
   final String name;
   final String query;
@@ -18,9 +16,6 @@ class BookCategory {
   });
 }
 
-/// The single source of truth for the Z-Lib style category set.
-/// Used by the home chips, the categories grid, and the category
-/// list pages (via [BookCatalogService.byCategory]).
 const List<BookCategory> bookCategories = [
   BookCategory(
     name: 'Romance',

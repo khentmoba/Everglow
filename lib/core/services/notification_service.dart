@@ -20,7 +20,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('Background message: ${message.messageId}');
 }
 
-/// Parses an FCM data payload and returns the target route for navigation.
 String? routeFromNotification(Map<String, dynamic> data) {
   switch (data['type']) {
     case 'chat_message':
@@ -111,13 +110,11 @@ class NotificationService {
 
   Stream<RemoteMessage> get onMessage => _messageController.stream;
 
-  /// Global navigator context — set from the widget tree after mount.
   static BuildContext? _navContext;
   static void setNavContext(BuildContext context) {
     _navContext = context;
   }
 
-  /// Global ScaffoldMessenger key for showing SnackBars from anywhere.
   static GlobalKey<ScaffoldMessengerState>? _scaffoldMessengerKey;
   static void setScaffoldMessengerKey(GlobalKey<ScaffoldMessengerState> key) {
     _scaffoldMessengerKey = key;
@@ -170,8 +167,6 @@ class NotificationService {
     return identity != null && _auth.currentUser?.uid == identity.uid;
   }
 
-  /// Refreshes push registration only from the signed-in Firebase token's
-  /// custom couple identity. SharedPreferences profile names are never trusted.
   Future<void> syncAuthSession({required bool enabled}) async {
     final generation = ++_sessionGeneration;
     PushIdentity? identity;
@@ -208,8 +203,6 @@ class NotificationService {
     }
   }
 
-  /// Removes this installation's registration and revokes its FCM token.
-  /// AuthService awaits this before signing out so no legacy token is left live.
   Future<void> unregisterForLogout() async {
     ++_sessionGeneration;
     final previous = _activeIdentity;
@@ -385,7 +378,6 @@ class NotificationService {
     return result;
   }
 
-  /// Shows a themed in-app SnackBar when a push arrives while the app is open.
   void _showForegroundNotification(RemoteMessage message) {
     if (!_hasActiveCoupleSession) return;
     final notification = message.notification;
@@ -443,7 +435,6 @@ class NotificationService {
     );
   }
 
-  /// Navigates to the relevant screen based on notification type.
   void _navigateFromNotification(RemoteMessage message) {
     if (!_hasActiveCoupleSession) return;
     final route = routeFromNotification(message.data);

@@ -5,7 +5,6 @@ const { streamMediaBody } = require('./stream_media_body');
 const { cappedHttps, enforceRateLimit, requireAuth, fetchPublicUrl, getDb } = require('./common.js');
 const { STREAM_LIFETIME_MS, mediaUrl, signedStreamUrl, validStreamSignature, rewritePlaylist } = require('./watch_stream_access');
 
-// One server-only key per approved account, shared across devices and function instances.
 async function streamSecret(uid, create = false) {
   const db = getDb();
   const ref = db.collection('watch_stream_keys').doc(uid);

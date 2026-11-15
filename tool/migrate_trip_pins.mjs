@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Dry run by default. Keep source pins so every recovery is reversible.
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

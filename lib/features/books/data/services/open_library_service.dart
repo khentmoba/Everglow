@@ -9,30 +9,14 @@ import '../../../../core/utils/connectivity_aware.dart';
 import '../models/book_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Talks to the public Open Library REST APIs (no key required) and
-/// to the personal `read_list` Firestore collection. Mirrors
-/// [TMDBService] for the cinema feature.
-///
-/// Open Library endpoints used:
-///   * Search  — `https://openlibrary.org/search.json?q=...&limit=20`
-///   * Works   — `https://openlibrary.org/works/{olid}.json`
-///   * Editions— `https://openlibrary.org/works/{olid}/editions.json`
-///   * Covers  — `https://covers.openlibrary.org/b/id/{id}-L.jpg`
-///   * Read source — derived from `ia` field: Internet Archive
-///     borrowable copies, with a Project Gutenberg fallback when
-///     possible.
 class OpenLibraryService with ConnectivityAware {
   final CatalogProxyClient _proxy = CatalogProxyClient();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Singleton
   static final OpenLibraryService _instance = OpenLibraryService._internal();
   factory OpenLibraryService() => _instance;
   OpenLibraryService._internal();
 
-  // ── MAPPING ────────────────────────────────────────────────────────
-
-  /// Map an Open Library `docs[]` entry to a [BookItem].
   BookItem _mapDocToBookItem(Map<String, dynamic> doc) {
     final workKey = (doc['key'] as String?) ?? '';
     final title = (doc['title'] as String?) ?? 'Untitled';
@@ -42,8 +26,6 @@ class OpenLibraryService with ConnectivityAware {
     final author = authorList.isNotEmpty ? authorList.first : '';
 
     final coverId = (doc['cover_i'] as num?)?.toInt();
-    // Fallback: some docs lack `cover_i` but carry a cover edition —
-    // resolve via the edition OLID so the rail still gets a thumbnail.
     final coverEditionKey = doc['cover_edition_key'] as String?;
     final coverUrl = coverId != null && coverId > 0
         ? BookItem.coverFromCoverId(coverId, size: 'L')
@@ -53,8 +35,6 @@ class OpenLibraryService with ConnectivityAware {
     final firstYear = firstYearRaw is num
         ? firstYearRaw.toInt()
         : int.tryParse(firstYearRaw?.toString() ?? '');
-    // Guard against bogus OL import years (e.g. 9999, 2098) that
-    // would otherwise render as subtitles like "9981".
     final nowYear = DateTime.now().year;
     final year =
         (firstYear != null && firstYear >= 1400 && firstYear <= nowYear + 1)
@@ -98,26 +78,6 @@ class OpenLibraryService with ConnectivityAware {
     );
   }
 
-  /// Derive a list of candidate read source URLs for a book, in
-  /// priority order. The reader tries them one at a time and uses
-  /// whichever responds successfully — that way a CORS block or
-  /// 404 on the Internet Archive fallback still leaves us with a
-  /// working Gutenberg URL.
-  ///
-  /// Only **plain-text** sources are returned here. The Open Library
-  /// work page is HTML and is intentionally excluded — including it
-  /// would either swallow it as a "successful" empty-book read, or
-  /// confuse the chapter splitter. It's still surfaced separately as
-  /// the "open in browser" URL via [_resolveReadSource].
-  ///
-  /// Strategy:
-  ///   1. If the `ia` id is a Project Gutenberg id (`pg1342` style),
-  ///      hit the canonical plain text URL (public domain, no auth).
-  ///      Requires the CORS proxy because gutenberg.org sends no
-  ///      `Access-Control-Allow-Origin` header.
-  ///   2. Otherwise try the Internet Archive djvu text extraction.
-  ///      IA *does* send CORS headers, so direct browser fetches
-  ///      succeed without the proxy — handy when the proxy is down.
   List<String> _resolveReadSources({
     required String iaId,
     required String workKey,
@@ -125,33 +85,15 @@ class OpenLibraryService with ConnectivityAware {
     final candidates = <String>[];
     if (iaId.startsWith('pg') && iaId.length > 2) {
       final id = iaId.substring(2);
-      // Gutenberg plain text (most reliable, public domain).
       candidates.add('https://www.gutenberg.org/cache/epub/$id/pg$id.txt');
-      // Alternate Gutenberg URL pattern.
       candidates.add('https://www.gutenberg.org/files/$id/$id-0.txt');
     } else if (iaId.isNotEmpty) {
-      // Internet Archive djvu text. Works for ~70% of items.
       candidates.add('https://archive.org/download/$iaId/${iaId}_djvu.txt');
-      // IA plain text fallback.
       candidates.add('https://archive.org/download/$iaId/$iaId.txt');
     }
     return candidates;
   }
 
-  /// First candidate — used by the model and as the "Open in
-  /// browser" fallback. Falls back to the Open Library work page
-  /// (HTML, browser-only) when no plain-text source is available,
-  /// so the reader's "Open on Open Library" button still has
-  /// somewhere to point.
-  ///
-  /// IMPORTANT: for non-Gutenberg Internet Archive ids, this points
-  /// at the IA **details/borrow page** rather than the first
-  /// candidate from [_resolveReadSources]. Modern copyrighted books
-  /// on IA are borrow-only — the `${iaId}_djvu.txt` / `${iaId}.txt`
-  /// files don't exist outside of an active loan, so using them as
-  /// the "open in browser" URL would just open a 404. The details
-  /// page is where the user can borrow and read the book in IA's
-  /// built-in reader.
   String _resolveReadSource({required String iaId, required String workKey}) {
     if (iaId.startsWith('pg') && iaId.length > 2) {
       final id = iaId.substring(2);
@@ -170,12 +112,6 @@ class OpenLibraryService with ConnectivityAware {
     return 'Open Library';
   }
 
-  // ── SEARCH / DISCOVERY ─────────────────────────────────────────────
-
-  /// Search Open Library for books. Returns up to 20 results.
-  ///
-  /// Routed through [CatalogProxyClient] (Cloud Function allow-list +
-  /// edge cache) instead of calling openlibrary.org directly.
   Future<List<BookItem>> searchBooks(String query) async {
     final page = await searchPaged(query, limit: 20);
     return page.items;
@@ -184,10 +120,6 @@ class OpenLibraryService with ConnectivityAware {
   static const String _searchFields =
       'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn';
 
-  /// Z-Lib style paged search with field filters. Open Library's
-  /// `search.json` accepts `title`, `author`, `publisher`, and `isbn`
-  /// as first-class query fields plus `offset` for deep paging, so
-  /// the advanced-search sheet maps 1:1 onto this call.
   Future<OpenLibraryPage> searchPaged(
     String query, {
     int limit = 20,
@@ -248,28 +180,13 @@ class OpenLibraryService with ConnectivityAware {
     return OpenLibraryPage.empty;
   }
 
-  /// Trending / popular books. Open Library doesn't have a strict
-  /// "trending" endpoint, so we use the `trending/daily` unofficial
-  /// list (mostly the same set as `/search.json?q=*&sort=trending`).
-  /// Falls back to a curated subject search if the request fails.
   Future<List<BookItem>> fetchTrending() async {
     return _subjectSearch('best', limit: 15);
   }
 
-  /// Recently added books — the Z-Lib "Recently Added" rail.
-  ///
-  /// NOTE: `sort=new` (Open Library import date) is unusable here —
-  /// its top results are spam/scan imports with no `cover_i`, no `ia`,
-  /// malformed `/works/...M` keys, and bogus years (9999), which is
-  /// why the rail rendered placeholder tiles with subtitles like
-  /// "9981". Instead this queries recent *publish* years sorted by
-  /// trending, over-fetches, and keeps only real works with covers
-  /// and sane years.
   Future<List<BookItem>> fetchRecent({int limit = 15}) async {
     final nowYear = DateTime.now().year;
     final fromYear = nowYear - 6;
-    // Over-fetch so the cover/year filter below still leaves a full
-    // rail. Open Library caps `limit` at 100 per page.
     final fetchLimit = (limit * 4).clamp(1, 100);
     try {
       final page = await searchPaged(
@@ -302,9 +219,6 @@ class OpenLibraryService with ConnectivityAware {
     return _subjectSearch('fiction', limit: limit);
   }
 
-  /// Curated subject discovery row. Used for the category rails
-  /// and full category list pages. Supports `offset` so category
-  /// pages can load more.
   Future<List<BookItem>> discoverBySubject(
     String subject, {
     int limit = 12,
@@ -345,11 +259,8 @@ class OpenLibraryService with ConnectivityAware {
     return [];
   }
 
-  /// Fetch detailed metadata for a work. Used by the preview drawer
-  /// when a book is opened.
   Future<Map<String, dynamic>?> fetchWorkDetails(String workKey) async {
     if (workKey.isEmpty) return null;
-    // workKey is something like "/works/OL45804W"
     try {
       final clean = workKey.startsWith('/') ? workKey.substring(1) : workKey;
       final response = await _proxy.get('openlibrary', '$clean.json');
@@ -362,8 +273,6 @@ class OpenLibraryService with ConnectivityAware {
     return null;
   }
 
-  /// Fetch a few editions for a work — used to find the edition
-  /// with a real page count and a borrowable Internet Archive copy.
   Future<List<Map<String, dynamic>>> fetchEditions(String workKey) async {
     if (workKey.isEmpty) return [];
     try {
@@ -384,8 +293,6 @@ class OpenLibraryService with ConnectivityAware {
     return [];
   }
 
-  // ── READ LIST PERSISTENCE ──────────────────────────────────────────
-
   Future<void> saveToReadList(
     BookItem item,
     String status,
@@ -395,7 +302,6 @@ class OpenLibraryService with ConnectivityAware {
       Logger.w('saveToReadList: userName is empty');
       return;
     }
-    // Guard: non-couple users may only use generic statuses.
     const coupleStatuses = {
       'read-khent',
       'read-clair',
@@ -487,8 +393,6 @@ class OpenLibraryService with ConnectivityAware {
     );
   }
 
-  // ── LOCAL CACHE ────────────────────────────────────────────────────
-
   Future<void> cacheReadList(List<BookItem> items, String userName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -560,12 +464,6 @@ class OpenLibraryService with ConnectivityAware {
 
   String _cacheKey(String userName) => 'cached_read_list::$userName';
 
-  // ── READ SOURCE FETCH ──────────────────────────────────────────────
-
-  /// Fetch the raw text of a book from its resolved read source.
-  /// Returns the full plain text (used by the chapter splitter).
-  /// Deprecated: routes through [fetchBookTextFromCandidates] (Cloud
-  /// Function proxy) instead of calling the source directly.
   @Deprecated('Use fetchBookTextFromCandidates instead')
   Future<String> fetchBookText(String readSourceUrl) async {
     if (readSourceUrl.isEmpty) return '';
@@ -573,12 +471,6 @@ class OpenLibraryService with ConnectivityAware {
     return result.text;
   }
 
-  /// Cloud Function URL for proxying book text requests.
-  /// Defaults to the Firebase Hosting rewrite for the deployed
-  /// `proxyBookText` function (same-origin, so it works even when
-  /// the raw Cloud Functions URL is IAM-restricted). When the app
-  /// is built with `--dart-define=USE_FIREBASE_EMULATOR=true` it
-  /// points at the local Functions emulator instead.
   static const String _proxyUrl = String.fromEnvironment(
     'BOOK_PROXY_URL',
     defaultValue: 'https://everglow-1c6db.web.app/api/proxyBookText',
@@ -589,9 +481,6 @@ class OpenLibraryService with ConnectivityAware {
     defaultValue: false,
   );
 
-  /// Resolved Cloud Function URL. Falls back to the local emulator
-  /// endpoint when the emulator flag is on, otherwise the deployed
-  /// production URL.
   static String get _proxyEndpoint {
     if (_useFunctionsEmulator) {
       return 'http://localhost:5001/everglow-1c6db/us-central1/proxyBookText';
@@ -599,9 +488,6 @@ class OpenLibraryService with ConnectivityAware {
     return _proxyUrl;
   }
 
-  /// Try each candidate read source URL via the Firebase Cloud
-  /// Function proxy. The function fetches each URL server-side so
-  /// Flutter web is never blocked by CORS.
   Future<FetchResult> fetchBookTextFromCandidates(
     List<String> candidates,
   ) async {
@@ -641,8 +527,6 @@ class OpenLibraryService with ConnectivityAware {
     } catch (e) {
       Logger.e('fetchBookTextFromCandidates proxy error', error: e);
     }
-    // Fallback: direct fetch (may fail on web due to CORS, but works
-    // in tests or when the proxy is unreachable).
     for (var i = 0; i < candidates.length; i++) {
       final url = candidates[i];
       try {
@@ -668,15 +552,6 @@ class OpenLibraryService with ConnectivityAware {
     );
   }
 
-  /// Build the full ordered list of read source URLs for a book.
-  /// Combines the model's stored URL with re-derived fallbacks.
-  ///
-  /// The model's `readSourceUrl` is the "open in browser" target —
-  /// for borrowable Internet Archive items that's the details page
-  /// (HTML), which the proxy would happily return as "text" and the
-  /// chapter splitter would then choke on. We only fold it into the
-  /// candidate list when it's an actual plain-text URL, so the
-  /// in-app reader never accidentally renders raw HTML.
   List<String> buildReadSourceCandidates(BookItem item) {
     final sources = <String>[];
     final stored = item.readSourceUrl;
@@ -697,8 +572,6 @@ class OpenLibraryService with ConnectivityAware {
     return lower.endsWith('.txt') || lower.contains('gutenberg.org');
   }
 
-  /// Heuristic guard against proxied/redirected HTML pages being
-  /// mistaken for book text (e.g. Internet Archive borrow pages).
   bool _looksLikeHtml(String text) {
     final trimmed = text.trimLeft();
     if (trimmed.isEmpty) return false;
@@ -706,14 +579,10 @@ class OpenLibraryService with ConnectivityAware {
         trimmed.toLowerCase().startsWith('<html')) {
       return true;
     }
-    // Borrow/error pages are typically short HTML or contain a title.
     return trimmed.startsWith('<') && trimmed.length < 4096;
   }
 }
 
-/// One page of Open Library search results with the catalog-wide
-/// total (`numFound`) so the UI can show "1,234 results" and know
-/// whether more pages exist.
 class OpenLibraryPage {
   final List<BookItem> items;
   final int total;
@@ -725,7 +594,6 @@ class OpenLibraryPage {
   bool get hasMore => items.length < total;
 }
 
-/// Result of [OpenLibraryService.fetchBookTextFromCandidates].
 class FetchResult {
   final String text;
   final String usedUrl;

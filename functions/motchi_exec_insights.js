@@ -1,11 +1,5 @@
 'use strict';
 
-/* Motchi insights tool executors — moved verbatim from
- * motchi_chat.js executeTool() (mechanical split, no behavior change).
- * Each executor is (ctx, args) => JSON string. Shared services
- * ride on ctx (see motchi_exec_tools.js createToolCtx).
- */
-
 const { computeInsights, generateTrivia, composeTodayRecap } = require('./motchi_core.js');
 const { fetchAniListAnime, fetchJikanAnime } = require('./motchi_exec_media.js');
 
@@ -81,7 +75,6 @@ async function exec_search_everglow(ctx, args) {
     const cacheKey = `everglow:search:${qLower}`;
     const cachedEver = ctx.cacheGet(cacheKey, ctx.cacheTTLs.tmdb);
     if (cachedEver) return JSON.stringify(cachedEver);
-    // Parallel searches: movies, books, anime, spotify (best-effort)
     const [moviesRes, booksRes, animeRes, spotifyRes] = await Promise.allSettled([
       (async () => {
         const k = ctx.getTmdbKey();
@@ -128,15 +121,6 @@ async function exec_search_everglow(ctx, args) {
     return JSON.stringify(result);
 }
 
-// ── Free web stack ──────────────────────────────────────────────
-// Ordinary lookups go out free first, on the same keyless stack the pi
-// harness uses: DuckDuckGo's lite endpoint for search, Jina's reader for
-// pages. That keeps Motchi answering from the web even when the paid
-// key is gone, empty or rate-limited, and a normal search stops costing
-// $0.005. TinyFish stays as the fallback and still owns the filters the
-// free path cannot do (news type, date ranges, geo).
-// ponytail: DDG lite returns one page of ~10 hits with no date filter.
-// Upgrade path: a Brave/Serper key if free quality ever matters.
 const FREE_BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -165,7 +149,6 @@ function _hostOf(url) {
   }
 }
 
-// DuckDuckGo wraps every hit in //duckduckgo.com/l/?uddg=<encoded target>.
 function _freeSearchTarget(href) {
   const raw = String(href || '').replace(/&amp;/g, '&');
   const m = /[?&]uddg=([^&]+)/.exec(raw);
@@ -179,13 +162,10 @@ function _freeSearchTarget(href) {
   return /^https?:\/\//i.test(raw) ? raw : '';
 }
 
-/** DuckDuckGo lite HTML -> TinyFish-shaped results, deduped and host-capped. */
 function parseFreeSearch(html, limit) {
   const src = String(html || '');
-  // Attribute order is not stable in DDG's own markup (href can come
-  // before or after class), so match the tag once and read href out.
   const links = [...src.matchAll(/<a([^>]*class=['"][^'"]*result-link[^'"]*['"][^>]*)>([\s\S]*?)<\/a>/g)]
-    .map((m) => [(/href=["']([^"']+)["']/.exec(m[1]) || [])[1] || '', m[2]]); // [href, title]
+    .map((m) => [(/href=["']([^"']+)["']/.exec(m[1]) || [])[1] || '', m[2]]);
   const snippets = [...src.matchAll(
     /<td[^>]*class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/g
   )];
@@ -195,8 +175,6 @@ function parseFreeSearch(html, limit) {
   for (let i = 0; i < links.length; i++) {
     const url = _freeSearchTarget(links[i][0]);
     if (!url || seen.has(url)) continue;
-    // One site must not fill the list — that is how Motchi ends up
-    // answering a whole question from five links on the same wiki hub.
     const host = _hostOf(url);
     const hits = perHost.get(host) || 0;
     if (hits >= 2) continue;
@@ -213,8 +191,6 @@ function parseFreeSearch(html, limit) {
   return out.slice(0, limit);
 }
 
-// Free search. Never throws: a blocked or slow free endpoint just means
-// the paid fallback answers instead.
 async function freeSearch(query, limit) {
   try {
     const res = await fetch(FREE_SEARCH_URL + encodeURIComponent(query), {
@@ -231,12 +207,6 @@ async function freeSearch(query, limit) {
   }
 }
 
-// Free page reader (Jina): markdown text for one URL, no key. Used when
-// TinyFish is out of credit, rate-limited or refused the page. Returns
-// null instead of throwing so the caller keeps the paid error text.
-// ponytail: capped at 6s so the free hop still fits inside the 25s tool
-// budget after a paid read. A page that timed out twice gets no free
-// retry — that budget is spent.
 const FREE_READ_TIMEOUT_MS = 6000;
 
 async function freeReadPage(url, timeoutMs) {
@@ -253,8 +223,6 @@ async function freeReadPage(url, timeoutMs) {
     const at = raw.indexOf(marker);
     const text = (at >= 0 ? raw.slice(at + marker.length) : raw).trim();
     if (text.length < 120) return null;
-    // Jina puts the title on the first line. Read only that line, or a
-    // single-line response swallows the whole page into the title.
     const title = ((/^Title:\s*(.+)$/.exec(raw.split('\n', 1)[0].trim()) || [])[1] || '')
       .slice(0, 200);
     return { url, title: title.trim(), text: text.slice(0, 4000) };
@@ -263,7 +231,6 @@ async function freeReadPage(url, timeoutMs) {
   }
 }
 
-// Paid search, one request, honest error text the model can relay.
 async function tinyfishSearch(apiKey, params) {
   let res;
   try {
@@ -294,16 +261,12 @@ async function exec_web_search(ctx, args) {
     if (args.before_date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.before_date))) params.set('before_date', String(args.before_date));
     if (args.include_domains) params.set('include_domains', String(args.include_domains));
     if (args.exclude_domains) params.set('exclude_domains', String(args.exclude_domains));
-    // Fresh asks (news, recency, date filters) cache briefly; everything
-    // else reuses results for an hour so repeat asks answer instantly.
     const wantsFresh = String(args.domain_type || '') === 'news' ||
       args.recency_minutes || args.after_date || args.before_date;
     const searchTtl = wantsFresh
       ? ctx.cacheTTLs.web_search
       : (ctx.cacheTTLs.web_search_long || ctx.cacheTTLs.web_search);
     const searchKey = `websearch:${params.toString()}`;
-    // Free path for ordinary lookups. News type, date ranges and domain
-    // filters only TinyFish can do, so those asks skip the free hop.
     const needsPaidFilters =
       wantsFresh ||
       args.domain_type ||
@@ -344,9 +307,6 @@ async function exec_web_search(ctx, args) {
         site: r.site_name || _hostOf(r.url || ''),
         date: r.date || null,
       }));
-    // One-round answers: fetch the top hit's content right here (best
-    // effort, cached) so Motchi usually needs no second read_web_page
-    // round — that saved LLM round is the biggest speed win.
     let topPage = null;
     const topUrl = results.length > 0 ? results[0].url : '';
     if (/^https?:\/\//i.test(topUrl || '')) {
@@ -354,27 +314,15 @@ async function exec_web_search(ctx, args) {
         const page = await readOnePage(ctx, apiKey, topUrl, 8000);
         topPage = { url: page.url || topUrl, title: page.title || results[0].title || '', content: page.text.slice(0, 1800) };
       } catch (_) {
-        // Top-page fetch is a bonus — snippets alone still answer.
       }
     }
-    // top_page first: the model's trimmed copy keeps the most useful
-    // content when the payload is long.
     return JSON.stringify({ query, top_page: topPage, results, total: searchData.total_results || results.length });
 }
 
-// One page per request, cached per URL under the same key web_search and
-// read_web_page both use, so the top hit a search already fetched is free
-// to read later. Throws on a hard API error or an unreadable page; the
-// caller decides whether that is fatal. Text is trimmed once here and each
-// caller slices it down further for its own payload budget.
 async function readOnePage(ctx, apiKey, url, timeoutMs) {
     const key = `webpage:${url}`;
     const cached = ctx.cacheGet(key, ctx.cacheTTLs.web_page);
     if (cached && cached.text) return cached;
-    // A slow page gets exactly one more try (2 x 10s + a pause stays
-    // inside the 25s tool budget). The retry lives here rather than in
-    // executeToolCall because a per-URL failure never throws out of the
-    // batch, so the outer retry cannot see it.
     let paidError = apiKey ? null : 'Web page reading is not configured on the server yet.';
     for (let attempt = 1; paidError === null; attempt++) {
       try {
@@ -406,8 +354,6 @@ async function readOnePage(ctx, apiKey, url, timeoutMs) {
         await new Promise((r) => setTimeout(r, 500));
       }
     }
-    // Paid path said no (no key, no credit, blocked page, timeout). The
-    // free reader often still has it, so one free try before giving up.
     const free = await freeReadPage(url, timeoutMs);
     if (!free) throw new Error(paidError);
     ctx.cacheSet(key, free);
@@ -415,16 +361,10 @@ async function readOnePage(ctx, apiKey, url, timeoutMs) {
 }
 
 async function exec_read_web_page(ctx, args) {
-    // No key check up front: the free reader in readOnePage can still
-    // answer without one.
     const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
     const urlsRaw = Array.isArray(args.urls) ? args.urls : [args.urls];
     const urls = urlsRaw.map(u => String(u || '').trim()).filter(u => /^https?:\/\//i.test(u)).slice(0, 3);
     if (urls.length === 0) return JSON.stringify({ error: 'No valid http(s) URLs provided' });
-    // One request per URL, all in parallel: a single blocked or slow page
-    // (Facebook, Reddit) used to take the whole batch down with it and left
-    // Motchi with nothing. Same wall-clock as one batched call, and the
-    // pages that did load still reach the model.
     const settled = await Promise.allSettled(urls.map(url => readOnePage(ctx, apiKey, url, 10000)));
     const pages = [];
     const pageErrors = [];
@@ -435,19 +375,12 @@ async function exec_read_web_page(ctx, args) {
         pageErrors.push({ url: urls[i], error: (r.reason && r.reason.message) || 'unknown' });
       }
     });
-    // Every URL failed: report one honest error, with the per-URL detail
-    // kept alongside it so the receipt still shows what was attempted.
     if (pages.length === 0 && pageErrors.length > 0) {
       return JSON.stringify({ error: pageErrors[0].error, pages, errors: pageErrors });
     }
     return JSON.stringify({ pages, errors: pageErrors });
 }
 
-// TinyFish browser automation (the "agent" tool). Runs queue async and
-// poll inside the tool's time budget — a sync run takes minutes, far
-// beyond the 25s tool timeout, so the model resumes with run_id while
-// the status is RUNNING. No agent_config caps: custom max steps are a
-// gated beta and the API 403s without it — server defaults apply.
 const TINYFISH_AGENT_BASE = 'https://agent.tinyfish.ai';
 const BROWSE_POLL_MS = 3000;
 const BROWSE_BUDGET_MS = 20000;
@@ -467,7 +400,6 @@ async function exec_browse_web(ctx, args) {
     if (!runId) {
       if (!/^https?:\/\//i.test(url)) return JSON.stringify({ error: 'No valid http(s) URL provided' });
       if (!goal) return JSON.stringify({ error: 'No goal provided' });
-      // Repeat asks answer instantly from cache.
       cacheKey = `browse:${url}|${goal.slice(0, 200)}`;
       const cached = ctx.cacheGet(cacheKey, ctx.cacheTTLs.web_page);
       if (cached) return JSON.stringify(cached);
@@ -498,10 +430,8 @@ async function exec_browse_web(ctx, args) {
         return JSON.stringify({ error: `Web browsing failed to start: ${msg}` });
       }
     } else if (url && goal) {
-      // Resume calls repeat url+goal so completions land in the same cache.
       cacheKey = `browse:${url}|${goal.slice(0, 200)}`;
     }
-    // Poll for completion inside the tool budget.
     const deadline = Date.now() + BROWSE_BUDGET_MS;
     for (;;) {
       let runRes;
@@ -546,8 +476,6 @@ async function exec_request_tools(ctx, args) {
   const tls = Array.isArray(args?.tools) ? args.tools : [];
   const mountedNames = resolveToolsForCapabilities(caps, tls);
 
-  // JIT Memory Bundling: automatically attach top relevant memories
-  // for the requested capability/reason, saving an extra read_memories round.
   let relevantNotes = [];
   let memories = [];
   if (ctx.db && (ctx.userMessage || args?.reason || caps.length > 0)) {

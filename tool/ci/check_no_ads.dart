@@ -1,15 +1,3 @@
-// Zero-ads guard for MangaCelestia: Clair reads with absolutely no ads,
-// ever. MangaKatana itself is ad-funded (Hide Ads buttons, ad scripts,
-// popups), but we copy only its layout and reader behavior — never its
-// ad machinery.
-//
-// Rule: lib/features/manga/ must not contain ad SDKs, ad widgets, the
-// site's Hide-Ads flow, or WebViews that would execute scraped site
-// scripts. The Katana path parses proxied HTML as strings (covers,
-// chapters, text) and never renders it, so site ads can't reach Clair.
-// pubspec.yaml must not gain ad dependencies either.
-//
-// Usage: dart tool/ci/check_no_ads.dart
 import 'dart:io';
 
 import '_io.dart';
@@ -23,7 +11,6 @@ Future<void> main() async {
     exit(2);
   }
 
-  // Case-insensitive substring markers for ad SDKs and networks.
   final bannedSubstrings = [
     'google_mobile_ads',
     'admob',
@@ -35,8 +22,6 @@ Future<void> main() async {
     'hide ads',
   ];
 
-  // Word-boundary markers for ad widget classes and webviews.
-  // (Plain substrings would false-positive on e.g. `_showAddDialog`.)
   final bannedWords = RegExp(
     r'\b(InterstitialAd|RewardedAd|BannerAd|NativeAd|AppOpenAd|'
     r'WebView|InAppWebView|flutter_inappwebview|webview_flutter)\b',

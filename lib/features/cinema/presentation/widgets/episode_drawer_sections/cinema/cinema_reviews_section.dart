@@ -4,7 +4,6 @@ import '../../../../../../core/theme/app_typography.dart';
 import '../drawer_helpers.dart';
 import '../../netflix/netflix_colors.dart';
 
-/// Review cards for the enhanced Cinema drawer.
 class CinemaReviewsSection extends StatelessWidget {
   final List<Map<String, dynamic>> reviews;
   final bool isLoading;

@@ -18,7 +18,6 @@ import '../../data/services/trip_kit_service.dart';
 import '../widgets/trip_ui.dart';
 import 'trip_list_screen.dart' show showTripEditSheet;
 
-/// One trip page: packing checklist + budget + places, all live.
 class TripDetailScreen extends StatefulWidget {
   final String tripId;
   final TripKitService? service;
@@ -182,8 +181,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  // ── Packing ───────────────────────────────────────────────
-
   Future<void> _addPackItem(Trip trip) async {
     if (_addingPackItem) return;
     final label = _packController.text.trim();
@@ -228,8 +225,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     'Could not remove this packing item. Please try again.',
     () => _service.removePackingItem(trip.id, item.id),
   );
-
-  // ── Places ────────────────────────────────────────────────
 
   Future<void> _addPlace(Trip trip) async {
     if (_addingPlace) return;
@@ -302,8 +297,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       );
     }
   }
-
-  // ── Notes + delete ───────────────────────────────────────
 
   Widget _notesCard(Trip trip) {
     return Container(
@@ -399,8 +392,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
   }
 }
-
-// ── Budget card ─────────────────────────────────────────────
 
 class TripBudgetCard extends StatefulWidget {
   final Trip trip;
@@ -716,8 +707,6 @@ class _TripExpenseRow extends StatelessWidget {
     );
   }
 }
-
-// ── Header icon + loading ─────────────────────────────────────
 
 class _HeaderIcon extends StatelessWidget {
   final IconData icon;

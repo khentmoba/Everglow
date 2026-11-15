@@ -5,16 +5,6 @@ import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_motion.dart';
 
-/// Consistent section header used across the four inside screens
-/// (Cinema, Anime, Books, Manga). Composes a small uppercase eyebrow,
-/// a serif display title, an optional item count, and a "See all"
-/// affordance — so every rail in the app reads with the same rhythm.
-///
-/// Honours component-forge's a11y checklist:
-///   * Wrapped in a `Semantics` header so screen readers announce
-///     "section, <title>".
-///   * "See all" chip has a `tooltip` + `Semantics` label.
-///   * Tap target is 36+ px and respects the medium motion duration.
 class ShelfSectionHeader extends StatelessWidget {
   final String eyebrow;
   final String title;

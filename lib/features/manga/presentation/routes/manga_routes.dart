@@ -4,16 +4,11 @@ import '../../../../core/router/route_helpers.dart';
 
 import '../../data/models/manga_item.dart';
 import '../screens/katana_home_screen.dart' deferred as manga_lib;
-// The reader (35KB+ of paging/zoom/chapter logic) splits out of the initial
-// bundle via a deferred import (see docs/PERF_NOTES.md). Direct pushes from
-// [MangaDetailsDrawer] use the same chunk via their own deferred import.
 import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 
-/// Fetches Mangacelestia's code chunk before the first tap.
 Future<void> warmMangaLibrary() =>
     DeferredRouteLoader.warm('Mangacelestia', manga_lib.loadLibrary);
 
-/// Routes owned by the manga feature.
 final List<GoRoute> mangaRoutes = [
   GoRoute(
     path: "/manga",
@@ -43,7 +38,6 @@ final List<GoRoute> mangaRoutes = [
   ),
 ];
 
-/// Args for [MangaReaderScreen] (complex object, can't be URL params).
 class MangaReaderArgs {
   final MangaItem manga;
   final MangaChapter chapter;

@@ -17,24 +17,18 @@ class CanvasPainter extends CustomPainter {
     _strokesPicture?.dispose();
   }
 
-  // ── Grid cache ──────────────────────────────────────────────────
   Picture? _gridPicture;
   Size? _lastGridSize;
 
-  // ── Completed strokes cache ─────────────────────────────────────
-  // Pre-renders all completed (non-active) strokes into a Picture.
-  // Only rebuilds when the strokes list changes, not on every frame.
   Picture? _strokesPicture;
   int _lastStrokesHash = 0;
   Size? _lastStrokesSize;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Phase 1: Subtle canvas tint
     final bgPaint = Paint()..color = AppColors.velvet.withValues(alpha: 0.25);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // Phase 2: Draw blueprint dot-grid background from cached Picture
     if (_gridPicture == null || _lastGridSize != size) {
       _gridPicture?.dispose();
       _gridPicture = _createGridPicture(size);
@@ -42,7 +36,6 @@ class CanvasPainter extends CustomPainter {
     }
     canvas.drawPicture(_gridPicture!);
 
-    // Phase 3: Draw completed strokes from cache
     final strokesHash = _hashStrokes(strokes);
     if (_strokesPicture == null ||
         _lastStrokesHash != strokesHash ||
@@ -54,13 +47,11 @@ class CanvasPainter extends CustomPainter {
     }
     canvas.drawPicture(_strokesPicture!);
 
-    // Phase 4: Draw the active stroke (changes every frame during drawing)
     if (activeStroke != null) {
       _drawStroke(canvas, size, activeStroke!);
     }
   }
 
-  /// Hash of strokes list for cache invalidation.
   int _hashStrokes(List<DoodleStroke> strokes) {
     int hash = strokes.length;
     for (final s in strokes) {
@@ -74,7 +65,6 @@ class CanvasPainter extends CustomPainter {
     return hash;
   }
 
-  /// Pre-renders all completed strokes into a Picture for efficient replay.
   Picture _createStrokesPicture(Size size, List<DoodleStroke> strokes) {
     final recorder = PictureRecorder();
     final strokesCanvas = Canvas(recorder);
@@ -84,8 +74,6 @@ class CanvasPainter extends CustomPainter {
     return recorder.endRecording();
   }
 
-  /// Pre-renders the dot grid into a [Picture] so every frame just
-  /// replays it instead of building offset lists from scratch.
   Picture _createGridPicture(Size size) {
     final recorder = PictureRecorder();
     final gridCanvas = Canvas(recorder);
@@ -110,7 +98,6 @@ class CanvasPainter extends CustomPainter {
   }
 
   void _drawStroke(Canvas canvas, Size size, DoodleStroke stroke) {
-    // Handle text annotations
     if (stroke.isTextAnnotation) {
       _drawTextAnnotation(canvas, size, stroke);
       return;
@@ -130,7 +117,6 @@ class CanvasPainter extends CustomPainter {
         )
         .toList();
 
-    // 1. Draw glowing background shadow
     final shadowPaint = Paint()
       ..color = color.withValues(alpha: 0.3)
       ..strokeWidth = stroke.strokeWidth * 2.5
@@ -142,7 +128,6 @@ class CanvasPainter extends CustomPainter {
           : const MaskFilter.blur(BlurStyle.normal, 3.0);
     canvas.drawPoints(PointMode.polygon, offsets, shadowPaint);
 
-    // 2. Draw sharp foreground stroke
     final paint = Paint()
       ..color = color
       ..strokeWidth = stroke.strokeWidth
@@ -188,7 +173,7 @@ class CanvasPainter extends CustomPainter {
       return Color(int.parse(colorStr, radix: 16));
     } catch (e) {
       return AppTheme
-          .roseQuartz; // Fallback to roseQuartz instead of basic pink
+          .roseQuartz;
     }
   }
 
@@ -199,7 +184,6 @@ class CanvasPainter extends CustomPainter {
   }
 }
 
-/// Completed artwork keeps its Pictures while the pen repaints independently.
 class CanvasSurface extends StatefulWidget {
   const CanvasSurface({
     super.key,

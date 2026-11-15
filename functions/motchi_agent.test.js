@@ -6,7 +6,6 @@ const { loadCompanion, updateCompanion, companionPrompt, normalizePreferences,
   allowsPush, pushReservation, memoryEvidence, actionKey, requestBudget, journeyMetrics } = require('./motchi_agent.js');
 const { executeToolCall, clearIdempotencyCache, TOOL_EXECUTORS } = require('./motchi_exec_tools.js');
 
-// Transactional demo storage: no network or real data. Count documents, not query calls.
 function demoStorage() {
   const records = new Map();
   const counts = { reads: 0, writes: 0 };
@@ -71,7 +70,7 @@ test('recommendation feedback keeps owners separate and expires tonight-only rea
 });
 
 test('quiet hours cross midnight, nudges have a persistent interval, requested reminders bypass them', () => {
-  const now = Date.parse('2026-10-10T15:00:00Z'); // 11 PM Philippine time
+  const now = Date.parse('2026-10-10T15:00:00Z');
   assert.equal(allowsPush({}, 'habit_streak', now), false);
   assert.equal(allowsPush({ preferences: { nudges: 'off', digests: false } }, 'reminder', now), true);
   assert.equal(allowsPush({}, 'reminder_shared', now), true);

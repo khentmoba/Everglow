@@ -1,6 +1,5 @@
 'use strict';
 
-// Server-side calendar reads use Philippine wall time, like reminders.
 const PHT_OFFSET = 8 * 60 * 60 * 1000;
 function calendarDatesBetween(date, recurring, start, end) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime()) || end <= start) return [];
@@ -25,7 +24,6 @@ function calendarDatesBetween(date, recurring, start, end) {
 async function getCalendarEvents(db, Timestamp, start, end, limit) {
   const day = new Date(start.getTime() + PHT_OFFSET).toISOString().slice(0, 10);
   const queryStart = new Date(`${day}T00:00:00+08:00`);
-  // ponytail: 100 source entries per query; paginate if the shared calendar outgrows this.
   const [dated, recurring] = await Promise.all([
     db.collection('calendar_events').where('date', '>=', Timestamp.fromDate(queryStart))
       .where('date', '<', Timestamp.fromDate(end)).orderBy('date', 'asc').limit(100).get(),

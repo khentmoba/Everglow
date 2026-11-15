@@ -1,20 +1,3 @@
-// Release-sync guard: the shipped version must match its paperwork.
-//
-// Releases publish automatically via release.yml, but ONLY on version
-// bumps (the old every-deploy date tags were removed in 4b451a2 for
-// cluttering the page). This guard checks the paperwork on every PR so
-// the workflow always has clean input: these four must agree, or the
-// README badge, changelog, and releases page drift:
-//
-// 1. pubspec.yaml `version: X.Y.Z+N` (source of truth)
-// 2. lib/core/system/app_version.dart `current` (runtime mirror)
-// 3. CHANGELOG.md `## [X.Y.Z]` entry (release notes live here)
-// 4. README.md `Latest Release` + `Release History` (what GitHub shows)
-//
-// When cutting a release, bump all four in one PR (see "Releases" in
-// AGENTS.md). Feature PRs change none of them.
-//
-// Usage: dart tool/ci/check_release_sync.dart
 import 'dart:io';
 
 Future<void> main() async {
@@ -93,8 +76,6 @@ Future<void> main() async {
   _fail(failures);
 }
 
-/// Returns the markdown section starting at [heading], up to (but not
-/// including) the next `## ` heading, or null when missing.
 String? _section(String text, String heading) {
   final start = text.indexOf(heading);
   if (start < 0) return null;

@@ -13,8 +13,6 @@ import '../../../../shared/utils/tmdb_images.dart';
 import 'dashboard_load_tracker.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Dashboard card surfacing spontaneous nostalgia from Gallery, Cinema,
-/// and Chat. Hidden entirely when nothing matches.
 class OnThisDayCard extends StatefulWidget {
   const OnThisDayCard({super.key});
 
@@ -41,10 +39,6 @@ class _OnThisDayCardState extends State<OnThisDayCard>
 
   Future<void> _load() async {
     try {
-      // Bounded: the `.get()` reads inside have no timeout of their own,
-      // and a hung WebChannel would otherwise stall the dashboard load
-      // veil (memories signal) forever. Empty still counts as settled —
-      // the card hides and the veil moves on.
       final memories = await _service.getAllMemories().timeout(
         const Duration(seconds: 10),
         onTimeout: () => <OnThisDayMemory>[],
@@ -68,9 +62,6 @@ class _OnThisDayCardState extends State<OnThisDayCard>
     }
   }
 
-  /// First-screen progress: memories have settled (data or empty), so the
-  /// load veil can count us. After dispose this is a no-op; a missing
-  /// tracker is a wiring bug, so it logs instead of hiding.
   void _reportLoaded() {
     if (!mounted) return;
     try {

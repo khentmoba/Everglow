@@ -5,7 +5,6 @@ const functions = require('firebase-functions/v1');
 const { getAdmin, getDb } = require('./common.js');
 const { allowsPush, pushReservation } = require('./motchi_agent.js');
 
-// ── FCM Helper ───────────────────────────────────────────────────
 async function sendFCMToUser(uid, payload) {
   try {
     const db = getDb();
@@ -23,8 +22,6 @@ async function sendFCMToUser(uid, payload) {
       if (!allowed) return true;
     }
 
-    // Parent `token` fields are legacy and may belong to a logged-out device.
-    // Only explicitly registered installation documents are deliverable.
     const messaging = getAdmin().messaging();
     let delivered = true;
     await Promise.all(devices.docs.map(async (device) => {
@@ -63,10 +60,6 @@ async function sendFCMToBoth(payload) {
   ]);
 }
 
-/**
- * Fire-and-forget observability: every Motchi tool call lands in
- * motchi_stats/tool_calls so failures and latency are reviewable.
- */
 async function logToolCall(toolName, caller, result, elapsedMs) {
   try {
     let ok = true;
@@ -78,7 +71,6 @@ async function logToolCall(toolName, caller, result, elapsedMs) {
         error = String(parsed.error).slice(0, 300);
       }
     } catch (_) {
-      // Result is not JSON or was empty; leave ok as true.
     }
     await getDb().collection('motchi_stats').doc('tool_calls').collection('calls').add({
       tool: toolName,
@@ -93,27 +85,19 @@ async function logToolCall(toolName, caller, result, elapsedMs) {
   }
 }
 
-// ── Firestore Triggers: Partner Notifications ─────────────────────
-// UID ↔ display-name lookup. Keys are the Firebase Auth UIDs.
 const USER_DISPLAY = {
   khentsgdz: 'Khent',
   clairjassen: 'Clair',
 };
-// Partner UID map — each user's partner UID.
 const PARTNER_UID = {
   khentsgdz: 'clairjassen',
   clairjassen: 'khentsgdz',
 };
 
-/**
- * Chat message → notify the partner who didn't send it.
- * Runs on every new document in sanctuary_messages.
- */
 const onNewChatMessage = functions.firestore
   .document('sanctuary_messages/{messageId}')
   .onCreate(async (snap) => {
     const data = snap.data();
-    // Use sender (username) not senderUid (Auth UID) for partner lookup
     const sender = (data.sender || '').toLowerCase();
     if (!sender || !PARTNER_UID[sender]) return;
 
@@ -128,10 +112,6 @@ const onNewChatMessage = functions.firestore
     });
   });
 
-/**
- * Mood submission → notify the partner.
- * Runs on every new document in moods.
- */
 const onNewMood = functions.firestore
   .document('moods/{moodId}')
   .onCreate(async (snap) => {
@@ -150,9 +130,6 @@ const onNewMood = functions.firestore
     });
   });
 
-/**
- * Starlight jar note → notify the partner.
- */
 const onNewStarDrop = functions.firestore
   .document('starlight_jar/{noteId}')
   .onCreate(async (snap) => {
@@ -167,9 +144,6 @@ const onNewStarDrop = functions.firestore
     });
   });
 
-/**
- * Watchlist item → notify the partner so you can watch together.
- */
 const onNewWatchlistItem = functions.firestore
   .document('watch_list/{itemId}')
   .onCreate(async (snap) => {
@@ -184,9 +158,6 @@ const onNewWatchlistItem = functions.firestore
     });
   });
 
-/**
- * Gallery photo → notify the partner of the new memory.
- */
 const onNewGalleryPhoto = functions.firestore
   .document('gallery/{photoId}')
   .onCreate(async (snap) => {
@@ -201,9 +172,6 @@ const onNewGalleryPhoto = functions.firestore
     });
   });
 
-/**
- * Milestone → celebrate with the couple.
- */
 const onNewMilestone = functions.firestore
   .document('milestones/{milestoneId}')
   .onCreate(async (snap) => {

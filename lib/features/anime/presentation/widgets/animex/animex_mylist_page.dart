@@ -9,8 +9,6 @@ import 'animex_footer.dart';
 import 'animex_grid.dart';
 import 'animex_tokens.dart';
 
-/// My List page: stats, source toggle, and the couple's anime catalog in
-/// Watching / Plan to Watch / Completed sections.
 class AnimeXMyListPage extends StatefulWidget {
   final AnimeXController controller;
 

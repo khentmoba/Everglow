@@ -1,19 +1,10 @@
 'use strict';
 
-/* Motchi planning tool executors — moved verbatim from
- * motchi_chat.js executeTool() (mechanical split, no behavior change).
- * Each executor is (ctx, args) => JSON string. Shared services
- * ride on ctx (see motchi_exec_tools.js createToolCtx).
- */
-
 const { randomUUID } = require('node:crypto');
 const { parseReminderDate, phtDateString } = require('./motchi_core.js');
 const { getCalendarEvents } = require('./calendar_core.js');
 
 async function exec_create_reminder(ctx, args) {
-    // W1-A2: Parse remind_at into a Firestore Timestamp for the
-    // scheduled checker. ISO 8601 plus today/tonight/tomorrow, in-N-units,
-    // and next week — clock times read as Philippine wall time.
     let remindAtTs = null;
     const rawRemind = String(args.remind_at || '').trim();
     if (rawRemind) {
@@ -188,7 +179,6 @@ async function exec_log_habit(ctx, args) {
     if (!title) return JSON.stringify({ error: 'title required' });
     const cat = ['health','fitness','mindfulness','learning','social','other'].includes(String(args.category||'')) ? String(args.category) : 'health';
     const freq = ['daily','weekly','custom'].includes(String(args.frequency||'')) ? String(args.frequency) : 'daily';
-    // Check duplicate
     const existingH = await ctx.db.collection('habits').where('title','==',title).limit(1).get();
     if (!existingH.empty) return JSON.stringify({ success: false, error: `Habit "${title}" already exists`, id: existingH.docs[0].id });
     const data = {
@@ -218,7 +208,6 @@ async function exec_complete_habit(ctx, args) {
     } else {
       const q = await ctx.db.collection('habits').where('title','==',title).limit(1).get();
       if (q.empty) {
-        // try case-insensitive
         const all = await ctx.db.collection('habits').limit(50).get();
         const found = all.docs.find(d => (d.data().title||'').toLowerCase() === title.toLowerCase());
         if (found) { docRef = found.ref; docSnap = found; } else return JSON.stringify({ error: `Habit "${title}" not found` });
@@ -227,7 +216,6 @@ async function exec_complete_habit(ctx, args) {
     if (!docSnap.exists) return JSON.stringify({ error: 'Habit not found' });
     const data = docSnap.data();
     const now = new Date();
-    // PHT day basis so after-midnight completions count right.
     const todayKey = ctx.phtDateString(now.getTime());
     const completedDates = (data.completedDates||[]).map(d => {
       if (d.toDate) return ctx.phtDateString(d.toDate().getTime());
@@ -235,7 +223,6 @@ async function exec_complete_habit(ctx, args) {
       return Number.isNaN(parsed.getTime()) ? String(d).slice(0,10) : ctx.phtDateString(parsed.getTime());
     });
     if (completedDates.includes(todayKey)) return JSON.stringify({ success: false, error: 'Already completed today', streak: data.streak||0 });
-    // Compute streak - naive increment
     const newStreak = (data.streak||0)+1;
     const longest = Math.max(newStreak, data.longestStreak||0);
     await docRef.update({
@@ -290,7 +277,6 @@ async function exec_get_date_ideas(ctx, args) {
     const count = Math.min(args.count || 3, 10);
     const snapshot = await ctx.db.collection('date_ideas').limit(100).get();
     const allIdeas = snapshot.docs.map(d => d.data().title || d.data().name || '').filter(Boolean);
-    // Random selection
     const shuffled = allIdeas.sort(() => Math.random() - 0.5);
     return JSON.stringify({ ideas: shuffled.slice(0, count) });
 }
@@ -310,7 +296,6 @@ async function exec_get_weather(ctx, args) {
 }
 
 async function exec_list_reminders(ctx, _args) {
-  // Equality-only query (no composite index); due-soonest sort in code.
   const snap = await ctx.db.collection('reminders').where('fired', '==', false).limit(20).get();
   const items = snap.docs.map((d) => {
     const data = d.data();
@@ -352,7 +337,6 @@ async function exec_cancel_reminder(ctx, args) {
     await ref.update(stamp());
     return JSON.stringify({ success: true, id, title: snap.data()?.title || '' });
   }
-  // Title match (case-insensitive substring, like the watchlist flow).
   const snap = await ctx.db.collection('reminders').where('fired', '==', false).limit(50).get();
   const qLower = title.toLowerCase();
   const matches = snap.docs.filter((d) => {
@@ -687,11 +671,6 @@ async function exec_edit_trip(ctx, args) {
   return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
 }
 
-// ── Subs tracker ─────────────────────────────────────────────
-// Mirrors the Dart Subscription roll-forward: a stored renewal date
-// rolls by cycle until it lands on/after today, so countdowns stay
-// correct without edits.
-
 function _subAddMonths(d, months) {
   const m = d.getUTCMonth() + months;
   const y = d.getUTCFullYear() + Math.floor(m / 12);
@@ -700,7 +679,6 @@ function _subAddMonths(d, months) {
   return new Date(Date.UTC(y, mm, Math.min(d.getUTCDate(), lastDay)));
 }
 
-// Return a PHT calendar date encoded as UTC midnight, not a billing instant.
 function subNextRenewal(renewalDate, cycle, now) {
   const today = new Date(phtDateString((now || new Date()).getTime()));
   let next = renewalDate instanceof Date && !Number.isNaN(renewalDate.getTime())

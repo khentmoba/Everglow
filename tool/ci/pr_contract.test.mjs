@@ -82,7 +82,6 @@ test('every PR records its review, or why no independent review ran', () => {
 });
 
 test('proof must live under docs/pr-proof/pr-<number>/', () => {
-  // A flat proof file skips the per-PR folder the skill and README require.
   const flat = shot.replace('pr-1/shot.png', 'shot.png');
   assert.ok(checkPrContract({...pr, body: body.replace(shot, flat)})
     .some(error => error.includes('screenshot')));
@@ -95,8 +94,6 @@ test('drafts may report blockers; nonvisual PRs must explain N/A', () => {
   assert.ok(checkPrContract({body:'<!-- '+body+' -->',paths:pr.paths}).length);
 });
 
-// #588 and #589 only learned their bodies were wrong from CI. --body runs the
-// same contract on the branch before the PR is opened or readied.
 test('--body checks a local branch and tells a visual PR to open as a draft first', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'pr-contract-local-'));
   const git = (...args) => execFileSync('git', args, {cwd, stdio:'pipe'});

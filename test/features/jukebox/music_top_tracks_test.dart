@@ -199,7 +199,6 @@ void main() {
               },
             });
           }
-          // user.getinfo fails with Last.fm 503 or error payload
           return _jsonResponse({'error': 16, 'message': 'temporary error'});
         }),
         signUrl: (url) async => url.replace(
@@ -207,11 +206,9 @@ void main() {
         ),
       );
 
-      // Seed via recent tracks
       await service.fetchRecentTracks('khentsgdz');
       expect(service.getLastObservedTotalPlays('khentsgdz'), 6716);
 
-      // user.getinfo fails but returns the seeded total from recenttracks
       final plays = await service.fetchUserTotalPlays('khentsgdz');
       expect(plays, 6716);
     });
@@ -242,11 +239,9 @@ void main() {
 
       final tracks = await service.fetchTopTracks('khentsgdz');
       expect(tracks, hasLength(2));
-      // Sun Bleached Flies has 9.1M plays, so it must be rank 1
       expect(tracks[0].trackName, 'Sun Bleached Flies');
       expect(tracks[0].rank, 1);
       expect(tracks[0].playCount, 9105893);
-      // A House in Nebraska has 7.9M plays, so it must be rank 2
       expect(tracks[1].trackName, 'A House in Nebraska');
       expect(tracks[1].rank, 2);
       expect(tracks[1].playCount, 7925898);

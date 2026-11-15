@@ -1,10 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-/// Expense vs income.
 enum MoneyType { expense, income }
 
-/// Peso-first categories. Kept small so Clair can pick in one tap.
 class MoneyCategories {
   MoneyCategories._();
 
@@ -40,10 +38,8 @@ class MoneyCategories {
 
 final _pesoFormat = NumberFormat('#,##0', 'en_PH');
 
-/// "₱1,250" — no decimals, pesos don't need centavos here.
 String formatPeso(num amount) => '₱${_pesoFormat.format(amount)}';
 
-/// One shared-wallet entry. Collection: `budget_transactions`.
 class MoneyEntry {
   final String id;
   final MoneyType type;
@@ -118,8 +114,6 @@ class MoneyEntry {
       '${d.year}-${d.month.toString().padLeft(2, '0')}';
 }
 
-/// Monthly budget cap for one category. Collection: `budget_limits`,
-/// doc id = category name (e.g. "Food").
 class BudgetLimit {
   final String category;
   final double amount;
@@ -138,7 +132,6 @@ class BudgetLimit {
   }
 }
 
-/// Pure monthly math — tested, no Firestore here.
 class MonthlyTotal {
   final double income;
   final double expense;
@@ -162,7 +155,6 @@ MonthlyTotal summarizeMonth(List<MoneyEntry> entries, DateTime month) {
   return MonthlyTotal(income: income, expense: expense);
 }
 
-/// Expense totals per category for [month].
 Map<String, double> spentByCategory(List<MoneyEntry> entries, DateTime month) {
   final out = <String, double>{};
   for (final e in entries) {

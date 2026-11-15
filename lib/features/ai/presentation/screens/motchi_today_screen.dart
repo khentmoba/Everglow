@@ -13,9 +13,6 @@ import '../../domain/memory/memory_retrieval.dart';
 import '../../domain/memory/today_recap.dart';
 import '../../../books/data/services/web_tts_service.dart';
 
-/// Motchi Today — the connective-layer recap. One screen that answers
-/// "what is happening with us" from every part of Everglow and shows
-/// the gentle patterns Motchi notices.
 class MotchiTodayScreen extends StatefulWidget {
   const MotchiTodayScreen({super.key});
 

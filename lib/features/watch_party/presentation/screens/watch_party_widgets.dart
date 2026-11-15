@@ -228,8 +228,6 @@ class _WatchPartyCinematicLoaderState extends State<_WatchPartyCinematicLoader>
   }
 }
 
-/// Caption picker for HLS rooms. "Off" writes a null track, so the
-/// partner's CC button flips off too.
 class _CaptionPickerSheet extends StatelessWidget {
   final List<WatchPartySubtitle> tracks;
   final String? selectedUrl;

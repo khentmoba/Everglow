@@ -68,7 +68,6 @@ test('command relay forwards permitted commands to upstream player', () => {
     upstreamMessages.push({ msg, targetOrigin });
   };
 
-  // From non-parent source: ignored
   w.handlers.message({
     data: { type: 'cinesrc:command', command: 'pause' },
     source: {},
@@ -76,7 +75,6 @@ test('command relay forwards permitted commands to upstream player', () => {
   });
   assert.equal(upstreamMessages.length, 0);
 
-  // Unrecognized command: ignored
   w.handlers.message({
     data: { type: 'cinesrc:command', command: 'destroy' },
     source: w.window.parent,
@@ -84,7 +82,6 @@ test('command relay forwards permitted commands to upstream player', () => {
   });
   assert.equal(upstreamMessages.length, 0);
 
-  // Valid commands: forwarded with https://cinesrc.st origin
   w.handlers.message({
     data: { type: 'cinesrc:command', command: 'pause' },
     source: w.window.parent,
@@ -107,7 +104,6 @@ test('command relay forwards permitted commands to upstream player', () => {
 test('playback events from upstream player are forwarded to parent', () => {
   const w = wrapper();
 
-  // From non-upstream origin: ignored
   w.handlers.message({
     data: { type: 'cinesrc:pause' },
     source: w.nodes.upstream.contentWindow,
@@ -115,7 +111,6 @@ test('playback events from upstream player are forwarded to parent', () => {
   });
   assert.equal(w.parent.length, 0);
 
-  // Valid playback events: forwarded to parent
   w.handlers.message({
     data: { type: 'cinesrc:play' },
     source: w.nodes.upstream.contentWindow,

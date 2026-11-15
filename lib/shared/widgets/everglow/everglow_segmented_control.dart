@@ -5,11 +5,6 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_motion.dart';
 import 'everglow_keyboard_activation.dart';
 
-/// Clean segmented control for feature screens.
-///
-/// Replaces duplicated tab-bar containers in Budget, Cookbook, Journal,
-/// Gallery, Wellness, etc. Token-driven, 44px min target, reduced-motion
-/// aware, single source of truth for 'pill' tabs.
 class EverglowSegmentedControl extends StatelessWidget {
   final List<SegmentItem> items;
   final int selectedIndex;

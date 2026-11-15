@@ -1,16 +1,3 @@
-// Golden-test guard: goldens don't run in CI, so they can't gate PRs.
-// History: committed PNGs render on Windows but compare on Linux, where
-// font/Skia rasterization differs, so quality.yml excludes goldens. The
-// jukebox leaderboard golden went red on Linux and hid a real thumbnail
-// regression until PR #119 replaced it with behavioral tests (7dcb4d9).
-//
-// Rule: the only golden-tagged test that may exist is the grandfathered
-// test/dashboard_motion_test.dart, and test/goldens/ gains no new PNGs.
-// New visual coverage must be behavioral (pump the widget, assert on
-// finders/fallbacks), following leaderboard_thumbnail_test.dart and
-// shelf_card_thumbnail_test.dart.
-//
-// Usage: dart tool/ci/check_no_new_goldens.dart
 import 'dart:io';
 
 import '_io.dart';
@@ -45,7 +32,6 @@ Future<void> main() async {
     }
   }
 
-  // Behavioral companions for the two regressions goldens once hid.
   for (final need in [
     'test/features/jukebox/leaderboard_thumbnail_test.dart',
     'test/features/dashboard/presentation/widgets/shelf_card_thumbnail_test.dart',

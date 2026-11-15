@@ -6,7 +6,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/subscription.dart';
 
-/// Service for the couple's shared subscription tracker.
 class SubsService {
   static final SubsService _instance = SubsService._internal();
   factory SubsService({FirebaseFirestore? db}) =>
@@ -17,7 +16,6 @@ class SubsService {
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'subscriptions';
 
-  /// All subscriptions, newest first. The screen sorts by next renewal.
   Stream<List<Subscription>> watchAll() {
     if (AgentMode.isActive.value) {
       return Stream.value(AgentFixtures.demoSubscriptions);
@@ -43,7 +41,6 @@ class SubsService {
     );
   }
 
-  /// Add a new subscription.
   Future<void> add(Subscription sub) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -55,7 +52,6 @@ class SubsService {
     }
   }
 
-  /// Update an existing subscription.
   Future<void> update(
     Subscription sub, {
     required Subscription original,
@@ -79,7 +75,6 @@ class SubsService {
     }
   }
 
-  /// Delete a subscription.
   Future<void> delete(String id) async {
     if (AgentMode.isActive.value) return;
     try {

@@ -1,8 +1,5 @@
 import 'memory_fact.dart';
 
-/// One compact, data-grounded recap of "today in Everglow". Mirrors the
-/// server's `composeTodayRecap` so the client and scheduled functions
-/// tell the same story.
 String composeTodayRecap({
   required String dateLabel,
   List<({String uid, String mood})> moods = const [],

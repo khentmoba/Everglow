@@ -25,24 +25,18 @@ TopMusicTrack _track(
   spotifyUrl: 'https://open.spotify.com/search/x',
 );
 
-/// Finds a `Text.rich` span line (the song rows render counts as rich text,
-/// so plain `find.text` never matches them).
 Finder _richTextContaining(String needle) => find.byWidgetPredicate(
   (w) =>
       w is Text &&
       (w.textSpan?.toPlainText().contains(needle) ?? false),
 );
 
-/// Serves both providers from each user's all-time top tracks. The showdown
-/// filters by artist locally (live `user.gettoptracks` path); quick picks
-/// read the same top-10s directly.
 class _ShowdownFakeSync extends MusicSyncService {
   _ShowdownFakeSync({
     required this.topTracks,
     this.suggestions = const [],
   });
 
-  /// Last.fm username (lowercased) -> full top tracks.
   final Map<String, List<TopMusicTrack>> topTracks;
   final List<ArtistSuggestion> suggestions;
 
@@ -52,8 +46,6 @@ class _ShowdownFakeSync extends MusicSyncService {
     String artist, {
     int limit = 200,
   }) async {
-    // The showdown must NOT use the deprecated user.getartisttracks
-    // endpoint (stale backend, no playcounts). Fail loudly on regression.
     throw UnimplementedError('showdown should filter fetchTopTracks');
   }
 
@@ -82,9 +74,6 @@ class _ShowdownFakeSync extends MusicSyncService {
     String? mbid,
   }) async => null;
 
-  // MusicStatsProvider enriches via fetchTrackMetadata (single call for
-  // cover + album); without this the base implementation would attempt
-  // real network calls in fake async.
   @override
   Future<TrackMetadata?> fetchTrackMetadata({
     required String artist,
@@ -148,20 +137,16 @@ void main() {
       );
       final showdown = ArtistShowdownProvider(syncService: sync);
       final stats = MusicStatsProvider(syncService: sync);
-      // Disposed inline (not via addTearDown): the pending-timer check runs
-      // before tear-downs, so polling timers must be cancelled already.
       try {
         await _pumpCard(tester, sync, showdown: showdown, stats: stats);
 
         expect(showdown.isLoading, isFalse);
         expect(find.text('ARTIST SHOWDOWN'), findsOneWidget);
-        expect(find.text('10'), findsOneWidget); // Khent total
-        expect(find.text('65'), findsOneWidget); // Clair total
+        expect(find.text('10'), findsOneWidget);
+        expect(find.text('65'), findsOneWidget);
         expect(find.text('American Teenager'), findsOneWidget);
         expect(find.text('Strangers'), findsOneWidget);
-        // Leader crown sits on Clair's block.
         expect(find.byIcon(Icons.emoji_events_rounded), findsOneWidget);
-        // Quick picks: Ethel pinned first, then Top-10 artists.
         expect(find.text('Ethel Cain'), findsWidgets);
         expect(find.text('Lana Del Rey'), findsOneWidget);
       } finally {
@@ -253,7 +238,6 @@ void main() {
           ),
           findsOneWidget,
         );
-        // Placeholder cover falls back to the music-note tile.
         expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
       } finally {
         showdown.dispose();
@@ -291,11 +275,9 @@ void main() {
           expect(find.text('No Ethel Cain plays yet'), findsOneWidget);
           expect(find.text('Play one and take the lead.'), findsOneWidget);
 
-          // Both empty state and header have refresh buttons
           expect(find.byIcon(Icons.refresh_rounded), findsWidgets);
           expect(find.text('Refresh'), findsWidgets);
 
-          // Backing sync now has plays
           sync.topTracks['khentsgdz'] = [
             _track('Ethel Cain', 'Strangers', 15),
           ];
@@ -303,7 +285,6 @@ void main() {
             _track('Ethel Cain', 'Strangers', 20),
           ];
 
-          // Tap the refresh button inside the empty state
           await tester.tap(find.widgetWithText(InkWell, 'Refresh').last);
           await tester.pump();
           await tester.pump(const Duration(seconds: 1));
@@ -344,7 +325,6 @@ void main() {
           _track('Ethel Cain', 'Strangers', 40),
         ];
 
-        // Tap the header refresh button (has tooltip 'Refresh showdown')
         await tester.tap(find.byTooltip('Refresh showdown'));
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
@@ -390,7 +370,6 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pump(const Duration(seconds: 1));
 
-        // Dropdown shows the match with a formatted listener count.
         expect(find.text('Lana Del Rey'), findsWidgets);
         expect(find.text('3.3M listeners'), findsOneWidget);
 
@@ -432,8 +411,6 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pump(const Duration(seconds: 1));
 
-        // No photo yet (Spotify lookup stubbed to null): the row shows a
-        // big "L" on the house gradient instead of a broken-looking tile.
         expect(find.text('L'), findsOneWidget);
         expect(find.byIcon(Icons.person_rounded), findsNothing);
       } finally {

@@ -1,13 +1,3 @@
-// Everglow streaming Worker — the Cloudflare replacement for the Firebase
-// `proxyAnime` and `proxyMegavidHls` functions.
-//
-// Same paths, same query params, same player page, so the app only has to
-// change its origin. Cloudflare Workers are not billed for bandwidth, which
-// is the whole point of the move: a 1080p film is ~6.4 GB of egress.
-//
-// Secrets (wrangler secret put):
-//   CDN_STAMP_KEY  HMAC key for the MegaPlay + Cinema URL stamps.
-
 import {
   failHtml,
   hlsPlayerHtml,
@@ -50,13 +40,9 @@ function jsonResponse(body, status) {
   });
 }
 
-/** The proxy base for this request, so staged and live hosts each rewrite
- *  to themselves. */
 function proxyBase(request) {
   return `${new URL(request.url).origin}/proxyMegavidHls`;
 }
-
-// ─── /proxyAnime ─────────────────────────────────────────
 
 async function handleProxyAnime(request, env) {
   if (request.method === 'OPTIONS') {
@@ -115,7 +101,6 @@ async function handleProxyAnime(request, env) {
         key,
       );
     } else if (params.source === 'everglow') {
-      // The whole shelf, in one row. `server=` pins the picker's choice.
       out = await resolveEverglow(
         params.anilistId,
         params.malId,
@@ -133,24 +118,15 @@ async function handleProxyAnime(request, env) {
         params.ep,
         base,
         key,
-        // A pick from the player's own picker resolves that row only.
         { server: params.server },
       );
     }
-    // A resolver that came back without a playable URL is a failure, not a
-    // page: `var src=null` leaves the boot wave spinning forever and the app's
-    // probe never sees the marker it needs to advance to the next server.
     if (!out || !out.src) throw new Error('resolver returned no src');
-    // Cinema passes the real title (the Worker has no catalog to look it up);
-    // it is display text only, escaped by the player and length-capped here.
     const isCinema = params.source === 'cinema';
     const named = String(query.title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
     const title = isCinema && named
       ? params.mediaType === 'tv' ? `${named} · ${out.title}` : named
       : out.title;
-    // The watch party plays the stream in its own <video> (so play/pause/seek
-    // and captions are real), and asks for the resolved URLs instead of the
-    // player page. Same resolver, same stamps — only the response shape differs.
     if (wantsJson) {
       return new Response(
         JSON.stringify({
@@ -158,8 +134,6 @@ async function handleProxyAnime(request, env) {
           tracks: Array.isArray(out.tracks) ? out.tracks : [],
           title,
           ep: out.ep,
-          // The player's own server list. Empty for every source that has
-          // just one upstream, which keeps the picker hidden there.
           servers: Array.isArray(out.servers) ? out.servers : [],
           current: out.server || '',
         }),
@@ -198,8 +172,6 @@ async function handleProxyAnime(request, env) {
   }
 }
 
-// ─── /proxyMegavidHls ────────────────────────────────────
-
 async function handleProxyHls(request, env, _ctx) {
   if (request.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: CORS });
@@ -209,9 +181,6 @@ async function handleProxyHls(request, env, _ctx) {
   }
 
   const url = new URL(request.url);
-  // The sealed token is the only authorization. It names the provider, the
-  // relay endpoint, and the folder, and only this Worker can mint one — so
-  // there is no open-proxy path left, and nothing in the URL names a host.
   const sealed = await scopedTarget(url.searchParams, env.CDN_STAMP_KEY || null);
   if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400);
   const target = sealed.target;
@@ -227,19 +196,11 @@ async function handleProxyHls(request, env, _ctx) {
     return jsonResponse({ error: 'Host not allowed' }, 400);
   }
 
-  // Cinema's own providers are matched by the stamp, never by host: a CDN
-  // that also appears in the anime allowlist must still play back as the
-  // provider that verified it, or it gets MegaPlay headers and answers 403.
   const megaplay =
     provider === 'megaplay' ||
     (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(parsed.hostname));
   let headers;
-  // One table for every Cinema provider, so a new one cannot verify with its
-  // own headers and then play back with Megavid's — which is exactly how
-  // Vidrock's CDN answered `Upstream 403`.
   if (CINEMA_PROVIDERS.has(provider)) headers = cinemaHeaders(provider);
-  // YumeZone must play back with the same headers `verifyStream` used, or a
-  // host that gates on Referer passes verification and then fails to play.
   else if (provider === 'yumezone') headers = yumeHeaders();
   else if (megaplay) headers = megaplayHeaders();
   else headers = megavidHeaders();
@@ -264,17 +225,12 @@ async function handleProxyHls(request, env, _ctx) {
     parsed.pathname.toLowerCase().includes('.m3u8') ||
     (parsed.search.toLowerCase().includes('.m3u8') && !upstreamCt.includes('video/'));
 
-  // Set when the body was already read as text and turned out not to be a
-  // playlist; the stream is spent, so the text itself is sent instead.
   let consumed = null;
   if (looksLikePlaylist) {
     const text = await upstream.text();
     if (text && text.includes('#EXTM3U')) {
       const base = proxyBase(request);
       const sealKey = env.CDN_STAMP_KEY || null;
-      // MegaPlay is chosen by host OR provider: its masters live on hosts we
-      // also allowlist, and routing them by provider alone once sent them to
-      // the Megavid rewriter, which broke Everglow-server anime.
       const rewritten = megaplay
         ? await rewritePlaylistWithHosts(text, target, base, 'megaplay', sealKey)
         : await rewriteCinemaPlaylist(text, target, base, provider, sealKey);
@@ -288,13 +244,9 @@ async function handleProxyHls(request, env, _ctx) {
       });
       return response;
     }
-    // Falls through as a plain file when the body isn't a playlist.
     consumed = text;
   }
 
-  // Subtitles carry an advert spliced in by whoever repackaged the release,
-  // so the track is cleaned here and every player gets a clean one: the app's
-  // iframe, the watch party's <video>, and anything else that asks.
   const looksLikeVtt =
     upstreamCt.includes('text/vtt') ||
     upstreamCt.includes('application/x-subrip') ||
@@ -326,8 +278,6 @@ async function handleProxyHls(request, env, _ctx) {
     return new Response(null, { status: upstream.status === 206 ? 206 : 200, headers: outHeaders });
   }
 
-  // Pass the upstream body straight through: Workers apply backpressure to
-  // the client for us, so no manual reader loop is needed.
   return new Response(consumed !== null ? consumed : upstream.body, {
     status: upstream.status === 206 ? 206 : 200,
     headers: outHeaders,

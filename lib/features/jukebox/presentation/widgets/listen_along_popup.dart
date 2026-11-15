@@ -35,7 +35,6 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
     _status = widget.status;
     final needsAlbum =
         _status.albumName.isEmpty || _status.albumName == 'No Album';
-    // Phase 0: resolve real Spotify ID for embed (no auth needed beyond Firebase)
     if ((!_status.hasSpotifyTrack || needsAlbum) &&
         _status.trackName != 'Silent Night') {
       _resolving = true;
@@ -97,8 +96,6 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
   Widget build(BuildContext context) {
     final isLinked = context.watch<SpotifyAuthService>().isLinked;
     final hasTrack = _status.hasSpotifyTrack;
-    // Clean once: drops Last.fm placeholders and routes CDN art through
-    // the CORS proxy on web (stale pre-proxy Firestore URLs included).
     final art = cleanLastfmImageUrl(_status.imageUrl);
     return Dialog(
       backgroundColor: AppColors.velvet,
@@ -117,13 +114,11 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Album art OR embedded player
               if (hasTrack && kIsWeb)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Column(
                     children: [
-                      // Still show large art for vibe
                       Container(
                         width: 200,
                         height: 200,
@@ -156,7 +151,6 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Embed (300x80 compact Spotify player) - works for free users (30s preview) & Premium (full)
                       SpotifyEmbedView(trackId: _status.spotifyTrackId!),
                     ],
                   ),
@@ -233,7 +227,6 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                 ),
               ],
               const SizedBox(height: 24),
-              // Primary: Play in Everglow (Web Playback SDK) - Duo Premium
               if (hasTrack)
                 SizedBox(
                   width: double.infinity,
@@ -314,7 +307,6 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   ),
                 ),
               ),
-              // Preview fallback for non-Premium via just_audio if available
               if (_status.previewUrl != null && !hasTrack) ...[
                 const SizedBox(height: 8),
                 Text(

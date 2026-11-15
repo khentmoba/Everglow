@@ -8,7 +8,6 @@ import '../../domain/models/ai_conversation.dart';
 import '../../domain/repositories/ai_conversation_repo_interface.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Firestore CRUD for AI conversations and session archives.
 class AIConversationRepository implements IAIConversationRepository {
   final FirebaseFirestore _db;
   final User? _userOverride;
@@ -16,7 +15,6 @@ class AIConversationRepository implements IAIConversationRepository {
   String get _uid =>
       _userOverride?.uid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // Feature-specific conversation caches
   AIConversation? _assistantConversation;
   AIConversation? _guardianConversation;
   AIConversation? _recommendationConversation;
@@ -67,7 +65,6 @@ class AIConversationRepository implements IAIConversationRepository {
   void setConversation(String feature, AIConversation? conv) =>
       _set(feature, conv);
 
-  /// Get or create a conversation for a feature, with Firestore fallback.
   @override
   Future<AIConversation> getOrCreate(String feature) async {
     final cached = _get(feature);
@@ -107,7 +104,6 @@ class AIConversationRepository implements IAIConversationRepository {
     return conv;
   }
 
-  /// Persist a conversation to Firestore.
   @override
   Future<void> save(AIConversation conversation) async {
     final uid = _uid;
@@ -127,7 +123,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Archive a conversation as a session snapshot.
   @override
   Future<void> archiveSession(AIConversation conversation) async {
     try {
@@ -153,7 +148,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Keep max 5 full sessions; summarize older ones using LLM.
   Future<void> _trimFullSessions() async {
     try {
       final snapshot = await _db
@@ -178,14 +172,12 @@ class AIConversationRepository implements IAIConversationRepository {
         });
       }
 
-      // Compress old summaries if too many
       await _compressOldSessions();
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to trim sessions: $e');
     }
   }
 
-  /// LLM-powered session summary via the Motchi proxy.
   Future<String> _buildLLMSummary(List messages) async {
     if (messages.isEmpty) return 'Empty session';
 
@@ -230,11 +222,9 @@ class AIConversationRepository implements IAIConversationRepository {
       );
     }
 
-    // Fallback to local summarization
     return _buildLocalSummary(messages);
   }
 
-  /// Merge oldest summaries when count exceeds 20.
   Future<void> _compressOldSessions() async {
     try {
       final snapshot = await _db
@@ -256,7 +246,6 @@ class AIConversationRepository implements IAIConversationRepository {
 
       if (summaries.isEmpty) return;
 
-      // Try LLM merge, fallback to simple concatenation
       String mergedSummary;
       try {
         final idToken =
@@ -294,7 +283,6 @@ class AIConversationRepository implements IAIConversationRepository {
         mergedSummary = summaries;
       }
 
-      // Write merged summary, delete old ones
       await _db
           .collection('ai_memories')
           .doc('shared')
@@ -315,9 +303,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Build a concise topic-based summary from session messages.
-  /// Extracts what the user asked/talked about, deduplicates, and
-  /// produces a readable summary Motchi can actually use later.
   String _buildLocalSummary(List messages) {
     if (messages.isEmpty) return 'Empty session';
     final seen = <String>{};
@@ -332,13 +317,11 @@ class AIConversationRepository implements IAIConversationRepository {
 
       if (role == 'user') {
         exchangeCount++;
-        // Take the first meaningful sentence as the topic gist
         final firstSentence = content.split(RegExp(r'[.?!\n]')).first.trim();
         if (firstSentence.length >= 8) {
           final gist = firstSentence.length > 80
               ? '${firstSentence.substring(0, 80)}…'
               : firstSentence;
-          // Deduplicate against near-matches
           final key = gist
               .substring(0, gist.length > 20 ? 20 : gist.length)
               .toLowerCase();
@@ -353,7 +336,6 @@ class AIConversationRepository implements IAIConversationRepository {
     return '$exchangeCount topics — ${topics.join(' • ')}';
   }
 
-  /// Load the last 5 full sessions' messages into a conversation.
   @override
   Future<void> loadSessionIntoConversation(AIConversation conversation) async {
     try {
@@ -367,7 +349,6 @@ class AIConversationRepository implements IAIConversationRepository {
 
       if (snapshot.docs.isEmpty) return;
 
-      // Merge messages from all loaded sessions (oldest first)
       final allPastMessages = <AIMessage>[];
       for (final doc in snapshot.docs.reversed) {
         final data = doc.data();
@@ -387,10 +368,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Clear a feature's conversation and delete from Firestore.
-  /// When [archive] is true (default for "New chat") the previous messages are
-  /// preserved as a session snapshot; when false (explicit Delete) the
-  /// conversation is removed without creating history.
   @override
   Future<void> clear(String feature, {bool archive = true}) async {
     final conv = _get(feature);
@@ -398,8 +375,6 @@ class AIConversationRepository implements IAIConversationRepository {
         ? conv
         : null;
 
-    // Optimistic in-memory reset so the UI shows an empty chat immediately,
-    // even if Firestore is offline or the browser is closed quickly.
     _set(feature, AIConversation(id: feature, feature: feature));
 
     if (toArchive != null) {
@@ -423,17 +398,12 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Load assistant conversation from cache or Firestore.
-  /// New chats stay empty after reload — we no longer inject historical
-  /// session messages into a fresh conversation. History lives in the
-  /// sidebar's session list.
   @override
   Future<void> loadAssistant() async {
     if (_assistantConversation != null) return;
     await getOrCreate('assistant');
   }
 
-  /// Clear all cached conversations (start fresh).
   @override
   void startFresh() {
     _assistantConversation = null;
@@ -442,12 +412,6 @@ class AIConversationRepository implements IAIConversationRepository {
     _dateIdeaConversation = null;
   }
 
-  // ─── Session Management ─────────────────────────────────────────
-
-  /// Sessions query shared by [listSessions] and [watchSessions].
-  ///
-  /// Same shape (feature filter + createdAt order) so both use the one
-  /// composite index — the stream needs no extra index.
   Query<Map<String, dynamic>> _sessionsQuery({int limit = 50}) => _db
       .collection('ai_memories')
       .doc('shared')
@@ -464,7 +428,6 @@ class AIConversationRepository implements IAIConversationRepository {
     final createdAt =
         (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
-    // Generate title from first user message or summary
     String title = 'New conversation';
     if (hasSummary && summary != null && summary.isNotEmpty) {
       title = summary.length > 60 ? '${summary.substring(0, 60)}…' : summary;
@@ -491,7 +454,6 @@ class AIConversationRepository implements IAIConversationRepository {
     );
   }
 
-  /// List all archived sessions, newest first.
   @override
   Future<List<AISession>> listSessions({int limit = 50}) async {
     try {
@@ -503,10 +465,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Realtime stream of archived sessions, newest first.
-  ///
-  /// Powers the sidebar's auto-refresh: archives and deletes push a new
-  /// list on their own, so no manual reload is needed.
   @override
   Stream<List<AISession>> watchSessions({int limit = 50}) {
     try {
@@ -519,9 +477,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Load a specific session's messages into the assistant conversation.
-  /// Falls back to a LLM-reconstructed summary message when the session has
-  /// been compressed (hasSummary == true, messages == []).
   @override
   Future<void> loadSession(String sessionId) async {
     try {
@@ -549,7 +504,6 @@ class AIConversationRepository implements IAIConversationRepository {
       }
 
       final previous = _assistantConversation;
-      // A finished reply may still be saving/archiving the previous object.
       _assistantConversation = AIConversation(
         id: previous?.id ?? 'assistant',
         feature: 'assistant',
@@ -563,7 +517,6 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Delete a specific archived session.
   @override
   Future<void> deleteSession(String sessionId) async {
     try {

@@ -11,24 +11,9 @@ import '../../../xp/domain/models/user_progress.dart';
 import '../../../xp/presentation/widgets/xp_progress_bar.dart';
 import 'dashboard_load_tracker.dart';
 
-/// Binds the XP progress stream to the current uid without re-creating the
-/// Firestore listener on every unrelated auth notification.
-///
-/// Keeps a static in-memory cache of the last `UserProgress` per uid so
-/// a remount (e.g. after the gateway door animation) can paint instantly
-/// from cache instead of flashing `SizedBox.shrink` -> bar.
-///
-/// Optimistic first paint: the bar renders instantly with cached data or a
-/// Level 1 / 0 XP zero-state while the Firestore stream resolves in the
-/// background. The stream used to gate first paint behind a skeleton +
-/// 5s `withFirestoreTimeout` + 3 retries (≈20s grey slab in screenshots
-/// when the WebChannel was contended) — now retries are silent and never
-/// replace the bar.
 class XpProgressSection extends StatefulWidget {
   final String? uid;
 
-  /// Test seam for the XP stream. Production always uses
-  /// `XPService().watchProgress`, which needs Firestore.
   final Stream<UserProgress?> Function(String uid)? watchProgress;
 
   const XpProgressSection({super.key, required this.uid, this.watchProgress});
@@ -59,10 +44,6 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   void initState() {
     super.initState();
     _bind();
-    // No mark here on purpose: the optimistic zero-state bar is a
-    // placeholder, not readiness. Stars count only when XP truly
-    // settles — a cache hit, a real snapshot, or exhausted retries —
-    // so the veil percent never climbs on a guess.
   }
 
   @override
@@ -88,8 +69,6 @@ class _XpProgressSectionState extends State<XpProgressSection> {
 
     if (uid == null || uid.isEmpty) {
       _progress = null;
-      // Settled: with no uid there is nothing to load and the card
-      // renders empty, so the veil must not wait on us.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _reportLoaded();
       });
@@ -111,12 +90,8 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       (data) {
         if (!mounted || _boundUid != uid) return;
         _retryCount = 0;
-        // First answer from Firestore — real data or a genuine "no doc"
-        // (null) — so the veil can count us.
         _reportLoaded();
         if (data == null) {
-          // Doc doesn't exist yet — keep the optimistic zero-state visible
-          // and seed in the background (fire-and-forget with its own timeout).
           Logger.w(
             '[XpProgressSection] progress doc null for $uid — seeding in bg',
           );
@@ -128,8 +103,6 @@ class _XpProgressSectionState extends State<XpProgressSection> {
               );
             }),
           );
-          // No setState needed: zero-state already painted in _bind().
-          // Only clear a prior error flag.
           if (_hasError && mounted) setState(() => _hasError = false);
         } else {
           setState(() {
@@ -149,9 +122,6 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       },
       onDone: () {
         if (!mounted || _boundUid != uid) return;
-        // withFirestoreTimeout closes the stream when the first snapshot
-        // never arrives (WebChannel hang). Retry silently — the optimistic
-        // bar stays on screen, so the user never sees a skeleton.
         Logger.w(
           '[XpProgressSection] stream closed with no data for $uid — bg retry',
         );
@@ -167,20 +137,11 @@ class _XpProgressSectionState extends State<XpProgressSection> {
         if (mounted && _boundUid == uid) _subscribe(uid);
       });
     } else if (mounted && !_hasError) {
-      // Retries exhausted: keep the optimistic bar, just flag for the
-      // optional inline retry affordance (never replaces the bar).
       setState(() => _hasError = true);
-      // The error state is final, so the veil can stop waiting on us
-      // even though no XP arrived.
       _reportLoaded();
     }
   }
 
-  /// First-screen progress: XP has settled (cache hit, real snapshot,
-  /// or final error), so the load veil can count us. Marking is
-  /// idempotent — cache hits, snapshots, and exhausted retries all
-  /// funnel here safely. After dispose this is a no-op; a missing
-  /// tracker is a wiring bug, so it logs instead of hiding.
   void _reportLoaded() {
     if (!mounted) return;
     try {
@@ -209,8 +170,6 @@ class _XpProgressSectionState extends State<XpProgressSection> {
     final uid = widget.uid;
     if (uid == null || uid.isEmpty) return const SizedBox.shrink();
 
-    // Optimistic bar always wins — _progress is set synchronously in _bind,
-    // so this paints on the very first frame with zero Firestore waiting.
     if (_progress != null) {
       return XPProgressBar(progress: _progress!);
     }
@@ -297,8 +256,6 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       );
     }
 
-    // Should be unreachable (_bind always sets _progress), but never show a
-    // hanging skeleton — fall back to a zero-state bar.
     return XPProgressBar(progress: _zero(uid));
   }
 }

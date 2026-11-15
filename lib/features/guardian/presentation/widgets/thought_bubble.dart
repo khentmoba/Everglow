@@ -37,7 +37,6 @@ class ThoughtBubble extends StatelessWidget {
                 fontStyle: FontStyle.italic,
               ),
             ),
-            // Triangle tail
             Positioned(
               bottom: -25,
               right: 20,

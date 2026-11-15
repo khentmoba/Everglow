@@ -8,8 +8,6 @@ import '../../../../cinema/data/models/media_item.dart';
 import 'animex_poster_card.dart';
 import 'animex_tokens.dart';
 
-/// Horizontal scrolling row of poster cards with hidden scrollbars,
-/// hover-reveal arrow buttons (desktop) and soft edge fades.
 class AnimeXPosterRow extends StatefulWidget {
   final List<MediaItem> items;
   final void Function(MediaItem) onTap;
@@ -83,7 +81,6 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
               );
             },
           ),
-          // Soft fades so cards slide in from under the edges.
           const Positioned(
             left: 0,
             top: 0,

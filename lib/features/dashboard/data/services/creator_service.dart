@@ -31,11 +31,6 @@ class CreatorService {
   FirebaseStorage get _storage => _storageInstance ??= FirebaseStorage.instance;
   http.Client get _http => _httpClient ??= http.Client();
 
-  // ---------------------------------------------------------------------------
-  // Images & Media
-  // ---------------------------------------------------------------------------
-
-  /// Uploads an image to Firebase Storage and returns the download URL.
   Future<String?> uploadImage(
     Uint8List fileBytes,
     String fileName,
@@ -53,7 +48,6 @@ class CreatorService {
     }
   }
 
-  /// Uploads multiple images in sequence and returns successful URLs.
   Future<List<String>> uploadMultipleImages(
     List<({Uint8List bytes, String name})> files,
     String userId,
@@ -68,11 +62,6 @@ class CreatorService {
     return urls;
   }
 
-  // ---------------------------------------------------------------------------
-  // Milestones & Memories
-  // ---------------------------------------------------------------------------
-
-  /// Saves a new Milestone to Firestore.
   Future<void> saveMilestone({
     required String title,
     required String description,
@@ -91,7 +80,6 @@ class CreatorService {
     await _firestore.collection('milestones').add(milestone.toFirestore());
   }
 
-  /// Updates an existing Milestone in Firestore.
   Future<void> updateMilestone({
     required String id,
     required String title,
@@ -109,12 +97,10 @@ class CreatorService {
     });
   }
 
-  /// Deletes a Milestone by its ID.
   Future<void> deleteMilestone(String id) async {
     await _firestore.collection('milestones').doc(id).delete();
   }
 
-  /// Realtime stream of recent milestones ordered by date.
   Stream<List<Milestone>> watchMilestones({int limit = 30}) {
     return _firestore
         .collection('milestones')
@@ -125,11 +111,6 @@ class CreatorService {
             snapshot.docs.map((doc) => Milestone.fromFirestore(doc)).toList());
   }
 
-  // ---------------------------------------------------------------------------
-  // Hidden Notes & Letterbox
-  // ---------------------------------------------------------------------------
-
-  /// Saves a new HiddenNote to Firestore.
   Future<void> saveHiddenNote({
     required String title,
     required String content,
@@ -145,7 +126,6 @@ class CreatorService {
     await _firestore.collection('notes').add(note.toFirestore());
   }
 
-  /// Updates an existing HiddenNote's content and unlock schedule.
   Future<void> updateHiddenNote({
     required String id,
     required String title,
@@ -159,12 +139,10 @@ class CreatorService {
     });
   }
 
-  /// Deletes a HiddenNote by its ID.
   Future<void> deleteHiddenNote(String id) async {
     await _firestore.collection('notes').doc(id).delete();
   }
 
-  /// Realtime stream of notes ordered by unlock date ascending.
   Stream<List<HiddenNote>> watchHiddenNotes({int limit = 50}) {
     return _firestore
         .collection('notes')
@@ -175,11 +153,6 @@ class CreatorService {
             snapshot.docs.map((doc) => HiddenNote.fromFirestore(doc)).toList());
   }
 
-  // ---------------------------------------------------------------------------
-  // Guardian Mascot Whispers (Surprises for Clair)
-  // ---------------------------------------------------------------------------
-
-  /// Sends a secret whisper message to the Guardian mascot to greet Clair.
   Future<void> sendGuardianWhisper(String content) async {
     if (content.trim().isEmpty) return;
     await _firestore.collection('guardian_messages').add({
@@ -189,7 +162,6 @@ class CreatorService {
     });
   }
 
-  /// Realtime stream of recent whispers.
   Stream<List<GuardianMessage>> watchGuardianWhispers({int limit = 10}) {
     return _firestore
         .collection('guardian_messages')
@@ -201,16 +173,10 @@ class CreatorService {
             .toList());
   }
 
-  /// Deletes a whisper message.
   Future<void> deleteGuardianWhisper(String id) async {
     await _firestore.collection('guardian_messages').doc(id).delete();
   }
 
-  // ---------------------------------------------------------------------------
-  // Love Burst / Surprise Star
-  // ---------------------------------------------------------------------------
-
-  /// Drops an instant glowing surprise note into the Starlight Jar.
   Future<void> sendLoveBurst({
     required String message,
     required String author,
@@ -228,11 +194,6 @@ class CreatorService {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Teaser / Secret Countdown
-  // ---------------------------------------------------------------------------
-
-  /// Adds a teaser countdown event on the shared calendar / upcoming countdowns.
   Future<void> createTeaserCountdown({
     required String title,
     required DateTime date,
@@ -252,11 +213,6 @@ class CreatorService {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Date Night Feature (Tonight's Spotlight)
-  // ---------------------------------------------------------------------------
-
-  /// Sets or updates the active "Tonight's Feature" in our_cinema.
   Future<void> setTonightFeature({
     required String title,
     required String mediaType,
@@ -275,7 +231,6 @@ class CreatorService {
     }, SetOptions(merge: true));
   }
 
-  /// Clears the active tonight feature spotlight.
   Future<void> clearTonightFeature() async {
     await _firestore.collection('our_cinema').doc('tonight_feature').set({
       'active': false,
@@ -283,7 +238,6 @@ class CreatorService {
     }, SetOptions(merge: true));
   }
 
-  /// Realtime stream of the current tonight feature.
   Stream<Map<String, dynamic>?> watchTonightFeature() {
     return _firestore
         .collection('our_cinema')
@@ -292,11 +246,6 @@ class CreatorService {
         .map((doc) => doc.data());
   }
 
-  // ---------------------------------------------------------------------------
-  // System Health & Maintenance
-  // ---------------------------------------------------------------------------
-
-  /// Pings the backend health endpoint and returns uptime, version, and firestore status.
   Future<Map<String, dynamic>> fetchHealthStatus() async {
     try {
       final uri = Uri.parse(
@@ -324,8 +273,6 @@ class CreatorService {
     }
   }
 
-  /// Fetches the couple-only Motchi stats rollup (7-day tool health plus
-  /// today's per-user API counters and recent anomaly alerts).
   Future<Map<String, dynamic>?> fetchMotchiStats() async {
     try {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
@@ -349,12 +296,10 @@ class CreatorService {
     }
   }
 
-  /// Repaired legacy milestone assets (.png to .jpg).
   Future<int> repairMilestoneAssets() async {
     return MilestoneService().repairLegacyAssetPaths();
   }
 
-  /// Clears persistent local disk caches for letters and local storage.
   Future<void> clearLocalCaches() async {
     try {
       final prefs = await SharedPreferences.getInstance();

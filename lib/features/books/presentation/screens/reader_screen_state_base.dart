@@ -14,11 +14,8 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   web.HTMLIFrameElement? _embedIframe;
   ReaderTheme _theme = ReaderTheme.dark;
 
-  // Persisted state keys
   String get _progressKey => 'reader_progress::${widget.book.workKey}';
 
-  /// Implemented by the screen's state subclass; base loading flows may
-  /// need to surface the listen sheet after the first chapter is ready.
   void _showListenSheet();
 
   @override
@@ -42,14 +39,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       _currentChapter = saved;
     }
 
-    // Build the full ordered list of read source candidates. The
-    // service tries each one until one responds successfully — that
-    // way a CORS block or 404 on the Internet Archive fallback
-    // still leaves us with a working Gutenberg or Open Library URL.
     final candidates = _service.buildReadSourceCandidates(widget.book);
-    // Gutenberg books and public-domain Internet Archive books get
-    // the in-app text reader; borrow-only Internet Archive books
-    // (no plain text on disk) fall back to the IA embedded viewer.
     final iaId = widget.book.iaId;
     String? resolvedIaId = iaId;
     if (candidates.isEmpty && iaId.isEmpty && widget.book.workKey.isNotEmpty) {
@@ -65,7 +55,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       }
     }
     if (candidates.isEmpty) {
-      // No plain-text source: try the EPUB file before giving up.
       if (await _tryEpubFallback()) return;
       if (!mounted) return;
       setState(() {
@@ -79,8 +68,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       final result = await _service.fetchBookTextFromCandidates(candidates);
       if (!mounted) return;
       if (!result.isSuccess) {
-        // Plain text failed: try the EPUB file, then the embedded
-        // viewer, before showing the "no readable text" error.
         if (await _tryEpubFallback()) return;
         if (!mounted) return;
         final embedIa = resolvedIaId ?? iaId;
@@ -119,7 +106,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       final chapters = await _splitChaptersYielded(cleaned);
       setState(() {
         _chapters = chapters;
-        // Clamp currentChapter in case the saved index is now invalid
         if (_currentChapter >= chapters.length) {
           _currentChapter = 0;
         }
@@ -139,9 +125,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
     }
   }
 
-  /// Find an Internet Archive copy for a work when the search result
-  /// didn't carry one. Open Library's editions list includes `ia`
-  /// identifiers for borrowable editions.
   Future<String?> _findIaEdition(String workKey) async {
     try {
       final editions = await _service.fetchEditions(workKey);
@@ -160,9 +143,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
     return null;
   }
 
-  /// EPUB fallback: fetch the book's EPUB file, extract chapters in
-  /// spine order, and show them in the normal text reader. Returns
-  /// true when the reader state was updated (caller must return).
   Future<bool> _tryEpubFallback() async {
     final epubUrls = EpubService().candidatesFor(widget.book);
     if (epubUrls.isEmpty) return false;
@@ -186,8 +166,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
     return true;
   }
 
-  /// Guard against a proxied/redirected HTML page (e.g. an Internet
-  /// Archive borrow page) being mistaken for book text.
   bool _looksLikeHtml(String text) {
     final trimmed = text.trimLeft();
     if (trimmed.isEmpty) return false;
@@ -215,11 +193,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
     }
   }
 
-  // ── TEXT PROCESSING ────────────────────────────────────────────────
-
-  /// Strip the Project Gutenberg header and footer blocks. They are
-  /// delimited by `*** START OF` / `*** END OF` markers that the
-  /// Gutenberg convention uses.
   String _stripGutenbergBoilerplate(String raw) {
     final startMatch = RegExp(
       r'\*\*\*\s*START OF (?:THE|THIS)?\s*PROJECT',
@@ -233,11 +206,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
     return raw.substring(startMatch.end, endMatch.start);
   }
 
-  /// Split a book's plain text into [BookChapter]s.
-  ///
-  /// Splits book text without holding the UI frame hostage. On native
-  /// platforms the heavy regex passes run in an isolate; on web the passes
-  /// yield between each phase so the loading frame can paint.
   Future<List<BookChapter>> _splitChaptersYielded(String text) async {
     if (!kIsWeb) {
       final raw = await compute(_splitBookTextIsolate, [
@@ -262,9 +230,6 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   }
 
   List<BookChapter> _splitOnExplicitMarkers(String text) {
-    // Find all positions where a "CHAPTER / PART / BOOK / PROLOGUE /
-    // EPILOGUE" line starts. We allow a chapter number/roman and an
-    // optional title on the same line.
     final pattern = RegExp(
       r'^(CHAPTER|Chapter|PART|Part|BOOK|Book|PROLOGUE|EPILOGUE|Act|ACT)\s+'
       r'([IVXLCDM]+|\d+|[A-Za-z]+)'
@@ -290,15 +255,12 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   }
 
   List<BookChapter> _splitOnStarSeparators(String text) {
-    // Gutenberg short stories use centered "***" or "* * *" between
-    // sections. We treat each separator as a chapter boundary.
     final parts = text.split(RegExp(r'^\s*\*{3,}\s*$', multiLine: true));
     if (parts.length < 2) return const [];
     final chapters = <BookChapter>[];
     for (var i = 0; i < parts.length; i++) {
       final body = _normalizeWhitespace(parts[i]);
       if (body.trim().isEmpty) continue;
-      // Use the first non-empty line as the chapter title.
       final firstLine = body
           .split('\n')
           .firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
@@ -321,6 +283,4 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
   }
-
-  // ── UI ─────────────────────────────────────────────────────────────
 }

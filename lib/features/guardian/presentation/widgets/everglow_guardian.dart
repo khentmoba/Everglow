@@ -50,7 +50,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Idle Animation: Gentle Floating (static when reduced motion).
     _idleController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -61,7 +60,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
           CurvedAnimation(parent: _idleController, curve: Curves.easeInOut),
         );
 
-    // Reaction Animation: Quick Jump/Bounce
     _reactionController = AnimationController(
       vsync: this,
       duration: AppMotion.orZero(const Duration(milliseconds: 600)),
@@ -84,7 +82,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
       ),
     ]).animate(_reactionController);
 
-    // Initial welcome
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<GuardianController>().welcome();
@@ -136,7 +133,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
   void _onTap() {
     final controller = context.read<GuardianController>();
     if (controller.isAIMode) {
-      // In AI mode, show chat input (guard against double sheets)
       if (!_sheetOpen) _showChatInput();
     } else {
       controller.react();
@@ -165,7 +161,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle
             Container(
               width: 40,
               height: 4,
@@ -291,7 +286,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
         ..clear()
         ..addAll(
           List.generate(
-            // 6 instead of 8: same sparkle, ~25% fewer layers.
             6,
             (i) => Particle(
               angle: math.pi * 2 * (i / 6),
@@ -318,7 +312,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
     return RepaintBoundary(
       child: GestureDetector(
         onLongPress: () {
-          // Long press to toggle AI mode
           final controller = context.read<GuardianController>();
           controller.toggleAIMode();
           if (controller.isAIMode) {
@@ -329,7 +322,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
           alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
-            // Particles (local state only — no controller rebuilds)
             ..._particles.map(
               (p) => Positioned(
                 key: ValueKey(p.angle),
@@ -347,7 +339,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
               ),
             ),
 
-            // AI Mode indicator ring (rebuilds only on mode toggle)
             Selector<GuardianController, bool>(
               selector: (_, c) => c.isAIMode,
               builder: (context, isAIMode, _) {
@@ -373,7 +364,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
               },
             ),
 
-            // Thought Bubble (rebuilds only when message changes)
             Selector<GuardianController, _BubbleView>(
               selector: (_, c) => _BubbleView(
                 c.isMessageVisible,
@@ -408,7 +398,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
               },
             ),
 
-            // The Guardian
             GestureDetector(
               onTap: _onTap,
               child: AnimatedBuilder(
@@ -425,7 +414,6 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     ),
                   );
                 },
-                // Same cat, without an embedded WebGL view competing with phone scroll.
                 child: AppMotion.reduceAmbientMotion(context)
                     ? Image.asset(
                         'assets/images/guardian_cat.png',

@@ -41,7 +41,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   String _searchQuery = '';
   Timer? _searchDebounce;
   Future<List<MemoryPhoto>>? _searchFuture;
-  int _tabIndex = 0; // 0 grid, 1 map, 2 week
+  int _tabIndex = 0;
   late Stream<List<MemoryPhoto>> _photos = _galleryService.getPhotosStream();
   List<MemoryPhoto> _livePhotos = const [];
   final List<MemoryPhoto> _olderPhotos = [];
@@ -644,7 +644,6 @@ class _PhotoCardState extends State<_PhotoCard> {
                     ),
                   ),
                 ),
-                // Bottom gradient + caption
                 Positioned(
                   bottom: 0,
                   left: 0,

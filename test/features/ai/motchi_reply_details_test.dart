@@ -302,8 +302,6 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      // The anime sidechat: web_search landed, one page read landed, one
-      // page read did not. The reply itself answered fine.
       final details = MotchiReplyDetails.fromResults([
         {
           'tool': 'web_search',
@@ -352,7 +350,6 @@ void main() {
         find.textContaining('Some steps still need attention'),
         findsNothing,
       );
-      // The failed read is still reported — trust means showing it.
       expect(find.textContaining('Read web page'), findsNWidgets(2));
       expect(find.text('Done'), findsNWidgets(2));
       expect(find.textContaining('fandom.com'), findsOneWidget);

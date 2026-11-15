@@ -69,7 +69,6 @@ class _ThisWeekViewState extends State<ThisWeekView> {
             ),
           );
         }
-        // Group by yearsAgo
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           itemCount: photos.length,

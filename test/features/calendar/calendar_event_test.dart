@@ -64,8 +64,8 @@ void main() {
       expect(map['type'], 'anniversary');
       expect(map['createdBy'], 'Khent');
       expect(map['recurring'], 'yearly');
-      expect(map['color'], isNull); // not set
-      expect(map['endDate'], isNull); // not set
+      expect(map['color'], isNull);
+      expect(map['endDate'], isNull);
     });
 
     test('toFirestore includes endDate when set', () {

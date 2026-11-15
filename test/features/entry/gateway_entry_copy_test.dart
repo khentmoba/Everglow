@@ -24,9 +24,6 @@ void main() {
 
     testWidgets('throwing verifier keeps connection reason after auto-reset',
         (tester) async {
-      // A valid-shaped code (Khent's) with nobody remembered offline: the
-      // server never answered, so it stays a connection problem — never a
-      // wrong code — even after the error shake auto-resets the field.
       final notifier = GatewayNotifier()
         ..verifyCouplePasscode = (_) async {
           throw Exception('offline');
@@ -81,7 +78,6 @@ void main() {
       )));
       await tester.pump();
       expect(find.text('Opening your space…'), findsOneWidget);
-      // Progress count is replaced while verifying.
       expect(find.text('4 of 4'), findsNothing);
     });
 
@@ -126,10 +122,7 @@ void main() {
         onBackspace: () {},
       )));
       await tester.pump();
-      // Every key is wrapped in a Focus so Tab + Enter/Space works.
-      // 10 digits + backspace = 11 focusable keys.
       final focusWidgets = tester.widgetList<Focus>(find.byType(Focus));
-      // Includes the outer pad Focus plus 11 key Focus nodes.
       expect(focusWidgets.length, greaterThanOrEqualTo(12));
     });
   });

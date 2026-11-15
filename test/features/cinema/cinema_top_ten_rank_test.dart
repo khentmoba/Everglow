@@ -49,8 +49,6 @@ Future<void> _pumpDrawer(WidgetTester tester, _DemoAuth auth, int? rank) async {
 }
 
 void main() {
-  // Guards the lookup that turns a tapped item into its Top 10 badge rank:
-  // the bug this test suite exists for showed "#2" for every item.
   group('topTenRankFor', () {
     final topTen = [_item(1), _item(2), _item(3)];
 

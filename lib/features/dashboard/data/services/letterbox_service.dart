@@ -20,14 +20,9 @@ class LetterboxService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // In-memory cache shared by the dashboard rail and the archive screen.
-  // Lets a revisit (or rail -> View All) paint instantly while the live
-  // stream revalidates in the background (stale-while-revalidate).
   List<HiddenNote> _cachedNotes = const [];
   List<HiddenNote> get cachedNotes => _cachedNotes;
 
-  /// Loads cached notes from persistent local storage so the dashboard rail
-  /// and archive screen paint instantly on cold launch without showing a skeleton.
   Future<List<HiddenNote>> loadDiskCache() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       _cachedNotes = AgentFixtures.demoNotes;
@@ -79,12 +74,6 @@ class LetterboxService {
     return _cachedNotes;
   }
 
-  // Full stream of all notes, shared globally, ordered by unlock date.
-  // Used by the archive screen (needs everything for search/filter).
-  // Wrapped with timeout so UI never hangs on web navigation.
-  // Individual doc parse errors are swallowed so one malformed letter
-  // does not kill the entire rail (the bug that left Letterbox empty
-  // after a bad write).
   Stream<List<HiddenNote>> get notes {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoNotes);
@@ -107,10 +96,6 @@ class LetterboxService {
     );
   }
 
-  // Lightweight preview for the dashboard rail. The rail only shows a
-  // horizontal strip, so fetching the whole collection wastes a rule
-  // `get(/users/{uid})` evaluation per letter plus bandwidth on every
-  // dashboard open — the main reason the rail felt slow on cold start.
   Stream<List<HiddenNote>> notesPreview({int limit = 10}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoNotes);
@@ -122,8 +107,6 @@ class LetterboxService {
           .limit(limit)
           .snapshots()
           .map((snapshot) {
-            // Preview must not clobber the full cache when the archive
-            // already holds more letters — only widen, never shrink.
             final out = <HiddenNote>[];
             for (final doc in snapshot.docs) {
               try {
@@ -152,9 +135,7 @@ class LetterboxService {
     );
   }
 
-  // Persist read state to Firestore
   Future<void> markAsRead(String noteId) async {
-    // Optimistically update memory and disk cache so state is instant
     if (_cachedNotes.isNotEmpty) {
       final updated = _cachedNotes.map((n) {
         if (n.id == noteId) {
@@ -182,7 +163,6 @@ class LetterboxService {
     }
   }
 
-  // Optional: helper to add a note (for future admin use)
   Future<void> addNote(HiddenNote note) async {
     if (AgentMode.isActive.value) return;
     try {
@@ -193,20 +173,14 @@ class LetterboxService {
     }
   }
 
-  // Ensure the notes collection has at least one sample note if empty.
-  // Unlike seedInitialNotes() this does NOT clear existing data.
   Future<void> ensureSeeded() async {
     if (AgentMode.isActive.value) return;
     try {
-      // 1. Fast path: if cache already holds notes, the collection is
-      // guaranteed to be non-empty — skip network get() completely.
       if (_cachedNotes.isNotEmpty) return;
 
-      // 2. Yield so initial critical dashboard streams get the WebChannel first.
       await Future.delayed(const Duration(seconds: 4));
       if (_cachedNotes.isNotEmpty) return;
 
-      // Check if disk cache has notes before making a database call
       final diskNotes = await loadDiskCache();
       if (diskNotes.isNotEmpty) return;
 
@@ -224,15 +198,12 @@ class LetterboxService {
       await _db.collection('notes').add(data);
       Logger.i('Letterbox: seeded initial sample note');
     } catch (e) {
-      // Permission denied for cinema-only users is expected; swallow.
       Logger.e('Letterbox ensureSeeded failed (likely permission)', error: e);
     }
   }
 
-  // Seed the collection with sample data
   Future<void> seedInitialNotes() async {
     if (AgentMode.isActive.value) return;
-    // 1. Clear existing notes
     final existingNotes = await withGetTimeout(
       _db.collection('notes').get(),
       label: 'letterbox reseed scan',
@@ -246,7 +217,6 @@ class LetterboxService {
     _cachedNotes = const [];
     unawaited(_saveDiskCache(const []));
 
-    // 2. Add the new note
     final data = {
       'title': 'My Favorite Number',
       'content': '1111',

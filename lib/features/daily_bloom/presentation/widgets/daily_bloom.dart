@@ -17,15 +17,6 @@ part 'daily_bloom_cards.dart';
 part 'daily_bloom_scene.dart';
 part 'daily_bloom_stats.dart';
 
-/// The living heart of the dashboard: Khent & Clair's plants side by side
-/// in a night-garden sanctuary card — moonlight glow, stars, seasonal
-/// weather, growth dots, glowing stats, and two clear actions.
-///
-/// Clair sits on the left, Khent on the right. Cinema-only profiles and
-/// tests without an [AuthService] fall back to the single-garden view.
-///
-/// No panel-level tap: each plant (tooltip), Change (sheet), and Our Garden
-/// (route) each own their gesture, so nested taps never double-fire.
 class DailyBloom extends StatefulWidget {
   const DailyBloom({super.key});
 
@@ -38,7 +29,6 @@ class _DailyBloomState extends State<DailyBloom> {
   double _scale = 1.0;
   bool _gardenReported = false;
 
-  /// Which side's tooltip is open in dual view: 'clair', 'khent', or null.
   String? _dualTooltipSide;
   String? _dualPulseSide;
 
@@ -78,9 +68,6 @@ class _DailyBloomState extends State<DailyBloom> {
   Widget build(BuildContext context) {
     return Consumer<GardenProvider>(
       builder: (context, provider, child) {
-        // Auth is optional here: widget tests pump DailyBloom with only a
-        // GardenProvider. Without a couple session we render the classic
-        // single-garden card.
         bool isCouple = false;
         String? currentUser;
         try {
@@ -100,14 +87,6 @@ class _DailyBloomState extends State<DailyBloom> {
         final coupleAuth = auth;
 
         final stats = provider.stats;
-        // First-screen progress: the garden has settled (stats or a final,
-        // retries-exhausted error), so the load veil can count us. A
-        // transient error with a retry still scheduled counts for
-        // nothing — the percent only moves on real events. Reported
-        // post-frame — notifyListeners must not fire during build — and
-        // retried each build until a tracker accepts it (cards can render
-        // in tests or routes without one). Own stats settle the veil;
-        // the partner stream may lag a beat behind without holding paint.
         if (!_gardenReported && (stats != null || provider.hasSettledError)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || _gardenReported) return;

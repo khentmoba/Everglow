@@ -4,14 +4,6 @@ import 'package:flutter/foundation.dart';
 import '../models/temporary_chat_message.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 
-/// Realtime temporary chat between the couple, independent of whether
-/// a watch party room is currently active.
-///
-/// Firestore path: `temporary_chats/{roomId}/messages/{messageId}`.
-/// The parent document stores `hostUid` and `partnerUid` so security
-/// rules can restrict access to exactly those two users. Messages are
-/// ephemeral by design: the UI offers a clear action and nothing else
-/// in the app treats this thread as permanent history.
 class TemporaryChatService {
   final FirebaseFirestore _db;
 
@@ -21,9 +13,6 @@ class TemporaryChatService {
   static const String _collection = 'temporary_chats';
   static const String _messagesSubcollection = 'messages';
 
-  /// Ensures the couple's parent document exists. Both clients call
-  /// this before streaming so the messages subcollection is readable
-  /// immediately.
   Future<void> ensureRoom({
     required String roomId,
     required String myUid,
@@ -41,7 +30,6 @@ class TemporaryChatService {
     }
   }
 
-  /// Live, oldest-first list of messages for the couple's temporary chat.
   Stream<List<TemporaryChatMessage>> getMessagesStream(String roomId) {
     if (roomId.isEmpty) {
       return Stream<List<TemporaryChatMessage>>.value(const []);
@@ -70,7 +58,6 @@ class TemporaryChatService {
         });
   }
 
-  /// Appends a message. Re-throws so the UI can show a friendly error.
   Future<void> sendMessage({
     required String roomId,
     required String text,
@@ -103,7 +90,6 @@ class TemporaryChatService {
     }
   }
 
-  /// Deletes every message in the temporary chat.
   Future<void> clearMessages(String roomId) async {
     if (roomId.isEmpty) return;
     try {

@@ -1,15 +1,6 @@
 'use strict';
 
-/* Motchi social tool executors — moved verbatim from
- * motchi_chat.js executeTool() (mechanical split, no behavior change).
- * Each executor is (ctx, args) => JSON string. Shared services
- * ride on ctx (see motchi_exec_tools.js createToolCtx).
- */
-
 async function exec_set_mood(ctx, args) {
-    // PHT day key + username mirror so app reads (username/
-    // timestamp based) and server reads (date based) see the
-    // same record.
     const today = ctx.phtDateString();
     await ctx.db.collection('moods').doc(`${ctx.callerUid}_${today}`).set({
       mood: args.mood,
@@ -36,11 +27,9 @@ async function exec_read_chat_messages(ctx, args) {
         timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
       };
     });
-    // Filter by sender if specified
     if (args.sender && args.sender !== 'both') {
       messages = messages.filter(m => m.sender === args.sender);
     }
-    // Reverse to chronological order
     messages.reverse();
     return JSON.stringify({ messages, count: messages.length });
 }
@@ -49,7 +38,6 @@ async function exec_send_sanctuary_message(ctx, args) {
     const text = String(args.text || '').trim();
     if (!text) return JSON.stringify({ error: 'No text provided' });
     if (text.length > 2000) return JSON.stringify({ error: 'Message too long (max 2000)' });
-    // Resolve sender username from ctx.callerUid (already verified)
     const sender = (ctx.callerUid || 'motchi').toLowerCase();
     await ctx.db.collection('sanctuary_messages').add({
       text,
@@ -59,7 +47,6 @@ async function exec_send_sanctuary_message(ctx, args) {
       via: 'motchi',
       createdBy: ctx.callerUid,
     });
-    // Notify partner (reuse FCM helper)
     const partnerMap = { khentsgdz: 'clairjassen', clairjassen: 'khentsgdz' };
     const partner = partnerMap[sender];
     if (partner) {
@@ -130,10 +117,6 @@ async function exec_get_xp_stats(ctx, args) {
     return JSON.stringify({ stats });
 }
 
-// Motchi-awarded XP is capped per Philippine day so "give me XP" loops
-// can't print levels. One level's worth (200) is generous; real
-// activity awards (moods, garden, journal…) are unaffected — this
-// guards the LLM-triggered tool only.
 const MOTCHI_XP_DAILY_CAP = 200;
 
 async function exec_add_xp(ctx, args) {
@@ -196,8 +179,6 @@ async function exec_get_gallery(ctx, args) {
   const vision = [];
   const photos = snap.docs.map((d) => {
     const data = d.data();
-    // Vision is thumbnails-first (400px is plenty to see contents) and
-    // capped at 3 per call — each image costs vision tokens.
     if (wantImages && vision.length < 3) {
       const url = data.thumbUrl || data.imageUrl || '';
       if (url) vision.push({ url, caption: (data.caption || '').slice(0, 120) });

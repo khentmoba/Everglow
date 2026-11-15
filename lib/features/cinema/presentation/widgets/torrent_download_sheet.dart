@@ -9,10 +9,6 @@ import '../../../../core/utils/logger.dart';
 import '../../data/services/torrent_index_service.dart';
 import 'netflix/netflix_colors.dart';
 
-/// Opens the download sheet for the title currently on screen.
-///
-/// Copies come from [TorrentIndexService]; every action here is real —
-/// open the magnet in a torrent app, or copy it for one.
 Future<void> showTorrentDownloadSheet(
   BuildContext context, {
   required int tmdbId,
@@ -39,7 +35,6 @@ Future<void> showTorrentDownloadSheet(
   );
 }
 
-/// Lists downloadable copies of one title, best seeded first.
 class TorrentDownloadSheet extends StatefulWidget {
   const TorrentDownloadSheet({
     super.key,
@@ -57,7 +52,6 @@ class TorrentDownloadSheet extends StatefulWidget {
   final int? season;
   final int? episode;
 
-  /// Injected in tests; production builds the real index client.
   final TorrentIndexService? service;
 
   @override
@@ -91,9 +85,6 @@ class _TorrentDownloadSheetState extends State<TorrentDownloadSheet> {
     setState(() => _copiedHashes.add(copy.infoHash));
   }
 
-  /// Hand the magnet to whatever torrent app the device has. Desktop and
-  /// most Android phones answer; iPhone has no handler, so the link is
-  /// copied instead of failing silently.
   Future<void> _open(TorrentCopy copy) async {
     var launched = false;
     try {

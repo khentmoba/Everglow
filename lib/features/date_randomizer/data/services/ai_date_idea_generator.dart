@@ -2,15 +2,11 @@ import 'package:flutter/foundation.dart';
 import '../../../ai/data/services/ai_service.dart';
 import '../models/date_idea.dart';
 
-/// Extension on DateIdeaService that adds AI-powered date ideas.
-///
-/// Falls back gracefully when the AI is unavailable.
 class AIDateIdeaGenerator {
   final AIService _aiService;
 
   AIDateIdeaGenerator(this._aiService);
 
-  /// Generate a personalized date idea title using AI.
   Future<DateIdea?> generatePersonalizedIdea({
     String? mood,
     String? timeOfDay,

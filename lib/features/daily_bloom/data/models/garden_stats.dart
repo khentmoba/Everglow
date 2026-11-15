@@ -62,13 +62,6 @@ class GardenStats {
     };
   }
 
-  /// Growth stage based on milestone interaction thresholds:
-  /// Stage 0: Seed (0)
-  /// Stage 1: Sprout (1+)
-  /// Stage 2: Bud (5+)
-  /// Stage 3: Blooming (10+)
-  /// Stage 4: Mature (20+)
-  /// Stage 5: Full Glory (30+)
   static int calculateStage(int interactions) {
     if (interactions >= 30) return 5;
     if (interactions >= 20) return 4;

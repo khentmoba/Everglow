@@ -12,7 +12,6 @@ import '../../data/services/letterbox_service.dart';
 import '../widgets/note_dialog.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Full-screen letter archive with search and filter (locked / unread / read).
 class LetterboxArchiveScreen extends StatefulWidget {
   const LetterboxArchiveScreen({super.key});
 
@@ -81,8 +80,6 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   @override
   void initState() {
     super.initState();
-    // Cache-first: the dashboard rail usually loaded already — paint it
-    // instantly and let the full stream revalidate silently underneath.
     final cached = _service.cachedNotes;
     if (cached.isNotEmpty) {
       _allNotes = cached;
@@ -128,9 +125,6 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
         _scheduleSilentRetry();
       },
       onDone: () {
-        // withFirestoreTimeout closes silently when the first snapshot never
-        // arrives (cold Firestore WebChannel on first load). Retry silently
-        // with the skeleton up instead of flashing an error.
         if (!mounted) return;
         if (_isLoading) _scheduleSilentRetry();
       },
@@ -210,7 +204,6 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
           ),
           Column(
             children: [
-              // Filter chips
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -256,7 +249,6 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
                 ),
               ),
 
-              // Letter list
               Expanded(child: _buildLetterList()),
             ],
           ),
@@ -336,8 +328,6 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   }
 
   void _openSearch(BuildContext context) async {
-    // Prefer the already-loaded snapshot so search works even while a
-    // cold-start stream is still retrying in the background.
     List<HiddenNote> allNotes = _allNotes;
     if (allNotes.isEmpty && !_hasError) {
       try {
@@ -463,7 +453,6 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   }
 }
 
-/// A single letter row in the archive list.
 class _LetterListTile extends StatelessWidget {
   final HiddenNote note;
   final VoidCallback onTap;
@@ -494,7 +483,6 @@ class _LetterListTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Icon
               Container(
                 width: 44,
                 height: 44,
@@ -517,7 +505,6 @@ class _LetterListTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              // Title + preview
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,12 +536,10 @@ class _LetterListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              // Countdown badge for locked
               if (!unlocked) ...[
                 const SizedBox(width: 8),
                 _CountdownBadge(unlockDate: note.unlockDate),
               ],
-              // New dot
               if (isNew) ...[
                 const SizedBox(width: 8),
                 Container(
@@ -584,7 +569,6 @@ class _LetterListTile extends StatelessWidget {
   }
 }
 
-/// Animated countdown badge for locked letters.
 class _CountdownBadge extends StatelessWidget {
   final DateTime unlockDate;
 

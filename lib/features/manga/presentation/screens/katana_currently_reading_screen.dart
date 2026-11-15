@@ -18,19 +18,9 @@ import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 import '../widgets/manga_details_drawer.dart';
 
-/// Full Currently Reading list for MangaCelestia.
-///
-/// Couple users get "You" / partner tabs backed by each partner's
-/// `manga_library` reading list. Tapping a card opens the Katana
-/// detail page (or the classic drawer for older entries), Resume
-/// jumps straight back into the saved chapter, and the X removes the
-/// title from Currently Reading without deleting chapter progress.
 class KatanaCurrentlyReadingScreen extends StatefulWidget {
   const KatanaCurrentlyReadingScreen({super.key, this.embed = false});
 
-  /// When true, renders headerless tab content for [KatanaTabShell].
-  /// When false (standalone route), wraps in the tab shell so header
-  /// tabs still switch in place.
   final bool embed;
 
   @override
@@ -117,9 +107,6 @@ class _KatanaCurrentlyReadingScreenState
 
   List<MangaItem> get _visible {
     if (_showPartner) return _partner;
-    // Same single resume list as the home shelf: pinned entries plus
-    // titles read before auto-add existed (or opened without
-    // metadata), so nothing resumable hides from this tab.
     if (_user.isEmpty) return _mine;
     return mergeReadingWithProgress(
       reading: _mine,
@@ -223,7 +210,6 @@ class _KatanaCurrentlyReadingScreenState
     return _buildContent();
   }
 
-  /// Headerless tab content for [KatanaTabShell].
   Widget _buildContent() {
     final items = _visible;
     return Center(
@@ -280,7 +266,6 @@ class _KatanaCurrentlyReadingScreenState
                       item: item,
                       progress: _bookmarksBySlug[slug],
                       busy: _busySlug == slug,
-                      // Progress-only entries have no library entry to remove.
                       canRemove: !_showPartner && item.isReading,
                       onResume: () => _resume(item),
                       onOpen: () => _open(item),

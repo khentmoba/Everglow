@@ -9,7 +9,6 @@ import 'animex_controller.dart';
 import 'animex_footer.dart';
 import 'animex_tokens.dart';
 
-/// Watch history page with resume actions and per-entry removal.
 class AnimeXHistoryPage extends StatelessWidget {
   final AnimeXController controller;
 

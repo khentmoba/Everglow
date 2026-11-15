@@ -4,10 +4,6 @@ import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Renders the reviews section: a vertical list of review cards with
-/// avatar, author name, rating, and preview text. Shows a loading
-/// skeleton while fetching, or an empty-state message when no reviews
-/// are available.
 class ReviewsSection extends StatelessWidget {
   final List<Map<String, dynamic>> reviews;
   final bool isLoading;
@@ -52,7 +48,6 @@ class ReviewsSection extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    // Avatar
                     Container(
                       width: 38,
                       height: 38,

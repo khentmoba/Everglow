@@ -1,9 +1,5 @@
 part of 'motchi_screen.dart';
 
-// ─── Markdown renderer ───────────────────────────────────────────
-// Delegates to the shared EverglowMarkdown so Motchi and Study render
-// headings, lists, tables, and dividers identically (no raw `**` / `|`).
-
 class _MarkdownText extends StatelessWidget {
   final String text;
   final TextStyle? baseStyle;
@@ -34,7 +30,6 @@ String _formatToolStatus(String status) {
   if (status == 'done') return 'Motchi is done';
   if (status == 'request_tools') return 'Motchi is getting ready…';
   if (status.startsWith('round_')) return 'Motchi is thinking…';
-  // Tool names — expressive cat companion activities
   const toolNames = {
     'request_tools': 'Getting ready…',
     'propose_choices': 'Picking choices…',

@@ -3,11 +3,6 @@ import '../../../../../core/theme/app_colors.dart';
 import '../netflix/netflix_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-/// Pill tab bar for the drawer's Cast / Reviews / More Like This sections.
-///
-/// Only the selected tab's section is built, so the phone never lays out
-/// (or fetches images for) the tabs Clair hasn't opened yet. Switching
-/// tabs never refetches — the drawer keeps each list once loaded.
 class DrawerExtraTabs extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelect;

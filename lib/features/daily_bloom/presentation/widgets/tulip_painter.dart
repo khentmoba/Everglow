@@ -69,7 +69,6 @@ class TulipPainter extends CustomPainter {
       ..strokeWidth = 3;
     canvas.drawPath(stemPath, paint);
 
-    // Long elegant leaf
     paint
       ..style = PaintingStyle.fill
       ..color = AppArt.leafLight;
@@ -105,7 +104,6 @@ class TulipPainter extends CustomPainter {
       paint.color = Colors.green[300]!;
       canvas.drawCircle(top, 4, paint);
     } else if (stage <= 3) {
-      // Tulip bud — elongated
       paint.color = AppColors.accentPink;
       canvas.drawOval(
         Rect.fromCenter(
@@ -116,11 +114,9 @@ class TulipPainter extends CustomPainter {
         paint,
       );
     } else {
-      // Tulip cup bloom
       final cupWidth = stage == 4 ? 18.0 : 26.0;
       final cupHeight = stage == 4 ? 22.0 : 30.0;
 
-      // Back petals (darker)
       paint.color = AppColors.deepRose;
       final backPath = Path();
       backPath.moveTo(top.dx - cupWidth / 2, top.dy);
@@ -139,7 +135,6 @@ class TulipPainter extends CustomPainter {
       backPath.close();
       canvas.drawPath(backPath, paint);
 
-      // Front petals (lighter)
       paint.color = AppColors.accentPink;
       final frontPath = Path();
       frontPath.moveTo(top.dx - cupWidth * 0.4, top.dy);

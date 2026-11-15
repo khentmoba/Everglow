@@ -9,13 +9,6 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Unified button for ALL screens.
-///
-/// Replaces `BouncyButton` and all bare `GestureDetector` circles.
-/// Variants: filled (default), glass, ghost, pill.
-///
-/// Features: 44px min tap target, press scale 0.96, haptic feedback,
-/// `Semantics`, `Tooltip`, `FocusableActionDetector`, reduced-motion-aware.
 class EverglowButton extends StatefulWidget {
   final String label;
   final IconData? icon;

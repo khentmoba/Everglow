@@ -8,23 +8,12 @@ import '../../../data/services/tmdb_service.dart';
 import '../trailer_player.dart';
 import 'netflix_colors.dart';
 
-/// In-memory cache of TMDB detail maps keyed by `tmdbId:mediaType` so the
-/// hover popover only fetches each title once per session.
 final Map<String, Map<String, dynamic>> _netflixDetailCache = {};
 
-/// Session cache of YouTube trailer keys (`tmdbId:mediaType` -> key).
-/// A stored null means "looked up, has no trailer" so repeat hovers
-/// never re-request titles without videos.
 final Map<String, String?> _netflixTrailerCache = {};
 
-/// Starts fetching the trailer + details for [item] before the preview
-/// opens, so hover feels instant. Safe to call repeatedly — cached
-/// titles return immediately. Rows and cards call this on hover-enter
-/// (before the 260ms popover delay) so the preview usually opens with
-/// the key already cached.
 Future<void> prefetchNetflixPreview(MediaItem item) async {
   final key = '${item.tmdbId}:${item.mediaType}';
-  // Anime items already carry their YouTube id — no TMDB lookup needed.
   final embedded = item.trailerYoutubeId;
   if (embedded != null && embedded.isNotEmpty) {
     _netflixTrailerCache[key] = embedded;
@@ -34,8 +23,6 @@ Future<void> prefetchNetflixPreview(MediaItem item) async {
         item.tmdbId,
         item.mediaType,
       );
-      // Only cache when the preview hasn't already stored a result —
-      // a concurrent _loadTrailer may have finished first.
       _netflixTrailerCache.putIfAbsent(key, () => trailerKey);
     } catch (_) {
       // Leave uncached so the preview itself can retry.
@@ -54,14 +41,8 @@ Future<void> prefetchNetflixPreview(MediaItem item) async {
   }
 }
 
-/// Estimated popover height for a given width. Kept in one place so the
-/// row, grid card, and position helper agree.
 double netflixPreviewHeight(double width) => width * 0.5625 + 232;
 
-/// Computes a viewport-safe top-left position for the hover popover.
-///
-/// Netflix-style: the preview grows centered over the anchored card,
-/// covering it, clamped inside the viewport with a small margin.
 Offset positionHoverPreview({
   required Rect anchor,
   required Size previewSize,
@@ -83,19 +64,10 @@ Offset positionHoverPreview({
   return Offset(left, top);
 }
 
-/// Netflix-style hover popover with real title details.
-///
-/// Order matches Netflix: backdrop art, action row, metadata, title,
-/// synopsis, genres. TMDB details are fetched on demand (cached) so the
-/// popover never shows placeholder copy when the row payload only has
-/// a poster.
 class NetflixHoverPreview extends StatefulWidget {
   final MediaItem item;
   final double width;
 
-  /// On-screen width of the card this preview grows out of. Sets the
-  /// entrance scale so the popover starts at roughly card size. Null
-  /// (touch dialog) keeps a subtle centered pop.
   final double? anchorWidth;
   final VoidCallback? onTap;
   final VoidCallback? onPlay;
@@ -139,7 +111,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
     } else if (widget.item.synopsis.isEmpty) {
       _loadDetails();
     }
-    // Anime rows already know their YouTube id — play instantly.
     final embedded = widget.item.trailerYoutubeId;
     if (embedded != null && embedded.isNotEmpty) {
       _trailerKey = embedded;
@@ -253,17 +224,10 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
         .toList();
   }
 
-  /// True while TMDB details are still resolving and the row payload has
-  /// no synopsis to show yet. The popover renders animated shimmer
-  /// placeholders instead of the fallback copy so hover never looks dead.
   bool get _loadingDetails => _details == null && widget.item.synopsis.isEmpty;
 
   @override
   Widget build(BuildContext context) {
-    // Netflix grow: the preview starts at roughly the card's size and
-    // expands to full size, centered over the card (the overlay position
-    // keeps the centers aligned, so scaling from the center reads as
-    // growing out of the poster itself).
     final anchorWidth = widget.anchorWidth;
     final begin =
         (anchorWidth == null || anchorWidth <= 0 || widget.width <= 0
@@ -306,7 +270,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Backdrop art melts into the card body ──
                 AspectRatio(
                   aspectRatio: 16 / 9,
                   child: Stack(
@@ -321,9 +284,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         )
                       else
                         Container(color: NetflixColors.surface),
-                      // Muted trailer fades in over the still once it is
-                      // ready, Netflix-style. The still stays mounted
-                      // underneath as the loading/fallback frame.
                       if (_trailerKey != null)
                         AnimatedOpacity(
                           opacity: _trailerVisible ? 1.0 : 0.0,
@@ -340,7 +300,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                             },
                           ),
                         ),
-                      // Blend image into the body so there is no hard cut.
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -358,8 +317,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           ),
                         ),
                       ),
-                      // Title treatment over the art, like Netflix. Steps
-                      // aside once the trailer fades in.
                       Positioned(
                         left: 14,
                         right: 14,
@@ -405,7 +362,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Actions first: Play leads, info docks right ──
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -470,7 +426,6 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           label: const Text('Restart'),
                         ),
                       const SizedBox(height: 12),
-                      // ── Metadata ──
                       if (_loadingDetails &&
                           _voteAverage == 0 &&
                           _year.isEmpty &&

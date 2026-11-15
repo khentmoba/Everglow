@@ -2,39 +2,19 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Dusk Petal v2 Typography token system.
-///
-/// Pairing: Cormorant Garamond (display/headline) + Outfit (body/UI).
-/// Handwritten: Dancing Script + Caveat for romantic notes only.
-///
-/// All styles use fonts bundled in `assets/google_fonts/`.
-/// SectionFonts loads DM Sans before Anime/Motchi; other families load at boot.
-/// Fonts are available before their screen, without third-party font requests.
-///
-/// All styles are cached as static finals so they are allocated once and
-/// reused across every build -- critical for 60 fps on Flutter web.
 class AppTypography {
   AppTypography._();
 
-  // Font aliases match pubspec.yaml or SectionFonts for section-only families.
   static const String display = 'Cormorant Garamond';
   static const String body = 'Outfit';
-  // Bundled regular weight for longer, quieter reading surfaces.
   static const String reading = 'DM Sans';
   static const String script = 'Dancing Script';
   static const String hand = 'Caveat';
 
-  // Common UI emoji/symbols are bundled so new cards do not download separate
-  // fallback fonts and rebuild CanvasKit's whole font collection mid-scroll.
-  // Uncovered emoji and languages retain Flutter's normal fallback behavior.
   static const List<String> fontFallback = [
     'Everglow Emoji',
     'Everglow Symbols',
   ];
-
-  // Cached Display / Headline (Cormorant Garamond)
-  // NOTE: only 400/600/700 are bundled — never request w800/w900 for
-  // Cormorant (Flutter would synthesize faux-bold = soft text on web).
 
   static const TextStyle _displayLarge = TextStyle(
     fontFamily: display,
@@ -79,10 +59,6 @@ class AppTypography {
     color: AppColors.roseQuartz,
     letterSpacing: 0.5,
   );
-
-  // Cached Title / Body / Label (Outfit — 500..900 all bundled)
-  // Body uses w500 minimum: Outfit 400 at 12-14px on dark glass is too
-  // thin for CanvasKit grayscale AA and reads as blur. 500 stays sharp.
 
   static const TextStyle _titleMedium = TextStyle(
     fontFamily: body,
@@ -136,8 +112,6 @@ class AppTypography {
     letterSpacing: 0.6,
   );
 
-  // Cached Handwritten (NoteDialog only)
-
   static const TextStyle _handwrittenTitle = TextStyle(
     fontFamily: script,
     fontSize: 30,
@@ -151,10 +125,6 @@ class AppTypography {
     color: AppColors.textHigh,
   );
 
-  // Common inline styles used ~500 times across the codebase.
-  // Callers use .copyWith() for custom sizes/colors.
-
-  /// Outfit base -- white text, any size via copyWith.
   static const TextStyle outfitWhite = TextStyle(
     fontFamily: body,
     fontFamilyFallback: fontFallback,
@@ -162,7 +132,6 @@ class AppTypography {
     color: AppColors.petalWhite,
   );
 
-  /// Outfit base -- muted text, any size via copyWith.
   static final TextStyle outfitMuted = TextStyle(
     fontFamily: body,
     fontFamilyFallback: fontFallback,
@@ -170,7 +139,6 @@ class AppTypography {
     color: AppColors.textMuted,
   );
 
-  /// Outfit base -- medium text, any size via copyWith.
   static final TextStyle outfitMedium = TextStyle(
     fontFamily: body,
     fontFamilyFallback: fontFallback,
@@ -178,7 +146,6 @@ class AppTypography {
     color: AppColors.textMedium,
   );
 
-  /// Outfit w600 white -- buttons/labels base.
   static const TextStyle outfitBold = TextStyle(
     fontFamily: body,
     fontFamilyFallback: fontFallback,
@@ -186,7 +153,6 @@ class AppTypography {
     color: AppColors.petalWhite,
   );
 
-  /// Outfit w700 white -- headings base.
   static const TextStyle outfitHeading = TextStyle(
     fontFamily: body,
     fontFamilyFallback: fontFallback,
@@ -194,7 +160,6 @@ class AppTypography {
     color: AppColors.petalWhite,
   );
 
-  /// Cormorant w600 rose -- display headings base.
   static const TextStyle cormorantHeading = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -202,7 +167,6 @@ class AppTypography {
     color: AppColors.roseQuartz,
   );
 
-  /// Cormorant regular rose -- neutral display base.
   static const TextStyle cormorantRegular = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -210,7 +174,6 @@ class AppTypography {
     color: AppColors.roseQuartz,
   );
 
-  /// Cormorant w700 rose -- bold display base.
   static const TextStyle cormorantBold = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -218,7 +181,6 @@ class AppTypography {
     color: AppColors.roseQuartz,
   );
 
-  /// Cormorant w700 white -- bold light display base.
   static const TextStyle cormorantBoldWhite = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -226,7 +188,6 @@ class AppTypography {
     color: AppColors.petalWhite,
   );
 
-  /// Cormorant w600 white -- semi-bold light display base.
   static const TextStyle cormorantSemiBoldWhite = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -234,7 +195,6 @@ class AppTypography {
     color: AppColors.petalWhite,
   );
 
-  /// Cormorant extra-bold display base (clamped to w700 — 800 not bundled).
   static const TextStyle cormorantExtraBold = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -242,7 +202,6 @@ class AppTypography {
     color: AppColors.roseQuartz,
   );
 
-  /// Cormorant extra-bold light display base (clamped to w700).
   static const TextStyle cormorantExtraBoldWhite = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -250,7 +209,6 @@ class AppTypography {
     color: AppColors.petalWhite,
   );
 
-  /// Cormorant heavy display base (clamped to w700 — 900 not bundled).
   static const TextStyle cormorantBlack = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
@@ -258,15 +216,12 @@ class AppTypography {
     color: AppColors.roseQuartz,
   );
 
-  /// Cormorant heavy light display base (clamped to w700).
   static const TextStyle cormorantBlackWhite = TextStyle(
     fontFamily: display,
     fontFamilyFallback: fontFallback,
     fontWeight: FontWeight.w700,
     color: AppColors.petalWhite,
   );
-
-  // Public accessors -- return cached instances.
 
   static TextStyle displayLarge() => _displayLarge;
   static TextStyle displayMedium() => _displayMedium;
@@ -285,8 +240,6 @@ class AppTypography {
   static TextStyle labelSmall() => _labelSmall;
   static TextStyle handwrittenTitle() => _handwrittenTitle;
   static TextStyle handwrittenBody() => _handwrittenBody;
-
-  // Build a complete TextTheme for ThemeData
 
   static TextTheme get textTheme => TextTheme(
     displayLarge: _displayLarge,

@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Categories for bucket list items.
 enum BucketCategory {
   travel('Travel', '✈️'),
   experience('Experience', '🎭'),
@@ -14,7 +13,6 @@ enum BucketCategory {
   const BucketCategory(this.displayName, this.emoji);
 }
 
-/// Status of a bucket list item.
 enum BucketStatus {
   wish('Wished', '🌟'),
   planned('Planned', '📋'),
@@ -25,7 +23,6 @@ enum BucketStatus {
   const BucketStatus(this.displayName, this.emoji);
 }
 
-/// Priority — Vikunja/Donetick inspired.
 enum BucketPriority {
   low('Low', '⬇️', 0),
   medium('Medium', '➡️', 1),
@@ -38,7 +35,6 @@ enum BucketPriority {
   const BucketPriority(this.displayName, this.emoji, this.rank);
 }
 
-/// A single bucket list item shared between the couple.
 class BucketItem {
   final String? calendarEventId;
   final String id;
@@ -53,10 +49,9 @@ class BucketItem {
   final String? imageUrl;
   final String notes;
 
-  // Phase 1 — Kanban/chores additions (Donetick/Vikunja).
   final BucketPriority priority;
   final String?
-  assignedTo; // username: khentsgdz / clairjassen / null = unassigned
+  assignedTo;
   final DateTime? dueDate;
 
   const BucketItem({
@@ -83,8 +78,6 @@ class BucketItem {
   );
 
   factory BucketItem.fromMap(Map<String, dynamic> data, String id) {
-    // Tolerate missing/odd-typed fields: one malformed doc must never
-    // crash the watchAll stream and take the whole shelf down.
     DateTime? asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
     return BucketItem(
       id: id,
@@ -175,7 +168,6 @@ class BucketItem {
     );
   }
 
-  /// Helpers for Kanban/chores UI.
   bool get isOverdue =>
       dueDate != null &&
       status != BucketStatus.completed &&

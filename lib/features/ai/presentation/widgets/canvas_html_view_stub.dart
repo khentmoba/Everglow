@@ -5,13 +5,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Native preview: runs Motchi's self-contained HTML mini-app (e.g. chess)
-/// inside an on-device WebView so the canvas works on Clair's phone and
-/// tablet — not just the web app.
-///
-/// Isolation: JavaScript runs (games need it), but the controller exposes
-/// only an optional reading-state channel, and navigation is blocked, so the
-/// app can't leave its single page or reach app state.
 class CanvasHtmlView extends StatefulWidget {
   final String html;
   final ValueChanged<bool>? onContentFinishedChanged;

@@ -16,8 +16,6 @@ import '../../../../shared/widgets/shelf/tv_media_nav_header.dart';
 
 enum KatanaNav { home, latest, directory, newManga, genres, reading, downloads }
 
-/// The Manga Katana style header: logo, top navigation, a search bar
-/// with live suggestions and the signed-in user / bookmarks entry.
 class KatanaHeader extends StatefulWidget {
   final KatanaNav active;
 
@@ -37,10 +35,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   bool _searched = false;
   String _searchBy = 'm_name';
 
-  /// Which way the pink underline wipes: true grows it from the left
-  /// when moving forward through the tabs (Home towards Reading),
-  /// false from the right when moving back. Follows the same
-  /// direction as the content glide below it.
   bool _wipeFromLeft = true;
   int _lastTabIndex = 0;
 
@@ -110,7 +104,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     setState(() {
       _searchBy = _searchBy == 'm_name' ? 'author' : 'm_name';
     });
-    // Re-run the current query under the new mode, like the site.
     if (_searchController.text.trim().length >= 3) {
       _onSearchChanged(_searchController.text);
     }
@@ -152,9 +145,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
           bottom: BorderSide(color: KatanaColors.borderStrong, width: 1),
         ),
       ),
-      // Top-only SafeArea: the surface color stays full-bleed behind the
-      // iPhone status bar (Home Screen app and native notch alike) while
-      // the back button, search, and chips sit below it and stay tappable.
       child: SafeArea(
         top: true,
         bottom: false,
@@ -163,11 +153,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
         child: Column(
           children: [
             const TvMediaNavHeader(currentRoute: '/manga'),
-            // Top area: on desktop keep back + logo + centered search +
-            // bookmarks + user in one row. On phone/tablet the logo row
-            // would squeeze the search field down to just the icons
-            // (only the Name/Author toggle stayed tappable), so the
-            // search gets its own full-width row below the logo.
             if (desktop)
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -250,8 +235,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                   ],
                 ),
               ),
-            // Suggestions dropdown (stays visible for empty results so
-            // "No matches found." actually shows, like the site).
             if (_searchController.text.trim().length >= 3 &&
                 (_searching || _searched))
               Padding(
@@ -418,7 +401,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               controller: _searchController,
               focusNode: _searchFocus,
               onChanged: (value) {
-                // Rebuild so the clear/submit buttons enable correctly.
                 setState(() {});
                 _onSearchChanged(value);
               },
@@ -453,8 +435,6 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               ),
             ),
           ),
-          // Search-by dropdown stays visible while typing, like the
-          // site's select next to the input.
           GestureDetector(
             onTap: _toggleSearchBy,
             behavior: HitTestBehavior.opaque,
@@ -830,8 +810,6 @@ class _KatanaNavItemState extends State<_KatanaNavItem> {
   }
 }
 
-/// The pink bar under the active nav tab. It wipes in from the side
-/// being travelled from and wipes back out, instead of snapping.
 class _GlideUnderline extends StatelessWidget {
   final bool active;
   final bool fromLeft;

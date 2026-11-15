@@ -117,20 +117,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Content preview MUST NOT be rendered
       expect(find.text(privateText), findsNothing);
       expect(find.textContaining('intimate'), findsNothing);
 
-      // Private tags MUST NOT be rendered
       expect(find.text('#secret_gift'), findsNothing);
       expect(find.text('#for_clair_only'), findsNothing);
 
-      // Privacy lock badge and sealed message MUST be shown
       expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
       expect(find.text('Sealed with a kiss — tap to open'), findsOneWidget);
       expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
 
-      // Card semantics indicates locked state without leaking private content
       final semanticsFinder = find.byWidgetPredicate(
         (w) =>
             w is Semantics &&
@@ -159,12 +155,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Content preview and tags are visible
       expect(find.text(normalText), findsOneWidget);
       expect(find.text('#sunset'), findsOneWidget);
       expect(find.text('#beach'), findsOneWidget);
 
-      // Sealed box and lock icons are NOT shown
       expect(find.text('Sealed with a kiss — tap to open'), findsNothing);
       expect(find.byIcon(Icons.lock_rounded), findsNothing);
     });
@@ -190,11 +184,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Private content MUST NOT be in the widget tree
         expect(find.text(secretContent), findsNothing);
         expect(find.byType(SelectableText), findsNothing);
 
-        // Locked box with instructions is rendered
         expect(find.text('Sealed with a kiss'), findsOneWidget);
         expect(
           find.text('A private page, just between us.\nTap reveal to open it.'),
@@ -203,11 +195,9 @@ void main() {
         final revealButton = find.widgetWithText(ElevatedButton, 'Reveal');
         expect(revealButton, findsOneWidget);
 
-        // Tap Reveal
         await tester.tap(revealButton);
         await tester.pumpAndSettle();
 
-        // Locked box is gone and private content is now rendered
         expect(find.text('Sealed with a kiss'), findsNothing);
         expect(find.text(secretContent), findsOneWidget);
         expect(find.byType(SelectableText), findsOneWidget);
@@ -255,7 +245,6 @@ void main() {
       await tester.tap(find.text('Open Sheet'));
       await tester.pumpAndSettle();
 
-      // Drag sheet up to reveal bottom actions
       await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pumpAndSettle();
 
@@ -268,7 +257,6 @@ void main() {
       expect(passedId, 'sheet2');
       expect(passedLocked, isFalse);
 
-      // Shows failure SnackBar and reverts back to "Unlock"
       expect(find.text('Failed to update lock. Reverted.'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, 'Unlock'), findsOneWidget);
     });

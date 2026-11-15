@@ -11,8 +11,6 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../features/journal/data/models/journal_entry.dart';
 import '../../../../features/journal/data/services/journal_service.dart';
 
-/// Dashboard preview — hero Journal card with letters & memories.
-/// Atelier glass styling matching keepsakes cluster.
 class JournalPreview extends StatefulWidget {
   final Stream<List<JournalEntry>>? entriesStream;
   const JournalPreview({super.key, this.entriesStream});
@@ -99,7 +97,6 @@ class _JournalPreviewState extends State<JournalPreview> {
     const hue = AppColors.softLavender;
     final entries = _entries;
 
-    // Error state
     if (!_isLoading && (_error != null || entries == null)) {
       return _buildCardShell(
         hue: hue,
@@ -143,7 +140,6 @@ class _JournalPreviewState extends State<JournalPreview> {
       );
     }
 
-    // Loading state
     if (entries == null) {
       return _buildCardShell(
         hue: hue,
@@ -334,7 +330,6 @@ class _JournalPreviewState extends State<JournalPreview> {
   }) {
     return Row(
       children: [
-        // Mini circular quill icon badge
         Container(
           width: 34,
           height: 34,
@@ -355,7 +350,6 @@ class _JournalPreviewState extends State<JournalPreview> {
           ),
         ),
         const SizedBox(width: 10),
-        // Linear indicator & stats
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

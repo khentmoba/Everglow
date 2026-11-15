@@ -12,21 +12,9 @@ import 'tmdb_anime_schedule_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_discovery_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_search_service.dart';
 
-/// GraphQL client for AniList (https://anilist.co).
-///
-/// Used by the anime feature to load rich detail-page data — synopsis,
-/// characters with Japanese VAs, staff, relations, recommendations, full
-/// episode list, and a YouTube trailer key — that Jikan's REST payload
-/// either doesn't expose or splits across many calls.
-///
-/// AniList is rate-limited to 90 requests per minute, so we still pipe
-/// every request through a small FIFO queue with a 50ms gap. AniList
-/// returns 429 with a `Retry-After` header on bursts, which we honor.
 class AniListService with ConnectivityAware {
   static const String _endpoint = 'https://graphql.anilist.co';
 
-  // Singleton — AniList responses are stable and we want the in-memory
-  // detail cache to survive screen rebuilds.
   static final AniListService _instance = AniListService._internal();
   factory AniListService({TmdbAnimeScheduleService? scheduleFallback}) =>
       scheduleFallback == null ? _instance : AniListService._internal(scheduleFallback);
@@ -35,17 +23,11 @@ class AniListService with ConnectivityAware {
 
   final TmdbAnimeScheduleService _scheduleFallback;
 
-  /// In-memory detail cache. AniList detail pages are mostly static, so
-  /// we only re-fetch if the user explicitly pulls to refresh.
   final Map<int, AniListDetail> _detailCache = {};
   final Map<int, DateTime> _detailCacheAt = {};
   static const Duration _detailTtl = Duration(minutes: 10);
 
   Future<T> _serialize<T>(Future<T> Function() task) async {
-    // No need for a deep queue: AniList's 90 req/min ceiling is way above
-    // the worst-case usage on the anime screen (a few details opens per
-    // session). Still, we add a small gap so two simultaneous opens don't
-    // trip the burst limiter.
     await Future.delayed(const Duration(milliseconds: 50));
     return task();
   }
@@ -70,9 +52,6 @@ class AniListService with ConnectivityAware {
           final body = json.decode(response.body) as Map<String, dynamic>;
           if (body['errors'] != null) {
             Logger.e('AniList GraphQL errors: ${body['errors']}');
-            // A GraphQL error payload (e.g. AniList's temporary 403
-            // "API disabled" response) has no usable `data`, so treat
-            // it like a failed request and let callers fall back.
             return null;
           }
           return body['data'] as Map<String, dynamic>?;
@@ -99,13 +78,9 @@ class AniListService with ConnectivityAware {
     return AniListService()._mapEpisodes(streaming, episodeCount: episodeCount);
   }
 
-  /// Single comprehensive query for the anime detail page. Resolves
-  /// either by AniList id (preferred) or MAL id (via the `idMal` filter).
-  /// Cached in memory for [_detailTtl] after the first fetch.
   Future<AniListDetail?> fetchDetails({int? anilistId, int? malId}) async {
     if (anilistId == null && malId == null) return null;
 
-    // Cache key: AniList id if we know it, else a synthetic prefix on MAL.
     final cacheKey = anilistId ?? -malId!;
     final cached = _detailCache[cacheKey];
     if (cached != null) {
@@ -117,10 +92,6 @@ class AniListService with ConnectivityAware {
 
     final variables = <String, dynamic>{
       'id': ?anilistId,
-      // GraphQL variable name has to match the query (`$idMal`), not the
-      // `Media.idMal` field. The previous `'malId': malId` mismatch
-      // silently produced errors and returned a null `Media`, which is
-      // why tapping an anime showed no details.
       if (anilistId == null && malId != null) 'idMal': malId,
       'type': 'ANIME',
     };
@@ -135,11 +106,6 @@ class AniListService with ConnectivityAware {
     return detail;
   }
 
-  /// Like [fetchDetails] but falls back to Jikan's `/anime/{id}` payload
-  /// when AniList returns no `Media`. Jikan carries the same fields the
-  /// detail drawer needs (synopsis, status, format, studios, genres,
-  /// episodes, cover image, YouTube trailer) so the UI renders even when
-  /// AniList is rate-limited, transiently down, or doesn't have the id.
   Future<AniListDetail?> fetchDetailsWithFallback({
     int? anilistId,
     int? malId,
@@ -153,9 +119,6 @@ class AniListService with ConnectivityAware {
     return _mapJikanDetail(jikan, fallbackMalId: malId);
   }
 
-  /// Maps a Jikan `/anime/{id}` payload into an [AniListDetail] so the
-  /// drawer can render when AniList is unavailable. Only the fields the
-  /// UI actually reads are populated; the rest stay at their defaults.
   AniListDetail _mapJikanDetail(
     Map<String, dynamic> j, {
     required int fallbackMalId,
@@ -224,8 +187,6 @@ class AniListService with ConnectivityAware {
       genres: genres,
       studios: studioNames,
       trailerYoutubeId: trailerId,
-      // Jikan doesn't return relations/recommendations/characters/staff
-      // here; the drawer treats empty lists as "no data" which is fine.
       relations: const [],
       recommendations: const [],
       episodes: _mapJikanStreaming(
@@ -239,9 +200,6 @@ class AniListService with ConnectivityAware {
     );
   }
 
-  /// Synthesizes [AniListEpisode] entries for a Jikan-only fallback so
-  /// the episode list still has 1..N entries with air dates. Titles are
-  /// filled in by the episode drawer's Jikan overlay.
   List<AniListEpisode> _mapJikanStreaming({
     required int malId,
     int? episodeCount,
@@ -527,8 +485,6 @@ class AniListService with ConnectivityAware {
     return assignSeasonLabels(list);
   }
 
-  /// Assigns clean, human-readable labels to seasons (e.g. "Season 1",
-  /// "Season 1 Part 2", "Season 2", "OVA", "Movie", "Special").
   static List<AniListSeason> assignSeasonLabels(List<AniListSeason> seasons) {
     if (seasons.isEmpty) return seasons;
 
@@ -716,24 +672,7 @@ class AniListService with ConnectivityAware {
     }).toList();
   }
 
-  /// AniList's `streamingEpisodes` carries a partial list (often empty
-  /// for non-Western-licensed shows), so we synthesize the rest from
-  /// `episodeCount` with placeholder titles. The episode drawer falls
-  /// back to Jikan's `/anime/{id}/episodes` for real titles when this
-  /// list is short.
-  ///
-  /// We also capture each entry's `thumbnail` URL — AniList ships the
-  /// licensed-still image from whichever streaming partner owns the
-  /// episode (Crunchyroll, Funimation, etc.). Western-licensed shows
-  /// usually have thumbnails for every entry; non-Western shows are
-  /// sparse and the tile falls back to the anime poster or a color
-  /// block.
   List<AniListEpisode> _mapEpisodes(List? streaming, {int? episodeCount}) {
-    // AniList's `streamingEpisodes` has no `number` field — the episode
-    // number is embedded in the title as "Episode N - <name>". Parse it
-    // out and key entries by number so out-of-order feeds still map to
-    // the right episode slots, and strip the prefix so tiles show only
-    // the real episode name.
     final byNum = <int, AniListEpisode>{};
     if (streaming is List) {
       var autoIndex = 1;
@@ -778,8 +717,6 @@ class AniListService with ConnectivityAware {
         );
       }
     }
-    // When the canonical count is known, keep stray multi-season feed entries
-    // from creating ghost episodes that won't exist on the streaming servers.
     final maxAnilistEp = byNum.isEmpty
         ? null
         : byNum.keys.reduce((a, b) => a > b ? a : b);
@@ -794,43 +731,30 @@ class AniListService with ConnectivityAware {
     return out;
   }
 
-  /// AniList returns HTML in its `description` field for some titles.
-  /// Strip tags to plain text so we can render with a `Text` widget.
   String _stripHtml(String html) {
     if (html.isEmpty) return '';
-    // Remove simple HTML tags. We deliberately don't add an HTML parser
-    // dependency for this; the upstream tags are always well-formed.
     final noTags = html.replaceAll(RegExp(r'<[^>]*>'), '');
     return unescapeHtmlEntities(noTags);
   }
 
-  /// Bypasses the cache. Used by the episode drawer's pull-to-refresh
-  /// gesture when the user knows the data is stale.
   Future<AniListDetail?> fetchDetailsFresh({int? anilistId, int? malId}) async {
     if (anilistId != null) _detailCache.remove(anilistId);
     if (malId != null) _detailCache.remove(-malId);
     return fetchDetails(anilistId: anilistId, malId: malId);
   }
 
-  /// Parses the `nextAiringEpisode` block from AniList's GraphQL response.
-  /// Returns the `airingAt` unix timestamp (seconds) or null.
   static int? _parseNextAiringAt(dynamic nextAiring) {
     if (nextAiring is! Map<String, dynamic>) return null;
     final airingAt = nextAiring['airingAt'];
     return airingAt is num ? airingAt.toInt() : null;
   }
 
-  /// Parses the `nextAiringEpisode` block from AniList's GraphQL response.
-  /// Returns the episode number or null.
   static int? _parseNextAiringEpisode(dynamic nextAiring) {
     if (nextAiring is! Map<String, dynamic>) return null;
     final episode = nextAiring['episode'];
     return episode is num ? episode.toInt() : null;
   }
 
-  /// Search anime by free-text query via AniList's GraphQL API.
-  /// Returns [MediaItem]s compatible with the existing watchlist flow.
-  /// Used as fallback when Jikan is unavailable.
   Future<List<MediaItem>> searchAnime(
     String query, {
     int page = 1,
@@ -876,8 +800,6 @@ class AniListService with ConnectivityAware {
     final durationForType = (m['duration'] is num)
         ? (m['duration'] as num).toInt()
         : null;
-    // ONA-listed films (e.g. Drifting Home: ONA + 1 x 120min) are really
-    // movies — without this they open as tv with a fake episode list.
     final mediaType = MediaItem.isSingleEpisodeFilm(
       format: format,
       episodeCount: episodesForType,
@@ -933,11 +855,6 @@ class AniListService with ConnectivityAware {
     );
   }
 
-  /// Rich media page for the anime section (browse grid, home rows,
-  /// seasonal). Supports the same filters the reference UI exposes:
-  /// sort, status, season/year, format, single or multiple genres/tags and free text.
-  /// Returns items with synopsis, genres, banner and scores populated so
-  /// cards and hover popovers render full detail without extra fetches.
   Future<AnimexMediaPage> fetchAnimexPage({
     String? search,
     String? sort,
@@ -1021,10 +938,6 @@ class AniListService with ConnectivityAware {
     );
   }
 
-  /// Best-effort replacement for AniList page queries when the GraphQL
-  /// endpoint is down or rate-limited. Jikan is the closest match for
-  /// anime lists; TMDB's anime discovery is a second fallback when no
-  /// key is present for Jikan or the query shape doesn't translate.
   Future<AnimexMediaPage?> _fallbackAnimexPage({
     String? search,
     String? sort,
@@ -1089,7 +1002,6 @@ class AniListService with ConnectivityAware {
       return _pageFromItems(items, page: page);
     }
 
-    // TMDB is independent of both anime catalogs and uses our signed proxy.
     if (search != null && search.trim().isNotEmpty) {
       items = (await TMDBSearchService().searchMedia(search, page: page))
           .where((item) => item.isAnime).toList();
@@ -1102,7 +1014,7 @@ class AniListService with ConnectivityAware {
     } else if (status == 'RELEASING') {
       items = await TMDBDiscoveryService().discoverAnime(
         sortBy: 'popularity.desc',
-        withStatus: 1, // TMDB airing-today status.
+        withStatus: 1,
         page: page,
       );
     } else {
@@ -1128,8 +1040,6 @@ class AniListService with ConnectivityAware {
     );
   }
 
-  /// Maps a display genre name to MAL genre ids so the Jikan fallback
-  /// can apply the same Browse filter as AniList's `genre` argument.
   static List<int> _jikanGenreIds(String genre) {
     const map = <String, int>{
       'Action': 1,
@@ -1157,10 +1067,6 @@ class AniListService with ConnectivityAware {
     return id == null ? const [] : [id];
   }
 
-  /// Selected local day in the current Monday–Sunday week, including past
-  /// and upcoming broadcasts. Weekday is 0 = Monday .. 6 = Sunday.
-  /// Fetches at most four pages (200 rows); [perPage] is clamped to 1..50.
-  /// [now] is an optional clock for tests. Failed requests throw for retry.
   Future<List<AnimexScheduleEntry>> fetchAiringSchedule({
     int weekday = 0,
     int perPage = 50,
@@ -1170,7 +1076,6 @@ class AniListService with ConnectivityAware {
       throw RangeError.range(weekday, 0, 6, 'weekday');
     }
     final localNow = (now ?? DateTime.now()).toLocal();
-    // Calendar constructors preserve local midnights across DST changes.
     final start = DateTime(
       localNow.year,
       localNow.month,
@@ -1193,7 +1098,6 @@ class AniListService with ConnectivityAware {
     final out = <AnimexScheduleEntry>[];
     for (var page = 1; page <= maxPages; page++) {
       final data = await _postGraphQL(_airingScheduleQuery, {
-        // AniList's bounds are strict: include start, exclude end.
         'airingAtGreater': start.millisecondsSinceEpoch ~/ 1000 - 1,
         'airingAtLesser': end.millisecondsSinceEpoch ~/ 1000,
         'page': page,
@@ -1313,8 +1217,6 @@ class AniListService with ConnectivityAware {
       format: format,
       studio: studioName,
       genres: genres,
-      // Cards and hover popovers read `item.score`; the parallel `scores`
-      // list on the page is never consumed, so the score lives here.
       score: scoreVal > 0 ? scoreVal : null,
       trailerYoutubeId: trailerId,
     );
@@ -1322,9 +1224,6 @@ class AniListService with ConnectivityAware {
   }
 }
 
-/// Minimal HTML entity unescaper; we don't pull in `html_unescape` here
-/// because AniList's description rarely uses anything beyond `&amp;`,
-/// `&quot;`, `&#039;`, `&lt;`, `&gt;`, and `&nbsp;`.
 String unescapeHtmlEntities(String input) {
   return input
       .replaceAll('&amp;', '&')
@@ -1336,8 +1235,6 @@ String unescapeHtmlEntities(String input) {
       .replaceAll('&nbsp;', ' ');
 }
 
-/// Comprehensive detail-page query. Fetches everything in one round-trip
-/// to avoid rate-limiting and to keep the detail drawer snappy.
 const String _searchQuery = r'''
 query ($search: String, $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
@@ -1474,7 +1371,6 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
 }
 ''';
 
-/// Filterable browse/seasonal/search query for the anime section.
 const String _animexPageQuery = r'''
 query (
   $search: String
@@ -1531,7 +1427,6 @@ query (
 }
 ''';
 
-/// Daily airing schedule query over a unix-timestamp window.
 const String _airingScheduleQuery = r'''
 query ($airingAtGreater: Int, $airingAtLesser: Int, $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {

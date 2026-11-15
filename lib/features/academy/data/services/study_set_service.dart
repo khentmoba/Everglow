@@ -9,12 +9,6 @@ import 'academy_service.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Builds Academy question sets: Motchi-first, cache-backed.
-///
-/// Every Solo session and every hosted 1v1 asks Motchi for ONE fresh set
-/// (1 call against the shared daily cap). Anything Motchi writes is saved
-/// into `academy_questions`, so when she is tired, offline, or capped,
-/// Clair still plays instantly from the cache — never a dead screen.
 class StudySetService {
   StudySetService({AcademyService? academy, http.Client? client})
     : _academy = academy ?? AcademyService(),
@@ -36,8 +30,6 @@ class StudySetService {
     return 'https://us-central1-everglow-1c6db.cloudfunctions.net/generateStudySet';
   }
 
-  /// Fresh Solo set for [category]. When [topic] is given, Motchi themes
-  /// every question around it (saved under [category] for reuse).
   Future<List<AcademyQuestion>> buildSoloSet({
     required String category,
     int count = defaultCount,
@@ -56,8 +48,6 @@ class StudySetService {
       Logger.e('Motchi set failed, falling back to cache', error: e);
     }
 
-    // Prefer fresh Motchi questions, skip ones already seen, then fill
-    // the rest from the cache so the set is always full when possible.
     final freshUnseen = fresh.where((q) => !seen.contains(q.id)).toList();
     final useFresh = freshUnseen.length >= 5 ? freshUnseen : fresh;
     if (useFresh.length >= count) {
@@ -74,8 +64,6 @@ class StudySetService {
     return combined;
   }
 
-  /// Shared set for a hosted 1v1 match. Returns question IDs in play
-  /// order. Motchi-first with the same cache fallback as Solo.
   Future<List<String>> buildMatchSet({required String category}) async {
     try {
       final fresh = await _generateViaMotchi(
@@ -96,9 +84,6 @@ class StudySetService {
     return cached.map((q) => q.id).toList();
   }
 
-  /// Saves a finished Solo result (best score per category + last played).
-  /// Returns true when this is a new best. Fail-soft: study never
-  /// breaks over a stats write.
   Future<bool> saveSoloResult({
     required String category,
     required int score,
@@ -130,9 +115,6 @@ class StudySetService {
     }
   }
 
-  /// Watches Solo stats for the hub card (last category + bests).
-  /// Emits null when signed out or on errors — the card falls back
-  /// to its default subtitle.
   Stream<SoloStats?> watchSoloStats() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value(null);
@@ -190,8 +172,6 @@ class StudySetService {
     }
   }
 
-  /// Calls the generateStudySet cloud function. Throws on any failure —
-  /// callers fall back to the cached pool.
   @visibleForTesting
   Future<List<AcademyQuestion>> generateViaMotchi({
     required String category,
@@ -272,7 +252,6 @@ class StudySetService {
   }
 }
 
-/// Small Solo stats shown on the hub card.
 class SoloStats {
   final String? lastCategory;
   final int lastScore;

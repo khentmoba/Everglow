@@ -3,13 +3,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/utils/logger.dart';
 
-/// What the player remembers for one title.
-///
-/// Cinema uses [providerId], [season], [episode] and [positionSeconds].
-/// AnimeX uses [server], [audio] (`sub`/`dub`) and [episode].
-/// [volume] is stored per title so shows mastered at different loudness
-/// each reopen at a comfortable level; it falls back to the last-used
-/// global volume when a title has none saved yet.
 class PlayerMemory {
   final String? providerId;
   final int? season;
@@ -75,14 +68,6 @@ class PlayerMemory {
   }
 }
 
-/// Remembers per-title player choices on this device so Clair never has
-/// to re-pick the server, episode, or volume for a show she already
-/// started — especially on the phone, where every episode used to reset.
-///
-/// Storage is a single JSON blob per title in SharedPreferences.
-/// Firestore watch progress stays the cross-device source of truth for
-/// season/episode/position; this is the fast local comfort layer on top,
-/// and the only place the picked provider/server lives.
 class PlayerMemoryService {
   static final PlayerMemoryService _instance =
       PlayerMemoryService._internal();
@@ -93,23 +78,17 @@ class PlayerMemoryService {
   static const _globalKey = '${_prefix}global';
   static const double defaultVolume = 1.0;
 
-  /// Key for a cinema title. Anime items are keyed by MAL id (the id the
-  /// cinema player actually navigates with), everything else by TMDB id.
   static String cinemaKey({
     required int id,
     required String mediaType,
     required bool isAnime,
   }) => '$_prefix${isAnime ? 'mal' : 'tmdb'}/$id/$mediaType';
 
-  /// Key for an AnimeX title. Prefers the AniList id, falls back to MAL.
   static String animexKey({int? anilistId, required int malId}) =>
       '$_prefix${'animex/${anilistId ?? malId}'}';
 
-  /// Key for a watch-party room (volume only — the room owns the rest).
   static String watchPartyKey(String roomId) => '${_prefix}party/$roomId';
 
-  /// Loads the saved memory for [key], or an empty memory when nothing
-  /// was saved yet. Never throws — a corrupt blob reads as empty.
   Future<PlayerMemory> load(String key) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -130,9 +109,6 @@ class PlayerMemoryService {
     }
   }
 
-  /// Merges the given fields into the saved memory for [key].
-  /// Only non-null arguments overwrite what is already stored, except
-  /// [clearPosition] which drops a stale resume point (episode change).
   Future<void> save(
     String key, {
     String? providerId,
@@ -165,7 +141,6 @@ class PlayerMemoryService {
         volume: volume,
       );
       await prefs.setString(key, jsonEncode(next.toJson()));
-      // Volume doubles as the global fallback for titles without one.
       if (volume != null) {
         await prefs.setDouble(_globalKey, volume.clamp(0.0, 1.0));
       }
@@ -175,7 +150,6 @@ class PlayerMemoryService {
         error: e,
         stackTrace: st,
       );
-      // Memory is best-effort comfort; never break playback over it.
     }
   }
 

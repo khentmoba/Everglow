@@ -3,8 +3,6 @@ import 'package:everglow/features/cinema/data/models/next_episode.dart';
 import 'package:everglow/features/cinema/data/services/next_episode_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 
-/// Fake TMDB facade: [seasons] answers per-season episode lists ([] stands
-/// in for a failed fetch, which the real service also reports as []).
 class _FakeTmdb implements TMDBService {
   _FakeTmdb({required this.seasons, required this.show});
   final Map<int, List<Map<String, dynamic>>> seasons;

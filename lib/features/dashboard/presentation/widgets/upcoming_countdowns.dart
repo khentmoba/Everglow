@@ -21,8 +21,6 @@ import '../../../../core/utils/logger.dart';
 part 'upcoming_countdowns_cards.dart';
 part 'upcoming_countdowns_footer.dart';
 
-// Shared formatter: constructing DateFormat per card per build re-parses
-// the pattern on every emission while scrolling.
 final _eventDateFormat = DateFormat('EEE, MMM d');
 
 class UpcomingCountdowns extends StatefulWidget {
@@ -50,8 +48,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
     if (cached != null) {
       _events = cached;
       _isLoading = false;
-      // Cache-first paint counts as ready; report post-frame since
-      // notifyListeners must not fire during initState's build pass.
       WidgetsBinding.instance.addPostFrameCallback((_) => _reportLoaded());
     }
     _subscribe();
@@ -88,11 +84,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
         _scheduleSilentRetry(error);
       },
       onDone: () {
-        // withFirestoreTimeout closes the stream without an error when the
-        // first snapshot never arrives (cold Firestore WebChannel on first
-        // load). Retry silently — the loading row stays up, so the user
-        // never sees a spurious "could not load dates". The error UI only
-        // appears after the retries are exhausted.
         if (!mounted) return;
         if (_isLoading && _events == null) _scheduleSilentRetry(_error);
       },
@@ -112,8 +103,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
         _isLoading = false;
         _error = error ?? _error;
       });
-      // Retries exhausted: the error row is final, so the veil can
-      // stop waiting on us even though no dates arrived.
       _reportLoaded();
     }
   }
@@ -127,9 +116,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
     _subscribe();
   }
 
-  /// First-screen progress: dates have settled (data, cache, or final
-  /// error), so the load veil can count us. Marking is idempotent —
-  /// cache hits, snapshots, and manual retries all funnel here safely.
   void _reportLoaded() {
     if (!mounted) return;
     try {
@@ -146,10 +132,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
   @override
   Widget build(BuildContext context) {
     final events = _events;
-    // While loading — including silent background retries after a slow
-    // first snapshot — keep the loading row up so first load never flashes
-    // "could not load dates". The error row only appears after all retries
-    // are exhausted, and the manual tap stays as a last resort.
     if (!_isLoading && (_error != null || events == null)) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -191,8 +173,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
           );
         }
 
-        // Waiting for the first snapshot (or a silent retry) is loading,
-        // not empty — and never an error the user must dismiss by hand.
         if (events == null) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

@@ -1,7 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// How often a subscription bills. The renewal date rolls forward by
-/// this step, so "renews in N days" stays correct without edits.
 enum SubCycle {
   monthly('Monthly', '/mo'),
   yearly('Yearly', '/yr');
@@ -11,7 +9,6 @@ enum SubCycle {
   const SubCycle(this.displayName, this.suffix);
 }
 
-/// Who pays for a subscription.
 enum SubPayer {
   khent('Khent'),
   clair('Clair'),
@@ -21,10 +18,6 @@ enum SubPayer {
   const SubPayer(this.displayName);
 }
 
-/// One shared subscription (Netflix, Spotify, iCloud…).
-///
-/// Prices are always Philippine pesos — every sub the couple holds
-/// bills in PHP, so there is no currency field to get wrong.
 class Subscription {
   final String id;
   final String name;
@@ -50,8 +43,6 @@ class Subscription {
       Subscription.fromMap(doc.data() as Map<String, dynamic>? ?? const {}, doc.id);
 
   factory Subscription.fromMap(Map<String, dynamic> data, String id) {
-    // Tolerate missing/odd-typed fields: one malformed doc must never
-    // crash the watchAll stream and take the whole list down.
     DateTime? asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
     double asPrice(dynamic v) {
       if (v is num) return v.toDouble();
@@ -108,8 +99,6 @@ class Subscription {
     );
   }
 
-  /// Next renewal on or after today, rolling forward by [cycle].
-  /// A renewal due today counts as today ("renews today"), not next month.
   DateTime nextRenewal({DateTime? now}) {
     final today = _dateOnly(now ?? DateTime.now());
     var next = _dateOnly(renewalDate);
@@ -121,19 +110,15 @@ class Subscription {
     return next;
   }
 
-  /// Whole days until [nextRenewal] (0 = renews today).
   int daysUntilRenewal({DateTime? now}) {
     final today = _dateOnly(now ?? DateTime.now());
     return nextRenewal(now: now).difference(today).inDays;
   }
 
-  /// True when the next renewal is within a week (Motchi's warning window).
   bool get isDueSoon => daysUntilRenewal() <= 7;
 
-  /// Normalized monthly cost, so yearly subs fold into the monthly total.
   double get monthlyCost => cycle == SubCycle.monthly ? price : price / 12;
 
-  /// Short "₱549/mo" style label (caller formats the number).
   String get cycleSuffix => cycle.suffix;
 }
 

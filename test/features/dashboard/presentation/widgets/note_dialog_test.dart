@@ -10,7 +10,7 @@ void main() {
       final note = HiddenNote(
         id: 'test',
         title: 'A very long love letter',
-        content: 'Line 1\n' * 50, // Long content to trigger scrolling
+        content: 'Line 1\n' * 50,
         unlockDate: DateTime.now().subtract(const Duration(days: 1)),
       );
 
@@ -20,17 +20,13 @@ void main() {
         ),
       );
 
-      // Verify Title and some content
       expect(find.text('A very long love letter'), findsOneWidget);
       expect(find.textContaining('Line 1'), findsAtLeastNWidgets(1));
 
-      // Verify that the scroll view exists
       expect(find.byType(SingleChildScrollView), findsOneWidget);
 
-      // Verify close button functionality
       expect(find.byIcon(Icons.close), findsOneWidget);
 
-      // Verify romantic stationery elements
       expect(find.text('LETTERBOX'), findsOneWidget);
       expect(find.text('Forever & always,'), findsOneWidget);
       expect(find.text('Keep close to heart'), findsOneWidget);
@@ -60,7 +56,6 @@ void main() {
       expect(find.text('Forever & always,'), findsOneWidget);
       expect(find.text('With all my love'), findsOneWidget);
 
-      // Tapping wax seal triggers bounce and love toast
       final waxSeal = find.byTooltip('Sealed with love');
       expect(waxSeal, findsOneWidget);
       await tester.tap(waxSeal);
@@ -69,7 +64,6 @@ void main() {
 
       expect(find.text('Sealed with love for Clair'), findsOneWidget);
 
-      // Settle timer
       await tester.pump(const Duration(seconds: 2));
     },
   );
@@ -188,7 +182,6 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('My Favorite Number'), findsOneWidget);
 
-      // Verify the dialog container width is constrained to <= 480
       final constrainedBoxFinder = find.byWidgetPredicate(
         (widget) =>
             widget is ConstrainedBox &&

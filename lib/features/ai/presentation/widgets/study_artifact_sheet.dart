@@ -17,20 +17,8 @@ import 'canvas_preview_sheet.dart';
 part 'study_artifact_quiz.dart';
 part 'study_artifact_flashcards.dart';
 
-/// Study canvas — the Artifacts-style interactive layer for Study replies.
-///
-/// When Motchi's answer carries a quiz or flashcards, the bubble shows one
-/// big obvious button ("Try the quiz ✍️" / "Flip the cards 🃏") instead of
-/// raw text. Tapping opens this sheet:
-///
-/// - Phone / tablet (Clair's world): a near-full bottom sheet she can drag.
-/// - Desktop: a centered dialog, same content.
-///
-/// One code path for both, so a fix here reaches every screen size.
 enum StudyArtifactTab { quiz, flashcards }
 
-/// Opens the interactive sheet. Picks tabs automatically when only one
-/// artifact kind is present.
 Future<void> openStudyArtifactSheet(
   BuildContext context,
   StudyArtifacts artifacts, {
@@ -68,8 +56,6 @@ Future<void> openStudyArtifactSheet(
   );
 }
 
-/// The little launcher pill at the top of a Study answer bubble.
-/// Renders nothing when the reply has no interactive content.
 class StudyArtifactEntry extends StatelessWidget {
   final StudyArtifacts artifacts;
 
@@ -329,7 +315,6 @@ class _LaunchButtonState extends State<_LaunchButton> {
             ),
             child: Row(
               children: [
-                // Glowing icon token badge
                 Container(
                   width: 38,
                   height: 38,
@@ -355,7 +340,6 @@ class _LaunchButtonState extends State<_LaunchButton> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Tag & Title
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,7 +372,6 @@ class _LaunchButtonState extends State<_LaunchButton> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Action pill
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 11,

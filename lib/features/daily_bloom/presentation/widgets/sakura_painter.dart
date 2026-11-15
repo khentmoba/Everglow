@@ -56,7 +56,6 @@ class SakuraPainter extends CustomPainter {
   void _drawTree(Canvas canvas, Offset center, Size size, Paint paint) {
     final trunkHeight = (stage * 18.0) + (animationValue * 4);
 
-    // Main trunk
     paint
       ..color = AppArt.bark
       ..style = PaintingStyle.stroke
@@ -75,12 +74,10 @@ class SakuraPainter extends CustomPainter {
     );
     canvas.drawPath(trunkPath, paint);
 
-    // Branches (stage 2+)
     if (stage >= 2) {
       paint.strokeWidth = 3;
       final branchBase = Offset(center.dx + 3, center.dy - trunkHeight);
 
-      // Right branch
       final rightBranch = Path();
       rightBranch.moveTo(branchBase.dx, branchBase.dy);
       rightBranch.quadraticBezierTo(
@@ -91,7 +88,6 @@ class SakuraPainter extends CustomPainter {
       );
       canvas.drawPath(rightBranch, paint);
 
-      // Left branch
       final leftBranch = Path();
       leftBranch.moveTo(branchBase.dx, branchBase.dy);
       leftBranch.quadraticBezierTo(
@@ -103,7 +99,6 @@ class SakuraPainter extends CustomPainter {
       canvas.drawPath(leftBranch, paint);
 
       if (stage >= 3) {
-        // Sub-branches
         paint.strokeWidth = 2;
         final rightSub = Path();
         rightSub.moveTo(branchBase.dx + 15, branchBase.dy - 10);
@@ -127,7 +122,6 @@ class SakuraPainter extends CustomPainter {
       }
     }
 
-    // Blossoms (stage 3+)
     if (stage >= 3) {
       final branchTop = Offset(center.dx + 3, center.dy - trunkHeight);
       final blossomPositions = <Offset>[
@@ -156,7 +150,6 @@ class SakuraPainter extends CustomPainter {
       }
 
       if (stage == 5) {
-        // Falling petals effect
         final glowPaint = Paint()
           ..color = AppArt.sakuraPetal.withValues(alpha: 0.2)
           ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 20);
@@ -184,7 +177,6 @@ class SakuraPainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Center pistil
     paint.color = AppColors.accentPink;
     canvas.drawCircle(center, 2, paint);
   }

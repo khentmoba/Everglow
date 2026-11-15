@@ -6,17 +6,6 @@ import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../../../../core/utils/logger.dart';
 
-/// Scrapes bato.to for chapter page images. Bato.to is a manga
-/// aggregator that ComicK itself uses as a source. This service
-/// serves as a fallback when MangaDex and MangaKakalot don't have
-/// the chapter.
-///
-/// Site structure:
-///   * Search       — `GET /search?q={title}`
-///   * Series page  — `GET /title/{slug}`
-///   * Chapter page — `GET /title/{slug}/{chapterId}` or `GET /chapter/{id}`
-///
-/// Images are typically served from `img.bato.to` CDN.
 class BatoService with ConnectivityAware {
   static const String _baseUrl = 'https://bato.to';
 
@@ -26,7 +15,6 @@ class BatoService with ConnectivityAware {
   static const String _proxyHtmlUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
 
-  // Singleton
   static final BatoService _instance = BatoService._internal();
   factory BatoService() => _instance;
   BatoService._internal();
@@ -55,15 +43,12 @@ class BatoService with ConnectivityAware {
 
   final Map<String, MangaChapterPages> _pageCache = {};
 
-  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
-  /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
       '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
     );
   }
 
-  /// Search Bato.to by title and return the first matching series slug.
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse('$_baseUrl/search?q=${Uri.encodeComponent(title)}');
@@ -73,7 +58,6 @@ class BatoService with ConnectivityAware {
           .get(_proxiedFetch(uri), headers: headers)
           .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
-        // Look for series links matching /title/{slug}
         final linkRe = RegExp(
           r'<a[^>]*href="(/title/[^"]+)"[^>]*>',
           caseSensitive: false,
@@ -92,8 +76,6 @@ class BatoService with ConnectivityAware {
     return '';
   }
 
-  /// Scrape the series page for its chapter list.
-  /// [slug] is the Bato.to series slug (e.g. "my-dress-up-darling.12345").
   Future<List<MangaChapter>> getChapterFeed(String slug) async {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/title/$slug');
@@ -113,8 +95,6 @@ class BatoService with ConnectivityAware {
 
   List<MangaChapter> _parseChapterList(String html, String slug) {
     final chapters = <MangaChapter>[];
-    // Bato.to chapter links follow patterns like:
-    //   /title/{slug}/chapter-{num} or /chapter/{id}
     final linkRe = RegExp(
       r'<a[^>]*href="(/(?:title/[^"]*?/chapter-[^"]+|chapter/\d+))"[^>]*>',
       caseSensitive: false,
@@ -126,17 +106,12 @@ class BatoService with ConnectivityAware {
     for (final m in linkRe.allMatches(html)) {
       final href = m.group(1)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
-      // Series pages also link other series' chapters (sidebars and
-      // rails) — only keep /title/ links for the series we asked for.
-      // Bare /chapter/{id} links carry no slug so they can't be
-      // filtered and are kept as-is.
       if (slug.isNotEmpty &&
           href.startsWith('/title/') &&
           !href.contains(slug)) {
         continue;
       }
 
-      // Try to extract chapter number from the link text
       String chapterNum = '';
       String title = '';
       final fullMatch = m.group(0) ?? '';
@@ -146,7 +121,6 @@ class BatoService with ConnectivityAware {
         final numMatch = numRe.firstMatch(title);
         chapterNum = numMatch?.group(1) ?? '';
       }
-      // Fallback: extract from URL
       if (chapterNum.isEmpty) {
         final numMatch = numRe.firstMatch(href);
         chapterNum = numMatch?.group(1) ?? '';
@@ -168,8 +142,6 @@ class BatoService with ConnectivityAware {
     return chapters;
   }
 
-  /// Scrape a chapter page for image URLs.
-  /// [chapterPath] is the URL path (e.g. "/title/{slug}/chapter-1").
   Future<MangaChapterPages?> getChapterPages(String chapterPath) async {
     final cached = _pageCache[chapterPath];
     if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
@@ -209,7 +181,6 @@ class BatoService with ConnectivityAware {
         }
         if (urls.isEmpty) return null;
 
-        // Pre-proxy image URLs
         final proxied = urls.map(proxiedImageUrl).toList();
         final result = MangaChapterPages(
           chapterId: chapterPath,
@@ -227,7 +198,6 @@ class BatoService with ConnectivityAware {
     return null;
   }
 
-  /// Transform a raw image URL into a CORS-safe proxied URL.
   String proxiedImageUrl(String originalUrl) {
     if (originalUrl.isEmpty) return '';
     return '$_proxyImageUrl?url=${Uri.encodeComponent(originalUrl)}';

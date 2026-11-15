@@ -28,10 +28,6 @@ import '../../../../shared/widgets/shelf/media_section_menu.dart';
 import '../../../../shared/widgets/shelf/tv_media_nav_header.dart';
 import '../../../../core/system/tv_mode.dart';
 
-// ─────────────────────────────────────────────────────────────────────
-// Cinema Color Tokens
-// ─────────────────────────────────────────────────────────────────────
-
 class CinemaScreen extends StatefulWidget {
   final TMDBService? service;
   final int initialTab;
@@ -52,13 +48,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
   late final TMDBService _tmdbService = widget.service ?? TMDBService();
   int _currentIndex = 0;
 
-  /// Bumped every time a nav link targets the Browse tab so it rebuilds
-  /// with the requested filter even when it is already mounted.
   int _browseSeed = 0;
   String? _pendingBrowseOption;
 
-  /// Only the desktop top bar reads this, so it listens on its own instead of
-  /// rebuilding every rail whenever the page crosses the top.
   final ValueNotifier<bool> _desktopScrolled = ValueNotifier<bool>(false);
 
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
@@ -104,8 +96,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
   bool _pendingHomeFlush = false;
   bool _pendingCacheSave = false;
 
-  /// How long saved Home rows are shown before Cinema asks TMDB again.
-  /// Matches the proxy's own 10-minute catalogue cache.
   static const _homeFreshFor = Duration(minutes: 10);
 
   @override
@@ -118,8 +108,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     } else {
       _currentIndex = widget.initialTab.clamp(0, 5);
     }
-    // Paint the last good rows now when this session has them; otherwise read
-    // the saved copy.
     final warm = CinemaHomeCache.session;
     if (warm != null) {
       _applyCachedRows(warm);
@@ -127,9 +115,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
       unawaited(_restoreHomeCache());
     }
     if (_currentIndex == 0) {
-      // Recent rows are already on screen. Asking TMDB again would spend
-      // twelve requests to redraw what she is looking at, so leave that to
-      // the pull-to-refresh instead.
       if (CinemaHomeCache.isFresh(_homeFreshFor)) {
         _isLoadingHome = false;
       } else {
@@ -192,8 +177,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
         _watchlist = effective;
         _splitWatchlists();
       });
-      // Poster healing runs after paint so the list shows instantly; each
-      // pass only touches items still missing art.
       var refreshed = await _tmdbService.backfillMissingPosters(effective);
       refreshed = await _tmdbService.refreshAnimePosters(refreshed);
       if (!mounted || userName != _listUser || revision != _listRevision) {
@@ -207,8 +190,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _splitWatchlists() {
-    // Cinema's rails own every movie (live-action or anime) plus non-anime
-    // TV — see MediaItem.isCinemaItem. Anime series live in the anime rail.
     _watchingList = _watchlist.watchingCinema
       ..sort(
         (a, b) => (b.progressUpdatedAt ?? b.addedAt).compareTo(
@@ -217,8 +198,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
       );
   }
 
-  /// Fills Home rows from [rows] only where the network has not filled them,
-  /// so a late storage read never overwrites fresher data.
   void _applyCachedRows(Map<String, List<MediaItem>> rows) {
     List<MediaItem> pick(String key, List<MediaItem> live) =>
         live.isNotEmpty ? live : (rows[key] ?? const []);
@@ -267,11 +246,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     setState(() => _isLoadingHome = true);
     final year = DateTime.now().year;
 
-    // Above-the-fold content (hero carousel + top 10 today) loads first so
-    // the screen becomes interactive immediately without waiting on off-screen rails.
-    // Apply primary rows in one batched setState and discovery rows in a second
-    // batched setState so rapid responses don't trigger 12 separate tree rebuilds
-    // while the user is scrolling.
     final primaryFutures = [
       _loadRow(
         _tmdbService.fetchTrending(region: 'all', timeWindow: 'week'),
@@ -305,7 +279,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     if (!mounted || request != _homeRequest) return;
     setState(() => _isLoadingHome = false);
 
-    // Off-screen discovery shelves load progressively in the background.
     final discoveryFutures = [
       for (final shelf in _discoveryShelves)
         _loadRow(
@@ -356,10 +329,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
     try {
       final items = await future;
       if (!mounted || request != _homeRequest) return;
-      // Home discovery excludes anime films too; saved history stays untouched.
       final visible = items.where((m) => !m.isAnime).toList();
-      // A failed fetch comes back empty. Keep what is already on screen (the
-      // saved rows on a repeat open) instead of blanking the row.
       if (visible.isEmpty) return;
       apply(visible);
     } catch (e, st) {
@@ -416,7 +386,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     });
   }
 
-  /// Opens the Browse tab seeded with [optionId] (used by nav links).
   void _openBrowse(String optionId) {
     HapticFeedback.selectionClick();
     setState(() {
@@ -426,8 +395,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     });
   }
 
-  /// Netflix-style Play from the billboard: movies jump straight into the
-  /// player; series open the drawer so the right episode can be picked.
   void _playNow(MediaItem item) {
     if (item.mediaType == 'movie') {
       context.push(
@@ -506,8 +473,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _launchMedia(MediaItem item) {
-    // Omit unknown position so cloud + local memory can restore the saved
-    // spot. Explicit start=0 is reserved for Restart.
     if (item.mediaType == 'movie') {
       final resume = item.resumeSeconds;
       context.push(
@@ -832,8 +797,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
       (a) => a.currentUser ?? '',
     );
 
-    // Main cinema content. The desktop top bar overlays it so the hero
-    // can remain full bleed, just like the streaming-service pattern.
     Widget buildCinemaContent() {
       return NotificationListener<ScrollNotification>(
         onNotification: _onScrollNotification,
@@ -897,8 +860,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onRemoveProgress: _removeProgress,
                   onSwitchTab: _switchTab,
                 ),
-                // The lazy stack mounts every tab on first visit, so the
-                // room stream here costs nothing until Claire opens the tab.
                 CinemaWatchTogetherTab(
                   watchlist: _watchlist,
                   onMediaTap: _showMediaDetails,
@@ -910,10 +871,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
                 ),
               ],
             ),
-            // Floating back button (mobile/tablet): couple users return to
-            // the dashboard; cinema-only profiles have no dashboard, so
-            // they get a logout action instead (their only mobile exit,
-            // mirroring the desktop profile menu).
             if (!isDesktop && isCinemaOnlyUser && !TvMode.isTvMode.value)
               const Positioned(
                 top: 0,
@@ -995,7 +952,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
       );
     }
 
-    // ── Desktop: transparent-to-solid catalog top bar ─────────────
     if (isDesktop) {
       return Scaffold(
         backgroundColor: NetflixColors.background,
@@ -1053,7 +1009,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
       );
     }
 
-    // ── Mobile / Tablet: content + bottom nav ───────────────────────
     return Scaffold(
       extendBody: true,
       backgroundColor: NetflixColors.background,
@@ -1067,9 +1022,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
         scrolled: false,
         currentIndex: _currentIndex,
         links: navLinks,
-        // Cinema-only profiles get Anime instead of Together here — it is
-        // their only ride to `/anime` on mobile (no dashboard, and the
-        // floating button is their logout).
         mobileItems: cinemaMobileNavItems(
           isCinemaOnlyUser: isCinemaOnlyUser,
         ),

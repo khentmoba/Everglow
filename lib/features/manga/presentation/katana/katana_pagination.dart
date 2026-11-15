@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_typography.dart';
 import './katana_theme.dart';
 
-/// Manga Katana style pagination: prev / page number / next.
 class KatanaPagination extends StatelessWidget {
   final int page;
   final bool hasPrev;

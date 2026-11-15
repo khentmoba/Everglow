@@ -1,19 +1,3 @@
-// Formatting-churn ratchet: a PR must not reformat a file it did not change.
-//
-// `dart format` is not enforced repo-wide, so 572 of 1008 files currently
-// differ from what the formatter would write. An agent that formats a file it
-// is editing therefore rewrites the whole file, and the real change disappears
-// into hundreds of layout lines (PR 584 review round 2: a 2-line fix arrived as
-// 62 lines; PR 583 round 1: ~574 lines, almost all `dart format`).
-//
-// A file is churn when formatting its base version and its head version
-// produces the same text: the PR changed nothing but layout. A file that also
-// changes behaviour formats differently and passes, so this never asks anyone
-// to stop formatting code they actually touched.
-//
-// Base ref: $BASE_SHA, else the merge-base with origin/main, else HEAD^1.
-//
-// Usage: dart tool/ci/check_format_churn.dart
 import 'dart:io';
 
 const _roots = ['lib', 'test'];
@@ -28,14 +12,12 @@ String? _git(List<String> args, {bool allowFail = false}) {
   return (result.stdout as String).trim();
 }
 
-/// Raw stdout, so file content is not trimmed.
 String? _gitRaw(List<String> args) {
   final result = Process.runSync('git', args);
   if (result.exitCode != 0) return null;
   return result.stdout as String;
 }
 
-/// The commit this branch is measured against.
 String _baseRef() {
   final fromEnv = Platform.environment['BASE_SHA'];
   if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
@@ -83,11 +65,10 @@ void main() {
     for (var i = 0; i < changed.length; i++) {
       final path = changed[i];
       final head = File(path);
-      if (!head.existsSync()) continue; // deleted in this PR
+      if (!head.existsSync()) continue;
       final baseSource = _gitRaw(['show', '$base:$path']);
-      if (baseSource == null) continue; // added in this PR
+      if (baseSource == null) continue;
 
-      // Normalise line endings so a Windows checkout and a Linux runner agree.
       String lf(String text) => text.replaceAll('\r\n', '\n');
       final baseFile = File('${baseDir.path}/$i.dart')
         ..writeAsStringSync(lf(baseSource));
@@ -101,7 +82,6 @@ void main() {
       return;
     }
 
-    // One formatter run for every pair, in place.
     Process.runSync('dart', ['format', baseDir.path, headDir.path]);
 
     final churn = <String>[];

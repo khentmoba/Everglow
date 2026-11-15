@@ -57,11 +57,9 @@ class GuardianController extends ChangeNotifier {
   bool get isAIMode => _isAIMode;
   String? get lastUserMessage => _lastUserMessage;
 
-  /// Toggle AI chat mode on/off.
   void toggleAIMode() {
     _isAIMode = !_isAIMode;
     if (_isAIMode) {
-      // Show a greeting when AI mode turns on
       _currentMessage = GuardianMessage(
         id: 'ai_greeting',
         content: '✨ I\'m in AI mode now! Tap me and tell me something!',
@@ -81,7 +79,6 @@ class GuardianController extends ChangeNotifier {
     _scheduleDismiss(const Duration(seconds: 4));
   }
 
-  /// Send a user message to the AI Guardian.
   Future<void> sendAIMessage(String message) async {
     if (_aiService == null) return;
     if (_state == GuardianState.thinking) return;
@@ -128,12 +125,10 @@ class GuardianController extends ChangeNotifier {
     }
   }
 
-  /// Triggered on initial load.
   void welcome() {
     _state = GuardianState.greeting;
     notifyListeners();
 
-    // Auto-idle after greeting animation duration
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       _state = GuardianState.idle;
@@ -142,7 +137,6 @@ class GuardianController extends ChangeNotifier {
     });
   }
 
-  /// Triggered on tap. Debounced so rapid taps don't spam reads/rebuilds.
   void react() {
     final now = DateTime.now();
     if (_lastTapAt != null &&
@@ -153,7 +147,6 @@ class GuardianController extends ChangeNotifier {
     _state = GuardianState.reacting;
 
     if (_isAIMode && _aiService != null) {
-      // In AI mode, show a chat-like prompt instead of random message
       _dismissTimer?.cancel();
       _currentMessage = GuardianMessage(
         id: 'ai_prompt',
@@ -168,7 +161,6 @@ class GuardianController extends ChangeNotifier {
 
     notifyListeners();
 
-    // Reset to idle
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
       _state = GuardianState.idle;
@@ -179,28 +171,24 @@ class GuardianController extends ChangeNotifier {
   void _startIdleTimer() {
     _idleTimer?.cancel();
     if (_idlePaused) return;
-    // Random interval 3-7 minutes
     final minutes = 3 + _random.nextInt(5);
     _idleTimer = Timer(Duration(minutes: minutes), () {
       if (!mounted || _idlePaused) return;
-      // In AI mode, generate a contextual greeting
       if (_isAIMode && _aiService != null) {
         unawaited(_showAIGreeting());
       } else {
         unawaited(_showMessage());
       }
-      _startIdleTimer(); // Loop
+      _startIdleTimer();
     });
   }
 
-  /// Pause idle popups (e.g. app backgrounded or guardian offscreen).
   void pauseIdle() {
     _idlePaused = true;
     _idleTimer?.cancel();
     _idleTimer = null;
   }
 
-  /// Resume idle popups.
   void resumeIdle() {
     if (!_idlePaused) return;
     _idlePaused = false;
@@ -208,8 +196,6 @@ class GuardianController extends ChangeNotifier {
   }
 
   Future<void> _showAIGreeting() async {
-    // Cheap path: reuse a local greeting most of the time, and never call
-    // the AI more than once per 10 minutes for idle popups.
     final recentlyAsked = _lastAiGreetingAt != null &&
         DateTime.now().difference(_lastAiGreetingAt!) <
             const Duration(minutes: 10);
@@ -249,7 +235,6 @@ class GuardianController extends ChangeNotifier {
       );
     } catch (_) {
       if (!mounted) return;
-      // Fallback to static messages
       await _showMessage();
       return;
     }
@@ -263,8 +248,6 @@ class GuardianController extends ChangeNotifier {
     _messageCounter++;
     _dismissTimer?.cancel();
 
-    // Occasionally mention partner's mood (every 5-10 messages).
-    // Cached for 5 minutes and fetched with a one-shot get (no stream).
     if (_moodService != null &&
         _authService != null &&
         _messageCounter % 7 == 0) {
@@ -300,7 +283,6 @@ class GuardianController extends ChangeNotifier {
         }
       } catch (e) {
         Logger.e('Guardian mood mention failed', error: e);
-        // Fall through to a random message.
       }
     }
 
@@ -316,7 +298,6 @@ class GuardianController extends ChangeNotifier {
     _dismissTimer?.cancel();
     _dismissTimer = Timer(after, () {
       if (!mounted) return;
-      // Don't hide a newer thinking/AI reply that arrived after scheduling.
       _isMessageVisible = false;
       if (_state != GuardianState.thinking) {
         _state = GuardianState.idle;

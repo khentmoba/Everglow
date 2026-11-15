@@ -14,8 +14,6 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Shared couple list. Mirrors `OurCinemaScreen` from the cinema
-/// feature.
 class OurBooksScreen extends StatefulWidget {
   const OurBooksScreen({super.key});
 
@@ -668,9 +666,6 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
 
   void _openReader(OurBooksItem item) {
     final book = item.toBookItem();
-    // Stale couple-list items may not have a readSourceUrl cached,
-    // so always re-derive it from iaId / workKey at navigation
-    // time. Reuses the same static helpers as the personal drawer.
     final resolved = book.readSourceUrl.isNotEmpty
         ? book
         : book.copyWith(

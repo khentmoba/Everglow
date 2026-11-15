@@ -4,27 +4,6 @@ const { Readable } = require('node:stream');
 const { cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core.js');
 
-/**
- * Proxies gallery images from Firebase Storage so Flutter web isn't
- * blocked by any CORS or auth issues with direct Storage download URLs.
- *
- * Accepts:
- *   GET /proxyGalleryImage?url=<encoded Storage download URL>[&w=<px>]
- *
- * Validates that the URL belongs to the project's Storage bucket,
- * then fetches and streams it back with permissive CORS headers.
- *
- * `w` is a client perf hint: when present (e.g. `&w=440` from gallery
- * rails/grids), the response is served with a long immutable-style
- * cache header so the downscaled thumb URL is cached independently of
- * the full-res viewer URL. Generated `_thumb.jpg` files get the same
- * long cache. No server-side resize is performed.
- *
- * NOTE: Does NOT require Firebase Auth via Authorization header because
- * Flutter Web Image.network cannot send custom headers. The upstream
- * Storage URL already contains a per-file download token, and we
- * restrict to our own bucket to prevent open-proxy abuse.
- */
 const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -39,8 +18,6 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  // No login by design (<img> tags can't send headers), so the per-IP
-  // limit is the abuse backstop here. Gallery grids burst on scroll.
   if (enforceRateLimit(req, res, { endpoint: 'proxyGalleryImage', limit: 240, windowMs: 60000 })) return;
 
   const targetUrl = req.query.url;
@@ -49,7 +26,6 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     return;
   }
 
-  // Only allow URLs from the project's own Storage bucket
   try {
     parseProjectStorageUrl(targetUrl);
   } catch (_) {
@@ -60,7 +36,7 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   try {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
-      redirect: 'error', // Even an allowed host cannot redirect this proxy elsewhere.
+      redirect: 'error',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
     });
@@ -73,10 +49,6 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     const contentType =
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
-    // Thumb URLs (&w=) and generated _thumb.jpg files are immutable
-    // (timestamped names, never rewritten): cache them for a year so
-    // repeat gallery visits cost zero bytes. Full-res viewer URLs keep
-    // the short TTL so re-uploads surface quickly.
     const thumbWidth = Array.isArray(req.query.w)
       ? req.query.w[0]
       : req.query.w;
@@ -87,9 +59,6 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     } else {
       res.set('Cache-Control', 'public, max-age=3600');
     }
-    // Stream the upstream bytes straight through instead of buffering
-    // the whole file first: first pixels reach the phone after one
-    // chunk instead of two full trips, and the function holds ~no memory.
     res.status(200);
     if (upstream.body != null) {
       await new Promise((resolve) => {
@@ -115,15 +84,6 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   }
 });
 
-/**
- * Cleans up orphaned gallery data: deletes all Firestore docs in
- * the gallery collection AND their Storage files.
- *
- * Accepts:
- *   POST /cleanupGallery  { confirm: true }
- *
- * Auth required (only khentsgdz can call this).
- */
 const cleanupGallery = cappedHttps(5, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -139,7 +99,6 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     return;
   }
 
-  // Verify auth
   const idToken = req.headers.authorization?.replace('Bearer ', '');
   if (!idToken) {
     res.status(401).json({ error: 'Auth required' });
@@ -157,7 +116,6 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
     return;
   }
-  // Destructive + scans up to 2000 docs: keep it rare.
   if (enforceRateLimit(req, res, { endpoint: 'cleanupGallery', limit: 10, windowMs: 60000, uid: decoded.uid })) return;
 
   if (req.body?.confirm !== true) {
@@ -170,22 +128,18 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
   const snap = await db.collection('gallery').limit(2000).get();
   let deleted = 0;
 
-  // Bounded concurrency keeps this from exhausting memory/CPU when the
-  // gallery grows; each worker handles storage + Firestore deletion.
   const workerCount = 20;
   let cursor = 0;
   async function worker() {
     while (cursor < snap.docs.length) {
       const doc = snap.docs[cursor++];
       const d = doc.data();
-      // Delete Storage file
       if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
         try {
           const path = decodeURIComponent(d.imageUrl.split('/o/')[1]?.split('?')[0] || '');
           if (path) await bucket.file(path).delete();
-        } catch (_) { /* best effort */ }
+        } catch (_) { }
       }
-      // Delete Firestore doc
       await doc.ref.delete();
       deleted++;
     }
@@ -195,19 +149,6 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
   res.json({ deleted });
 });
 
-/**
- * Deletes one gallery Storage file as the couple. The client SDK Storage
- * rules only let each user delete under their own uid prefix, so when
- * Clair deletes one of Khent's photos (or vice versa) the direct delete
- * fails and the file is orphaned. This endpoint closes that gap.
- *
- * Accepts:
- *   POST /deleteGalleryPhoto  { imageUrl: <Storage download URL> }
- *
- * Auth required (Khent or Clair only). The path is derived server-side
- * from the download URL and restricted to the `gallery/` prefix, so the
- * caller can never aim this at other files.
- */
 const deleteGalleryPhoto = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');

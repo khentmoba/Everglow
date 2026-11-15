@@ -14,33 +14,15 @@ import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
 import '../../../../core/perf/perf_settings.dart';
 
-/// Geometry of the pinned top-action row (creator / canvas / mood /
-/// chat). The buttons float above the scroll view, so whatever scrolls
-/// under them can never be read.
-///
-/// The dashboard header reserves [kTopActionsReserve] at the top of the
-/// scroll view: on phones the centered "EST. FEBRUARY 14, 2026" pill is
-/// wider than the free space between the left and right buttons, so it
-/// used to run behind the canvas and chat circles on first launch. Keep
-/// the three values in step with the 54px buttons above.
-const double kTopActionsInset = 24; // gap under the status bar / safe area
-const double kTopActionsSize = 54; // button diameter
-const double kTopActionsGap = 14; // even spacing between the circles
+const double kTopActionsInset = 24;
+const double kTopActionsSize = 54;
+const double kTopActionsGap = 14;
 const double kTopActionsReserve =
-    kTopActionsInset + kTopActionsSize + 20; // clear of the row's bottom edge
-// Right edge of the (partner / mood / canvas) row: chat sits at right:24
-// with a 54px circle, so the row starts one gap left of it. Keeps all
-// four gaps at exactly 14px instead of 14/14/18.
+    kTopActionsInset + kTopActionsSize + 20;
 const double kTopActionsRowRight = 24 + kTopActionsSize + kTopActionsGap;
 
-/// Top of the mood prompt card: clear of the pinned row *and* of the
-/// header pill, which starts at [kTopActionsReserve].
 const double kMoodPromptTop = kTopActionsReserve + 34;
 
-/// Floating overlay buttons and indicators on top of the dashboard.
-///
-/// Includes: Motchi AI button, Guardian mascot, Creator mode (admin),
-/// Canvas, Chat, and the mood picker prompt.
 class DashboardOverlays extends StatelessWidget {
   const DashboardOverlays({super.key});
 
@@ -48,11 +30,9 @@ class DashboardOverlays extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // AI Assistant & Guardian - bottom-right (safe-area aware)
         Positioned(
           bottom: 24,
           right: 24,
-          // respect notches/home-indicator via MediaQuery padding
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -82,7 +62,6 @@ class DashboardOverlays extends StatelessWidget {
           ),
         ),
 
-        // Creator Mode Button (Admin Only)
         if (context.watch<AuthService>().currentUser == 'khentsgdz')
           Positioned(
             top: kTopActionsInset,
@@ -121,7 +100,6 @@ class DashboardOverlays extends StatelessWidget {
                   ),
           ),
 
-        // Canvas + Partner status + Actions - top-right
         Positioned(
           top: kTopActionsInset,
           right: kTopActionsRowRight,
@@ -169,7 +147,6 @@ class DashboardOverlays extends StatelessWidget {
                 ),
         ),
 
-        // Sanctuary Chat Button - top-right
         Positioned(
           top: kTopActionsInset,
           right: 24,
@@ -199,7 +176,6 @@ class DashboardOverlays extends StatelessWidget {
                 ),
         ),
 
-        // Mood Picker prompt
         Positioned(
           top: kMoodPromptTop,
           right: 24,
@@ -217,7 +193,6 @@ class DashboardOverlays extends StatelessWidget {
   }
 }
 
-/// Shared glass circle action with hover glow, tooltip and press feedback.
 class _FloatingAction extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;

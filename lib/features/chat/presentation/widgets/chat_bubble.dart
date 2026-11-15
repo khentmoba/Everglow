@@ -6,7 +6,6 @@ import '../../../../shared/utils/text_utils.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// A quiet message bubble with selectable text and accessible message actions.
 class ChatBubble extends StatelessWidget {
   final String text;
   final bool isMe;

@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
-// The Firebase plugins already depend on these interfaces; used only to fake auth.
 // ignore: depend_on_referenced_packages
 import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';
 // ignore: depend_on_referenced_packages
@@ -129,7 +128,6 @@ void main() {
               vote > 0 ? findsOneWidget : findsNothing,
             );
             expect(tester.takeException(), isNull);
-            // Dispose billboard's timer before finishing the test.
             await tester.pumpWidget(const SizedBox.shrink());
           },
           () => MockClient((request) async {

@@ -1,19 +1,11 @@
 'use strict';
 
-/* Motchi media tool executors — moved verbatim from
- * motchi_chat.js executeTool() (mechanical split, no behavior change).
- * Each executor is (ctx, args) => JSON string. Shared services
- * ride on ctx (see motchi_exec_tools.js createToolCtx).
- */
-
 const { createHash } = require('node:crypto');
 
 async function exec_add_to_watchlist(ctx, args) {
-    // W2-A3: Support tmdb_id disambiguation + candidate return
     const mediaType = args.media_type || 'movie';
     const providedId = args.tmdb_id || args.tmdbId || args.tmdbId === 0 ? Number(args.tmdb_id || args.tmdbId) : null;
     if (providedId) {
-      // Direct fetch by ID for disambiguated choice
       const detailKey = `tmdb:detail:${mediaType}:${providedId}`;
       let detail;
       const cachedDetail = ctx.cacheGet(detailKey, ctx.cacheTTLs.tmdb);
@@ -56,7 +48,6 @@ async function exec_add_to_watchlist(ctx, args) {
     }
     const results = (tmdbData.results || []).filter(r => r.title || r.name);
     if (results.length === 0) return JSON.stringify({ error: `No results found for "${queryRaw}"` });
-    // W2-A3 disambiguation: if query not exact and multiple candidates share substring, ask to confirm
     const qLower = queryRaw.toLowerCase();
     const exact = results.find(r => (r.title || r.name || '').toLowerCase() === qLower);
     const substringMatches = results.filter(r => {
@@ -276,14 +267,12 @@ async function exec_search_anime(ctx, args) {
     try {
       anime = await fetchAniListAnime(queryRaw, 5);
     } catch (_) {
-      // AniList unavailable; fall through to Jikan fallback
     }
 
     if (anime.length === 0) {
       try {
         anime = await fetchJikanAnime(queryRaw, 5);
       } catch (_) {
-        // Jikan unavailable as well; leave anime empty
       }
     }
 
@@ -339,7 +328,6 @@ async function exec_add_book_to_our_books(ctx, args) {
       const normKey = String(providedKey).trim();
       book = docs.find(d => d.key === normKey) || docs[0];
     } else {
-      // W2-A3 disambiguation: if multiple substring matches and no exact, return candidates
       const qLower = queryRaw.toLowerCase();
       const exact = docs.find(d => (d.title || '').toLowerCase() === qLower);
       const subMatches = docs.filter(d => {
@@ -373,7 +361,6 @@ async function exec_add_book_to_our_books(ctx, args) {
     if (!legacy.empty) {
       return JSON.stringify({ success: true, id: legacy.docs[0].id, title, author, already_done: true });
     }
-    // Same SHA-256 id as OurBooksService; never overwrite either partner's flags.
     const ref = collection.doc(createHash('sha256').update(workKey).digest('hex'));
     await ctx.db.runTransaction(async (tx) => {
       if ((await tx.get(ref)).exists) return;

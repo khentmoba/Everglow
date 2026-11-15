@@ -1,11 +1,3 @@
-/// A single structured fact Motchi remembers about Khent, Clair, or
-/// their relationship.
-///
-/// Older facts in Firestore only contain [fact] and [category]. The
-/// structured [subject]/[relation]/[object] fields are optional and
-/// are filled in by `remember_fact` when available. Keeping the raw
-/// [fact] string as the source of truth means nothing breaks for facts
-/// written before this model existed.
 class MemoryFact {
   final String id;
   final String fact;
@@ -35,16 +27,12 @@ class MemoryFact {
     this.source = '',
   });
 
-  /// Whether this memory happened on the same month/day as [now].
-  /// Used for the "On This Day" surfaces.
   bool isOnThisDay(DateTime now) {
     final date = occurredAt;
     if (date == null) return false;
     return date.month == now.month && date.day == now.day;
   }
 
-  /// Human-readable subject label, falling back to the raw fact when
-  /// the structured parser could not infer one.
   String get subjectLabel => subject ?? _inferSubject;
 
   String get _inferSubject {
@@ -128,9 +116,6 @@ class MemoryFact {
   }
 }
 
-/// Lightweight subject/relation/object inference for facts written as
-/// plain sentences. This keeps trivia generation and search useful even
-/// when older facts never got structured fields.
 class FactStructureParser {
   const FactStructureParser();
 
@@ -143,8 +128,6 @@ class FactStructureParser {
     caseSensitive: false,
   );
 
-  /// Returns `(subject, relation, object)` or all nulls when the fact
-  /// does not follow an inferable pattern.
   (String?, String?, String?) parse(String fact) {
     final trimmed = fact.trim();
     if (trimmed.isEmpty) return (null, null, null);

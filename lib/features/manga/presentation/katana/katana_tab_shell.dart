@@ -8,14 +8,6 @@ import '../screens/katana_home_screen.dart';
 import './katana_header.dart';
 import './katana_theme.dart';
 
-/// Persistent tab shell for MangaCelestia.
-///
-/// The [KatanaHeader] (logo, search, nav tabs) stays mounted while only
-/// the content below it cross-fades between tabs. Tapping Home, Latest
-/// update, Manga Directory, New Manga, Genres, or Currently Reading
-///
-/// Detail, search, bookmarks, and reader pages are still pushed as real
-/// routes on top — those genuinely are new pages.
 class KatanaTabShell extends StatefulWidget {
   final KatanaNav initialTab;
   final String initialMode;
@@ -30,13 +22,10 @@ class KatanaTabShell extends StatefulWidget {
     this.initialTitle = '',
   });
 
-  /// Nearest shell above [context], or null when the caller lives on a
-  /// pushed page (detail, search, bookmarks) instead of inside a shell.
   static KatanaTabShellState? maybeOf(BuildContext context) {
     return context.findAncestorStateOfType<KatanaTabShellState>();
   }
 
-  /// Which tab a catalog mode belongs to.
   static KatanaNav tabForMode(String mode) {
     switch (mode) {
       case 'latest':
@@ -51,13 +40,8 @@ class KatanaTabShell extends StatefulWidget {
     }
   }
 
-  /// Live shells, oldest first. Lets tab taps on pages pushed above the
-  /// shell (detail, search, bookmarks) pop back to the shell and switch
-  /// tabs instead of stacking another page on top.
   static final List<KatanaTabShellState> _live = [];
 
-  /// Pops back to the nearest shell and switches its tab on the next
-  /// frame. Returns true when a shell was found.
   static bool popToShell(
     BuildContext context, {
     required KatanaNav tab,
@@ -88,10 +72,6 @@ class KatanaTabShellState extends State<KatanaTabShell> {
   late String _slug;
   late String _title;
 
-  /// Tab-travel direction: +1 glides content in from the right (moving
-  /// forward through Home, Latest, Directory, New, Genres, Reading),
-  /// -1 from the left. Same-tab switches (genre to genre) count as
-  /// forward.
   int _direction = 1;
 
   @override
@@ -110,7 +90,6 @@ class KatanaTabShellState extends State<KatanaTabShell> {
     super.dispose();
   }
 
-  /// Unique per visible content so the switcher animates on every change.
   String get _tabKey => '${_tab.name}|$_mode|$_slug|$_title';
 
   void showHome() => _show(KatanaNav.home, '', '', '');
@@ -194,14 +173,7 @@ class KatanaTabShellState extends State<KatanaTabShell> {
     );
   }
 
-  /// Soft glide: the new tab drifts in from the side being travelled
-  /// towards while fading in, and the old tab drifts out the other
-  /// way. The header above does not move at all, so it still feels
-  /// like one window.
   Widget _glide(Widget child, Animation<double> animation) {
-    // The incoming child carries the current key; anything else is on
-    // its way out. Each gets its own drift so they pass each other
-    // instead of crossing.
     final incoming = child.key == ValueKey<String>(_tabKey);
     final begin = incoming
         ? Offset(0.05 * _direction, 0)
@@ -230,7 +202,6 @@ class KatanaTabShellState extends State<KatanaTabShell> {
         return const KatanaDirectoryScreen(embed: true, mode: 'new');
       case KatanaNav.genres:
         if (_mode == 'genre' || _mode == 'author') {
-          // Keyed by catalog so switching genres resets the list state.
           return KatanaDirectoryScreen(
             key: ValueKey('catalog|$_mode|$_slug|$_title'),
             embed: true,

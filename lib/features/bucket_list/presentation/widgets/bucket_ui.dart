@@ -5,18 +5,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/bucket_item.dart';
 
-/// Shared look-and-feel for the bucket list ("Starlit Journey").
-///
-/// One home for every hue, icon, and label so the screen, cards, board,
-/// and sheets always agree. All colors come from [AppColors] tokens.
-
-// ── Assignees ─────────────────────────────────────────────────
-
-/// Usernames of the couple. Kept here so every bucket widget agrees.
 const String bucketAssigneeKhent = 'khentsgdz';
 const String bucketAssigneeClair = 'clairjassen';
 
-/// Display name for an assignee (`null` = nobody yet).
 String bucketAssigneeLabel(String? username) {
   switch (username) {
     case bucketAssigneeKhent:
@@ -30,7 +21,6 @@ String bucketAssigneeLabel(String? username) {
   }
 }
 
-/// Tint for an assignee pill.
 Color bucketAssigneeHue(String? username) {
   switch (username) {
     case bucketAssigneeKhent:
@@ -42,7 +32,6 @@ Color bucketAssigneeHue(String? username) {
   }
 }
 
-/// Icon for an assignee pill.
 IconData bucketAssigneeIcon(String? username) {
   switch (username) {
     case bucketAssigneeKhent:
@@ -54,7 +43,6 @@ IconData bucketAssigneeIcon(String? username) {
   }
 }
 
-/// Next assignee when tapping to cycle: nobody → Khent → Clair → nobody.
 String? bucketNextAssignee(String? current) {
   switch (current) {
     case null:
@@ -66,9 +54,6 @@ String? bucketNextAssignee(String? current) {
   }
 }
 
-// ── Status ────────────────────────────────────────────────────
-
-/// Tint for a dream status.
 Color bucketStatusHue(BucketStatus status) {
   switch (status) {
     case BucketStatus.wish:
@@ -80,7 +65,6 @@ Color bucketStatusHue(BucketStatus status) {
   }
 }
 
-/// Icon for a dream status.
 IconData bucketStatusIcon(BucketStatus status) {
   switch (status) {
     case BucketStatus.wish:
@@ -92,7 +76,6 @@ IconData bucketStatusIcon(BucketStatus status) {
   }
 }
 
-/// Short warm label for a dream status.
 String bucketStatusLabel(BucketStatus status) {
   switch (status) {
     case BucketStatus.wish:
@@ -104,9 +87,6 @@ String bucketStatusLabel(BucketStatus status) {
   }
 }
 
-// ── Priority ──────────────────────────────────────────────────
-
-/// Tint for a dream priority.
 Color bucketPriorityHue(BucketPriority priority) {
   switch (priority) {
     case BucketPriority.low:
@@ -120,7 +100,6 @@ Color bucketPriorityHue(BucketPriority priority) {
   }
 }
 
-/// Short label for a dream priority (fits small pills).
 String bucketPriorityShortLabel(BucketPriority priority) {
   switch (priority) {
     case BucketPriority.low:
@@ -134,9 +113,6 @@ String bucketPriorityShortLabel(BucketPriority priority) {
   }
 }
 
-// ── Category ──────────────────────────────────────────────────
-
-/// Tint for a dream category tile + pill.
 Color bucketCategoryHue(BucketCategory category) {
   switch (category) {
     case BucketCategory.travel:
@@ -154,12 +130,6 @@ Color bucketCategoryHue(BucketCategory category) {
   }
 }
 
-// ── Starfield ─────────────────────────────────────────────────
-
-/// Deterministic starfield for the journey hero background.
-///
-/// Seeded, so every build paints the same sky. Static (no animation loop)
-/// to keep 60fps on web and respect reduced motion.
 class BucketStarsPainter extends CustomPainter {
   const BucketStarsPainter();
 
@@ -177,7 +147,6 @@ class BucketStarsPainter extends CustomPainter {
         Paint()..color = AppColors.petalWhite.withValues(alpha: a),
       );
     }
-    // A few golden sparkles (plus-shapes).
     final sparkle = Paint()
       ..color = AppColors.blushGold.withValues(alpha: 0.55)
       ..strokeWidth = 1.2

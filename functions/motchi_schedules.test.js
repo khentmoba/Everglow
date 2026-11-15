@@ -60,8 +60,6 @@ test('motchi schedules group exposes eight timers', () => {
 });
 
 test('couple-facing nudges fire at PHT wall times', () => {
-  // Cron is interpreted in timeZone Asia/Manila, so these literals ARE
-  // Philippine wall times. Pinned: they once drifted 8h when read as UTC.
   const src = fs.readFileSync(path.join(__dirname, 'motchi_schedules.js'), 'utf8');
   for (const cron of ['0 8 * * *', '11 23 * * *', '0 20 * * *', '0 9 * * *']) {
     assert.ok(src.includes(`schedule: '${cron}'`), `missing cron ${cron}`);
@@ -75,8 +73,6 @@ test('index re-exports the schedules group without renaming', () => {
   }
 });
 
-// Minimal Firestore fake: collections answer with canned docs, and every
-// query combinator returns the query itself for chaining.
 function fakeDb(canned) {
   const makeQuery = (docs) => {
     const q = {
@@ -100,9 +96,8 @@ test('collectRecapData maps snapshots with generous fallbacks', async () => {
     recent_activity: [{ activity: 'Movie night' }, { description: 'Cooked dinner' }, {}],
     starlight_jar: [{ content: 'I love our mornings' }, {}],
     our_cinema: [{ title: 'Interstellar' }, {}],
-    ai_memories: [], // nested facts path is stubbed below
+    ai_memories: [],
   });
-  // facts live at ai_memories/shared/facts — point doc() back at canned docs
   const factsQuery = (() => {
     const docs = [{ fact: 'Khent prefers black coffee' }, {}].map((data) => ({ data: () => data }));
     return { orderBy: () => ({ limit: () => ({ get: async () => ({ docs, empty: false }) }) }) };

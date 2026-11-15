@@ -1,16 +1,10 @@
 // ignore_for_file: avoid_print
-// Build tool: stamps web/sw.js with the current version+commit, writes
-// web/version.json for the in-app update check, and prints the stamp.
 import "dart:io";
 
 import "build_stamp.dart";
 
 void main() {
   final buildConst = buildStamp();
-  // The version-busted core shell URL. build_web.dart stamps the exact same
-  // string into flutter_bootstrap.js after `flutter build web`, so the loader
-  // requests this URL and the worker below can tell builds apart by URL
-  // alone.
   final coreUrl = "main.dart.js?v=$buildConst";
 
   final sw =

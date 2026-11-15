@@ -1,11 +1,6 @@
 part of 'katana_service.dart';
 
-/// Home / catalog / search / genre fetching for [KatanaService].
 extension KatanaServiceCatalog on KatanaService {
-  // ── Home ────────────────────────────────────────────────────────
-
-  /// Aggregates the Manga Katana home page: the Hot Updates rail,
-  /// Latest Updates items, the Hot Manga rail, and all genres.
   Future<KatanaHomeData> fetchHome() async {
     final html = await _fetchHtml(Uri.parse('${KatanaService._baseUrl}/'));
     if (html == null) return const KatanaHomeData();
@@ -42,15 +37,6 @@ extension KatanaServiceCatalog on KatanaService {
     );
   }
 
-  // ── Directory / Latest / New / Genre / Author ───────────────────
-
-  /// Fetches a paginated catalog page.
-  ///
-  /// [mode] is one of `directory`, `latest`, `new`, `genre`, `author`
-  /// or `search`; [key] is the genre/author slug for those modes.
-  /// [include]/[exclude] are genre slugs, [genreMode] is `and`/`or`,
-  /// [chapters] is the minimum chapter count and [orderBy] is
-  /// `latest`, `new`, `az` or `numc`.
   Future<KatanaPageResult> fetchCatalog({
     String mode = 'directory',
     String key = '',
@@ -79,9 +65,6 @@ extension KatanaServiceCatalog on KatanaService {
         uri = Uri.parse('${KatanaService._baseUrl}/author/$key$pagePath');
         break;
       case 'search':
-        // The site's search form submits `search` + `search_by`.
-        // The old `s` param is silently ignored and the site
-        // returns the home page instead of results.
         uri = Uri.parse(
           '${KatanaService._baseUrl}$pagePath',
         ).replace(queryParameters: {'search': query, 'search_by': searchBy});
@@ -96,9 +79,6 @@ extension KatanaServiceCatalog on KatanaService {
       uri = uri.replace(
         queryParameters: {
           'filter': '1',
-          // The site's filter JS joins checked include genres with ','
-          // but exclude genres with '_' — the server only honors the
-          // underscore form for multiple excludes.
           'include': include.join(','),
           'exclude': exclude.join('_'),
           'genre_mode': genreMode,
@@ -131,14 +111,6 @@ extension KatanaServiceCatalog on KatanaService {
     );
   }
 
-  /// Fetches the catalog filtered by content type.
-  ///
-  /// Manga Katana tags Korean titles with the `manhwa` genre and
-  /// Chinese titles with `manhua`, so:
-  ///   * `all`     – the full directory
-  ///   * `manga`   – directory excluding `manhwa` + `manhua`
-  ///   * `manhwa`  – directory including `manhwa`
-  ///   * `manhua`  – directory including `manhua`
   Future<KatanaPageResult> fetchByType(
     String type, {
     int page = 1,
@@ -180,9 +152,6 @@ extension KatanaServiceCatalog on KatanaService {
     }
   }
 
-  /// Live suggestions for the header search box. Mirrors the site's
-  /// autocomplete response: compact cover + title + latest chapter +
-  /// authors. Requires at least 3 characters, like Manga Katana.
   Future<List<KatanaManga>> fetchSuggestions(
     String query, {
     String searchBy = 'm_name',
@@ -197,8 +166,6 @@ extension KatanaServiceCatalog on KatanaService {
     final items = _parseCompactItems(_searchResultBlocks(html));
     return items.take(8).toList();
   }
-
-  // ── Genres ──────────────────────────────────────────────────────
 
   Future<List<KatanaGenre>> fetchGenres() async {
     final html = await _fetchHtml(

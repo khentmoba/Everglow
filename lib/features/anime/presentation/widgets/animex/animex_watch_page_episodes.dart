@@ -1,7 +1,5 @@
 part of 'animex_watch_page.dart';
 
-/// Reusable thumbnail widget for episode cards with fallback to poster/backdrop,
-/// pink pill episode badge, duration pill, and playing state overlay.
 class _EpisodeThumbnail extends StatelessWidget {
   final AniListEpisode episode;
   final String fallbackPoster;
@@ -56,7 +54,6 @@ class _EpisodeThumbnail extends StatelessWidget {
             else
               _buildPlaceholder(),
 
-            // Gradient scrim for badges
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -72,7 +69,6 @@ class _EpisodeThumbnail extends StatelessWidget {
               ),
             ),
 
-            // Active / Playing sound-wave / rose tint overlay
             if (isPlaying)
               Container(
                 decoration: BoxDecoration(
@@ -99,7 +95,6 @@ class _EpisodeThumbnail extends StatelessWidget {
                 ),
               ),
 
-            // Bottom-left: Pink pill episode badge
             Positioned(
               left: 6,
               bottom: 6,
@@ -138,7 +133,6 @@ class _EpisodeThumbnail extends StatelessWidget {
               ),
             ),
 
-            // Bottom-right: Duration badge
             if (episode.duration != null && episode.duration! > 0)
               Positioned(
                 right: 6,

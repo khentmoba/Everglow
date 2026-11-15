@@ -24,8 +24,6 @@ void main() {
     });
 
     test('rewrites direct AVIF cover to proxied webp twin', () {
-      // The site serves covers AVIF-first now; Flutter cannot decode
-      // AVIF, so the `.webp` twin (same path) is proxied instead.
       const raw = 'https://mangakatana.com/imgs/cover/09c/22/724fa.avif';
       final proxied = KatanaService.proxyImageUrl(raw);
       expect(
@@ -37,7 +35,6 @@ void main() {
     });
 
     test('rewrites already-proxied AVIF cover to webp twin', () {
-      // Stored entries saved while the parser picked AVIF heal on read.
       const proxied =
           'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.avif';
       expect(
@@ -58,8 +55,6 @@ void main() {
     });
 
     test('does not proxy parked mangakatana.net domain', () {
-      // mangakatana.net serves domain-parking ads, not manga images —
-      // and the server allowlist rejects it. Pass through untouched.
       const parked = 'https://mangakatana.net/imgs/cover/a.jpg';
       expect(KatanaService.proxyImageUrl(parked), equals(parked));
     });

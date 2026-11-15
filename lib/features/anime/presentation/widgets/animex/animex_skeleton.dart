@@ -4,7 +4,6 @@ import '../../../../../core/theme/app_motion.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import 'animex_tokens.dart';
 
-/// Shimmer loading placeholder matching the reference skeleton look.
 class AnimeXSkeletonBox extends StatelessWidget {
   final double? width;
   final double height;
@@ -32,7 +31,6 @@ class AnimeXSkeletonBox extends StatelessWidget {
   }
 }
 
-/// A single skeleton poster card (image + two text lines).
 class AnimeXSkeletonCard extends StatelessWidget {
   final double width;
 
@@ -60,7 +58,6 @@ class AnimeXSkeletonCard extends StatelessWidget {
   }
 }
 
-/// Horizontal row of skeleton cards.
 class AnimeXSkeletonRow extends StatelessWidget {
   final int count;
   final double cardWidth;
@@ -83,7 +80,6 @@ class AnimeXSkeletonRow extends StatelessWidget {
   }
 }
 
-/// Grid of skeleton cards.
 class AnimeXSkeletonGrid extends StatelessWidget {
   final int count;
 
@@ -113,7 +109,6 @@ class AnimeXSkeletonGrid extends StatelessWidget {
   }
 }
 
-/// Spotlight skeleton: eyebrow, big title, synopsis lines and buttons.
 class AnimeXSpotlightSkeleton extends StatelessWidget {
   const AnimeXSpotlightSkeleton({super.key});
 

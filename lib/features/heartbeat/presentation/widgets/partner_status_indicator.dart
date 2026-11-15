@@ -103,9 +103,6 @@ class _MoodHeartState extends State<_MoodHeart>
     final isStressed = widget.score <= 2;
     final isAmazing = widget.score == 5;
 
-    // 54px glass circle: matches kTopActionsSize in dashboard_overlays so
-    // the partner heart sits level with the mood / canvas / chat buttons.
-    // Only the inner emoji pulses — the outer ring never moves.
     return RepaintBoundary(
       child: Container(
         width: 54,

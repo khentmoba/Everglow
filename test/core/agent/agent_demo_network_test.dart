@@ -1,4 +1,3 @@
-// SDK sealed types are implemented only as network-free test doubles.
 // ignore_for_file: subtype_of_sealed_class
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/agent/agent_mode.dart';
@@ -10,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-/// Records every touch, so an error swallowed inside a service still fails.
 class _LiveFirestore implements FirebaseFirestore {
   bool touched = false;
 

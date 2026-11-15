@@ -19,21 +19,17 @@ class CreatorSurprisesTab extends StatefulWidget {
 }
 
 class _CreatorSurprisesTabState extends State<CreatorSurprisesTab> {
-  // Guardian whisper
   final _whisperController = TextEditingController();
   bool _isSendingWhisper = false;
 
-  // Love burst
   final _burstController = TextEditingController();
   bool _isSendingBurst = false;
 
-  // Teaser countdown
   final _teaserTitleController = TextEditingController();
   final _teaserDescController = TextEditingController();
   DateTime _teaserDate = DateTime.now().add(const Duration(days: 7));
   bool _isSavingTeaser = false;
 
-  // Date night spotlight
   final _spotTitleController = TextEditingController();
   final _spotNoteController = TextEditingController();
   String _spotMediaType = 'movie';

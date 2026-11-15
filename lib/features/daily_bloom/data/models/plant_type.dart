@@ -1,11 +1,10 @@
-/// Represents a plant type in the garden with its visual characteristics.
 class PlantType {
   final String id;
   final String displayName;
   final String emoji;
   final List<String> stageDescriptions;
-  final int? seasonalBonusMonth; // Month (1-12) when this plant gets +1 stage
-  final String? seasonalBonusName; // e.g., "Spring Bloom"
+  final int? seasonalBonusMonth;
+  final String? seasonalBonusName;
 
   const PlantType({
     required this.id,
@@ -42,7 +41,7 @@ class PlantType {
         'Opening rose',
         'Full rose',
       ],
-      seasonalBonusMonth: 2, // February (Valentine's)
+      seasonalBonusMonth: 2,
       seasonalBonusName: 'Valentine\'s Bloom',
     ),
     PlantType(
@@ -57,7 +56,7 @@ class PlantType {
         'Opening petals',
         'Full sunflower',
       ],
-      seasonalBonusMonth: 7, // July (summer)
+      seasonalBonusMonth: 7,
       seasonalBonusName: 'Summer Radiance',
     ),
     PlantType(
@@ -72,7 +71,7 @@ class PlantType {
         'Opening tulip',
         'Full tulip',
       ],
-      seasonalBonusMonth: 4, // April (spring)
+      seasonalBonusMonth: 4,
       seasonalBonusName: 'Spring Awakening',
     ),
     PlantType(
@@ -87,7 +86,7 @@ class PlantType {
         'Opening blossoms',
         'Full sakura',
       ],
-      seasonalBonusMonth: 3, // March
+      seasonalBonusMonth: 3,
       seasonalBonusName: 'Hanami Season',
     ),
   ];
@@ -95,11 +94,10 @@ class PlantType {
   static PlantType fromId(String id) {
     return all.firstWhere(
       (p) => p.id == id,
-      orElse: () => all.first, // Default to lily
+      orElse: () => all.first,
     );
   }
 
-  /// Returns the effective stage, applying seasonal bonus if applicable.
   int effectiveStage(int baseStage) {
     final now = DateTime.now();
     if (seasonalBonusMonth != null && now.month == seasonalBonusMonth) {
@@ -108,7 +106,6 @@ class PlantType {
     return baseStage;
   }
 
-  /// Whether this plant is currently in its bonus season.
   bool get isInSeason {
     if (seasonalBonusMonth == null) return false;
     return DateTime.now().month == seasonalBonusMonth;

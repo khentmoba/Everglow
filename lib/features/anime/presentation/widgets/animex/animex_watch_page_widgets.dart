@@ -55,8 +55,6 @@ class _AudioToggle extends StatelessWidget {
   }
 }
 
-/// Small on/off pill for a playback preference (Auto next, Skip intro).
-/// Tappable as a whole so it works with a thumb on a phone.
 class _PrefToggle extends StatelessWidget {
   final String label;
   final bool value;

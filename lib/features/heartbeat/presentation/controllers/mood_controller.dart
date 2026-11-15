@@ -39,9 +39,6 @@ class MoodController extends ChangeNotifier {
       _hasSubmittedToday = await _service.hasSubmittedToday(username);
       notifyListeners();
     } catch (e) {
-      // A failed check (offline, missing index) must keep the previous
-      // value: flipping to "not submitted" would nag Clair for a mood she
-      // already gave, and the throw would surface as an unhandled error.
       Logger.e('Mood checkTodayStatus failed', error: e);
     }
   }
@@ -71,7 +68,6 @@ class MoodController extends ChangeNotifier {
       _isSaving = false;
       saveError = 'Could not save your check-in. Please try again.';
       Logger.e('Could not save mood', error: e);
-      // If it fails, revert the selection so user can try again
       _selectedScore = null;
       notifyListeners();
       return;

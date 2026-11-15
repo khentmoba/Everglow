@@ -73,9 +73,6 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
     } else if (diffInDays > 1) {
       relativeTag = 'In $diffInDays days';
     } else {
-      // Past days beyond yesterday: day counts, never the weekday — the
-      // weekday already renders beside the badge, so repeating it here
-      // showed e.g. "Friday" twice for the same header.
       relativeTag = '${-diffInDays} days ago';
     }
 
@@ -123,7 +120,6 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                 bottom: true,
                 child: Column(
                   children: [
-                    // Pull Handle
                     Center(
                       child: Container(
                         margin: const EdgeInsets.only(top: 12, bottom: 6),
@@ -136,7 +132,6 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                       ),
                     ),
 
-                    // Header
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
                       child: Row(
@@ -262,7 +257,6 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                       color: Color(0x1AFFF5F5),
                     ),
 
-                    // Events list or enhanced empty state
                     Expanded(
                       child: StreamBuilder<List<CalendarEvent>>(
                         stream:
@@ -357,7 +351,6 @@ class _EmptyDayView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: AppSpacing.sm),
-              // Layered glowing icon medallion
               Container(
                 width: 76,
                 height: 76,
@@ -414,7 +407,6 @@ class _EmptyDayView extends StatelessWidget {
                 onPressed: onAdd,
               ),
               const SizedBox(height: AppSpacing.xl),
-              // Quick suggestions
               Text(
                 'QUICK ADD',
                 style: AppTypography.outfitWhite.copyWith(

@@ -1,6 +1,5 @@
 part of 'study_screen.dart';
 
-/// Small circular action used in the Study header (history / new study).
 class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -34,7 +33,6 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
-/// User question — global rose bubble shared with Motchi chat.
 class _UserBubble extends StatelessWidget {
   final String text;
   const _UserBubble({required this.text});
@@ -48,18 +46,9 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-/// Motchi answer — the same global assistant bubble Motchi chat uses,
-/// so a fix here upgrades both surfaces at once. When the reply carries
-/// a quiz or flashcards, one big button opens the interactive canvas
-/// (tappable answers, flippable cards); the hidden data block is stripped
-/// so Clair never sees raw JSON.
 class _AnswerBubble extends StatelessWidget {
   final String text;
-  // Canvas toggle from the Study bar — when false the bubble stays plain
-  // text (hidden blocks still stripped so raw JSON never shows).
   final bool showArtifacts;
-  // When true the full visible question list is kept: the user explicitly
-  // asked to see it inline (see userAskedForVisibleQuiz).
   final bool keepFullText;
   const _AnswerBubble({
     required this.text,

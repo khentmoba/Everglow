@@ -3,10 +3,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../everglow/everglow_background.dart';
 
 
-/// Atmospheric background used by the four inside screens — drops
-/// two soft, slowly-shifting radial gradients over the dark base so
-/// the page never feels like a flat void. Honors the
-/// "atmospheric, never flat" rule from the aesthetic-web guide.
 class ShelfAtmosphericBackdrop extends StatelessWidget {
   final Color baseColor;
   final List<RadialGlow> glows;
@@ -32,11 +28,6 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Each glow paints inside its own circle's bounding box instead of the
-    // whole screen (same as EverglowBackground.glowRect): on Flutter Web
-    // every frame replays the full canvas, so two full-screen radial
-    // gradients are paid again on every scroll tick. Bounding keeps the
-    // exact same centre/radius while filling far fewer pixels.
     return Positioned.fill(
       child: IgnorePointer(
         child: RepaintBoundary(
@@ -67,6 +58,3 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
     );
   }
 }
-
-// RadialGlow lives in everglow_background.dart (single definition); this
-// file imports it for the default glow pairs below.

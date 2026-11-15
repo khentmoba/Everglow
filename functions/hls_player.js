@@ -1,9 +1,5 @@
 'use strict';
 
-// The ad-free HLS player page, shared by the Firebase functions (anime.js)
-// and the Cloudflare streaming Worker (cloudflare/src/worker.js), so the two
-// can never drift apart. Keep it dependency-free: the Worker bundles it.
-
 function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -12,19 +8,6 @@ function escHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-/** Ad-free HLS player with recovery. The video URL must already be playable
- *  from a browser (proxied through us when the upstream needs headers).
- *
- *  The first version attached hls.js and hoped for the best: any fatal
- *  stream error stalled on an endless spinner, and phones that block
- *  unmuted autoplay never started at all. This version starts playback once
- *  the manifest is ready, retries transient failures, and — after repeated
- *  fatal errors — shows a "try another server" card with a retry button
- *  instead of spinning forever. The card deliberately avoids the failover
- *  marker text, so the app's server probe never mistakes a healthy player
- *  page for a dead one. */
-/** [kind] is 'anime' (default) or 'cinema'. Cinema has no sub/dub choice and
- *  no episode drawer of ours, so those controls are left out entirely. */
 const SEEK_ARC = {
   rew: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   ff: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
@@ -38,17 +21,10 @@ const FLASH_ICONS = {
 
 function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, current }) {
   const isCinema = kind === 'cinema';
-  // The in-page server list. A resolver that has more than one upstream hands
-  // us `{id, label, url}` per server; the player fetches one only when it is
-  // picked, so a nine-server source costs nothing until she tries a second one.
   const serverList = (Array.isArray(servers) ? servers : [])
     .filter((s) => s && s.id && s.url)
     .map((s) => ({ id: String(s.id), label: String(s.label || s.id), url: String(s.url) }));
   const currentServer = serverList.some((s) => s.id === current) ? current : serverList[0]?.id || '';
-  // When the page was loaded with a login token, hls.js sends it back as
-  // an Authorization header — never inside media URLs (which land in
-  // browser history and request logs). Native-HLS Safari keeps using the
-  // token-bearing page URL, which only it needs.
   const trackTags = (Array.isArray(tracks) ? tracks : [])
     .filter((t) => t && t.file)
     .slice(0, 8)
@@ -79,7 +55,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '@keyframes egfs{from{opacity:.86;transform:scale(.982)}to{opacity:1;transform:scale(1)}}' +
     'body.fs-settle video,body.fs-settle #hud{animation:egfs .22s cubic-bezier(.22,1,.36,1)}' +
     '@media (prefers-reduced-motion:reduce){body.fs-settle video,body.fs-settle #hud{animation:none}}' +
-    // Netflix-style subtitles: zero black background box, bold white text with crisp dark stroke + drop shadow
     'video::cue{background:transparent!important;background-color:transparent!important;' +
     'color:#fff;font-family:"DM Sans",sans-serif;font-weight:800;' +
     'text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.94),1.5px -1.5px 0 rgba(0,0,0,.94),' +
@@ -88,9 +63,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#sub-box{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + var(--sub-lift,0px));width:88%;' +
     'text-align:center;z-index:4;pointer-events:none;transition:bottom .24s cubic-bezier(.22,1,.36,1)}' +
     'body.idle #sub-box{bottom:30px}' +
-    // 2.4vw tracks the picture, not the window: 22px was the old ceiling and
-    // it left the captions tiny on a fullscreen laptop or tablet. The cap only
-    // stops an ultra-wide monitor from turning them into billboards.
     '#sub-txt{display:inline;background:transparent;color:#fff;' +
     'font-size:calc(clamp(15px,2.4vw,52px)*var(--sub-scale,1));' +
     'font-weight:800;line-height:1.35;letter-spacing:.01em;white-space:pre-line;' +
@@ -99,12 +71,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '0 2px 5px rgba(0,0,0,.95),0 4px 12px rgba(0,0,0,.8)}' +
     '.ov{position:fixed;inset:0;display:flex;align-items:center;' +
     'justify-content:center;background:rgba(8,6,14,.74);backdrop-filter:blur(4px);z-index:8}' +
-    // The `hidden` attribute alone cannot hide these overlays: author-origin
-    // `.ov{display:flex}` beats the UA stylesheet's `[hidden]{display:none}`,
-    // so without this rule the tap-to-play button AND the "stalled" card
-    // paint over the video from the first frame on every episode.
     '.ov[hidden]{display:none!important}[hidden]{display:none!important}' +
-    // Wave-animated EVERGLOW loading text (text only, no spinner box)
     '.eg-wave{display:inline-flex;font-family:"Bebas Neue",Impact,sans-serif;' +
     'font-size:clamp(34px,6vw,50px);letter-spacing:.1em;line-height:1}' +
     '.wc{display:inline-block;animation:egw 1.3s ease-in-out infinite}' +
@@ -122,14 +89,10 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#dead{flex-direction:column;text-align:center;color:#f8f8f8;padding:0 28px}' +
     '#dead button{margin-top:14px;cursor:pointer;border:1px solid #c2185b;' +
     'border-radius:999px;padding:10px 24px;font-size:14px;color:#fff5f5;background:transparent}' +
-    // Netflix-inspired Everglow HUD (clean controls + pink tint)
     '#hud{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;' +
     'background:linear-gradient(180deg,rgba(10,6,14,.78) 0%,rgba(10,6,14,.22) 14%,transparent 26%,' +
     'transparent 50%,rgba(14,7,18,.62) 74%,rgba(14,7,18,.97) 100%);' +
     'z-index:5;transition:opacity .3s cubic-bezier(.22,1,.36,1);pointer-events:none}' +
-    // The gradient sheet covers the whole frame. Without this every tap on
-    // the picture lands on the HUD instead of the video, so click-to-pause
-    // looks dead. Only the two control bands take pointers back.
     '.h-top,.h-bot{pointer-events:auto}' +
     'body.idle #hud{opacity:0;pointer-events:none}' +
     'body.idle .h-top,body.idle .h-bot{pointer-events:none}' +
@@ -148,8 +111,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.sd-b.on{background:linear-gradient(135deg,#c2185b,#e91e63);color:#fff5f5;box-shadow:0 2px 10px rgba(194,24,91,.42)}' +
     '.h-bot{padding:0 26px 18px;display:flex;flex-direction:column;gap:12px}' +
     '.bar-row{display:flex;align-items:center;gap:16px}' +
-    // Phones and tablets get Netflix's big centre button. It fades with the
-    // HUD and is the only play control there, so the bottom row has room.
     '.cplay{position:fixed;top:50%;left:50%;width:76px;height:76px;margin:-38px 0 0 -38px;' +
     'border-radius:50%;border:2px solid rgba(255,140,175,.55);background:rgba(14,7,18,.5);' +
     'color:#fff5f5;display:none;align-items:center;justify-content:center;cursor:pointer;' +
@@ -167,15 +128,10 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#flash.go{animation:egflash .62s cubic-bezier(.22,1,.36,1)}' +
     '@keyframes egflash{0%{opacity:0;transform:scale(.6)}25%{opacity:1;transform:scale(1.06)}' +
     '60%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}' +
-    // Skip/Next sit outside the HUD on purpose: reaching the opening or the
-    // ending is exactly when nobody is touching the mouse, so the action has
-    // to survive the controls fading out.
     '#binge{position:fixed;left:0;right:0;bottom:128px;padding:0 26px;z-index:7;' +
     'display:flex;justify-content:flex-end;align-items:center;min-height:34px;' +
     'pointer-events:none}' +
     '#binge .b-act{pointer-events:auto}' +
-    // A soft scrim keeps the words readable over a bright frame. It is a
-    // legibility wash, not a card: no edge, no border, no fill of its own.
     '.b-scrim{position:absolute;right:-20px;bottom:-14px;width:340px;height:120px;' +
     'pointer-events:none;background:radial-gradient(ellipse at 78% 62%,' +
     'rgba(10,5,16,.84) 0%,rgba(10,5,16,.5) 45%,transparent 72%)}' +
@@ -193,8 +149,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.b-next .b-ico{color:#ff8caf}' +
     '.b-t{color:#f5c97b;font-variant-numeric:tabular-nums;font-weight:800}' +
     '.b-next .b-t{color:rgba(255,245,245,.72)}' +
-    // The underline drains with the stretch it belongs to, so the word and
-    // the time left are the same reading.
     '.b-u{position:absolute;left:2px;right:2px;bottom:3px;height:2px;border-radius:2px;' +
     'overflow:hidden;background:rgba(255,255,255,.14)}' +
     '.b-u i{display:block;height:100%;width:100%;transition:width .2s linear}' +
@@ -229,8 +183,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#pv-tag[hidden]{display:none!important}' +
     '#scrub{position:relative;height:4px;border-radius:999px;background:rgba(255,245,245,.22);' +
     'cursor:pointer;outline:none;touch-action:none;transition:height .14s cubic-bezier(.22,1,.36,1)}' +
-    // A 4px bar is impossible to grab on a phone. This invisible band
-    // widens the hit area without touching the painted bar.
     '#scrub::before{content:"";position:absolute;left:0;right:0;top:-11px;bottom:-11px}' +
     '#scrub:hover,body.scrubbing #scrub{height:7px}' +
     '#scrub:focus-visible{box-shadow:0 0 0 3px rgba(255,111,145,.5)}' +
@@ -272,8 +224,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'background:transparent;cursor:pointer;overflow:hidden;' +
     'transition:width .2s cubic-bezier(.22,1,.36,1),opacity .18s ease}' +
     '#vol-wrap:hover #vol-range,#vol-wrap:focus-within #vol-range{width:74px;opacity:1}' +
-    // Hardware volume buttons are the right control on a phone; a slider
-    // there is a row of pixels nobody can hit.
     '@media (hover:none),(pointer:coarse){#vol-range{display:none}}' +
     '#btn-speed{min-width:32px}' +
     '#buf{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
@@ -317,21 +267,14 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.qi:hover{background:rgba(255,111,145,.14);color:#fff5f5}' +
     '.qi.on{background:rgba(194,24,91,.34);color:#fff5f5}' +
     '#cc-menu{width:260px;max-height:56vh;overflow-y:auto}' +
-    // Nine servers is 257px tall, and the in-app phone frame is a 16:9 box
-    // only 192px high: uncapped, the menu's top lands above the frame and the
-    // first rows — including the current server — are clipped and untappable.
     '#sv-menu{max-height:calc(100vh - 76px);overflow-y:auto}' +
     '@media (hover:none),(pointer:coarse){.cplay{display:flex}#btn-play{display:none}}' +
-    // Loading indicators keep moving: a frozen ring reads as a hung player.
     '@media (prefers-reduced-motion:reduce){*:not(.wc):not(.buf-ring):not(#pv-load i){animation:none!important;transition:none!important}}' +
     '.cc-h{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;' +
     'color:#c79ab0;padding:8px 8px 3px}' +
     '.cc-row{display:flex;gap:4px;align-items:center;padding:0 4px 4px}' +
     '.cc-row .qi{flex:1;justify-content:center;padding:5px 4px;text-align:center}' +
     '.chip[hidden]{display:none}' +
-    // Phones keep the Everglow badge (Clair watches here). Volume belongs to
-    // the hardware buttons there; speed and PiP give up their room so
-    // fullscreen is never clipped off the right edge.
     '@media (max-width:520px){.h-top{padding:10px 14px}.h-bot{padding:0 14px 10px;gap:8px}' +
     '.ctrl-l,.ctrl-rt{gap:10px}.ctrl-r{gap:8px}#vol-wrap{display:none}#btn-speed{display:none}#btn-pip{display:none}' +
     '.ib{padding:4px}.ib svg{width:22px;height:22px}.bar-row{gap:10px}' +
@@ -342,8 +285,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#q-menu,#cc-menu,#sp-menu{right:14px;bottom:78px}#sv-menu{right:14px;top:48px}' +
     '.chip{padding:3px 8px;font-size:10.5px}.ctrl-rt .chip{padding:3px 6px;font-size:12px}#hud-title{font-size:13.5px}}' +
     '@media (max-width:380px){.eg-w{display:none}}' +
-    // The in-app frame on a phone is ~240px tall: a full-size centre button
-    // would sit right on the subtitle line.
     '@media (max-height:300px){.cplay{width:46px;height:46px;margin:-23px 0 0 -23px;top:40%}.cplay svg{width:20px;height:20px}' +
     '#flash{width:58px;height:58px;margin:-29px 0 0 -29px}#flash svg{width:22px;height:22px}}' +
     '</style></head><body>' +
@@ -510,11 +451,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var cplayP=document.getElementById("cplay-p");' +
     'var flashEl=document.getElementById("flash");' +
     'var FLASH=' + JSON.stringify(FLASH_ICONS) + ';' +
-    // Restarting a CSS animation needs the class off, a reflow, then on.
     'function kick(el,cls){if(!el||!el.classList)return;el.classList.remove(cls);' +
     'void el.offsetWidth;el.classList.add(cls);}' +
-    // Touch screens already show the centre button, so play/pause only
-    // flashes for a mouse. Seeks flash everywhere, on the side they went.
     'function flash(kind){if(!flashEl||!flashEl.classList||!FLASH[kind])return;' +
     'if((kind==="play"||kind==="pause")&&!finePointer)return;' +
     'flashEl.innerHTML=FLASH[kind];flashEl.className=kind==="rew"?"l":kind==="ff"?"r":"";' +
@@ -528,8 +466,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var nextFill=document.getElementById("next-fill");' +
     'var episode=' + JSON.stringify(epNum) + ';' +
     'var opRange=null,edRange=null,activeSkipEnd=null,hlsInst=null,hlsDead=false,makeHls=null,picking=false;' +
-    // Player habits that must survive an episode change: captions on/off,
-    // the picked track, the subtitle delay she tuned, text size, volume.
     'var prefs={cc:true,lang:0,delay:0,size:1,vol:1,muted:false,speed:1};' +
     'var ccOn=true,subPick=0;' +
     'function loadPrefs(){try{' +
@@ -564,8 +500,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'loadPrefs();ccOn=prefs.cc;subPick=prefs.lang;' +
     'if(btnCc)btnCc.classList.toggle("on",ccOn);' +
     'applySubSize();applyVolume();applySpeed();placeSubs();' +
-    // How close to the last frame the Next button appears when the ending
-    // was never marked. 90s covers a typical ED plus the preview card.
     'var nextToken=null,nextKind="episode",NEAR_END_SECONDS=90;' +
     'function fmt(s){if(!Number.isFinite(s)||s<0)return"00:00";' +
     'var h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=Math.floor(s%60);' +
@@ -583,13 +517,9 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'sEd.style.left=Math.max(0,edRange[0]/d*100)+"%";' +
     'sEd.style.width=Math.min(100-edRange[0]/d*100,(edRange[1]-edRange[0])/d*100)+"%";' +
     'sEd.hidden=false;}else{sEd.hidden=true;}}}' +
-    // How far through a stretch the playhead is, 0..1. Null when the
-    // stretch is missing or has no length.
     'function through(range,t){if(!range)return null;var span=range[1]-range[0];' +
     'if(!(span>0))return null;var p=(t-range[0])/span;' +
     'return Math.min(1,Math.max(0,p));}' +
-    // The Skip action belongs to the opening only. The ending is where the
-    // Next action lives, so a second skip there would be noise.
     'function updateBingeScrim(){var sc=document.getElementById("b-scrim");if(sc){' +
     'sc.hidden=(!btnSkip||btnSkip.hidden)&&(!btnNext||btnNext.hidden);}}' +
     'function updateSkipBtn(){if(!btnSkip)return;var t=v.currentTime;' +
@@ -598,8 +528,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var p=through(opRange,t);if(skipFill&&p!==null)skipFill.style.width=((1-p)*100)+"%";' +
     'btnSkip.hidden=false;updateBingeScrim();return;}' +
     'activeSkipEnd=null;btnSkip.hidden=true;updateBingeScrim();}' +
-    // Next shows during the ending, or within the last 90s when nobody
-    // marked one. No token means nothing follows, so it stays hidden.
     'function updateNextBtn(){if(btnNx)btnNx.hidden=!nextToken&&nextKind!=="season";if(!btnNext)return;' +
     'if(!nextToken&&nextKind!=="season"){btnNext.hidden=true;updateBingeScrim();return;}' +
     'var t=v.currentTime,d=v.duration;' +
@@ -646,8 +574,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var d=e.data;if(!d||typeof d!=="object"){return;}' +
     'if(d.type==="animex-seek"&&typeof d.seconds==="number"&&Number.isFinite(d.seconds)&&d.seconds>=0){' +
     'pendingSeek=d.seconds;applySeek();return;}' +
-    // The app relays keys here when its own document has focus (she clicked
-    // below the video), so the arrows work without clicking the frame first.
     'if(d.type==="everglow-key"){handleKey(d.key);return;}' +
     'if(d.type==="animex-player-state"||d.type==="animex-skip-times"){' +
     'opRange=Array.isArray(d.op)&&d.op.length===2&&Number.isFinite(d.op[0])&&Number.isFinite(d.op[1])?d.op:null;' +
@@ -675,32 +601,19 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
     'if(p&&p.catch){p.catch(function(err){' +
     'if(err&&(err.name==="AbortError"||err.code===20))return;showTap();});}}' +
-    // After a pick, a dead stream is one server's problem, not the source's:
-    // posting here moves her off Yume entirely and overwrites the remembered
-    // server. Reopen the picker instead — its rows sit above this overlay
-    // (z-index 12 vs 8), so she can actually choose another one.
     'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
     'if(pickSeq>0){if(svMenu){buildSvMenu();svMenu.hidden=false;}' +
-    // The picker covers the right side of the card, including most of Retry.
-    // Shift the card's content clear so both controls stay usable.
     'dead.style.paddingRight="190px";return;}' +
     'post("animex-content-error");}' +
     'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
     'var started=false;' +
     'v.addEventListener("playing",function(){started=true;hideBoot();tapw.hidden=true;' +
     'if(buf)buf.hidden=true;' +
-    // The stalled card comes down only once a source actually plays, so a
-    // pick that cannot start never leaves her looking at a blank frame.
     'if(dead){dead.hidden=true;dead.style.paddingRight="";}' +
-    // Only a play that answers a pick closes the picker. `playing` also fires
-    // when a stalled buffer resumes, and shutting the menu she opened by hand
-    // mid-choice is the one thing the picker exists to prevent.
     'if(picking){picking=false;if(svMenu)svMenu.hidden=true;}' +
     'if(playP)playP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");' +
     'if(cplayP)cplayP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");});' +
     'v.addEventListener("canplay",function(){if(buf)buf.hidden=true;});' +
-    // Before the first frame the boot wave is the right thing to show. After
-    // it, a stall is a hiccup, not a boot — a small ring, not the wordmark.
     'v.addEventListener("waiting",function(){' +
     'if(!started){if(dead.hidden)boot.style.display="flex";return;}' +
     'if(buf)buf.hidden=false;});' +
@@ -750,16 +663,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(btnSpeed&&spMenu)btnSpeed.addEventListener("click",function(){' +
     'spMenu.hidden=!spMenu.hidden;' +
     'if(!spMenu.hidden){buildSpeedMenu();if(qMenu)qMenu.hidden=true;if(ccMenu)ccMenu.hidden=true;}placeSubs();});' +
-    // The server picker swaps the source in place. It keeps the playhead, so
-    // a dead server costs a two-second reload instead of the whole episode.
-    // A failure stays here: posting `animex-content-error` tells the app the
-    // whole Yume server is dead, which moves her off it, overwrites her
-    // remembered choice, and ends the picker — the exact thing it exists for.
     'var pickSeq=0;' +
-    // A pick can land on a different provider, and each ships its own
-    // captions (or none). Leaving the old <track> elements attached would
-    // list MegaPlay's subtitles over a Yume stream and show nothing when
-    // picked, so the picker swaps them with the source.
     'function setTracks(list){var old=v.querySelectorAll?v.querySelectorAll("track"):[];' +
     'for(var i=old.length-1;i>=0;i--){try{v.removeChild(old[i]);}catch(e){}}' +
     'cueList=[];cueTrack=-1;' +
@@ -768,46 +672,26 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var el=document.createElement("track");el.kind="captions";el.src=String(t.file);' +
     'if(t.label)el.label=String(t.label);if(added===0)el.default=true;added++;' +
     'try{v.appendChild(el);}catch(e){}}' +
-    // Her caption language survives a pick when the new source still has that
-    // track: tapping the server she is already on is a retry, not a reason to
-    // drop her back to the first track. Nothing is clamped or persisted here —
-    // buildCcMenu already clamps to the new list, and a source with no captions
-    // must not erase the language she chose.
     'buildCcMenu();syncCues();}' +
     'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";' +
     'for(var i=0;i<servers.length;i++){(function(s){' +
     'svMenu.appendChild(ccBtn(s.label,s.id===currentServer,function(){pickServer(s);}));})(servers[i]);}' +
-    // The menu is capped to the player's height, and the in-app phone frame is
-    // a 16:9 box: with eight rows the one that is playing opens below the
-    // fold, so the row she needs to see is scrolled into view.
     'var on=null,k=svMenu.children||[];' +
     'for(var j=0;j<k.length;j++){if((" "+k[j].className+" ").indexOf(" on ")>=0){on=k[j];break;}}' +
     'if(on&&on.scrollIntoView)on.scrollIntoView({block:"nearest"});}' +
     'function pickFailed(){picking=false;if(btnSv){btnSv.textContent="Server failed";' +
     'setTimeout(function(){if(btnSv)btnSv.textContent="Servers";},2200);}' +
     'if(svMenu)svMenu.hidden=false;}' +
-    // Tapping the server that is already playing is a retry, not a no-op: the
-    // reason she opened the menu may be that this very stream stalled.
     'function pickServer(s){if(!s||!s.url)return;' +
     'var seq=++pickSeq;picking=true;' +
-    // The picker stays open until a source actually plays. Closing it on the
-    // tap left the card up with no reachable control when the pick resolved
-    // but never started: the card covers the Servers chip, and Retry reloads
-    // the original URL, which does not know about the pick.
     'if(btnSv)btnSv.textContent="Loading\u2026";' +
     'fetch(s.url,{credentials:"omit"}).then(function(r){return r.json();}).then(function(d){' +
-    // A later tap wins: without this the slower response overwrites the
-    // server she actually picked last.
     'if(seq!==pickSeq)return;' +
     'if(!d||!d.src)throw new Error("no src");' +
     'currentServer=s.id;' +
     'activeSrc=d.src;if(typeof resetPreview==="function")resetPreview();' +
-    // Read the playhead now, not before the fetch: a 3 s resolve used to
-    // rewind her 3 s.
     'var at=Number.isFinite(v.currentTime)?v.currentTime:0;' +
     'pendingSeek=at>0?at:null;hasMetadata=false;' +
-    // Revive the player before handing it a new source. After a dead stream
-    // the old instance is destroyed and would swallow this silently.
     'if(window.Hls&&Hls.isSupported()){' +
     'if(!hlsInst||hlsDead){hlsInst=makeHls();hlsInst.attachMedia(v);}' +
     'hlsInst.loadSource(d.src);' +
@@ -818,8 +702,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(btnSv&&svMenu)btnSv.addEventListener("click",function(){svMenu.hidden=!svMenu.hidden;' +
     'if(!svMenu.hidden){buildSvMenu();if(qMenu)qMenu.hidden=true;' +
     'if(ccMenu)ccMenu.hidden=true;if(spMenu)spMenu.hidden=true;}placeSubs();});' +
-    // Picture-in-Picture is a browser feature, not ours: hand the element
-    // over and let the OS window own it. Safari on iPad uses webkit presentation mode.
     'function pipSupported(){return !!(document.pictureInPictureEnabled||' +
     '(v.webkitSupportsPresentationMode&&typeof v.webkitSetPresentationMode==="function"));}' +
     'if(btnPip){if(!pipSupported()){btnPip.hidden=true;}else{' +
@@ -839,8 +721,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'function ccHead(txt){var d=document.createElement("div");' +
     'd.className="cc-h";d.textContent=txt;return d;}' +
     'function ccRow(){var d=document.createElement("div");d.className="cc-row";return d;}' +
-    // The panel sits where the captions live, so tuning the delay would hide
-    // the line being tuned. Lift the overlay by the panel's real height.
     'function placeSubs(){if(!subBox||!subBox.style||!subBox.style.setProperty)return;' +
     'var lift=0;' +
     'if(ccMenu&&!ccMenu.hidden&&ccMenu.getBoundingClientRect){' +
@@ -880,10 +760,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'for(var k=0;k<3;k++){(function(idx){' +
     'sz.appendChild(ccBtn(sizes[idx],idx===prefs.size,function(){setSize(idx);}));})(k);}' +
     'ccMenu.appendChild(sz);}' +
-    // Cues are rendered by hand, not by the browser, so the delay slider can
-    // shift them. `oncuechange` still fires at the real cue boundary and is
-    // kept as an extra redraw; renderCues is a pure function of currentTime,
-    // so a redraw at the wrong moment can never show the wrong line.
     'var cueList=[],cueTrack=-1;' +
     'function readCues(){if(!v.textTracks)return;var n=v.textTracks.length;if(!n)return;' +
     'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
@@ -917,16 +793,11 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(!v.paused&&!hoveringScrub&&!dragging&&(!ccMenu||ccMenu.hidden)&&(!spMenu||spMenu.hidden)&&document.body&&document.body.classList){' +
     'document.body.classList.add("idle");if(qMenu)qMenu.hidden=true;if(typeof hidePreview==="function")hidePreview();}},2800);}}' +
     'window.addEventListener("mousemove",function(){if(finePointer)wakeHud();});' +
-    // Touching the control bands wakes the HUD. A touch on the picture must
-    // not, or the tap that hides the controls would re-show them first.
     'var botEl=document.querySelector?document.querySelector(".h-bot"):null;' +
     'var topEl=document.querySelector?document.querySelector(".h-top"):null;' +
     'if(botEl)botEl.addEventListener("touchstart",wakeHud,{passive:true});' +
     'if(topEl)topEl.addEventListener("touchstart",wakeHud,{passive:true});' +
     'if(cplay)cplay.addEventListener("touchstart",wakeHud,{passive:true});' +
-    // Picture click toggles playback. A double click also fires two clicks
-    // first, so pause+resume cancel out and fullscreen lands on the play
-    // state she already had — no timer, no lag.
     'function togglePlay(){if(v.paused){flash("play");tryPlay();}else{flash("pause");v.pause();}}' +
     'function seekBy(delta){if(!Number.isFinite(v.currentTime))return;' +
     'flash(delta<0?"rew":"ff");' +
@@ -1014,9 +885,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(typeof setTimeout==="function"){if(pvTimer)clearTimeout(pvTimer);' +
     'pvTimer=setTimeout(function(){pvTimer=null;if(pv&&pvReady&&pvPending!==null){try{pv.currentTime=pvPending;}catch(e){}}},45);' +
     '}else if(pv&&pvReady&&pvPending!==null){try{pv.currentTime=pvPending;}catch(e){}}}' +
-    // The bar is dragged, not clicked. Nothing is committed until the
-    // pointer lifts, so a slow drag across a long film does not fire a seek
-    // on every pixel and stall the buffer.
     'function pctFromX(clientX){if(!scrub||!scrub.getBoundingClientRect)return null;' +
     'if(!Number.isFinite(v.duration)||v.duration<=0)return null;' +
     'var r=scrub.getBoundingClientRect();if(!(r.width>0))return null;' +
@@ -1061,12 +929,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'else if(k==="Home"){seekTo(0);}' +
     'else if(k==="End"){seekTo(v.duration);}' +
     'else{return;}' +
-    // The window handler would seek again on the same bubbling key.
     'if(e.stopPropagation)e.stopPropagation();' +
     'if(e.preventDefault)e.preventDefault();});}' +
-    // A phone has no hover and no fine pointer. There, a tap must never
-    // pause: one tap toggles the controls, double tap on either side seeks.
-    // Click-to-pause stays for anything with a real mouse.
     'var finePointer=false;' +
     'try{finePointer=!!(window.matchMedia&&' +
     'window.matchMedia("(hover:hover) and (pointer:fine)").matches);}catch(e){}' +
@@ -1094,13 +958,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(tapTimer){clearTimeout(tapTimer);}' +
     'tapTimer=setTimeout(function(){tapTimer=null;toggleHud();},300);}' +
     'v.addEventListener("click",onPictureTap);' +
-    // Double-click fullscreen belongs to the mouse. On touch the same two
-    // taps are the seek gesture above.
     'v.addEventListener("dblclick",function(e){if(!finePointer)return;' +
     'if(e&&e.preventDefault)e.preventDefault();toggleFs();});' +
-    // Keys only reach this document while the frame has focus, which a click
-    // on the picture gives it. YouTube's bindings, plus 0-9 to jump. The same
-    // handler serves keys the app relays from its own document.
     'function handleKey(k){if(typeof k!=="string"||!k)return false;var used=true;' +
     'if(k===" "||k==="k"||k==="K"){togglePlay();}' +
     'else if(k==="ArrowRight"||k==="l"||k==="L"){seekBy(10);}' +
@@ -1122,10 +981,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(handleKey(e.key)){if(e.preventDefault)e.preventDefault();}});' +
     'if(window.Hls&&Hls.isSupported()){' +
     'var fatal=0;' +
-    // A destroyed hls.js instance cannot be revived: loadSource() on it is a
-    // silent no-op (checked against hls.js 1.7.4 — no event, no throw), so a
-    // pick after a dead stream must build a fresh one or nothing plays and
-    // nothing reports why. Everything below is per-instance, so it lives here.
     'makeHls=function(){' +
     (token
       ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});'

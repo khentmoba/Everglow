@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-// Runs the REAL Motchi handler and tool loop with demo Firestore/auth.
-// --live uses Agnes (paid calls); nothing can touch production data.
-// Compare an archived functions directory with --functions PATH --legacy-client.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -98,8 +95,6 @@ async function createProbe({ functionsDir = path.join(__dirname, '../functions')
   let recorded = null;
   require(path.join(functionsDir, 'motchi_sessions.js')).recordMotchiTurn = async (turn) => { recorded = turn; };
   const { handleProxyAI } = require(path.join(functionsDir, 'motchi_chat.js'));
-  // Mimic the OLD app's once-loaded text cache. Deliberately not refreshed
-  // after server tool writes, so the save/recall pair exercises freshness.
   const clientMemories = [...fixture.facts.values()].slice(0, 150).map((f) => f.fact);
   const request = async function request(label, message, extra = {}) {
     recorded = null;

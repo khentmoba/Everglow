@@ -59,7 +59,6 @@ void main() {
         {
           'tool': 'read_web_page',
           'pages': [
-            // Duplicate of R0 — dropped.
             {'title': 'R0 again', 'url': 'https://example.com/0'},
             {'title': 'P1', 'url': 'https://example.com/p1'},
             {'title': 'P2', 'url': 'https://example.com/p2'},
@@ -122,7 +121,6 @@ void main() {
       final restored = AIMessage.fromJson(msg.toJson());
       expect(restored.sources.length, 1);
       expect(restored.sources[0]['url'], 'https://example.com');
-      // Sources never ride to the LLM — text history only.
       expect(msg.toApiPayload(), {'role': 'assistant', 'content': 'hello'});
     });
 

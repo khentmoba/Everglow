@@ -1,6 +1,5 @@
 part of 'daily_bloom.dart';
 
-/// Five growth dots showing how far the plant has bloomed.
 class _GrowthDots extends StatelessWidget {
   final int effectiveStage;
   final String stageName;
@@ -48,7 +47,6 @@ class _GrowthDots extends StatelessWidget {
   }
 }
 
-/// Two compact growth rows: Clair's dots above Khent's.
 class _DualGrowthDots extends StatelessWidget {
   final int clairStage;
   final int khentStage;
@@ -142,7 +140,6 @@ class _DualGrowthRow extends StatelessWidget {
   }
 }
 
-/// Glowing stat tile: big numeral + tiny label.
 class _StatTile extends StatelessWidget {
   final IconData icon;
   final Color hue;
@@ -201,7 +198,6 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-/// One person's glowing stats: streak + visits under their name.
 class _PersonStatTile extends StatelessWidget {
   final String name;
   final bool isYou;
@@ -366,7 +362,6 @@ class _PersonStatTile extends StatelessWidget {
   }
 }
 
-/// Primary rose action: full-width, 46px, easy to tap.
 class _PrimaryAction extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -431,7 +426,6 @@ class _PrimaryAction extends StatelessWidget {
   }
 }
 
-/// Quiet ghost action for the secondary choice.
 class _GhostAction extends StatelessWidget {
   final IconData icon;
   final String label;

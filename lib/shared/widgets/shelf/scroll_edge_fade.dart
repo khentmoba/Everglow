@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 
-/// Wraps a horizontally-scrolling child and adds a soft fade on the
-/// trailing edge — the visual "there's more here" hint that the
-/// material/motion-craft guides both call out. Pairs well with
-/// horizontal ListView / PageView rows in the four inside screens.
 class ScrollEdgeFade extends StatelessWidget {
   final Widget child;
   final double fadeWidth;

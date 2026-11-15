@@ -6,25 +6,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_motion.dart';
 
-/// The waiting screen both manga readers show while a chapter is
-/// still being fetched.
-///
-/// Why this exists: resolving a chapter can take 10-20 seconds (we
-/// race every source with a 15s timeout), and a bare
-/// `CircularProgressIndicator` made that wait feel like the app had
-/// frozen. This paints the wait instead — a stack of manga pages
-/// where panels ink themselves in one by one, a shine sweeping across
-/// the top page, and a warm line of copy that changes as the wait
-/// goes on.
-///
-/// Everything runs on one [AnimationController] and one
-/// [CustomPainter]. Phones and reduced motion use a still frame; tablets
-/// retain the waiting animation.
 class ChapterLoadingStage extends StatefulWidget {
-  /// Chapter title shown above the animation, e.g. "Chapter 12".
   final String? title;
 
-  /// Sub-heading under the title, usually the manga name.
   final String? subtitle;
 
   final Color accentColor;
@@ -42,7 +26,6 @@ class ChapterLoadingStage extends StatefulWidget {
     required this.mutedColor,
   });
 
-  /// One line of copy per slice of the loop, in order.
   static const List<String> hints = <String>[
     'Opening the chapter…',
     'Finding the fastest server…',
@@ -63,8 +46,6 @@ class _ChapterLoadingStageState extends State<ChapterLoadingStage>
 
   bool get _animationsOff => AppMotion.reduceAmbientMotion(context);
 
-  /// Reduced motion is a MediaQuery value, so the controller starts
-  /// and stops here rather than in initState.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -86,14 +67,9 @@ class _ChapterLoadingStageState extends State<ChapterLoadingStage>
 
   @override
   Widget build(BuildContext context) {
-    // The whole stage rebuilds from the controller, not just the
-    // painter: otherwise the waiting copy freezes on the first line
-    // while the pages keep animating.
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) => _buildStage(
-        // A stopped controller would leave the copy on the first line
-        // forever, so reduced motion lands mid-loop instead.
         t: _animationsOff ? 0.62 : _controller.value,
       ),
     );
@@ -184,8 +160,6 @@ class _ChapterLoadingStageState extends State<ChapterLoadingStage>
   }
 }
 
-/// A fanned stack of pages; the top one inks its panels in sequence
-/// while a shine sweeps across it.
 class _PageInkPainter extends CustomPainter {
   final double t;
   final Color accent;
@@ -199,14 +173,11 @@ class _PageInkPainter extends CustomPainter {
     required this.page,
   });
 
-  /// Rising ease for the panel fills so they "print" instead of fade.
   double _ramp(double start, double end, double v) {
     final x = ((v - start) / (end - start)).clamp(0.0, 1.0);
     return Curves.easeOutCubic.transform(x);
   }
 
-  /// Triangle wave in [0,1) — a cheap ping-pong for back-and-forth
-  /// motion (page float, stack sway).
   double _pingPong(double v) {
     final x = v % 1.0;
     return x < 0.5 ? x * 2 : 2 - x * 2;
@@ -220,11 +191,8 @@ class _PageInkPainter extends CustomPainter {
     final top = (size.height - pageH) / 2;
     final float = Curves.easeInOut.transform(_pingPong(t));
 
-    // Pages are lifted towards white so a sheet reads as paper against
-    // the dark reader, and each step of the stack gets lighter.
     Color paper(double amount) => Color.lerp(page, Colors.white, amount)!;
 
-    // Two pages peeking from behind, fanned up and to the right.
     for (final back in <double>[0.16, 0.32]) {
       final offset = Offset(pageW * 0.16 * back, -pageH * 0.10 * back);
       _drawPageFrame(
@@ -236,7 +204,6 @@ class _PageInkPainter extends CustomPainter {
       );
     }
 
-    // Top page: lifts and sways gently, like it is being held.
     final rect = Rect.fromLTWH(
       left + math.sin(t * math.pi * 2) * size.width * 0.014,
       top - float * size.height * 0.02,
@@ -293,12 +260,9 @@ class _PageInkPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Panel rectangle measured from the page's own top-left corner.
   static Rect _slot(Rect page, double x, double y, double w, double h) =>
       Rect.fromLTWH(page.left + x, page.top + y, w, h);
 
-  /// Three panels that ink in sequence over the first 75% of the loop,
-  /// each with a little overshoot so it feels drawn, not faded.
   void _drawPanels(Canvas canvas, Rect rect) {
     const gap = 7.0;
     final pad = rect.width * 0.09;
@@ -322,12 +286,8 @@ class _PageInkPainter extends CustomPainter {
     for (var i = 0; i < slots.length; i++) {
       final start = 0.06 + i * 0.17;
       final fill = _ramp(start, start + 0.16, t);
-      // Once printed, a panel holds its ink and just breathes.
       final breathe = 1.0 + math.sin((t - start) * math.pi * 2) * 0.02;
       final rrect = RRect.fromRectAndRadius(slots[i], const Radius.circular(5));
-      // Ink pools from the centre outward as a deep rose wash, so a
-      // fresh panel grows rather than fades in, and an unprinted one
-      // still reads as an empty slot on the paper.
       final core = Color.lerp(surface, accent, 0.10 + 0.30 * fill)!;
       final edge = Color.lerp(surface, accent, 0.03 + 0.12 * fill)!;
       canvas.drawRRect(
@@ -340,7 +300,6 @@ class _PageInkPainter extends CustomPainter {
       );
       if (fill <= 0.01) continue;
 
-      // The panel outline snaps in with the ink.
       final inset = (1 - fill) * slots[i].width * 0.5 * breathe;
       final grown = slots[i].deflate(inset);
       if (grown.width <= 0 || grown.height <= 0) continue;
@@ -352,7 +311,6 @@ class _PageInkPainter extends CustomPainter {
           ..color = accent.withValues(alpha: 0.35 + 0.45 * fill),
       );
 
-      // A stroke of "speed lines" sweeping across the fresh panel.
       final sweep = _ramp(start, start + 0.16, t);
       final lineY = grown.top + grown.height * (0.25 + 0.5 * sweep);
       final lineW = grown.width * 0.55 * fill;
@@ -366,7 +324,6 @@ class _PageInkPainter extends CustomPainter {
     }
   }
 
-  /// Diagonal shine band travelling down the top page.
   void _drawShine(Canvas canvas, Rect rect) {
     final travel = Curves.easeInOut.transform(_pingPong(t * 1.0));
     final bandCenter = rect.left - rect.width * 0.3 + rect.width * 1.6 * travel;

@@ -80,7 +80,6 @@ void main() {
 
     final popoverSize = tester.getSize(popoverBox);
 
-    // The popover must never balloon to fill the screen/overlay.
     expect(popoverSize.width, lessThanOrEqualTo(256.1));
     expect(popoverSize.height, lessThanOrEqualTo(320.1));
 
@@ -91,22 +90,18 @@ void main() {
       reason: 'Popover text should stay inside the compact panel.',
     );
 
-    // It should sit beside the card, not overlap it.
     final cardRect = tester.getRect(find.byType(AnimeXPosterCard));
     expect(synopsisRect.left, greaterThan(cardRect.right - 1));
 
-    // The popover now carries the title so it shows real details.
     expect(
       find.text('I Want to Love You Till Your Dying Day'),
       findsNWidgets(2),
     );
 
-    // Moving the pointer onto the popover must not dismiss it.
     await gesture.moveTo(tester.getCenter(popoverBox));
     await tester.pump(const Duration(milliseconds: 400));
     expect(popoverBox, findsOneWidget);
 
-    // Leaving the popover dismisses it.
     await gesture.moveTo(const Offset(640, 600));
     await tester.pump(const Duration(milliseconds: 400));
     expect(popoverBox, findsNothing);
@@ -132,7 +127,6 @@ void main() {
     );
     addTearDown(AnimeXPosterCard.clearResolvedCacheForTesting);
 
-    // Pre-populate resolved cache for Bleach (malId: 269 -> 'm269')
     AnimeXPosterCard.cacheResolvedForTesting(
       'm269',
       slimItem.copyWith(
@@ -162,11 +156,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    // Popover is displayed with Bleach enriched details
     expect(find.text('Bleach'), findsNWidgets(2));
     expect(find.textContaining('Ichigo Kurosaki'), findsOneWidget);
     expect(find.text('ACTION'), findsOneWidget);
-    // Score is rendered on both the card rating badge and the popover
     expect(find.text('7.9'), findsNWidgets(2));
     expect(find.text('Details →'), findsOneWidget);
   });

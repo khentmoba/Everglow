@@ -103,7 +103,6 @@ test('proxyCatalog builds torrentio download-copy URL server-side', () => {
     movie.origin + movie.pathname,
     'https://torrentio.strem.fun/stream/movie/tt0137523.json',
   );
-  // Series ids carry season and episode as path segments with colons.
   const episode = resolveCatalogUpstream(
     'torrentio',
     'stream/series/tt0944947:1:1.json',

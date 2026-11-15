@@ -45,7 +45,6 @@ test('cleanStudyItem tolerates a missing explanation', () => {
 test('parseStudySet parses a raw array and dedupes', () => {
   const other = { ...goodItem, questionText: 'What is the largest ocean on Earth?' };
   const parsed = study.parseStudySet(JSON.stringify([goodItem, goodItem, other]));
-  // Only 2 unique keepers < MIN_KEEPERS(5) → too-few-valid.
   assert.equal(parsed.error, 'too-few-valid');
 });
 

@@ -55,12 +55,10 @@ void main() {
     });
 
     test('returns null for foreign bridge traffic', () {
-      // Other message types.
       expect(
         EmbedWebView.parsePlayerEpisode('{"type":"cinesrc:ready"}'),
         isNull,
       );
-      // Missing numbers.
       expect(
         EmbedWebView.parsePlayerEpisode('{"type":"cinesrc:nextepisode"}'),
         isNull,
@@ -71,7 +69,6 @@ void main() {
         ),
         isNull,
       );
-      // Malformed JSON and non-objects.
       expect(EmbedWebView.parsePlayerEpisode('not json'), isNull);
       expect(EmbedWebView.parsePlayerEpisode(''), isNull);
       expect(EmbedWebView.parsePlayerEpisode('[1,2]'), isNull);

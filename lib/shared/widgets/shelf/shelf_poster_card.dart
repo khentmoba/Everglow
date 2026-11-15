@@ -8,16 +8,6 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Shared poster card used across the four inside screens.
-///
-/// On desktop hover:
-///   * Lifts 6px and scales 1.05 (stronger than default)
-///   * Shows a play icon overlay and brighter accent glow
-///   * Smooth 200ms ease-out transitions
-///
-/// On mobile / touch:
-///   * Gentle press scale (0.96)
-///   * No hover effects
 class ShelfPosterCard extends StatefulWidget {
   final String imageUrl;
   final String title;
@@ -29,7 +19,6 @@ class ShelfPosterCard extends StatefulWidget {
   final VoidCallback? onTap;
   final String? semanticLabel;
 
-  /// Rich metadata for the hover preview card (desktop only).
   final String? bannerUrl;
   final String? synopsis;
   final String? episodeCount;
@@ -72,9 +61,6 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _canHover(BuildContext context) =>
       MediaQuery.maybeOf(context)?.accessibleNavigation == false && _isDesktop;
 
-  // TmdbImages.posterFor already trims, rejects stringified nulls, and
-  // restores a stripped leading slash — so garbage poster fields resolve
-  // to '' (placeholder) instead of a bogus URL that 404s forever.
   String get _resolvedImageUrl => TmdbImages.posterFor(widget.imageUrl);
 
   @override
@@ -88,7 +74,6 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
     final disabled = widget.onTap == null;
     final canHover = _canHover(context);
 
-    // Compose the announcement: "Movie, title, year, badge"
     final announcement = [
       if (widget.badge != null) widget.badge!,
       widget.title,
@@ -165,7 +150,6 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
             else
               _Placeholder(title: widget.title, accent: badgeColor),
 
-            // Hover overlay — play button + accent border on hover-capable input
             if (canHover)
               AnimatedOpacity(
                 duration: AppMotion.orZero(AppMotion.fast),
@@ -208,7 +192,6 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                 ),
               ),
 
-            // Title gradient overlay
             Positioned(
               left: 0,
               right: 0,

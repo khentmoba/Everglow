@@ -16,10 +16,6 @@ import '../../data/services/study_artifact.dart';
 import '../../domain/models/mini_game.dart';
 import '../widgets/canvas_preview_sheet.dart';
 
-/// Motchi's Minis — saved mini-games, ready to replay.
-///
-/// Games land here from the Save button in the canvas preview. Tapping a
-/// mini reopens the same sandboxed preview it was saved from.
 class MotchiMinisScreen extends StatefulWidget {
   const MotchiMinisScreen({super.key});
 

@@ -1,9 +1,5 @@
 'use strict';
 
-// Run against a demo project only:
-// firebase emulators:exec --only firestore,storage --config firebase.emulators.json \
-//   --project demo-everglow "node --test functions/security_rules.emulator.test.js"
-// Uses native REST + emulator-only unsigned tokens: no new test dependency.
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -34,7 +30,6 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
   const cinema = token('audit-cinema', 'custom', 'breyan');
   const stranger = token('audit-stranger', 'password', 'breyan');
   assert.equal((await request('users/audit-stranger', stranger, 'PATCH', 'breyan')).status, 403);
-  // A forged legacy document cannot grant cinema access either.
   await request('users/audit-stranger', 'owner', 'PATCH', 'breyan');
   assert.equal((await request('academy_questions/demo', stranger)).status, 403);
   const clair = token('audit-clair', 'custom', 'clairjassen');
@@ -57,7 +52,6 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
   assert.equal((await request('users/audit-cinema', cinema, 'PATCH', 'khentsgdz')).status, 403);
   assert.equal((await request('users/audit-cinema', cinema, 'PATCH', 'clairjassen')).status, 403);
   assert.equal((await request('users/audit-cinema', cinema, 'PATCH', 'breyan')).status, 200);
-  // Even a forged legacy profile seeded by Admin cannot grant couple access.
   assert.equal((await request('users/audit-cinema', 'owner', 'PATCH', 'khentsgdz')).status, 200);
   assert.equal((await request('notes/audit-note', cinema)).status, 403);
   assert.equal((await request('users/audit-clair', clair, 'DELETE')).status, 200);
@@ -145,7 +139,6 @@ test('academy permits normal play but refuses poisoned joins and other-player sc
     status: 'finished', winnerId: 'draw' };
   assert.equal((await write(guestToken, finished)).status, 200);
 
-  // The client's field patches must still work on waiting pre-refresh rows.
   const legacy = { ...waiting };
   delete legacy.questionIds;
   delete legacy.isReplenishing;

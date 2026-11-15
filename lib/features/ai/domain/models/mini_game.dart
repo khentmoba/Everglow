@@ -1,10 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// A mini-game Motchi built, saved from chat into Motchi's Minis.
-///
-/// The HTML is the same self-contained file the preview runs (scripts run
-/// sandboxed, no network identity). Tolerant parsing: a half-written doc
-/// renders as an untitled mini instead of crashing the shelf.
 class MiniGame {
   final String id;
   final String title;
