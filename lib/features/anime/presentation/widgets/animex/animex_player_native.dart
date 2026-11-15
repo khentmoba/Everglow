@@ -17,6 +17,20 @@ import 'animex_videasy_progress.dart';
 
 bool isPlayerFullscreenActive() => false;
 
+void exitPlayerFullscreen() {}
+
+bool _isEpisodesAction(String raw) {
+  if (!raw.contains('"episodes"')) return false;
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is Map &&
+        decoded['type'] == 'animex-action' &&
+        decoded['action'] == 'episodes';
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<void> showAnimexTrailer(
   BuildContext context, {
   String? youtubeId,
@@ -128,6 +142,8 @@ class AnimeXPlayerFrame extends StatefulWidget {
 
   final ValueChanged<String>? onAudioChanged;
 
+  final VoidCallback? onShowEpisodes;
+
   final void Function(int season, int episode)? onPlayerEpisodeChanged;
 
   const AnimeXPlayerFrame({
@@ -145,6 +161,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onNextEpisode,
     this.autoAdvance = true,
     this.onAudioChanged,
+    this.onShowEpisodes,
     this.onPlayerEpisodeChanged,
   });
 
@@ -213,6 +230,10 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
           }
           if (message.message == 'animex-content-error') {
             _fail();
+            return;
+          }
+          if (_isEpisodesAction(message.message)) {
+            widget.onShowEpisodes?.call();
             return;
           }
           final progress = parseAnimeXProgress(

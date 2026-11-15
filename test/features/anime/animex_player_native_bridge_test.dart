@@ -147,6 +147,32 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('native Episodes button asks the page to show episodes', (
+    tester,
+  ) async {
+    var shown = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnimeXPlayerFrame(url: url, onShowEpisodes: () => shown++),
+      ),
+    );
+    await tester.pump();
+    final channel = platform.controllers.single.channels['EverglowPlayer']!;
+    channel.onMessageReceived(
+      const JavaScriptMessage(
+        message: '{"type":"animex-action","action":"audio"}',
+      ),
+    );
+    channel.onMessageReceived(const JavaScriptMessage(message: 'episodes'));
+    expect(shown, 0);
+    channel.onMessageReceived(
+      const JavaScriptMessage(
+        message: '{"type":"animex-action","action":"episodes"}',
+      ),
+    );
+    expect(shown, 1);
+  });
+
   testWidgets('native channel validates progress, blocks hijacks, keeps retry', (
     tester,
   ) async {
