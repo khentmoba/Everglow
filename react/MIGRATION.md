@@ -42,7 +42,7 @@ Order: the screens Clair uses most come first.
 - [ ] `/bucket-list` — bucket_list (4.6k)
 - [ ] `/trips`, `/trips/:id` — trip_kit (2.2k)
 - [ ] `/jukebox`, `/spotify/callback` — jukebox (12.3k)
-- [ ] `/canvas` — canvas (1.5k)
+- [x] `/canvas` — canvas (1.5k). Compare 0.30% / 0.18% (0.31% with the toolbar uncovered). Live strokes, eraser, text, undo/redo and doodle presence kept
 - [x] `/money` — money (1.3k). Compare 0.62% / 0.32%. Add/budget dialogs ported; swipe to remove kept
 - [x] `/subs` — subs (1.3k). Compare 0.67% / 0.26%. The add sheet uses the browser date picker instead of the Material one
 - [ ] `/play-zone` (+ tt, tt/lobby, scribble, chess) — play_zone (4.7k)

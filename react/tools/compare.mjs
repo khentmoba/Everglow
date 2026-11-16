@@ -1,6 +1,7 @@
 // Side-by-side check that the React build looks like the Flutter build.
 //
-//   node tools/compare.mjs [path] [--size phone|tablet] [--out dir] [--settle ms] [--motion]
+//   node tools/compare.mjs [path] [--size phone|tablet] [--out dir] [--settle ms] [--motion] [--click x,y]
+//   --click taps a point (CSS px) halfway through the settle, e.g. to collapse the agent HUD.
 //
 // Serves ../build/web (Flutter, from `flutter build web`) and ./dist
 // (React, from `npm run build`), opens both in headless Chrome at phone
@@ -16,12 +17,17 @@ const route = args.find((a) => a.startsWith('/')) ?? '/';
 const outDir = resolve(flag('--out', 'compare-out'));
 const motion = args.includes('--motion');
 const settle = Number(flag('--settle', '6000'));
+const click = flag('--click')?.split(',').map(Number);
 const sizes = flag('--size') ? { [flag('--size')]: SIZES[flag('--size')] } : SIZES;
 mkdirSync(outDir, { recursive: true });
 
 async function shoot(browser, url, size, file) {
   const { page, context } = await openPage(browser, url, size, { motion });
-  await page.waitForTimeout(settle);
+  if (click) {
+    await page.waitForTimeout(settle / 2);
+    await page.mouse.click(click[0], click[1]);
+    await page.waitForTimeout(settle / 2);
+  } else await page.waitForTimeout(settle);
   await page.evaluate(() => document.fonts?.ready);
   await page.screenshot({ path: file });
   await context.close();
