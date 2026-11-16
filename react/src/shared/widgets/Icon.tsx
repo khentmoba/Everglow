@@ -19,6 +19,11 @@ export function Icon({
   variant?: IconStyle;
   label?: string;
 }) {
+  // `savings_outlined` (Icons.x_outlined) picks the outlined font.
+  if (name.endsWith('_outlined')) {
+    name = name.slice(0, -'_outlined'.length);
+    variant = 'outlined';
+  }
   const cls = variant === 'filled' ? 'material-icons' : `material-icons-${variant}`;
   return (
     <span

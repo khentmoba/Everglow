@@ -19,6 +19,7 @@ import {
 import { BooksPage } from './features/books/BooksPage';
 import { OurBooksPage } from './features/books/OurBooksPage';
 import { BucketListPage } from './features/bucket_list/BucketListPage';
+import { MoneyPage } from './features/money/MoneyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CinemaPage } from './features/cinema/CinemaPage';
 import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
@@ -35,6 +36,7 @@ import { SanctuaryPage } from './features/chat/SanctuaryPage';
 import { StarlightPage } from './features/starlight_jar/StarlightPage';
 import { TonightPage } from './features/tonight/TonightPage';
 import { WatchPartyPage } from './features/watch_party/WatchPartyPage';
+import { DialogHost } from './shared/widgets/Dialogs';
 import { SnackBarHost } from './shared/widgets/SnackBar';
 
 /** The redirect rules from the Flutter router, run before each page. */
@@ -98,6 +100,7 @@ function RootLayout() {
     <>
       <Outlet />
       <AgentHudOverlay />
+      <DialogHost />
       <SnackBarHost />
     </>
   );
@@ -107,7 +110,6 @@ const KNOWN_UNPORTED = new Set([
   '/trips',
   '/jukebox',
   '/canvas',
-  '/money',
   '/subs',
   '/play-zone',
   '/academy',
@@ -159,6 +161,7 @@ const router = createBrowserRouter([
       { path: '/garden', loader: guard, element: <GardenPage /> },
       { path: '/starlight', loader: guard, element: <StarlightPage /> },
       { path: '/bucket-list', loader: guard, element: <BucketListPage /> },
+      { path: '/money', loader: guard, element: <MoneyPage /> },
       { path: '*', loader: guard, element: <FallbackRoute /> },
     ],
   },
