@@ -27,7 +27,7 @@ Order: the screens Clair uses most come first.
 ## Screens (Flutter feature size in lines)
 - [x] `/` Door + passcode — entry (2.4k)
 - [ ] `/dashboard`, `/letterbox`, `/desktop-app` — dashboard (19.3k) — home compare 0.88% / 0.58%. Still to check: letterbox, desktop-app
-- [ ] `/cinema`, `/cinema/video/:id` — cinema (23.2k) — compare 1.3% / 2.7%
+- [ ] `/cinema`, `/cinema/video/:id` — cinema (23.2k) — home compare 0.91% / 0.42% (rows stretch cards to 192px like the ListView; Top 10 numerals use FittedBox maths). Still to check: video player, detail sheet, search, my list, browse
 - [x] `/watch-party` — watch_party (11.6k)
 - [ ] `/anime` — anime (21.5k) — home compare 0.63% / 1.11% (rest is poster image smoothing). Header, nav, hero + trailer, ticker, rows, cards ported 1:1. Still to check: watch page, episodes, Motchi sidebar, browse/schedule/search/my list/history/downloads pages
 - [ ] `/manga`, `/manga/reader` — manga (17.6k) — home compare 0.50% / 0.80% (header, nav strip, type chips, item/compact cards, Hot + Genres cards ported 1:1). Still to check: latest/directory/new/genre lists, search results, detail, bookmarks, currently reading shelf, downloads, reader

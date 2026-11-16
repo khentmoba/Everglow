@@ -72,6 +72,7 @@ export function NetflixPosterCard({
   rank,
   compact = false,
   isDesktop = false,
+  height,
 }: {
   item: MediaItem;
   onTap: () => void;
@@ -79,6 +80,8 @@ export function NetflixPosterCard({
   rank?: number;
   compact?: boolean;
   isDesktop?: boolean;
+  /** The row's height: Flutter's horizontal ListView stretches every card to it. */
+  height?: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const [imgErr, setImgErr] = useState(false);
@@ -96,7 +99,7 @@ export function NetflixPosterCard({
       style={{
         position: 'relative',
         width: cardWidth ?? '100%',
-        aspectRatio: '2 / 3',
+        ...(height != null ? { height } : { aspectRatio: '2 / 3' }),
         borderRadius: 6,
         overflow: 'hidden',
         background: NetflixColors.surfaceElevated,
@@ -191,7 +194,14 @@ export function NetflixPosterCard({
   if (rank == null) return posterBox;
 
   const boxWidth = (cardWidth ?? 118) + 64;
-  const boxHeight = (cardWidth ?? 118) * 1.5;
+  const boxHeight = height ?? (cardWidth ?? 118) * 1.5;
+  // FittedBox(contain, bottomLeft) around Outfit 200 / w900 / height 0.8 in an
+  // 84px-wide slot. Flutter spreads the negative leading by ascent:descent
+  // (1.0 : 0.26), so the baseline sits at 200 - 92 / 1.26 inside the 160px
+  // line instead of the browser's even split.
+  const digits = String(rank);
+  const textWidth = [...digits].reduce((w, c) => w + (outfitBlackDigit[c] ?? 580) * 0.2 + 0.25, 0);
+  const scale = Math.min(84 / textWidth, boxHeight / 160);
   return (
     <div style={{ position: 'relative', width: boxWidth, height: boxHeight, flexShrink: 0 }}>
       <div
@@ -200,13 +210,18 @@ export function NetflixPosterCard({
           position: 'absolute',
           left: 0,
           bottom: 0,
-          width: 84,
+          width: textWidth,
+          height: 160,
+          transform: `scale(${scale})`,
+          transformOrigin: 'bottom left',
           fontFamily: 'Outfit, sans-serif',
-          fontSize: 196,
+          fontSize: 200,
           fontWeight: 900,
-          lineHeight: 0.78,
+          lineHeight: '160px',
+          letterSpacing: 0.25,
+          whiteSpace: 'nowrap',
           color: NetflixColors.textSecondary,
-          WebkitTextStroke: '10px #000000',
+          WebkitTextStroke: '8px #000000',
           paintOrder: 'stroke fill',
           userSelect: 'none',
           pointerEvents: 'none',
@@ -218,6 +233,9 @@ export function NetflixPosterCard({
     </div>
   );
 }
+
+// Outfit Black digit advances (units per em 1000).
+const outfitBlackDigit: Record<string, number> = { '0': 676, '1': 401, '2': 587, '3': 578, '4': 618, '5': 575, '6': 584, '7': 532, '8': 576, '9': 584 };
 
 export function NetflixRow({
   title,
@@ -236,6 +254,7 @@ export function NetflixRow({
   if (items.length === 0) return null;
 
   const hPad = isDesktop ? 48 : 16;
+  const rowHeight = (isDesktop ? 172 : 124) * 1.5 + 6;
   const scrollBy = (dx: number) => {
     scrollerRef.current?.scrollBy({ left: dx, behavior: 'smooth' });
   };
@@ -247,7 +266,8 @@ export function NetflixRow({
           style={{
             margin: 0,
             ...AppTypography.outfitHeading,
-            fontSize: isDesktop ? 21 : 17,
+            fontSize: isDesktop ? 20 : 17,
+            letterSpacing: 0,
             color: NetflixColors.textPrimary,
           }}
         >
@@ -260,8 +280,9 @@ export function NetflixRow({
           className="no-scrollbar"
           style={{
             display: 'flex',
-            gap: ranked ? 6 : 10,
-            padding: `4px ${hPad}px 4px`,
+            gap: 8,
+            height: rowHeight,
+            padding: `0 ${hPad}px`,
             overflowX: 'auto',
           }}
         >
@@ -271,6 +292,7 @@ export function NetflixRow({
                 item={item}
                 rank={ranked ? idx + 1 : undefined}
                 isDesktop={isDesktop}
+                height={rowHeight}
                 onTap={() => onTapItem(item)}
               />
             </div>
