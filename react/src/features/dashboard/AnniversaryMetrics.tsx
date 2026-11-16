@@ -53,7 +53,7 @@ function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', display: 'flex' }}>
         {!reduceAmbient && (
           <>
             <div style={shadowLayer({ color: 'rgba(0,0,0,0.15)', blur: 10, offset: [0, 2] }, { radius: 999 })} aria-hidden />
@@ -90,7 +90,7 @@ function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', display: 'flex' }}>
         <div style={shadowLayer({ color: 'rgba(0,0,0,0.12)', blur: 8, offset: [0, 2] }, { radius: 999 })} aria-hidden />
         <div
           style={{
@@ -103,6 +103,7 @@ function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {
               end: Align.bottomRight,
               size: [90, 28],
             }),
+            display: 'flex',
           }}
         >
           <span

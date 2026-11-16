@@ -26,12 +26,12 @@ Order: the screens Clair uses most come first.
 
 ## Screens (Flutter feature size in lines)
 - [x] `/` Door + passcode — entry (2.4k)
-- [ ] `/dashboard`, `/letterbox`, `/desktop-app` — dashboard (19.3k) — compare 1.8% / 2.3%, mostly edge smoothing; XP card top line differs
+- [ ] `/dashboard`, `/letterbox`, `/desktop-app` — dashboard (19.3k) — home compare 0.88% / 0.58%. Still to check: letterbox, desktop-app
 - [ ] `/cinema`, `/cinema/video/:id` — cinema (23.2k) — compare 1.3% / 2.7%
 - [x] `/watch-party` — watch_party (11.6k)
-- [ ] `/anime` — anime (21.5k) — home compare 0.74% / 1.18% (rest is poster image smoothing). Header, nav, hero + trailer, ticker, rows, cards ported 1:1. Still to check: watch page, episodes, Motchi sidebar, browse/schedule/search/my list/history/downloads pages
-- [ ] `/manga`, `/manga/reader` — manga (17.6k) — home compare 0.62% / 0.87% (header, nav strip, type chips, item/compact cards, Hot + Genres cards ported 1:1). Still to check: latest/directory/new/genre lists, search results, detail, bookmarks, currently reading shelf, downloads, reader
-- [ ] `/books` (+ reader, detail, listen, list, category, categories), `/our-books` — books (11.3k) — home compare 1.11% / 1.36% (rest is Skia vs browser text rasterising, half-pixel). Home, shelf widgets, cover cards, pill nav and catalog data (popular/recent) ported 1:1. Still to check: search results rows + filters, library grid, detail, reader, listen, list/category pages, our-books
+- [ ] `/anime` — anime (21.5k) — home compare 0.63% / 1.11% (rest is poster image smoothing). Header, nav, hero + trailer, ticker, rows, cards ported 1:1. Still to check: watch page, episodes, Motchi sidebar, browse/schedule/search/my list/history/downloads pages
+- [ ] `/manga`, `/manga/reader` — manga (17.6k) — home compare 0.50% / 0.80% (header, nav strip, type chips, item/compact cards, Hot + Genres cards ported 1:1). Still to check: latest/directory/new/genre lists, search results, detail, bookmarks, currently reading shelf, downloads, reader
+- [ ] `/books` (+ reader, detail, listen, list, category, categories), `/our-books` — books (11.3k) — home compare 1.00% / 1.28% (rest is Skia vs browser text rasterising, half-pixel). Home, shelf widgets, cover cards, pill nav and catalog data (popular/recent) ported 1:1. Still to check: search results rows + filters, library grid, detail, reader, listen, list/category pages, our-books
 - [ ] `/sanctuary` — chat (1.4k)
 - [ ] `/gallery` — gallery (3.1k)
 - [ ] `/journal` — journal (4.4k)
