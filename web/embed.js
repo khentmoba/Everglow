@@ -15,10 +15,12 @@
   ];
 
   var LOAD_TIMEOUT_MS = 12000;
+  var MEDIA_TIMEOUT_MS = 12000;
 
   var COMMANDS = ['play', 'pause', 'seek', 'setMuted', 'getPaused'];
   var EVENTS = [
     'cinesrc:ready',
+    'cinesrc:loadedmetadata',
     'cinesrc:play',
     'cinesrc:pause',
     'cinesrc:timeupdate',
@@ -75,6 +77,16 @@
     }
 
     if (e.origin !== 'https://cinesrc.st' || e.source !== frame.contentWindow) return;
+
+    if (
+      (d.type === 'cinesrc:loadedmetadata' || d.type === 'cinesrc:timeupdate') &&
+      typeof d.duration === 'number' &&
+      isFinite(d.duration) &&
+      d.duration > 0
+    ) {
+      mediaReady = true;
+      clearTimeout(mediaTimer);
+    }
 
     if (EVENTS.indexOf(d.type) !== -1) {
       var out = { type: d.type };
@@ -145,6 +157,8 @@
   var queuePos = 0;
   var current = -1;
   var timer = null;
+  var mediaTimer = null;
+  var mediaReady = false;
   var exhausted = false;
 
   function upstreamUrl(u) {
@@ -170,6 +184,8 @@
   function failAll() {
     exhausted = true;
     clearTimeout(timer);
+    clearTimeout(mediaTimer);
+    mediaReady = false;
     loader.classList.add('hidden');
     errorBox.classList.add('visible');
     try {
@@ -195,6 +211,8 @@
     serverName.textContent = u.label;
     markBar(u.id);
     clearTimeout(timer);
+    clearTimeout(mediaTimer);
+    mediaReady = false;
     frame.src = upstreamUrl(u);
     timer = setTimeout(function () {
       if (current === queue[queuePos]) {
@@ -211,9 +229,18 @@
     clearTimeout(timer);
     loader.classList.add('hidden');
     frame.classList.remove('hidden');
+    if (!mediaReady) {
+      clearTimeout(mediaTimer);
+      mediaTimer = setTimeout(function () {
+        if (current === queue[queuePos] && !mediaReady) {
+          loadPos(queuePos + 1);
+        }
+      }, MEDIA_TIMEOUT_MS);
+    }
   });
   frame.addEventListener('error', function () {
     clearTimeout(timer);
+    clearTimeout(mediaTimer);
     loadPos(queuePos + 1);
   });
 
