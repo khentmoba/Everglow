@@ -249,3 +249,8 @@ export function EverglowStreamView<T>({
     </div>
   );
 }
+
+/** `EverglowSkeleton`: a placeholder block (the shimmer is ambient motion, so phones show it still). */
+export function EverglowSkeleton({ width = '100%', height = 16, radius = 12 }: { width?: number | string; height?: number; radius?: number }) {
+  return <div style={{ width, height, borderRadius: radius, background: AppColors.shimmerBase, flexShrink: 0 }} />;
+}

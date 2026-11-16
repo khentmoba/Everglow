@@ -3,7 +3,7 @@ import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { authService } from '../../core/services/auth';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
-import { lineHeight } from '../../core/theme/paint';
+import { lineHeight, mixedLineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { AlertDialog, SimpleDialog, SimpleDialogOption, TextButton, dialogTitleStyle, showDialog } from '../../shared/widgets/Dialogs';
 import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
@@ -188,7 +188,7 @@ function MiniStat({ label, value, color, icon }: { label: string; value: string;
         <span style={{ ...bodySmall, color: Derived.textMuted }}>{label}</span>
       </div>
       <div style={{ height: 2 }} />
-      <div style={{ ...AppTypography.outfitBold, fontSize: 17, lineHeight: '25px', color: AppColors.petalWhite }}>{value}</div>
+      <div style={{ ...AppTypography.outfitBold, fontSize: 17, lineHeight: mixedLineHeight(17), color: AppColors.petalWhite }}>{value}</div>
     </div>
   );
 }

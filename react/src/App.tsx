@@ -20,6 +20,7 @@ import { BooksPage } from './features/books/BooksPage';
 import { OurBooksPage } from './features/books/OurBooksPage';
 import { BucketListPage } from './features/bucket_list/BucketListPage';
 import { MoneyPage } from './features/money/MoneyPage';
+import { SubsPage } from './features/subs/SubsPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CinemaPage } from './features/cinema/CinemaPage';
 import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
@@ -110,7 +111,6 @@ const KNOWN_UNPORTED = new Set([
   '/trips',
   '/jukebox',
   '/canvas',
-  '/subs',
   '/play-zone',
   '/academy',
   '/motchi',
@@ -162,6 +162,7 @@ const router = createBrowserRouter([
       { path: '/starlight', loader: guard, element: <StarlightPage /> },
       { path: '/bucket-list', loader: guard, element: <BucketListPage /> },
       { path: '/money', loader: guard, element: <MoneyPage /> },
+      { path: '/subs', loader: guard, element: <SubsPage /> },
       { path: '*', loader: guard, element: <FallbackRoute /> },
     ],
   },

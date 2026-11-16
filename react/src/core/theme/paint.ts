@@ -171,6 +171,16 @@ export function lineHeight(size: number, height = 20 / 14): string {
 }
 
 /**
+ * A line whose text falls back to another font (₱ is missing from Outfit, and
+ * emoji): Flutter takes the tallest ascent and descent across the fonts, so
+ * the line measures about 1px taller than `lineHeight`. Measured on Money
+ * (₱ at 17px) and Subs (emoji at 10px).
+ */
+export function mixedLineHeight(size: number, height = 20 / 14): string {
+  return `${Math.ceil(size * height)}px`;
+}
+
+/**
  * A border drawn inside the box the way Flutter's Container draws one.
  * Chrome snaps CSS border widths to whole pixels (1.5px renders as 1px), so
  * fractional widths are painted as an inset shadow instead. Pad the child by

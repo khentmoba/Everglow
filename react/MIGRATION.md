@@ -43,8 +43,8 @@ Order: the screens Clair uses most come first.
 - [ ] `/trips`, `/trips/:id` — trip_kit (2.2k)
 - [ ] `/jukebox`, `/spotify/callback` — jukebox (12.3k)
 - [ ] `/canvas` — canvas (1.5k)
-- [ ] `/money` — money (1.3k)
-- [ ] `/subs` — subs (1.3k)
+- [x] `/money` — money (1.3k). Compare 0.62% / 0.32%. Add/budget dialogs ported; swipe to remove kept
+- [x] `/subs` — subs (1.3k). Compare 0.67% / 0.26%. The add sheet uses the browser date picker instead of the Material one
 - [ ] `/play-zone` (+ tt, tt/lobby, scribble, chess) — play_zone (4.7k)
 - [ ] `/academy` (+ solo, match, podium) — academy (3.8k)
 - [ ] `/motchi` (+ preferences, memory, trivia, today, minis), `/study` — ai (15.4k)

@@ -1,34 +1,40 @@
-// Flutter's showDialog + Material 3 AlertDialog / SimpleDialog / TextButton,
-// themed the way app_theme.dart themes them (panelGlass with the deepRose
-// surface tint at elevation 6, 24px radius, a border, inkDeep @ 72% barrier).
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { ValueNotifier, useValue } from "../../core/system/store";
-import { AppColors, Derived, withAlpha } from "../../core/theme/colors";
-import { AppRadius } from "../../core/theme/layout";
-import { orZero } from "../../core/theme/motion";
-import { lineHeight } from "../../core/theme/paint";
-import { AppTypography } from "../../core/theme/typography";
+// Flutter's showDialog / showModalBottomSheet + Material 3 AlertDialog,
+// SimpleDialog and TextButton, themed the way app_theme.dart themes them
+// (panelGlass, 24px radius, a border, inkDeep @ 72% barrier).
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { ValueNotifier, useValue } from '../../core/system/store';
+import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
+import { AppRadius } from '../../core/theme/layout';
+import { orZero } from '../../core/theme/motion';
+import { lineHeight } from '../../core/theme/paint';
+import { AppTypography } from '../../core/theme/typography';
 
 type Entry = {
   id: number;
   render: (close: (v: unknown) => void) => ReactNode;
   resolve: (v: unknown) => void;
+  sheet?: boolean;
 };
 
 const stack = new ValueNotifier<Entry[]>([]);
 let nextId = 1;
 
 /** `showDialog`: resolves with the value passed to `close`, or null when the barrier is tapped. */
-export function showDialog<R>(
-  render: (close: (value: R | null) => void) => ReactNode,
-): Promise<R | null> {
+export function showDialog<R>(render: (close: (value: R | null) => void) => ReactNode): Promise<R | null> {
   return new Promise((resolve) => {
     const entry: Entry = {
       id: nextId++,
-      render: render as Entry["render"],
-      resolve: resolve as Entry["resolve"],
+      render: render as Entry['render'],
+      resolve: resolve as Entry['resolve'],
     };
     stack.value = [...stack.value, entry];
+  });
+}
+
+/** `showModalBottomSheet` (transparent background, scroll-controlled): the sheet draws itself, pinned to the bottom. */
+export function showModalBottomSheet<R>(render: (close: (value: R | null) => void) => ReactNode): Promise<R | null> {
+  return new Promise((resolve) => {
+    stack.value = [...stack.value, { id: nextId++, render: render as Entry['render'], resolve: resolve as Entry['resolve'], sheet: true }];
   });
 }
 
@@ -53,12 +59,12 @@ function DialogRoute({ entry }: { entry: Entry }) {
   useEffect(() => {
     const raf = requestAnimationFrame(() => setShown(true));
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") closeEntry(entry, null);
+      if (ev.key === 'Escape') closeEntry(entry, null);
     };
-    window.addEventListener("keydown", onKey);
+    window.addEventListener('keydown', onKey);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener('keydown', onKey);
     };
   }, [entry]);
   return (
@@ -67,41 +73,47 @@ function DialogRoute({ entry }: { entry: Entry }) {
       aria-modal
       onClick={() => closeEntry(entry, null)}
       style={{
-        position: "fixed",
+        position: 'fixed',
         inset: 0,
         zIndex: 800,
         background: withAlpha(AppColors.inkDeep, 0.72),
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px 40px",
-        opacity: shown ? 1 : 0,
+        display: 'flex',
+        alignItems: entry.sheet ? 'flex-end' : 'center',
+        justifyContent: 'center',
+        padding: entry.sheet ? 0 : '24px 40px',
+        opacity: entry.sheet || shown ? 1 : 0,
         transition: `opacity ${orZero(150)}ms cubic-bezier(0, 0, 0.58, 1)`,
       }}
     >
-      <div
-        onClick={(ev) => ev.stopPropagation()}
-        style={{ display: "contents" }}
-      >
-        {entry.render((v) => closeEntry(entry, v))}
-      </div>
+      {entry.sheet ? (
+        <div
+          onClick={(ev) => ev.stopPropagation()}
+          style={{
+            width: '100%',
+            transform: `translateY(${shown ? 0 : 100}%)`,
+            transition: `transform ${orZero(250)}ms cubic-bezier(0.2, 0, 0, 1)`,
+          }}
+        >
+          {entry.render((v) => closeEntry(entry, v))}
+        </div>
+      ) : (
+        <div onClick={(ev) => ev.stopPropagation()} style={{ display: 'contents' }}>
+          {entry.render((v) => closeEntry(entry, v))}
+        </div>
+      )}
     </div>
   );
 }
 
 // M3 dialogs in Flutter 3.47 have no surface tint and no shadow.
-function dialogBox(
-  background: string,
-  radius = AppRadius.x2,
-  border = true,
-): CSSProperties {
+function dialogBox(background: string, radius = AppRadius.x2, border = true): CSSProperties {
   return {
     minWidth: 280,
     background,
     borderRadius: radius,
     border: border ? `1px solid ${Derived.border}` : undefined,
-    boxSizing: "border-box",
-    overflow: "hidden",
+    boxSizing: 'border-box',
+    overflow: 'hidden',
   };
 }
 
@@ -123,9 +135,9 @@ export function DialogPanel({
     <div
       style={{
         ...dialogBox(background, radius, border),
-        width: "100%",
-        maxHeight: "100%",
-        overflowY: "auto",
+        width: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
         ...style,
       }}
     >
@@ -165,18 +177,14 @@ export function AlertDialog({
           {title}
         </div>
       )}
-      {content != null && (
-        <div style={{ padding: `${title == null ? 24 : 0}px 24px 24px` }}>
-          {content}
-        </div>
-      )}
+      {content != null && <div style={{ padding: `${title == null ? 24 : 0}px 24px 24px` }}>{content}</div>}
       {actions && actions.length > 0 && (
         <div
           style={{
-            padding: "0 24px 24px",
-            display: "flex",
-            justifyContent: "flex-end",
-            flexWrap: "wrap",
+            padding: '0 24px 24px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
             gap: 8,
           }}
         >
@@ -197,40 +205,24 @@ export function SimpleDialog({
   background?: string;
 }) {
   return (
-    <div
-      style={{ ...dialogBox(background), maxWidth: 560, width: "fit-content" }}
-    >
-      {title != null && (
-        <div style={{ padding: "24px 24px 0", ...dialogTitleStyle }}>
-          {title}
-        </div>
-      )}
-      <div
-        style={{ padding: `12px 0 16px`, maxHeight: "70vh", overflowY: "auto" }}
-      >
-        {children}
-      </div>
+    <div style={{ ...dialogBox(background), maxWidth: 560, width: 'fit-content' }}>
+      {title != null && <div style={{ padding: '24px 24px 0', ...dialogTitleStyle }}>{title}</div>}
+      <div style={{ padding: `12px 0 16px`, maxHeight: '70vh', overflowY: 'auto' }}>{children}</div>
     </div>
   );
 }
 
-export function SimpleDialogOption({
-  onPressed,
-  children,
-}: {
-  onPressed: () => void;
-  children: ReactNode;
-}) {
+export function SimpleDialogOption({ onPressed, children }: { onPressed: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       className="bare-button"
       onClick={onPressed}
       style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        padding: "8px 24px",
+        display: 'block',
+        width: '100%',
+        textAlign: 'left',
+        padding: '8px 24px',
       }}
     >
       {children}
@@ -255,7 +247,7 @@ export function TextButton({
   const [hovered, setHovered] = useState(false);
   // The 48px slot is Material's padded tap target; the visible button stays 40px.
   return (
-    <div style={{ height: 48, display: "flex", alignItems: "center" }}>
+    <div style={{ height: 48, display: 'flex', alignItems: 'center' }}>
       <button
         type="button"
         className="bare-button"
@@ -265,13 +257,13 @@ export function TextButton({
         style={{
           minWidth: 64,
           height: 40,
-          padding: icon ? "0 16px 0 12px" : "0 12px",
+          padding: icon ? '0 16px 0 12px' : '0 12px',
           borderRadius: 20,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           gap: 8,
-          background: hovered ? withAlpha(color, 0.08) : "transparent",
+          background: hovered ? withAlpha(color, 0.08) : 'transparent',
           ...AppTypography.labelLarge,
           lineHeight: lineHeight(14),
           color,
