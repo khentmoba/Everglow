@@ -109,7 +109,7 @@ export async function openPage(browser, url, size, { motion = false } = {}) {
   await page.route('**/flutter_service_worker.js', (r) => r.abort());
   // Catalog APIs rate-limit and drift between the two loads, so the first
   // answer to each query is replayed to the other app.
-  await page.route(/graphql\.anilist\.co|api\.jikan\.moe|proxyCatalog/, async (r) => {
+  await page.route(/graphql\.anilist\.co|api\.jikan\.moe|proxyCatalog|proxyFetchHtml/, async (r) => {
     const req = r.request();
     // Dart and the browser escape query strings slightly differently.
     const plain = (u) => { try { return decodeURIComponent(u.replace(/\+/g, ' ')); } catch { return u; } };
@@ -126,6 +126,9 @@ export async function openPage(browser, url, size, { motion = false } = {}) {
       return r.abort();
     }
   });
+  // Manga covers come through a slow image proxy in Flutter and straight from
+  // the CDN in React; both get the same failed load (the broken-cover tile).
+  await page.route(/proxyMangaKatana|mangakatana\.com\/.*\.(?:jpe?g|png|webp|avif)/, (r) => r.abort());
   // Live trailers differ frame to frame; both apps get the same black embed.
   await page.route(/youtube(-nocookie)?\.com\/embed\//, (r) =>
     r.fulfill({ contentType: 'text/html', body: '<html><body style="margin:0;background:#000"></body></html>' }),

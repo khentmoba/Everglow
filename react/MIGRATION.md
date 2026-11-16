@@ -30,7 +30,7 @@ Order: the screens Clair uses most come first.
 - [ ] `/cinema`, `/cinema/video/:id` — cinema (23.2k) — compare 1.3% / 2.7%
 - [x] `/watch-party` — watch_party (11.6k)
 - [ ] `/anime` — anime (21.5k) — home compare 0.74% / 1.18% (rest is poster image smoothing). Header, nav, hero + trailer, ticker, rows, cards ported 1:1. Still to check: watch page, episodes, Motchi sidebar, browse/schedule/search/my list/history/downloads pages
-- [ ] `/manga`, `/manga/reader` — manga (17.6k) — compare 15% / 11.5%
+- [ ] `/manga`, `/manga/reader` — manga (17.6k) — home compare 0.62% / 0.87% (header, nav strip, type chips, item/compact cards, Hot + Genres cards ported 1:1). Still to check: latest/directory/new/genre lists, search results, detail, bookmarks, currently reading shelf, downloads, reader
 - [ ] `/books` (+ reader, detail, listen, list, category, categories), `/our-books` — books (11.3k) — home compare 1.11% / 1.36% (rest is Skia vs browser text rasterising, half-pixel). Home, shelf widgets, cover cards, pill nav and catalog data (popular/recent) ported 1:1. Still to check: search results rows + filters, library grid, detail, reader, listen, list/category pages, our-books
 - [ ] `/sanctuary` — chat (1.4k)
 - [ ] `/gallery` — gallery (3.1k)

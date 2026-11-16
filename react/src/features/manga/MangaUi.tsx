@@ -1,10 +1,17 @@
+// Ports of lib/features/manga/presentation/katana/ (katana_theme.dart,
+// katana_header.dart, katana_item_card.dart): box for box.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Align, boxShadow, linear } from '../../core/theme/paint';
+import { reduceAmbientMotion } from '../../core/system/device';
+import { useViewport } from '../../core/system/viewport';
+import { withAlpha } from '../../core/theme/colors';
+import { Align, boxShadow, linear, lineHeight } from '../../core/theme/paint';
+import { Fonts } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
 import {
   chapterDisplayTitle,
   fetchKatanaSuggestions,
+  formatKatanaTime,
   type KatanaGenre,
   type KatanaManga,
 } from './katanaService';
@@ -12,23 +19,35 @@ import { KatanaColors, KatanaType } from './katanaTokens';
 
 export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'downloads' | 'bookmarks';
 
+const scrimStrong = '#00000066';
+const white = '#FFFFFF';
+const ellipsis: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+/** AppTypography.outfitBold / outfitWhite at a size, merged into bodyMedium. */
+function outfit(size: number, weight: number, color: string, height = 20 / 14): CSSProperties {
+  return { fontFamily: Fonts.body, fontWeight: weight, color, fontSize: size, lineHeight: lineHeight(size, height) };
+}
+
 export function KatanaCard({
   children,
   style,
   padding = 0,
+  radius = 12,
 }: {
   children: ReactNode;
   style?: CSSProperties;
   padding?: number | string;
+  radius?: number;
 }) {
   return (
     <div
       style={{
         background: KatanaColors.surface,
-        borderRadius: 12,
+        borderRadius: radius,
         border: `1px solid ${KatanaColors.border}`,
-        boxShadow: boxShadow([{ color: 'rgba(0,0,0,0.40)', blur: 18, offset: [0, 6] }]),
+        boxShadow: boxShadow([{ color: '#00000066', blur: 18, offset: [0, 6] }]),
         padding,
+        boxSizing: 'border-box',
         ...style,
       }}
     >
@@ -41,52 +60,45 @@ export function KatanaSectionHeader({
   title,
   badge,
   trailing,
+  underline = KatanaColors.accent,
 }: {
   title: string;
   badge?: string;
   trailing?: ReactNode;
+  underline?: string;
 }) {
+  const { width } = useViewport();
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
       <div
         style={{
           width: 4,
           height: 20,
-          borderRadius: 4,
-          background: linear([KatanaColors.accent, KatanaColors.accentSoft], {
-            begin: Align.topCenter,
-            end: Align.bottomCenter,
-          }),
           flexShrink: 0,
+          borderRadius: 4,
+          background: linear([underline, KatanaColors.accentSoft], { begin: Align.topCenter, end: Align.bottomCenter }),
         }}
       />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span
-          style={{
-            ...KatanaType.section,
-            fontSize: 18,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {title}
-        </span>
-        {badge && (
-          <span
-            style={{
-              padding: '2px 8px',
-              borderRadius: 99,
-              background: 'rgba(255, 46, 126, 0.14)',
-              border: '1px solid rgba(255, 46, 126, 0.40)',
-              color: KatanaColors.accentSoft,
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: 0.8,
-            }}
-          >
-            {badge}
-          </span>
+      <div style={{ width: 10, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+        <span style={{ ...outfit(18, 600, KatanaColors.text, 1.2), ...ellipsis, minWidth: 0 }}>{title}</span>
+        {badge && width >= 430 && (
+          <>
+            <div style={{ width: 8, flexShrink: 0 }} />
+            <span
+              style={{
+                flexShrink: 0,
+                padding: '2px 8px',
+                borderRadius: 99,
+                background: withAlpha(KatanaColors.accent, 0.14),
+                border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
+                ...outfit(10, 600, KatanaColors.accentSoft),
+                letterSpacing: 0.8,
+              }}
+            >
+              {badge}
+            </span>
+          </>
         )}
       </div>
       {trailing}
@@ -107,7 +119,7 @@ export function KatanaButton({
   filled?: boolean;
   color?: string;
 }) {
-  const isPink = color === KatanaColors.accent && filled;
+  const primaryPink = color === KatanaColors.accent && filled;
   return (
     <button
       type="button"
@@ -116,20 +128,146 @@ export function KatanaButton({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
         padding: '9px 16px',
         borderRadius: 99,
-        background: isPink
+        background: primaryPink
           ? linear([KatanaColors.accent, KatanaColors.accentDark], { begin: Align.topLeft, end: Align.bottomRight })
           : filled
             ? color
-            : 'rgba(255, 46, 126, 0.08)',
-        border: `1px solid ${filled ? color : 'rgba(255, 46, 126, 0.55)'}`,
+            : withAlpha(color, 0.08),
+        border: `1px solid ${filled ? color : withAlpha(color, 0.55)}`,
       }}
     >
-      {icon && <Icon name={icon} size={15} color={filled ? '#FFFFFF' : color} />}
-      <span style={{ ...KatanaType.title, fontSize: 13, color: filled ? '#FFFFFF' : color }}>{label}</span>
+      {icon && (
+        <>
+          <Icon name={icon} size={15} color={filled ? white : color} />
+          <div style={{ width: 6 }} />
+        </>
+      )}
+      <span style={outfit(13, 600, filled ? white : color)}>{label}</span>
     </button>
+  );
+}
+
+// katana_header.dart ---------------------------------------------------------
+
+function NavItem({
+  label,
+  icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const highlight = active || hover;
+  return (
+    <button
+      type="button"
+      className="bare-button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flexShrink: 0,
+        margin: '2px 3px',
+        // A 1.5px border: Chrome snaps CSS borders to whole pixels, so it is
+        // painted inset and the padding carries its width, as Container does.
+        padding: '9.5px 13.5px 6.5px',
+        borderRadius: 99,
+        background: active ? withAlpha(KatanaColors.accent, 0.14) : 'transparent',
+        boxShadow: active ? `inset 0 0 0 1.5px ${withAlpha(KatanaColors.accent, 0.45)}` : undefined,
+        position: 'relative',
+      }}
+    >
+      <div style={{ paddingBottom: 5.5, display: 'flex', alignItems: 'center' }}>
+        <Icon name={icon} size={14} color={highlight ? KatanaColors.accent : KatanaColors.textLight} />
+        <div style={{ width: 5 }} />
+        <span
+          style={{
+            // AnimatedDefaultTextStyle replaces bodyMedium: natural height, no letter spacing.
+            ...outfit(13, 600, highlight ? KatanaColors.accent : KatanaColors.text, 1.26),
+            letterSpacing: 0,
+            whiteSpace: 'nowrap',
+            transition: 'color 200ms ease-out',
+          }}
+        >
+          {label}
+        </span>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          left: 17.5,
+          right: 17.5,
+          bottom: 6.5,
+          height: 2.5,
+          borderRadius: 2,
+          background: KatanaColors.accent,
+          opacity: active ? 1 : 0,
+          transform: `scaleX(${active ? 1 : 0})`,
+          transformOrigin: 'left center',
+          transition: 'transform 260ms cubic-bezier(0.215, 0.61, 0.355, 1), opacity 260ms cubic-bezier(0.215, 0.61, 0.355, 1)',
+        }}
+      />
+    </button>
+  );
+}
+
+function GenresDropdown({
+  genres,
+  active,
+  onSelectGenre,
+}: {
+  genres: KatanaGenre[];
+  active: boolean;
+  onSelectGenre: (genre: KatanaGenre) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}
+    >
+      <NavItem label="Genres" icon="local_offer" active={active} onClick={() => setOpen((o) => !o)} />
+      {open && (
+        <div
+          className="no-scrollbar"
+          style={{
+            marginTop: 4,
+            width: 320,
+            maxHeight: 420,
+            overflowY: 'auto',
+            background: KatanaColors.surface,
+            borderRadius: 8,
+            border: `1px solid ${KatanaColors.border}`,
+            boxShadow: boxShadow([{ color: '#00000022', blur: 16, offset: [0, 6] }]),
+            padding: '6px 0',
+            boxSizing: 'border-box',
+          }}
+        >
+          {genres.map((genre) => (
+            <button
+              key={genre.slug}
+              type="button"
+              className="bare-button"
+              onClick={() => {
+                setOpen(false);
+                onSelectGenre(genre);
+              }}
+              style={{ width: '100%', padding: '7px 14px', display: 'flex', alignItems: 'center' }}
+            >
+              <span style={{ ...outfit(13, 500, KatanaColors.text), flex: 1 }}>{genre.name}</span>
+              {genre.count > 0 && <span style={KatanaType.small}>({genre.count})</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -161,10 +299,11 @@ export function KatanaHeader({
   const [suggestions, setSuggestions] = useState<KatanaManga[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [genresOpen, setGenresOpen] = useState(false);
 
   const desktop = width >= 900;
   const narrow = width < 500;
+  const hasText = queryText !== '';
+  const canSubmit = queryText.trim().length >= 3;
 
   useEffect(() => {
     const q = queryText.trim();
@@ -175,6 +314,7 @@ export function KatanaHeader({
       return;
     }
     setSearching(true);
+    setSearched(false);
     const t = window.setTimeout(async () => {
       const res = await fetchKatanaSuggestions(q, searchBy);
       setSuggestions(res);
@@ -184,29 +324,57 @@ export function KatanaHeader({
     return () => window.clearTimeout(t);
   }, [queryText, searchBy]);
 
+  const submit = () => {
+    if (!canSubmit) return;
+    setSuggestions([]);
+    setSearched(false);
+    onSubmitSearch(queryText.trim(), searchBy);
+  };
+
+  // IconButton(visualDensity: compact): a 40px slot around an 18px icon.
+  const backButton = showBack && (
+    <>
+      <button
+        type="button"
+        className="bare-button"
+        onClick={onBack}
+        title="Back to Everglow"
+        aria-label="Back to Everglow"
+        style={{ width: 40, height: 40, flexShrink: 0, borderRadius: '50%', display: 'grid', placeItems: 'center' }}
+      >
+        <Icon name="arrow_back_ios_new" size={18} color={KatanaColors.accentSoft} />
+      </button>
+      <div style={{ width: 4, flexShrink: 0 }} />
+    </>
+  );
+
+  const logoSize = narrow ? 30 : 34;
+  const logoFont = narrow ? 19 : 22;
   const logo = (
     <button
       type="button"
       className="bare-button"
       onClick={() => onSelectNav('home')}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 9, flexShrink: 0 }}
+      style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}
     >
       <div
         style={{
-          width: narrow ? 30 : 34,
-          height: narrow ? 30 : 34,
+          width: logoSize,
+          height: logoSize,
+          flexShrink: 0,
+          boxSizing: 'border-box',
           borderRadius: 10,
           background: linear([KatanaColors.accent, KatanaColors.accentDark], { begin: Align.topLeft, end: Align.bottomRight }),
-          border: '1px solid rgba(255, 133, 179, 0.5)',
+          border: `1px solid ${withAlpha(KatanaColors.accentSoft, 0.5)}`,
           display: 'grid',
           placeItems: 'center',
         }}
       >
-        <Icon name="auto_awesome" size={narrow ? 17 : 19} color="#FFFFFF" />
+        <Icon name="auto_awesome" size={narrow ? 17 : 19} color={white} />
       </div>
-      <span style={{ fontSize: narrow ? 19 : 22, fontWeight: 700, lineHeight: 1 }}>
-        <span style={{ color: KatanaColors.text }}>Manga</span>
-        <span style={{ color: KatanaColors.accent }}>Celestia</span>
+      <div style={{ width: 9, flexShrink: 0 }} />
+      <span style={{ ...outfit(logoFont, 600, KatanaColors.text, 1), whiteSpace: 'nowrap' }}>
+        Manga<span style={{ color: KatanaColors.accent }}>Celestia</span>
       </span>
     </button>
   );
@@ -217,140 +385,166 @@ export function KatanaHeader({
         height: desktop ? 40 : 44,
         width: '100%',
         maxWidth: 620,
+        boxSizing: 'border-box',
         borderRadius: 99,
         background: KatanaColors.background,
-        border: `1px solid ${queryText ? KatanaColors.borderStrong : KatanaColors.border}`,
+        border: `1px solid ${hasText ? KatanaColors.borderStrong : KatanaColors.border}`,
         display: 'flex',
         alignItems: 'center',
-        padding: '0 4px 0 14px',
-        gap: 8,
       }}
     >
-      <Icon name="search" size={18} color={queryText ? KatanaColors.accent : KatanaColors.textLight} />
-      <input
-        value={queryText}
-        onChange={(e) => setQueryText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && queryText.trim().length >= 3) {
-            onSubmitSearch(queryText.trim(), searchBy);
-            setSuggestions([]);
-            setSearched(false);
-          }
-        }}
-        placeholder="Search manga, manhwa, manhua..."
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: 'transparent',
-          border: 'none',
-          outline: 'none',
-          color: KatanaColors.text,
-          fontSize: 13.5,
-        }}
-      />
-      {queryText && (
-        <button type="button" className="bare-button" onClick={() => setQueryText('')} style={{ padding: 4 }}>
-          <Icon name="close" size={16} color={KatanaColors.textLight} />
-        </button>
-      )}
+      <div style={{ width: 14, flexShrink: 0 }} />
+      <Icon name="search" size={18} color={hasText ? KatanaColors.accent : KatanaColors.textLight} />
+      <div style={{ width: 8, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+        {/* The M3 field text is bodyLarge: height 1.5, letterSpacing 0.5. */}
+        <div style={{ position: 'relative', flex: 1, minWidth: 0, height: 20 }}>
+          <input
+            value={queryText}
+            onChange={(e) => setQueryText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            enterKeyHint="search"
+            aria-label="Search manga, manhwa, manhua..."
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              padding: 0,
+              margin: 0,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              ...outfit(13.5, 500, KatanaColors.text, 1.5),
+              letterSpacing: 0.5,
+              caretColor: KatanaColors.accent,
+            }}
+          />
+          {!hasText && (
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: 0,
+                pointerEvents: 'none',
+                ...KatanaType.small,
+                lineHeight: '20px',
+                letterSpacing: 0.5,
+                ...ellipsis,
+              }}
+            >
+              Search manga, manhwa, manhua...
+            </span>
+          )}
+        </div>
+        {hasText && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => setQueryText('')}
+            title="Clear"
+            aria-label="Clear"
+            style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center' }}
+          >
+            <Icon name="clear" size={16} color={KatanaColors.textLight} />
+          </button>
+        )}
+      </div>
       <button
         type="button"
         className="bare-button"
         onClick={() => setSearchBy((s) => (s === 'm_name' ? 'author' : 'm_name'))}
         style={{
+          flexShrink: 0,
+          marginRight: 4,
           padding: '6px 10px',
           borderRadius: 99,
           background: KatanaColors.surfaceAlt,
           border: `1px solid ${KatanaColors.borderStrong}`,
-          color: KatanaColors.accentSoft,
-          fontSize: 12,
-          fontWeight: 600,
-          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
         }}
       >
-        {searchBy === 'm_name' ? (narrow ? 'Name' : 'Manga Name') : 'Author'} ▾
+        <span style={{ ...KatanaType.small, color: KatanaColors.accentSoft, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {searchBy === 'm_name' ? (narrow ? 'Name' : 'Manga Name') : 'Author'}
+        </span>
+        <Icon name="arrow_drop_down" size={16} color={KatanaColors.accentSoft} />
       </button>
       <button
         type="button"
         className="bare-button"
-        onClick={() => {
-          if (queryText.trim().length >= 3) {
-            onSubmitSearch(queryText.trim(), searchBy);
-            setSuggestions([]);
-            setSearched(false);
-          }
-        }}
-        style={{ padding: '6px 10px 6px 4px', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+        onClick={submit}
+        title={canSubmit ? 'Search' : 'Type at least 3 letters'}
+        aria-label="Search"
+        style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', display: 'grid', placeItems: 'center' }}
       >
-        <Icon name="arrow_forward" size={17} color={KatanaColors.textMuted} />
+        <Icon name="arrow_forward" size={18} color={canSubmit ? KatanaColors.accent : KatanaColors.textLight} />
       </button>
+      <div style={{ width: 4, flexShrink: 0 }} />
     </div>
   );
 
-  const bookmarksBtn = (
+  const bookmarksButton = (
     <button
       type="button"
       className="bare-button"
       onClick={() => onSelectNav('bookmarks')}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+      style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
     >
       <Icon name="bookmark" size={18} color={KatanaColors.accent} />
+      <div style={{ width: 4 }} />
       <span style={KatanaType.accent}>Bookmarks</span>
     </button>
   );
 
-  const navItems: { key: KatanaNavKey; label: string; icon: string }[] = [
-    { key: 'home', label: 'Home', icon: 'home' },
-    { key: 'latest', label: 'Latest update', icon: 'bolt' },
-    { key: 'directory', label: 'Manga Directory', icon: 'grid_view' },
-    { key: 'newManga', label: 'New Manga', icon: 'auto_awesome' },
-    { key: 'genres', label: 'Genres', icon: 'local_offer' },
-    ...(showBack ? [{ key: 'reading' as KatanaNavKey, label: 'Currently Reading', icon: 'auto_stories' }] : []),
-    { key: 'downloads', label: 'Downloads', icon: 'download_done' },
-  ];
+  const userChip = (
+    <div
+      style={{
+        padding: '6px 10px',
+        borderRadius: 6,
+        background: KatanaColors.surfaceAlt,
+        border: `1px solid ${KatanaColors.border}`,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <Icon name="person" size={16} color={KatanaColors.textMuted} />
+      <div style={{ width: 6 }} />
+      <span style={outfit(12.5, 600, KatanaColors.text)}>{userName || 'Guest'}</span>
+    </div>
+  );
+
+  const nav = (key: KatanaNavKey, label: string, icon: string) => (
+    <NavItem key={key} label={label} icon={icon} active={active === key} onClick={() => onSelectNav(key)} />
+  );
 
   return (
     <header style={{ background: KatanaColors.headerDark, borderBottom: `1px solid ${KatanaColors.borderStrong}`, flexShrink: 0 }}>
       {desktop ? (
-        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', gap: 8 }}>
-          {showBack && (
-            <button type="button" className="bare-button" onClick={onBack} style={{ padding: 6 }} title="Back to Everglow">
-              <Icon name="arrow_back_ios_new" size={18} color={KatanaColors.accentSoft} />
-            </button>
-          )}
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center' }}>
+          {backButton}
           {logo}
           {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 16px' }}>{searchField}</div>
-          <div style={{ width: 210, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {showBack && bookmarksBtn}
-            <div
-              style={{
-                padding: '6px 10px',
-                borderRadius: 6,
-                background: KatanaColors.surfaceAlt,
-                border: `1px solid ${KatanaColors.border}`,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <Icon name="person" size={16} color={KatanaColors.textMuted} />
-              <span style={{ ...KatanaType.title, fontSize: 12.5 }}>{userName || 'Guest'}</span>
-            </div>
+          <div style={{ width: 16, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>{searchField}</div>
+          <div style={{ width: 16, flexShrink: 0 }} />
+          <div style={{ width: 210, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            {showBack && bookmarksButton}
+            <div style={{ width: 8 }} />
+            {userChip}
           </div>
         </div>
       ) : (
         <div style={{ padding: '10px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            {showBack && (
-              <button type="button" className="bare-button" onClick={onBack} style={{ padding: 6, marginRight: 4 }}>
-                <Icon name="arrow_back_ios_new" size={18} color={KatanaColors.accentSoft} />
-              </button>
-            )}
+            {backButton}
             {logo}
             <div style={{ flex: 1 }} />
             {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
-            {showBack && bookmarksBtn}
+            {showBack && bookmarksButton}
           </div>
           <div style={{ height: 10 }} />
           {searchField}
@@ -359,9 +553,13 @@ export function KatanaHeader({
 
       {queryText.trim().length >= 3 && (searching || searched) && (
         <div style={{ padding: '0 16px 10px' }}>
-          <KatanaCard style={{ maxWidth: 620, margin: '0 auto', overflow: 'hidden' }}>
+          <KatanaCard radius={8} style={{ overflow: 'hidden' }}>
             {searching ? (
-              <div style={{ padding: 16, ...KatanaType.small }}>Searching…</div>
+              <div style={{ padding: 16, display: 'flex', alignItems: 'center' }}>
+                <div className="spin" style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${KatanaColors.accent}`, borderRightColor: 'transparent', boxSizing: 'border-box' }} />
+                <div style={{ width: 12 }} />
+                <span style={KatanaType.small}>Searching...</span>
+              </div>
             ) : suggestions.length === 0 ? (
               <div style={{ padding: 16, ...KatanaType.small }}>No matches found.</div>
             ) : (
@@ -374,292 +572,248 @@ export function KatanaHeader({
                     onClick={() => {
                       setQueryText('');
                       setSuggestions([]);
+                      setSearched(false);
                       onSelectManga(it.slug);
                     }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '8px 12px',
-                      textAlign: 'left',
-                    }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '8px 12px' }}
                   >
-                    {it.coverUrl && (
-                      <img src={it.coverUrl} alt={it.title} style={{ width: 38, height: 50, borderRadius: 4, objectFit: 'cover' }} />
-                    )}
+                    <div style={{ width: 38, height: 50, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                      {it.coverUrl && <img src={it.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                    </div>
+                    <div style={{ width: 10, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...KatanaType.title, fontSize: 13 }}>{it.title}</div>
+                      <div style={{ ...outfit(13, 600, KatanaColors.text), ...ellipsis }}>{it.title}</div>
                       {it.latestChapter && (
-                        <div style={KatanaType.small}>Latest chapter: {chapterDisplayTitle(it.latestChapter)}</div>
+                        <div style={{ ...KatanaType.small, ...ellipsis }}>Latest chapter: {chapterDisplayTitle(it.latestChapter)}</div>
                       )}
                     </div>
                   </button>
                 ))}
+                <div style={{ height: 1, background: KatanaColors.border }} />
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={submit}
+                  style={{ width: '100%', padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Icon name="search" size={15} color={KatanaColors.accent} variant="filled" />
+                  <div style={{ width: 6 }} />
+                  <span style={KatanaType.accent}>View all results</span>
+                </button>
               </div>
             )}
           </KatanaCard>
         </div>
       )}
 
-      <div
-        className="no-scrollbar"
-        style={{
-          background: KatanaColors.surface,
-          borderTop: `0.8px solid ${KatanaColors.border}`,
-          padding: '4px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          overflowX: 'auto',
-          whiteSpace: 'nowrap',
-          position: 'relative',
-        }}
-      >
-        {navItems.map((it) => {
-          const isOn = active === it.key;
-          return (
-            <button
-              key={it.key}
-              type="button"
-              className="bare-button"
-              onClick={() => {
-                if (it.key === 'genres') setGenresOpen((o) => !o);
-                else {
-                  setGenresOpen(false);
-                  onSelectNav(it.key);
-                }
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '7px 12px',
-                borderRadius: 99,
-                flexShrink: 0,
-                background: isOn ? 'rgba(255, 46, 126, 0.16)' : 'transparent',
-                border: `1px solid ${isOn ? 'rgba(255, 46, 126, 0.45)' : 'transparent'}`,
-              }}
-            >
-              <Icon name={it.icon} size={15} color={isOn ? KatanaColors.accent : KatanaColors.textLight} />
-              <span style={{ ...KatanaType.small, color: isOn ? KatanaColors.text : KatanaColors.textMuted, fontWeight: isOn ? 700 : 500 }}>
-                {it.label}
-              </span>
-            </button>
-          );
-        })}
-        {!desktop && showBack && (
-          <button
-            type="button"
-            className="bare-button"
-            onClick={() => onSelectNav('bookmarks')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '7px 12px',
-              borderRadius: 99,
-              flexShrink: 0,
-              background: active === 'bookmarks' ? 'rgba(255, 46, 126, 0.16)' : 'transparent',
-            }}
-          >
-            <Icon name="bookmark" size={15} color={KatanaColors.accent} />
-            <span style={{ ...KatanaType.small, color: KatanaColors.textMuted }}>Bookmarks</span>
-          </button>
-        )}
+      <div style={{ background: KatanaColors.surface, boxShadow: `inset 0 0.8px 0 ${KatanaColors.border}`, paddingTop: 0.8 }}>
+        <div className="no-scrollbar" style={{ overflowX: 'auto', padding: '4px 12px', display: 'flex', alignItems: 'flex-start' }}>
+          {nav('home', 'Home', 'home')}
+          {nav('latest', 'Latest update', 'bolt')}
+          {nav('directory', 'Manga Directory', 'grid_view')}
+          {nav('newManga', 'New Manga', 'auto_awesome')}
+          <GenresDropdown genres={genres} active={active === 'genres'} onSelectGenre={onSelectGenre} />
+          {showBack && nav('reading', 'Currently Reading', 'auto_stories')}
+          {nav('downloads', 'Downloads', 'download_done')}
+          {!desktop && showBack && (
+            <>
+              <div style={{ width: 4, flexShrink: 0 }} />
+              <NavItem label="Bookmarks" icon="bookmark" active={false} onClick={() => onSelectNav('bookmarks')} />
+            </>
+          )}
+        </div>
       </div>
+    </header>
+  );
+}
 
-      {genresOpen && (
+// katana_item_card.dart ------------------------------------------------------
+
+function CoverImage({ url, emptyIcon, errorIcon, iconSize, fill }: { url: string; emptyIcon: string; errorIcon: string; iconSize: number; fill: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: fill, display: 'grid', placeItems: 'center' }}>
+        <Icon name={url ? errorIcon : emptyIcon} size={iconSize} color={KatanaColors.textLight} />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
+  );
+}
+
+function ItemCover({ url, width, height, status }: { url: string; width: number; height: number; status: string }) {
+  const completed = status === 'completed';
+  return (
+    <div style={{ border: `1px solid ${KatanaColors.borderStrong}`, borderRadius: 8, flexShrink: 0 }}>
+      <div style={{ position: 'relative', width, height, borderRadius: 7, overflow: 'hidden' }}>
+        <CoverImage url={url} emptyIcon="menu_book" errorIcon="broken_image" iconSize={url ? 26 : 28} fill={KatanaColors.surfaceAlt} />
         <div
           style={{
-            background: KatanaColors.surfaceAlt,
-            borderTop: `1px solid ${KatanaColors.border}`,
-            padding: '10px 16px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 8,
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            padding: '3px 7px',
+            background: completed ? KatanaColors.green : KatanaColors.accent,
+            borderBottomRightRadius: 6,
+            ...outfit(9, 600, white),
+            whiteSpace: 'nowrap',
           }}
         >
-          {(genres.length
-            ? genres
-            : [
-                { slug: 'action', name: 'Action', count: 0, description: '' },
-                { slug: 'romance', name: 'Romance', count: 0, description: '' },
-                { slug: 'fantasy', name: 'Fantasy', count: 0, description: '' },
-                { slug: 'comedy', name: 'Comedy', count: 0, description: '' },
-                { slug: 'drama', name: 'Drama', count: 0, description: '' },
-                { slug: 'manhwa', name: 'Manhwa', count: 0, description: '' },
-                { slug: 'manhua', name: 'Manhua', count: 0, description: '' },
-                { slug: 'isekai', name: 'Isekai', count: 0, description: '' },
-              ]
-          ).map((g) => (
-            <button
-              key={g.slug}
-              type="button"
-              className="bare-button"
-              onClick={() => {
-                setGenresOpen(false);
-                onSelectGenre(g);
-              }}
-              style={{
-                padding: '5px 10px',
-                borderRadius: 6,
-                background: KatanaColors.surface,
-                border: `1px solid ${KatanaColors.border}`,
-                color: KatanaColors.text,
-                fontSize: 12,
-              }}
-            >
-              {g.name}
-            </button>
-          ))}
+          {completed ? 'Completed' : 'Ongoing'}
         </div>
-      )}
-    </header>
+      </div>
+    </div>
   );
 }
 
 export function KatanaItemCard({
   manga,
   compact,
+  dense = false,
   onSelectManga,
   onSelectGenre,
+  onOpenChapter,
 }: {
   manga: KatanaManga;
   compact: boolean;
+  dense?: boolean;
   onSelectManga: (slug: string) => void;
   onSelectGenre?: (g: KatanaGenre) => void;
+  onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
-  const coverW = compact ? 80 : 106;
-  const coverH = compact ? 114 : 152;
-  const genresShown = compact ? manga.genres.slice(0, 3) : manga.genres;
+  const viewport = useViewport();
+  const small = dense || compact;
+  const genres = compact ? manga.genres.slice(0, 3) : manga.genres;
+  const chapters = manga.recentChapters.slice(0, compact ? 2 : 3);
+  const stop = (fn: () => void) => (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    fn();
+  };
 
   return (
-    <KatanaCard padding={11} style={{ borderWidth: 2 }}>
-      <div onClick={() => onSelectManga(manga.slug)} style={{ display: 'flex', gap: 12, cursor: 'pointer', alignItems: 'flex-start' }}>
-        <div
-          style={{
-            width: coverW,
-            height: coverH,
-            borderRadius: 8,
-            overflow: 'hidden',
-            background: KatanaColors.surfaceAlt,
-            position: 'relative',
-            flexShrink: 0,
-          }}
-        >
-          {manga.coverUrl && (
-            <img src={manga.coverUrl} alt={manga.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          )}
-          <span
-            style={{
-              position: 'absolute',
-              left: 6,
-              top: 6,
-              padding: '2px 7px',
-              borderRadius: 6,
-              background: manga.status === 'completed' ? 'rgba(34,197,94,0.88)' : 'rgba(255, 46, 126, 0.90)',
-              color: '#FFF',
-              fontSize: 10,
-              fontWeight: 700,
-              textTransform: 'capitalize',
-            }}
-          >
-            {manga.status}
-          </span>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelectManga(manga.slug)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onSelectManga(manga.slug);
+      }}
+      style={{
+        background: KatanaColors.surface,
+        borderRadius: 12,
+        border: `2px solid ${KatanaColors.border}`,
+        boxShadow: reduceAmbientMotion(viewport) ? undefined : boxShadow([{ color: scrimStrong, blur: 18, offset: [0, 6] }]),
+        padding: 11,
+        display: 'flex',
+        alignItems: 'flex-start',
+        cursor: 'pointer',
+        outline: 'none',
+      }}
+    >
+      <ItemCover url={manga.coverUrl} width={small ? 80 : 106} height={small ? 114 : 152} status={manga.status} />
+      <div style={{ width: 12, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="clamp-2" style={outfit(15, 600, KatanaColors.text, 1.3)}>
+          {manga.latestChapter ? `${manga.title} - Update ${chapterDisplayTitle(manga.latestChapter)}` : manga.title}
         </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="clamp-2" style={{ ...KatanaType.title, fontSize: 15, lineHeight: 1.3 }}>
-            {manga.latestChapter
-              ? `${manga.title} - Update ${chapterDisplayTitle(manga.latestChapter)}`
-              : manga.title}
+        <div style={{ height: 6 }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 14, rowGap: 4, alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Icon name="schedule" size={13} color={KatanaColors.textLight} />
+            <div style={{ width: 4 }} />
+            <span style={KatanaType.small}>{manga.updateText || 'recently'}</span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 6 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Icon name="schedule" size={13} color={KatanaColors.textLight} />
-              <span style={KatanaType.small}>{manga.updateText || 'recently'}</span>
-            </span>
-            {manga.latestChapter && (
-              <span style={{ ...KatanaType.link, fontSize: 12.5 }}>
-                » {chapterDisplayTitle(manga.latestChapter)}
-              </span>
-            )}
-          </div>
-          {genresShown.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
-              {genresShown.map((g) => (
-                <button
+          {manga.latestChapter && (
+            <div onClick={stop(() => onOpenChapter?.(manga, 'fc'))} style={{ display: 'flex', alignItems: 'center' }}>
+              <Icon name="double_arrow" size={13} color={KatanaColors.link} />
+              <div style={{ width: 4 }} />
+              <span style={KatanaType.link}>First Chapter</span>
+            </div>
+          )}
+        </div>
+        {genres.length > 0 && (
+          <>
+            <div style={{ height: 7 }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 6, rowGap: 5 }}>
+              {genres.map((g) => (
+                <div
                   key={g.slug}
-                  type="button"
-                  className="bare-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectGenre?.(g);
-                  }}
+                  onClick={stop(() => onSelectGenre?.(g))}
                   style={{
-                    padding: '2px 7px',
-                    borderRadius: 4,
+                    padding: '3px 9px',
+                    borderRadius: 99,
                     background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.border}`,
-                    color: KatanaColors.textMuted,
-                    fontSize: 11,
+                    border: `1px solid ${withAlpha(KatanaColors.link, 0.35)}`,
+                    ...outfit(10.5, 600, KatanaColors.link),
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {g.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {!compact && manga.summary && (
-            <div className="clamp-2" style={{ ...KatanaType.small, color: KatanaColors.textMuted, fontSize: 12.5, marginTop: 8 }}>
-              {manga.summary}
-            </div>
-          )}
-          {manga.recentChapters.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
-              {manga.recentChapters.slice(0, compact ? 2 : 3).map((ch, idx) => (
-                <div
-                  key={ch.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 10px',
-                    borderRadius: 8,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${idx === 0 ? KatanaColors.borderStrong : KatanaColors.border}`,
-                  }}
-                >
-                  <Icon
-                    name={idx === 0 ? 'bolt' : 'menu_book'}
-                    size={13}
-                    color={idx === 0 ? KatanaColors.accent : KatanaColors.accentSoft}
-                  />
-                  <span
-                    style={{
-                      ...KatanaType.title,
-                      fontSize: 12.5,
-                      flex: 1,
-                      minWidth: 0,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {chapterDisplayTitle(ch)}
-                  </span>
                 </div>
               ))}
             </div>
-          ) : manga.latestChapter ? (
-            <div style={{ ...KatanaType.accent, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Latest: {chapterDisplayTitle(manga.latestChapter)}
+          </>
+        )}
+        {!compact && manga.summary && !dense && (
+          <>
+            <div style={{ height: 8 }} />
+            <div className="clamp-2" style={{ ...KatanaType.small, color: KatanaColors.textMuted, fontSize: 12.5, lineHeight: lineHeight(12.5) }}>
+              {manga.summary}
             </div>
-          ) : null}
-        </div>
+          </>
+        )}
+        {chapters.length > 0 ? (
+          <>
+            <div style={{ height: 8 }} />
+            {chapters.map((ch, i) => {
+              const first = i === 0;
+              return (
+                <div key={ch.id} style={{ paddingBottom: 4 }}>
+                  <div
+                    onClick={stop(() => onOpenChapter?.(manga, ch.id))}
+                    style={{
+                      padding: '4.5px 9px',
+                      borderRadius: 7,
+                      background: first ? withAlpha(KatanaColors.accent, 0.12) : KatanaColors.surfaceAlt,
+                      border: `1px solid ${first ? withAlpha(KatanaColors.accent, 0.45) : KatanaColors.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Icon name={first ? 'bolt' : 'menu_book'} size={13} color={first ? KatanaColors.accent : KatanaColors.accentSoft} />
+                    <div style={{ width: 5, flexShrink: 0 }} />
+                    <span style={{ ...outfit(12, 700, first ? KatanaColors.text : KatanaColors.accentSoft), ...ellipsis, flex: 1, minWidth: 0 }}>
+                      {chapterDisplayTitle(ch)}
+                    </span>
+                    {ch.updateAt && (
+                      <>
+                        <div style={{ width: 8, flexShrink: 0 }} />
+                        <span style={{ ...KatanaType.small, fontSize: 10.5, lineHeight: lineHeight(10.5), whiteSpace: 'nowrap' }}>
+                          {formatKatanaTime(ch.updateAt)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        ) : manga.latestChapter ? (
+          <>
+            <div style={{ height: 6 }} />
+            <div style={{ ...KatanaType.accent, ...ellipsis }}>Latest: {chapterDisplayTitle(manga.latestChapter)}</div>
+          </>
+        ) : null}
       </div>
-    </KatanaCard>
+    </div>
   );
 }
 
@@ -667,30 +821,43 @@ export function KatanaCompactCard({
   manga,
   width,
   onSelect,
+  onOpenChapter,
 }: {
   manga: KatanaManga;
   width: number;
   onSelect: () => void;
+  onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
+  const viewport = useViewport();
+  const interactive = !reduceAmbientMotion(viewport);
+  const completed = manga.status === 'completed';
   return (
-    <div onClick={onSelect} style={{ width, flexShrink: 0, cursor: 'pointer' }}>
-      <div
-        style={{
-          width,
-          height: width * 1.45,
-          borderRadius: 8,
-          overflow: 'hidden',
-          background: KatanaColors.surfaceAlt,
-          border: `1px solid ${KatanaColors.border}`,
-        }}
-      >
-        {manga.coverUrl && <img src={manga.coverUrl} alt={manga.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+    <div onClick={onSelect} style={{ width, flexShrink: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ borderRadius: 8, padding: interactive ? 2.5 : 0, alignSelf: 'flex-start' }}>
+        <div style={{ position: 'relative', width, height: width * 1.42, borderRadius: 6, overflow: 'hidden' }}>
+          <CoverImage url={manga.coverUrl} emptyIcon="menu_book" errorIcon="broken_image" iconSize={24} fill={KatanaColors.border} />
+        </div>
       </div>
-      <div className="clamp-2" style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 600, marginTop: 6 }}>
+      <div style={{ height: 7 }} />
+      <div className="clamp-2" style={outfit(12.5, 600, KatanaColors.text, 1.25)}>
         {manga.title}
       </div>
+      <div style={{ height: 3 }} />
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: completed ? KatanaColors.green : KatanaColors.accent }} />
+        <div style={{ width: 5, flexShrink: 0 }} />
+        <span style={{ ...KatanaType.small, fontSize: 11, lineHeight: lineHeight(11), flex: 1, minWidth: 0 }}>
+          {completed ? 'Completed' : 'Ongoing'}
+        </span>
+      </div>
       {manga.latestChapter && (
-        <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft, fontSize: 11, marginTop: 2 }}>
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenChapter?.(manga, manga.latestChapter!.id);
+          }}
+          style={{ ...KatanaType.accent, fontSize: 11.5, lineHeight: lineHeight(11.5), ...ellipsis }}
+        >
           {chapterDisplayTitle(manga.latestChapter)}
         </div>
       )}

@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
-import { Align, linear } from '../../core/theme/paint';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
+import { MangaHome } from './MangaHome';
 import { MangaReaderView, type MangaReaderParams } from './MangaReaderPage';
 import {
   KatanaButton,
   KatanaCard,
-  KatanaCompactCard,
   KatanaHeader,
   KatanaItemCard,
   KatanaPagination,
@@ -52,6 +51,7 @@ export function MangaPage() {
   const [typeItems, setTypeItems] = useState<KatanaManga[]>([]);
   const [typePage, setTypePage] = useState(1);
   const [typeHasNext, setTypeHasNext] = useState(false);
+  const [typeLoading, setTypeLoading] = useState(false);
 
   // Catalog data
   const [catItems, setCatItems] = useState<KatanaManga[]>([]);
@@ -82,10 +82,12 @@ export function MangaPage() {
   useEffect(() => {
     if (typeFilter === 'all') return;
     let alive = true;
+    setTypeLoading(true);
     fetchKatanaByType(typeFilter, typePage).then((res) => {
       if (!alive) return;
       setTypeItems(res.items);
       setTypeHasNext(res.hasNext);
+      setTypeLoading(false);
     });
     return () => {
       alive = false;
@@ -129,6 +131,7 @@ export function MangaPage() {
 
   const desktop = width >= 960;
   const compactCard = width < 720;
+  const isHome = !detailSlug && tab === 'home' && homeData != null;
 
   const handleNav = (next: KatanaNavKey) => {
     setDetailSlug(null);
@@ -194,6 +197,29 @@ export function MangaPage() {
         onSelectGenre={handleSelectGenre}
       />
 
+      {isHome ? (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <MangaHome
+            width={width}
+            data={homeData!}
+            type={typeFilter}
+            typeItems={typeItems}
+            typeLoading={typeLoading}
+            typePage={typePage}
+            typeHasNext={typeHasNext}
+            onSelectType={(t) => {
+              if (t === typeFilter) return;
+              setTypeFilter(t);
+              setTypePage(1);
+              setTypeItems([]);
+            }}
+            onTypePage={setTypePage}
+            onSelectManga={(slug) => setDetailSlug(slug)}
+            onSelectGenre={handleSelectGenre}
+            onOpenChapter={(m, chapterId) => openChapter(m, chapterId)}
+          />
+        </div>
+      ) : (
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 60px' }}>
         <div style={{ maxWidth: 1240, margin: '0 auto' }}>
           {detailSlug ? (
@@ -383,121 +409,10 @@ export function MangaPage() {
             </div>
           ) : homeLoading && !homeData ? (
             <div style={{ padding: 48, textAlign: 'center', ...KatanaType.body }}>Loading MangaCelestia…</div>
-          ) : (
-            <div>
-              <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 14 }}>
-                {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => {
-                  const selected = typeFilter === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      className="bare-button"
-                      onClick={() => { setTypeFilter(t); setTypePage(1); }}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '8px 15px',
-                        borderRadius: 99,
-                        background: selected
-                          ? linear([KatanaColors.accent, KatanaColors.accentDark], { begin: Align.topLeft, end: Align.bottomRight })
-                          : KatanaColors.surfaceAlt,
-                        border: `1px solid ${selected ? KatanaColors.accentSoft : KatanaColors.border}`,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Icon name={t === 'all' ? 'all_inclusive' : 'menu_book'} size={15} color={selected ? '#FFFFFF' : KatanaColors.accentSoft} />
-                      <span style={{ ...KatanaType.title, fontSize: 12.5, color: selected ? '#FFFFFF' : KatanaColors.text }}>
-                        {t === 'all' ? 'All' : t[0].toUpperCase() + t.slice(1)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {desktop && typeFilter === 'all' && (homeData?.hotUpdates.length ?? 0) > 0 && (
-                <KatanaCard padding={14} style={{ marginBottom: 14 }}>
-                  <KatanaSectionHeader title="Hot Updates" trailing={<Icon name="whatshot" size={20} color={KatanaColors.orange} />} />
-                  <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', marginTop: 10 }}>
-                    {homeData!.hotUpdates.map((m) => (
-                      <KatanaCompactCard key={m.slug} manga={m} width={120} onSelect={() => setDetailSlug(m.slug)} />
-                    ))}
-                  </div>
-                </KatanaCard>
-              )}
-
-              <div style={{ display: desktop ? 'flex' : 'block', gap: 16, alignItems: 'flex-start' }}>
-                <div style={{ flex: 7, minWidth: 0 }}>
-                  <KatanaSectionHeader title={typeFilter === 'all' ? 'Latest Updates' : typeFilter[0].toUpperCase() + typeFilter.slice(1)} />
-                  <div style={{ height: 12 }} />
-                  {(typeFilter === 'all' ? homeData?.latest ?? [] : typeItems).length === 0 ? (
-                    <KatanaCard padding={20}>
-                      <div style={KatanaType.small}>Nothing updated yet.</div>
-                    </KatanaCard>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {(typeFilter === 'all' ? homeData!.latest : typeItems).map((m) => (
-                        <KatanaItemCard
-                          key={m.slug}
-                          manga={m}
-                          compact={compactCard}
-                          onSelectManga={(slug) => setDetailSlug(slug)}
-                          onSelectGenre={handleSelectGenre}
-                        />
-                      ))}
-                      {typeFilter !== 'all' && (
-                        <KatanaPagination page={typePage} hasPrev={typePage > 1} hasNext={typeHasNext} onPageChange={setTypePage} />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {desktop && (
-                  <div style={{ width: 330, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {(homeData?.genres.length ?? 0) > 0 && (
-                      <KatanaCard padding={14}>
-                        <KatanaSectionHeader title="Genres" />
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
-                          {homeData!.genres.map((g) => (
-                            <button
-                              key={g.slug}
-                              type="button"
-                              className="bare-button"
-                              onClick={() => handleSelectGenre(g)}
-                              style={{
-                                padding: '5px 10px',
-                                borderRadius: 4,
-                                background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${KatanaColors.border}`,
-                                fontSize: 12,
-                                color: KatanaColors.text,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {g.name}
-                            </button>
-                          ))}
-                        </div>
-                      </KatanaCard>
-                    )}
-                    {typeFilter === 'all' && (homeData?.hot.length ?? 0) > 0 && (
-                      <KatanaCard padding={14}>
-                        <KatanaSectionHeader title="Hot Manga" trailing={<Icon name="local_fire_department" size={20} color={KatanaColors.orange} />} />
-                        <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', marginTop: 10 }}>
-                          {homeData!.hot.map((m) => (
-                            <KatanaCompactCard key={m.slug} manga={m} width={96} onSelect={() => setDetailSlug(m.slug)} />
-                          ))}
-                        </div>
-                      </KatanaCard>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
+      )}
 
       {readerParams && <MangaReaderView params={readerParams} onClose={() => setReaderParams(null)} />}
     </div>
