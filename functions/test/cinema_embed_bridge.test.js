@@ -26,10 +26,17 @@ function wrapper() {
     EverglowPlayer: { postMessage: message => native.push(JSON.parse(message)) },
     addEventListener: (type, callback) => { handlers[type] = callback; }
   };
+  const timers = new Map();
+  let nextTimerId = 1;
   const sandbox = {
     window, URLSearchParams,
     MutationObserver: class { observe() {} },
-    setTimeout: () => 1, clearTimeout() {},
+    setTimeout: (fn, ms) => {
+      const id = nextTimerId++;
+      timers.set(id, { fn, ms });
+      return id;
+    },
+    clearTimeout: (id) => { timers.delete(id); },
     document: {
       documentElement: {},
       addEventListener() {},
@@ -38,7 +45,7 @@ function wrapper() {
     }
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../web/embed.js'), 'utf8'), sandbox);
-  return { nodes, events, handlers, parent, native, window };
+  return { nodes, events, handlers, parent, native, window, timers };
 }
 
 test('owned wrapper reports exhausted sources to web and native', () => {
@@ -135,4 +142,44 @@ test('playback events from upstream player are forwarded to parent', () => {
   assert.equal(w.parent.at(-1).type, 'cinesrc:response');
   assert.equal(w.parent.at(-1).command, 'getPaused');
   assert.equal(w.parent.at(-1).result, true);
+});
+
+test('wrapper fails over when upstream HTML loads but media never becomes ready', () => {
+  const w = wrapper();
+  w.events['upstream:load']();
+  assert.equal(w.timers.size, 1);
+
+  w.handlers.message({
+    data: { type: 'cinesrc:ready' },
+    source: w.nodes.upstream.contentWindow,
+    origin: 'https://cinesrc.st',
+  });
+  assert.equal(w.timers.size, 1);
+
+  w.handlers.message({
+    data: { type: 'cinesrc:loadedmetadata', duration: 0 },
+    source: w.nodes.upstream.contentWindow,
+    origin: 'https://cinesrc.st',
+  });
+  assert.equal(w.timers.size, 1);
+
+  const pending = [...w.timers.values()];
+  for (const t of pending) t.fn();
+  assert.equal(w.parent.at(-1).type, 'everglow-embed-failed');
+  assert.equal(w.native.at(-1).type, 'everglow-embed-failed');
+});
+
+test('wrapper clears media timer and forwards loadedmetadata with positive duration', () => {
+  const w = wrapper();
+  w.events['upstream:load']();
+  assert.equal(w.timers.size, 1);
+
+  w.handlers.message({
+    data: { type: 'cinesrc:loadedmetadata', duration: 1840.5 },
+    source: w.nodes.upstream.contentWindow,
+    origin: 'https://cinesrc.st',
+  });
+  assert.equal(w.timers.size, 0);
+  assert.equal(w.parent.at(-1).type, 'cinesrc:loadedmetadata');
+  assert.equal(w.parent.at(-1).duration, 1840.5);
 });

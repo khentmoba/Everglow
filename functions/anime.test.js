@@ -1003,3 +1003,27 @@ test('the legacy skip-times message still drives the buttons', () => {
   assert.equal(els['btn-skip'].hidden, false);
   assert.equal(els['btn-next'].hidden, true, 'no label, so no next button');
 });
+
+test('subtitle VTT fetch fallback renders cues and strips ASS tags when textTracks cues are empty', async () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Ep 1',
+    tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
+  });
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  const calls = { loadSource: [], attachMedia: [], handlers: {} };
+  const context = playerScriptContext(calls);
+  context.elements['sub-txt'] = { textContent: '', style: {} };
+  context.elements.v.querySelectorAll = () => [{ src: 'https://x/en.vtt', label: 'English' }];
+  context.elements.v.textTracks = [{ label: 'English', mode: 'hidden', cues: [] }];
+  context.fetch = async () => ({
+    ok: true,
+    text: async () => 'WEBVTT\n\n00:02:44.456 --> 00:02:46.708\n{\\an8}A long, long time ago,\n',
+  });
+  vm.createContext(context);
+  new vm.Script(code, { filename: 'player.js' }).runInContext(context);
+  context.elements.v.currentTime = 165;
+  context.elements.v.dispatch('loadedmetadata');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(context.elements['sub-txt'].textContent, 'A long, long time ago,');
+});

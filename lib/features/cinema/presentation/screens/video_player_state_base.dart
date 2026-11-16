@@ -55,6 +55,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
   static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
+  static const Duration _cinesrcContentCheckTimeout = Duration(seconds: 14);
+
   late VideoSourceConfig _selectedProvider;
 
   int? _resolvedStartSeconds;
@@ -534,10 +536,21 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   }
 
   void _startContentCheck() {
-    if (_selectedProvider.id != 'vidlink') return;
+    final providerId = _selectedProvider.id;
+    final Duration? timeout;
+    if (providerId == 'vidlink') {
+      timeout = _contentCheckTimeout;
+    } else if (providerId == 'everglow-shell' || providerId == 'flux-cinesrc') {
+      timeout = _cinesrcContentCheckTimeout;
+    } else {
+      return;
+    }
     _contentCheckTimer?.cancel();
-    _contentCheckTimer = Timer(_contentCheckTimeout, () {
+    _contentCheckTimer = Timer(timeout, () {
       if (!mounted) return;
+      if (_selectedProvider.id == 'everglow-shell') {
+        _failedProviderIds.add('flux-cinesrc');
+      }
       _onIframeLoadError();
     });
   }
@@ -563,6 +576,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
             (wrapperMessage == 'animex-content-error' ||
                 (wrapperMessage is Map &&
                     wrapperMessage['type'] == 'everglow-embed-failed'))) {
+          if (_selectedProvider.id == 'everglow-shell') {
+            _failedProviderIds.add('flux-cinesrc');
+          }
           _onIframeLoadError();
           return;
         }
@@ -614,28 +630,42 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
         try {
           final obj = data.dartify();
-          if (obj is Map && obj['type'] == 'cinesrc:timeupdate') {
-            final position = obj['currentTime'];
-            final duration = obj['duration'];
-            if (CinemaVideoSources.trustsCinesrcProgressEvent(
+          if (obj is Map) {
+            final type = obj['type'];
+            if (type == 'cinesrc:loadedmetadata' &&
+                CinemaVideoSources.trustsCinesrcProgressEvent(
                   _selectedProvider.id,
                   origin,
-                ) &&
-                position is num &&
-                duration is num &&
-                position.isFinite &&
-                duration.isFinite &&
-                position >= 0 &&
-                duration > 0 &&
-                position <= duration) {
-              final positionSeconds = position.round();
-              final durationSeconds = duration.round();
-              if (durationSeconds > 0 && positionSeconds <= durationSeconds) {
+                )) {
+              final duration = obj['duration'];
+              if (duration is num && duration.isFinite && duration > 0) {
                 _contentCheckTimer?.cancel();
-                _onPlaybackTick(positionSeconds, durationSeconds);
               }
+              return;
             }
-            return;
+            if (type == 'cinesrc:timeupdate') {
+              final position = obj['currentTime'];
+              final duration = obj['duration'];
+              if (CinemaVideoSources.trustsCinesrcProgressEvent(
+                    _selectedProvider.id,
+                    origin,
+                  ) &&
+                  position is num &&
+                  duration is num &&
+                  position.isFinite &&
+                  duration.isFinite &&
+                  position >= 0 &&
+                  duration > 0 &&
+                  position <= duration) {
+                final positionSeconds = position.round();
+                final durationSeconds = duration.round();
+                if (durationSeconds > 0 && positionSeconds <= durationSeconds) {
+                  _contentCheckTimer?.cancel();
+                  _onPlaybackTick(positionSeconds, durationSeconds);
+                }
+              }
+              return;
+            }
           }
         } catch (_) {
           // Ignore malformed CineSrc progress events.

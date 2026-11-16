@@ -78,7 +78,6 @@ class CinemaVideoSources {
     'everglow-embed',
     'flux-cinesrc',
     'vidcore',
-    'vidlink',
   };
 
   static bool _isNoAds(VideoSourceConfig p) =>

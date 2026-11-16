@@ -607,14 +607,20 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'post("animex-content-error");}' +
     'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
     'var started=false;' +
-    'v.addEventListener("playing",function(){started=true;hideBoot();tapw.hidden=true;' +
+    'var stallT=null;' +
+    'function clearStall(){if(typeof clearTimeout==="function"&&stallT){clearTimeout(stallT);stallT=null;}}' +
+    'function armStall(){clearStall();if(typeof setTimeout==="function"){' +
+    'stallT=setTimeout(function(){stallT=null;if(!v.paused&&!v.ended)giveUp();},15000);}}' +
+    'v.addEventListener("playing",function(){started=true;clearStall();hideBoot();tapw.hidden=true;' +
     'if(buf)buf.hidden=true;' +
     'if(dead){dead.hidden=true;dead.style.paddingRight="";}' +
     'if(picking){picking=false;if(svMenu)svMenu.hidden=true;}' +
     'if(playP)playP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");' +
     'if(cplayP)cplayP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");});' +
-    'v.addEventListener("canplay",function(){if(buf)buf.hidden=true;});' +
+    'v.addEventListener("canplay",function(){clearStall();if(buf)buf.hidden=true;});' +
+    'v.addEventListener("pause",clearStall);v.addEventListener("ended",clearStall);' +
     'v.addEventListener("waiting",function(){' +
+    'if(!v.paused&&!v.ended)armStall();' +
     'if(!started){if(dead.hidden)boot.style.display="flex";return;}' +
     'if(buf)buf.hidden=false;});' +
     'if(btnPlay)btnPlay.addEventListener("click",function(){togglePlay();kick(btnPlay,"pop");});' +
@@ -666,7 +672,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var pickSeq=0;' +
     'function setTracks(list){var old=v.querySelectorAll?v.querySelectorAll("track"):[];' +
     'for(var i=old.length-1;i>=0;i--){try{v.removeChild(old[i]);}catch(e){}}' +
-    'cueList=[];cueTrack=-1;' +
+    'cueList=[];cueTrack=-1;cueFetching=-1;cueFetchSeq++;' +
     'var arr=Array.isArray(list)?list:[],added=0;' +
     'for(var k=0;k<arr.length&&added<8;k++){var t=arr[k];if(!t||!t.file)continue;' +
     'var el=document.createElement("track");el.kind="captions";el.src=String(t.file);' +
@@ -760,14 +766,34 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'for(var k=0;k<3;k++){(function(idx){' +
     'sz.appendChild(ccBtn(sizes[idx],idx===prefs.size,function(){setSize(idx);}));})(k);}' +
     'ccMenu.appendChild(sz);}' +
-    'var cueList=[],cueTrack=-1;' +
-    'function readCues(){if(!v.textTracks)return;var n=v.textTracks.length;if(!n)return;' +
+    'var cueList=[],cueTrack=-1,cueFetching=-1,cueFetchSeq=0;' +
+    'function cleanCueText(s){return String(s||"").replace(/\\{\\\\[^}]*\\}/g,"").replace(/<[^>]+>/g,"").trim();}' +
+    'function parseVttTime(s){var m=String(s||"").trim().match(/^(?:(\\d+):)?(\\d{1,2}):(\\d{2}(?:[.,]\\d+)?)$/);' +
+    'if(!m)return NaN;var h=m[1]?Number(m[1]):0,mn=Number(m[2]),sc=Number(m[3].replace(",","."));' +
+    'return h*3600+mn*60+sc;}' +
+    'function parseVtt(txt){var blocks=String(txt||"").replace(/\\r\\n?/g,"\\n").split(/\\n\\n+/),out=[];' +
+    'for(var i=0;i<blocks.length;i++){var lines=blocks[i].split("\\n"),ti=-1;' +
+    'for(var j=0;j<lines.length;j++){if(lines[j].indexOf("-->")>=0){ti=j;break;}}' +
+    'if(ti<0)continue;var parts=lines[ti].split("-->");' +
+    'var s=parseVttTime(parts[0]),e=parseVttTime((parts[1]||"").trim().split(/\\s+/)[0]);' +
+    'if(!isFinite(s)||!isFinite(e)||e<=s)continue;' +
+    'var body=cleanCueText(lines.slice(ti+1).join("\\n"));' +
+    'if(body)out.push({s:s,e:e,t:body});}return out;}' +
+    'function fetchVtt(pick){if(typeof fetch!=="function")return;' +
+    'var el=trackEls()[pick];var src=el&&(el.src||(el.getAttribute&&el.getAttribute("src")));' +
+    'if(!src||cueFetching===pick)return;cueFetching=pick;var seq=++cueFetchSeq;' +
+    'fetch(src).then(function(r){return r&&r.ok?r.text():"";}).then(function(txt){' +
+    'if(seq!==cueFetchSeq||subPick!==pick)return;' +
+    'var parsed=parseVtt(txt);if(parsed.length){cueList=parsed;cueTrack=pick;renderCues();}' +
+    '}).catch(function(){});}' +
+    'function readCues(){var n=trackCount();if(!n)return;' +
     'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
     'if(cueTrack===pick&&cueList.length)return;var out=[];' +
-    'try{var cs=v.textTracks[pick].cues;if(cs){for(var j=0;j<cs.length;j++){var c=cs[j];' +
+    'try{var cs=v.textTracks&&v.textTracks[pick]&&v.textTracks[pick].cues;' +
+    'if(cs){for(var j=0;j<cs.length;j++){var c=cs[j];' +
     'if(!c||typeof c.startTime!=="number"||typeof c.endTime!=="number")continue;' +
-    'out.push({s:c.startTime,e:c.endTime,t:String(c.text||"").replace(/<[^>]+>/g,"")});}}}catch(e){}' +
-    'if(out.length){cueList=out;cueTrack=pick;}}' +
+    'var tx=cleanCueText(c.text);if(tx)out.push({s:c.startTime,e:c.endTime,t:tx});}}}catch(e){}' +
+    'if(out.length){cueList=out;cueTrack=pick;}else if(ccOn){fetchVtt(pick);}}' +
     'function renderCues(){if(!subTxt)return;' +
     'if(!ccOn){if(subTxt.textContent)subTxt.textContent="";return;}' +
     'readCues();' +
@@ -777,12 +803,12 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(t>=c.s&&t<c.e&&c.t)lines.push(c.t);}' +
     'var next=lines.join("\\n");' +
     'if(subTxt.textContent!==next)subTxt.textContent=next;}' +
-    'function syncCues(){if(!v.textTracks)return;var n=v.textTracks.length;' +
+    'function syncCues(){var n=trackCount();' +
     'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
-    'cueList=[];cueTrack=-1;' +
-    'for(var i=0;i<n;i++){var tr=v.textTracks[i];' +
+    'cueList=[];cueTrack=-1;cueFetching=-1;cueFetchSeq++;' +
+    'if(v.textTracks){for(var i=0;i<v.textTracks.length;i++){var tr=v.textTracks[i];' +
     'if(i!==pick){tr.mode="disabled";tr.oncuechange=null;continue;}' +
-    'tr.mode=ccOn?"hidden":"disabled";tr.oncuechange=renderCues;}' +
+    'tr.mode=ccOn?"hidden":"disabled";tr.oncuechange=renderCues;}}' +
     'renderCues();}' +
     'v.addEventListener("loadedmetadata",function(){buildCcMenu();syncCues();});' +
     'if(v.textTracks&&v.textTracks.addEventListener)v.textTracks.addEventListener("addtrack",buildCcMenu);' +

@@ -122,7 +122,7 @@ void main() {
       }
       expect(
         ids,
-        ['everglow-embed', 'vidlink', 'vidcore', 'admirror'],
+        ['everglow-embed', 'vidcore', 'vidlink', 'admirror'],
       );
     });
 
@@ -183,6 +183,7 @@ void main() {
       };
 
       expect(byId['vidlink']!.sandboxSafe, isFalse);
+      expect(byId['vidlink']!.desc.toLowerCase(), isNot(contains('no ads')));
     });
   });
 }
