@@ -17,8 +17,9 @@ class VideoSourceService extends ChangeNotifier {
   static const Set<String> _noAdsIds = {
     'everglow-embed',
     'vidcore',
-    'vidlink',
   };
+
+  static const Set<String> _sandboxSafeIds = {'vidcore'};
 
   static const Set<String> _retiredIds = {
     'videasy',
@@ -41,20 +42,37 @@ class VideoSourceService extends ChangeNotifier {
     final kept = <VideoSourceConfig>[];
     for (final p in list) {
       if (_retiredIds.contains(p.id)) continue;
-      kept.add(
-        _noSandboxIds.contains(p.id) && p.sandboxSafe
-            ? VideoSourceConfig(
-                id: p.id,
-                name: p.name,
-                shortName: p.shortName,
-                desc: p.desc,
-                movieUrl: p.movieUrl,
-                tvUrl: p.tvUrl,
-                isRecommended: p.isRecommended,
-                sandboxSafe: false,
-              )
-            : p,
-      );
+      if (_noSandboxIds.contains(p.id)) {
+        kept.add(
+          VideoSourceConfig(
+            id: p.id,
+            name: p.name,
+            shortName: p.shortName,
+            desc: p.id == 'vidlink' && p.desc.toLowerCase().contains('no ads')
+                ? 'Large library, may have ads'
+                : p.desc,
+            movieUrl: p.movieUrl,
+            tvUrl: p.tvUrl,
+            isRecommended: p.isRecommended,
+            sandboxSafe: false,
+          ),
+        );
+      } else if (_sandboxSafeIds.contains(p.id) && !p.sandboxSafe) {
+        kept.add(
+          VideoSourceConfig(
+            id: p.id,
+            name: p.name,
+            shortName: p.shortName,
+            desc: p.desc,
+            movieUrl: p.movieUrl,
+            tvUrl: p.tvUrl,
+            isRecommended: p.isRecommended,
+            sandboxSafe: true,
+          ),
+        );
+      } else {
+        kept.add(p);
+      }
     }
     return [
       ...kept.where(_isNoAds),
@@ -167,7 +185,7 @@ class VideoSourceService extends ChangeNotifier {
       id: 'vidlink',
       name: 'VidLink',
       shortName: 'VidLink',
-      desc: 'Large library, no ads',
+      desc: 'Large library, may have ads',
       movieUrl: 'https://vidlink.pro/movie/',
       tvUrl: 'https://vidlink.pro/tv/',
     ),
