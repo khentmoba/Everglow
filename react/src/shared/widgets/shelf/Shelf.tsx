@@ -1,22 +1,15 @@
 // Ports of lib/shared/widgets/shelf/: the media-shelf pieces books (and later
 // other shelves) share. Each one matches its Flutter file box for box.
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { reduceAmbientMotion } from '../../../core/system/device';
 import { useViewport } from '../../../core/system/viewport';
 import { AppColors, withAlpha } from '../../../core/theme/colors';
-import { Align, linear, lineHeight } from '../../../core/theme/paint';
+import { Align, insetBorder, linear, lineHeight } from '../../../core/theme/paint';
 import { AppTypography } from '../../../core/theme/typography';
 import { EverglowBackground, type RadialGlow } from '../EverglowBackground';
 import { Icon } from '../Icon';
 
-/**
- * A border drawn inside the box the way Flutter's Container draws one: the
- * child is padded by the border width, and fractional widths (0.8px) stay
- * fractional instead of snapping to a device pixel.
- */
-export function insetBorder(color: string, width: number): CSSProperties {
-  return { boxShadow: `inset 0 0 0 ${width}px ${color}` };
-}
+export { insetBorder };
 
 // atmospheric_backdrop.dart
 export const shelfDefaultGlows: RadialGlow[] = [

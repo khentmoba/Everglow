@@ -169,3 +169,13 @@ export function letterSpacing(px: number): CSSProperties {
 export function lineHeight(size: number, height = 20 / 14): string {
   return `${Math.round(size * height)}px`;
 }
+
+/**
+ * A border drawn inside the box the way Flutter's Container draws one.
+ * Chrome snaps CSS border widths to whole pixels (1.5px renders as 1px), so
+ * fractional widths are painted as an inset shadow instead. Pad the child by
+ * the width yourself when the content is not centred.
+ */
+export function insetBorder(color: string, width: number): CSSProperties {
+  return { boxShadow: `inset 0 0 0 ${width}px ${color}` };
+}

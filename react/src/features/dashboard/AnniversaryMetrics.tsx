@@ -4,7 +4,7 @@ import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
 import { reduceAmbientMotion } from '../../core/theme/motion';
-import { Align, letterSpacing, linear, shadowLayer } from '../../core/theme/paint';
+import { Align, letterSpacing, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import {
@@ -212,7 +212,7 @@ function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; to
                     end: Align.bottomRight,
                     size: [38, 38],
                   }),
-                  border: `1.2px solid ${withAlpha(AppColors.auroraRose, 0.5)}`,
+                  ...insetBorder(withAlpha(AppColors.auroraRose, 0.5), 1.2),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

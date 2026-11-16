@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AppColors, withAlpha } from '../../core/theme/colors';
-import { Align, boxShadow, linear } from '../../core/theme/paint';
+import { Align, boxShadow, linear, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 
@@ -39,7 +39,7 @@ function PortalCard({
             withAlpha(AppColors.velvet, 0.72),
             withAlpha(AppColors.plum, 0.55),
           ], { begin: Align.topLeft, end: Align.bottomRight }),
-          border: `1.5px solid ${withAlpha(AppColors.blushGold, 0.25)}`,
+          ...insetBorder(withAlpha(AppColors.blushGold, 0.25), 1.5),
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',

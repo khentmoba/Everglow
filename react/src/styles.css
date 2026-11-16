@@ -53,6 +53,13 @@ body {
   -webkit-touch-callout: none;
 }
 
+/* Flutter rounds every Text line to a whole pixel (fontSize × 20/14). Text
+   that sets no line height of its own gets that rounded value here; any
+   inline lineHeight still wins. */
+:where(body *) {
+  line-height: round(calc(1em * 20 / 14), 1px);
+}
+
 /* Flutter's text styles from lib/core/theme/app_typography.dart. */
 .t-outfit { font-family: var(--font-body); }
 .t-bodySmall { font-family: var(--font-body); font-size: 12.5px; font-weight: 500; color: rgba(244, 194, 194, 0.76); }

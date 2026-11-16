@@ -6,7 +6,7 @@ import { useAuth } from '../../core/services/auth';
 import { useValue } from '../../core/system/store';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { CssCurves, orZero } from '../../core/theme/motion';
-import { shadowLayer } from '../../core/theme/paint';
+import { shadowLayer, insetBorder } from '../../core/theme/paint';
 import { Icon } from '../../shared/widgets/Icon';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { EverglowGuardian } from '../guardian/EverglowGuardian';
@@ -142,7 +142,7 @@ function DashboardActions() {
             height: 54,
             borderRadius: '50%',
             background: withAlpha(AppColors.moonlight, hovered ? 0.22 : 0.12),
-            border: `1.5px solid ${withAlpha(AppColors.blushGold, hovered ? 0.85 : 0.55)}`,
+            ...insetBorder(withAlpha(AppColors.blushGold, hovered ? 0.85 : 0.55), 1.5),
             transform: `scale(${pressed ? 0.9 : hovered ? 1.08 : 1})`,
             transition: `transform ${orZero(160)}ms ${CssCurves.easeOutStrong}, background ${orZero(160)}ms ${CssCurves.easeOutStrong}`,
             display: 'flex',
@@ -210,9 +210,7 @@ function FloatingAction({
             height: kTopActionsSize,
             borderRadius: '50%',
             background: filled ? AppColors.deepRose : withAlpha(AppColors.moonlight, hovered ? 0.22 : 0.12),
-            border: `1.5px solid ${
-              filled ? withAlpha(AppColors.auroraRose, 0.7) : withAlpha(AppColors.blushGold, hovered ? 0.85 : 0.55)
-            }`,
+            ...insetBorder(filled ? withAlpha(AppColors.auroraRose, 0.7) : withAlpha(AppColors.blushGold, hovered ? 0.85 : 0.55), 1.5),
             transform: `scale(${pressed ? 0.9 : hovered ? 1.08 : 1})`,
             transition: `transform ${orZero(160)}ms ${CssCurves.easeOutStrong}, background ${orZero(160)}ms ${CssCurves.easeOutStrong}`,
             display: 'flex',

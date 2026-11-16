@@ -5,7 +5,7 @@ import { useAuth } from '../../core/services/auth';
 import { useOnline, useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint, AppSpacing, responsive } from '../../core/theme/layout';
-import { Align, letterSpacing, linear, shadowLayer } from '../../core/theme/paint';
+import { Align, letterSpacing, lineHeight, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { EverglowBackground, type RadialGlow } from '../../shared/widgets/EverglowBackground';
@@ -277,8 +277,8 @@ function DashboardHeader({ width }: { width: number }) {
                 [withAlpha(AppColors.moonlight, 0.18), withAlpha(AppColors.deepRose, 0.12), withAlpha(AppColors.inkDeep, 0.9)],
                 { begin: Align.topLeft, end: Align.bottomRight, stops: [0, 0.55, 1], size: [108, 108] },
               ),
-              border: `1.2px solid ${withAlpha(AppColors.moonlight, 0.12)}`,
-              padding: 13,
+              ...insetBorder(withAlpha(AppColors.moonlight, 0.12), 1.2),
+              padding: 14.2,
             }}
           >
             <img
@@ -329,6 +329,7 @@ function DashboardHeader({ width }: { width: number }) {
             fontSize: 12.5,
             color: withAlpha(AppColors.petalWhite, 0.68),
             fontWeight: 500,
+            lineHeight: lineHeight(12.5),
             ...letterSpacing(2.4),
             whiteSpace: 'pre',
           }}
