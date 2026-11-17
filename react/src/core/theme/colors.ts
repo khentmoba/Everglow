@@ -82,6 +82,15 @@ export const Derived = {
   divider: withAlpha(AppColors.moonlight, 0.18),
 };
 
+/** The Material 3 dark scheme Flutter seeds from deepRose (AppTheme.gamifiedTheme). */
+export const M3Scheme = {
+  onSurface: '#EFDEE0',
+  onSurfaceVariant: '#D6C2C4',
+  outline: '#9E8C8F',
+  onPrimary: '#650033',
+  white70: 'rgba(255,255,255,0.7)',
+};
+
 export const AppArt = {
   leaf: '#66BB6A',
   leafLight: '#81C784',

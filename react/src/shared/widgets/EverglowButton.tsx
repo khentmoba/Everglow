@@ -20,6 +20,7 @@ export function EverglowButton({
   backgroundColor,
   foregroundColor,
   fullWidth = false,
+  stretch = false,
 }: {
   label: string;
   icon?: string;
@@ -30,6 +31,8 @@ export function EverglowButton({
   backgroundColor?: string;
   foregroundColor?: string;
   fullWidth?: boolean;
+  /** Stretched by its parent (a ListView child): full width with the label on the left, as Flutter lays it out. */
+  stretch?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
@@ -94,8 +97,8 @@ export function EverglowButton({
         transition: `transform ${orZero(160)}ms ${CssCurves.easeOutStrong}, background ${orZero(160)}ms ${CssCurves.easeOutStrong}`,
         display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        width: fullWidth ? '100%' : undefined,
+        justifyContent: stretch ? 'flex-start' : 'center',
+        width: fullWidth || stretch ? '100%' : undefined,
         cursor: enabled ? 'pointer' : 'default',
       }}
     >

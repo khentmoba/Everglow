@@ -32,7 +32,7 @@ export function EverglowEmptyState({
 }) {
   const size = compact ? 64 : 84;
   return (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
         style={{
           padding: compact ? AppSpacing.x2 : AppSpacing.x4,
@@ -115,7 +115,7 @@ export function EverglowErrorState({ message, onRetry, retryLabel, icon = 'cloud
   icon?: string;
 }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ padding: AppSpacing.x3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div
           style={{
@@ -221,7 +221,7 @@ export function EverglowStreamView<T>({
   if (state.data == null) return <>{loadingView ?? <EverglowLoadingState message={loadingMessage} />}</>;
   const content = isEmpty?.(state.data) ? (emptyView ?? null) : builder(state.data);
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       {content}
       {state.error != null && (
         <button
