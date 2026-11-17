@@ -1,6 +1,6 @@
 // Side-by-side check that the React build looks like the Flutter build.
 //
-//   node tools/compare.mjs [path] [--size phone|tablet] [--out dir] [--settle ms] [--motion] [--click x,y] [--seed]
+//   node tools/compare.mjs [path] [--size phone|tablet] [--out dir] [--settle ms] [--motion] [--click x,y[;x,y...]] [--seed]
 //   --click taps a point (CSS px) halfway through the settle, e.g. to collapse the agent HUD.
 //
 // Serves ../build/web (Flutter, from `flutter build web`) and ./dist
@@ -18,7 +18,9 @@ const outDir = resolve(flag('--out', 'compare-out'));
 const motion = args.includes('--motion');
 const seed = args.includes('--seed');
 const settle = Number(flag('--settle', '6000'));
-const click = flag('--click')?.split(',').map(Number);
+const clicks = flag('--click')
+  ?.split(';')
+  .map((c) => c.split(',').map(Number));
 // `landscape` (a phone held sideways) is opt-in: the games only run that way.
 const EXTRA = { landscape: { ...SIZES.phone, width: 844, height: 390 } };
 const sizes = flag('--size') ? { [flag('--size')]: SIZES[flag('--size')] ?? EXTRA[flag('--size')] } : SIZES;
@@ -26,10 +28,12 @@ mkdirSync(outDir, { recursive: true });
 
 async function shoot(browser, url, size, file) {
   const { page, context } = await openPage(browser, url, size, { motion, seed });
-  if (click) {
-    await page.waitForTimeout(settle / 2);
-    await page.mouse.click(click[0], click[1]);
-    await page.waitForTimeout(settle / 2);
+  if (clicks) {
+    for (const [x, y] of clicks) {
+      await page.waitForTimeout(settle / (clicks.length + 1));
+      await page.mouse.click(x, y);
+    }
+    await page.waitForTimeout(settle / (clicks.length + 1));
   } else await page.waitForTimeout(settle);
   await page.evaluate(() => document.fonts?.ready);
   await page.screenshot({ path: file });

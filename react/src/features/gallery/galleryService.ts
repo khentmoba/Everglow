@@ -18,7 +18,7 @@ import {
   type QueryDocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type MemoryPhotoFixture } from '../../core/agent/fixtures';
 import { auth, db, storage } from '../../core/services/firebase';
@@ -89,28 +89,76 @@ function mapDoc(d: QueryDocumentSnapshot<DocumentData>): MemoryPhoto {
   };
 }
 
-async function resizeJpeg(file: File, maxDim: number, quality = 0.86): Promise<Blob> {
+// Port of upload_image_preparation_web.dart: a 1600px full image and a 400px
+// thumb, both JPEG 0.85; the original bytes (and no thumb) if the browser fails.
+async function prepareImages(file: Blob): Promise<{ full: Blob; thumb: Blob | null }> {
   const url = URL.createObjectURL(file);
+  const image = new Image();
+  image.src = url;
   try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = reject;
-      el.src = url;
-    });
-    const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
-    const w = Math.max(1, Math.round(img.width * ratio));
-    const h = Math.max(1, Math.round(img.height * ratio));
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return file;
-    ctx.drawImage(img, 0, 0, w, h);
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', quality));
-    return blob ?? file;
+    await image.decode();
+    const resize = async (longestEdge: number) => {
+      const scale = Math.min(1, longestEdge / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      try {
+        canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
+        if (!blob) throw new Error('JPEG encoding failed');
+        return blob;
+      } finally {
+        canvas.width = canvas.height = 0;
+      }
+    };
+    return { full: await resize(1600), thumb: await resize(400) };
+  } catch (e) {
+    Logger.e('Browser image preparation failed, using original bytes', e);
+    return { full: file, thumb: null };
   } finally {
     URL.revokeObjectURL(url);
+  }
+}
+
+function isObjectNotFound(e: unknown): boolean {
+  const code = (e as { code?: string } | null)?.code;
+  return code === 'object-not-found' || code === 'storage/object-not-found';
+}
+
+async function deleteStorageViaFunction(imageUrl: string): Promise<void> {
+  try {
+    const idToken = (await auth.currentUser?.getIdToken()) ?? '';
+    if (!idToken) throw new Error('No authenticated user for gallery file cleanup');
+    let lastError: unknown = null;
+    for (const url of ['/api/deleteGalleryPhoto', 'https://us-central1-everglow-1c6db.cloudfunctions.net/deleteGalleryPhoto']) {
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ imageUrl }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (resp.status === 200) return;
+        lastError = new Error(`deleteGalleryPhoto ${url} returned ${resp.status}`);
+        Logger.e('Gallery storage fallback failed', lastError);
+      } catch (e) {
+        Logger.e(`deleteGalleryPhoto attempt failed for ${url}`, e);
+        lastError = e;
+      }
+    }
+    throw lastError ?? new Error('Gallery storage fallback did not run');
+  } catch (e) {
+    Logger.e(`Gallery: storage cleanup via function failed for ${imageUrl}`, e);
+    throw e;
+  }
+}
+
+async function deleteStorageObject(imageUrl: string): Promise<void> {
+  try {
+    await deleteObject(ref(storage, imageUrl));
+  } catch (e) {
+    if (isObjectNotFound(e)) return;
+    await deleteStorageViaFunction(imageUrl);
   }
 }
 
@@ -152,12 +200,7 @@ class GalleryService {
     if (AgentMode.demo) return { items: [], nextCursor: null, hasMore: false };
     const q = cursor
       ? query(collection(db, COLLECTION), orderBy('uploadedAt', 'desc'), startAfter(cursor), limit(max))
-      : query(
-          collection(db, COLLECTION),
-          orderBy('uploadedAt', 'desc'),
-          startAfter(Timestamp.fromDate(before)),
-          limit(max),
-        );
+      : query(collection(db, COLLECTION), orderBy('uploadedAt', 'desc'), startAfter(Timestamp.fromDate(before)), limit(max));
     const snap = await getDocs(q);
     return {
       items: snap.docs.map(mapDoc),
@@ -166,20 +209,37 @@ class GalleryService {
     };
   }
 
-  async searchPhotos(term: string, recent: MemoryPhoto[] = []): Promise<MemoryPhoto[]> {
-    const q = term.trim().toLowerCase();
-    if (!q) return [];
-    const matches = (p: MemoryPhoto) =>
-      p.caption.toLowerCase().includes(q) ||
-      p.tags.some((t) => t.toLowerCase().includes(q)) ||
-      (p.locationName?.toLowerCase().includes(q) ?? false);
+  // A photo the partner deletes stays searchable until the page is reopened (same as Flutter).
+  private searchIndex: Promise<MemoryPhoto[]> | null = null;
 
-    if (AgentMode.demo) {
-      return this.ensureDemo().filter(matches);
+  private async readAllPhotos(): Promise<MemoryPhoto[]> {
+    const photos: MemoryPhoto[] = [];
+    let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+    do {
+      const base = query(collection(db, COLLECTION), orderBy('uploadedAt', 'desc'));
+      const snap: QuerySnapshot<DocumentData> = await getDocs(
+        cursor ? query(base, startAfter(cursor), limit(40)) : query(base, limit(40)),
+      );
+      photos.push(...snap.docs.map(mapDoc));
+      cursor = snap.docs.length < 40 ? null : snap.docs[snap.docs.length - 1];
+    } while (cursor);
+    return photos;
+  }
+
+  async searchPhotos(term: string, recent: MemoryPhoto[] = []): Promise<MemoryPhoto[]> {
+    const q = term.toLowerCase().trim();
+    const matches = (p: MemoryPhoto) => p.caption.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q));
+    if (AgentMode.demo) return AgentFixtures.demoPhotos().filter(matches);
+    if (!q) return [];
+    const index = (this.searchIndex ??= this.readAllPhotos());
+    let all: MemoryPhoto[];
+    try {
+      all = await index;
+    } catch (e) {
+      if (this.searchIndex === index) this.searchIndex = null;
+      throw e;
     }
     const recentIds = new Set(recent.map((p) => p.id));
-    const snap = await getDocs(query(collection(db, COLLECTION), orderBy('uploadedAt', 'desc'), limit(200)));
-    const all = snap.docs.map(mapDoc);
     return [...recent, ...all.filter((p) => !recentIds.has(p.id))].filter(matches);
   }
 
@@ -210,74 +270,82 @@ class GalleryService {
   }
 
   async uploadPhoto(opts: {
-    file: File;
+    file: Blob;
+    fileName: string;
     caption: string;
     uploadedBy: string;
     userId: string;
-    tags: string[];
+    tags?: string[];
     locationName?: string;
     latitude?: number;
     longitude?: number;
+    takenAt?: Date;
+    onProgress?: (progress: number) => void;
   }): Promise<MemoryPhoto> {
-    if (AgentMode.demo) {
-      const previewUrl = URL.createObjectURL(opts.file);
-      const created: MemoryPhoto = {
-        id: `demo_photo_${Date.now()}`,
-        imageUrl: previewUrl,
-        thumbUrl: previewUrl,
-        caption: opts.caption,
-        uploadedBy: opts.uploadedBy,
-        uploadedAt: new Date(),
-        tags: opts.tags,
-        locationName: opts.locationName || undefined,
-        latitude: opts.latitude,
-        longitude: opts.longitude,
-      };
-      this.demoPhotos = [created, ...this.ensureDemo()];
-      this.demoChanges.emit();
-      return created;
-    }
+    if (AgentMode.demo) return AgentFixtures.demoPhotos()[0];
+    const tags = opts.tags ?? [];
+    const base = `gallery/${opts.userId}/${Date.now()}_${opts.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const images = await prepareImages(opts.file);
+    const uploaded: string[] = [];
+    const total = images.full.size + (images.thumb?.size ?? 0);
+    let sent = 0;
+    const report = (inFlight: number) => opts.onProgress?.(Math.min(1, Math.max(0, (sent + inFlight) / total)));
+    const put = async (path: string, blob: Blob) => {
+      const fileRef = ref(storage, path);
+      const task = uploadBytesResumable(fileRef, blob, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' });
+      const stop = task.on(
+        'state_changed',
+        (snap) => report(snap.bytesTransferred),
+        () => {},
+      );
+      try {
+        await task;
+      } finally {
+        stop();
+      }
+      const url = await getDownloadURL(fileRef);
+      uploaded.push(url);
+      sent += blob.size;
+      report(0);
+      return url;
+    };
 
-    const safe = opts.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const base = `gallery/${opts.userId}/${Date.now()}_${safe}`;
-    const [fullBlob, thumbBlob] = await Promise.all([
-      resizeJpeg(opts.file, 1920, 0.88),
-      resizeJpeg(opts.file, 480, 0.8),
-    ]);
-
-    const fullRef = ref(storage, `${base}_full.jpg`);
-    await uploadBytes(fullRef, fullBlob, {
-      contentType: 'image/jpeg',
-      cacheControl: 'public, max-age=31536000',
-    });
-    const imageUrl = await getDownloadURL(fullRef);
-
+    const imageUrl = await put(`${base}_full.jpg`, images.full);
     let thumbUrl: string | undefined;
-    try {
-      const thumbRef = ref(storage, `${base}_thumb.jpg`);
-      await uploadBytes(thumbRef, thumbBlob, {
-        contentType: 'image/jpeg',
-        cacheControl: 'public, max-age=31536000',
-      });
-      thumbUrl = await getDownloadURL(thumbRef);
-    } catch (e) {
-      Logger.e('Thumbnail upload failed, grid falls back to full', e);
+    if (images.thumb) {
+      try {
+        thumbUrl = await put(`${base}_thumb.jpg`, images.thumb);
+      } catch (e) {
+        Logger.e('Thumbnail upload failed, grid falls back to full', e);
+      }
     }
 
     const payload: Record<string, unknown> = {
       imageUrl,
+      ...(thumbUrl != null ? { thumbUrl } : {}),
       caption: opts.caption,
       uploadedBy: opts.uploadedBy,
       uploadedAt: serverTimestamp(),
-      tags: opts.tags,
+      tags,
       monthDay: monthDay(new Date()),
+      ...(opts.latitude != null ? { latitude: opts.latitude } : {}),
+      ...(opts.longitude != null ? { longitude: opts.longitude } : {}),
+      ...(opts.locationName ? { locationName: opts.locationName } : {}),
+      ...(opts.takenAt ? { takenAt: Timestamp.fromDate(opts.takenAt) } : {}),
     };
-    if (thumbUrl) payload.thumbUrl = thumbUrl;
-    if (opts.locationName?.trim()) payload.locationName = opts.locationName.trim();
-    if (opts.latitude != null) payload.latitude = opts.latitude;
-    if (opts.longitude != null) payload.longitude = opts.longitude;
-
-    const refDoc = await addDoc(collection(db, COLLECTION), payload);
+    let refDoc;
+    try {
+      refDoc = await addDoc(collection(db, COLLECTION), payload);
+    } catch (e) {
+      for (const url of uploaded) {
+        try {
+          await deleteStorageObject(url);
+        } catch (err) {
+          Logger.e(`Gallery: failed to clean uploaded file ${url}`, err);
+        }
+      }
+      throw e;
+    }
     return {
       id: refDoc.id,
       imageUrl,
@@ -285,38 +353,26 @@ class GalleryService {
       caption: opts.caption,
       uploadedBy: opts.uploadedBy,
       uploadedAt: new Date(),
-      tags: opts.tags,
-      locationName: opts.locationName,
+      tags,
       latitude: opts.latitude,
       longitude: opts.longitude,
+      locationName: opts.locationName,
+      takenAt: opts.takenAt,
     };
   }
 
   async deletePhoto(photo: MemoryPhoto): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoPhotos = this.ensureDemo().filter((p) => p.id !== photo.id);
-      this.demoChanges.emit();
-      return;
-    }
-    const urls = Array.from(new Set([photo.imageUrl, photo.thumbUrl].filter((u): u is string => Boolean(u))));
-    for (const url of urls) {
-      try {
-        await deleteObject(ref(storage, url));
-      } catch {
-        const token = await auth.currentUser?.getIdToken().catch(() => '');
-        if (token) {
-          await fetch('https://us-central1-everglow-1c6db.cloudfunctions.net/deleteGalleryPhoto', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ imageUrl: url }),
-          }).catch(() => {});
-        }
+    if (AgentMode.demo) return;
+    try {
+      for (const url of new Set([photo.imageUrl, ...(photo.thumbUrl ? [photo.thumbUrl] : [])])) {
+        await deleteStorageObject(url);
       }
+      await deleteDoc(doc(db, COLLECTION, photo.id));
+      this.searchIndex = this.searchIndex?.then((photos) => photos.filter((p) => p.id !== photo.id)) ?? null;
+    } catch (e) {
+      Logger.e(`Error deleting photo: ${photo.id}`, e);
+      throw e;
     }
-    await deleteDoc(doc(db, COLLECTION, photo.id));
   }
 
   async updatePhotoCaption(id: string, caption: string): Promise<void> {

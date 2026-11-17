@@ -33,8 +33,8 @@ Order: the screens Clair uses most come first.
 - [ ] `/manga`, `/manga/reader` — manga (17.6k) — home compare 0.50% / 0.80% (header, nav strip, type chips, item/compact cards, Hot + Genres cards ported 1:1). Still to check: latest/directory/new/genre lists, search results, detail, bookmarks, currently reading shelf, downloads, reader
 - [ ] `/books` (+ reader, detail, listen, list, category, categories), `/our-books` — books (11.3k) — home compare 1.00% / 1.28% (rest is Skia vs browser text rasterising, half-pixel). Home, shelf widgets, cover cards, pill nav and catalog data (popular/recent) ported 1:1. Still to check: search results rows + filters, library grid, detail, reader, listen, list/category pages, our-books
 - [ ] `/sanctuary` — chat (1.4k)
-- [ ] `/gallery` — gallery (3.1k)
-- [ ] `/journal` — journal (4.4k)
+- [x] `/gallery` — gallery (3.1k) — grid 0.96% / 0.32%, map 0.37% / 0.24%, week 0.75% / 0.31%, photo viewer 0.11% / 0.12%, add dialog 0.92% (1.37% with location open). The rest of the add-dialog gap is Flutter's yellow debug underline: that dialog has no Material behind it, and React draws the text clean. Fixed in the React port: search now covers every photo, not just the newest 200. A failed file delete now keeps the photo, as in Flutter. Uploads now match Flutter's 1600/400px JPEGs, `takenAt`, progress and clean-up. Keep-offline uses the same `everglow-offline-photos-v1` cache and is cleared on sign-out. Still to do with Journal: the "Keep this memory" button in the delete dialog
+- [ ] `/journal` — journal (4.4k) — also add `openSharedMemory` and the gallery delete dialog's "Keep this memory" button
 - [ ] `/tonight` — tonight (1.9k)
 - [ ] `/calendar` — calendar (4.9k)
 - [x] `/garden` — daily_bloom (4.7k) — compare 0.31% / 0.18%. Fixed the React store reading `garden/stats` instead of Flutter's `garden_stats/stats`, and added the daily visit (streak, stage, XP) the dashboard records

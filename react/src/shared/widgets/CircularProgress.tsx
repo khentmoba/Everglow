@@ -6,7 +6,18 @@ import { cubic } from '../../core/theme/motion';
 const fastOutSlowIn = cubic(0.4, 0.0, 0.2, 1.0);
 const interval = (t: number, a: number, b: number) => fastOutSlowIn(Math.min(1, Math.max(0, (t - a) / (b - a))));
 
-export function CircularProgress({ size, strokeWidth, color }: { size: number; strokeWidth: number; color: string }) {
+/** `value` (0..1) draws Flutter's determinate arc (butt caps) instead of spinning. */
+export function CircularProgress({
+  size,
+  strokeWidth,
+  color,
+  value,
+}: {
+  size: number;
+  strokeWidth: number;
+  color: string;
+  value?: number | null;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current!;
@@ -15,6 +26,17 @@ export function CircularProgress({ size, strokeWidth, color }: { size: number; s
     canvas.width = (size + pad * 2) * dpr;
     canvas.height = (size + pad * 2) * dpr;
     const ctx = canvas.getContext('2d')!;
+    if (value != null) {
+      ctx.setTransform(dpr, 0, 0, dpr, pad * dpr, pad * dpr);
+      ctx.clearRect(-pad, -pad, size + pad * 2, size + pad * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, -Math.PI / 2, -Math.PI / 2 + Math.max(0, Math.min(1, value)) * 2 * Math.PI);
+      ctx.stroke();
+      return;
+    }
     let frame = 0;
     const start = performance.now();
     const draw = (now: number) => {
@@ -37,7 +59,7 @@ export function CircularProgress({ size, strokeWidth, color }: { size: number; s
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [size, strokeWidth, color]);
+  }, [size, strokeWidth, color, value]);
   return (
     <canvas
       ref={ref}

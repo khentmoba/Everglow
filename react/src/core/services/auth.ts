@@ -1,6 +1,7 @@
 // Port of lib/core/services/auth_service.dart — the parts the gateway needs.
 // Still to port when their features move: XP setup, letterbox seeding,
 // push-notification sync, partner lookup, logout cleanup.
+import { OfflinePhotos } from '../../features/gallery/offlinePhotos';
 import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useSyncExternalStore } from 'react';
@@ -276,6 +277,7 @@ class AuthService {
     this.isOfflineMode = false;
     await this.saveSession(null, null);
     AgentMode.clearPersistedState();
+    await OfflinePhotos.clear();
     this.notify();
   }
 }
