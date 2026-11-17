@@ -7,7 +7,6 @@ import { AgentMode } from './core/agent/agentMode';
 import { ErrorPage } from './core/router/ErrorPage';
 import { agentJumpLocation, cinemaOnlyRedirect } from './core/router/routeHelpers';
 import { RouteMemory } from './core/router/routeMemory';
-import { NotPortedPage } from './core/router/NotPortedPage';
 import { AcademyHubPage } from './features/academy/AcademyHubPage';
 import { GameBoardPage } from './features/academy/GameBoardPage';
 import { PodiumPage } from './features/academy/PodiumPage';
@@ -15,8 +14,10 @@ import { SoloStudyPage } from './features/academy/SoloStudyPage';
 import { MemoryTriviaPage } from './features/ai/MemoryTriviaPage';
 import { MemoryBookPage } from './features/ai/MemoryBookPage';
 import { MotchiMinisPage } from './features/ai/MotchiMinisPage';
+import { MotchiPage } from './features/ai/MotchiPage';
 import { MotchiPreferencesPage } from './features/ai/MotchiPreferencesPage';
 import { MotchiTodayPage } from './features/ai/MotchiTodayPage';
+import { StudyPage } from './features/ai/StudyPage';
 import { authService } from './core/services/auth';
 import { AnimePage } from './features/anime/AnimePage';
 import { BookCategoriesPage, BookDetailPage, BookListPage, BookReaderPage } from './features/books/BookSubPages';
@@ -121,16 +122,6 @@ function RootLayout() {
   );
 }
 
-const KNOWN_UNPORTED = new Set(['/motchi', '/study']);
-
-function FallbackRoute() {
-  const location = useLocation();
-  if (KNOWN_UNPORTED.has(location.pathname) || location.pathname.startsWith('/motchi/')) {
-    return <NotPortedPage />;
-  }
-  return <ErrorPage />;
-}
-
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
@@ -172,17 +163,19 @@ const router = createBrowserRouter([
       { path: '/academy/solo', loader: guard, element: <SoloStudyPage /> },
       { path: '/academy/match', loader: guard, element: <GameBoardPage /> },
       { path: '/academy/podium', loader: guard, element: <PodiumPage /> },
+      { path: '/motchi', loader: guard, element: <MotchiPage /> },
       { path: '/motchi-preferences', loader: guard, element: <MotchiPreferencesPage /> },
       { path: '/motchi-minis', loader: guard, element: <MotchiMinisPage /> },
       { path: '/motchi-today', loader: guard, element: <MotchiTodayPage /> },
       { path: '/motchi-trivia', loader: guard, element: <MemoryTriviaPage /> },
       { path: '/motchi-memory', loader: guard, element: <MemoryBookPage /> },
+      { path: '/study', loader: guard, element: <StudyPage /> },
       { path: '/play-zone', loader: guard, element: <PlayZoneHubPage /> },
       { path: '/play-zone/tt', loader: guard, element: <TableTennisPage /> },
       { path: '/play-zone/tt/lobby', loader: guard, element: <TTLobbyPage /> },
       { path: '/play-zone/scribble', loader: guard, element: <ScribblePage /> },
       { path: '/play-zone/chess', loader: guard, element: <ChessPage /> },
-      { path: '*', loader: guard, element: <FallbackRoute /> },
+      { path: '*', loader: guard, element: <ErrorPage /> },
     ],
   },
 ]);
