@@ -5,6 +5,7 @@ import {
   getDocs,
   limit,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -17,7 +18,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Changes, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogKeyOf, TmdbImages, type MediaItem } from './cinemaTypes';
 import { agentTmdbResponse } from './tmdbAgentCatalogue';
 
@@ -277,10 +278,7 @@ export function watchCinemaWatchlist(userName: string): Source<MediaItem[]> {
   return withFirestoreTimeout(
     snapshots<QuerySnapshot<DocumentData>, MediaItem[]>(
       (next, error) => onSnapshot(q, next, error),
-      (s) =>
-        s.docs
-          .map((d) => fromFirestoreDoc(d.data(), d.id))
-          .sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime()),
+      (s) => s.docs.map((d) => fromFirestoreDoc(d.data(), d.id)).sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime()),
     ),
     { label: `cinema-watchlist-${userName}` },
   );
@@ -295,7 +293,10 @@ export async function setListMembership(item: MediaItem, userName: string, add: 
         demoWatchlist.set(userName, [{ ...item, status: 'to-watch', userName, addedAt: new Date() }, ...prev]);
       }
     } else {
-      demoWatchlist.set(userName, prev.filter((x) => catalogKeyOf(x) !== key));
+      demoWatchlist.set(
+        userName,
+        prev.filter((x) => catalogKeyOf(x) !== key),
+      );
     }
     demoWatchlistChanges.emit();
     return;
@@ -354,7 +355,20 @@ export async function saveWatchProgress(
     const prev = demoWatchlist.get(userName) ?? [];
     const idx = prev.findIndex((x) => catalogKeyOf(x) === key);
     const updated: MediaItem = {
-      ...(idx >= 0 ? prev[idx] : { ...item, id: key, genres: [], synopsis: '', airingStatus: '', format: '', studio: '', remindMe: false, addedAt: new Date(), userName }),
+      ...(idx >= 0
+        ? prev[idx]
+        : {
+            ...item,
+            id: key,
+            genres: [],
+            synopsis: '',
+            airingStatus: '',
+            format: '',
+            studio: '',
+            remindMe: false,
+            addedAt: new Date(),
+            userName,
+          }),
       status: opts.status ?? 'watching-self',
       currentSeason: opts.season,
       currentEpisode: opts.episode,
@@ -374,8 +388,7 @@ export async function saveWatchProgress(
   const existing = snap.docs.find((d) => {
     const data = d.data();
     return (
-      Number(data.tmdbId ?? 0) === item.tmdbId &&
-      String(data.mediaType ?? 'movie').toLowerCase() === item.mediaType.toLowerCase()
+      Number(data.tmdbId ?? 0) === item.tmdbId && String(data.mediaType ?? 'movie').toLowerCase() === item.mediaType.toLowerCase()
     );
   });
   const payload = {
@@ -423,5 +436,48 @@ export async function clearWatchProgress(item: MediaItem, userName: string): Pro
       durationSeconds: null,
       progressUpdatedAt: null,
     });
+  }
+}
+
+const WATCHED = new Set(['watched', 'watched-khent', 'watched-clair', 'watched-both', 'watched-self']);
+
+/** `MediaItem.isWatched`: a watched status, or a series whose last episode is reached. */
+export function isWatchedItem(item: MediaItem): boolean {
+  if (WATCHED.has(item.status.trim().toLowerCase())) return true;
+  const isMovie = item.mediaType.trim().toLowerCase() !== 'tv' || item.format.trim().toLowerCase() === 'movie';
+  if (isMovie || item.episodeCount == null || item.episodeCount <= 1 || item.currentEpisode == null) return false;
+  return item.currentEpisode >= item.episodeCount;
+}
+
+/** `getWatchListFromThisDay`: titles added on today's date in earlier years (none in agent mode). */
+export async function getWatchListFromThisDay(): Promise<MediaItem[]> {
+  if (AgentMode.isActive.value) return [];
+  const now = new Date();
+  const md = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  try {
+    const col = collection(db, 'watch_list');
+    let snap = await withGetTimeout(getDocs(query(col, where('monthDay', '==', md), limit(200))), 'watchlist on-this-day');
+    if (snap.empty) {
+      snap = await withGetTimeout(getDocs(query(col, orderBy('addedAt', 'desc'), limit(500))), 'watchlist on-this-day fallback');
+    }
+    const seen = new Set<string>();
+    const out: MediaItem[] = [];
+    for (const d of snap.docs) {
+      const item = fromFirestoreDoc(d.data(), d.id);
+      const key = catalogKeyOf(item);
+      if (
+        item.addedAt.getMonth() === now.getMonth() &&
+        item.addedAt.getDate() === now.getDate() &&
+        item.addedAt.getFullYear() !== now.getFullYear() &&
+        !seen.has(key)
+      ) {
+        seen.add(key);
+        out.push(item);
+      }
+    }
+    return out;
+  } catch (e) {
+    Logger.e('Error getting on-this-day watchlist items', e);
+    return [];
   }
 }

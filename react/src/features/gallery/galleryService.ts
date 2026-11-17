@@ -24,7 +24,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type MemoryPhotoFixture } from '../../core/agent/fixtures';
 import { auth, db, storage } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Changes, just, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 
 export type MemoryPhoto = MemoryPhotoFixture & {
   latitude?: number;
@@ -401,3 +401,30 @@ class GalleryService {
 
 export const galleryService = new GalleryService();
 export { where };
+
+/** `getPhotosFromThisDay`: photos uploaded on today's date in earlier years (none in demo mode). */
+export async function getPhotosFromThisDay(): Promise<MemoryPhoto[]> {
+  if (AgentMode.demo) return [];
+  const now = new Date();
+  try {
+    const col = collection(db, COLLECTION);
+    let snap = await withGetTimeout(
+      getDocs(query(col, where('monthDay', '==', monthDay(now)), limit(100))),
+      'gallery on-this-day',
+    );
+    if (snap.empty) {
+      snap = await withGetTimeout(getDocs(query(col, orderBy('uploadedAt', 'desc'), limit(200))), 'gallery on-this-day fallback');
+    }
+    return snap.docs
+      .map(mapDoc)
+      .filter(
+        (p) =>
+          p.uploadedAt.getMonth() === now.getMonth() &&
+          p.uploadedAt.getDate() === now.getDate() &&
+          p.uploadedAt.getFullYear() !== now.getFullYear(),
+      );
+  } catch (e) {
+    Logger.e('Error getting on-this-day photos', e);
+    return [];
+  }
+}

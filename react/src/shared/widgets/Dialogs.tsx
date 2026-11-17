@@ -17,6 +17,8 @@ type Entry = {
   dismissible?: boolean;
   inset?: string;
   barrier?: string;
+  /** Route fade length; `showGeneralDialog` callers pass their transitionDuration (linear). */
+  fadeMs?: number;
 };
 
 const stack = new ValueNotifier<Entry[]>([]);
@@ -29,10 +31,12 @@ export function showDialog<R>(
     barrierDismissible = true,
     insetPadding,
     barrierColor,
+    fadeMs,
   }: {
     barrierDismissible?: boolean;
     /** Dialog.insetPadding as CSS padding. */ insetPadding?: string;
     barrierColor?: string;
+    fadeMs?: number;
   } = {},
 ): Promise<R | null> {
   return new Promise((resolve) => {
@@ -43,6 +47,7 @@ export function showDialog<R>(
       dismissible: barrierDismissible,
       inset: insetPadding,
       barrier: barrierColor,
+      fadeMs,
     };
     stack.value = [...stack.value, entry];
   });
@@ -143,7 +148,7 @@ function DialogRoute({ entry }: { entry: Entry }) {
         justifyContent: 'center',
         padding: entry.sheet ? 0 : (entry.inset ?? '24px 40px'),
         opacity: entry.sheet || shown ? 1 : 0,
-        transition: `opacity ${orZero(150)}ms cubic-bezier(0, 0, 0.58, 1)`,
+        transition: `opacity ${orZero(entry.fadeMs ?? 150)}ms ${entry.fadeMs ? 'linear' : 'cubic-bezier(0, 0, 0.58, 1)'}`,
       }}
     >
       {entry.sheet ? (

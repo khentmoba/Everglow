@@ -2,10 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
-import { Align, letterSpacing, linear, shadowLayer } from '../../core/theme/paint';
+import { Align, letterSpacing, lineHeight, linear, shadowLayer } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import { Tooltip } from '../../shared/widgets/Tooltip';
+import { AlertDialog, showDialog, TextButton } from '../../shared/widgets/Dialogs';
+import { gardenStore } from '../daily_bloom/gardenService';
+import { showNoteDialog } from './NoteDialog';
 import { FeatureSection, SectionPillLink } from './FeatureSection';
 import { isNoteUnlocked, letterboxService, type HiddenNote } from './letterboxService';
 
@@ -14,8 +17,6 @@ export function LetterboxView() {
   const [notes, setNotes] = useState<HiddenNote[]>(() => letterboxService.cachedNotes.slice(0, 10));
   const [loading, setLoading] = useState(() => letterboxService.cachedNotes.length === 0);
   const [hasError, setHasError] = useState(false);
-  const [openNote, setOpenNote] = useState<HiddenNote | null>(null);
-  const [lockedNote, setLockedNote] = useState<HiddenNote | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,14 +56,14 @@ export function LetterboxView() {
 
   const handleTap = (note: HiddenNote) => {
     if (!isNoteUnlocked(note)) {
-      setLockedNote(note);
-    } else {
-      if (!note.isRead) {
-        void letterboxService.markAsRead(note.id);
-        setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, isRead: true } : n)));
-      }
-      setOpenNote(note);
+      void showLockedAlert(note);
+      return;
     }
+    if (!note.isRead) {
+      void letterboxService.markAsRead(note.id);
+      void gardenStore.recordInteraction();
+    }
+    void showNoteDialog(note);
   };
 
   return (
@@ -96,10 +97,7 @@ export function LetterboxView() {
           {loading && notes.length === 0 ? (
             <div style={{ display: 'flex', gap: 12 }}>
               {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{ width: 156, height: 188, borderRadius: 22, background: AppColors.shimmerBase }}
-                />
+                <div key={i} style={{ width: 156, height: 188, borderRadius: 22, background: AppColors.shimmerBase }} />
               ))}
             </div>
           ) : hasError && notes.length === 0 ? (
@@ -128,109 +126,39 @@ export function LetterboxView() {
           )}
         </div>
       </FeatureSection>
-
-      {lockedNote && (
-        <div
-          onClick={() => setLockedNote(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: withAlpha(AppColors.inkDeep, 0.72),
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: 340,
-              padding: 24,
-              borderRadius: 24,
-              background: AppColors.velvet,
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ ...AppTypography.cormorantBold, fontSize: 24 }}>No peeking! 🤫</div>
-            <div style={{ height: 12 }} />
-            <div style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.petalWhite, 0.8) }}>
-              This letter is still sealed. It will unlock on {lockedNote.unlockDate.getDate()}/
-              {lockedNote.unlockDate.getMonth() + 1}/{lockedNote.unlockDate.getFullYear()}.
-            </div>
-            <div style={{ height: 16 }} />
-            <button
-              type="button"
-              className="bare-button"
-              onClick={() => setLockedNote(null)}
-              style={{ margin: '0 auto', padding: '8px 16px', ...AppTypography.outfitBold, color: AppColors.blushGold }}
-            >
-              Okay, I&apos;ll wait! 🌸
-            </button>
-          </div>
-        </div>
-      )}
-
-      {openNote && (
-        <div
-          onClick={() => setOpenNote(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: withAlpha(AppColors.inkDeep, 0.72),
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: 480,
-              padding: 24,
-              borderRadius: 28,
-              background: linear(['#381E3E', AppColors.velvet, AppColors.inkDeep], {
-                begin: Align.topLeft,
-                end: Align.bottomRight,
-                stops: [0, 0.45, 1],
-              }),
-              border: `1.2px solid ${withAlpha(AppColors.blushGold, 0.35)}`,
-              boxShadow: '0 20px 40px rgba(16,10,28,0.8)',
-            }}
-          >
-            <div style={{ ...AppTypography.cormorantBold, fontSize: 26, color: AppColors.petalWhite, textAlign: 'center' }}>
-              {openNote.title}
-            </div>
-            <div style={{ height: 16 }} />
-            <div style={{ ...AppTypography.bodyLarge, color: Derived.textHigh, lineHeight: 1.6, textAlign: 'center' }}>
-              {openNote.content}
-            </div>
-            <div style={{ height: 20 }} />
-            <button
-              type="button"
-              className="bare-button"
-              onClick={() => setOpenNote(null)}
-              style={{
-                margin: '0 auto',
-                padding: '10px 22px',
-                borderRadius: 999,
-                background: AppColors.deepRose,
-                ...AppTypography.outfitBold,
-                fontSize: 13,
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function showLockedAlert(note: HiddenNote) {
+  const d = note.unlockDate;
+  return showDialog<void>((close) => (
+    <AlertDialog
+      background={AppColors.velvet}
+      radius={24}
+      title={<div style={{ ...AppTypography.cormorantBold, fontSize: 24, textAlign: 'center' }}>No peeking! 🤫</div>}
+      content={
+        <div
+          style={{
+            ...AppTypography.outfitWhite,
+            fontSize: 14,
+            lineHeight: lineHeight(14),
+            color: withAlpha(AppColors.petalWhite, 0.8),
+            textAlign: 'center',
+          }}
+        >
+          This letter is still sealed. It will unlock on {d.getDate()}/{d.getMonth() + 1}/{d.getFullYear()}.
+        </div>
+      }
+      actions={[
+        <TextButton key="ok" onPressed={() => close(null)}>
+          <span style={{ ...AppTypography.outfitWhite, fontSize: 14, fontWeight: 700, color: AppColors.blushGold }}>
+            Okay, I&apos;ll wait! 🌸
+          </span>
+        </TextButton>,
+      ]}
+    />
+  ));
 }
 
 function NoteCard({ note, onTap }: { note: HiddenNote; onTap: () => void }) {
@@ -318,7 +246,10 @@ function NoteCard({ note, onTap }: { note: HiddenNote; onTap: () => void }) {
           }}
         >
           <div style={{ position: 'relative', width: 54, height: 54 }}>
-            <div style={shadowLayer({ color: withAlpha(hue, isNew ? 0.35 : 0.18), blur: isNew ? 18 : 12 }, { circle: true })} aria-hidden />
+            <div
+              style={shadowLayer({ color: withAlpha(hue, isNew ? 0.35 : 0.18), blur: isNew ? 18 : 12 }, { circle: true })}
+              aria-hidden
+            />
             <div
               style={{
                 position: 'relative',

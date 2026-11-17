@@ -9,8 +9,8 @@ const fallback = "'Everglow Emoji', 'Everglow Symbols', 'Noto Sans Symbols 2'";
 export const Fonts = {
   display: `'Cormorant Garamond', ${fallback}, serif`,
   body: `'Outfit', ${fallback}, sans-serif`,
-  hand: `'Caveat', 'Outfit', sans-serif`,
-  script: `'Dancing Script', 'Outfit', sans-serif`,
+  hand: `'Caveat', ${fallback}, 'Outfit', sans-serif`,
+  script: `'Dancing Script', ${fallback}, 'Outfit', sans-serif`,
   reading: `'DM Sans', 'Outfit', sans-serif`,
 };
 
