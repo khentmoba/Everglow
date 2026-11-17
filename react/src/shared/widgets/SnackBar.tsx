@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react';
 import { AppColors, Derived } from '../../core/theme/colors';
 import { ValueNotifier, useValue } from '../../core/system/store';
 
-type Snack = { id: number; text: string; background?: string; duration: number };
+type SnackAction = { label: string; onPressed: () => void };
+type Snack = { id: number; text: string; background?: string; duration: number; action?: SnackAction };
 
 const current = new ValueNotifier<Snack | null>(null);
 let nextId = 1;
 
-export function showSnackBar(text: string, opts: { background?: string; duration?: number } = {}) {
-  current.value = { id: nextId++, text, background: opts.background, duration: opts.duration ?? 4000 };
+export function showSnackBar(text: string, opts: { background?: string; duration?: number; action?: SnackAction } = {}) {
+  current.value = { id: nextId++, text, background: opts.background, duration: opts.duration ?? 4000, action: opts.action };
 }
 
 export function SnackBarHost() {
@@ -58,9 +59,31 @@ export function SnackBarHost() {
           fontWeight: 500,
           color: AppColors.petalWhite,
           pointerEvents: 'auto',
+          display: 'flex',
+          alignItems: 'center',
         }}
       >
-        {snack.text}
+        <span style={{ flex: 1 }}>{snack.text}</span>
+        {snack.action && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => {
+              snack.action!.onPressed();
+              current.value = null;
+            }}
+            style={{
+              margin: '-14px -8px -14px 8px',
+              padding: '0 12px',
+              height: 40,
+              fontSize: 14,
+              fontWeight: 500,
+              color: AppColors.deepRose,
+            }}
+          >
+            {snack.action.label}
+          </button>
+        )}
       </div>
     </div>
   );

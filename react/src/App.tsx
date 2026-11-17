@@ -22,6 +22,8 @@ import { BucketListPage } from './features/bucket_list/BucketListPage';
 import { MoneyPage } from './features/money/MoneyPage';
 import { SubsPage } from './features/subs/SubsPage';
 import { CanvasPage } from './features/canvas/CanvasPage';
+import { TripDetailPage } from './features/trips/TripDetailPage';
+import { TripListPage } from './features/trips/TripListPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CinemaPage } from './features/cinema/CinemaPage';
 import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
@@ -109,7 +111,6 @@ function RootLayout() {
 }
 
 const KNOWN_UNPORTED = new Set([
-  '/trips',
   '/jukebox',
   '/play-zone',
   '/academy',
@@ -121,7 +122,6 @@ function FallbackRoute() {
   const location = useLocation();
   if (
     KNOWN_UNPORTED.has(location.pathname) ||
-    location.pathname.startsWith('/trips/') ||
     location.pathname.startsWith('/play-zone/') ||
     location.pathname.startsWith('/academy/') ||
     location.pathname.startsWith('/motchi/')
@@ -164,6 +164,8 @@ const router = createBrowserRouter([
       { path: '/money', loader: guard, element: <MoneyPage /> },
       { path: '/subs', loader: guard, element: <SubsPage /> },
       { path: '/canvas', loader: guard, element: <CanvasPage /> },
+      { path: '/trips', loader: guard, element: <TripListPage /> },
+      { path: '/trips/:id', loader: guard, element: <TripDetailPage /> },
       { path: '*', loader: guard, element: <FallbackRoute /> },
     ],
   },

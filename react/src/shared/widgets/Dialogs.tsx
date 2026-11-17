@@ -34,7 +34,10 @@ export function showDialog<R>(render: (close: (value: R | null) => void) => Reac
 /** `showModalBottomSheet` (transparent background, scroll-controlled): the sheet draws itself, pinned to the bottom. */
 export function showModalBottomSheet<R>(render: (close: (value: R | null) => void) => ReactNode): Promise<R | null> {
   return new Promise((resolve) => {
-    stack.value = [...stack.value, { id: nextId++, render: render as Entry['render'], resolve: resolve as Entry['resolve'], sheet: true }];
+    stack.value = [
+      ...stack.value,
+      { id: nextId++, render: render as Entry['render'], resolve: resolve as Entry['resolve'], sheet: true },
+    ];
   });
 }
 
@@ -159,14 +162,17 @@ export function AlertDialog({
   content,
   actions,
   background = Derived.panelGlass,
+  radius,
 }: {
   title?: ReactNode;
   content?: ReactNode;
   actions?: ReactNode[];
   background?: string;
+  /** A Dialog with its own `shape` loses the theme border. */
+  radius?: number;
 }) {
   return (
-    <div style={{ ...dialogBox(background), maxWidth: 560 }}>
+    <div style={{ ...(radius == null ? dialogBox(background) : dialogBox(background, radius, false)), maxWidth: 560 }}>
       {title != null && (
         <div
           style={{
