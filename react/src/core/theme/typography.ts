@@ -4,7 +4,7 @@
 import type { CSSProperties } from 'react';
 import { AppColors, Derived } from './colors';
 
-const fallback = "'Everglow Emoji', 'Everglow Symbols'";
+const fallback = "'Everglow Emoji', 'Everglow Symbols', 'Noto Sans Symbols 2'";
 
 export const Fonts = {
   display: `'Cormorant Garamond', ${fallback}, serif`,
@@ -32,12 +32,36 @@ export const AppTypography = {
   bodySmall: { fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 500, color: Derived.textMuted } as CSSProperties,
   bodyMedium: { fontFamily: Fonts.body, fontSize: 14, fontWeight: 500, color: Derived.textMedium } as CSSProperties,
   bodyLarge: { fontFamily: Fonts.body, fontSize: 16, fontWeight: 500, color: Derived.textMedium } as CSSProperties,
-  titleLarge: { fontFamily: Fonts.display, fontSize: 22, fontWeight: 600, color: AppColors.roseQuartz, letterSpacing: 0.5 } as CSSProperties,
+  titleLarge: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    fontWeight: 600,
+    color: AppColors.roseQuartz,
+    letterSpacing: 0.5,
+  } as CSSProperties,
   titleMedium: { fontFamily: Fonts.body, fontSize: 16, fontWeight: 500, color: AppColors.petalWhite } as CSSProperties,
   titleSmall: { fontFamily: Fonts.body, fontSize: 14, fontWeight: 500, color: AppColors.petalWhite } as CSSProperties,
-  labelLarge: { fontFamily: Fonts.body, fontSize: 14, fontWeight: 600, color: AppColors.petalWhite, letterSpacing: 0.6 } as CSSProperties,
-  labelMedium: { fontFamily: Fonts.body, fontSize: 12, fontWeight: 700, color: AppColors.roseQuartz, letterSpacing: 0.6 } as CSSProperties,
-  labelSmall: { fontFamily: Fonts.body, fontSize: 11, fontWeight: 700, color: AppColors.roseQuartz, letterSpacing: 0.6 } as CSSProperties,
+  labelLarge: {
+    fontFamily: Fonts.body,
+    fontSize: 14,
+    fontWeight: 600,
+    color: AppColors.petalWhite,
+    letterSpacing: 0.6,
+  } as CSSProperties,
+  labelMedium: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    fontWeight: 700,
+    color: AppColors.roseQuartz,
+    letterSpacing: 0.6,
+  } as CSSProperties,
+  labelSmall: {
+    fontFamily: Fonts.body,
+    fontSize: 11,
+    fontWeight: 700,
+    color: AppColors.roseQuartz,
+    letterSpacing: 0.6,
+  } as CSSProperties,
   handwrittenTitle: { fontFamily: Fonts.script, fontSize: 30, fontWeight: 700, color: AppColors.blushGold } as CSSProperties,
   handwrittenBody: { fontFamily: Fonts.hand, fontSize: 24, fontWeight: 400, color: Derived.textHigh } as CSSProperties,
 };

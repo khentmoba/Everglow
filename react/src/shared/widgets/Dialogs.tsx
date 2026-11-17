@@ -163,16 +163,21 @@ export function AlertDialog({
   actions,
   background = Derived.panelGlass,
   radius,
+  borderColor,
 }: {
   title?: ReactNode;
   content?: ReactNode;
   actions?: ReactNode[];
   background?: string;
-  /** A Dialog with its own `shape` loses the theme border. */
+  /** A Dialog with its own `shape` loses the theme border... */
   radius?: number;
+  /** ...unless the shape has a `side` of its own. */
+  borderColor?: string;
 }) {
+  const box = radius == null ? dialogBox(background) : dialogBox(background, radius, false);
+  if (borderColor) box.border = `1px solid ${borderColor}`;
   return (
-    <div style={{ ...(radius == null ? dialogBox(background) : dialogBox(background, radius, false)), maxWidth: 560 }}>
+    <div style={{ ...box, maxWidth: 560 }}>
       {title != null && (
         <div
           style={{

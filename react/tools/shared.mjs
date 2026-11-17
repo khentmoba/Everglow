@@ -27,10 +27,22 @@ export const SIZES = {
 };
 
 const TYPES = {
-  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
-  '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png', '.jpg': 'image/jpeg',
-  '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff2': 'font/woff2',
-  '.woff': 'font/woff', '.mp3': 'audio/mpeg', '.glb': 'model/gltf-binary',
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.wasm': 'application/wasm',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.mp3': 'audio/mpeg',
+  '.glb': 'model/gltf-binary',
 };
 
 function serve(root, extraRoots = []) {
@@ -48,7 +60,12 @@ function serve(root, extraRoots = []) {
 
 function findChrome() {
   const base = join(homedir(), 'AppData', 'Local', 'ms-playwright');
-  const dirs = existsSync(base) ? readdirSync(base).filter((d) => d.startsWith('chromium_headless_shell-')).sort().reverse() : [];
+  const dirs = existsSync(base)
+    ? readdirSync(base)
+        .filter((d) => d.startsWith('chromium_headless_shell-'))
+        .sort()
+        .reverse()
+    : [];
   for (const d of dirs) {
     for (const sub of readdirSync(join(base, d))) {
       const exe = join(base, d, sub, 'chrome-headless-shell.exe');
@@ -62,7 +79,10 @@ function findChrome() {
 export async function withApps(fn) {
   const flutterRoot = resolve('..', 'build', 'web');
   const reactRoot = resolve('dist');
-  for (const [name, root] of [['Flutter', flutterRoot], ['React', reactRoot]]) {
+  for (const [name, root] of [
+    ['Flutter', flutterRoot],
+    ['React', reactRoot],
+  ]) {
     if (!existsSync(join(root, 'index.html'))) {
       console.error(`${name} build missing at ${root}`);
       process.exit(1);
@@ -88,9 +108,15 @@ const apiCache = new Map();
 function normalize(body) {
   if (!body) return '';
   const sortKeys = (v) =>
-    Array.isArray(v) ? v.map(sortKeys) : v && typeof v === 'object'
-      ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])]))
-      : v;
+    Array.isArray(v)
+      ? v.map(sortKeys)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.keys(v)
+              .sort()
+              .map((k) => [k, sortKeys(v[k])]),
+          )
+        : v;
   try {
     return JSON.stringify(sortKeys(JSON.parse(body)));
   } catch {
@@ -98,13 +124,20 @@ function normalize(body) {
   }
 }
 
-export async function openPage(browser, url, size, { motion = false } = {}) {
+export async function openPage(browser, url, size, { motion = false, seed = false } = {}) {
   const { width, height, ...rest } = size;
   const context = await browser.newContext({
     viewport: { width, height },
     ...rest,
     reducedMotion: motion ? 'no-preference' : 'reduce',
   });
+  // --seed: a repeatable Math.random, for screens that pick something at random.
+  if (seed) {
+    await context.addInitScript(() => {
+      let x = 0x2545f491;
+      Math.random = () => (x = (Math.imul(x, 1103515245) + 12345) >>> 0) / 2 ** 32;
+    });
+  }
   const page = await context.newPage();
   await page.route('**/flutter_service_worker.js', (r) => r.abort());
   // Catalog APIs rate-limit and drift between the two loads, so the first
@@ -112,7 +145,13 @@ export async function openPage(browser, url, size, { motion = false } = {}) {
   await page.route(/graphql\.anilist\.co|api\.jikan\.moe|proxyCatalog|proxyFetchHtml/, async (r) => {
     const req = r.request();
     // Dart and the browser escape query strings slightly differently.
-    const plain = (u) => { try { return decodeURIComponent(u.replace(/\+/g, ' ')); } catch { return u; } };
+    const plain = (u) => {
+      try {
+        return decodeURIComponent(u.replace(/\+/g, ' '));
+      } catch {
+        return u;
+      }
+    };
     const key = req.method() + ' ' + plain(plain(req.url())) + ' ' + normalize(req.postData());
     const hit = apiCache.get(key);
     if (hit) return r.fulfill(hit);

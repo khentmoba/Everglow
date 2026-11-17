@@ -11,6 +11,8 @@
 @font-face { font-family: 'Dancing Script'; src: url('/google_fonts/DancingScript-Bold.ttf'); font-weight: 700; font-display: block; }
 @font-face { font-family: 'Everglow Emoji'; src: url('/google_fonts/EverglowEmoji.ttf'); font-display: block; }
 @font-face { font-family: 'Everglow Symbols'; src: url('/google_fonts/EverglowSymbols.ttf'); font-display: block; }
+/* Flutter web falls back to Google's Noto Sans Symbols 2 for glyphs the app fonts lack (chess pieces). */
+@font-face { font-family: 'Noto Sans Symbols 2'; src: url('./assets/fonts/NotoSansSymbols2-Chess.woff2') format('woff2'); unicode-range: U+2654-265F; font-display: block; }
 /* Flutter registers DM Sans under the name Roboto (Material's default face). */
 @font-face { font-family: 'Roboto'; src: url('/google_fonts/DMSans-Regular.ttf'); font-weight: 400; font-display: block; }
 @font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Regular.ttf'); font-weight: 400; font-display: block; }
@@ -21,8 +23,8 @@
 
 :root {
   color-scheme: dark;
-  --font-body: 'Outfit', 'Everglow Emoji', 'Everglow Symbols', sans-serif;
-  --font-display: 'Cormorant Garamond', 'Everglow Emoji', 'Everglow Symbols', serif;
+  --font-body: 'Outfit', 'Everglow Emoji', 'Everglow Symbols', 'Noto Sans Symbols 2', sans-serif;
+  --font-display: 'Cormorant Garamond', 'Everglow Emoji', 'Everglow Symbols', 'Noto Sans Symbols 2', serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }

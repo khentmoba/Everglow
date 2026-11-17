@@ -45,7 +45,7 @@ Order: the screens Clair uses most come first.
 - [x] `/canvas` — canvas (1.5k). Compare 0.30% / 0.18% (0.31% with the toolbar uncovered). Live strokes, eraser, text, undo/redo and doodle presence kept
 - [x] `/money` — money (1.3k). Compare 0.62% / 0.32%. Add/budget dialogs ported; swipe to remove kept
 - [x] `/subs` — subs (1.3k). Compare 0.67% / 0.26%. The add sheet uses the browser date picker instead of the Material one
-- [ ] `/play-zone` (+ tt, tt/lobby, scribble, chess) — play_zone (4.7k)
+- [x] `/play-zone` (+ tt, tt/lobby, scribble, chess) — play_zone (4.7k) — hub 1.07% / 0.67%, table tennis 0.06% / 0.03% (landscape 0.16%), lobby 0.19% / 0.08%, scribble 0.4% / 0.14%, chess 1.14% / 0.42%. Table tennis reuses `web/table_tennis` in an iframe (Vite copies it into `dist/`). Chess bundles a 6KB chess-only subset of Noto Sans Symbols 2 (OFL), the same fallback font Flutter web downloads for ♔–♞
 - [ ] `/academy` (+ solo, match, podium) — academy (3.8k)
 - [ ] `/motchi` (+ preferences, memory, trivia, today, minis), `/study` — ai (15.4k)
 - [x] Shared pieces with no route of their own: xp, heartbeat, guardian, date_randomizer

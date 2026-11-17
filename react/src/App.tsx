@@ -21,6 +21,11 @@ import { TripDetailPage } from './features/trips/TripDetailPage';
 import { TripListPage } from './features/trips/TripListPage';
 import { JukeboxPage } from './features/jukebox/JukeboxPage';
 import { SpotifyCallbackPage } from './features/jukebox/SpotifyCallbackPage';
+import { PlayZoneHubPage } from './features/play_zone/PlayZoneHubPage';
+import { ChessPage } from './features/play_zone/chess/ChessPage';
+import { ScribblePage } from './features/play_zone/ScribblePage';
+import { TableTennisPage } from './features/play_zone/table_tennis/TableTennisPage';
+import { TTLobbyPage } from './features/play_zone/table_tennis/TTLobbyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CinemaPage } from './features/cinema/CinemaPage';
 import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
@@ -107,13 +112,12 @@ function RootLayout() {
   );
 }
 
-const KNOWN_UNPORTED = new Set(['/play-zone', '/academy', '/motchi', '/study']);
+const KNOWN_UNPORTED = new Set(['/academy', '/motchi', '/study']);
 
 function FallbackRoute() {
   const location = useLocation();
   if (
     KNOWN_UNPORTED.has(location.pathname) ||
-    location.pathname.startsWith('/play-zone/') ||
     location.pathname.startsWith('/academy/') ||
     location.pathname.startsWith('/motchi/')
   ) {
@@ -159,6 +163,11 @@ const router = createBrowserRouter([
       { path: '/trips/:id', loader: guard, element: <TripDetailPage /> },
       { path: '/jukebox', loader: guard, element: <JukeboxPage /> },
       { path: '/spotify/callback', loader: guard, element: <SpotifyCallbackPage /> },
+      { path: '/play-zone', loader: guard, element: <PlayZoneHubPage /> },
+      { path: '/play-zone/tt', loader: guard, element: <TableTennisPage /> },
+      { path: '/play-zone/tt/lobby', loader: guard, element: <TTLobbyPage /> },
+      { path: '/play-zone/scribble', loader: guard, element: <ScribblePage /> },
+      { path: '/play-zone/chess', loader: guard, element: <ChessPage /> },
       { path: '*', loader: guard, element: <FallbackRoute /> },
     ],
   },
