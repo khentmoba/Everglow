@@ -37,7 +37,7 @@ Order: the screens Clair uses most come first.
 - [ ] `/journal` — journal (4.4k)
 - [ ] `/tonight` — tonight (1.9k)
 - [ ] `/calendar` — calendar (4.9k)
-- [ ] `/garden` — daily_bloom (4.7k)
+- [x] `/garden` — daily_bloom (4.7k) — compare 0.31% / 0.18%. Fixed the React store reading `garden/stats` instead of Flutter's `garden_stats/stats`, and added the daily visit (streak, stage, XP) the dashboard records
 - [ ] `/starlight` — starlight_jar (2.1k)
 - [ ] `/bucket-list` — bucket_list (4.6k)
 - [x] `/trips`, `/trips/:id` — trip_kit (2.2k). Compare list 0.47% / 0.18%, detail 0.72% / 0.40%. Snackbars gained a Retry action; dates use the browser picker

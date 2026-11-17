@@ -27,9 +27,9 @@ export function GardenPage() {
   const partnerStats = useValue(gardenStore.partnerStats);
 
   useEffect(() => {
-    gardenStore.updateUserId(auth.uid);
     gardenStore.watchPartner(auth.partnerUid);
-  }, [auth.uid, auth.partnerUid]);
+  }, [auth.partnerUid]);
+  useEffect(() => () => gardenStore.stopWatchingPartner(), []);
 
   const myName = auth.currentUser === 'khentsgdz' ? 'Khent' : 'Clair';
   const partnerName = auth.partnerName || (auth.currentUser === 'khentsgdz' ? 'Clair' : 'Khent');
@@ -45,8 +45,6 @@ export function GardenPage() {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          overflowY: 'auto',
-          paddingBottom: 24,
         }}
       >
         <div
@@ -92,20 +90,19 @@ export function GardenPage() {
             flex: 1,
             display: 'flex',
             flexDirection: isWide ? 'row' : 'column',
+            alignItems: isWide ? 'stretch' : 'center',
             gap: 16,
-            padding: '0 16px',
-            minHeight: isWide ? 360 : 520,
           }}
         >
-          <GardenCard name={myName} stats={stats} />
-          <GardenCard name={partnerName} stats={partnerStats} />
+          <GardenCard name={myName} stats={stats} wide={isWide} />
+          <GardenCard name={partnerName} stats={partnerStats} wide={isWide} />
         </div>
       </div>
     </div>
   );
 }
 
-function GardenCard({ name, stats }: { name: string; stats: GardenStats | null }) {
+function GardenCard({ name, stats, wide }: { name: string; stats: GardenStats | null; wide: boolean }) {
   const plantType = stats ? plantFromId(stats.plantType) : PLANT_TYPES[0];
   const stage = stats?.currentStage ?? 0;
   const effStage = effectiveStage(plantType, stage);
@@ -113,7 +110,11 @@ function GardenCard({ name, stats }: { name: string; stats: GardenStats | null }
   return (
     <div
       style={{
-        flex: 1,
+        flex: '1 1 0',
+        minHeight: 0,
+        alignSelf: wide ? undefined : 'center',
+        margin: '0 16px',
+        boxSizing: 'border-box',
         background: withAlpha(AppColors.moonlight, 0.08),
         borderRadius: 20,
         border: `1px solid ${withAlpha(AppColors.blushGold, 0.15)}`,
@@ -121,7 +122,7 @@ function GardenCard({ name, stats }: { name: string; stats: GardenStats | null }
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px 16px',
+        overflow: 'hidden',
       }}
     >
       <div style={{ ...AppTypography.cormorantBold, fontSize: 18 }}>{name}</div>

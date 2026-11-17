@@ -39,6 +39,13 @@ export function DailyBloom() {
     gardenStore.watchPartner(auth.partnerUid);
   }, [auth.uid, auth.partnerUid]);
 
+  // dashboard_screen.dart `_syncGarden`: count today's visit 1.5s after the uid arrives.
+  useEffect(() => {
+    if (!auth.uid) return;
+    const timer = window.setTimeout(() => void gardenStore.recordInteraction(), 1500);
+    return () => window.clearTimeout(timer);
+  }, [auth.uid]);
+
   const showTip = (side: string) => {
     setTooltipSide((cur) => (cur === side ? null : side));
     window.setTimeout(() => setTooltipSide((cur) => (cur === side ? null : cur)), 3000);
