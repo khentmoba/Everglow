@@ -8,6 +8,10 @@ import { ErrorPage } from './core/router/ErrorPage';
 import { agentJumpLocation, cinemaOnlyRedirect } from './core/router/routeHelpers';
 import { RouteMemory } from './core/router/routeMemory';
 import { NotPortedPage } from './core/router/NotPortedPage';
+import { AcademyHubPage } from './features/academy/AcademyHubPage';
+import { GameBoardPage } from './features/academy/GameBoardPage';
+import { PodiumPage } from './features/academy/PodiumPage';
+import { SoloStudyPage } from './features/academy/SoloStudyPage';
 import { authService } from './core/services/auth';
 import { AnimePage } from './features/anime/AnimePage';
 import { BookCategoriesPage, BookDetailPage, BookListPage, BookReaderPage } from './features/books/BookSubPages';
@@ -112,13 +116,12 @@ function RootLayout() {
   );
 }
 
-const KNOWN_UNPORTED = new Set(['/academy', '/motchi', '/study']);
+const KNOWN_UNPORTED = new Set(['/motchi', '/study']);
 
 function FallbackRoute() {
   const location = useLocation();
   if (
     KNOWN_UNPORTED.has(location.pathname) ||
-    location.pathname.startsWith('/academy/') ||
     location.pathname.startsWith('/motchi/')
   ) {
     return <NotPortedPage />;
@@ -163,6 +166,10 @@ const router = createBrowserRouter([
       { path: '/trips/:id', loader: guard, element: <TripDetailPage /> },
       { path: '/jukebox', loader: guard, element: <JukeboxPage /> },
       { path: '/spotify/callback', loader: guard, element: <SpotifyCallbackPage /> },
+      { path: '/academy', loader: guard, element: <AcademyHubPage /> },
+      { path: '/academy/solo', loader: guard, element: <SoloStudyPage /> },
+      { path: '/academy/match', loader: guard, element: <GameBoardPage /> },
+      { path: '/academy/podium', loader: guard, element: <PodiumPage /> },
       { path: '/play-zone', loader: guard, element: <PlayZoneHubPage /> },
       { path: '/play-zone/tt', loader: guard, element: <TableTennisPage /> },
       { path: '/play-zone/tt/lobby', loader: guard, element: <TTLobbyPage /> },

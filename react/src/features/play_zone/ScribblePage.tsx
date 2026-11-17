@@ -1,11 +1,12 @@
 // Port of lib/features/play_zone/presentation/screens/scribble_game_screen.dart.
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from '../../core/services/auth';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
+import { ElevatedButton } from '../../shared/widgets/ElevatedButton';
 import { Icon } from '../../shared/widgets/Icon';
 import { usePlayZoneBack } from './table_tennis/TTFrame';
 
@@ -265,51 +266,6 @@ function GuessField({ value, onChange, onSubmit }: { value: string; onChange: (v
         }}
       />
     </div>
-  );
-}
-
-/** ElevatedButton with the app theme: 28/18 padding, elevation 1. */
-function ElevatedButton({
-  onPressed,
-  background,
-  radius,
-  icon,
-  children,
-}: {
-  onPressed: () => void;
-  background: string;
-  radius: number;
-  icon?: ReactNode;
-  children: ReactNode;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      type="button"
-      className="bare-button"
-      onClick={onPressed}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        padding: '18px 28px',
-        minHeight: 40,
-        borderRadius: radius,
-        // M3 hover: the foreground colour at 8% over the fill.
-        background: hovered
-          ? `linear-gradient(${withAlpha(AppColors.petalWhite, 0.08)}, ${withAlpha(AppColors.petalWhite, 0.08)}), ${background}`
-          : background,
-        color: AppColors.petalWhite,
-        boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        cursor: 'pointer',
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-      {children}
-    </button>
   );
 }
 

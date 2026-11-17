@@ -2,7 +2,9 @@
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../services/auth';
 import { AppColors, withAlpha } from '../theme/colors';
+import { lineHeight } from '../theme/paint';
 import { AppTypography } from '../theme/typography';
+import { ElevatedButton } from '../../shared/widgets/ElevatedButton';
 import { Icon } from '../../shared/widgets/Icon';
 
 export function homeRouteFor(isAuthenticated: boolean, isCinemaOnlyUser: boolean): string {
@@ -31,15 +33,11 @@ export function ErrorPage({ uri }: { uri?: string }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 24,
-        textAlign: 'center',
       }}
     >
       <Icon name="cloud_off" variant="outlined" size={64} color={AppColors.petalWhite} />
       <div style={{ height: 24 }} />
-      <div style={{ ...AppTypography.cormorantBlack, fontSize: 28, color: AppColors.petalWhite }}>
-        Page not found
-      </div>
+      <div style={{ ...AppTypography.cormorantBlack, fontSize: 28, color: AppColors.petalWhite }}>Page not found</div>
       <div style={{ height: 8 }} />
       <div
         style={{
@@ -51,21 +49,9 @@ export function ErrorPage({ uri }: { uri?: string }) {
         {displayUri}
       </div>
       <div style={{ height: 24 }} />
-      <button
-        type="button"
-        className="bare-button"
-        onClick={handleGoHome}
-        style={{
-          padding: '10px 24px',
-          borderRadius: 999,
-          background: AppColors.deepRose,
-          color: AppColors.petalWhite,
-          ...AppTypography.outfitBold,
-          fontSize: 14,
-        }}
-      >
-        Go home
-      </button>
+      <ElevatedButton onPressed={handleGoHome}>
+        <span style={{ ...AppTypography.labelLarge, lineHeight: lineHeight(14, 1.26) }}>Go home</span>
+      </ElevatedButton>
     </div>
   );
 }
