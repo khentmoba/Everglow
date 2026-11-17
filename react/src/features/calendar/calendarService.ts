@@ -1,19 +1,22 @@
-// Port of lib/features/calendar/data/services/calendar_service.dart + calendar_poll_service.dart + styles.
+// Port of lib/features/calendar/data/services/calendar_service.dart, calendar_poll_service.dart,
+// data/models/date_poll.dart, domain/models/calendar_event.dart and widgets/calendar_event_style.dart.
 import {
   addDoc,
+  and,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   limit,
   onSnapshot,
   or,
-  and,
   orderBy,
   query,
   runTransaction,
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
   type DocumentData,
   type DocumentSnapshot,
   type QuerySnapshot,
@@ -22,7 +25,10 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type CalendarEventFixture, type CalendarEventType } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
 import { AppColors } from '../../core/theme/colors';
+import { Logger } from '../../core/system/logger';
 import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+
+export type { CalendarEventType };
 
 export type CalendarEvent = CalendarEventFixture & {
   endDate?: Date;
@@ -30,13 +36,10 @@ export type CalendarEvent = CalendarEventFixture & {
   attendees?: string[];
   isAllDay?: boolean;
   bucketItemId?: string;
+  color?: string | null;
 };
 
-export type PollOption = {
-  id: string;
-  date: Date;
-  label: string;
-};
+export type PollOption = { id: string; date: Date; label: string };
 
 export type DatePoll = {
   id: string;
@@ -47,8 +50,10 @@ export type DatePoll = {
   status: 'open' | 'closed';
   options: PollOption[];
   votes: Record<string, string>;
-  winningOptionId?: string;
+  decidedOptionId?: string;
 };
+
+export const CALENDAR_EVENT_TYPES: CalendarEventType[] = ['dateNight', 'anniversary', 'reminder', 'custom'];
 
 export function calendarEventHue(type: CalendarEventType): string {
   switch (type) {
@@ -63,6 +68,7 @@ export function calendarEventHue(type: CalendarEventType): string {
   }
 }
 
+/** calendarEventTypeInfo. */
 export const CALENDAR_TYPE_INFO: Record<CalendarEventType, { emoji: string; label: string }> = {
   dateNight: { emoji: '💑', label: 'Date Night' },
   anniversary: { emoji: '💍', label: 'Anniversary' },
@@ -77,8 +83,22 @@ export const CALENDAR_TYPE_EMOJI: Record<CalendarEventType, string> = {
   custom: '📌',
 };
 
+/** DatePoll.tally. */
+export function pollTally(poll: DatePoll): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const v of Object.values(poll.votes)) m[v] = (m[v] ?? 0) + 1;
+  return m;
+}
+
+/** DatePoll.winningOptionId: the most votes, the later entry on a tie (Dart's reduce with >=). */
+export function pollWinningOptionId(poll: DatePoll): string | undefined {
+  const entries = Object.entries(pollTally(poll));
+  if (entries.length === 0) return undefined;
+  return entries.reduce((a, b) => (a[1] >= b[1] ? a : b))[0];
+}
+
 function parseType(v: unknown): CalendarEventType {
-  if (v === 'dateNight' || v === 'anniversary' || v === 'reminder') return v;
+  if (v === 'dateNight' || v === 'anniversary' || v === 'reminder' || v === 'custom') return v;
   return 'custom';
 }
 
@@ -92,17 +112,39 @@ function parseTs(v: unknown): Date {
   return new Date();
 }
 
-function expandOccurrences(ev: CalendarEvent, start: Date, end: Date): CalendarEvent[] {
+/** CalendarEvent.occurrencesBetween: a repeat lands on the same day, clamped to the month's last day. */
+export function occurrencesBetween(ev: CalendarEvent, start: Date, end: Date): CalendarEvent[] {
+  if (end <= start) return [];
   if (ev.recurring !== 'monthly' && ev.recurring !== 'yearly') {
     return ev.date >= start && ev.date < end ? [ev] : [];
   }
+  const date = ev.date;
   const out: CalendarEvent[] = [];
-  const cursor = new Date(ev.date);
-  for (let i = 0; i < 64 && cursor < end; i++) {
-    if (cursor >= start) out.push({ ...ev, date: new Date(cursor) });
-    if (ev.recurring === 'monthly') cursor.setMonth(cursor.getMonth() + 1);
-    else if (ev.recurring === 'yearly') cursor.setFullYear(cursor.getFullYear() + 1);
-    else break;
+  let year = start.getFullYear() < date.getFullYear() ? date.getFullYear() : start.getFullYear();
+  let month = ev.recurring === 'yearly' ? date.getMonth() : start < date ? date.getMonth() : start.getMonth();
+  while (new Date(year, month, 1) < end) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const occ = new Date(
+      year,
+      month,
+      Math.min(date.getDate(), lastDay),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds(),
+    );
+    if (occ >= date && occ >= start && occ < end) {
+      out.push({
+        ...ev,
+        date: occ,
+        endDate: ev.endDate ? new Date(occ.getTime() + (ev.endDate.getTime() - date.getTime())) : undefined,
+      });
+    }
+    if (ev.recurring === 'yearly') year++;
+    else if (month === 11) {
+      month = 0;
+      year++;
+    } else month++;
   }
   return out;
 }
@@ -118,33 +160,63 @@ function mapEvent(d: DocumentSnapshot<DocumentData>): CalendarEvent {
     endDate: data.endDate != null ? parseTs(data.endDate) : undefined,
     type: parseType(data.type),
     createdBy: String(data.createdBy ?? ''),
-    recurring: typeof data.recurring === 'string' ? data.recurring : undefined,
+    color: typeof data.color === 'string' ? data.color : null,
+    recurring: typeof data.recurring === 'string' ? data.recurring : 'none',
     location: typeof data.location === 'string' ? data.location : undefined,
-    attendees: Array.isArray(data.attendees) ? data.attendees.map(String) : undefined,
-    isAllDay: Boolean(data.isAllDay),
+    attendees: Array.isArray(data.attendees) ? data.attendees.map(String) : [],
+    isAllDay: data.isAllDay === true,
   };
 }
 
-function mapSnapshot(snap: QuerySnapshot<DocumentData>, start: Date, end: Date): CalendarEvent[] {
+/** CalendarEvent.toFirestore. */
+function eventPayload(ev: Omit<CalendarEvent, 'id'>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (ev.bucketItemId != null) out.bucketItemId = ev.bucketItemId;
+  out.title = ev.title;
+  out.description = ev.description;
+  out.date = Timestamp.fromDate(ev.date);
+  if (ev.endDate) out.endDate = Timestamp.fromDate(ev.endDate);
+  out.type = ev.type;
+  out.createdBy = ev.createdBy;
+  out.color = ev.color ?? null;
+  out.recurring = ev.recurring ?? 'none';
+  if (ev.location) out.location = ev.location;
+  out.attendees = ev.attendees ?? [];
+  out.isAllDay = ev.isAllDay ?? false;
+  return out;
+}
+
+function expand(snap: QuerySnapshot<DocumentData>, start: Date, end: Date): CalendarEvent[] {
   const out: CalendarEvent[] = [];
-  for (const d of snap.docs) out.push(...expandOccurrences(mapEvent(d), start, end));
+  for (const d of snap.docs) out.push(...occurrencesBetween(mapEvent(d), start, end));
   return out.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+function eventsQuery(start: Date, end: Date) {
+  return query(
+    collection(db, 'calendar_events'),
+    or(
+      and(where('date', '>=', Timestamp.fromDate(start)), where('date', '<', Timestamp.fromDate(end))),
+      where('recurring', 'in', ['monthly', 'yearly']),
+    ),
+    orderBy('date'),
+    limit(100),
+  );
 }
 
 class CalendarService {
   cachedUpcoming: CalendarEvent[] | null = null;
+  // Flutter's agent mode streams the fixtures and ignores writes; React keeps writes in memory so demos react.
   private demoEvents: CalendarEvent[] | null = null;
   private demoChanges = new Changes(() => [...this.ensureDemo()]);
 
   private ensureDemo(): CalendarEvent[] {
-    if (!this.demoEvents) {
-      this.demoEvents = AgentFixtures.demoEvents().map((e) => ({ ...e }));
-    }
+    if (!this.demoEvents) this.demoEvents = AgentFixtures.demoEvents().map((e) => ({ ...e }));
     return this.demoEvents;
   }
 
   watchEvent(id: string): Source<CalendarEvent | null> {
-    if (AgentMode.isActive.value) return just(AgentFixtures.demoEvents().find((e) => e.id === id) ?? null);
+    if (AgentMode.isActive.value) return just(this.ensureDemo().find((e) => e.id === id) ?? null);
     return snapshots<DocumentSnapshot<DocumentData>, CalendarEvent | null>(
       (next, error) => onSnapshot(doc(db, 'calendar_events', id), next, error),
       (d) => (d.exists() ? mapEvent(d) : null),
@@ -152,24 +224,13 @@ class CalendarService {
   }
 
   getEventsForMonth(month: Date): Source<CalendarEvent[]> {
-    if (AgentMode.demo) {
-      return this.demoChanges.source;
-    }
+    if (AgentMode.demo) return this.demoChanges.source;
     const start = new Date(month.getFullYear(), month.getMonth(), 1);
     const end = new Date(month.getFullYear(), month.getMonth() + 1, 1);
-    const q = query(
-      collection(db, 'calendar_events'),
-      or(
-        and(where('date', '>=', Timestamp.fromDate(start)), where('date', '<', Timestamp.fromDate(end))),
-        where('recurring', 'in', ['monthly', 'yearly']),
-      ),
-      orderBy('date'),
-      limit(100),
-    );
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, CalendarEvent[]>(
-        (next, error) => onSnapshot(q, next, error),
-        (s) => mapSnapshot(s, start, end),
+        (next, error) => onSnapshot(eventsQuery(start, end), next, error),
+        (s) => expand(s, start, end),
       ),
       { label: 'calendar-month' },
     );
@@ -179,65 +240,62 @@ class CalendarService {
     if (AgentMode.demo) return this.demoChanges.source;
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(start.getTime() + days * 86_400_000);
-    const q = query(
-      collection(db, 'calendar_events'),
-      or(
-        and(where('date', '>=', Timestamp.fromDate(start)), where('date', '<', Timestamp.fromDate(end))),
-        where('recurring', 'in', ['monthly', 'yearly']),
-      ),
-      orderBy('date'),
-      limit(100),
-    );
+    const end = new Date(now.getTime() + days * 86_400_000);
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, CalendarEvent[]>(
-        (next, error) => onSnapshot(q, next, error),
+        (next, error) => onSnapshot(eventsQuery(start, end), next, error),
         (s) => {
-          const list = mapSnapshot(s, start, end)
+          const list = expand(s, start, end)
             .filter((e) => e.isAllDay || e.date >= now)
             .slice(0, 20);
           this.cachedUpcoming = list;
           return list;
         },
       ),
-      { label: 'calendar-upcoming' },
+      { label: 'calendar-upcoming', maxAttempts: 3 },
     );
   }
 
+  /** A wish plan gets the id `bucket_<wishId>` and marks the wish planned in the same transaction. */
   async addEvent(ev: Omit<CalendarEvent, 'id'>): Promise<void> {
     if (AgentMode.demo) {
-      this.demoEvents = [...this.ensureDemo(), { ...ev, id: `demo_ev_${Date.now()}` }].sort(
-        (a, b) => a.date.getTime() - b.date.getTime(),
-      );
+      this.demoEvents = [...this.ensureDemo(), { ...ev, id: `demo_ev_${Date.now()}` }];
       this.demoChanges.emit();
       return;
     }
-    const payload: Record<string, unknown> = {
-      title: ev.title,
-      description: ev.description,
-      date: Timestamp.fromDate(ev.date),
-      type: ev.type,
-      createdBy: ev.createdBy,
-      recurring: ev.recurring ?? 'none',
-      attendees: ev.attendees ?? [],
-      isAllDay: ev.isAllDay ?? false,
-    };
-    if (ev.endDate) payload.endDate = Timestamp.fromDate(ev.endDate);
-    if (ev.location) payload.location = ev.location;
-    if (ev.bucketItemId) payload.bucketItemId = ev.bucketItemId;
-    await addDoc(collection(db, 'calendar_events'), payload);
+    try {
+      if (ev.bucketItemId == null) {
+        await addDoc(collection(db, 'calendar_events'), eventPayload(ev));
+      } else {
+        const bucket = doc(db, 'bucket_list', ev.bucketItemId);
+        const eventRef = doc(db, 'calendar_events', `bucket_${ev.bucketItemId}`);
+        await runTransaction(db, async (tx) => {
+          const wish = await tx.get(bucket);
+          const existing = await tx.get(eventRef);
+          if (!wish.exists()) throw new Error('This wish no longer exists');
+          if (existing.exists()) throw new Error('This wish already has a calendar plan');
+          tx.set(eventRef, eventPayload(ev));
+          tx.update(bucket, { calendarEventId: eventRef.id, status: 'planned', dueDate: Timestamp.fromDate(ev.date) });
+        });
+      }
+    } catch (e) {
+      Logger.e('Error adding calendar event', e);
+      throw e;
+    }
   }
 
-  async updateEvent(id: string, data: Partial<CalendarEvent>): Promise<void> {
+  async updateEvent(id: string, data: Record<string, unknown>): Promise<void> {
     if (AgentMode.demo) {
       this.demoEvents = this.ensureDemo().map((e) => (e.id === id ? { ...e, ...data } : e));
       this.demoChanges.emit();
       return;
     }
-    const payload: Record<string, unknown> = { ...data };
-    if (data.date instanceof Date) payload.date = Timestamp.fromDate(data.date);
-    if (data.endDate instanceof Date) payload.endDate = Timestamp.fromDate(data.endDate);
-    await updateDoc(doc(db, 'calendar_events', id), payload);
+    try {
+      await updateDoc(doc(db, 'calendar_events', id), data);
+    } catch (e) {
+      Logger.e('Error updating calendar event', e);
+      throw e;
+    }
   }
 
   async deleteEvent(id: string): Promise<void> {
@@ -246,11 +304,42 @@ class CalendarService {
       this.demoChanges.emit();
       return;
     }
-    await deleteDoc(doc(db, 'calendar_events', id));
+    try {
+      await deleteDoc(doc(db, 'calendar_events', id));
+    } catch (e) {
+      Logger.e('Error deleting calendar event', e);
+      throw e;
+    }
   }
 }
 
+function mapPoll(d: DocumentSnapshot<DocumentData>): DatePoll {
+  const data = d.data() ?? {};
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const votes: Record<string, string> = {};
+  if (data.votes && typeof data.votes === 'object') {
+    for (const [k, v] of Object.entries(data.votes as Record<string, unknown>)) if (typeof v === 'string') votes[k] = v;
+  }
+  const rawOpts: unknown[] = Array.isArray(data.options) ? data.options : [];
+  return {
+    id: d.id,
+    title: str(data.title),
+    description: str(data.description),
+    createdBy: str(data.createdBy),
+    createdAt: parseTs(data.createdAt),
+    status: data.status === 'closed' ? 'closed' : 'open',
+    options: rawOpts
+      .filter((o): o is Record<string, unknown> => !!o && typeof o === 'object')
+      .map((o) => ({ id: str(o.id), date: parseTs(o.date), label: str(o.label) })),
+    votes,
+    decidedOptionId: typeof data.decidedOptionId === 'string' ? data.decidedOptionId : undefined,
+  };
+}
+
+const POLLS = 'calendar_polls';
+
 class CalendarPollService {
+  // Flutter has no agent-mode polls (it queries Firestore and shows the error state); React shows one demo poll.
   private demoPolls: DatePoll[] = [
     {
       id: 'demo_poll_1',
@@ -268,39 +357,20 @@ class CalendarPollService {
   ];
   private demoChanges = new Changes(() => [...this.demoPolls]);
 
+  private demoUpdate(id: string, fn: (p: DatePoll) => DatePoll) {
+    this.demoPolls = this.demoPolls.map((p) => (p.id === id ? fn(p) : p));
+    this.demoChanges.emit();
+  }
+
   watchAll(): Source<DatePoll[]> {
     if (AgentMode.demo) return this.demoChanges.source;
-    const q = query(collection(db, 'date_polls'), orderBy('createdAt', 'desc'), limit(50));
+    const q = query(collection(db, POLLS), orderBy('createdAt', 'desc'), limit(50));
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, DatePoll[]>(
         (next, error) => onSnapshot(q, next, error),
-        (s) =>
-          s.docs.map((d) => {
-            const data = d.data();
-            const rawOpts = Array.isArray(data.options) ? data.options : [];
-            const rawVotes = (data.votes as Record<string, unknown>) ?? {};
-            const votes: Record<string, string> = {};
-            for (const [k, v] of Object.entries(rawVotes)) {
-              if (typeof v === 'string') votes[k] = v;
-            }
-            return {
-              id: d.id,
-              title: String(data.title ?? ''),
-              description: String(data.description ?? ''),
-              createdBy: String(data.createdBy ?? ''),
-              createdAt: parseTs(data.createdAt),
-              status: data.status === 'closed' ? 'closed' : 'open',
-              options: rawOpts.map((o: Record<string, unknown>, i: number) => ({
-                id: String(o.id ?? `opt_${i}`),
-                date: parseTs(o.date),
-                label: String(o.label ?? ''),
-              })),
-              votes,
-              winningOptionId: typeof data.winningOptionId === 'string' ? data.winningOptionId : undefined,
-            };
-          }),
+        (s) => s.docs.map(mapPoll),
       ),
-      { label: 'calendar-polls' },
+      { label: 'polls-all' },
     );
   }
 
@@ -310,57 +380,57 @@ class CalendarPollService {
       this.demoChanges.emit();
       return;
     }
-    await addDoc(collection(db, 'date_polls'), {
-      title: poll.title,
-      description: poll.description,
-      createdBy: poll.createdBy,
-      createdAt: Timestamp.fromDate(poll.createdAt),
-      status: poll.status,
-      options: poll.options.map((o) => ({ id: o.id, date: Timestamp.fromDate(o.date), label: o.label })),
-      votes: poll.votes,
-    });
+    try {
+      const payload: Record<string, unknown> = {
+        title: poll.title,
+        description: poll.description,
+        createdBy: poll.createdBy,
+        createdAt: Timestamp.fromDate(poll.createdAt),
+        options: poll.options.map((o) => ({ id: o.id, date: Timestamp.fromDate(o.date), label: o.label })),
+        votes: poll.votes,
+        status: poll.status,
+      };
+      if (poll.decidedOptionId != null) payload.decidedOptionId = poll.decidedOptionId;
+      await addDoc(collection(db, POLLS), payload);
+    } catch (e) {
+      Logger.e('Error creating poll', e);
+    }
   }
 
   async vote(pollId: string, username: string, optionId: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoPolls = this.demoPolls.map((p) => (p.id === pollId ? { ...p, votes: { ...p.votes, [username]: optionId } } : p));
-      this.demoChanges.emit();
-      return;
+    if (AgentMode.demo) return this.demoUpdate(pollId, (p) => ({ ...p, votes: { ...p.votes, [username]: optionId } }));
+    try {
+      await updateDoc(doc(db, POLLS, pollId), { [`votes.${username}`]: optionId });
+    } catch (e) {
+      Logger.e('Error voting', e);
     }
-    await updateDoc(doc(db, 'date_polls', pollId), { [`votes.${username}`]: optionId });
   }
 
-  async finalize(pollId: string, winningOptionId: string, event: Omit<CalendarEvent, 'id'>): Promise<void> {
+  /** Closes the poll and writes the plan as `poll_<pollId>` in one batch. */
+  async finalize(pollId: string, winning: string, event: Omit<CalendarEvent, 'id'>): Promise<void> {
     if (AgentMode.demo) {
-      this.demoPolls = this.demoPolls.map((p) => (p.id === pollId ? { ...p, status: 'closed', winningOptionId } : p));
-      this.demoChanges.emit();
+      this.demoUpdate(pollId, (p) => ({ ...p, status: 'closed', decidedOptionId: winning }));
       await calendarService.addEvent(event);
       return;
     }
-    const pollRef = doc(db, 'date_polls', pollId);
-    const eventRef = doc(collection(db, 'calendar_events'));
-    await runTransaction(db, async (tx) => {
-      tx.update(pollRef, { status: 'closed', winningOptionId });
-      tx.set(eventRef, {
-        title: event.title,
-        description: event.description,
-        date: Timestamp.fromDate(event.date),
-        type: event.type,
-        createdBy: event.createdBy,
-        recurring: 'none',
-        attendees: event.attendees ?? [],
-        isAllDay: false,
-      });
-    });
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'calendar_events', `poll_${pollId}`), eventPayload(event));
+      batch.update(doc(db, POLLS, pollId), { status: 'closed', decidedOptionId: winning });
+      await batch.commit();
+    } catch (e) {
+      Logger.e('Error finalizing calendar poll', e);
+      throw e;
+    }
   }
 
   async reopen(pollId: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoPolls = this.demoPolls.map((p) => (p.id === pollId ? { ...p, status: 'open', winningOptionId: undefined } : p));
-      this.demoChanges.emit();
-      return;
+    if (AgentMode.demo) return this.demoUpdate(pollId, (p) => ({ ...p, status: 'open', decidedOptionId: undefined }));
+    try {
+      await updateDoc(doc(db, POLLS, pollId), { status: 'open', decidedOptionId: deleteField() });
+    } catch (e) {
+      Logger.e('Error reopening poll', e);
     }
-    await updateDoc(doc(db, 'date_polls', pollId), { status: 'open', winningOptionId: null });
   }
 
   async delete(pollId: string): Promise<void> {
@@ -369,7 +439,11 @@ class CalendarPollService {
       this.demoChanges.emit();
       return;
     }
-    await deleteDoc(doc(db, 'date_polls', pollId));
+    try {
+      await deleteDoc(doc(db, POLLS, pollId));
+    } catch (e) {
+      Logger.e('Error deleting poll', e);
+    }
   }
 }
 

@@ -12,6 +12,7 @@ import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
 import { bucketListService } from '../bucket_list/bucketListService';
 import { calendarService } from '../calendar/calendarService';
+import { showDayDetailSheet } from '../calendar/DayDetailSheet';
 import { AddPhotoDialog, PhotoViewerScreen } from '../gallery/GalleryPage';
 import { galleryService, gridPhotoUrl, type MemoryPhoto } from '../gallery/galleryService';
 import { journalService, type JournalEntry } from './journalService';
@@ -180,7 +181,12 @@ function EventLink({ id, button }: { id: string; button: LinkButton }) {
   const s = useStream(() => calendarService.watchEvent(id), [id]);
   if (s.error) return <div style={body}>Could not load the calendar plan.</div>;
   if (s.data == null) return <div style={body}>The calendar plan is no longer available.</div>;
-  return button('event_outlined', `Calendar plan: ${s.data.title}`, () => undefined);
+  const date = s.data.date;
+  return button(
+    'event_outlined',
+    `Calendar plan: ${s.data.title}`,
+    () => void showDayDetailSheet(date, { background: AppColors.velvet }),
+  );
 }
 
 function PhotoStrip({ ids, onOpen }: { ids: string[]; onOpen: (photos: MemoryPhoto[], index: number) => void }) {

@@ -16,6 +16,7 @@ type Entry = {
   sheet?: boolean;
   dismissible?: boolean;
   inset?: string;
+  barrier?: string;
 };
 
 const stack = new ValueNotifier<Entry[]>([]);
@@ -24,7 +25,15 @@ let nextId = 1;
 /** `showDialog`: resolves with the value passed to `close`, or null when the barrier is tapped. */
 export function showDialog<R>(
   render: (close: (value: R | null) => void) => ReactNode,
-  { barrierDismissible = true, insetPadding }: { barrierDismissible?: boolean; /** Dialog.insetPadding as CSS padding. */ insetPadding?: string } = {},
+  {
+    barrierDismissible = true,
+    insetPadding,
+    barrierColor,
+  }: {
+    barrierDismissible?: boolean;
+    /** Dialog.insetPadding as CSS padding. */ insetPadding?: string;
+    barrierColor?: string;
+  } = {},
 ): Promise<R | null> {
   return new Promise((resolve) => {
     const entry: Entry = {
@@ -33,17 +42,27 @@ export function showDialog<R>(
       resolve: resolve as Entry['resolve'],
       dismissible: barrierDismissible,
       inset: insetPadding,
+      barrier: barrierColor,
     };
     stack.value = [...stack.value, entry];
   });
 }
 
 /** `showModalBottomSheet` (transparent background, scroll-controlled): the sheet draws itself, pinned to the bottom. */
-export function showModalBottomSheet<R>(render: (close: (value: R | null) => void) => ReactNode): Promise<R | null> {
+export function showModalBottomSheet<R>(
+  render: (close: (value: R | null) => void) => ReactNode,
+  { barrierColor }: { barrierColor?: string } = {},
+): Promise<R | null> {
   return new Promise((resolve) => {
     stack.value = [
       ...stack.value,
-      { id: nextId++, render: render as Entry['render'], resolve: resolve as Entry['resolve'], sheet: true },
+      {
+        id: nextId++,
+        render: render as Entry['render'],
+        resolve: resolve as Entry['resolve'],
+        sheet: true,
+        barrier: barrierColor,
+      },
     ];
   });
 }
@@ -86,7 +105,7 @@ function DialogRoute({ entry }: { entry: Entry }) {
         position: 'fixed',
         inset: 0,
         zIndex: 800,
-        background: withAlpha(AppColors.inkDeep, 0.72),
+        background: entry.barrier ?? withAlpha(AppColors.inkDeep, 0.72),
         display: 'flex',
         alignItems: entry.sheet ? 'flex-end' : 'center',
         justifyContent: 'center',
