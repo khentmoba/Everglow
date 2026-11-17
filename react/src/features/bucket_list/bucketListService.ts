@@ -19,7 +19,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type BucketItemFixture } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
 import { AppColors } from '../../core/theme/colors';
-import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 
 export type BucketStatus = 'wish' | 'planned' | 'completed';
 export type BucketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -129,16 +129,6 @@ function mapItem(d: DocumentSnapshot<DocumentData>): BucketItem {
 }
 
 class BucketListService {
-  private demoItems: BucketItem[] | null = null;
-  private demoChanges = new Changes(() => [...this.ensureDemo()]);
-
-  private ensureDemo(): BucketItem[] {
-    if (!this.demoItems) {
-      this.demoItems = AgentFixtures.demoBucketList().map((i) => ({ ...i }));
-    }
-    return this.demoItems;
-  }
-
   watchItem(id: string): Source<BucketItem | null> {
     if (AgentMode.isActive.value) return just(AgentFixtures.demoBucketList().find((i) => i.id === id) ?? null);
     return snapshots<DocumentSnapshot<DocumentData>, BucketItem | null>(
@@ -148,7 +138,7 @@ class BucketListService {
   }
 
   watchPreview(max = 12): Source<BucketItem[]> {
-    if (AgentMode.demo) return this.demoChanges.source;
+    if (AgentMode.demo) return just(AgentFixtures.demoBucketList());
     const q = query(collection(db, 'bucket_list'), orderBy('createdAt', 'desc'), limit(max));
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, BucketItem[]>((next, error) => onSnapshot(q, next, error), mapDocs),
@@ -157,7 +147,7 @@ class BucketListService {
   }
 
   watchAll(): Source<BucketItem[]> {
-    if (AgentMode.demo) return this.demoChanges.source;
+    if (AgentMode.demo) return just(AgentFixtures.demoBucketList());
     const q = query(collection(db, 'bucket_list'), orderBy('createdAt', 'desc'), limit(100));
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, BucketItem[]>((next, error) => onSnapshot(q, next, error), mapDocs),
@@ -166,11 +156,7 @@ class BucketListService {
   }
 
   async add(item: Omit<BucketItem, 'id'>): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = [{ ...item, id: `demo_bucket_${Date.now()}` }, ...this.ensureDemo()];
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     const payload: Record<string, unknown> = {
       title: item.title,
       description: item.description,
@@ -187,11 +173,7 @@ class BucketListService {
   }
 
   async update(id: string, patch: Partial<BucketItem>): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) => (i.id === id ? { ...i, ...patch } : i));
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     const payload: Record<string, unknown> = { ...patch };
     if (patch.dueDate instanceof Date) payload.dueDate = Timestamp.fromDate(patch.dueDate);
     if (patch.completedAt instanceof Date) payload.completedAt = Timestamp.fromDate(patch.completedAt);
@@ -199,22 +181,12 @@ class BucketListService {
   }
 
   async delete(id: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().filter((i) => i.id !== id);
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     await deleteDoc(doc(db, 'bucket_list', id));
   }
 
   async markComplete(id: string, completedBy: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) =>
-        i.id === id ? { ...i, status: 'completed', completedAt: new Date(), completedBy } : i,
-      );
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     await updateDoc(doc(db, 'bucket_list', id), {
       status: 'completed',
       completedAt: Timestamp.now(),
@@ -223,13 +195,7 @@ class BucketListService {
   }
 
   async markUncomplete(id: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) =>
-        i.id === id ? { ...i, status: 'wish', completedAt: undefined, completedBy: undefined } : i,
-      );
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     await updateDoc(doc(db, 'bucket_list', id), {
       status: 'wish',
       completedAt: deleteField(),
@@ -238,20 +204,7 @@ class BucketListService {
   }
 
   async moveStatus(id: string, status: BucketStatus, completedBy?: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) =>
-        i.id === id
-          ? {
-              ...i,
-              status,
-              completedAt: status === 'completed' ? new Date() : undefined,
-              completedBy: status === 'completed' ? completedBy : undefined,
-            }
-          : i,
-      );
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     const data: Record<string, unknown> = { status };
     if (status === 'completed') {
       data.completedAt = Timestamp.now();
@@ -264,31 +217,19 @@ class BucketListService {
   }
 
   async assign(id: string, username?: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) => (i.id === id ? { ...i, assignedTo: username } : i));
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     await updateDoc(doc(db, 'bucket_list', id), {
       assignedTo: username ?? deleteField(),
     });
   }
 
   async setPriority(id: string, priority: BucketPriority): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) => (i.id === id ? { ...i, priority } : i));
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     await updateDoc(doc(db, 'bucket_list', id), { priority });
   }
 
   async setDueDate(id: string, dueDate?: Date): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoItems = this.ensureDemo().map((i) => (i.id === id ? { ...i, dueDate } : i));
-      this.demoChanges.emit();
-      return;
-    }
+    if (AgentMode.isActive.value) return;
     await updateDoc(doc(db, 'bucket_list', id), {
       dueDate: dueDate ? Timestamp.fromDate(dueDate) : deleteField(),
     });

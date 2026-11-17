@@ -1,7 +1,7 @@
 // Port of lib/features/journal/presentation/widgets/memory_connections.dart.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth } from '../../core/services/auth';
+import { authService, useAuth } from '../../core/services/auth';
 import { AppColors, M3Scheme, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
@@ -10,6 +10,7 @@ import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { showModalBottomSheet, TextButton } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
+import { showBucketItemDetail } from '../bucket_list/BucketItemCard';
 import { bucketListService } from '../bucket_list/bucketListService';
 import { calendarService } from '../calendar/calendarService';
 import { showDayDetailSheet } from '../calendar/DayDetailSheet';
@@ -174,7 +175,12 @@ function WishLink({ id, button }: { id: string; button: LinkButton }) {
   const s = useStream(() => bucketListService.watchItem(id), [id]);
   if (s.error) return <div style={body}>Could not load the original wish.</div>;
   if (s.data == null) return <div style={body}>The original wish is no longer available.</div>;
-  return button('auto_awesome_outlined', `Original wish: ${s.data.title}`, () => undefined);
+  const wish = s.data;
+  return button(
+    'auto_awesome_outlined',
+    `Original wish: ${wish.title}`,
+    () => void showBucketItemDetail(wish, authService.currentUser ?? ''),
+  );
 }
 
 function EventLink({ id, button }: { id: string; button: LinkButton }) {

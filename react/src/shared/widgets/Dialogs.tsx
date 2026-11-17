@@ -67,6 +67,38 @@ export function showModalBottomSheet<R>(
   });
 }
 
+/**
+ * A scroll-controlled sheet whose builder is `Center(...)`: Flutter lays it out in the
+ * screen height minus 48px, so short sheets float centered in that area rather than
+ * sitting on the bottom edge. Tapping the empty area closes it, like the barrier.
+ */
+export function CenteredSheetArea({
+  close,
+  background,
+  children,
+}: {
+  close: () => void;
+  background?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      onClick={(ev) => ev.target === ev.currentTarget && close()}
+      style={{
+        height: 'calc(100dvh - 48px)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        background,
+        borderRadius: background ? '28px 28px 0 0' : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function closeEntry(entry: Entry, value: unknown) {
   stack.value = stack.value.filter((e) => e.id !== entry.id);
   entry.resolve(value);

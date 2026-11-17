@@ -80,7 +80,9 @@ export function BucketListPreview() {
             <div style={{ ...AppTypography.cormorantBold, fontSize: 20, lineHeight: 1.1, color: AppColors.petalWhite }}>
               Our Bucket List
             </div>
-            <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.5), marginTop: 2 }}>
+            <div
+              style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.5), marginTop: 2 }}
+            >
               {subtitle}
             </div>
           </div>
@@ -93,7 +95,12 @@ export function BucketListPreview() {
         </div>
 
         <div style={{ height: 12 }} />
-        <div style={{ height: 1, background: linear([AppColors.transparent, withAlpha(AppColors.petalWhite, 0.07), AppColors.transparent]) }} />
+        <div
+          style={{
+            height: 1,
+            background: linear([AppColors.transparent, withAlpha(AppColors.petalWhite, 0.07), AppColors.transparent]),
+          }}
+        />
         <div style={{ height: 10 }} />
 
         {items == null ? (
@@ -114,12 +121,22 @@ export function BucketListPreview() {
                 }}
               >
                 <Icon name="star_outline" size={14} color={HUE} />
-                <span style={{ ...AppTypography.outfitWhite, fontSize: 12, color: AppColors.petalWhite, flex: 1 }}>{w.title}</span>
+                <span style={{ ...AppTypography.outfitWhite, fontSize: 12, color: AppColors.petalWhite, flex: 1 }}>
+                  {w.title}
+                </span>
               </div>
             ))}
           </div>
         ) : (
-          <div style={{ padding: '8px 0', textAlign: 'center', ...AppTypography.outfitWhite, fontSize: 11.5, color: withAlpha(AppColors.petalWhite, 0.55) }}>
+          <div
+            style={{
+              padding: '8px 0',
+              textAlign: 'center',
+              ...AppTypography.outfitWhite,
+              fontSize: 11.5,
+              color: withAlpha(AppColors.petalWhite, 0.55),
+            }}
+          >
             All wishes are becoming memories ✨
           </div>
         )}
