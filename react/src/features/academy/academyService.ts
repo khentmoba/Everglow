@@ -691,18 +691,4 @@ export const academySyncService = {
   },
 };
 
-export function displayNameFor(username: string | null | undefined): string {
-  switch (username) {
-    case 'khentsgdz':
-      return 'Khent';
-    case 'clairjassen':
-      return 'Clair';
-    case 'breyan':
-      return 'Breyan';
-    case 'octagram':
-      return 'Octagram';
-    default:
-      if (!username) return 'Love';
-      return username[0].toUpperCase() + username.slice(1);
-  }
-}
+export { displayNameFor } from '../../shared/utils/text';

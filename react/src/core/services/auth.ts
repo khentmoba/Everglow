@@ -3,12 +3,30 @@
 // push-notification sync, partner lookup, logout cleanup.
 import { OfflinePhotos } from '../../features/gallery/offlinePhotos';
 import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocFromCache,
+  getDocs,
+  getDocsFromCache,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  where,
+  type DocumentData,
+} from 'firebase/firestore';
 import { useSyncExternalStore } from 'react';
 import { AgentMode } from '../agent/agentMode';
 import { RouteMemory } from '../router/routeMemory';
 import { Logger } from '../system/logger';
 import { Prefs } from '../system/prefs';
+import { withGetTimeout } from '../utils/liveSource';
+import { initializeProgress } from '../../features/xp/xpService';
+import { letterboxService } from '../../features/dashboard/letterboxService';
 import { auth, db } from './firebase';
 
 export class PasscodeConnectionError extends Error {}
@@ -23,7 +41,9 @@ async function sha256Hex(text: string): Promise<string> {
 }
 
 function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_');
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 }
 
 class AuthService {
@@ -37,6 +57,7 @@ class AuthService {
   private partnerNameResolved: string | null = null;
   private offlineVerifier: OfflineVerifier | null = null;
   private hasSyncedUserDoc = false;
+  isResolvingPartner = false;
   private listeners = new Set<() => void>();
   private version = 0;
 
@@ -254,9 +275,85 @@ class AuthService {
         { merge: true },
       );
       Logger.i(`[AuthService] users doc synced for ${this.currentUser} (${me.uid})`);
+      void Promise.all([
+        this.resolvePartnerInfo().catch((e) => Logger.e('AuthService._resolvePartnerInfo failed (bg)', e)),
+        initializeProgress(me.uid).catch((e) => Logger.e('XP init failed (bg)', e)),
+        ...(this.isCoupleUser ? [letterboxService.ensureSeeded().catch((e) => Logger.e('Letterbox seed failed (bg)', e))] : []),
+      ]);
     } catch (e) {
-      this.hasSyncedUserDoc = false;
-      Logger.e(`[AuthService] syncUserDoc failed for ${this.currentUser}`, e);
+      let repaired = false;
+      try {
+        repaired = await this.repairStaleUserDoc(me.uid);
+      } catch (e2) {
+        Logger.e(`[AuthService] users doc repair failed for ${this.currentUser} (${me.uid})`, e2);
+      }
+      if (!repaired) {
+        this.hasSyncedUserDoc = false;
+        Logger.e(`[AuthService] _syncUserDoc failed for ${this.currentUser} (${me.uid})`, e);
+      }
+    }
+  }
+
+  private async repairStaleUserDoc(myUid: string): Promise<boolean> {
+    const ref = doc(db, 'users', myUid);
+    const snap = await getDocFast(ref, 'auth stale user-doc check');
+    if (!snap.exists()) return false;
+    if (!needsUserDocRepair(snap.data() ?? {}, this.currentUser)) return false;
+    Logger.i(`[AuthService] repairing stale users doc for ${this.currentUser} (${myUid})`);
+    await deleteDoc(ref);
+    await setDoc(
+      ref,
+      { username: this.currentUser, partnerUsername: this.partnerUsername, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    Logger.i(`[AuthService] users doc repaired for ${this.currentUser} (${myUid})`);
+    return true;
+  }
+
+  refreshPartnerLink(): Promise<void> {
+    return this.resolvePartnerInfo();
+  }
+
+  private async resolvePartnerInfo(): Promise<void> {
+    if (this.isAgentSession || this.isResolvingPartner) return;
+    const me = auth.currentUser;
+    if (this.currentUser == null || me == null) return;
+    this.isResolvingPartner = true;
+    this.notify();
+    try {
+      let partnerUser = this.partnerUsername;
+      try {
+        const own = await getDocFast(doc(db, 'users', me.uid), 'auth own user-doc read');
+        const stored = own.data()?.['partnerUsername'];
+        if (typeof stored === 'string' && stored !== '') partnerUser = stored;
+      } catch (e) {
+        Logger.e('AuthService._resolvePartnerInfo own doc read failed', e);
+      }
+      if (partnerUser == null) {
+        this.partnerUid = null;
+        this.partnerNameResolved = null;
+        return;
+      }
+      try {
+        const q = query(collection(db, 'users'), where('username', '==', partnerUser), limit(10));
+        const snap = await getQueryFast(q, 'auth partner lookup');
+        const uid = pickPartnerUid(
+          snap.docs.map((d) => ({ id: d.id, data: d.data() as DocumentData })),
+          this.currentUser,
+        );
+        if (uid != null) {
+          this.partnerUid = uid;
+          this.partnerNameResolved = partnerUser === 'khentsgdz' ? 'Khent' : 'Clair';
+        } else {
+          this.partnerUid = null;
+          this.partnerNameResolved = null;
+        }
+      } catch (e) {
+        Logger.e('AuthService._resolvePartnerInfo failed', e);
+      }
+    } finally {
+      this.isResolvingPartner = false;
+      this.notify();
     }
   }
 
@@ -280,6 +377,59 @@ class AuthService {
     await OfflinePhotos.clear();
     this.notify();
   }
+}
+
+async function getDocFast(ref: ReturnType<typeof doc>, label: string) {
+  try {
+    const cached = await getDocFromCache(ref);
+    if (cached.exists()) return cached;
+  } catch (e) {
+    Logger.d(`getDocFast cache miss for ${label}: ${String(e)}`);
+  }
+  return withGetTimeout(getDoc(ref), label);
+}
+
+async function getQueryFast(q: ReturnType<typeof query>, label: string) {
+  try {
+    const cached = await getDocsFromCache(q);
+    if (!cached.empty) return cached;
+  } catch (e) {
+    Logger.d(`getQueryFast cache miss for ${label}: ${String(e)}`);
+  }
+  return withGetTimeout(getDocs(q), label);
+}
+
+export function needsUserDocRepair(data: DocumentData, currentUser: string | null): boolean {
+  const allowed = new Set(['username', 'partnerUsername', 'updatedAt', 'createdAt']);
+  if (data['username'] !== currentUser) return true;
+  return !Object.keys(data).every((k) => allowed.has(k));
+}
+
+function docUpdatedAt(data: DocumentData): number {
+  const v = data['updatedAt'];
+  if (v instanceof Timestamp) return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') {
+    const t = Date.parse(v);
+    if (!Number.isNaN(t)) return t;
+  }
+  return 0;
+}
+
+/** AuthService.pickPartnerUid: the doc that links back to me wins, then the newest, then the smallest id. */
+export function pickPartnerUid(docs: { id: string; data: DocumentData }[], myUsername: string | null): string | null {
+  if (docs.length === 0) return null;
+  const linksBack = (d: DocumentData) => myUsername != null && myUsername !== '' && d['partnerUsername'] === myUsername;
+  const ranked = [...docs].sort((a, b) => {
+    const al = linksBack(a.data);
+    const bl = linksBack(b.data);
+    if (al !== bl) return al ? -1 : 1;
+    const byUpdated = docUpdatedAt(b.data) - docUpdatedAt(a.data);
+    if (byUpdated !== 0) return byUpdated;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+  return ranked[0].id;
 }
 
 export const authService = new AuthService();

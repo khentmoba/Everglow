@@ -80,6 +80,7 @@ export const Derived = {
   textDisabled: withAlpha(AppColors.petalWhite, 0.52),
   border: withAlpha(AppColors.moonlight, 0.18),
   divider: withAlpha(AppColors.moonlight, 0.18),
+  glowRose: withAlpha(AppColors.deepRose, 0.35),
 };
 
 /** The Material 3 dark scheme Flutter seeds from deepRose (AppTheme.gamifiedTheme). */

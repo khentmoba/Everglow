@@ -1,6 +1,8 @@
 // Port of lib/features/dashboard/data/services/letterbox_service.dart + HiddenNote.
 import {
+  addDoc,
   collection,
+  getDocs,
   doc,
   limit as fbLimit,
   onSnapshot,
@@ -9,14 +11,14 @@ import {
   updateDoc,
   type DocumentData,
   type QuerySnapshot,
-  type Timestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type HiddenNoteFixture } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
-import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { just, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 
 export type HiddenNote = HiddenNoteFixture;
 
@@ -31,7 +33,13 @@ class LetterboxService {
     const raw = Prefs.getString(CACHE_KEY);
     if (raw) {
       try {
-        const list = JSON.parse(raw) as Array<{ id: string; title: string; content: string; unlockDate: string; isRead: boolean }>;
+        const list = JSON.parse(raw) as Array<{
+          id: string;
+          title: string;
+          content: string;
+          unlockDate: string;
+          isRead: boolean;
+        }>;
         this.cachedNotes = list.map((n) => ({ ...n, unlockDate: new Date(n.unlockDate) }));
       } catch {
         // ignore corrupt cache
@@ -79,6 +87,27 @@ class LetterboxService {
 
   notesAll(): Source<HiddenNote[]> {
     return this.notesPreview(200);
+  }
+
+  /** Seeds one sample note when the letterbox is empty (cache, disk and server all checked). */
+  async ensureSeeded(): Promise<void> {
+    if (AgentMode.isActive.value) return;
+    try {
+      if (this.cachedNotes.length > 0) return;
+      await new Promise((r) => setTimeout(r, 4000));
+      if (this.cachedNotes.length > 0) return;
+      const existing = await withGetTimeout(getDocs(query(collection(db, 'notes'), fbLimit(1))), 'letterbox seed check');
+      if (!existing.empty) return;
+      await addDoc(collection(db, 'notes'), {
+        title: 'My Favorite Number',
+        content: '1111',
+        unlockDate: Timestamp.fromDate(new Date()),
+        isRead: false,
+      });
+      Logger.i('Letterbox: seeded initial sample note');
+    } catch (e) {
+      Logger.e('Letterbox ensureSeeded failed (likely permission)', e);
+    }
   }
 
   async markAsRead(noteId: string): Promise<void> {

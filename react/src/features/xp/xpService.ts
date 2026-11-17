@@ -111,3 +111,16 @@ export function awardDaily(uid: string, action: string, award: XpAward): Promise
   lastOp = next;
   return next;
 }
+
+/** XPService.initializeProgress: create users/{uid}/progress/main once, gives up after 6s. */
+export async function initializeProgress(uid: string): Promise<void> {
+  if (AgentMode.demo) return;
+  const ref = doc(db, 'users', uid, 'progress', 'main');
+  await Promise.race([
+    runTransaction(db, async (txn) => {
+      const snap = await txn.get(ref);
+      if (!snap.exists()) txn.set(ref, { xpTotal: 0, level: 1, streak: 0, lastActivity: serverTimestamp() });
+    }),
+    new Promise<void>((r) => setTimeout(r, 6000)),
+  ]);
+}

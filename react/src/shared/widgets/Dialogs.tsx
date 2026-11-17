@@ -14,18 +14,23 @@ type Entry = {
   render: (close: (v: unknown) => void) => ReactNode;
   resolve: (v: unknown) => void;
   sheet?: boolean;
+  dismissible?: boolean;
 };
 
 const stack = new ValueNotifier<Entry[]>([]);
 let nextId = 1;
 
 /** `showDialog`: resolves with the value passed to `close`, or null when the barrier is tapped. */
-export function showDialog<R>(render: (close: (value: R | null) => void) => ReactNode): Promise<R | null> {
+export function showDialog<R>(
+  render: (close: (value: R | null) => void) => ReactNode,
+  { barrierDismissible = true }: { barrierDismissible?: boolean } = {},
+): Promise<R | null> {
   return new Promise((resolve) => {
     const entry: Entry = {
       id: nextId++,
       render: render as Entry['render'],
       resolve: resolve as Entry['resolve'],
+      dismissible: barrierDismissible,
     };
     stack.value = [...stack.value, entry];
   });
@@ -62,7 +67,7 @@ function DialogRoute({ entry }: { entry: Entry }) {
   useEffect(() => {
     const raf = requestAnimationFrame(() => setShown(true));
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') closeEntry(entry, null);
+      if (ev.key === 'Escape' && entry.dismissible !== false) closeEntry(entry, null);
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -74,7 +79,7 @@ function DialogRoute({ entry }: { entry: Entry }) {
     <div
       role="dialog"
       aria-modal
-      onClick={() => closeEntry(entry, null)}
+      onClick={() => entry.dismissible !== false && closeEntry(entry, null)}
       style={{
         position: 'fixed',
         inset: 0,

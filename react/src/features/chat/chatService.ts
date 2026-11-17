@@ -2,6 +2,7 @@
 import {
   addDoc,
   collection,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -10,11 +11,13 @@ import {
   type DocumentData,
   type QuerySnapshot,
   type Timestamp,
+  where,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type ChatMessageFixture } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Logger } from '../../core/system/logger';
+import { just, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 
 export type ChatMessage = ChatMessageFixture & {
   isOptimistic?: boolean;
@@ -37,64 +40,80 @@ function monthDay(d: Date): string {
   return `${m}-${day}`;
 }
 
-class ChatService {
-  private demoMessages: ChatMessage[] | null = null;
-  private demoChanges = new Changes(() => [...(this.demoMessages ?? AgentFixtures.demoChatMessages())]);
+function fromDoc(id: string, data: DocumentData): ChatMessage {
+  return {
+    id,
+    sender: String(data.sender ?? ''),
+    senderUid: String(data.senderUid ?? ''),
+    text: String(data.text ?? ''),
+    timestamp: parseTimestamp(data.timestamp),
+  };
+}
 
-  watchMessages(max = 100): Source<ChatMessage[]> {
-    if (AgentMode.demo) {
-      if (!this.demoMessages) {
-        this.demoMessages = AgentFixtures.demoChatMessages();
-      }
-      return this.demoChanges.source;
-    }
-    const q = query(collection(db, 'sanctuary_messages'), orderBy('timestamp', 'desc'), limit(max));
+class ChatService {
+  /** getMessagesStream: the newest 50, oldest first. Agent mode shows the demo chat. */
+  watchMessages(): Source<ChatMessage[]> {
+    if (AgentMode.demo) return just(AgentFixtures.demoChatMessages());
+    const q = query(collection(db, 'sanctuary_messages'), orderBy('timestamp', 'desc'), limit(50));
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, ChatMessage[]>(
         (next, error) => onSnapshot(q, next, error),
-        (s) =>
-          s.docs
-            .map((d) => {
-              const data = d.data();
-              return {
-                id: d.id,
-                sender: String(data.sender ?? ''),
-                senderUid: String(data.senderUid ?? ''),
-                text: String(data.text ?? ''),
-                timestamp: parseTimestamp(data.timestamp),
-              };
-            })
-            .reverse(),
+        (s) => {
+          const messages: ChatMessage[] = [];
+          for (const d of s.docs) {
+            try {
+              messages.push(fromDoc(d.id, d.data()));
+            } catch (e) {
+              Logger.e(`Error parsing message document ${d.id}`, e);
+            }
+          }
+          return messages.reverse();
+        },
       ),
-      { label: 'sanctuary-messages' },
+      { label: 'sanctuary-chat' },
     );
   }
 
   async sendMessage(text: string, sender: string, senderUid: string): Promise<void> {
-    if (!text.trim()) return;
+    if (text.trim() === '') return;
     if (AgentMode.demo) {
-      const current = this.demoMessages ?? AgentFixtures.demoChatMessages();
-      this.demoMessages = [
-        ...current,
-        {
-          id: `demo_msg_${Date.now()}`,
-          sender,
-          senderUid,
-          text,
-          timestamp: new Date(),
-        },
-      ];
-      this.demoChanges.emit();
+      Logger.i(`Agent session simulated chat send: ${text}`);
       return;
     }
-    const now = new Date();
     await addDoc(collection(db, 'sanctuary_messages'), {
       sender,
       senderUid,
-      text,
+      text: text.trim(),
       timestamp: serverTimestamp(),
-      monthDay: monthDay(now),
+      monthDay: monthDay(new Date()),
     });
+  }
+
+  /** Messages sent on today's date in earlier years (On This Day). */
+  async getMessagesFromThisDay(): Promise<ChatMessage[]> {
+    if (AgentMode.demo) return [];
+    const now = new Date();
+    try {
+      const col = collection(db, 'sanctuary_messages');
+      let snap = await withGetTimeout(
+        getDocs(query(col, where('monthDay', '==', monthDay(now)), limit(100))),
+        'chat on-this-day',
+      );
+      if (snap.empty) {
+        snap = await withGetTimeout(getDocs(query(col, orderBy('timestamp', 'desc'), limit(200))), 'chat on-this-day fallback');
+      }
+      return snap.docs
+        .map((d) => fromDoc(d.id, d.data()))
+        .filter(
+          (m) =>
+            m.timestamp.getMonth() === now.getMonth() &&
+            m.timestamp.getDate() === now.getDate() &&
+            m.timestamp.getFullYear() !== now.getFullYear(),
+        );
+    } catch (e) {
+      Logger.e('Error getting on-this-day messages', e);
+      return [];
+    }
   }
 }
 
