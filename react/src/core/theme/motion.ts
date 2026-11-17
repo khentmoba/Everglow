@@ -33,6 +33,7 @@ export const Curves = {
   easeOut: cubic(0.25, 0.1, 0.25, 1.0),
   easeIn: cubic(0.42, 0.0, 1.0, 1.0),
   easeOutBack: cubic(0.175, 0.885, 0.32, 1.275),
+  easeOutExpo: cubic(0.19, 1.0, 0.22, 1.0),
   bounceOut,
 };
 

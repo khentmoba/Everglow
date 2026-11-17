@@ -14,11 +14,15 @@ export const defaultGlows: RadialGlow[] = [
 export function EverglowBackground({
   baseColor = AppColors.twilight,
   glows = defaultGlows,
+  size,
 }: {
   baseColor?: string;
   glows?: RadialGlow[];
+  /** The painted box when it is not the viewport (glows are laid out against it). */
+  size?: [number, number];
 }) {
-  const { width, height } = useViewport();
+  const viewport = useViewport();
+  const [width, height] = size ?? [viewport.width, viewport.height];
   return (
     <div style={{ position: 'absolute', inset: 0, background: baseColor, pointerEvents: 'none', overflow: 'hidden' }} aria-hidden>
       {glows.map((g, i) => {

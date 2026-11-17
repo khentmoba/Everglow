@@ -11,7 +11,7 @@ import { EverglowEmptyState, EverglowSkeleton, EverglowStreamView } from '../../
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
-import { CalField } from './AddEventDialog';
+import { FilledField } from '../../shared/widgets/FilledField';
 import { calendarPollService, pollTally, pollWinningOptionId, type DatePoll } from './calendarService';
 import { jm, monthDay } from './calendarUi';
 
@@ -410,7 +410,7 @@ function AddPollDialog({ close }: { close: (saved: boolean | null) => void }) {
       <div style={{ height: 4 }} />
       <div style={text(11, withAlpha(AppColors.petalWhite, 0.6))}>Rallly-style: propose dates, vote together</div>
       <div style={{ height: 16 }} />
-      <CalField
+      <FilledField
         value={title}
         onChange={setTitle}
         hint="What are we scheduling? e.g., Anniversary dinner"
@@ -419,7 +419,7 @@ function AddPollDialog({ close }: { close: (saved: boolean | null) => void }) {
         padding={[14, 12]}
       />
       <div style={{ height: 12 }} />
-      <CalField
+      <FilledField
         value={desc}
         onChange={setDesc}
         hint="Details (optional)"

@@ -6,29 +6,23 @@ import { AppColors, withAlpha } from '../../core/theme/colors';
 import { Align, boxShadow, linear, lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
+import { dartStringHash } from '../../shared/utils/dart';
 import type { BookItem, BookSearchResult } from './bookTypes';
 
 const cloths = [AppColors.velvet, AppColors.plum, AppColors.silk, AppColors.deepBlack];
 
-/** Dart's `String.hashCode` as dart2js computes it, so the cloth colours match. */
-function dartStringHash(s: string): number {
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) {
-    hash = 0x1fffffff & (hash + s.charCodeAt(i));
-    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    hash = hash ^ (hash >> 6);
-  }
-  hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-  hash = hash ^ (hash >> 11);
-  return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-}
-
 function ClothCover({ title, author, width }: { title: string; author: string; width: number }) {
   const cloth = cloths[Math.abs(dartStringHash(title)) % cloths.length];
-  const background = linear([cloth, AppColors.inkDeep], { begin: Align.topLeft, end: Align.bottomRight, size: [width, width * 1.5] });
+  const background = linear([cloth, AppColors.inkDeep], {
+    begin: Align.topLeft,
+    end: Align.bottomRight,
+    size: [width, width * 1.5],
+  });
   if (width < 80) {
     return (
-      <div style={{ position: 'absolute', inset: 0, background, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{ position: 'absolute', inset: 0, background, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
         <Icon name="menu_book" size={width * 0.4} color={withAlpha(AppColors.auroraGold, 0.6)} />
       </div>
     );
@@ -51,7 +45,16 @@ function ClothCover({ title, author, width }: { title: string; author: string; w
           overflow: 'hidden',
         }}
       >
-        <div style={{ width: 110, flexShrink: 0, transform: `scale(${scale})`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div
+          style={{
+            width: 110,
+            flexShrink: 0,
+            transform: `scale(${scale})`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
           <div
             style={{
               ...AppTypography.cormorantBold,
@@ -117,7 +120,9 @@ export function BookCover({
         height: width * 1.5,
         flexShrink: 0,
         borderRadius: radius,
-        boxShadow: reduceAmbientMotion(viewport) ? undefined : boxShadow([{ color: withAlpha('#000000', 0.45), blur: 14, offset: [0, 8] }]),
+        boxShadow: reduceAmbientMotion(viewport)
+          ? undefined
+          : boxShadow([{ color: withAlpha('#000000', 0.45), blur: 14, offset: [0, 8] }]),
       }}
     >
       <div style={{ position: 'absolute', inset: 0, borderRadius: radius, overflow: 'hidden' }}>
@@ -182,17 +187,32 @@ export function BookCoverCard({
       <div style={{ height: 10, flexShrink: 0 }} />
       <div
         className="clamp-2"
-        style={{ ...AppTypography.outfitBold, color: AppColors.petalWhite, fontSize: 12.5, lineHeight: lineHeight(12.5, 1.25), width: '100%' }}
+        style={{
+          ...AppTypography.outfitBold,
+          color: AppColors.petalWhite,
+          fontSize: 12.5,
+          lineHeight: lineHeight(12.5, 1.25),
+          width: '100%',
+        }}
       >
         {title}
       </div>
       {statusBadge != null ? (
         <div style={{ paddingTop: 3, display: 'flex', alignItems: 'center', width: '100%' }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: badgeColor ?? AppColors.roseQuartz }} />
+          <div
+            style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: badgeColor ?? AppColors.roseQuartz }}
+          />
           <div style={{ width: 5, flexShrink: 0 }} />
           <div
             className="ellipsis"
-            style={{ ...AppTypography.outfitWhite, color: AppColors.mutedPurple, fontSize: 10.5, lineHeight: lineHeight(10.5), flex: 1, minWidth: 0 }}
+            style={{
+              ...AppTypography.outfitWhite,
+              color: AppColors.mutedPurple,
+              fontSize: 10.5,
+              lineHeight: lineHeight(10.5),
+              flex: 1,
+              minWidth: 0,
+            }}
           >
             {statusBadge}
           </div>
@@ -200,7 +220,14 @@ export function BookCoverCard({
       ) : author ? (
         <div
           className="ellipsis"
-          style={{ ...AppTypography.outfitWhite, color: AppColors.mutedPurple, fontSize: 11, lineHeight: lineHeight(11), paddingTop: 2, width: '100%' }}
+          style={{
+            ...AppTypography.outfitWhite,
+            color: AppColors.mutedPurple,
+            fontSize: 11,
+            lineHeight: lineHeight(11),
+            paddingTop: 2,
+            width: '100%',
+          }}
         >
           {author}
         </div>

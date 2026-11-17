@@ -1,15 +1,15 @@
 // Port of lib/features/academy/presentation/screens/podium_screen.dart.
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { ErrorPage } from '../../core/router/ErrorPage';
 import { useAuth } from '../../core/services/auth';
 import { useBoxSize } from '../../core/system/useBoxSize';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
-import { motionReduced } from '../../core/theme/motion';
 import { Align, linear, shadowLayer, sigma } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
+import { Confetti } from '../../shared/widgets/Confetti';
 import { Icon } from '../../shared/widgets/Icon';
 import { displayNameFor, type GameMatch } from './academyService';
 import { useRoseGold } from './SoloStudyPage';
@@ -162,98 +162,5 @@ function ReturnButton({ onPressed }: { onPressed: () => void }) {
         </span>
       </button>
     </div>
-  );
-}
-
-type Particle = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  w: number;
-  h: number;
-  color: string;
-  rot: number;
-  vr: number;
-  flip: number;
-  vf: number;
-};
-
-/** The confetti package's explosive blast from the top centre: 3s of bursts, gravity 0.2, drag 0.05. */
-function Confetti({ colors }: { colors: string[] }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (motionReduced()) return;
-    const el = canvas.current;
-    const ctx = el?.getContext('2d');
-    if (!el || !ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    const particles: Particle[] = [];
-    const start = performance.now();
-    let frame = 0;
-    let raf = 0;
-    const emit = () => {
-      for (let i = 0; i < 10; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const force = 5 + Math.random() * 15;
-        particles.push({
-          x: el.clientWidth / 2,
-          y: 0,
-          vx: Math.cos(angle) * force,
-          vy: Math.sin(angle) * force,
-          w: 20 + Math.random() * 10,
-          h: 10 + Math.random() * 5,
-          color: colors[Math.floor(Math.random() * colors.length)],
-          rot: Math.random() * Math.PI * 2,
-          vr: (Math.random() - 0.5) * 0.2,
-          flip: Math.random() * Math.PI * 2,
-          vf: 0.05 + Math.random() * 0.15,
-        });
-      }
-    };
-    const tick = (now: number) => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (el.width !== Math.round(w * dpr) || el.height !== Math.round(h * dpr)) {
-        el.width = Math.round(w * dpr);
-        el.height = Math.round(h * dpr);
-      }
-      const emitting = now - start < 3000;
-      if (emitting && (frame === 0 || Math.random() < 0.02)) emit();
-      frame++;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.vx -= p.vx * 0.05;
-        p.vy -= p.vy * 0.05;
-        p.vy += 0.2 * 1.5;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.rot += p.vr;
-        p.flip += p.vf;
-        if (p.y > h + 40) {
-          particles.splice(i, 1);
-          continue;
-        }
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.scale(1, Math.cos(p.flip));
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
-      }
-      if (emitting || particles.length > 0) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [colors]);
-  return (
-    <canvas
-      ref={canvas}
-      aria-hidden
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-    />
   );
 }

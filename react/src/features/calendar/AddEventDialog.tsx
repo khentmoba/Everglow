@@ -1,5 +1,5 @@
 // Port of lib/features/calendar/presentation/widgets/add_event_dialog.dart.
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -7,100 +7,12 @@ import { boxShadow, insetBorder, lineHeight, mixedLineHeight } from '../../core/
 import { AppTypography } from '../../core/theme/typography';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { TextButton } from '../../shared/widgets/Dialogs';
+import { FilledField } from '../../shared/widgets/FilledField';
 import { Icon } from '../../shared/widgets/Icon';
 import { CALENDAR_EVENT_TYPES, CALENDAR_TYPE_INFO, calendarService, type CalendarEventType } from './calendarService';
 import { jm } from './calendarUi';
 
 export type WishSeed = { id: string; title: string; description: string; notes: string };
-
-/** A filled M3 TextField (bodyLarge text, the hint drawn in the input's own line). */
-export function CalField({
-  value,
-  onChange,
-  hint,
-  hintAlpha,
-  radius,
-  padding,
-  borderColor,
-  focusColor,
-  fontSize = 16,
-  lines = 1,
-  prefixIcon,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  hint: string;
-  hintAlpha: number;
-  radius: number;
-  padding: [number, number];
-  borderColor?: string;
-  focusColor?: string;
-  fontSize?: number;
-  lines?: number;
-  prefixIcon?: ReactNode;
-}) {
-  const [focused, setFocused] = useState(false);
-  const border = focused && focusColor ? focusColor : borderColor;
-  const text: CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-    padding: `${padding[1]}px ${padding[0]}px`,
-    paddingLeft: prefixIcon ? 4 : padding[0],
-    background: 'transparent',
-    border: 'none',
-    outline: 'none',
-    resize: 'none',
-    ...AppTypography.outfitWhite,
-    fontSize,
-    lineHeight: lineHeight(fontSize, 1.5),
-    letterSpacing: 0.5,
-    color: AppColors.petalWhite,
-    ['--hint-color' as string]: withAlpha(AppColors.petalWhite, hintAlpha),
-    ['--hint-size' as string]: `${fontSize}px`,
-  };
-  return (
-    <div
-      style={{
-        width: '100%',
-        minHeight: 48,
-        display: 'flex',
-        alignItems: lines > 1 ? 'stretch' : 'center',
-        background: AppColors.twilight,
-        borderRadius: radius,
-        boxShadow: border ? `inset 0 0 0 1px ${border}` : undefined,
-        boxSizing: 'border-box',
-      }}
-    >
-      {prefixIcon && (
-        <div style={{ width: 48, height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {prefixIcon}
-        </div>
-      )}
-      {lines > 1 ? (
-        <textarea
-          rows={lines}
-          value={value}
-          placeholder={hint}
-          className="money-input"
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          style={text}
-        />
-      ) : (
-        <input
-          value={value}
-          placeholder={hint}
-          className="money-input"
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          style={text}
-        />
-      )}
-    </div>
-  );
-}
 
 const label12: CSSProperties = {
   ...AppTypography.outfitWhite,
@@ -247,7 +159,7 @@ export function AddEventDialog({
         })}
       </div>
       <div style={{ height: 16 }} />
-      <CalField
+      <FilledField
         value={title}
         onChange={setTitle}
         hint="Event title"
@@ -258,7 +170,7 @@ export function AddEventDialog({
         focusColor={AppColors.blushGold}
       />
       <div style={{ height: 12 }} />
-      <CalField
+      <FilledField
         value={desc}
         onChange={setDesc}
         hint="Description (optional)"
@@ -334,7 +246,7 @@ export function AddEventDialog({
         </button>
       </div>
       <div style={{ height: 12 }} />
-      <CalField
+      <FilledField
         value={location}
         onChange={setLocation}
         hint="Location (optional)"
