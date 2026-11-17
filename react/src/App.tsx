@@ -10,12 +10,7 @@ import { RouteMemory } from './core/router/routeMemory';
 import { NotPortedPage } from './core/router/NotPortedPage';
 import { authService } from './core/services/auth';
 import { AnimePage } from './features/anime/AnimePage';
-import {
-  BookCategoriesPage,
-  BookDetailPage,
-  BookListPage,
-  BookReaderPage,
-} from './features/books/BookSubPages';
+import { BookCategoriesPage, BookDetailPage, BookListPage, BookReaderPage } from './features/books/BookSubPages';
 import { BooksPage } from './features/books/BooksPage';
 import { OurBooksPage } from './features/books/OurBooksPage';
 import { BucketListPage } from './features/bucket_list/BucketListPage';
@@ -24,6 +19,8 @@ import { SubsPage } from './features/subs/SubsPage';
 import { CanvasPage } from './features/canvas/CanvasPage';
 import { TripDetailPage } from './features/trips/TripDetailPage';
 import { TripListPage } from './features/trips/TripListPage';
+import { JukeboxPage } from './features/jukebox/JukeboxPage';
+import { SpotifyCallbackPage } from './features/jukebox/SpotifyCallbackPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CinemaPage } from './features/cinema/CinemaPage';
 import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
@@ -110,13 +107,7 @@ function RootLayout() {
   );
 }
 
-const KNOWN_UNPORTED = new Set([
-  '/jukebox',
-  '/play-zone',
-  '/academy',
-  '/motchi',
-  '/study',
-]);
+const KNOWN_UNPORTED = new Set(['/play-zone', '/academy', '/motchi', '/study']);
 
 function FallbackRoute() {
   const location = useLocation();
@@ -166,6 +157,8 @@ const router = createBrowserRouter([
       { path: '/canvas', loader: guard, element: <CanvasPage /> },
       { path: '/trips', loader: guard, element: <TripListPage /> },
       { path: '/trips/:id', loader: guard, element: <TripDetailPage /> },
+      { path: '/jukebox', loader: guard, element: <JukeboxPage /> },
+      { path: '/spotify/callback', loader: guard, element: <SpotifyCallbackPage /> },
       { path: '*', loader: guard, element: <FallbackRoute /> },
     ],
   },

@@ -4,8 +4,8 @@ import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, AppArt, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
-import { Align, boxShadow, linear, radial } from '../../core/theme/paint';
-import { AppTypography } from '../../core/theme/typography';
+import { Align, boxShadow, linear, lineHeight, radial } from '../../core/theme/paint';
+import { AppTypography, Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
@@ -15,6 +15,7 @@ import {
   LASTFM_USER_KHENT,
   disconnectSpotify,
   emptyMusicStatus,
+  linkSpotify,
   fetchArtistShowdown,
   fetchMusicStats,
   musicStatusSource,
@@ -27,6 +28,7 @@ import {
   type SpotifyLinkState,
   type TopMusicTrack,
 } from './jukeboxService';
+import { showListenAlong } from './ListenAlongPopup';
 
 function formatTime(dt: Date): string {
   const h = dt.getHours();
@@ -40,10 +42,6 @@ function formatNumber(n: number): string {
   return n.toLocaleString('en-US');
 }
 
-function openExternal(url: string) {
-  window.open(url, '_blank', 'noopener,noreferrer');
-}
-
 const GRAIN_DOTS = (() => {
   const dots: { x: number; y: number; r: number }[] = [];
   let s = 42;
@@ -51,7 +49,7 @@ const GRAIN_DOTS = (() => {
     s = (s * 1664525 + 1013904223) >>> 0;
     return s / 0xffffffff;
   };
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < 180; i++) {
     dots.push({
       x: Math.round(next() * 1000) / 10,
       y: Math.round(next() * 1000) / 10,
@@ -71,74 +69,71 @@ export function JukeboxWidget() {
   const isMobile = width - 32 < 620;
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        borderRadius: AppRadius.x2,
-        background: linear(
-          [
-            withAlpha(AppColors.velvet, 0.78),
-            withAlpha(AppColors.inkDeep, 0.82),
-            withAlpha('#1E1230', 0.78),
-          ],
-          { begin: Align.topLeft, end: Align.bottomRight },
-        ),
-        border: `1px solid ${withAlpha(AppColors.moonlight, eitherLive ? 0.18 : 0.12)}`,
-        boxShadow: boxShadow([
-          { offset: [0, 12], blur: 28, color: withAlpha(AppColors.inkDeep, 0.5) },
-          ...(eitherLive ? [{ blur: 36, spread: -4, color: withAlpha(AppColors.deepRose, 0.11) }] : []),
-        ]),
-        overflow: 'hidden',
-      }}
-    >
+    // In Flutter the gradient Container has no child, so inside the Stack it is
+    // zero pixels tall: only its 1px border shows, as a line along the top.
+    <div style={{ position: 'relative' }}>
       <div
         aria-hidden
         style={{
           position: 'absolute',
-          top: -40,
-          left: -30,
-          width: 180,
-          height: 180,
-          borderRadius: '50%',
-          opacity: 0.25,
-          background: radial([withAlpha(AppColors.deepRose, 0.55), AppColors.transparent], { size: [180, 180] }),
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          background: withAlpha(AppColors.moonlight, eitherLive ? 0.18 : 0.12),
           pointerEvents: 'none',
         }}
       />
       <div
         aria-hidden
-        style={{
-          position: 'absolute',
-          bottom: -50,
-          right: -20,
-          width: 220,
-          height: 220,
-          borderRadius: '50%',
-          opacity: 0.27,
-          background: radial([withAlpha(AppColors.auroraLilac, 0.55), AppColors.transparent], { size: [220, 220] }),
-          pointerEvents: 'none',
-        }}
-      />
-      <svg
-        aria-hidden
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        style={{ position: 'absolute', inset: 0, borderRadius: AppRadius.x2, overflow: 'hidden', pointerEvents: 'none' }}
       >
-        {GRAIN_DOTS.map((d, i) => (
-          <circle key={i} cx={`${d.x}%`} cy={`${d.y}%`} r={d.r} fill="rgba(255,255,255,0.015)" />
-        ))}
-      </svg>
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: linear(['rgba(255,255,255,0.04)', AppColors.transparent], {
-            begin: Align.topCenter,
-            end: Align.bottomCenter,
-          }),
-          pointerEvents: 'none',
-        }}
-      />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: -40,
+            left: -30,
+            width: 180,
+            height: 180,
+            borderRadius: '50%',
+            opacity: 0.22 * (0.85 + Math.sin(0) * 0.15) + 0.06,
+            background: radial([withAlpha(AppColors.deepRose, 0.55), AppColors.transparent], { size: [180, 180] }),
+            pointerEvents: 'none',
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            bottom: -50,
+            right: -20,
+            width: 220,
+            height: 220,
+            borderRadius: '50%',
+            opacity: 0.22 * (0.85 + Math.sin(1.2) * 0.15) + 0.06,
+            background: radial([withAlpha(AppColors.auroraLilac, 0.55), AppColors.transparent], { size: [220, 220] }),
+            pointerEvents: 'none',
+          }}
+        />
+        <svg aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+          {GRAIN_DOTS.map((d, i) => (
+            <circle key={i} cx={`${d.x}%`} cy={`${d.y}%`} r={d.r} fill="rgba(255,255,255,0.015)" />
+          ))}
+        </svg>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: linear(['rgba(255,255,255,0.04)', AppColors.transparent], {
+              begin: Align.topCenter,
+              end: Align.bottomCenter,
+            }),
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
 
       <div style={{ position: 'relative', padding: 18 }}>
         <JukeboxHeader eitherLive={eitherLive} />
@@ -216,9 +211,7 @@ function JukeboxHeader({ eitherLive }: { eitherLive: boolean }) {
         style={{
           padding: '6px 10px',
           borderRadius: 999,
-          background: eitherLive
-            ? withAlpha(AppColors.success, 0.12)
-            : withAlpha(AppColors.moonlight, 0.08),
+          background: eitherLive ? withAlpha(AppColors.success, 0.12) : withAlpha(AppColors.moonlight, 0.08),
           border: `1px solid ${eitherLive ? withAlpha(AppColors.success, 0.24) : withAlpha(AppColors.moonlight, 0.12)}`,
           display: 'inline-flex',
           alignItems: 'center',
@@ -254,11 +247,7 @@ const EMPTY_SPOTIFY_LINK: SpotifyLinkState = { isLinked: false, spotifyUserId: n
 
 function SpotifyConnectCard() {
   const auth = useAuth();
-  const link = useSource<SpotifyLinkState>(
-    () => spotifyTokenSource(auth.uid),
-    [auth.uid],
-    EMPTY_SPOTIFY_LINK,
-  );
+  const link = useSource<SpotifyLinkState>(() => spotifyTokenSource(auth.uid), [auth.uid], EMPTY_SPOTIFY_LINK);
 
   return (
     <div
@@ -269,7 +258,6 @@ function SpotifyConnectCard() {
         border: `1px solid ${withAlpha(AppColors.moonlight, 0.12)}`,
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
       }}
     >
       <div
@@ -286,45 +274,54 @@ function SpotifyConnectCard() {
       >
         <Icon name="music_note" size={16} color={AppColors.petalWhite} />
       </div>
+      <div style={{ width: 10 }} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <span style={{ color: AppColors.petalWhite, fontWeight: 700, fontSize: 13 }}>
           {link.isLinked ? 'Spotify linked' : 'Connect Spotify'}
         </span>
         <span style={{ color: withAlpha(AppColors.petalWhite, 0.6), fontSize: 11 }}>
-          {link.isLinked
-            ? link.displayName ?? link.spotifyUserId ?? 'Premium ✓'
-            : 'For in-app playback (Duo required)'}
+          {link.isLinked ? (link.displayName ?? link.spotifyUserId ?? 'Premium ✓') : 'For in-app playback (Duo required)'}
         </span>
       </div>
+      <div style={{ width: 10 }} />
       {!link.isLinked ? (
-        <button
-          type="button"
-          className="bare-button"
-          onClick={() => showSnackBar('Open /jukebox while signed in to connect Spotify.')}
-          style={{
-            background: '#1DB954',
-            color: AppColors.petalWhite,
-            padding: '10px 14px',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 800,
-          }}
-        >
-          Connect
-        </button>
+        <div style={{ height: 48, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() =>
+              void linkSpotify().catch((e: unknown) =>
+                showSnackBar(String(e instanceof Error ? e.message : e).replace(/^Exception: /, '')),
+              )
+            }
+            style={{
+              height: 40,
+              minWidth: 64,
+              padding: '0 14px',
+              background: '#1DB954',
+              color: AppColors.petalWhite,
+              borderRadius: 999,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
+              fontFamily: Fonts.body,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: 0.6,
+              lineHeight: '15px',
+            }}
+          >
+            Link
+          </button>
+        </div>
       ) : (
         <button
           type="button"
           className="bare-button"
+          aria-label="Unlink"
+          title="Unlink"
           onClick={() => void disconnectSpotify()}
-          style={{
-            color: withAlpha(AppColors.petalWhite, 0.65),
-            padding: '8px 10px',
-            fontSize: 12,
-            fontWeight: 600,
-          }}
+          style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
-          Disconnect
+          <Icon name="logout" size={18} color={withAlpha(AppColors.petalWhite, 0.54)} />
         </button>
       )}
     </div>
@@ -341,10 +338,7 @@ function MusicCard({ status, title }: { status: MusicStatus; title: string }) {
       className="bare-button"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => {
-        if (status.trackName) openExternal(status.spotifyUrl);
-        else showSnackBar(`${status.username} is offline right now`);
-      }}
+      onClick={() => void showListenAlong(status)}
       style={{
         display: 'block',
         width: '100%',
@@ -359,19 +353,13 @@ function MusicCard({ status, title }: { status: MusicStatus; title: string }) {
           padding: 20,
           borderRadius: AppRadius.x2,
           background: isLive
-            ? linear(
-                [
-                  withAlpha(AppColors.moonlight, 0.18),
-                  withAlpha(AppColors.velvet, 0.55),
-                  withAlpha(AppColors.plum, 0.55),
-                ],
-                { begin: Align.topLeft, end: Align.bottomRight },
-              )
+            ? linear([withAlpha(AppColors.moonlight, 0.18), withAlpha(AppColors.velvet, 0.55), withAlpha(AppColors.plum, 0.55)], {
+                begin: Align.topLeft,
+                end: Align.bottomRight,
+              })
             : withAlpha(AppColors.moonlight, 0.1),
           border: `${isLive ? 1.2 : 1}px solid ${
-            isLive
-              ? withAlpha(AppColors.blushGold, 0.42)
-              : withAlpha(AppColors.moonlight, hovered ? 0.22 : 0.14)
+            isLive ? withAlpha(AppColors.blushGold, 0.42) : withAlpha(AppColors.moonlight, hovered ? 0.22 : 0.14)
           }`,
           boxShadow: boxShadow([
             { offset: [0, 8], blur: isLive ? 22 : 14, color: withAlpha('#000000', isLive ? 0.28 : 0.14) },
@@ -382,259 +370,256 @@ function MusicCard({ status, title }: { status: MusicStatus; title: string }) {
                 ]
               : []),
           ]),
-          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div
-            style={{
-              padding: '4px 8px',
-              background: isLive ? withAlpha(AppColors.deepRose, 0.18) : withAlpha(AppColors.moonlight, 0.08),
-              borderRadius: 999,
-              border: `1px solid ${isLive ? withAlpha(AppColors.deepRose, 0.28) : 'transparent'}`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <Icon
-              name="music_note"
-              size={11}
-              color={isLive ? AppColors.blushGold : withAlpha(AppColors.moonlight, 0.6)}
-            />
-            <span
-              style={{
-                ...AppTypography.outfitBold,
-                fontSize: 11,
-                color: isLive ? AppColors.blushGold : withAlpha(AppColors.petalWhite, 0.72),
-                letterSpacing: '0.6px',
-              }}
-            >
-              {title}
-            </span>
-          </div>
-
-          {isLive ? (
+        <div style={{ position: 'relative', borderRadius: AppRadius.x2, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div
               style={{
-                padding: '3px 7px',
-                background: withAlpha(AppColors.success, 0.14),
+                padding: '4px 8px',
+                background: isLive ? withAlpha(AppColors.deepRose, 0.18) : withAlpha(AppColors.moonlight, 0.08),
                 borderRadius: 999,
-                border: `1px solid ${withAlpha(AppColors.success, 0.22)}`,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: AppColors.success,
-                  boxShadow: boxShadow([{ blur: 6, spread: 1, color: withAlpha(AppColors.success, 0.6) }]),
-                }}
-              />
-              <span
-                style={{
-                  ...AppTypography.outfitWhite,
-                  fontSize: 9,
-                  fontWeight: 800,
-                  color: AppColors.success,
-                  letterSpacing: '1.1px',
-                }}
-              >
-                LIVE
-              </span>
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: '3px 7px',
-                background: withAlpha(AppColors.moonlight, 0.08),
-                borderRadius: 999,
+                border: `1px solid ${isLive ? withAlpha(AppColors.deepRose, 0.28) : 'transparent'}`,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
               }}
             >
+              <Icon name="music_note" size={11} color={isLive ? AppColors.blushGold : withAlpha(AppColors.moonlight, 0.6)} />
               <span
                 style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: withAlpha(AppColors.mutedPurple, 0.9),
-                }}
-              />
-              <span
-                style={{
-                  ...AppTypography.outfitWhite,
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: withAlpha(AppColors.petalWhite, 0.55),
-                  letterSpacing: '1px',
+                  ...AppTypography.outfitBold,
+                  fontSize: 11,
+                  color: isLive ? AppColors.blushGold : withAlpha(AppColors.petalWhite, 0.72),
+                  letterSpacing: '0.6px',
                 }}
               >
-                OFFLINE
+                {title}
               </span>
             </div>
-          )}
-        </div>
 
-        <div style={{ height: 16 }} />
-
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div style={{ position: 'relative', width: 84, height: 84, flexShrink: 0 }}>
-            {isLive && <VinylDisc />}
-            <div
-              style={{
-                position: 'relative',
-                width: 84,
-                height: 84,
-                borderRadius: 16,
-                overflow: 'hidden',
-                boxShadow: boxShadow([
-                  ...(isLive ? [{ blur: 18, spread: 1, color: withAlpha(AppColors.deepRose, 0.28) }] : []),
-                  { offset: [0, 6], blur: 16, color: withAlpha('#000000', 0.28) },
-                ]),
-              }}
-            >
-              {status.imageUrl ? (
-                <img
-                  src={status.imageUrl}
-                  alt={status.trackName || 'Album art'}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              ) : (
-                <div
+            {isLive ? (
+              <div
+                style={{
+                  padding: '3px 7px',
+                  background: withAlpha(AppColors.success, 0.14),
+                  borderRadius: 999,
+                  border: `1px solid ${withAlpha(AppColors.success, 0.22)}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                <span
                   style={{
-                    width: '100%',
-                    height: '100%',
-                    background: linear([AppColors.velvet, AppColors.plum, AppColors.twilight], {
-                      begin: Align.topLeft,
-                      end: Align.bottomRight,
-                    }),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: AppColors.success,
+                    boxShadow: boxShadow([{ blur: 6, spread: 1, color: withAlpha(AppColors.success, 0.6) }]),
+                  }}
+                />
+                <span
+                  style={{
+                    ...AppTypography.outfitWhite,
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: AppColors.success,
+                    letterSpacing: '1.1px',
                   }}
                 >
-                  <Icon
-                    name="music_note"
-                    size={32}
-                    color={isLive ? AppColors.roseQuartz : withAlpha(AppColors.roseQuartz, 0.55)}
+                  LIVE
+                </span>
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '3px 7px',
+                  background: withAlpha(AppColors.moonlight, 0.08),
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: withAlpha(AppColors.mutedPurple, 0.9),
+                  }}
+                />
+                <span
+                  style={{
+                    ...AppTypography.outfitWhite,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: withAlpha(AppColors.petalWhite, 0.55),
+                    letterSpacing: '1px',
+                  }}
+                >
+                  OFFLINE
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div style={{ height: 16 }} />
+
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', width: 84, height: 84, flexShrink: 0 }}>
+              {isLive && <VinylDisc />}
+              <div
+                style={{
+                  position: 'relative',
+                  width: 84,
+                  height: 84,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  boxShadow: boxShadow([
+                    ...(isLive ? [{ blur: 18, spread: 1, color: withAlpha(AppColors.deepRose, 0.28) }] : []),
+                    { offset: [0, 6], blur: 16, color: withAlpha('#000000', 0.28) },
+                  ]),
+                }}
+              >
+                {status.imageUrl ? (
+                  <img
+                    src={status.imageUrl}
+                    alt={status.trackName || 'Album art'}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
-                </div>
-              )}
-              {!isLive && (
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      background: linear([AppColors.velvet, AppColors.plum, AppColors.twilight], {
+                        begin: Align.topLeft,
+                        end: Align.bottomRight,
+                      }),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon
+                      name="music_note"
+                      size={32}
+                      color={isLive ? AppColors.roseQuartz : withAlpha(AppColors.roseQuartz, 0.55)}
+                    />
+                  </div>
+                )}
+                {!isLive && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: withAlpha('#000000', 0.18),
+                    }}
+                  />
+                )}
                 <div
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    background: withAlpha('#000000', 0.18),
+                    borderRadius: 16,
+                    border: `1px solid ${withAlpha(AppColors.petalWhite, isLive ? 0.1 : 0.06)}`,
+                    pointerEvents: 'none',
                   }}
                 />
-              )}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: 16,
-                  border: `1px solid ${withAlpha(AppColors.petalWhite, isLive ? 0.1 : 0.06)}`,
-                  pointerEvents: 'none',
-                }}
-              />
+              </div>
             </div>
-          </div>
 
-          <div style={{ width: 42, flexShrink: 0 }} />
+            <div style={{ width: 42, flexShrink: 0 }} />
 
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span
-              style={{
-                ...AppTypography.outfitWhite,
-                fontSize: 16.5,
-                fontWeight: 800,
-                color: isLive ? AppColors.petalWhite : withAlpha(AppColors.petalWhite, 0.82),
-                letterSpacing: '-0.2px',
-                lineHeight: 1.1,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%',
-              }}
-            >
-              {status.trackName || '—'}
-            </span>
-            <div style={{ height: 3 }} />
-            <span
-              style={{
-                ...AppTypography.outfitWhite,
-                fontSize: 13,
-                fontWeight: 500,
-                color: withAlpha(AppColors.petalWhite, isLive ? 0.78 : 0.62),
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%',
-              }}
-            >
-              {status.artistName || 'Unknown Artist'}
-            </span>
-            {status.albumName && (
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <span
                 style={{
                   ...AppTypography.outfitWhite,
-                  marginTop: 2,
-                  fontSize: 11,
-                  color: withAlpha(AppColors.petalWhite, isLive ? 0.52 : 0.42),
+                  fontSize: 16.5,
+                  fontWeight: 800,
+                  color: isLive ? AppColors.petalWhite : withAlpha(AppColors.petalWhite, 0.82),
+                  letterSpacing: '-0.2px',
+                  lineHeight: lineHeight(16.5, 1.1),
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   maxWidth: '100%',
                 }}
               >
-                {status.albumName}
+                {status.trackName || '—'}
               </span>
-            )}
-            <div style={{ height: 9 }} />
-            {isLive ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={{
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: withAlpha(AppColors.blushGold, 0.9),
-                  }}
-                />
-                <span
-                  style={{
-                    ...AppTypography.outfitWhite,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: withAlpha(AppColors.blushGold, 0.9),
-                    letterSpacing: '0.15px',
-                  }}
-                >
-                  Tap to listen along →
-                </span>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Icon name="schedule" size={12} color={withAlpha(AppColors.petalWhite, 0.42)} />
+              <div style={{ height: 3 }} />
+              <span
+                style={{
+                  ...AppTypography.outfitWhite,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: withAlpha(AppColors.petalWhite, isLive ? 0.78 : 0.62),
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                }}
+              >
+                {status.artistName || 'Unknown Artist'}
+              </span>
+              {status.albumName && (
                 <span
                   style={{
                     ...AppTypography.outfitWhite,
+                    marginTop: 2,
                     fontSize: 11,
-                    fontStyle: 'italic',
-                    color: withAlpha(AppColors.petalWhite, 0.48),
+                    color: withAlpha(AppColors.petalWhite, isLive ? 0.52 : 0.42),
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
                   }}
                 >
-                  {status.timestamp ? `Last heard ${formatTime(status.timestamp)}` : 'Not vibing right now'}
+                  {status.albumName}
                 </span>
-              </div>
-            )}
+              )}
+              <div style={{ height: 9 }} />
+              {isLive ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: withAlpha(AppColors.blushGold, 0.9),
+                    }}
+                  />
+                  <span
+                    style={{
+                      ...AppTypography.outfitWhite,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: withAlpha(AppColors.blushGold, 0.9),
+                      letterSpacing: '0.15px',
+                    }}
+                  >
+                    Tap to listen along →
+                  </span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Icon name="schedule" size={12} color={withAlpha(AppColors.petalWhite, 0.42)} />
+                  <span
+                    style={{
+                      ...AppTypography.outfitWhite,
+                      fontSize: 11,
+                      fontStyle: 'italic',
+                      color: withAlpha(AppColors.petalWhite, 0.48),
+                    }}
+                  >
+                    {status.timestamp ? `Last heard ${formatTime(status.timestamp)}` : 'Not vibing right now'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -698,10 +683,10 @@ export function MusicStatsSection() {
         style={{
           padding: AppSpacing.xl,
           borderRadius: AppRadius.x2,
-          background: linear(
-            [withAlpha(AppColors.velvet, 0.86), withAlpha(AppColors.inkDeep, 0.88)],
-            { begin: Align.topLeft, end: Align.bottomRight },
-          ),
+          background: linear([withAlpha(AppColors.velvet, 0.86), withAlpha(AppColors.inkDeep, 0.88)], {
+            begin: Align.topLeft,
+            end: Align.bottomRight,
+          }),
           border: `1px solid ${withAlpha(AppColors.moonlight, 0.18)}`,
           display: 'flex',
           flexDirection: 'column',
@@ -732,10 +717,10 @@ export function MusicStatsSection() {
       style={{
         padding: AppSpacing.xl,
         borderRadius: AppRadius.x2,
-        background: linear(
-          [withAlpha(AppColors.velvet, 0.86), withAlpha(AppColors.inkDeep, 0.88)],
-          { begin: Align.topLeft, end: Align.bottomRight },
-        ),
+        background: linear([withAlpha(AppColors.velvet, 0.86), withAlpha(AppColors.inkDeep, 0.88)], {
+          begin: Align.topLeft,
+          end: Align.bottomRight,
+        }),
         border: `1px solid ${withAlpha(AppColors.moonlight, 0.1)}`,
         boxShadow: boxShadow([{ offset: [0, 8], blur: 20, color: withAlpha(AppColors.inkDeep, 0.5) }]),
       }}
@@ -932,7 +917,13 @@ function MusicStatsBlock({
                 </div>
               </div>
               {idx !== topTracks.length - 1 && (
-                <div style={{ margin: `${track.rank <= 3 ? 7 : 0}px 0`, height: 1, background: withAlpha(AppColors.moonlight, 0.14) }} />
+                <div
+                  style={{
+                    margin: `${track.rank <= 3 ? 7 : 0}px 0`,
+                    height: 1,
+                    background: withAlpha(AppColors.moonlight, 0.14),
+                  }}
+                />
               )}
             </div>
           ))}
@@ -990,10 +981,28 @@ function MusicStatsBlock({
             <div key={`${rt.trackName}-${idx}`}>
               <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ ...AppTypography.outfitHeading, fontSize: 13.5, color: AppColors.petalWhite, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div
+                    style={{
+                      ...AppTypography.outfitHeading,
+                      fontSize: 13.5,
+                      color: AppColors.petalWhite,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
                     {rt.trackName}
                   </div>
-                  <div style={{ ...AppTypography.outfitMedium, fontSize: 12, color: Derived.textMedium, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div
+                    style={{
+                      ...AppTypography.outfitMedium,
+                      fontSize: 12,
+                      color: Derived.textMedium,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
                     {rt.artistName}
                   </div>
                 </div>
@@ -1054,9 +1063,7 @@ function EmptyStats() {
     >
       <Icon name="graphic_eq" size={26} color={AppColors.roseQuartz} />
       <div style={{ height: AppSpacing.sm }} />
-      <span style={{ ...AppTypography.outfitMedium, fontSize: 13, color: Derived.textMedium }}>
-        No music stats yet
-      </span>
+      <span style={{ ...AppTypography.outfitMedium, fontSize: 13, color: Derived.textMedium }}>No music stats yet</span>
     </div>
   );
 }
@@ -1117,10 +1124,10 @@ export function ArtistShowdownCard() {
       style={{
         padding: AppSpacing.xl,
         borderRadius: AppRadius.x2,
-        background: linear(
-          [withAlpha(AppColors.velvet, 0.92), withAlpha(AppColors.inkDeep, 0.96)],
-          { begin: Align.topLeft, end: Align.bottomRight },
-        ),
+        background: linear([withAlpha(AppColors.velvet, 0.92), withAlpha(AppColors.inkDeep, 0.96)], {
+          begin: Align.topLeft,
+          end: Align.bottomRight,
+        }),
         border: `1px solid ${withAlpha(AppColors.moonlight, 0.14)}`,
         boxShadow: boxShadow([{ offset: [0, 8], blur: 22, color: withAlpha(AppColors.inkDeep, 0.45) }]),
         display: 'flex',
@@ -1384,7 +1391,15 @@ export function ArtistShowdownCard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: AppSpacing.md }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <ScoreBlock name="Khent" plays={khentTotal} color={AppColors.auroraTeal} isLeader={khentTotal > clairTotal} />
-            <span style={{ padding: '0 10px', ...AppTypography.outfitBold, fontSize: 11, letterSpacing: '1.5px', color: Derived.textMuted }}>
+            <span
+              style={{
+                padding: '0 10px',
+                ...AppTypography.outfitBold,
+                fontSize: 11,
+                letterSpacing: '1.5px',
+                color: Derived.textMuted,
+              }}
+            >
               VS
             </span>
             <ScoreBlock
@@ -1397,11 +1412,27 @@ export function ArtistShowdownCard() {
           </div>
           <div style={{ height: 8, borderRadius: 99, overflow: 'hidden', display: 'flex' }}>
             <div style={{ flex: Math.max(Math.round(kShare * 1000), 1), background: AppColors.auroraTeal }} />
-            <div style={{ flex: Math.max(Math.round((1 - kShare) * 1000), 1), background: withAlpha(AppColors.cinemaPink, 0.85) }} />
+            <div
+              style={{ flex: Math.max(Math.round((1 - kShare) * 1000), 1), background: withAlpha(AppColors.cinemaPink, 0.85) }}
+            />
           </div>
           {shownTracks.map((t) => (
-            <div key={t.trackName} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-              <span style={{ ...AppTypography.outfitMedium, fontSize: 12.5, color: AppColors.petalWhite, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div
+              key={t.trackName}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}
+            >
+              <span
+                style={{
+                  ...AppTypography.outfitMedium,
+                  fontSize: 12.5,
+                  color: AppColors.petalWhite,
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {t.trackName}
               </span>
               <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.auroraTeal, marginLeft: 12 }}>
@@ -1417,7 +1448,13 @@ export function ArtistShowdownCard() {
               type="button"
               className="bare-button"
               onClick={() => setExpanded((v) => !v)}
-              style={{ alignSelf: 'center', ...AppTypography.outfitBold, fontSize: 11, color: AppColors.blushGold, padding: '4px 8px' }}
+              style={{
+                alignSelf: 'center',
+                ...AppTypography.outfitBold,
+                fontSize: 11,
+                color: AppColors.blushGold,
+                padding: '4px 8px',
+              }}
             >
               {expanded ? 'Show less' : `Show all ${tracks.length} tracks`}
             </button>

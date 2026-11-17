@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   documentId,
   limit,
@@ -13,6 +14,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { Prefs } from '../../core/system/prefs';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 
 export const LASTFM_USER_KHENT = 'khentsgdz';
@@ -20,7 +22,7 @@ export const LASTFM_USER_CLAIR = 'clairjassen';
 export const DEFAULT_SHOWDOWN_ARTIST = 'Ethel Cain';
 
 const LASTFM_PROXY_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
-const FUNCTIONS_BASE_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
+export const FUNCTIONS_BASE_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
 
 export interface MusicStatus {
   username: string;
@@ -32,6 +34,8 @@ export interface MusicStatus {
   spotifyUrl: string;
   timestamp: Date | null;
   spotifyTrackId?: string | null;
+  spotifyEmbedUrl?: string | null;
+  previewUrl?: string | null;
 }
 
 export interface TopMusicTrack {
@@ -67,17 +71,17 @@ export interface SpotifyLinkState {
 export function emptyMusicStatus(username: string): MusicStatus {
   return {
     username,
-    trackName: '',
-    artistName: '',
+    trackName: 'Silent Night',
+    artistName: 'Unknown Artist',
     albumName: '',
     imageUrl: null,
     isPlaying: false,
-    spotifyUrl: 'https://open.spotify.com',
+    spotifyUrl: 'https://open.spotify.com/search/Unknown%20Artist',
     timestamp: null,
   };
 }
 
-function pickLastfmImageUrl(images: unknown): string | null {
+export function pickLastfmImageUrl(images: unknown): string | null {
   if (!Array.isArray(images)) return null;
   const preferred = ['extralarge', 'large', 'medium', 'small'];
   for (const size of preferred) {
@@ -96,9 +100,10 @@ function asArray<T>(node: unknown): T[] {
 
 function parseMusicStatusFromMap(d: Record<string, unknown>, fallbackUser: string): MusicStatus {
   const username = String(d.username ?? fallbackUser);
-  const trackName = String(d.trackName ?? '');
-  const artistName = String(d.artistName ?? '');
-  const albumName = String(d.albumName ?? '');
+  const trackName = String(d.trackName ?? 'Silent Night');
+  const artistName = String(d.artistName ?? 'Unknown Artist');
+  const rawAlbum = typeof d.albumName === 'string' ? d.albumName : null;
+  const albumName = rawAlbum != null && rawAlbum !== 'No Album' ? rawAlbum : '';
   const rawTs = d.timestamp;
   let timestamp: Date | null = null;
   if (typeof rawTs === 'string') {
@@ -112,9 +117,11 @@ function parseMusicStatusFromMap(d: Record<string, unknown>, fallbackUser: strin
     albumName,
     imageUrl: typeof d.imageUrl === 'string' && d.imageUrl ? d.imageUrl : null,
     isPlaying: d.isPlaying === true,
-    spotifyUrl: String(d.spotifyUrl ?? 'https://open.spotify.com'),
+    spotifyUrl: String(d.spotifyUrl ?? ''),
     timestamp,
     spotifyTrackId: typeof d.spotifyTrackId === 'string' ? d.spotifyTrackId : null,
+    spotifyEmbedUrl: typeof d.spotifyEmbedUrl === 'string' ? d.spotifyEmbedUrl : null,
+    previewUrl: typeof d.previewUrl === 'string' ? d.previewUrl : null,
   };
 }
 
@@ -150,7 +157,7 @@ function parseRecentTrackJson(track: Record<string, unknown>, username: string):
   };
 }
 
-async function getIdToken(): Promise<string | null> {
+export async function getIdToken(): Promise<string | null> {
   if (AgentMode.isActive.value && AgentMode.useDemoData.value) return null;
   const user = auth.currentUser;
   if (!user) return null;
@@ -161,7 +168,7 @@ async function getIdToken(): Promise<string | null> {
   }
 }
 
-async function fetchLastfmJson(params: Record<string, string>): Promise<Record<string, unknown> | null> {
+export async function fetchLastfmJson(params: Record<string, string>): Promise<Record<string, unknown> | null> {
   const token = await getIdToken();
   if (!token) return null;
   try {
@@ -186,11 +193,7 @@ export function musicStatusSource(): Source<Record<string, MusicStatus>> {
     });
   }
 
-  const q = query(
-    collection(db, 'music_status'),
-    where(documentId(), 'in', [LASTFM_USER_KHENT, LASTFM_USER_CLAIR]),
-    limit(10),
-  );
+  const q = query(collection(db, 'music_status'), where(documentId(), 'in', [LASTFM_USER_KHENT, LASTFM_USER_CLAIR]), limit(10));
   return withFirestoreTimeout(
     snapshots<QuerySnapshot<DocumentData>, Record<string, MusicStatus>>(
       (next, error) => onSnapshot(q, next, error),
@@ -219,12 +222,12 @@ export function spotifyTokenSource(uid: string | null): Source<SpotifyLinkState>
     snapshots<DocumentSnapshot<DocumentData>, SpotifyLinkState>(
       (next, error) => onSnapshot(ref, next, error),
       (snap) => {
-        if (!snap.exists()) return empty;
-        const d = snap.data() as Record<string, unknown>;
+        const d = snap.data() as Record<string, unknown> | undefined;
+        if (!snap.exists() || !d) return empty;
         return {
-          isLinked: true,
-          spotifyUserId: typeof d.spotifyUserId === 'string' ? d.spotifyUserId : null,
-          displayName: typeof d.displayName === 'string' ? d.displayName : null,
+          isLinked: d.access_token != null,
+          spotifyUserId: typeof d.spotify_user_id === 'string' ? d.spotify_user_id : null,
+          displayName: typeof d.spotify_display_name === 'string' ? d.spotify_display_name : null,
         };
       },
     ),
@@ -232,13 +235,101 @@ export function spotifyTokenSource(uid: string | null): Source<SpotifyLinkState>
   );
 }
 
+/** Unlinks Spotify by deleting this user's own token doc, as spotify_auth_service.dart does. */
 export async function disconnectSpotify(): Promise<void> {
-  const token = await getIdToken();
-  if (!token) return;
-  await fetch(`${FUNCTIONS_BASE_URL}/spotifyDisconnect`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  await deleteDoc(doc(db, 'spotify_tokens', uid));
+}
+
+const SPOTIFY_VERIFIER_KEY = 'spotify_code_verifier';
+const SPOTIFY_SCOPES = [
+  'streaming',
+  'user-read-email',
+  'user-read-private',
+  'user-read-playback-state',
+  'user-modify-playback-state',
+  'user-read-currently-playing',
+];
+
+const spotifyRedirectUri = () => `${window.location.origin}/spotify/callback`;
+
+function generateVerifier(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const bytes = crypto.getRandomValues(new Uint8Array(64));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join('');
+}
+
+async function challengeFor(verifier: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  let bin = '';
+  for (const b of digest) bin += String.fromCharCode(b);
+  return btoa(bin).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
+/** Starts the Spotify PKCE sign-in (spotify_auth_service.dart linkSpotify). */
+export async function linkSpotify(): Promise<void> {
+  const clientId = (import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined) ?? '';
+  if (clientId === '') {
+    Logger.w('SpotifyAuth: VITE_SPOTIFY_CLIENT_ID missing');
+    throw new Error('Spotify not configured (missing client ID)');
+  }
+  const verifier = generateVerifier();
+  const challenge = await challengeFor(verifier);
+  Prefs.set(SPOTIFY_VERIFIER_KEY, verifier);
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: spotifyRedirectUri(),
+    scope: SPOTIFY_SCOPES.join(' '),
+    code_challenge_method: 'S256',
+    code_challenge: challenge,
+    show_dialog: 'false',
   });
+  const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
+  const opened = window.open(url, '_blank', 'noopener');
+  if (!opened) {
+    throw new Error(
+      `Could not open Spotify auth — pop-up blocked? Allow pop-ups for ${window.location.origin} and try again, or open manually: ${url}`,
+    );
+  }
+}
+
+/** Trades the returned code for tokens through the spotifyExchange helper. */
+export async function handleSpotifyCallback(code: string): Promise<boolean> {
+  try {
+    const verifier = Prefs.getString(SPOTIFY_VERIFIER_KEY);
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Not authenticated');
+    const body = JSON.stringify({
+      code,
+      redirectUri: spotifyRedirectUri(),
+      ...(verifier != null ? { codeVerifier: verifier } : {}),
+    });
+    const post = (url: string) =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body,
+        signal: AbortSignal.timeout(12000),
+      });
+    let res: Response;
+    try {
+      res = await post(`${FUNCTIONS_BASE_URL}/spotifyExchange`);
+      if (res.status === 404) throw new Error('404');
+    } catch {
+      res = await post('/api/spotifyExchange');
+    }
+    if (res.status !== 200) {
+      Logger.e(`spotifyExchange failed ${res.status}: ${await res.text()}`);
+      return false;
+    }
+    Prefs.remove(SPOTIFY_VERIFIER_KEY);
+    return true;
+  } catch (e) {
+    Logger.e('spotifyExchange error', e);
+    return false;
+  }
 }
 
 export interface MusicStatsData {
@@ -322,7 +413,9 @@ export async function fetchArtistShowdown(artist: string): Promise<{
     return { khentTotal: 0, clairTotal: 0, tracks: [] };
   }
 
-  const fetchUserArtistCounts = async (user: string): Promise<Map<string, { name: string; count: number; image: string | null }>> => {
+  const fetchUserArtistCounts = async (
+    user: string,
+  ): Promise<Map<string, { name: string; count: number; image: string | null }>> => {
     const out = new Map<string, { name: string; count: number; image: string | null }>();
     const targetLower = artist.trim().toLowerCase();
     for (let page = 1; page <= 2; page++) {
@@ -337,7 +430,9 @@ export async function fetchArtistShowdown(artist: string): Promise<{
       if (raw.length === 0) break;
       for (const t of raw) {
         const artistObj = t.artist as Record<string, unknown> | string | undefined;
-        const aName = (typeof artistObj === 'object' ? String(artistObj?.name ?? '') : String(artistObj ?? '')).trim().toLowerCase();
+        const aName = (typeof artistObj === 'object' ? String(artistObj?.name ?? '') : String(artistObj ?? ''))
+          .trim()
+          .toLowerCase();
         if (aName !== targetLower) continue;
         const trackName = String(t.name ?? '').trim();
         const key = trackName.toLowerCase();
@@ -354,10 +449,7 @@ export async function fetchArtistShowdown(artist: string): Promise<{
     return out;
   };
 
-  const [kMap, cMap] = await Promise.all([
-    fetchUserArtistCounts(LASTFM_USER_KHENT),
-    fetchUserArtistCounts(LASTFM_USER_CLAIR),
-  ]);
+  const [kMap, cMap] = await Promise.all([fetchUserArtistCounts(LASTFM_USER_KHENT), fetchUserArtistCounts(LASTFM_USER_CLAIR)]);
 
   const keys = new Set([...kMap.keys(), ...cMap.keys()]);
   const tracks: ShowdownTrack[] = [];

@@ -41,7 +41,7 @@ Order: the screens Clair uses most come first.
 - [ ] `/starlight` — starlight_jar (2.1k)
 - [ ] `/bucket-list` — bucket_list (4.6k)
 - [x] `/trips`, `/trips/:id` — trip_kit (2.2k). Compare list 0.47% / 0.18%, detail 0.72% / 0.40%. Snackbars gained a Retry action; dates use the browser picker
-- [ ] `/jukebox`, `/spotify/callback` — jukebox (12.3k)
+- [x] `/jukebox`, `/spotify/callback` — jukebox (12.3k). Compare 0.91% / 0.33%, Listen Along popup 0.59% / 0.31%, callback 0.15% / 0.07%. Spotify linking needs `VITE_SPOTIFY_CLIENT_ID` at build time
 - [x] `/canvas` — canvas (1.5k). Compare 0.30% / 0.18% (0.31% with the toolbar uncovered). Live strokes, eraser, text, undo/redo and doodle presence kept
 - [x] `/money` — money (1.3k). Compare 0.62% / 0.32%. Add/budget dialogs ported; swipe to remove kept
 - [x] `/subs` — subs (1.3k). Compare 0.67% / 0.26%. The add sheet uses the browser date picker instead of the Material one
