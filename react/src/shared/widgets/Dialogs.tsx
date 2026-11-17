@@ -15,6 +15,7 @@ type Entry = {
   resolve: (v: unknown) => void;
   sheet?: boolean;
   dismissible?: boolean;
+  inset?: string;
 };
 
 const stack = new ValueNotifier<Entry[]>([]);
@@ -23,7 +24,7 @@ let nextId = 1;
 /** `showDialog`: resolves with the value passed to `close`, or null when the barrier is tapped. */
 export function showDialog<R>(
   render: (close: (value: R | null) => void) => ReactNode,
-  { barrierDismissible = true }: { barrierDismissible?: boolean } = {},
+  { barrierDismissible = true, insetPadding }: { barrierDismissible?: boolean; /** Dialog.insetPadding as CSS padding. */ insetPadding?: string } = {},
 ): Promise<R | null> {
   return new Promise((resolve) => {
     const entry: Entry = {
@@ -31,6 +32,7 @@ export function showDialog<R>(
       render: render as Entry['render'],
       resolve: resolve as Entry['resolve'],
       dismissible: barrierDismissible,
+      inset: insetPadding,
     };
     stack.value = [...stack.value, entry];
   });
@@ -88,7 +90,7 @@ function DialogRoute({ entry }: { entry: Entry }) {
         display: 'flex',
         alignItems: entry.sheet ? 'flex-end' : 'center',
         justifyContent: 'center',
-        padding: entry.sheet ? 0 : '24px 40px',
+        padding: entry.sheet ? 0 : (entry.inset ?? '24px 40px'),
         opacity: entry.sheet || shown ? 1 : 0,
         transition: `opacity ${orZero(150)}ms cubic-bezier(0, 0, 0.58, 1)`,
       }}

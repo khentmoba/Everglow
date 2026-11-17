@@ -18,16 +18,20 @@ export function forgetDraft(draftKey: string, onlyIf?: string) {
   Prefs.remove(key);
 }
 
-/** `[text, setText, clearDraft]` for a field whose words survive a reload. */
-export function useDraft(draftKey: string, initial = ''): [string, (text: string) => void, () => void] {
+/**
+ * `[text, setText, clearDraft]` for a field whose words survive a reload.
+ * With `enabled` false it is a plain field (Dart never calls `loadDraft`).
+ */
+export function useDraft(draftKey: string, initial = '', enabled = true): [string, (text: string) => void, () => void] {
   const storageKey = `draft:${draftKey}`;
-  const [text, setTextState] = useState(() => (initial === '' ? (Prefs.getString(storageKey) ?? '') : initial));
+  const [text, setTextState] = useState(() => (enabled && initial === '' ? (Prefs.getString(storageKey) ?? '') : initial));
   const timer = useRef(0);
   const pending = useRef<string | null>(null);
 
   const setText = useCallback(
     (next: string) => {
       setTextState(next);
+      if (!enabled) return;
       pending.current = next;
       clearTimeout(timer.current);
       timer.current = window.setTimeout(() => {
@@ -35,7 +39,7 @@ export function useDraft(draftKey: string, initial = ''): [string, (text: string
         persist(storageKey, next);
       }, 500);
     },
-    [storageKey],
+    [storageKey, enabled],
   );
 
   const clearDraft = useCallback(() => {

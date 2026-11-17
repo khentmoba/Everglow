@@ -14,6 +14,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  documentId,
   type DocumentData,
   type QueryDocumentSnapshot,
   type QuerySnapshot,
@@ -23,7 +24,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type MemoryPhotoFixture } from '../../core/agent/fixtures';
 import { auth, db, storage } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 
 export type MemoryPhoto = MemoryPhotoFixture & {
   latitude?: number;
@@ -171,6 +172,19 @@ class GalleryService {
       this.demoPhotos = AgentFixtures.demoPhotos();
     }
     return this.demoPhotos;
+  }
+
+  watchPhotosByIds(ids: string[]): Source<MemoryPhoto[]> {
+    if (ids.length === 0) return just([]);
+    if (AgentMode.isActive.value) return just(AgentFixtures.demoPhotos().filter((p) => ids.includes(p.id)));
+    const q = query(collection(db, COLLECTION), where(documentId(), 'in', ids.slice(0, 20)));
+    return snapshots<QuerySnapshot<DocumentData>, MemoryPhoto[]>(
+      (next, error) => onSnapshot(q, next, error),
+      (snap) => {
+        const photos = new Map(snap.docs.map((d) => [d.id, mapDoc(d)]));
+        return ids.flatMap((id) => (photos.has(id) ? [photos.get(id)!] : []));
+      },
+    );
   }
 
   getPhotosStream(max = 40): Source<MemoryPhoto[]> {

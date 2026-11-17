@@ -9,12 +9,15 @@ export function ElevatedButton({
   background = AppColors.deepRose,
   radius = 24,
   icon,
+  stretch = false,
   children,
 }: {
   onPressed: () => void;
   background?: string;
   radius?: number;
   icon?: ReactNode;
+  /** Inside `SizedBox(width: double.infinity)`: full width, content centred. */
+  stretch?: boolean;
   children: ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -35,6 +38,8 @@ export function ElevatedButton({
           : background,
         color: AppColors.petalWhite,
         boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
+        width: stretch ? '100%' : undefined,
+        justifyContent: stretch ? 'center' : undefined,
         display: 'flex',
         alignItems: 'center',
         gap: 8,

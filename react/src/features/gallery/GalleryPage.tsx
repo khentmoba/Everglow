@@ -17,6 +17,8 @@ import { EverglowEmptyState, EverglowSkeleton, EverglowStreamView } from '../../
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { OfflinePhotos } from './offlinePhotos';
 import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
+import { MaterialIconButton } from '../../shared/widgets/MaterialFields';
+import { openSharedMemory } from '../journal/openSharedMemory';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { displayGalleryUrl, galleryService, gridPhotoUrl, type MemoryPhoto } from './galleryService';
@@ -1023,7 +1025,7 @@ function ZoomableImage({ photo }: { photo: MemoryPhoto }) {
   );
 }
 
-function PhotoViewerScreen({
+export function PhotoViewerScreen({
   photos: initial,
   initialIndex,
   onClose,
@@ -1077,6 +1079,18 @@ function PhotoViewerScreen({
           </span>
         }
         actions={[
+          <MaterialIconButton
+            key="keep"
+            icon="auto_stories_outlined"
+            tooltip="Keep this memory"
+            onPressed={() =>
+              void openSharedMemory({
+                title: photo.caption === '' ? 'A memory together' : photo.caption,
+                date: photo.takenAt ?? photo.uploadedAt,
+                photoId: photo.id,
+              })
+            }
+          />,
           <TextButton
             key="cancel"
             onPressed={() => close(false)}
@@ -1313,7 +1327,7 @@ function AddPhotoField({
   );
 }
 
-function AddPhotoDialog({ onClose }: { onClose: () => void }) {
+export function AddPhotoDialog({ onClose }: { onClose: (photo?: MemoryPhoto) => void }) {
   const auth = useAuth();
   const [image, setImage] = useState<{ file: File; url: string } | null>(null);
   const [fileName, setFileName] = useState('');
@@ -1362,7 +1376,7 @@ function AddPhotoDialog({ onClose }: { onClose: () => void }) {
       const latN = Number.parseFloat(lat.trim());
       const lngN = Number.parseFloat(lng.trim());
       const loc = location.trim();
-      await galleryService.uploadPhoto({
+      const photo = await galleryService.uploadPhoto({
         file: image.file,
         fileName,
         caption: caption.trim(),
@@ -1374,7 +1388,7 @@ function AddPhotoDialog({ onClose }: { onClose: () => void }) {
         takenAt: new Date(),
         onProgress: setProgress,
       });
-      onClose();
+      onClose(photo);
     } catch (e) {
       Logger.e('Gallery upload failed', e);
       showSnackBar("Couldn't upload the photo. It's still here — try again.", {
@@ -1393,7 +1407,7 @@ function AddPhotoDialog({ onClose }: { onClose: () => void }) {
   const tint = on ? AppColors.blushGold : withAlpha(AppColors.petalWhite, 0.6);
   return (
     <div
-      onClick={onClose}
+      onClick={() => onClose()}
       style={{
         position: 'fixed',
         inset: 0,

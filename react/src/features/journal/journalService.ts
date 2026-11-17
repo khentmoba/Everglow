@@ -3,88 +3,113 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
+  setDoc,
+  startAfter,
   Timestamp,
   updateDoc,
+  where,
   type DocumentData,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
-import { AgentFixtures, type JournalEntryFixture } from '../../core/agent/fixtures';
+import { AgentFixtures } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
-import { AppColors } from '../../core/theme/colors';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Logger } from '../../core/system/logger';
+import { Prefs } from '../../core/system/prefs';
+import { just, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 
 export type JournalCategory = 'daily' | 'gratitude' | 'memory' | 'letter' | 'dream' | 'idea';
 export type JournalMood = 'happy' | 'calm' | 'loved' | 'excited' | 'tired' | 'sad' | 'stressed' | 'neutral';
 
-export type JournalEntry = JournalEntryFixture & {
-  isLocked?: boolean;
-  perspectives?: Record<string, string>;
-  photoIds?: string[];
+export const JOURNAL_CATEGORIES: { id: JournalCategory; displayName: string; emoji: string }[] = [
+  { id: 'daily', displayName: 'Daily', emoji: '📔' },
+  { id: 'gratitude', displayName: 'Gratitude', emoji: '🙏' },
+  { id: 'memory', displayName: 'Memory', emoji: '📸' },
+  { id: 'letter', displayName: 'Letter', emoji: '💌' },
+  { id: 'dream', displayName: 'Dream', emoji: '🌙' },
+  { id: 'idea', displayName: 'Idea', emoji: '💡' },
+];
+
+export const JOURNAL_MOODS: { id: JournalMood; emoji: string }[] = [
+  { id: 'happy', emoji: '😊' },
+  { id: 'calm', emoji: '😌' },
+  { id: 'loved', emoji: '🥰' },
+  { id: 'excited', emoji: '🤩' },
+  { id: 'tired', emoji: '😴' },
+  { id: 'sad', emoji: '😢' },
+  { id: 'stressed', emoji: '😣' },
+  { id: 'neutral', emoji: '😐' },
+];
+
+export const categoryInfo = (c: JournalCategory) => JOURNAL_CATEGORIES.find((x) => x.id === c)!;
+export const moodEmoji = (m: JournalMood) => JOURNAL_MOODS.find((x) => x.id === m)!.emoji;
+
+export type JournalEntry = {
+  id: string;
   bucketItemId?: string;
   calendarEventId?: string;
-  isSyncing?: boolean;
+  photoIds: string[];
+  perspectives: Record<string, string>;
+  title: string;
+  content: string;
+  author: string;
+  createdAt: Date;
+  updatedAt: Date;
+  category: JournalCategory;
+  mood: JournalMood | null;
+  tags: string[];
+  isPinned: boolean;
+  isLocked: boolean;
+  coverColor?: string;
+  wordCount: number;
+  isSyncing: boolean;
 };
 
-export const JOURNAL_CATEGORIES: { id: JournalCategory; label: string; emoji: string; color: string }[] = [
-  { id: 'daily', label: 'Daily', emoji: '📔', color: AppColors.softLavender },
-  { id: 'gratitude', label: 'Gratitude', emoji: '🙏', color: AppColors.blushGold },
-  { id: 'memory', label: 'Memory', emoji: '📸', color: AppColors.auroraTeal },
-  { id: 'letter', label: 'Letter', emoji: '💌', color: AppColors.deepRose },
-  { id: 'dream', label: 'Dream', emoji: '🌙', color: AppColors.auroraLilac },
-  { id: 'idea', label: 'Idea', emoji: '💡', color: AppColors.warmAmber },
-];
-
-export const JOURNAL_MOODS: { id: JournalMood; emoji: string; label: string }[] = [
-  { id: 'happy', emoji: '😊', label: 'Happy' },
-  { id: 'calm', emoji: '😌', label: 'Calm' },
-  { id: 'loved', emoji: '🥰', label: 'Loved' },
-  { id: 'excited', emoji: '🤩', label: 'Excited' },
-  { id: 'tired', emoji: '😴', label: 'Tired' },
-  { id: 'sad', emoji: '😢', label: 'Sad' },
-  { id: 'stressed', emoji: '😣', label: 'Stressed' },
-  { id: 'neutral', emoji: '😐', label: 'Neutral' },
-];
-
-export function journalCategoryMeta(cat: string) {
-  return JOURNAL_CATEGORIES.find((c) => c.id === cat) ?? JOURNAL_CATEGORIES[0];
+export class JournalEditConflict extends Error {
+  constructor() {
+    super('JournalEditConflict');
+  }
 }
 
-export function journalMoodEmoji(mood?: string): string | null {
-  if (!mood) return null;
-  return JOURNAL_MOODS.find((m) => m.id === mood)?.emoji ?? null;
-}
+export type JournalPage = {
+  items: JournalEntry[];
+  nextCursor: QueryDocumentSnapshot<DocumentData> | null;
+};
 
-export function journalAuthorHue(author: string): string {
-  const lower = author.toLowerCase();
-  if (lower === 'khentsgdz') return AppColors.auroraTeal;
-  if (lower === 'clairjassen') return AppColors.auroraRose;
-  return AppColors.softLavender;
-}
+export const isLong = (e: JournalEntry) => e.wordCount > 200;
+export const preview = (e: JournalEntry) => (e.content.length > 120 ? `${e.content.slice(0, 120)}…` : e.content);
 
-export function journalAuthorName(author: string): string {
-  const lower = author.toLowerCase();
-  if (lower === 'khentsgdz') return 'Khent';
-  if (lower === 'clairjassen') return 'Clair';
-  return author ? author[0].toUpperCase() + author.slice(1) : 'Us';
-}
-
-export function journalDayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed === '') return 0;
+  return trimmed.split(/\s+/).filter((w) => w !== '').length;
 }
 
 function monthDay(d: Date): string {
   return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function parseMood(v: unknown): JournalMood | null {
+  return JOURNAL_MOODS.find((m) => m.id === v)?.id ?? null;
+}
+
+function parseCategory(v: unknown): JournalCategory {
+  return JOURNAL_CATEGORIES.find((c) => c.id === v)?.id ?? 'daily';
+}
+
 function parseTs(v: unknown): Date {
+  if (v instanceof Timestamp) return v.toDate();
   if (v && typeof (v as Timestamp).toDate === 'function') return (v as Timestamp).toDate();
   if (typeof v === 'number') return new Date(v);
   if (typeof v === 'string') {
@@ -94,206 +119,513 @@ function parseTs(v: unknown): Date {
   return new Date();
 }
 
-function mapDoc(d: QueryDocumentSnapshot<DocumentData>): JournalEntry {
-  const data = d.data();
+export function entryFromMap(data: DocumentData, id: string, isSyncing = false): JournalEntry {
+  const content = typeof data.content === 'string' ? data.content : '';
   const perspectives: Record<string, string> = {};
   if (data.perspectives && typeof data.perspectives === 'object') {
-    for (const [k, v] of Object.entries(data.perspectives as Record<string, unknown>)) {
-      if (typeof v === 'string') perspectives[k] = v;
-    }
+    for (const [k, v] of Object.entries(data.perspectives as Record<string, unknown>)) perspectives[k] = String(v);
   }
   return {
-    id: d.id,
-    title: String(data.title ?? ''),
-    content: String(data.content ?? ''),
-    author: String(data.author ?? ''),
-    createdAt: parseTs(data.createdAt),
-    updatedAt: parseTs(data.updatedAt),
-    category: String(data.category ?? 'daily'),
-    mood: typeof data.mood === 'string' ? data.mood : '',
-    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
-    isPinned: Boolean(data.isPinned),
-    isLocked: Boolean(data.isLocked),
-    wordCount: Number(data.wordCount ?? 0),
-    perspectives,
-    photoIds: Array.isArray(data.photoIds) ? data.photoIds.map(String) : [],
+    id,
     bucketItemId: typeof data.bucketItemId === 'string' ? data.bucketItemId : undefined,
     calendarEventId: typeof data.calendarEventId === 'string' ? data.calendarEventId : undefined,
-    isSyncing: d.metadata?.hasPendingWrites ?? false,
+    photoIds: Array.isArray(data.photoIds) ? data.photoIds.filter((p): p is string => typeof p === 'string').slice(0, 20) : [],
+    perspectives,
+    title: typeof data.title === 'string' ? data.title : '',
+    content,
+    author: typeof data.author === 'string' ? data.author : '',
+    createdAt: parseTs(data.createdAt),
+    updatedAt: parseTs(data.updatedAt ?? data.createdAt),
+    category: parseCategory(data.category),
+    mood: parseMood(data.mood),
+    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
+    isPinned: data.isPinned === true,
+    isLocked: data.isLocked === true,
+    coverColor: typeof data.coverColor === 'string' ? data.coverColor : undefined,
+    wordCount: typeof data.wordCount === 'number' ? data.wordCount : countWords(content),
+    isSyncing,
   };
 }
 
-class JournalService {
-  private demoEntries: JournalEntry[] | null = null;
-  private demoChanges = new Changes(() => [...this.ensureDemo()]);
+const fromDoc = (d: DocumentSnapshot<DocumentData>) => entryFromMap(d.data() ?? {}, d.id);
 
-  private ensureDemo(): JournalEntry[] {
-    if (!this.demoEntries) {
-      this.demoEntries = AgentFixtures.demoJournalEntries().map((e) => ({
-        ...e,
-        isLocked: false,
-        perspectives: {},
-        photoIds: [],
-      }));
-    }
-    return this.demoEntries;
+export function toFirestore(e: JournalEntry): DocumentData {
+  return {
+    ...(e.bucketItemId != null ? { bucketItemId: e.bucketItemId } : {}),
+    ...(e.calendarEventId != null ? { calendarEventId: e.calendarEventId } : {}),
+    photoIds: e.photoIds,
+    perspectives: e.perspectives,
+    title: e.title,
+    content: e.content,
+    author: e.author.toLowerCase(),
+    createdAt: Timestamp.fromDate(e.createdAt),
+    updatedAt: Timestamp.fromDate(e.updatedAt),
+    category: e.category,
+    ...(e.mood != null ? { mood: e.mood } : {}),
+    tags: e.tags,
+    isPinned: e.isPinned,
+    isLocked: e.isLocked,
+    ...(e.coverColor != null ? { coverColor: e.coverColor } : {}),
+    wordCount: e.wordCount,
+    monthDay: monthDay(e.createdAt),
+    searchKey: `${e.title.toLowerCase()} ${e.content.toLowerCase().slice(0, 500)}`.toLowerCase(),
+  };
+}
+
+function toCacheJson(e: JournalEntry) {
+  return { ...toFirestore(e), createdAt: e.createdAt.toISOString(), updatedAt: e.updatedAt.toISOString(), id: e.id };
+}
+
+export function newEntry(
+  fields: Partial<JournalEntry> & Pick<JournalEntry, 'id' | 'title' | 'content' | 'author' | 'createdAt' | 'updatedAt'>,
+): JournalEntry {
+  return {
+    photoIds: [],
+    perspectives: {},
+    category: 'daily',
+    mood: null,
+    tags: [],
+    isPinned: false,
+    isLocked: false,
+    wordCount: 0,
+    isSyncing: false,
+    ...fields,
+  };
+}
+
+const demoEntries = (() => {
+  let cached: JournalEntry[] | null = null;
+  return () =>
+    (cached ??= AgentFixtures.demoJournalEntries().map((f) =>
+      newEntry({
+        ...f,
+        category: parseCategory(f.category),
+        mood: parseMood(f.mood),
+      }),
+    ));
+})();
+
+const isDemo = () => AgentMode.demo;
+const COLLECTION = 'journal_entries';
+const PREVIEW_CACHE_KEY = 'journal_preview_cache_v1';
+const sameStrings = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+class JournalService {
+  private demoMemories = new Map<string, JournalEntry>();
+  private demoListeners = new Set<() => void>();
+  private cachedPreviewList: JournalEntry[] = [];
+
+  constructor() {
+    this.loadPreviewCache();
   }
 
-  watchAll(max = 100): Source<JournalEntry[]> {
-    if (AgentMode.demo) {
-      this.ensureDemo();
-      return this.demoChanges.source;
+  get cachedPreview() {
+    return this.cachedPreviewList;
+  }
+
+  loadPreviewCache(): JournalEntry[] {
+    if (this.cachedPreviewList.length > 0) return this.cachedPreviewList;
+    try {
+      const raw = Prefs.getString(PREVIEW_CACHE_KEY);
+      if (!raw) return this.cachedPreviewList;
+      const decoded: unknown = JSON.parse(raw);
+      if (!Array.isArray(decoded)) return this.cachedPreviewList;
+      const entries: JournalEntry[] = [];
+      for (const item of decoded) {
+        if (!item || typeof item !== 'object') continue;
+        try {
+          entries.push(entryFromMap(item as DocumentData, String((item as { id?: unknown }).id ?? '')));
+        } catch (e) {
+          Logger.w(`Journal: skipping malformed cached entry: ${e}`);
+        }
+      }
+      if (entries.length > 0 && this.cachedPreviewList.length === 0) this.cachedPreviewList = entries;
+    } catch (e) {
+      Logger.w(`Journal: failed to load preview cache: ${e}`);
     }
-    const q = query(collection(db, 'journal_entries'), orderBy('createdAt', 'desc'), limit(max));
-    return withFirestoreTimeout(
-      snapshots<QuerySnapshot<DocumentData>, JournalEntry[]>(
-        (next, error) => onSnapshot(q, { includeMetadataChanges: true }, next, error),
-        (s) => s.docs.map(mapDoc),
-      ),
-      { label: 'journal-all' },
+    return this.cachedPreviewList;
+  }
+
+  private savePreviewCache(entries: JournalEntry[]) {
+    try {
+      Prefs.set(PREVIEW_CACHE_KEY, JSON.stringify(entries.map(toCacheJson)));
+    } catch (e) {
+      Logger.w(`Journal: failed to save preview cache: ${e}`);
+    }
+  }
+
+  private emitDemo() {
+    for (const l of this.demoListeners) l();
+  }
+
+  private demoEntry(id: string): JournalEntry {
+    const entry = this.demoMemories.get(id) ?? demoEntries().find((e) => e.id === id);
+    if (!entry) throw new Error(`No demo entry ${id}`);
+    return entry;
+  }
+
+  watchEntry(initial: JournalEntry): Source<JournalEntry | null> {
+    if (AgentMode.isActive.value) {
+      return (l) => {
+        let live = true;
+        const push = () => live && l.data(this.demoMemories.get(initial.id) ?? initial);
+        queueMicrotask(push);
+        this.demoListeners.add(push);
+        return () => {
+          live = false;
+          this.demoListeners.delete(push);
+        };
+      };
+    }
+    return snapshots<DocumentSnapshot<DocumentData>, JournalEntry | null>(
+      (next, error) => onSnapshot(doc(db, COLLECTION, initial.id), next, error),
+      (d) => (d.exists() ? fromDoc(d) : null),
     );
   }
 
-  watchPreview(max = 12): Source<JournalEntry[]> {
-    return this.watchAll(max);
-  }
-
-  async search(term: string): Promise<JournalEntry[]> {
-    const q = term.trim().toLowerCase();
-    if (!q) return [];
-    const matches = (e: JournalEntry) =>
-      e.title.toLowerCase().includes(q) ||
-      e.content.toLowerCase().includes(q) ||
-      e.tags.some((t) => t.toLowerCase().includes(q));
-    if (AgentMode.demo) return this.ensureDemo().filter(matches);
-    const snap = await getDocs(query(collection(db, 'journal_entries'), orderBy('createdAt', 'desc'), limit(150)));
-    return snap.docs.map(mapDoc).filter(matches);
-  }
-
-  async addEntry(input: {
+  async memoryForSource(opts: {
     title: string;
-    content: string;
     author: string;
-    category: JournalCategory;
-    mood?: JournalMood;
-    tags: string[];
-    isPinned: boolean;
-    isLocked: boolean;
-    createdAt?: Date;
-  }): Promise<void> {
-    const now = input.createdAt ?? new Date();
-    const words = input.content.trim() ? input.content.trim().split(/\s+/).length : 0;
-    if (AgentMode.demo) {
-      const next: JournalEntry = {
-        id: `demo_journal_${Date.now()}`,
-        title: input.title,
-        content: input.content,
-        author: input.author,
-        createdAt: now,
-        updatedAt: new Date(),
-        category: input.category,
-        mood: input.mood ?? '',
-        tags: input.tags,
-        isPinned: input.isPinned,
-        isLocked: input.isLocked,
-        wordCount: words,
-        perspectives: {},
-      };
-      this.demoEntries = [next, ...this.ensureDemo()];
-      this.demoChanges.emit();
-      return;
-    }
-    const searchKey = `${input.title} ${input.content.slice(0, 500)}`.toLowerCase();
-    await addDoc(collection(db, 'journal_entries'), {
-      title: input.title,
-      content: input.content,
-      author: input.author,
-      createdAt: Timestamp.fromDate(now),
-      updatedAt: Timestamp.now(),
-      monthDay: monthDay(now),
-      category: input.category,
-      ...(input.mood ? { mood: input.mood } : {}),
-      tags: input.tags,
-      isPinned: input.isPinned,
-      isLocked: input.isLocked,
-      wordCount: words,
-      searchKey,
-    });
-  }
-
-  async updateEntry(
-    id: string,
-    patch: {
-      title: string;
-      content: string;
-      category: JournalCategory;
-      mood?: JournalMood;
-      tags: string[];
-      isPinned: boolean;
-      isLocked: boolean;
-    },
-  ): Promise<void> {
-    const words = patch.content.trim() ? patch.content.trim().split(/\s+/).length : 0;
-    if (AgentMode.demo) {
-      this.demoEntries = this.ensureDemo().map((e) =>
-        e.id === id ? { ...e, ...patch, mood: patch.mood ?? '', wordCount: words, updatedAt: new Date() } : e,
+    date: Date;
+    bucketItemId?: string;
+    calendarEventId?: string;
+    photoId?: string;
+  }): Promise<JournalEntry> {
+    const { title, author, date, bucketItemId, calendarEventId, photoId } = opts;
+    const source =
+      bucketItemId != null ? `bucket_${bucketItemId}` : calendarEventId != null ? `event_${calendarEventId}` : `photo_${photoId}`;
+    const id = `memory_${source}`;
+    if (photoId != null && !AgentMode.isActive.value) {
+      const linked = await withGetTimeout(
+        getDocs(query(collection(db, COLLECTION), where('photoIds', 'array-contains', photoId), limit(1))),
+        'photo memory lookup',
       );
-      this.demoChanges.emit();
-      return;
+      if (!linked.empty) return fromDoc(linked.docs[0]);
     }
-    await updateDoc(doc(db, 'journal_entries', id), {
-      title: patch.title,
-      content: patch.content,
-      category: patch.category,
-      ...(patch.mood ? { mood: patch.mood } : {}),
-      tags: patch.tags,
-      isPinned: patch.isPinned,
-      isLocked: patch.isLocked,
-      wordCount: words,
-      updatedAt: Timestamp.now(),
-      searchKey: `${patch.title} ${patch.content.slice(0, 500)}`.toLowerCase(),
+    const now = new Date();
+    const entry = newEntry({
+      id,
+      title,
+      content: '',
+      author,
+      createdAt: date > now ? now : date,
+      updatedAt: now,
+      category: 'memory',
+      bucketItemId,
+      calendarEventId,
+      photoIds: photoId == null ? [] : [photoId],
     });
-  }
-
-  async deleteEntry(id: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoEntries = this.ensureDemo().filter((e) => e.id !== id);
-      this.demoChanges.emit();
-      return;
+    if (AgentMode.isActive.value) {
+      if (!this.demoMemories.has(id)) this.demoMemories.set(id, entry);
+      return this.demoMemories.get(id)!;
     }
-    await deleteDoc(doc(db, 'journal_entries', id));
-  }
-
-  async togglePin(id: string, isPinned: boolean): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoEntries = this.ensureDemo().map((e) => (e.id === id ? { ...e, isPinned } : e));
-      this.demoChanges.emit();
-      return;
+    try {
+      const ref = doc(db, COLLECTION, id);
+      return await runTransaction(db, async (tx) => {
+        const current = await tx.get(ref);
+        if (current.exists()) {
+          const saved = fromDoc(current);
+          if (calendarEventId != null && saved.calendarEventId == null) {
+            tx.update(ref, { calendarEventId });
+            return entryFromMap({ ...toFirestore(saved), calendarEventId }, id);
+          }
+          return saved;
+        }
+        tx.set(ref, toFirestore(entry));
+        return entry;
+      });
+    } catch (e) {
+      Logger.e('Could not open shared memory', e);
+      throw e;
     }
-    await updateDoc(doc(db, 'journal_entries', id), { isPinned, updatedAt: Timestamp.now() });
-  }
-
-  async toggleLock(id: string, isLocked: boolean): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoEntries = this.ensureDemo().map((e) => (e.id === id ? { ...e, isLocked } : e));
-      this.demoChanges.emit();
-      return;
-    }
-    await updateDoc(doc(db, 'journal_entries', id), { isLocked, updatedAt: Timestamp.now() });
   }
 
   async savePerspective(id: string, username: string, words: string): Promise<void> {
-    if (AgentMode.demo) {
-      this.demoEntries = this.ensureDemo().map((e) =>
-        e.id === id ? { ...e, perspectives: { ...(e.perspectives ?? {}), [username]: words.trim() } } : e,
-      );
-      this.demoChanges.emit();
+    if (!['khentsgdz', 'clairjassen'].includes(username) || words.length > 1000) {
+      throw new Error('Invalid memory contribution');
+    }
+    if (AgentMode.isActive.value) {
+      const entry = this.demoEntry(id);
+      this.demoMemories.set(id, { ...entry, perspectives: { ...entry.perspectives, [username]: words.trim() } });
+      this.emitDemo();
       return;
     }
-    await updateDoc(doc(db, 'journal_entries', id), {
-      [`perspectives.${username}`]: words.trim(),
-      updatedAt: Timestamp.now(),
-    });
+    try {
+      await updateDoc(doc(db, COLLECTION, id), { [`perspectives.${username}`]: words.trim(), updatedAt: Timestamp.now() });
+    } catch (e) {
+      Logger.e('Could not save memory contribution', e);
+      throw e;
+    }
+  }
+
+  async setMemoryPhotos(id: string, photoIds: string[]): Promise<void> {
+    if (photoIds.length > 20) throw new Error('Up to 20 photos per memory');
+    const unique = [...new Set(photoIds)];
+    if (AgentMode.isActive.value) {
+      this.demoMemories.set(id, { ...this.demoEntry(id), photoIds: unique });
+      this.emitDemo();
+      return;
+    }
+    try {
+      await updateDoc(doc(db, COLLECTION, id), { photoIds: unique, updatedAt: Timestamp.now() });
+    } catch (e) {
+      Logger.e('Could not link memory photos', e);
+      throw e;
+    }
+  }
+
+  async addMemoryPhoto(id: string, photoId: string): Promise<void> {
+    if (AgentMode.isActive.value) {
+      return this.setMemoryPhotos(id, [...new Set([...this.demoEntry(id).photoIds, photoId])]);
+    }
+    try {
+      const ref = doc(db, COLLECTION, id);
+      await runTransaction(db, async (tx) => {
+        const current = await tx.get(ref);
+        if (!current.exists()) throw new Error('Memory no longer exists');
+        const photos = [...new Set([...fromDoc(current).photoIds, photoId])];
+        if (photos.length > 20) throw new Error('Memory already has 20 photos');
+        tx.update(ref, { photoIds: photos, updatedAt: Timestamp.now() });
+      });
+    } catch (e) {
+      Logger.e('Could not add memory photo', e);
+      throw e;
+    }
+  }
+
+  watchAll(): Source<JournalEntry[]> {
+    if (isDemo()) return just(demoEntries());
+    const subscribe = () =>
+      snapshots<QuerySnapshot<DocumentData>, JournalEntry[]>(
+        (next, error) =>
+          onSnapshot(
+            query(collection(db, COLLECTION), orderBy('createdAt', 'desc'), limit(100)),
+            { includeMetadataChanges: true },
+            next,
+            error,
+          ),
+        (snap) => {
+          const out: JournalEntry[] = [];
+          for (const d of snap.docs) {
+            try {
+              out.push(entryFromMap(d.data(), d.id, d.metadata.hasPendingWrites));
+            } catch (e) {
+              Logger.e(`Journal: skipping malformed entry ${d.id}`, e);
+            }
+          }
+          return out;
+        },
+      );
+    return withFirestoreTimeout(subscribe(), { resubscribe: subscribe, label: 'journal-all', maxAttempts: 3 });
+  }
+
+  async fetchOlderThan(date: Date, max = 20): Promise<JournalPage> {
+    if (isDemo()) return { items: [], nextCursor: null };
+    const snap = await withGetTimeout(
+      getDocs(query(collection(db, COLLECTION), orderBy('createdAt', 'desc'), startAfter(Timestamp.fromDate(date)), limit(max))),
+      'journal older entries',
+    );
+    return { items: snap.docs.map(fromDoc), nextCursor: snap.docs.length < max ? null : snap.docs[snap.docs.length - 1] };
+  }
+
+  async fetchPage(cursor: QueryDocumentSnapshot<DocumentData> | null, max = 20): Promise<JournalPage> {
+    if (isDemo()) return { items: demoEntries().slice(0, max), nextCursor: null };
+    const base = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
+    const snap = await withGetTimeout(
+      getDocs(cursor ? query(base, startAfter(cursor), limit(max)) : query(base, limit(max))),
+      'firestore page',
+    );
+    return { items: snap.docs.map(fromDoc), nextCursor: snap.docs.length < max ? null : snap.docs[snap.docs.length - 1] };
+  }
+
+  watchPreview(max = 12): Source<JournalEntry[]> {
+    if (isDemo()) return just(demoEntries().slice(0, max));
+    const subscribe = () =>
+      snapshots<QuerySnapshot<DocumentData>, JournalEntry[]>(
+        (next, error) => onSnapshot(query(collection(db, COLLECTION), orderBy('createdAt', 'desc'), limit(max)), next, error),
+        (snap) => {
+          const entries = snap.docs.map(fromDoc);
+          if (entries.length > 0) {
+            this.cachedPreviewList = entries;
+            this.savePreviewCache(entries);
+          }
+          return entries;
+        },
+      );
+    const cachedFirst: Source<JournalEntry[]> = (l) => {
+      let live = true;
+      const cached = this.cachedPreviewList;
+      if (cached.length > 0) queueMicrotask(() => live && l.data(cached));
+      const unsub = subscribe()(l);
+      return () => {
+        live = false;
+        unsub();
+      };
+    };
+    return withFirestoreTimeout(cachedFirst, { resubscribe: subscribe, label: 'journal-preview', maxAttempts: 3 });
+  }
+
+  private matches(q: string) {
+    return (e: JournalEntry) =>
+      e.title.toLowerCase().includes(q) ||
+      e.content.toLowerCase().includes(q) ||
+      e.tags.some((t) => t.toLowerCase().includes(q)) ||
+      e.category.includes(q);
+  }
+
+  async search(term: string): Promise<JournalEntry[]> {
+    const q = term.toLowerCase().trim();
+    if (isDemo()) return demoEntries().filter(this.matches(q));
+    if (q === '') return [];
+    const out: JournalEntry[] = [];
+    let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+    do {
+      const page: JournalPage = await this.fetchPage(cursor, 80);
+      out.push(...page.items.filter(this.matches(q)));
+      cursor = page.nextCursor;
+    } while (cursor);
+    return out;
+  }
+
+  async getOnThisDay(): Promise<JournalEntry[]> {
+    if (isDemo()) return [];
+    const now = new Date();
+    try {
+      const snap = await withGetTimeout(
+        getDocs(query(collection(db, COLLECTION), where('monthDay', '==', monthDay(now)), limit(50))),
+        'journal on-this-day',
+      );
+      const entries = snap.docs.map(fromDoc).filter((e) => e.createdAt.getFullYear() !== now.getFullYear());
+      if (entries.length > 0) return entries;
+      const fallback = await withGetTimeout(
+        getDocs(query(collection(db, COLLECTION), orderBy('createdAt', 'desc'), limit(200))),
+        'journal on-this-day fallback',
+      );
+      return fallback.docs
+        .map(fromDoc)
+        .filter(
+          (e) =>
+            e.createdAt.getMonth() === now.getMonth() &&
+            e.createdAt.getDate() === now.getDate() &&
+            e.createdAt.getFullYear() !== now.getFullYear(),
+        );
+    } catch (e) {
+      Logger.e('journal onThisDay error', e);
+      return [];
+    }
+  }
+
+  newEntryId(): string {
+    return isDemo() ? `demo-${Date.now()}000` : doc(collection(db, COLLECTION)).id;
+  }
+
+  async add(entry: JournalEntry, id?: string): Promise<void> {
+    if (isDemo()) {
+      Logger.i(`Agent session simulated journal add: ${entry.title}`);
+      return;
+    }
+    try {
+      if (id == null) await addDoc(collection(db, COLLECTION), toFirestore(entry));
+      else await setDoc(doc(db, COLLECTION, id), toFirestore(entry));
+      Logger.i(`Journal added: ${entry.title}`);
+    } catch (e) {
+      Logger.e('Error adding journal', e);
+      throw e;
+    }
+  }
+
+  async get(id: string): Promise<JournalEntry> {
+    const snapshot = await getDoc(doc(db, COLLECTION, id));
+    const data = snapshot.data();
+    if (!snapshot.exists() || data == null) throw new Error(`Journal entry ${id} no longer exists`);
+    return entryFromMap(data, id);
+  }
+
+  async update(entry: JournalEntry, original: JournalEntry): Promise<void> {
+    if (isDemo()) {
+      Logger.i(`Agent session simulated journal update: ${entry.id}`);
+      return;
+    }
+    const changes: DocumentData = {};
+    if (entry.title !== original.title) changes.title = entry.title;
+    if (entry.content !== original.content) changes.content = entry.content;
+    if (entry.createdAt.getTime() !== original.createdAt.getTime()) {
+      changes.createdAt = Timestamp.fromDate(entry.createdAt);
+      changes.monthDay = monthDay(entry.createdAt);
+    }
+    if (entry.category !== original.category) changes.category = entry.category;
+    if (entry.mood !== original.mood) changes.mood = entry.mood ?? deleteField();
+    if (!sameStrings(entry.tags, original.tags)) changes.tags = entry.tags;
+    if (entry.isPinned !== original.isPinned) changes.isPinned = entry.isPinned;
+    if (entry.isLocked !== original.isLocked) changes.isLocked = entry.isLocked;
+    if (entry.coverColor !== original.coverColor) changes.coverColor = entry.coverColor ?? deleteField();
+    if (entry.wordCount !== original.wordCount || entry.content !== original.content) changes.wordCount = entry.wordCount;
+    if (Object.keys(changes).length === 0) return;
+
+    try {
+      const ref = doc(db, COLLECTION, entry.id);
+      await runTransaction(db, async (tx) => {
+        const snapshot = await tx.get(ref);
+        const data = snapshot.data();
+        if (!snapshot.exists() || data == null) throw new Error(`Journal entry ${entry.id} no longer exists`);
+        const currentTitle = typeof data.title === 'string' ? data.title : '';
+        const currentContent = typeof data.content === 'string' ? data.content : '';
+        if ('title' in changes && currentTitle !== original.title) throw new JournalEditConflict();
+        if ('content' in changes && currentContent !== original.content) throw new JournalEditConflict();
+        const patch: DocumentData = { ...changes, updatedAt: Timestamp.fromDate(entry.updatedAt) };
+        if ('title' in changes || 'content' in changes) {
+          const title: string = changes.title ?? currentTitle;
+          const content: string = changes.content ?? currentContent;
+          patch.searchKey = `${title} ${content.slice(0, 500)}`.toLowerCase();
+        }
+        tx.update(ref, patch);
+      });
+      Logger.i(`Journal updated: ${entry.id}`);
+    } catch (e) {
+      Logger.e('Error updating journal', e);
+      throw e;
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    if (isDemo()) {
+      Logger.i(`Agent session simulated journal delete: ${id}`);
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, COLLECTION, id));
+      Logger.i(`Journal deleted: ${id}`);
+    } catch (e) {
+      Logger.e('Error deleting journal', e);
+      throw e;
+    }
+  }
+
+  async togglePin(id: string, pinned: boolean): Promise<void> {
+    if (isDemo()) {
+      Logger.i(`Agent session simulated toggle pin: ${id} -> ${pinned}`);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, COLLECTION, id), { isPinned: pinned, updatedAt: Timestamp.now() });
+    } catch (e) {
+      Logger.e('Error toggling pin', e);
+      throw e;
+    }
+  }
+
+  async toggleLock(id: string, locked: boolean): Promise<void> {
+    if (isDemo()) {
+      Logger.i(`Agent session simulated toggle lock: ${id} -> ${locked}`);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, COLLECTION, id), { isLocked: locked, updatedAt: Timestamp.now() });
+      Logger.i(`Journal lock toggled: ${id} -> ${locked}`);
+    } catch (e) {
+      Logger.e('Error toggling lock', e);
+      throw e;
+    }
   }
 }
 

@@ -15,6 +15,7 @@ import {
   updateDoc,
   where,
   type DocumentData,
+  type DocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
@@ -106,26 +107,27 @@ function expandOccurrences(ev: CalendarEvent, start: Date, end: Date): CalendarE
   return out;
 }
 
+function mapEvent(d: DocumentSnapshot<DocumentData>): CalendarEvent {
+  const data = d.data() ?? {};
+  return {
+    id: d.id,
+    bucketItemId: typeof data.bucketItemId === 'string' ? data.bucketItemId : undefined,
+    title: String(data.title ?? ''),
+    description: String(data.description ?? ''),
+    date: parseTs(data.date),
+    endDate: data.endDate != null ? parseTs(data.endDate) : undefined,
+    type: parseType(data.type),
+    createdBy: String(data.createdBy ?? ''),
+    recurring: typeof data.recurring === 'string' ? data.recurring : undefined,
+    location: typeof data.location === 'string' ? data.location : undefined,
+    attendees: Array.isArray(data.attendees) ? data.attendees.map(String) : undefined,
+    isAllDay: Boolean(data.isAllDay),
+  };
+}
+
 function mapSnapshot(snap: QuerySnapshot<DocumentData>, start: Date, end: Date): CalendarEvent[] {
   const out: CalendarEvent[] = [];
-  for (const d of snap.docs) {
-    const data = d.data();
-    const ev: CalendarEvent = {
-      id: d.id,
-      bucketItemId: typeof data.bucketItemId === 'string' ? data.bucketItemId : undefined,
-      title: String(data.title ?? ''),
-      description: String(data.description ?? ''),
-      date: parseTs(data.date),
-      endDate: data.endDate != null ? parseTs(data.endDate) : undefined,
-      type: parseType(data.type),
-      createdBy: String(data.createdBy ?? ''),
-      recurring: typeof data.recurring === 'string' ? data.recurring : undefined,
-      location: typeof data.location === 'string' ? data.location : undefined,
-      attendees: Array.isArray(data.attendees) ? data.attendees.map(String) : undefined,
-      isAllDay: Boolean(data.isAllDay),
-    };
-    out.push(...expandOccurrences(ev, start, end));
-  }
+  for (const d of snap.docs) out.push(...expandOccurrences(mapEvent(d), start, end));
   return out.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
@@ -139,6 +141,14 @@ class CalendarService {
       this.demoEvents = AgentFixtures.demoEvents().map((e) => ({ ...e }));
     }
     return this.demoEvents;
+  }
+
+  watchEvent(id: string): Source<CalendarEvent | null> {
+    if (AgentMode.isActive.value) return just(AgentFixtures.demoEvents().find((e) => e.id === id) ?? null);
+    return snapshots<DocumentSnapshot<DocumentData>, CalendarEvent | null>(
+      (next, error) => onSnapshot(doc(db, 'calendar_events', id), next, error),
+      (d) => (d.exists() ? mapEvent(d) : null),
+    );
   }
 
   getEventsForMonth(month: Date): Source<CalendarEvent[]> {
@@ -183,7 +193,9 @@ class CalendarService {
       snapshots<QuerySnapshot<DocumentData>, CalendarEvent[]>(
         (next, error) => onSnapshot(q, next, error),
         (s) => {
-          const list = mapSnapshot(s, start, end).filter((e) => e.isAllDay || e.date >= now).slice(0, 20);
+          const list = mapSnapshot(s, start, end)
+            .filter((e) => e.isAllDay || e.date >= now)
+            .slice(0, 20);
           this.cachedUpcoming = list;
           return list;
         },
@@ -311,9 +323,7 @@ class CalendarPollService {
 
   async vote(pollId: string, username: string, optionId: string): Promise<void> {
     if (AgentMode.demo) {
-      this.demoPolls = this.demoPolls.map((p) =>
-        p.id === pollId ? { ...p, votes: { ...p.votes, [username]: optionId } } : p,
-      );
+      this.demoPolls = this.demoPolls.map((p) => (p.id === pollId ? { ...p, votes: { ...p.votes, [username]: optionId } } : p));
       this.demoChanges.emit();
       return;
     }
@@ -322,9 +332,7 @@ class CalendarPollService {
 
   async finalize(pollId: string, winningOptionId: string, event: Omit<CalendarEvent, 'id'>): Promise<void> {
     if (AgentMode.demo) {
-      this.demoPolls = this.demoPolls.map((p) =>
-        p.id === pollId ? { ...p, status: 'closed', winningOptionId } : p,
-      );
+      this.demoPolls = this.demoPolls.map((p) => (p.id === pollId ? { ...p, status: 'closed', winningOptionId } : p));
       this.demoChanges.emit();
       await calendarService.addEvent(event);
       return;
@@ -348,9 +356,7 @@ class CalendarPollService {
 
   async reopen(pollId: string): Promise<void> {
     if (AgentMode.demo) {
-      this.demoPolls = this.demoPolls.map((p) =>
-        p.id === pollId ? { ...p, status: 'open', winningOptionId: undefined } : p,
-      );
+      this.demoPolls = this.demoPolls.map((p) => (p.id === pollId ? { ...p, status: 'open', winningOptionId: undefined } : p));
       this.demoChanges.emit();
       return;
     }

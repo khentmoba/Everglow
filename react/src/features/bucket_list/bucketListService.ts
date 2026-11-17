@@ -12,13 +12,14 @@ import {
   Timestamp,
   updateDoc,
   type DocumentData,
+  type DocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type BucketItemFixture } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
 import { AppColors } from '../../core/theme/colors';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 
 export type BucketStatus = 'wish' | 'planned' | 'completed';
 export type BucketPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -42,13 +43,19 @@ export const BUCKET_CATEGORIES: Array<{ id: BucketCategory; label: string; emoji
   { id: 'other', label: 'Other', emoji: '💫', hue: AppColors.roseQuartz },
 ];
 
-export const BUCKET_STATUS_META: Record<BucketStatus, { label: string; shortLabel: string; emoji: string; hue: string; icon: string }> = {
+export const BUCKET_STATUS_META: Record<
+  BucketStatus,
+  { label: string; shortLabel: string; emoji: string; hue: string; icon: string }
+> = {
   wish: { label: 'Wished', shortLabel: 'Wished', emoji: '🌟', hue: AppColors.blushGold, icon: 'auto_awesome' },
   planned: { label: 'Planned', shortLabel: 'Planned', emoji: '📋', hue: AppColors.auroraTeal, icon: 'map' },
   completed: { label: 'Fulfilled', shortLabel: 'Done', emoji: '✅', hue: AppColors.success, icon: 'check_circle' },
 };
 
-export const BUCKET_PRIORITY_META: Record<BucketPriority, { label: string; shortLabel: string; emoji: string; rank: number; hue: string }> = {
+export const BUCKET_PRIORITY_META: Record<
+  BucketPriority,
+  { label: string; shortLabel: string; emoji: string; rank: number; hue: string }
+> = {
   low: { label: 'Low', shortLabel: 'Low', emoji: '⬇️', rank: 0, hue: AppColors.softLavender },
   medium: { label: 'Medium', shortLabel: 'Med', emoji: '➡️', rank: 1, hue: AppColors.blushGold },
   high: { label: 'High', shortLabel: 'High', emoji: '⬆️', rank: 2, hue: AppColors.warmAmber },
@@ -92,8 +99,12 @@ function parseTs(v: unknown): Date | undefined {
 }
 
 function mapDocs(s: QuerySnapshot<DocumentData>): BucketItem[] {
-  return s.docs.map((d) => {
-    const data = d.data();
+  return s.docs.map(mapItem);
+}
+
+function mapItem(d: DocumentSnapshot<DocumentData>): BucketItem {
+  {
+    const data = d.data() ?? {};
     const status: BucketStatus = data.status === 'planned' || data.status === 'completed' ? data.status : 'wish';
     const priority: BucketPriority =
       data.priority === 'low' || data.priority === 'high' || data.priority === 'urgent' ? data.priority : 'medium';
@@ -114,7 +125,7 @@ function mapDocs(s: QuerySnapshot<DocumentData>): BucketItem[] {
       assignedTo: typeof data.assignedTo === 'string' ? data.assignedTo : undefined,
       dueDate: parseTs(data.dueDate),
     };
-  });
+  }
 }
 
 class BucketListService {
@@ -128,14 +139,19 @@ class BucketListService {
     return this.demoItems;
   }
 
+  watchItem(id: string): Source<BucketItem | null> {
+    if (AgentMode.isActive.value) return just(AgentFixtures.demoBucketList().find((i) => i.id === id) ?? null);
+    return snapshots<DocumentSnapshot<DocumentData>, BucketItem | null>(
+      (next, error) => onSnapshot(doc(db, 'bucket_list', id), next, error),
+      (d) => (d.exists() ? mapItem(d) : null),
+    );
+  }
+
   watchPreview(max = 12): Source<BucketItem[]> {
     if (AgentMode.demo) return this.demoChanges.source;
     const q = query(collection(db, 'bucket_list'), orderBy('createdAt', 'desc'), limit(max));
     return withFirestoreTimeout(
-      snapshots<QuerySnapshot<DocumentData>, BucketItem[]>(
-        (next, error) => onSnapshot(q, next, error),
-        mapDocs,
-      ),
+      snapshots<QuerySnapshot<DocumentData>, BucketItem[]>((next, error) => onSnapshot(q, next, error), mapDocs),
       { label: 'bucket-list-preview' },
     );
   }
@@ -144,10 +160,7 @@ class BucketListService {
     if (AgentMode.demo) return this.demoChanges.source;
     const q = query(collection(db, 'bucket_list'), orderBy('createdAt', 'desc'), limit(100));
     return withFirestoreTimeout(
-      snapshots<QuerySnapshot<DocumentData>, BucketItem[]>(
-        (next, error) => onSnapshot(q, next, error),
-        mapDocs,
-      ),
+      snapshots<QuerySnapshot<DocumentData>, BucketItem[]>((next, error) => onSnapshot(q, next, error), mapDocs),
       { label: 'bucket-list-all' },
     );
   }

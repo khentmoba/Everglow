@@ -3,7 +3,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Derived, withAlpha, AppColors } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
 import { AppMotion, CssCurves, orZero } from '../../core/theme/motion';
-import { shadowLayer } from '../../core/theme/paint';
+import { shadowLayer, type BoxShadow } from '../../core/theme/paint';
 
 export function EverglowCard({
   children,
@@ -12,6 +12,7 @@ export function EverglowCard({
   radius = AppRadius.x2,
   padding = 20,
   fillColor = Derived.surfaceGlass,
+  boxShadow,
   style,
 }: {
   children: ReactNode;
@@ -20,6 +21,8 @@ export function EverglowCard({
   radius?: number;
   padding?: number;
   fillColor?: string;
+  /** Replaces the hover shadow, like Dart's `boxShadow` (drawn under the see-through fill). */
+  boxShadow?: BoxShadow[];
   style?: CSSProperties;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -60,12 +63,16 @@ export function EverglowCard({
         position: 'relative',
         cursor: interactive ? 'pointer' : undefined,
         outline: 'none',
+        // AnimatedContainer's transform has no alignment, so it scales from the top-left corner.
         transform: `translateY(${lift}px) scale(${scale})`,
+        transformOrigin: '0 0',
         transition: `transform ${ms}ms ${CssCurves.easeOutStrong}`,
         ...style,
       }}
     >
-      {hovered && <div aria-hidden style={shadowLayer({ color: 'rgba(0,0,0,0.2)', blur: 8, offset: [0, 2] }, { radius })} />}
+      {(boxShadow ?? (hovered ? [{ color: 'rgba(0,0,0,0.2)', blur: 8, offset: [0, 2] } as BoxShadow] : [])).map((s, i) => (
+        <div key={i} aria-hidden style={shadowLayer(s, { radius })} />
+      ))}
       <div
         style={{
           position: 'relative',

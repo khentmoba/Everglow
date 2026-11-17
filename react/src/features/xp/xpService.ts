@@ -48,6 +48,7 @@ export const xpService = {
 
 export type XpAward = { amount: number; dailyCap: number };
 export const playAward: XpAward = { amount: 3, dailyCap: 20 };
+export const journalAward: XpAward = { amount: 30, dailyCap: 2 };
 
 const todayKey = (now = new Date()) =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
