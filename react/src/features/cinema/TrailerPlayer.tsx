@@ -149,7 +149,17 @@ export function TrailerPlayer({
           pointerEvents: 'none',
         }}
       />
-      <div style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'default', touchAction: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 10,
+          cursor: 'default',
+          touchAction: 'none',
+          userSelect: 'none',
+          pointerEvents: 'none',
+        }}
+      />
     </div>
   );
 }

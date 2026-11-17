@@ -1,6 +1,6 @@
 // Side-by-side check that the React build looks like the Flutter build.
 //
-//   node tools/compare.mjs [path] [--size phone|tablet] [--out dir] [--settle ms] [--motion] [--click x,y[;x,y...]] [--seed]
+//   node tools/compare.mjs [path] [--size phone|tablet] [--out dir] [--settle ms] [--motion] [--click x,y[;x,y...]] [--type text] [--seed]
 //   --click taps a point (CSS px) halfway through the settle, e.g. to collapse the agent HUD.
 //
 // Serves ../build/web (Flutter, from `flutter build web`) and ./dist
@@ -18,6 +18,7 @@ const outDir = resolve(flag('--out', 'compare-out'));
 const motion = args.includes('--motion');
 const seed = args.includes('--seed');
 const settle = Number(flag('--settle', '6000'));
+const typed = flag('--type');
 const clicks = flag('--click')
   ?.split(';')
   .map((c) => c.split(',').map(Number));
@@ -33,6 +34,7 @@ async function shoot(browser, url, size, file) {
       await page.waitForTimeout(settle / (clicks.length + 1));
       await page.mouse.click(x, y);
     }
+    if (typed) await page.keyboard.type(typed, { delay: 40 });
     await page.waitForTimeout(settle / (clicks.length + 1));
   } else await page.waitForTimeout(settle);
   await page.evaluate(() => document.fonts?.ready);

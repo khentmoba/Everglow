@@ -34,6 +34,8 @@ export const AppColors = {
   cinemaGreen: '#2E7D32',
   cinemaAmber: '#FF9800',
   cinemaBlue: '#1976D2',
+  animeGold: '#E8C97A',
+  animeCyan: '#00BCD4',
 
   error: '#E5739B',
   success: '#4ADE80',

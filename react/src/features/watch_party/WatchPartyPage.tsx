@@ -1,7 +1,7 @@
 // Port of lib/features/watch_party/presentation/screens/watch_party_lobby_screen.dart
 // and watch_party_screen_web.dart.
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
@@ -36,11 +36,9 @@ function resolvePoster(path: string): string {
 export function WatchPartyPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const myUid = auth.uid ?? '';
-  const rooms = useSource(() => roomsStream(myUid), [myUid], []);
-  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
+  const activeRoomId = params.get('room');
 
   if (activeRoomId) {
     return (
@@ -48,10 +46,67 @@ export function WatchPartyPage() {
         roomId={activeRoomId}
         myUid={myUid}
         myName={auth.currentUser ?? 'Khent'}
-        onExit={() => setActiveRoomId(null)}
+        onExit={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/watch-party', { replace: true }))}
       />
     );
   }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
+      <header
+        style={{
+          height: 56,
+          padding: '0 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          background: AppColors.inkDeep,
+          flexShrink: 0,
+        }}
+      >
+        {window.history.length > 2 && (
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Back"
+            onClick={() => navigate(-1)}
+            style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="arrow_back" size={20} color={AppColors.petalWhite} />
+          </button>
+        )}
+        <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>Watch Together</span>
+      </header>
+
+      <div
+        className="no-scrollbar"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: `${AppSpacing.lg}px ${AppSpacing.xl}px ${AppSpacing.x3}px`,
+          width: '100%',
+        }}
+      >
+        <WatchPartyLobby />
+      </div>
+    </div>
+  );
+}
+
+/** `openWatchPartyRoom`: push the room screen over the current page. */
+export function useOpenWatchPartyRoom() {
+  const navigate = useNavigate();
+  return (roomId: string) => navigate(`/watch-party?room=${encodeURIComponent(roomId)}`);
+}
+
+/** `WatchPartyLobby`: the create button and room list; `embedded` drops the big header. */
+export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
+  const auth = useAuth();
+  const openRoom = useOpenWatchPartyRoom();
+  const myUid = auth.uid ?? '';
+  const rooms = useSource(() => roomsStream(myUid), [myUid], []);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
 
   const handleCreate = async () => {
     if (!myUid || !auth.partnerUid) return;
@@ -65,7 +120,7 @@ export function WatchPartyPage() {
       });
       setCreateOpen(false);
       setNewRoomName('');
-      setActiveRoomId(room.id);
+      openRoom(room.id);
     } catch {
       showSnackBar('Could not create the room. Try again.');
     }
@@ -75,216 +130,200 @@ export function WatchPartyPage() {
     if (!isRoomLive(room)) {
       await updateWatchPartyRoom(room.id, { active: true, state: 'paused', updatedBy: myUid });
     }
-    setActiveRoomId(room.id);
+    openRoom(room.id);
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          height: 56,
-          padding: '0 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        background: AppColors.inkDeep,
-        flexShrink: 0,
-      }}
-    >
-        {window.history.length > 2 && (
-          <button
-            type="button"
-            className="bare-button"
-            aria-label="Back"
-            onClick={() => navigate(-1)}
-            style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Icon name="arrow_back" size={20} color={AppColors.petalWhite} />
-          </button>
-        )}
-        <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>
-          Watch Together
-        </span>
-      </header>
-
-      <div
-        className="no-scrollbar"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: `${AppSpacing.lg}px ${AppSpacing.xl}px ${AppSpacing.x3}px`,
-          width: '100%',
-        }}
-      >
-        {!auth.isCoupleUser ? (
-          <div style={{ padding: 24, borderRadius: AppRadius.md, background: Derived.surfaceGlass, border: `1px solid ${Derived.border}`, textAlign: 'center' }}>
-            <div style={{ ...AppTypography.outfitHeading, fontSize: 16 }}>Watch Together is for Khent &amp; Clair</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+    <>
+      {!auth.isCoupleUser ? (
+        <div
+          style={{
+            padding: 24,
+            borderRadius: AppRadius.md,
+            background: Derived.surfaceGlass,
+            border: `1px solid ${Derived.border}`,
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ ...AppTypography.outfitHeading, fontSize: 16 }}>Watch Together is for Khent &amp; Clair</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          {!embedded && (
             <div style={{ marginBottom: AppSpacing.lg }}>
-              <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 30 }}>
-                Watch Together
-              </div>
+              <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 30 }}>Watch Together</div>
               <div style={{ height: 4 }} />
               <div style={{ ...AppTypography.outfitWhite, color: Derived.textMedium, fontSize: 13, lineHeight: 1.4 }}>
                 Pick a room, or make a new one. Both of you can walk in.
               </div>
             </div>
+          )}
 
-            <button
-              type="button"
-              className="bare-button"
-              aria-label="Create a watch party room"
-              onClick={() => setCreateOpen(true)}
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Create a watch party room"
+            onClick={() => setCreateOpen(true)}
+            style={{
+              padding: '14px 16px',
+              background: linear([AppColors.deepRose, AppColors.rosePressed]),
+              borderRadius: AppRadius.md,
+              boxShadow: boxShadow([{ offset: [0, 6], blur: 16, color: withAlpha(AppColors.deepRose, 0.35) }]),
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <Icon name="add" size={22} color={AppColors.petalWhite} />
+            <span style={{ flex: 1, textAlign: 'left', ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
+              Create a room
+            </span>
+            <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.72) }}>
+              No password
+            </span>
+          </button>
+
+          <div style={{ height: AppSpacing.md }} />
+
+          {rooms.length === 0 ? (
+            <div
               style={{
-                padding: '14px 16px',
-                background: linear([AppColors.deepRose, AppColors.rosePressed]),
+                padding: 28,
                 borderRadius: AppRadius.md,
-                boxShadow: boxShadow([{ offset: [0, 6], blur: 16, color: withAlpha(AppColors.deepRose, 0.35) }]),
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
+                background: Derived.surfaceGlass,
+                border: `1px solid ${Derived.border}`,
+                textAlign: 'center',
               }}
             >
-              <Icon name="add" size={22} color={AppColors.petalWhite} />
-              <span style={{ flex: 1, textAlign: 'left', ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
-                Create a room
-              </span>
-              <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.72) }}>
-                No password
-              </span>
-            </button>
-
-            <div style={{ height: AppSpacing.md }} />
-
-            {rooms.length === 0 ? (
-              <div style={{ padding: 28, borderRadius: AppRadius.md, background: Derived.surfaceGlass, border: `1px solid ${Derived.border}`, textAlign: 'center' }}>
-                <Icon name="meeting_room" variant="outlined" size={32} color={AppColors.roseQuartz} />
-                <div style={{ height: 8 }} />
-                <div style={{ ...AppTypography.outfitHeading, fontSize: 15 }}>No rooms yet</div>
-                <div style={{ height: 4 }} />
-                <div style={{ ...AppTypography.outfitMedium, fontSize: 12.5, color: Derived.textMuted }}>
-                  Create one room for movie nights, one for anime, or one for each mood. No codes, no passwords.
-                </div>
+              <Icon name="meeting_room" variant="outlined" size={32} color={AppColors.roseQuartz} />
+              <div style={{ height: 8 }} />
+              <div style={{ ...AppTypography.outfitHeading, fontSize: 15 }}>No rooms yet</div>
+              <div style={{ height: 4 }} />
+              <div style={{ ...AppTypography.outfitMedium, fontSize: 12.5, color: Derived.textMuted }}>
+                Create one room for movie nights, one for anime, or one for each mood. No codes, no passwords.
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {rooms.map((room) => {
-                  const live = isRoomLive(room);
-                  const hosting = room.hostUid === myUid;
-                  const accent = live ? AppColors.success : AppColors.mutedPurple;
-                  const subtitle = !room.tmdbId && !room.title
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 10 }}>
+              {rooms.map((room) => {
+                const live = isRoomLive(room);
+                const hosting = room.hostUid === myUid;
+                const accent = live ? AppColors.success : AppColors.mutedPurple;
+                const subtitle =
+                  !room.tmdbId && !room.title
                     ? 'Nothing chosen yet'
                     : room.mediaType === 'tv'
                       ? `${room.title} · S${room.season ?? 1} E${room.episode ?? 1}`
                       : room.title;
-                  const poster = resolvePoster(room.posterPath);
+                const poster = resolvePoster(room.posterPath);
 
-                  return (
-                    <div
-                      key={room.id}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        void deleteWatchPartyRoom(room.id);
-                      }}
-                      style={{
-                        padding: 10,
-                        background: Derived.surfaceGlass,
-                        borderRadius: AppRadius.md,
-                        border: `1px solid ${live ? withAlpha(AppColors.deepRose, 0.55) : Derived.border}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                      }}
+                return (
+                  <div
+                    key={room.id}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      void deleteWatchPartyRoom(room.id);
+                    }}
+                    style={{
+                      padding: 10,
+                      background: Derived.surfaceGlass,
+                      borderRadius: AppRadius.md,
+                      border: `1px solid ${live ? withAlpha(AppColors.deepRose, 0.55) : Derived.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="bare-button"
+                      onClick={() => void handleOpenRoom(room)}
+                      style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}
                     >
-                      <button
-                        type="button"
-                        className="bare-button"
-                        onClick={() => void handleOpenRoom(room)}
-                        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}
+                      <div
+                        style={{
+                          width: 52,
+                          height: 72,
+                          borderRadius: AppRadius.sm,
+                          overflow: 'hidden',
+                          background: AppColors.shimmerBase,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
                       >
-                        <div
-                          style={{
-                            width: 52,
-                            height: 72,
-                            borderRadius: AppRadius.sm,
-                            overflow: 'hidden',
-                            background: AppColors.shimmerBase,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {poster ? (
-                            <img src={poster} alt={room.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          ) : (
-                            <Icon name="movie_filter" size={24} color={AppColors.mutedPurple} />
-                          )}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span
-                              style={{
-                                ...AppTypography.outfitHeading,
-                                color: AppColors.petalWhite,
-                                fontSize: 15,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {room.name || 'Our room'}
-                            </span>
-                            <span
-                              style={{
-                                padding: '2px 6px',
-                                borderRadius: 6,
-                                background: withAlpha(accent, 0.16),
-                                ...AppTypography.outfitWhite,
-                                color: accent,
-                                fontSize: 8.5,
-                                fontWeight: 800,
-                                letterSpacing: '1px',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {live ? 'LIVE' : 'IDLE'}
-                            </span>
-                          </div>
-                          <div style={{ height: 4 }} />
-                          <div
+                        {poster ? (
+                          <img
+                            src={poster}
+                            alt={room.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                        ) : (
+                          <Icon name="movie_filter" size={24} color={AppColors.mutedPurple} />
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span
                             style={{
-                              ...AppTypography.outfitWhite,
-                              color: Derived.textMedium,
-                              fontSize: 12,
+                              ...AppTypography.outfitHeading,
+                              color: AppColors.petalWhite,
+                              fontSize: 15,
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                             }}
                           >
-                            {subtitle}
-                          </div>
-                          <div style={{ height: 6 }} />
-                          <div style={{ ...AppTypography.outfitWhite, color: Derived.textMuted, fontSize: 11 }}>
-                            {hosting ? 'You are hosting' : `${room.hostName} is hosting`}
-                          </div>
+                            {room.name || 'Our room'}
+                          </span>
+                          <span
+                            style={{
+                              padding: '2px 6px',
+                              borderRadius: 6,
+                              background: withAlpha(accent, 0.16),
+                              ...AppTypography.outfitWhite,
+                              color: accent,
+                              fontSize: 8.5,
+                              fontWeight: 800,
+                              letterSpacing: '1px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {live ? 'LIVE' : 'IDLE'}
+                          </span>
                         </div>
-                        <Icon
-                          name={live ? 'play_arrow' : 'chevron_right'}
-                          size={22}
-                          color={live ? AppColors.roseQuartz : Derived.textMuted}
-                        />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                        <div style={{ height: 4 }} />
+                        <div
+                          style={{
+                            ...AppTypography.outfitWhite,
+                            color: Derived.textMedium,
+                            fontSize: 12,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {subtitle}
+                        </div>
+                        <div style={{ height: 6 }} />
+                        <div style={{ ...AppTypography.outfitWhite, color: Derived.textMuted, fontSize: 11 }}>
+                          {hosting ? 'You are hosting' : `${room.hostName} is hosting`}
+                        </div>
+                      </div>
+                      <Icon
+                        name={live ? 'play_arrow' : 'chevron_right'}
+                        size={22}
+                        color={live ? AppColors.roseQuartz : Derived.textMuted}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {createOpen && (
         <div
@@ -334,14 +373,25 @@ export function WatchPartyPage() {
               }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" className="bare-button" onClick={() => setCreateOpen(false)} style={{ padding: '8px 14px', color: Derived.textMuted }}>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => setCreateOpen(false)}
+                style={{ padding: '8px 14px', color: Derived.textMuted }}
+              >
                 Cancel
               </button>
               <button
                 type="button"
                 className="bare-button"
                 onClick={() => void handleCreate()}
-                style={{ padding: '8px 18px', borderRadius: 999, background: AppColors.deepRose, color: AppColors.petalWhite, ...AppTypography.outfitBold }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 999,
+                  background: AppColors.deepRose,
+                  color: AppColors.petalWhite,
+                  ...AppTypography.outfitBold,
+                }}
               >
                 Create
               </button>
@@ -349,7 +399,7 @@ export function WatchPartyPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -387,7 +437,16 @@ function WatchPartyRoomView({
 
   if (!room) {
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#000000',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <span style={{ ...AppTypography.outfitMedium, color: AppColors.petalWhite }}>Connecting to room…</span>
       </div>
     );
@@ -441,10 +500,28 @@ function WatchPartyRoomView({
           <Icon name="arrow_back" size={22} color={AppColors.petalWhite} />
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...AppTypography.outfitHeading, fontSize: 15, color: AppColors.petalWhite, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div
+            style={{
+              ...AppTypography.outfitHeading,
+              fontSize: 15,
+              color: AppColors.petalWhite,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {room.name || 'Watch Together'}
           </div>
-          <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.roseQuartz, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 11,
+              color: AppColors.roseQuartz,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {hasMedia ? room.title : 'Pick a title'}
           </div>
         </div>
@@ -539,7 +616,15 @@ function WatchPartyRoomView({
             </div>
           ) : (
             <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
-              <div style={{ aspectRatio: '16 / 9', background: '#000000', borderRadius: 12, overflow: 'hidden', border: `1px solid ${Derived.border}` }}>
+              <div
+                style={{
+                  aspectRatio: '16 / 9',
+                  background: '#000000',
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  border: `1px solid ${Derived.border}`,
+                }}
+              >
                 <iframe
                   key={embedSrc}
                   src={embedSrc}
@@ -595,7 +680,13 @@ function WatchPartyRoomView({
                       updatedBy: myUid,
                     })
                   }
-                  style={{ padding: '6px 10px', borderRadius: 8, background: AppColors.shimmerBase, color: AppColors.petalWhite, fontSize: 11.5 }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    background: AppColors.shimmerBase,
+                    color: AppColors.petalWhite,
+                    fontSize: 11.5,
+                  }}
                 >
                   +15s
                 </button>
@@ -617,13 +708,24 @@ function WatchPartyRoomView({
               zIndex: 40,
             }}
           >
-            <div style={{ padding: '12px 14px', borderBottom: `1px solid ${Derived.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div
+              style={{
+                padding: '12px 14px',
+                borderBottom: `1px solid ${Derived.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
               <span style={{ ...AppTypography.outfitHeading, fontSize: 14 }}>Room Chat</span>
               <button type="button" className="bare-button" onClick={() => setChatOpen(false)}>
                 <Icon name="close" size={18} color={AppColors.petalWhite} />
               </button>
             </div>
-            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
+              className="no-scrollbar"
+              style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}
+            >
               {messages.map((m) => (
                 <div key={m.id} style={{ alignSelf: m.senderUid === myUid ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
                   <div style={{ fontSize: 10, color: Derived.textMuted, marginBottom: 2 }}>{m.senderName}</div>
@@ -672,7 +774,15 @@ function WatchPartyRoomView({
                     setMsgText('');
                   }
                 }}
-                style={{ width: 36, height: 36, borderRadius: '50%', background: AppColors.deepRose, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: AppColors.deepRose,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 <Icon name="send" size={16} color="#FFFFFF" />
               </button>
@@ -730,7 +840,10 @@ function WatchPartyRoomView({
                 outline: 'none',
               }}
             />
-            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
+              className="no-scrollbar"
+              style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}
+            >
               {searchResults.map((m) => (
                 <button
                   key={`${m.mediaType}:${m.tmdbId}`}

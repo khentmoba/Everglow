@@ -170,6 +170,8 @@ export async function discoverMedia(opts: {
   voteAverageGte?: number;
   voteCountGte?: number;
   page?: number;
+  /** Throw instead of returning an empty page when the request fails. */
+  failOnError?: boolean;
 }): Promise<{ results: MediaItem[]; totalPages: number }> {
   const mt = opts.mediaType ?? 'movie';
   const params = new URLSearchParams({
@@ -190,6 +192,7 @@ export async function discoverMedia(opts: {
   if (opts.voteCountGte) params.set('vote_count.gte', String(opts.voteCountGte));
 
   const data = await tmdbJson(`/discover/${mt}?${params.toString()}`);
+  if (data == null && opts.failOnError) throw new Error(`TMDB discover failed (${mt})`);
   const raw = Array.isArray(data?.results) ? (data.results as Record<string, unknown>[]) : [];
   return {
     results: raw.map((r) => mapResult(r, mt)),
@@ -197,10 +200,15 @@ export async function discoverMedia(opts: {
   };
 }
 
-export async function searchMulti(queryStr: string, page = 1): Promise<{ results: MediaItem[]; totalPages: number }> {
+export async function searchMulti(
+  queryStr: string,
+  page = 1,
+  { failOnError = false }: { failOnError?: boolean } = {},
+): Promise<{ results: MediaItem[]; totalPages: number }> {
   const q = queryStr.trim();
   if (!q) return { results: [], totalPages: 1 };
   const data = await tmdbJson(`/search/multi?query=${encodeURIComponent(q)}&include_adult=false&page=${page}`);
+  if (data == null && failOnError) throw new Error('TMDB search failed');
   const raw = Array.isArray(data?.results) ? (data.results as Record<string, unknown>[]) : [];
   const filtered = raw.filter((r) => r.media_type === 'movie' || r.media_type === 'tv' || AgentMode.demo);
   return {

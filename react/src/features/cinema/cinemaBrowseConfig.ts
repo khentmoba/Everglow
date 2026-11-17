@@ -2,6 +2,7 @@
 import { AppColors } from '../../core/theme/colors';
 
 export type BrowseCategoryGroup = 'collection' | 'genre' | 'decade' | 'language' | 'sort';
+export const BROWSE_GROUPS: BrowseCategoryGroup[] = ['collection', 'genre', 'decade', 'language', 'sort'];
 
 export interface BrowseCategoryOption {
   id: string;
@@ -17,46 +18,126 @@ export interface BrowseCategoryOption {
   voteAverageGte?: number;
   voteCountGte?: number;
   withOriginalLanguage?: string;
-  sortBy?: string;
+  sortBy: string;
 }
 
-export const BROWSE_GROUP_META: Record<BrowseCategoryGroup, { title: string; subtitle: string }> = {
-  collection: { title: 'Collections', subtitle: 'Curated starting points' },
-  genre: { title: 'Genres', subtitle: 'Pick a mood' },
-  decade: { title: 'By Decade', subtitle: 'Movies through time' },
-  language: { title: 'World Series', subtitle: 'Live-action dramas & regional hits' },
-  sort: { title: 'Rankings', subtitle: 'Top rated & trending' },
+export const BROWSE_GROUP_META: Record<BrowseCategoryGroup, { title: string; subtitle: string; icon: string; tint: string }> = {
+  collection: { title: 'Collections', subtitle: 'CURATED PICKS', icon: 'local_fire_department', tint: AppColors.cinemaRed },
+  genre: { title: 'Genres', subtitle: 'EXPLORE BY CATEGORY', icon: 'category', tint: AppColors.cinemaRed },
+  decade: { title: 'Decades', subtitle: 'TIME CAPSULE', icon: 'timeline', tint: '#26A69A' },
+  language: { title: 'Languages', subtitle: 'WORLD CINEMA', icon: 'language', tint: '#42A5F5' },
+  sort: { title: 'Sort', subtitle: 'ORDER BY', icon: 'sort', tint: AppColors.warmAmber },
 };
 
+type Partial = Omit<BrowseCategoryOption, 'mediaType' | 'sortBy'> & { mediaType?: 'movie' | 'tv'; sortBy?: string };
+const opt = (o: Partial): BrowseCategoryOption => ({ mediaType: 'movie', sortBy: 'popularity.desc', ...o });
+
+const genre = (mediaType: 'movie' | 'tv', genreId: number, label: string, icon: string, color: string) =>
+  opt({ id: `genre-${mediaType}-${genreId}`, label, icon, color, group: 'genre', mediaType, genreId });
+
+const decade = (year: number, color: string, voteAverageGte: number) =>
+  opt({
+    id: `decade-${year}s`,
+    label: `${year}s`,
+    icon: 'replay_30',
+    color,
+    group: 'decade',
+    yearGte: year,
+    yearLte: year + 9,
+    voteAverageGte,
+  });
+
+const lang = (code: string, label: string, color: string, mediaType: 'movie' | 'tv' = 'movie', withoutGenres?: number[]) =>
+  opt({
+    id: `lang-${code}`,
+    label,
+    icon: 'language',
+    color,
+    group: 'language',
+    mediaType,
+    withOriginalLanguage: code,
+    withoutGenres,
+    voteAverageGte: 7.0,
+  });
+
 export const CINEMA_BROWSE_OPTIONS: BrowseCategoryOption[] = [
-  { id: 'collection-movies', label: 'Movies', icon: 'movie', color: AppColors.cinemaRed, group: 'collection', mediaType: 'movie', sortBy: 'popularity.desc' },
-  { id: 'collection-tv', label: 'TV Shows', icon: 'tv', color: AppColors.cinemaRed, group: 'collection', mediaType: 'tv', sortBy: 'popularity.desc' },
-  { id: 'collection-new', label: 'Popular', icon: 'local_fire_department', color: AppColors.warmAmber, group: 'collection', mediaType: 'movie', yearGte: 2025, sortBy: 'popularity.desc' },
+  opt({ id: 'collection-movies', label: 'Movies', icon: 'movie', color: AppColors.cinemaRed, group: 'collection' }),
+  opt({ id: 'collection-tv', label: 'TV Shows', icon: 'tv', color: AppColors.cinemaRed, group: 'collection', mediaType: 'tv' }),
+  opt({
+    id: 'collection-new',
+    label: 'Popular',
+    icon: 'local_fire_department',
+    color: AppColors.warmAmber,
+    group: 'collection',
+    yearGte: 2025,
+  }),
 
-  { id: 'genre-action', label: 'Action', icon: 'bolt', color: '#E53935', group: 'genre', mediaType: 'movie', genreId: 28 },
-  { id: 'genre-comedy', label: 'Comedy', icon: 'sentiment_satisfied_alt', color: '#FFB300', group: 'genre', mediaType: 'movie', genreId: 35 },
-  { id: 'genre-romance', label: 'Romance', icon: 'favorite', color: '#EC407A', group: 'genre', mediaType: 'movie', genreId: 10749 },
-  { id: 'genre-horror', label: 'Horror', icon: 'visibility', color: '#8E24AA', group: 'genre', mediaType: 'movie', genreId: 27 },
-  { id: 'genre-scifi', label: 'Sci-Fi', icon: 'rocket_launch', color: '#1E88E5', group: 'genre', mediaType: 'movie', genreId: 878 },
-  { id: 'genre-drama', label: 'Drama', icon: 'theater_comedy', color: '#43A047', group: 'genre', mediaType: 'movie', genreId: 18 },
-  { id: 'genre-thriller', label: 'Thriller', icon: 'psychology', color: '#F4511E', group: 'genre', mediaType: 'movie', genreId: 53 },
-  { id: 'genre-fantasy', label: 'Fantasy', icon: 'auto_fix_high', color: '#7E57C2', group: 'genre', mediaType: 'movie', genreId: 14 },
-  { id: 'genre-animation', label: 'Animation', icon: 'animation', color: '#26C6DA', group: 'genre', mediaType: 'movie', genreId: 16 },
-  { id: 'genre-doc', label: 'Documentary', icon: 'menu_book', color: '#78909C', group: 'genre', mediaType: 'movie', genreId: 99 },
-  { id: 'genre-crime', label: 'Crime', icon: 'local_police', color: '#D81B60', group: 'genre', mediaType: 'tv', genreId: 80 },
-  { id: 'genre-mystery', label: 'Mystery', icon: 'search', color: '#5E35B1', group: 'genre', mediaType: 'tv', genreId: 9648 },
+  genre('movie', 28, 'Action', 'local_fire_department', '#E53935'),
+  genre('movie', 12, 'Adventure', 'explore', '#FF6F00'),
+  genre('movie', 16, 'Animation', 'auto_awesome', '#00ACC1'),
+  genre('movie', 35, 'Comedy', 'sentiment_very_satisfied', '#FDD835'),
+  genre('movie', 80, 'Crime', 'gavel', '#455A64'),
+  genre('movie', 18, 'Drama', 'theater_comedy', '#1565C0'),
+  genre('movie', 14, 'Fantasy', 'auto_stories', '#7B1FA2'),
+  genre('movie', 27, 'Horror', 'brightness_3', '#4A148C'),
+  genre('movie', 9648, 'Mystery', 'youtube_searched_for', '#37474F'),
+  genre('movie', 10749, 'Romance', 'favorite', AppColors.cinemaRed),
+  genre('movie', 878, 'Sci-Fi', 'rocket_launch', AppColors.animeCyan),
+  genre('movie', 53, 'Thriller', 'sensors', '#607D8B'),
 
-  { id: 'decade-2020s', label: '2020s', icon: 'replay_30', color: '#00ACC1', group: 'decade', mediaType: 'movie', yearGte: 2020, yearLte: 2029, voteAverageGte: 6.0 },
-  { id: 'decade-2010s', label: '2010s', icon: 'replay_30', color: '#26A69A', group: 'decade', mediaType: 'movie', yearGte: 2010, yearLte: 2019, voteAverageGte: 6.5 },
-  { id: 'decade-2000s', label: '2000s', icon: 'replay_30', color: '#66BB6A', group: 'decade', mediaType: 'movie', yearGte: 2000, yearLte: 2009, voteAverageGte: 7.0 },
-  { id: 'decade-1990s', label: '1990s', icon: 'replay_30', color: '#EF5350', group: 'decade', mediaType: 'movie', yearGte: 1990, yearLte: 1999, voteAverageGte: 7.0 },
-  { id: 'decade-1980s', label: '1980s', icon: 'replay_30', color: '#AB47BC', group: 'decade', mediaType: 'movie', yearGte: 1980, yearLte: 1989, voteAverageGte: 7.0 },
+  genre('tv', 10759, 'Action & Adventure', 'shield', '#EF6C00'),
+  genre('tv', 16, 'Animated', 'auto_awesome', '#00ACC1'),
+  genre('tv', 35, 'Comedy', 'sentiment_very_satisfied', '#FDD835'),
+  genre('tv', 80, 'Crime', 'gavel', '#455A64'),
+  genre('tv', 18, 'Drama', 'theater_comedy', '#1565C0'),
+  genre('tv', 10751, 'Family', 'family_restroom', '#66BB6A'),
+  genre('tv', 10762, 'Kids', 'child_care', '#42A5F5'),
+  genre('tv', 9648, 'Mystery', 'youtube_searched_for', '#37474F'),
+  genre('tv', 10765, 'Sci-Fi & Fantasy', 'public', '#3949AB'),
+  genre('tv', 10764, 'Reality', 'videocam', '#8D6E63'),
+  genre('tv', 10767, 'Talk', 'mic', '#78909C'),
 
-  { id: 'lang-ko', label: 'Korean', icon: 'language', color: '#E53935', group: 'language', mediaType: 'tv', withOriginalLanguage: 'ko', voteAverageGte: 7.0 },
-  { id: 'lang-ja', label: 'Japanese', icon: 'language', color: AppColors.cinemaRed, group: 'language', mediaType: 'tv', withOriginalLanguage: 'ja', withoutGenres: [16], voteAverageGte: 7.0 },
-  { id: 'lang-hi', label: 'Hindi', icon: 'language', color: AppColors.warmAmber, group: 'language', mediaType: 'tv', withOriginalLanguage: 'hi', voteAverageGte: 6.5 },
-  { id: 'lang-es', label: 'Spanish', icon: 'language', color: '#FB8C00', group: 'language', mediaType: 'tv', withOriginalLanguage: 'es', voteAverageGte: 7.0 },
+  decade(2020, '#00ACC1', 6.0),
+  decade(2010, '#26A69A', 6.5),
+  decade(2000, '#66BB6A', 7.0),
+  decade(1990, '#EF5350', 7.0),
+  decade(1980, '#AB47BC', 7.0),
 
-  { id: 'sort-top-movies', label: 'Top Rated Movies', icon: 'star', color: AppColors.warmAmber, group: 'sort', mediaType: 'movie', sortBy: 'vote_average.desc', voteCountGte: 1000 },
-  { id: 'sort-top-tv', label: 'Top Rated Series', icon: 'workspace_premium', color: AppColors.cinemaRed, group: 'sort', mediaType: 'tv', sortBy: 'vote_average.desc', voteCountGte: 500 },
+  lang('ko', 'Korean', '#E53935', 'tv'),
+  lang('ja', 'Japanese', AppColors.cinemaRed, 'tv', [16]),
+  lang('hi', 'Hindi', '#FF7043'),
+  lang('es', 'Spanish', '#FDD835'),
+  lang('fr', 'French', '#42A5F5'),
+  lang('de', 'German', '#7E57C2'),
+  lang('zh', 'Chinese', '#EF5350'),
+  lang('pt', 'Portuguese', '#26A69A'),
+  lang('it', 'Italian', '#EF5350'),
+
+  opt({ id: 'sort-popular', label: 'Popular', icon: 'trending_up', color: AppColors.warmAmber, group: 'sort' }),
+  opt({
+    id: 'sort-rated',
+    label: 'Top Rated',
+    icon: 'star',
+    color: AppColors.animeGold,
+    group: 'sort',
+    sortBy: 'vote_average.desc',
+    voteCountGte: 200,
+  }),
+  opt({
+    id: 'sort-newest',
+    label: 'Newest',
+    icon: 'fiber_new',
+    color: '#4CAF50',
+    group: 'sort',
+    sortBy: 'primary_release_date.desc',
+  }),
+  opt({
+    id: 'sort-oldest',
+    label: 'Classics',
+    icon: 'history',
+    color: '#AB47BC',
+    group: 'sort',
+    sortBy: 'primary_release_date.asc',
+    voteCountGte: 500,
+  }),
 ];

@@ -55,11 +55,13 @@ export function DropdownField<T>({
   value,
   items,
   onChanged,
+  menuColor,
 }: {
   label: string;
   value: T;
   items: DropdownItem<T>[];
   onChanged?: (value: T) => void;
+  /** dropdownColor (the menu's fill). */ menuColor?: string;
 }) {
   const [open, setOpen] = useState(false);
   const enabled = onChanged != null;
@@ -114,6 +116,7 @@ export function DropdownField<T>({
         <DropdownMenu
           items={items}
           value={value}
+          color={menuColor}
           onClose={() => setOpen(false)}
           onPick={(v) => {
             setOpen(false);
@@ -130,9 +133,11 @@ function DropdownMenu<T>({
   value,
   onPick,
   onClose,
+  color = AppColors.twilight,
 }: {
   items: DropdownItem<T>[];
   value: T;
+  color?: string;
   onPick: (v: T) => void;
   onClose: () => void;
 }) {
@@ -159,7 +164,7 @@ function DropdownMenu<T>({
           maxHeight: 48 * 6 + 16,
           overflowY: 'auto',
           padding: '8px 0',
-          background: AppColors.twilight,
+          background: color,
           borderRadius: 4,
           boxShadow: '0 5px 5px -3px rgba(0,0,0,.2), 0 8px 10px 1px rgba(0,0,0,.14), 0 3px 14px 2px rgba(0,0,0,.12)',
         }}
@@ -201,7 +206,15 @@ function MenuItem({ selected, onClick, children }: { selected: boolean; onClick:
 }
 
 /** Material 3 `Switch` with the app theme's thumb and track colours, in its 60x48 tap box. */
-export function MaterialSwitch({ value, onChanged }: { value: boolean; onChanged?: (v: boolean) => void }) {
+export function MaterialSwitch({
+  value,
+  onChanged,
+  activeThumbColor = AppColors.petalWhite,
+}: {
+  value: boolean;
+  onChanged?: (v: boolean) => void;
+  activeThumbColor?: string;
+}) {
   const thumb = value ? 24 : 16;
   return (
     <button
@@ -232,7 +245,7 @@ export function MaterialSwitch({ value, onChanged }: { value: boolean; onChanged
             width: thumb,
             height: thumb,
             borderRadius: '50%',
-            background: value ? AppColors.petalWhite : Derived.textDisabled,
+            background: value ? activeThumbColor : Derived.textDisabled,
             transition: 'all 200ms cubic-bezier(0.2, 0, 0, 1)',
           }}
         />
@@ -247,11 +260,13 @@ export function SwitchListTile({
   subtitle,
   value,
   onChanged,
+  activeThumbColor,
 }: {
   title: string;
   subtitle?: string;
   value: boolean;
   onChanged?: (v: boolean) => void;
+  activeThumbColor?: string;
 }) {
   return (
     <div
@@ -274,7 +289,7 @@ export function SwitchListTile({
         )}
       </div>
       <div onClick={(e) => e.stopPropagation()}>
-        <MaterialSwitch value={value} onChanged={onChanged} />
+        <MaterialSwitch value={value} onChanged={onChanged} activeThumbColor={activeThumbColor} />
       </div>
     </div>
   );
@@ -370,5 +385,145 @@ export function FilledButton({
         <span style={{ ...AppTypography.labelLarge, lineHeight: lineHeight(14), color: M3Scheme.onPrimary }}>{label}</span>
       </button>
     </div>
+  );
+}
+
+/** Material 3 ExpansionTile: a ListTile (two-line when there is a subtitle) that opens its children below. */
+export function ExpansionTile({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const line = open ? M3Scheme.outline : 'transparent';
+  return (
+    <div style={{ padding: '1px 0', boxShadow: `inset 0 1px 0 ${line}, inset 0 -1px 0 ${line}`, transition: 'box-shadow 200ms' }}>
+      <button
+        type="button"
+        className="bare-button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: subtitle ? 72 : 56,
+          padding: `0 24px ${subtitle ? 2 : 0}px 16px`,
+          display: 'flex',
+          alignItems: 'center',
+          textAlign: 'left',
+          background: hovered ? withAlpha(M3Scheme.onSurface, 0.08) : 'transparent',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              ...AppTypography.bodyLarge,
+              color: M3Scheme.onSurface,
+              lineHeight: lineHeight(16, 1.5),
+              ...letterSpacing(0.5),
+            }}
+          >
+            {title}
+          </div>
+          {subtitle && <div style={{ ...AppTypography.bodyMedium, color: M3Scheme.onSurface }}>{subtitle}</div>}
+        </div>
+        <div style={{ width: 16 }} />
+        <span style={{ display: 'flex', transform: `rotate(${open ? 180 : 0}deg)`, transition: 'transform 200ms ease-in' }}>
+          <Icon name="expand_more" variant="filled" size={24} color={open ? AppColors.deepRose : M3Scheme.onSurfaceVariant} />
+        </span>
+      </button>
+      <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows 200ms ease-in' }}>
+        <div style={{ overflow: 'hidden' }}>{open && children}</div>
+      </div>
+    </div>
+  );
+}
+
+/** `TextField(decoration: InputDecoration(labelText, prefixIcon, suffixIcon))`: the M3 underline field. */
+export function UnderlineTextField({
+  label,
+  value,
+  onChange,
+  prefixIcon,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  prefixIcon?: string;
+  suffix?: ReactNode;
+}) {
+  const [focused, setFocused] = useState(false);
+  const floating = focused || value.length > 0;
+  const accent = focused ? AppColors.deepRose : M3Scheme.onSurfaceVariant;
+  const left = prefixIcon ? 52 : 0;
+  return (
+    <label style={{ position: 'relative', display: 'block', height: 56, cursor: 'text' }}>
+      {prefixIcon && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 4,
+            width: 48,
+            height: 48,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name={prefixIcon} size={24} color={accent} />
+        </div>
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          left,
+          top: floating ? 6 : 16,
+          fontFamily: Fonts.body,
+          fontWeight: 500,
+          fontSize: floating ? 12 : 16,
+          lineHeight: floating ? '16px' : '24px',
+          color: accent,
+          pointerEvents: 'none',
+          transition: 'all 167ms cubic-bezier(0.4, 0, 0.2, 1)',
+          ...letterSpacing(floating ? 0.4 : 0.5),
+        }}
+      >
+        {label}
+      </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          position: 'absolute',
+          left,
+          right: suffix ? 48 : 0,
+          top: 23.5,
+          height: 24,
+          padding: 0,
+          border: 'none',
+          outline: 'none',
+          background: 'transparent',
+          ...AppTypography.bodyLarge,
+          lineHeight: '24px',
+          color: M3Scheme.onSurface,
+          caretColor: AppColors.deepRose,
+          ...letterSpacing(0.5),
+        }}
+      />
+      {suffix && <div style={{ position: 'absolute', right: 0, top: 4 }}>{suffix}</div>}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: focused ? 2 : 1,
+          background: focused ? AppColors.deepRose : M3Scheme.outline,
+        }}
+      />
+    </label>
   );
 }

@@ -98,7 +98,11 @@ export function VideoPlayerPage() {
           source: 'tmdb',
         },
         auth.currentUser,
-        { season: mediaType === 'tv' ? season : undefined, episode: mediaType === 'tv' ? episode : undefined, timestamp: startSeconds },
+        {
+          season: mediaType === 'tv' ? season : undefined,
+          episode: mediaType === 'tv' ? episode : undefined,
+          timestamp: startSeconds,
+        },
       );
     }
     return () => {
@@ -137,7 +141,9 @@ export function VideoPlayerPage() {
     : [{ season_number: 1, name: 'Season 1' }];
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#000000', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div
+      style={{ position: 'fixed', inset: 0, background: '#000000', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+    >
       {!isFullscreen && (
         <header
           style={{
@@ -161,8 +167,18 @@ export function VideoPlayerPage() {
             <Icon name="arrow_back" size={22} color="#FFFFFF" />
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ ...AppTypography.outfitBold, fontSize: 14.5, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {title || (typeof details?.title === 'string' ? details.title : details?.name ? String(details.name) : `Title #${tmdbId}`)}
+            <div
+              style={{
+                ...AppTypography.outfitBold,
+                fontSize: 14.5,
+                color: '#FFFFFF',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {title ||
+                (typeof details?.title === 'string' ? details.title : details?.name ? String(details.name) : `Title #${tmdbId}`)}
             </div>
             {mediaType === 'tv' && (
               <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: NetflixColors.textSecondary }}>
@@ -182,7 +198,18 @@ export function VideoPlayerPage() {
         </header>
       )}
 
-      <div ref={stageRef} style={{ position: 'relative', width: '100%', aspectRatio: isFullscreen ? undefined : '16 / 9', height: isFullscreen ? '100%' : undefined, maxHeight: isFullscreen ? '100vh' : '72vh', background: '#000000', flexShrink: 0 }}>
+      <div
+        ref={stageRef}
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: isFullscreen ? undefined : '16 / 9',
+          height: isFullscreen ? '100%' : undefined,
+          maxHeight: isFullscreen ? '100vh' : '72vh',
+          background: '#000000',
+          flexShrink: 0,
+        }}
+      >
         <iframe
           key={srcUrl}
           src={srcUrl}
@@ -210,7 +237,9 @@ export function VideoPlayerPage() {
         )}
       </div>
 
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 980, width: '100%', margin: '0 auto' }}>
+      <div
+        style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 980, width: '100%', margin: '0 auto' }}
+      >
         <div>
           <div style={{ ...AppTypography.outfitHeading, fontSize: 12, color: NetflixColors.textSecondary, marginBottom: 8 }}>
             VIDEO SOURCE
@@ -290,7 +319,16 @@ export function VideoPlayerPage() {
                     }}
                   >
                     <span style={{ ...AppTypography.outfitHeading, fontSize: 14, color: '#FFFFFF' }}>{ep.episodeNumber}</span>
-                    <span style={{ ...AppTypography.outfitMedium, fontSize: 13, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span
+                      style={{
+                        ...AppTypography.outfitMedium,
+                        fontSize: 13,
+                        color: '#FFFFFF',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {ep.name}
                     </span>
                   </button>

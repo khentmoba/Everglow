@@ -65,10 +65,7 @@ export function WatchPartyCard() {
               width: 58,
               height: 58,
               borderRadius: 16,
-              background: linear([
-                withAlpha(AppColors.petalWhite, 0.18),
-                withAlpha(AppColors.petalWhite, 0.07),
-              ]),
+              background: linear([withAlpha(AppColors.petalWhite, 0.18), withAlpha(AppColors.petalWhite, 0.07)]),
               border: `1px solid ${withAlpha(AppColors.petalWhite, 0.18)}`,
               boxShadow: boxShadow([{ blur: 10, color: withAlpha('#000000', 0.18) }]),
               display: 'flex',

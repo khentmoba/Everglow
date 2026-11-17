@@ -2,7 +2,9 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -11,6 +13,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
   type DocumentData,
   type QuerySnapshot,
   type Timestamp,
@@ -18,7 +21,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Changes, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 
 export interface WatchPartyRoom {
   id: string;
@@ -50,6 +53,19 @@ export interface WatchPartyRoom {
   updatedBy: string;
   createdAt: Date;
   active: boolean;
+}
+
+/** `MediaRef`: the title a party plays. */
+export interface MediaRef {
+  tmdbId: number;
+  malId?: number;
+  mediaType: string;
+  isAnime: boolean;
+  season?: number;
+  episode?: number;
+  episodeCount?: number;
+  title: string;
+  posterPath: string;
 }
 
 export interface WatchPartyChatMessage {
@@ -218,19 +234,45 @@ export function roomsStream(uid: string): Source<WatchPartyRoom[]> {
       orderBy('updatedAt', 'desc'),
       limit(20),
     );
-    const u1 = onSnapshot(hostQ, (s) => {
-      for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
-      emit();
-    }, (e) => Logger.e('WatchParty host stream failed', e));
-    const u2 = onSnapshot(partQ, (s) => {
-      for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
-      emit();
-    }, (e) => Logger.e('WatchParty partner stream failed', e));
+    const u1 = onSnapshot(
+      hostQ,
+      (s) => {
+        for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
+        emit();
+      },
+      (e) => Logger.e('WatchParty host stream failed', e),
+    );
+    const u2 = onSnapshot(
+      partQ,
+      (s) => {
+        for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
+        emit();
+      },
+      (e) => Logger.e('WatchParty partner stream failed', e),
+    );
     return () => {
       u1();
       u2();
     };
   };
+}
+
+/** `WatchPartyService.getRooms`: a one-off read of both room queries, newest first. */
+export async function getWatchPartyRooms(uid: string): Promise<WatchPartyRoom[]> {
+  if (!uid) return [];
+  if (AgentMode.demo) {
+    seedDemoRooms(uid, 'agent_demo_partner_uid');
+    return [...demoRooms.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+  const map = new Map<string, WatchPartyRoom>();
+  for (const field of ['hostUid', 'partnerUid']) {
+    const s = await withGetTimeout(
+      getDocs(query(collection(db, 'watch_party_rooms'), where(field, '==', uid), orderBy('updatedAt', 'desc'), limit(20))),
+      'watch party rooms',
+    );
+    for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
+  }
+  return [...map.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
 export function roomStream(roomId: string): Source<WatchPartyRoom | null> {
@@ -262,8 +304,10 @@ export async function createWatchPartyRoom(opts: {
   partnerUid: string;
   partnerName: string;
   name: string;
+  media?: MediaRef;
 }): Promise<WatchPartyRoom> {
   const now = new Date();
+  const m = opts.media;
   const room: WatchPartyRoom = {
     id: `demo_${now.getTime()}`,
     name: opts.name.trim() || 'Our room',
@@ -271,11 +315,15 @@ export async function createWatchPartyRoom(opts: {
     hostName: opts.hostName,
     partnerUid: opts.partnerUid,
     partnerName: opts.partnerName,
-    mediaType: 'movie',
-    tmdbId: 0,
-    isAnime: false,
-    title: '',
-    posterPath: '',
+    mediaType: m?.mediaType === 'tv' ? 'tv' : 'movie',
+    tmdbId: m?.tmdbId ?? 0,
+    malId: m?.malId,
+    isAnime: m?.isAnime ?? false,
+    season: m?.season,
+    episode: m?.episode,
+    episodeCount: m?.episodeCount,
+    title: m?.title ?? '',
+    posterPath: m?.posterPath ?? '',
     serverType: 'everglow',
     serverName: 'Everglow',
     serverHost: 'everglow',
@@ -304,7 +352,11 @@ export async function createWatchPartyRoom(opts: {
     partnerName: saved.partnerName,
     mediaType: saved.mediaType,
     tmdbId: saved.tmdbId,
+    ...(saved.malId != null ? { malId: saved.malId } : {}),
     isAnime: saved.isAnime,
+    ...(saved.season != null ? { season: saved.season } : {}),
+    ...(saved.episode != null ? { episode: saved.episode } : {}),
+    ...(saved.episodeCount != null ? { episodeCount: saved.episodeCount } : {}),
     title: saved.title,
     posterPath: saved.posterPath,
     serverType: saved.serverType,
@@ -338,6 +390,68 @@ export async function updateWatchPartyRoom(roomId: string, patch: Record<string,
   });
 }
 
+/** `WatchPartyService.updateMedia`: swap the room to a new title, paused at 0 on the Everglow server. */
+export async function updateRoomMedia(roomId: string, media: MediaRef, updatedBy: string): Promise<void> {
+  if (AgentMode.demo) {
+    const cur = demoRooms.get(roomId);
+    if (!cur) return;
+    const now = new Date();
+    demoRooms.set(roomId, {
+      ...cur,
+      mediaType: media.mediaType === 'tv' ? 'tv' : 'movie',
+      tmdbId: media.tmdbId,
+      malId: media.malId,
+      isAnime: media.isAnime,
+      season: media.season,
+      episode: media.episode,
+      episodeCount: media.episodeCount,
+      title: media.title,
+      posterPath: media.posterPath,
+      serverType: 'everglow',
+      serverName: 'Everglow',
+      serverHost: 'everglow',
+      subtitleUrl: undefined,
+      captionsOn: true,
+      state: 'paused',
+      currentTime: 0,
+      positionAt: now,
+      updatedAt: now,
+      updatedBy,
+      active: true,
+    });
+    demoRoomChanges.emit();
+    return;
+  }
+  try {
+    await updateDoc(doc(db, 'watch_party_rooms', roomId), {
+      mediaType: media.mediaType,
+      tmdbId: media.tmdbId,
+      malId: media.malId ?? deleteField(),
+      season: media.season ?? deleteField(),
+      episode: media.episode ?? deleteField(),
+      episodeCount: media.episodeCount ?? deleteField(),
+      isAnime: media.isAnime,
+      title: media.title,
+      posterPath: media.posterPath,
+      serverType: 'everglow',
+      serverName: 'Everglow',
+      serverHost: 'everglow',
+      streamUrl: deleteField(),
+      subtitleUrl: deleteField(),
+      captionsOn: true,
+      proxyEnabled: false,
+      state: 'paused',
+      currentTime: 0,
+      positionAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedBy,
+      active: true,
+    });
+  } catch (e) {
+    Logger.e(`WatchParty: updateMedia failed for ${roomId}`, e);
+  }
+}
+
 export async function deleteWatchPartyRoom(roomId: string): Promise<void> {
   if (AgentMode.demo) {
     demoRooms.delete(roomId);
@@ -345,6 +459,20 @@ export async function deleteWatchPartyRoom(roomId: string): Promise<void> {
     return;
   }
   await deleteDoc(doc(db, 'watch_party_rooms', roomId));
+}
+
+/** `WatchPartyChatService.clearMessages`. */
+export async function clearRoomChat(roomId: string): Promise<void> {
+  if (!roomId) return;
+  if (AgentMode.demo) {
+    demoChat.delete(roomId);
+    demoChatChanges.emit();
+    return;
+  }
+  const snap = await withGetTimeout(getDocs(collection(db, 'watch_party_chats', roomId, 'messages')), 'party chat clear scan');
+  const batch = writeBatch(db);
+  for (const d of snap.docs) batch.delete(d.ref);
+  await batch.commit();
 }
 
 export function roomChatStream(roomId: string): Source<WatchPartyChatMessage[]> {
@@ -360,11 +488,7 @@ export function roomChatStream(roomId: string): Source<WatchPartyChatMessage[]> 
         data: (all) => l.data(all[roomId] ?? []),
       });
   }
-  const q = query(
-    collection(db, 'watch_party_chats', roomId, 'messages'),
-    orderBy('timestamp', 'desc'),
-    limit(200),
-  );
+  const q = query(collection(db, 'watch_party_chats', roomId, 'messages'), orderBy('timestamp', 'desc'), limit(200));
   return withFirestoreTimeout(
     snapshots<QuerySnapshot<DocumentData>, WatchPartyChatMessage[]>(
       (next, error) => onSnapshot(q, next, error),
@@ -387,20 +511,12 @@ export function roomChatStream(roomId: string): Source<WatchPartyChatMessage[]> 
   );
 }
 
-export async function sendRoomChatMessage(
-  roomId: string,
-  senderUid: string,
-  senderName: string,
-  text: string,
-): Promise<void> {
+export async function sendRoomChatMessage(roomId: string, senderUid: string, senderName: string, text: string): Promise<void> {
   const trimmed = text.trim();
   if (!trimmed || !roomId) return;
   if (AgentMode.demo) {
     const prev = demoChat.get(roomId) ?? [];
-    demoChat.set(roomId, [
-      ...prev,
-      { id: `msg_${Date.now()}`, senderUid, senderName, text: trimmed, timestamp: new Date() },
-    ]);
+    demoChat.set(roomId, [...prev, { id: `msg_${Date.now()}`, senderUid, senderName, text: trimmed, timestamp: new Date() }]);
     demoChatChanges.emit();
     return;
   }

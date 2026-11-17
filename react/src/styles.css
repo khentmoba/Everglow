@@ -103,3 +103,9 @@ body {
 @media (prefers-reduced-motion: reduce) { .shelf-entrance { animation: none; } }
 
 .money-input::placeholder { color: var(--hint-color); font-size: var(--hint-size); opacity: 1; }
+.temp-chat-input::placeholder { color: #888888; font-size: 12px; opacity: 1; }
+.picker-search-input::placeholder { color: #8A7A92; font-size: 13.5px; opacity: 1; }
+.cinema-search-input::placeholder {
+  color: #888888;
+  opacity: 1;
+}

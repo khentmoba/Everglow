@@ -127,10 +127,7 @@ export function watchUserWatchList(userName: string, max = 24): Source<WatchMedi
   }
   const q = query(collection(db, 'watch_list'), where('userName', '==', userName), limit(max));
   return withFirestoreTimeout(
-    snapshots<QuerySnapshot<DocumentData>, WatchMediaItem[]>(
-      (next, error) => onSnapshot(q, next, error),
-      mapWatchSnap,
-    ),
+    snapshots<QuerySnapshot<DocumentData>, WatchMediaItem[]>((next, error) => onSnapshot(q, next, error), mapWatchSnap),
     { label: `watch-list-${userName}` },
   );
 }

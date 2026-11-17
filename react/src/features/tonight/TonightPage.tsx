@@ -16,7 +16,7 @@ import { EverglowCard } from '../../shared/widgets/EverglowCard';
 import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { EverglowSkeleton } from '../../shared/widgets/EverglowStates';
 import { Icon } from '../../shared/widgets/Icon';
-import { MaterialIconButton } from '../../shared/widgets/MaterialFields';
+import { ExpansionTile, MaterialIconButton } from '../../shared/widgets/MaterialFields';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import {
   isMatch,
@@ -337,56 +337,6 @@ export function TonightPage() {
           ]}
         />
         <div style={{ flex: 1, minHeight: 0 }}>{body}</div>
-      </div>
-    </div>
-  );
-}
-
-/** Material 3 ExpansionTile: a two-line ListTile that opens its children below. */
-function ExpansionTile({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const line = open ? M3Scheme.outline : 'transparent';
-  return (
-    <div style={{ padding: '1px 0', boxShadow: `inset 0 1px 0 ${line}, inset 0 -1px 0 ${line}`, transition: 'box-shadow 200ms' }}>
-      <button
-        type="button"
-        className="bare-button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: 72,
-          padding: '0 24px 2px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          textAlign: 'left',
-          background: hovered ? withAlpha(M3Scheme.onSurface, 0.08) : 'transparent',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              ...AppTypography.bodyLarge,
-              color: M3Scheme.onSurface,
-              lineHeight: lineHeight(16, 1.5),
-              ...letterSpacing(0.5),
-            }}
-          >
-            {title}
-          </div>
-          <div style={{ ...AppTypography.bodyMedium, color: M3Scheme.onSurface }}>{subtitle}</div>
-        </div>
-        <div style={{ width: 16 }} />
-        <span style={{ display: 'flex', transform: `rotate(${open ? 180 : 0}deg)`, transition: 'transform 200ms ease-in' }}>
-          <Icon name="expand_more" variant="filled" size={24} color={open ? AppColors.deepRose : M3Scheme.onSurfaceVariant} />
-        </span>
-      </button>
-      <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows 200ms ease-in' }}>
-        <div style={{ overflow: 'hidden' }}>{open && children}</div>
       </div>
     </div>
   );

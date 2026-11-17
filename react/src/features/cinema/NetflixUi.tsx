@@ -48,7 +48,13 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
   const all: NetflixMobileItem[] = isCinemaOnlyUser
     ? [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
-        { label: 'Popular', icon: 'local_fire_department', activeIcon: 'local_fire_department', tab: 2, browseOptionId: 'collection-new' },
+        {
+          label: 'Popular',
+          icon: 'local_fire_department',
+          activeIcon: 'local_fire_department',
+          tab: 2,
+          browseOptionId: 'collection-new',
+        },
         { label: 'My List', icon: 'bookmark_border', activeIcon: 'bookmark', tab: 3 },
         { label: 'Downloads', icon: 'download_for_offline', activeIcon: 'download_for_offline', tab: 5 },
         { label: 'Search', icon: 'search', activeIcon: 'search', tab: 1 },
@@ -56,7 +62,13 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
       ]
     : [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
-        { label: 'Popular', icon: 'local_fire_department', activeIcon: 'local_fire_department', tab: 2, browseOptionId: 'collection-new' },
+        {
+          label: 'Popular',
+          icon: 'local_fire_department',
+          activeIcon: 'local_fire_department',
+          tab: 2,
+          browseOptionId: 'collection-new',
+        },
         { label: 'My List', icon: 'bookmark_border', activeIcon: 'bookmark', tab: 3 },
         { label: 'Downloads', icon: 'download_for_offline', activeIcon: 'download_for_offline', tab: 5 },
         { label: 'Search', icon: 'search', activeIcon: 'search', tab: 1 },
@@ -146,9 +158,7 @@ export function NetflixPosterCard({
           </span>
         </div>
       )}
-      {hovered && isDesktop && (
-        <div style={{ position: 'absolute', inset: 0, background: NetflixColors.hoverScrim }} />
-      )}
+      {hovered && isDesktop && <div style={{ position: 'absolute', inset: 0, background: NetflixColors.hoverScrim }} />}
       {item.remindMe && (
         <div
           style={{
@@ -235,7 +245,18 @@ export function NetflixPosterCard({
 }
 
 // Outfit Black digit advances (units per em 1000).
-const outfitBlackDigit: Record<string, number> = { '0': 676, '1': 401, '2': 587, '3': 578, '4': 618, '5': 575, '6': 584, '7': 532, '8': 576, '9': 584 };
+const outfitBlackDigit: Record<string, number> = {
+  '0': 676,
+  '1': 401,
+  '2': 587,
+  '3': 578,
+  '4': 618,
+  '5': 575,
+  '6': 584,
+  '7': 532,
+  '8': 576,
+  '9': 584,
+};
 
 export function NetflixRow({
   title,
@@ -447,9 +468,7 @@ export function NetflixBillboard({
             </span>
           )}
           {item.year && (
-            <span style={{ ...AppTypography.outfitMedium, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
-              {item.year}
-            </span>
+            <span style={{ ...AppTypography.outfitMedium, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{item.year}</span>
           )}
           {runtimeNum != null && (
             <span style={{ ...AppTypography.outfitMedium, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
@@ -1004,7 +1023,11 @@ export function EpisodeDrawerModal({
       >
         <div style={{ position: 'relative', height: 260, background: NetflixColors.surfaceElevated }}>
           {backdrop && (
-            <img src={backdrop} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img
+              src={backdrop}
+              alt={item.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
           )}
           <div
             aria-hidden
@@ -1090,14 +1113,25 @@ export function EpisodeDrawerModal({
           {loadingDetails && !synopsis ? (
             <div style={{ height: 40, borderRadius: 8, background: NetflixColors.surfaceElevated }} />
           ) : (
-            <p style={{ margin: 0, ...AppTypography.outfitWhite, fontSize: 13.5, lineHeight: 1.5, color: NetflixColors.textSecondary }}>
+            <p
+              style={{
+                margin: 0,
+                ...AppTypography.outfitWhite,
+                fontSize: 13.5,
+                lineHeight: 1.5,
+                color: NetflixColors.textSecondary,
+              }}
+            >
               {synopsis || 'No overview available.'}
             </p>
           )}
 
           {cast.length > 0 && (
             <div style={{ ...AppTypography.outfitWhite, fontSize: 12, color: NetflixColors.textMuted }}>
-              {`Cast: ${cast.slice(0, 6).map((c) => c.name).join(', ')}`}
+              {`Cast: ${cast
+                .slice(0, 6)
+                .map((c) => c.name)
+                .join(', ')}`}
             </div>
           )}
 
@@ -1149,7 +1183,10 @@ export function EpisodeDrawerModal({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: '#FFFFFF' }}>{ep.name}</div>
                       {ep.overview && (
-                        <div className="clamp-2" style={{ ...AppTypography.outfitWhite, fontSize: 12, color: NetflixColors.textMuted }}>
+                        <div
+                          className="clamp-2"
+                          style={{ ...AppTypography.outfitWhite, fontSize: 12, color: NetflixColors.textMuted }}
+                        >
                           {ep.overview}
                         </div>
                       )}
