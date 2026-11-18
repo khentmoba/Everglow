@@ -1,0 +1,12 @@
+{
+  "commit": "47721a17aa7942d914b3f7129ccbf0a097a4bab1",
+  "rig": "Windows 11, headless Chrome, 430x932 @3x, 4x CPU throttle, fast3g after boot, isolated ?agent=dashboard",
+  "cinema:first": { "medianMs": 25.9, "worstLtMedianMs": 0, "runs": [{ "ms": 26.3, "worstLtMs": 0 }, { "ms": 25.9, "worstLtMs": 0 }, { "ms": 24.6, "worstLtMs": 0 }] },
+  "cinema:revisit": { "medianMs": 15.9, "worstLtMedianMs": 0, "runs": [{ "ms": 14.0, "worstLtMs": 0 }, { "ms": 15.9, "worstLtMs": 0 }, { "ms": 16.2, "worstLtMs": 0 }] },
+  "anime:first": { "medianMs": 16.7, "worstLtMedianMs": 0, "runs": [{ "ms": 16.7, "worstLtMs": 0 }, { "ms": 15.5, "worstLtMs": 0 }, { "ms": 26.2, "worstLtMs": 0 }] },
+  "anime:revisit": { "medianMs": 13.4, "worstLtMedianMs": 0, "runs": [{ "ms": 12.5, "worstLtMs": 0 }, { "ms": 13.8, "worstLtMs": 0 }, { "ms": 13.4, "worstLtMs": 0 }] },
+  "manga:first": { "medianMs": 14.5, "worstLtMedianMs": 0, "runs": [{ "ms": 14.5, "worstLtMs": 0 }, { "ms": 11.6, "worstLtMs": 0 }, { "ms": 16.6, "worstLtMs": 0 }] },
+  "manga:revisit": { "medianMs": 15.4, "worstLtMedianMs": 0, "runs": [{ "ms": 12.6, "worstLtMs": 0 }, { "ms": 24.9, "worstLtMs": 0 }, { "ms": 15.4, "worstLtMs": 0 }] },
+  "books:first": { "medianMs": 16.6, "worstLtMedianMs": 0, "runs": [{ "ms": 14.2, "worstLtMs": 0 }, { "ms": 16.6, "worstLtMs": 0 }, { "ms": 20.6, "worstLtMs": 0 }] },
+  "books:revisit": { "medianMs": 12.9, "worstLtMedianMs": 0, "runs": [{ "ms": 12.9, "worstLtMs": 0 }, { "ms": 14.4, "worstLtMs": 0 }, { "ms": 12.6, "worstLtMs": 0 }] }
+}

@@ -1,0 +1,62 @@
+{
+  "commit": "47721a17aa7942d914b3f7129ccbf0a097a4bab1",
+  "rig": "Windows 11, headless Chrome, 430x932 @3x, isolated ?agent= mode, react/dist",
+  "bundle": {
+    "totalBytes": 12071613,
+    "totalGzipBytes": 7109533,
+    "initialPayloadBytes": 2536207,
+    "initialPayloadGzipBytes": 712078,
+    "mainJsBytes": 2526521,
+    "mainJsGzipBytes": 709422,
+    "lazyJsBytes": 2436015,
+    "lazyJsGzipBytes": 647564,
+    "fontsBytes": 2381256,
+    "fileCount": 186
+  },
+  "boot4x": {
+    "runs": [
+      { "fcp": null, "lcp": null, "mountMs": 1679.4, "dcl": 810.9, "load": 812.2, "memMB": 8.02, "ltCount": 6, "ltOver200": 5, "ltWorstMs": 685, "ltTotalMs": 2302 },
+      { "fcp": null, "lcp": null, "mountMs": 1596.4, "dcl": 806.3, "load": 807.1, "memMB": 8.0, "ltCount": 6, "ltOver200": 4, "ltWorstMs": 634, "ltTotalMs": 2143 },
+      { "fcp": null, "lcp": null, "mountMs": 2306.0, "dcl": 1482.0, "load": 1483.1, "memMB": 8.03, "ltCount": 6, "ltOver200": 4, "ltWorstMs": 635, "ltTotalMs": 2199 }
+    ],
+    "median": { "fcpMs": 1679.4, "lcpMs": 1679.4, "mountMs": 1679.4, "dclMs": 810.9, "loadMs": 812.2, "memMB": 8.02, "ltWorstMs": 635, "ltOver200": 4, "ltCount": 6 }
+  },
+  "boot4x3g": {
+    "runs": [
+      { "fcp": null, "lcp": null, "mountMs": 6271.1, "dcl": 5427.4, "load": 5428.4, "memMB": 8.07, "ltCount": 5, "ltOver200": 4, "ltWorstMs": 651, "ltTotalMs": 1945 },
+      { "fcp": null, "lcp": null, "mountMs": 5314.3, "dcl": 4486.2, "load": 4487.2, "memMB": 8.07, "ltCount": 5, "ltOver200": 3, "ltWorstMs": 639, "ltTotalMs": 1869 },
+      { "fcp": null, "lcp": null, "mountMs": 5561.5, "dcl": 4715.4, "load": 4716.5, "memMB": 8.1, "ltCount": 4, "ltOver200": 4, "ltWorstMs": 645, "ltTotalMs": 1845 }
+    ],
+    "median": { "fcpMs": 5561.5, "lcpMs": 5561.5, "mountMs": 5561.5, "dclMs": 4715.4, "loadMs": 4716.5, "memMB": 8.07, "ltWorstMs": 645, "ltOver200": 4, "ltCount": 5 }
+  },
+  "boot1x": {
+    "runs": [
+      { "fcp": null, "lcp": null, "mountMs": 476.0, "dcl": 325.0, "load": 325.2, "memMB": 9.32, "ltCount": 3, "ltOver200": 0, "ltWorstMs": 158, "ltTotalMs": 343 },
+      { "fcp": null, "lcp": null, "mountMs": 556.1, "dcl": 412.8, "load": 413.0, "memMB": 9.34, "ltCount": 3, "ltOver200": 0, "ltWorstMs": 155, "ltTotalMs": 333 },
+      { "fcp": null, "lcp": null, "mountMs": 984.0, "dcl": 827.6, "load": 827.8, "memMB": 9.32, "ltCount": 3, "ltOver200": 0, "ltWorstMs": 155, "ltTotalMs": 347 }
+    ],
+    "median": { "fcpMs": 556.1, "lcpMs": 556.1, "mountMs": 556.1, "dclMs": 412.8, "loadMs": 413.0, "memMB": 9.32, "ltWorstMs": 155, "ltOver200": 0, "ltCount": 3 }
+  },
+  "scroll4x": {
+    "dashboard": [
+      { "frames": 2915, "avgFrameMs": 10.1, "fps": 99.0, "p95FrameMs": 38.5, "worstFrameMs": 115.5, "over200": 0, "over50": 30, "over17": 482, "worstLongTaskMs": 51, "longTasksOver200": 0, "longTasksTotal": 1 },
+      { "frames": 2949, "avgFrameMs": 9.98, "fps": 100.2, "p95FrameMs": 38.5, "worstFrameMs": 119.2, "over200": 0, "over50": 25, "over17": 488, "worstLongTaskMs": 54, "longTasksOver200": 0, "longTasksTotal": 1 }
+    ],
+    "cinema": [
+      { "frames": 6789, "avgFrameMs": 3.85, "fps": 259.9, "p95FrameMs": 3.9, "worstFrameMs": 7.8, "over200": 0, "over50": 0, "over17": 0, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 },
+      { "frames": 6792, "avgFrameMs": 3.85, "fps": 259.9, "p95FrameMs": 3.9, "worstFrameMs": 7.7, "over200": 0, "over50": 0, "over17": 0, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 }
+    ],
+    "anime": [
+      { "frames": 6049, "avgFrameMs": 4.35, "fps": 230.1, "p95FrameMs": 11.5, "worstFrameMs": 76.9, "over200": 0, "over50": 1, "over17": 7, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 },
+      { "frames": 6146, "avgFrameMs": 4.27, "fps": 234.2, "p95FrameMs": 7.7, "worstFrameMs": 73.0, "over200": 0, "over50": 1, "over17": 4, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 }
+    ],
+    "manga": [
+      { "frames": 6701, "avgFrameMs": 3.91, "fps": 255.9, "p95FrameMs": 3.9, "worstFrameMs": 19.3, "over200": 0, "over50": 0, "over17": 2, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 },
+      { "frames": 6723, "avgFrameMs": 3.89, "fps": 257.4, "p95FrameMs": 3.9, "worstFrameMs": 19.2, "over200": 0, "over50": 0, "over17": 2, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 }
+    ],
+    "books": [
+      { "frames": 6785, "avgFrameMs": 3.85, "fps": 259.6, "p95FrameMs": 3.9, "worstFrameMs": 42.3, "over200": 0, "over50": 0, "over17": 1, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 },
+      { "frames": 6767, "avgFrameMs": 3.85, "fps": 259.5, "p95FrameMs": 3.9, "worstFrameMs": 50.0, "over200": 0, "over50": 0, "over17": 1, "worstLongTaskMs": 0, "longTasksOver200": 0, "longTasksTotal": 0 }
+    ]
+  }
+}
