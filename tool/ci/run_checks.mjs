@@ -102,8 +102,7 @@ function checkFirestoreCollectionsAndLimits() {
     if (src.includes('onSnapshot(') && src.includes('collection(')) {
       streamFiles++;
       const waived = src.includes('ci:unbounded-stream');
-      const hasLimit = /\b(?:\w*Limit|limit|limitToLast)\(/.test(src);
-      assert.ok(waived || hasLimit, `${file}: live collection onSnapshot() without limit()`);
+      assert.ok(waived || hasStreamLimit(src), `${file}: live collection onSnapshot() without limit()`);
     }
   }
   console.log(`[firestore] OK: ${collRefs} collection refs match rules; ${streamFiles} live collection stream files bounded.`);
