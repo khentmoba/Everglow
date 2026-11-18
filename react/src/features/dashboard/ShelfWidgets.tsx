@@ -22,6 +22,8 @@ export const SHELF_ACCENTS: Record<ShelfAccentKey, ShelfAccent> = {
   gallery: { label: 'Gallery', color: AppColors.roseQuartz, glow: '#880E4F', icon: 'photo_library' },
 };
 
+export type ShelfOwner = { name: string; color: string };
+
 export function resolveTmdbCardUrl(url: string): string {
   if (!url) return '';
   if (url.startsWith('http') || url.startsWith('/')) return url;
@@ -34,12 +36,15 @@ export function ShelfHeader({
   title,
   itemCount,
   badge,
+  tagline,
   onViewAll,
 }: {
   accent: ShelfAccentKey;
   title: string;
   itemCount: number;
   badge?: string;
+  /** A handwritten line under the title; replaces the title count. */
+  tagline?: string;
   onViewAll: () => void;
 }) {
   const a = SHELF_ACCENTS[accent];
@@ -102,6 +107,11 @@ export function ShelfHeader({
           )}
         </div>
         <div style={{ height: 4 }} />
+        {tagline != null ? (
+          <div className="ellipsis" style={{ ...AppTypography.handwrittenBody, fontSize: 16, lineHeight: 1.1, color: withAlpha(a.color, 0.85) }}>
+            {tagline}
+          </div>
+        ) : (
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ width: 18, height: 1, background: linear([withAlpha(a.color, 0), withAlpha(a.color, 0.55)]) }} />
           <div style={{ width: 7 }} />
@@ -117,6 +127,7 @@ export function ShelfHeader({
             {itemCount === 0 ? 'curated together' : `${itemCount} ${itemCount === 1 ? 'title' : 'titles'}  •  shared`}
           </span>
         </div>
+        )}
       </div>
 
       <button
@@ -157,6 +168,8 @@ export function ShelfCard({
   title,
   subtitle,
   topBadge,
+  owners,
+  progress,
   onTap,
 }: {
   accent: ShelfAccentKey;
@@ -164,6 +177,10 @@ export function ShelfCard({
   title: string;
   subtitle?: string;
   topBadge?: string;
+  /** Initials of whose shelf this title is on, shown as small marks in the corner. */
+  owners?: ShelfOwner[];
+  /** 0 to 1; draws a thin progress line along the bottom. */
+  progress?: number;
   onTap?: () => void;
 }) {
   const a = SHELF_ACCENTS[accent];
@@ -213,6 +230,38 @@ export function ShelfCard({
           }}
         >
           {topBadge}
+        </div>
+      )}
+      {owners && owners.length > 0 && (
+        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+          {owners.map((o) => (
+            <span
+              key={o.name}
+              title={o.name}
+              aria-label={o.name}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: o.color,
+                border: `1.5px solid ${withAlpha(AppColors.inkDeep, 0.85)}`,
+                boxShadow: `0 2px 6px ${withAlpha(AppColors.inkDeep, 0.5)}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...AppTypography.outfitBold,
+                fontSize: 10.5,
+                color: AppColors.inkDeep,
+              }}
+            >
+              {o.name.charAt(0).toUpperCase()}
+            </span>
+          ))}
+        </div>
+      )}
+      {progress != null && (
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: withAlpha(AppColors.petalWhite, 0.12), zIndex: 1 }}>
+          <div style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%`, height: '100%', background: a.color }} />
         </div>
       )}
       {(title || subtitle) && (

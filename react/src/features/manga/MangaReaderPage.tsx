@@ -21,6 +21,10 @@ export interface MangaReaderParams {
   coverUrl: string;
   chapters: KatanaChapter[];
   initialPage?: number;
+  /** The series status; a finished read needs `completed`. */
+  mangaStatus?: string;
+  /** The series' last chapter; reaching its last page finishes the read. */
+  finalChapterId?: string;
 }
 
 function normalizeAssetUrl(src: string): string {
@@ -65,6 +69,7 @@ export function MangaReaderView({
 
   const persistProgress = (page: number) => {
     const safePage = Math.max(1, page);
+    const finished = params.mangaStatus === 'completed' && !!params.finalChapterId && chapterId === params.finalChapterId && pages.length > 0 && safePage >= pages.length;
     const offlineId = OfflineIds.mangaChapterId(params.slug, chapterId);
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
@@ -80,6 +85,7 @@ export function MangaReaderView({
         page: safePage,
         title: params.mangaTitle,
         coverUrl: params.coverUrl,
+        finished,
       });
     }, 350);
   };

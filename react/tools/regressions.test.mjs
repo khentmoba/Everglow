@@ -365,3 +365,26 @@ test('BookReaderPage splits chapters with TOC/TTS and direct-entry canPop back b
     server.close();
   }
 });
+
+test('Dashboard Mangacelestia shelf shows each reader’s chapter and a Finished reading row', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/dashboard?agent=1`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=where each of us is reading', { timeout: 10_000 });
+    await page.waitForSelector('text=Khent ch 42 · Clair ch 12', { state: 'attached', timeout: 5_000 });
+    await page.waitForSelector('text=finished reading', { state: 'attached', timeout: 5_000 });
+    await page.waitForSelector('text=Demo Paper Moon', { state: 'attached', timeout: 5_000 });
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
