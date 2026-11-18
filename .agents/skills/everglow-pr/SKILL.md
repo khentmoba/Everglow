@@ -70,7 +70,7 @@ Run these in order. Red locally means don't open the PR yet:
    `node tool/ci/pr_contract.mjs --body <file>`. It is the same check CI runs.
 
 CI runs every deterministic deployment prerequisite on every PR: app
-analysis/tests, a release web build, Dart guards, and the shared backend
+analysis/tests, a release web build, the `tool/ci/run_checks.mjs` guards, and the shared backend
 `npm run verify` gate (including the production dependency audit). Main
 deploys the whole application even for docs-only changes. The PR diff
 selects extra browser-only app tests and privacy emulator coverage.
@@ -89,42 +89,34 @@ ordinary Quality success does not prove that those browser checks passed.
   `docs/pr-proof/pr-<number>/` (phone width ~430px, compressed).
   The number exists only once the PR does, so: open the PR as a draft,
   commit the shot under its number, push, pin that SHA, then mark it ready.
-- Treat every screenshot as if the repo were public: couple-only screens
-  (chat, gallery, notes, garden, AI memories) use FAKE demo data only —
-  never real couple data. The repo is private today, but a repo can be
-  made public by one settings change, and a leaked photo cannot be
-  un-leaked.
+- The repo is public, so every screenshot is public the moment it is
+  pushed. Couple-only screens (chat, gallery, notes, garden, AI memories)
+  use FAKE demo data only — never real couple data. A leaked photo cannot
+  be un-leaked.
 - **Agent Mode for Proof Screenshots & Verification:**
   - Directly open any destination across the entire site via query parameter: `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, etc., or by appending `?agent=1` to any deep link.
   - Or click any of the 1-click fast-jump destination chips on the doorway launchpad (Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, etc.).
   - In Agent Mode, password gates are bypassed and all couple surfaces automatically render safe in-memory demo fixtures.
   - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize button (`—`) on the HUD before snapping the proof screenshot.
 - **iPhone Home Screen changes** (status bar, bottom strip, installed
-  launch): Chrome cannot prove these. Serve the local release build on the LAN
-  (e.g. `python -m http.server 8752 --directory build/web` — note `serve()` in
-  `tool/perf/_harness.mjs` is loopback-only) and ask Khent to open
-  `http://<pc-lan-ip>:8752/screen_test.html` in Safari and follow that page's
-  install steps (the live site blocks agent mode, so it cannot be used for
-  this). Its dedicated launch page restores demo mode even with fresh iOS
-  storage; ordinary `?agent=` links do not guarantee an installed launch. Until
-  he confirms, say "unverified on iPhone" and keep the PR draft. Give him only
-  steps you have seen on that screen.
+  launch): Chrome cannot prove these. Serve `react/dist` on the LAN with an
+  SPA fallback (`serve()` in `tool/perf/_harness.mjs` is loopback-only) and
+  ask Khent to open `http://<pc-lan-ip>:<port>/?agent=1` in Safari, then
+  Add to Home Screen. The live site blocks agent mode, so it cannot be used
+  for this. Until he confirms, say "unverified on iPhone" and keep the PR
+  draft. Give him only steps you have seen work.
 - Embed it in the PR body with a raw URL pinned to the commit SHA
   (branches get deleted, SHAs don't):
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
-- **That image will not render, because the repo is private.** GitHub's
-  image proxy cannot authenticate, so `raw.githubusercontent.com` answers
-  404 for every file here — the embed shows Khent a broken image. Keep it
-  anyway: `tool/ci/pr_contract.mjs` requires the raw embed and checks the
-  file exists at that SHA. Then put a signed-in link directly under it, so
-  the proof is actually viewable:
-  `If that image does not render: this repo is private, so GitHub's image proxy cannot fetch a raw.githubusercontent.com URL. Open [docs/pr-proof/pr-<number>/shot.png](https://github.com/khentmoba/Everglow/blob/<sha>/docs/pr-proof/pr-<number>/shot.png?raw=true) while signed in to GitHub instead.`
+  `tool/ci/pr_contract.mjs` requires this raw embed and checks the file
+  exists at that SHA.
 - Non-UI change (CI, docs, backend-only): honestly mark N/A, or add a
   shot of the app booting logged-out from your local build.
 - **There are no PR previews.** No channel deploys and no preview link is
   posted. Prove a frontend change from a local release build instead:
-  `flutter build web --release`, serve `build/web` on a spare port, and drive
-  it in headless Chrome with `?agent=1`. Say in the PR body that the shot came
+  `npm --prefix react run build`, serve `react/dist` on a spare port
+  (`serve()` in `tool/perf/_harness.mjs`), and drive it in headless Chrome
+  with `?agent=1`. Say in the PR body that the shot came
   from a local build, and never imply a preview proved it.
 
 ## 4. Write the PR body
@@ -154,18 +146,18 @@ onSave(letter)
 UI change, as a widget tree with the state that actually matters:
 
 ```text
-<TogetherScreen>            lib/features/together/presentation/routes/
-  TogetherZone()
-    PosterRail()            lib/shared/widgets/shelf/
-    _isLoading              // guards the grey-cover bug
+<DashboardPage>             react/src/features/dashboard/
+  DashboardPair()
+    LetterboxView()
+    loading                 // the state that matters
 ```
 
 File layout or a wide refactor, as a shallow tree:
 
 ```text
-lib/features/notes/
-  data/     # Firestore, snapshot stream
-  routes/   # the screen
+react/src/features/journal/
+  journalService.ts   # Firestore, live snapshot
+  JournalPage.tsx     # the screen
 ```
 
 When the shape already exists and the point is what moved, use a diff:
@@ -257,6 +249,6 @@ rules judge honesty:
   yourself is not your evidence.
 - When the same mistake keeps coming back across threads or sessions,
   turn it into an architecture change, a type constraint, or a CI guard
-  (`tool/ci/check_<name>.dart`), not another review comment. Prose is the last resort, only when no machine check can catch it.
+  (a new check in `tool/ci/run_checks.mjs`), not another review comment. Prose is the last resort, only when no machine check can catch it.
   The unified `retro` skill (and `correct`) exists for exactly this: run it
   to turn repeat mistakes into deterministic guards.
