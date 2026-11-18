@@ -272,6 +272,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   // --- actions ---
   const checkOfflinePlayback = async () => {
     const animeId = item.anilistId ?? item.tmdbId;
+    offlineMedia.init();
     let offlineItem = offlineMedia.getItem(OfflineIds.animeEpisodeId(animeId, st.playerEpisode));
     if (!offlineItem && item.tmdbId > 0)
       offlineItem = offlineMedia.getItem(OfflineIds.animeEpisodeId(item.tmdbId, st.playerEpisode));
@@ -772,6 +773,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
 
   // --- layout ---
   const isDesktop = width >= 1200;
+  const isCompactPage = width < 700;
   const maxPlayerHeight = clamp(height - 280, 240, PLAYER_MAX_HEIGHT);
   if (!isPlayerFullscreenActive() || st.lastWindowedMaxPlayerHeight == null) st.lastWindowedMaxPlayerHeight = maxPlayerHeight;
   const contentWidth = clamp(width - 48, 0, WATCH_PAGE_MAX_WIDTH);
@@ -838,12 +840,14 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     <AnimeXPlayerFrame
       key={`player-${url}`}
       url={url}
+      title={`${displayTitle} · Episode ${st.selectedEpisode}`}
       onContentError={handleContentError}
       onProgress={onPlayerProgress}
       skipTimes={stores.skipIntro ? st.skipTimes : null}
       nextToken={next?.token}
       nextIsSeason={next?.isSeason ?? false}
       autoAdvance={stores.autoNext}
+      onAutoNextChanged={(v) => AnimexStores.setAutoNext(v)}
       onNextEpisode={() => {
         if (st.selectedEpisode < st.episodes.length) stepEpisode(1);
         else {
@@ -885,7 +889,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       {playerBox}
       {st.ready && (
         <>
-          <div style={{ height: 12 }} />
+          <div style={{ height: isCompactPage ? 8 : 12 }} />
           <div style={dmSansStyle({ size: 18, color: T.textPrimary, weight: 700, height: 1.25 })}>{activeEpisodeTitle()}</div>
           <div style={{ height: 4 }} />
           <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'pre' }}>
@@ -905,7 +909,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           </div>
         </>
       )}
-      <div style={{ height: 10 }} />
+      <div style={{ height: isCompactPage ? 8 : 10 }} />
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
         {st.servers.map((srv, i) =>
           !srv.available ? null : (
@@ -933,20 +937,21 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       )}
       {st.ready && (
         <>
-          <div style={{ height: 12 }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
-            <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
-          </div>
-          <div style={{ height: 12 }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <EpisodeStepButton label="Prev Episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
-            <EpisodeStepButton
-              label={hasNextSeason ? 'Next Season' : 'Next Episode'}
-              icon={hasNextSeason ? 'skip_next' : undefined}
-              enabled={!isLastEpisode || hasNextSeason}
-              onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
-            />
+          <div style={{ height: isCompactPage ? 8 : 12 }} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px 12px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
+              <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <EpisodeStepButton label="Prev Episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
+              <EpisodeStepButton
+                label={hasNextSeason ? 'Next Season' : 'Next Episode'}
+                icon={hasNextSeason ? 'skip_next' : undefined}
+                enabled={!isLastEpisode || hasNextSeason}
+                onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
+              />
+            </div>
           </div>
         </>
       )}

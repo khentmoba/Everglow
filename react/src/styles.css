@@ -80,6 +80,7 @@ body {
   outline: none;
 }
 .bare-button:focus-visible { outline: none; }
+.player-focusable:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* animex_spotlight.dart: 700ms AnimatedSwitcher fade + 7s easeOutCubic settle. */

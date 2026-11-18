@@ -322,6 +322,7 @@ export function EpisodeNavigator({
   durationSeconds,
   allEpisodesWatched,
   currentEpisodeCompleted,
+  initiallyExpanded = false,
   onSeasonChanged,
   onEpisodeChanged,
 }: {
@@ -333,6 +334,7 @@ export function EpisodeNavigator({
   durationSeconds: number;
   allEpisodesWatched: boolean;
   currentEpisodeCompleted: boolean;
+  initiallyExpanded?: boolean;
   onSeasonChanged: (s: number) => void;
   onEpisodeChanged: (e: number) => void;
 }) {
@@ -343,7 +345,7 @@ export function EpisodeNavigator({
   const [episodes, setEpisodes] = useState<TvEpisode[]>([]);
   const [loadingSeasons, setLoadingSeasons] = useState(true);
   const [loadingEpisodes, setLoadingEpisodes] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
 
   const loadEpisodes = (season: number) => {
     setLoadingEpisodes(true);
@@ -403,14 +405,16 @@ export function EpisodeNavigator({
 
   return (
     <div>
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
+        className="bare-button player-focusable"
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
         style={{
+          width: '100%',
           padding: '10px 16px',
           background: NetflixColors.surface,
-          borderTop: '1px solid #212121',
+          borderTop: `1px solid ${NetflixColors.hairline}`,
           display: 'flex',
           alignItems: 'center',
           cursor: 'pointer',
@@ -438,7 +442,7 @@ export function EpisodeNavigator({
         <span style={{ display: 'flex', transform: `rotate(${expanded ? 180 : 0}deg)`, transition: 'transform 200ms' }}>
           <Icon name="expand_more" size={20} color={white(0.54)} />
         </span>
-      </div>
+      </button>
       {expanded && (
         <div
           className="drawer-fade-in"
@@ -833,9 +837,23 @@ export function UpNextOverlay({
           UP NEXT
         </span>
         <div style={{ flex: 1 }} />
-        <span role="button" aria-label="Cancel" onClick={onCancel} style={{ display: 'flex', cursor: 'pointer' }}>
+        <button
+          type="button"
+          className="bare-button player-focusable"
+          aria-label="Cancel"
+          onClick={onCancel}
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
           <Icon name="close" size={18} color={NetflixColors.textMuted} />
-        </span>
+        </button>
       </div>
       <div style={{ height: 10 }} />
       <div style={text(14, AppTypography.outfitHeading, { color: NetflixColors.textPrimary })}>{nextEpisodeLabel(next)}</div>
@@ -864,7 +882,7 @@ export function UpNextOverlay({
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button"
-          className="bare-button"
+          className="bare-button player-focusable"
           onClick={onPlayNow}
           style={{
             flex: 1,
@@ -883,7 +901,7 @@ export function UpNextOverlay({
         </button>
         <button
           type="button"
-          className="bare-button"
+          className="bare-button player-focusable"
           onClick={onCancel}
           style={{
             padding: '10px 14px',
