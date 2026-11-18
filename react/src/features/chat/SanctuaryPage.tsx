@@ -342,18 +342,48 @@ export function SanctuaryPage() {
         />
         <div
           style={{
-            padding: '2px 28px 14px',
+            padding: '2px 16px 12px',
             display: 'flex',
             flexWrap: 'wrap',
-            justifyContent: 'center',
             alignItems: 'center',
-            gap: '6px 16px',
+            justifyContent: 'space-between',
+            gap: '8px 12px',
           }}
         >
-          <span style={{ ...AppTypography.bodySmall, lineHeight: lineHeight(12.5), color: Derived.textMedium }}>
-            A place for just the two of us
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '5px 12px 5px 5px',
+              borderRadius: 999,
+              background: withAlpha(AppColors.moonlight, 0.06),
+              border: `1px solid ${withAlpha(AppColors.moonlight, 0.1)}`,
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                background: `linear-gradient(145deg, ${withAlpha(AppColors.auroraRose, 0.45)}, ${withAlpha(AppColors.deepRose, 0.2)})`,
+                boxShadow: `inset 0 0 0 1px ${withAlpha(AppColors.auroraRose, 0.45)}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...AppTypography.cormorantBoldWhite,
+                fontSize: 15,
+                lineHeight: 1,
+              }}
+            >
+              {auth.partnerName.charAt(0)}
+            </span>
+            <PartnerPresenceIndicator fontSize={12.5} />
+          </div>
+          <span style={{ ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.85) }}>
+            just the two of us
           </span>
-          <PartnerPresenceIndicator />
         </div>
         <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
           {body}
