@@ -120,18 +120,20 @@ export function JukeboxWidget({ showHeader = true }: { showHeader?: boolean } = 
     // In Flutter the gradient Container has no child, so inside the Stack it is
     // zero pixels tall: only its 1px border shows, as a line along the top.
     <div style={{ position: 'relative' }}>
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 1,
-          background: withAlpha(AppColors.moonlight, eitherLive ? 0.18 : 0.12),
-          pointerEvents: 'none',
-        }}
-      />
+      {showHeader && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 1,
+            background: withAlpha(AppColors.moonlight, eitherLive ? 0.18 : 0.12),
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       <div
         aria-hidden
         style={{ position: 'absolute', inset: 0, borderRadius: AppRadius.x2, overflow: 'hidden', pointerEvents: 'none' }}
