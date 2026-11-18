@@ -193,8 +193,21 @@ export async function fetchLastfmJson(params: Record<string, string>): Promise<R
 export function musicStatusSource(): Source<Record<string, MusicStatus>> {
   if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
     return just({
-      [LASTFM_USER_KHENT]: emptyMusicStatus(LASTFM_USER_KHENT),
-      [LASTFM_USER_CLAIR]: emptyMusicStatus(LASTFM_USER_CLAIR),
+      [LASTFM_USER_KHENT]: {
+        ...emptyMusicStatus(LASTFM_USER_KHENT),
+        trackName: 'Demo Track One',
+        artistName: 'Demo Artist A',
+        imageUrl: '/images/demo/poster-2.jpg',
+        isPlaying: true,
+        timestamp: new Date(),
+      },
+      [LASTFM_USER_CLAIR]: {
+        ...emptyMusicStatus(LASTFM_USER_CLAIR),
+        trackName: 'Demo Track Two',
+        artistName: 'Demo Artist B',
+        imageUrl: '/images/demo/poster-3.jpg',
+        timestamp: new Date(Date.now() - 2 * 3_600_000),
+      },
     });
   }
 

@@ -41,14 +41,6 @@ export type OurBooksItem = {
   addedAt: Date;
 };
 
-export type MangaLibraryItem = {
-  id: string;
-  title: string;
-  coverUrl: string;
-  libraryStatus: string;
-  userName: string;
-};
-
 const DEMO_CINEMA: WatchMediaItem[] = [
   {
     id: 'demo_cinema_1',
@@ -122,16 +114,6 @@ const DEMO_BOOKS: OurBooksItem[] = [
   },
 ];
 
-const DEMO_MANGA: MangaLibraryItem[] = [
-  {
-    id: 'demo_manga_1',
-    title: 'Fictional Starlight Manga',
-    coverUrl: '/images/demo/poster-4.jpg',
-    libraryStatus: 'reading',
-    userName: 'khentsgdz',
-  },
-];
-
 function mapWatchSnap(s: QuerySnapshot<DocumentData>): WatchMediaItem[] {
   return s.docs
     .map((d) => {
@@ -195,25 +177,3 @@ export function watchOurBooks(max = 24): Source<OurBooksItem[]> {
   );
 }
 
-export function watchMangaLibrary(userName: string, max = 24): Source<MangaLibraryItem[]> {
-  if (!userName) return just([]);
-  if (AgentMode.demo) return just(DEMO_MANGA.map((m) => ({ ...m, userName })));
-  const q = query(collection(db, 'manga_library'), where('userName', '==', userName), limit(max));
-  return withFirestoreTimeout(
-    snapshots<QuerySnapshot<DocumentData>, MangaLibraryItem[]>(
-      (next, error) => onSnapshot(q, next, error),
-      (s) =>
-        s.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            title: String(data.title ?? ''),
-            coverUrl: String(data.coverUrl ?? ''),
-            libraryStatus: String(data.libraryStatus ?? 'none'),
-            userName: String(data.userName ?? ''),
-          };
-        }),
-    ),
-    { label: `manga-lib-${userName}` },
-  );
-}
