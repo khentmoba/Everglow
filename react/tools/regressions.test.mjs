@@ -108,6 +108,37 @@ test('Dashboard RandomizerCard toggles AI mode, spins roulette, and renders Cele
   }
 });
 
+test('Desktop App page uses the bridge Everglow-Desktop injects', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    // Same shape as Everglow-Desktop's src-tauri/src/website_bridge.rs script.
+    await context.addInitScript(() => {
+      Object.defineProperty(window, '__everglowDesktopVersion', { value: '0.3.0' });
+      Object.defineProperty(window, '__everglowCheckForUpdates', {
+        value: () => { window.__updateChecks = (window.__updateChecks ?? 0) + 1; },
+      });
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/desktop-app?agent=1`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Everglow Desktop 0.3.0', { timeout: 10_000 });
+    const pagesBefore = context.pages().length;
+    await page.getByRole('button', { name: 'Check for desktop updates' }).click();
+    assert.equal(await page.evaluate(() => window.__updateChecks), 1);
+    assert.equal(context.pages().length, pagesBefore, 'update check must not open the download link');
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, Downloads, and Reader work', async () => {
   const { server, baseUrl } = await startDistServer();
   const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
