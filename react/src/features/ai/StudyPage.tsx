@@ -285,14 +285,13 @@ export function StudyPage() {
                   borderRadius: AppRadius.full,
                   border: `0.8px solid ${withAlpha(AppColors.softLavender, 0.28)}`,
                   ...AppTypography.labelSmall,
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: 700,
-                  lineHeight: mixedLineHeight(10),
+                  lineHeight: mixedLineHeight(11),
                   color: AppColors.softLavender,
-                  ...letterSpacing(0.7),
                 }}
               >
-                {sources.length === 0 ? '📚 SHELF AWAITS' : '✨ SOURCES READY'}
+                {sources.length === 0 ? '📚 Shelf is empty' : '✨ Sources ready'}
               </div>
               <div style={{ height: 14 }} />
               <div

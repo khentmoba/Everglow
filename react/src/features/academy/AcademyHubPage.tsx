@@ -299,7 +299,7 @@ export function AcademyHubPage() {
                   <AcademyModeCard
                     title="1v1 Challenge"
                     subtitle="Race your love in real time"
-                    badge="LIVE · TOGETHER"
+                    badge="live, together"
                     icon="bolt"
                     accent={AppColors.deepRose}
                     onTap={() => showCategoryPicker(false, (category) => void startMatchmaking(category))}
@@ -308,7 +308,7 @@ export function AcademyHubPage() {
                   <AcademyModeCard
                     title="Solo Study"
                     subtitle={soloSubtitle(soloStats)}
-                    badge="CALM PRACTICE"
+                    badge="calm practice"
                     icon="menu_book"
                     accent={AppColors.auroraGold}
                     onTap={() => showCategoryPicker(true, (c, t) => void startSoloStudy(c, t))}
@@ -317,7 +317,7 @@ export function AcademyHubPage() {
                   <AcademyModeCard
                     title="Study with Motchi"
                     subtitle="Ask about your PDFs"
-                    badge="AI HELPER"
+                    badge="with Motchi"
                     icon="picture_as_pdf"
                     accent={AppColors.softLavender}
                     onTap={() => navigate('/study')}
@@ -418,29 +418,12 @@ function AcademyModeCard({
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           {badge != null && (
             <>
-              <div
-                style={{
-                  maxWidth: '100%',
-                  boxSizing: 'border-box',
-                  padding: `2px ${AppSpacing.sm}px`,
-                  background: withAlpha(accent, 0.14),
-                  borderRadius: AppRadius.full,
-                  border: `1px solid ${withAlpha(accent, 0.3)}`,
-                }}
+              <span
+                className="ellipsis"
+                style={{ display: 'block', maxWidth: '100%', ...AppTypography.handwrittenBody, fontSize: 17, lineHeight: 1.05, color: accent }}
               >
-                <span
-                  className="ellipsis"
-                  style={{
-                    display: 'block',
-                    ...AppTypography.outfitHeading,
-                    fontSize: 9.5,
-                    ...letterSpacing(1.2),
-                    color: accent,
-                  }}
-                >
-                  {badge}
-                </span>
-              </div>
+                {badge}
+              </span>
               <div style={{ height: AppSpacing.xs }} />
             </>
           )}
