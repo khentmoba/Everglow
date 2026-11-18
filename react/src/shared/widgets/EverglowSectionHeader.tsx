@@ -1,53 +1,38 @@
-// Port of lib/shared/widgets/everglow/everglow_section_header.dart.
+import type { ReactNode } from 'react';
 import { AppColors, withAlpha } from '../../core/theme/colors';
-import { letterSpacing, linear } from '../../core/theme/paint';
+import { linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
-import { Icon } from './Icon';
+import { HueGlyph } from './HueGlyph';
 
+/** Small in-page section title: a tinted glyph, a serif label and a fading rule. */
 export function EverglowSectionHeader({
   label,
   icon,
   hue = AppColors.blushGold,
+  trailing,
 }: {
   label: string;
   icon: string;
   hue?: string;
+  trailing?: ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      <div
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 32 }}>
+      <HueGlyph icon={icon} hue={hue} size={26} iconSize={14} />
+      <h2
         style={{
-          width: 22,
-          height: 1,
-          background: linear([AppColors.transparent, withAlpha(hue, 0.5)]),
-        }}
-      />
-      <div style={{ width: 10 }} />
-      <div
-        style={{
-          padding: '5px 10px',
-          background: withAlpha(AppColors.moonlight, 0.06),
-          borderRadius: 999,
-          border: `1px solid ${withAlpha(AppColors.moonlight, 0.1)}`,
-          display: 'inline-flex',
-          alignItems: 'center',
+          margin: 0,
+          ...AppTypography.cormorantBoldWhite,
+          fontSize: 20,
+          lineHeight: 1.1,
+          letterSpacing: 0.1,
+          whiteSpace: 'nowrap',
         }}
       >
-        <Icon name={icon} size={11} color={withAlpha(hue, 0.92)} />
-        <div style={{ width: 6 }} />
-        <span
-          style={{
-            ...AppTypography.outfitHeading,
-            fontSize: 10,
-            ...letterSpacing(2.0),
-            color: hue,
-          }}
-        >
-          {label.toUpperCase()}
-        </span>
-      </div>
-      <div style={{ width: 10 }} />
-      <div style={{ flex: 1, height: 1, background: withAlpha(AppColors.moonlight, 0.07) }} />
+        {label}
+      </h2>
+      <div style={{ flex: 1, height: 1, minWidth: 16, background: linear([withAlpha(hue, 0.35), AppColors.transparent]) }} />
+      {trailing}
     </div>
   );
 }

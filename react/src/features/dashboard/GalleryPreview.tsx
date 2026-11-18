@@ -14,7 +14,7 @@ export function GalleryPreview() {
   const photos = useSource<MemoryPhoto[] | null>(() => galleryService.getRecentPhotos(6), [], null);
 
   return (
-    <div style={{ padding: '6px 16px' }}>
+    <div style={{ padding: '6px 0' }}>
       <FeatureSection
         icon="photo_library"
         hue={AppColors.roseQuartz}

@@ -45,7 +45,7 @@ export function PlayZoneHubPage() {
               <PlayZoneGameCard
                 title="Table Tennis World Tour"
                 subtitle="Smash through the international tournament bracket solo, or rally face-to-face against Clair in a fast real-time 1v1 showdown!"
-                badge="ARCADE · FAST 60 FPS"
+                badge="arcade · fast and smooth"
                 icon="sports_tennis"
                 accent={AppColors.warmAmber}
                 tags={['1v1 Matchmaking', 'Solo Tournament', 'Smooth Physics']}
@@ -72,7 +72,7 @@ export function PlayZoneHubPage() {
               <PlayZoneGameCard
                 title="Scribble Together"
                 subtitle="One draws, one guesses! Real-time synchronized canvas with live strokes, instant word reveals, and playful inside jokes."
-                badge="CO-OP · DRAW & GUESS"
+                badge="co-op · draw & guess"
                 icon="brush"
                 accent={AppColors.auroraTeal}
                 tags={['Live Canvas', 'Couple Guessing', 'Instant Sync']}
@@ -91,7 +91,7 @@ export function PlayZoneHubPage() {
               <PlayZoneGameCard
                 title="Couple Chess"
                 subtitle="Our private board with full chess rules, checkmate detection, move history, and quiet cozy turns together."
-                badge="CLASSIC · PASS & PLAY"
+                badge="classic · pass & play"
                 icon="grid_4x4"
                 accent={AppColors.auroraRose}
                 tags={['2-Player Board', 'Move History', 'No Rush']}
@@ -110,7 +110,7 @@ export function PlayZoneHubPage() {
               <PlayZoneGameCard
                 title="Motchi's Minis"
                 subtitle="Tiny games Motchi built just for you two — saved from chat, ready to replay anytime."
-                badge="MOTCHI MADE · SAVED GAMES"
+                badge="made by Motchi · saved games"
                 icon="sports_esports"
                 accent={AppColors.auroraLilac}
                 tags={['Made For Two', 'Replay Anytime', 'From Chat']}
@@ -299,30 +299,12 @@ function PlayZoneGameCard({
           </div>
           <div style={{ width: AppSpacing.md }} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <div
-              style={{
-                maxWidth: '100%',
-                boxSizing: 'border-box',
-                padding: `2px ${AppSpacing.sm}px`,
-                background: withAlpha(accent, 0.14),
-                borderRadius: AppRadius.full,
-                border: `1px solid ${withAlpha(accent, 0.35)}`,
-              }}
-            >
-              <span
+            <span
                 className="ellipsis"
-                style={{
-                  display: 'block',
-                  ...AppTypography.outfitHeading,
-                  fontSize: 9.5,
-                  ...letterSpacing(1.2),
-                  fontWeight: 700,
-                  color: accent,
-                }}
+                style={{ display: 'block', maxWidth: '100%', ...AppTypography.handwrittenBody, fontSize: 17, lineHeight: 1.05, color: accent }}
               >
                 {badge}
               </span>
-            </div>
             <div style={{ height: AppSpacing.xs }} />
             <span
               className="clamp-2"

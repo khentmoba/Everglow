@@ -1,6 +1,7 @@
 // Port of lib/features/starlight_jar/presentation/screens/starlight_jar_widget.dart
 // and widgets/glass_jar.dart.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { Logger } from '../../core/system/logger';
 import { useViewport } from '../../core/system/viewport';
@@ -157,7 +158,8 @@ function shakeAt(v: number): number {
   return 0;
 }
 
-export function StarlightJarWidget() {
+export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } = {}) {
+  const navigate = useNavigate();
   const auth = useAuth();
   const viewport = useViewport();
   const serverNotes = useSource(() => starlightService.getStarNotes(), [], [] as StarNote[]);
@@ -364,10 +366,37 @@ export function StarlightJarWidget() {
         subtitle="gratitude under the stars"
         icon="auto_awesome"
         hue={AppColors.blushGold}
+        showBack={!embedded}
+        actions={
+          embedded
+            ? [
+                <button
+                  key="open"
+                  type="button"
+                  className="bare-button"
+                  aria-label="Open Starlight Jar"
+                  onClick={() => navigate('/starlight')}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: withAlpha(AppColors.moonlight, 0.07),
+                    boxShadow: `inset 0 0 0 1px ${withAlpha(AppColors.moonlight, 0.12)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name="arrow_forward" size={18} color={AppColors.roseQuartz} />
+                </button>,
+              ]
+            : []
+        }
       />
 
       {onThisDay.length > 0 && <OnThisDayCard note={onThisDay[0]} onTap={() => void showNote(onThisDay[0])} />}
 
+      {!embedded && (
       <div style={{ padding: '6px 20px' }}>
         <FilledField
           value={search}
@@ -414,6 +443,7 @@ export function StarlightJarWidget() {
           ))}
         </div>
       </div>
+      )}
 
       <div style={{ height: 4 }} />
 
@@ -491,6 +521,11 @@ export function StarlightJarWidget() {
           </div>
         </div>
       </div>
+      {notes.length > 0 && (
+        <div style={{ textAlign: 'center', ...AppTypography.handwrittenBody, fontSize: 17, color: withAlpha(AppColors.blushGold, 0.8), marginTop: -8 }}>
+          tap the jar to read a star
+        </div>
+      )}
 
       <div
         style={{
@@ -596,41 +631,107 @@ function CategoryChip({ label, selected, onTap }: { label: string; selected: boo
   );
 }
 
-/** GlassJar: a rounded glass body, a highlight streak and the lid. */
+/** GlassJar: a curved glass body with rim light and inner glow, a neck, and a ribbon-tied cloth lid. */
 function GlassJar() {
+  const neckW = JAR_W * 0.56;
   return (
     <div style={{ position: 'relative', width: JAR_W, height: JAR_H }}>
       <div
+        aria-hidden
         style={{
           position: 'absolute',
-          inset: 0,
-          background: withAlpha(AppColors.petalWhite, 0.12),
-          border: `2px solid ${withAlpha(AppColors.petalWhite, 0.22)}`,
-          borderRadius: '40px 40px 80px 80px',
-          boxSizing: 'border-box',
+          inset: '-18% -22%',
+          background: `radial-gradient(closest-side, ${withAlpha(AppColors.blushGold, 0.16)}, transparent 72%)`,
+          pointerEvents: 'none',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          left: 40,
-          top: 60,
-          width: 20,
-          height: 100,
+          left: 0,
+          right: 0,
+          top: 26,
+          bottom: 0,
+          borderRadius: '46px 46px 84px 84px',
+          background: [
+            `radial-gradient(120% 70% at 50% 100%, ${withAlpha(AppColors.blushGold, 0.16)}, transparent 60%)`,
+            `linear-gradient(105deg, ${withAlpha(AppColors.petalWhite, 0.16)} 0%, ${withAlpha(AppColors.petalWhite, 0.04)} 38%, ${withAlpha(AppColors.petalWhite, 0.02)} 62%, ${withAlpha(AppColors.petalWhite, 0.12)} 100%)`,
+          ].join(', '),
+          boxShadow: [
+            `inset 0 0 0 1.5px ${withAlpha(AppColors.petalWhite, 0.28)}`,
+            `inset 0 -18px 30px ${withAlpha(AppColors.blushGold, 0.12)}`,
+            `0 24px 40px ${withAlpha(AppColors.inkDeep, 0.5)}`,
+          ].join(', '),
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: 30,
+          top: 74,
+          width: 14,
+          height: 130,
           borderRadius: 10,
-          background: withAlpha(AppColors.petalWhite, 0.2),
+          background: `linear-gradient(180deg, ${withAlpha(AppColors.petalWhite, 0.42)}, ${withAlpha(AppColors.petalWhite, 0)})`,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: 52,
+          top: 80,
+          width: 6,
+          height: 46,
+          borderRadius: 4,
+          background: withAlpha(AppColors.petalWhite, 0.22),
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: (JAR_W - neckW) / 2,
+          width: neckW,
+          height: 18,
+          borderRadius: 6,
+          background: withAlpha(AppColors.petalWhite, 0.1),
+          boxShadow: `inset 0 0 0 1.5px ${withAlpha(AppColors.petalWhite, 0.26)}`,
         }}
       />
       <div
         style={{
           position: 'absolute',
           top: 0,
-          left: (JAR_W - JAR_W * 0.6) / 2,
-          width: JAR_W * 0.6,
-          height: 30,
-          borderRadius: 10,
-          background: withAlpha(AppColors.roseQuartz, 0.5),
-          border: `1px solid ${withAlpha(AppColors.petalWhite, 0.3)}`,
+          left: (JAR_W - neckW * 1.12) / 2,
+          width: neckW * 1.12,
+          height: 22,
+          borderRadius: '12px 12px 8px 8px',
+          background: `linear-gradient(180deg, ${AppColors.roseQuartz}, ${withAlpha(AppColors.deepRose, 0.85)})`,
+          boxShadow: `0 4px 10px ${withAlpha(AppColors.inkDeep, 0.35)}`,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: 18,
+          left: (JAR_W - neckW) / 2 - 2,
+          width: neckW + 4,
+          height: 5,
+          borderRadius: 3,
+          background: AppColors.blushGold,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 14,
+          left: JAR_W / 2 + neckW / 2 - 14,
+          width: 16,
+          height: 16,
+          borderRadius: '50% 50% 50% 0',
+          transform: 'rotate(-45deg)',
+          border: `3px solid ${AppColors.blushGold}`,
           boxSizing: 'border-box',
         }}
       />

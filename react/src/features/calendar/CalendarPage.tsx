@@ -1,9 +1,10 @@
 // Port of lib/features/calendar/presentation/screens/calendar_screen.dart.
+import { HueGlyph } from '../../shared/widgets/HueGlyph';
 import { useState } from 'react';
 import { useBoxSize } from '../../core/system/useBoxSize';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppMotion, CssCurves, orZero } from '../../core/theme/motion';
-import { boxShadow, insetBorder, letterSpacing, lineHeight, linear, mixedLineHeight, shadowLayer } from '../../core/theme/paint';
+import { boxShadow, insetBorder, lineHeight, linear, mixedLineHeight, shadowLayer } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { showDialog } from '../../shared/widgets/Dialogs';
@@ -120,15 +121,7 @@ export function CalendarPage() {
 function UpcomingHeader({ count }: { count: number }) {
   return (
     <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-      <div
-        style={{
-          width: 4,
-          height: 30,
-          borderRadius: 999,
-          background: roseGold(4, 30),
-          boxShadow: boxShadow([{ color: withAlpha(AppColors.deepRose, 0.4), blur: 10 }]),
-        }}
-      />
+      <HueGlyph icon="event" hue={AppColors.auroraRose} size={34} iconSize={17} />
       <div style={{ width: 10 }} />
       <div>
         <div
@@ -143,15 +136,7 @@ function UpcomingHeader({ count }: { count: number }) {
           Coming up
         </div>
         <div style={{ height: 2 }} />
-        <div
-          style={{
-            ...AppTypography.outfitWhite,
-            fontSize: 10.5,
-            lineHeight: lineHeight(10.5),
-            letterSpacing: 0.4,
-            color: withAlpha(AppColors.petalWhite, 0.45),
-          }}
-        >
+        <div style={{ ...AppTypography.handwrittenBody, fontSize: 16, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.9) }}>
           {count === 0 ? 'nothing planned yet' : 'your next dates'}
         </div>
       </div>
@@ -341,26 +326,24 @@ function NextDateHero({ event, onTap }: { event: CalendarEvent; onTap: () => voi
                   <span
                     style={{
                       ...AppTypography.outfitBold,
-                      fontSize: 9,
-                      lineHeight: lineHeight(9),
-                      ...letterSpacing(1.2),
+                      fontSize: 10.5,
+                      lineHeight: lineHeight(10.5),
                       color: AppColors.petalWhite,
                     }}
                   >
-                    NEXT DATE
+                    Next date
                   </span>
                 </div>
                 <div style={{ width: 8 }} />
                 <span
                   style={{
-                    ...AppTypography.outfitBold,
-                    fontSize: 9.5,
-                    lineHeight: lineHeight(9.5),
-                    ...letterSpacing(1),
+                    ...AppTypography.handwrittenBody,
+                    fontSize: 17,
+                    lineHeight: 1,
                     color: withAlpha(hue, 0.9),
                   }}
                 >
-                  {info.label.toUpperCase()}
+                  {info.label.toLowerCase()}
                 </span>
               </div>
               <div style={{ height: 12 }} />
