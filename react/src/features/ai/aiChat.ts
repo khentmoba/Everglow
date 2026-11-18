@@ -19,6 +19,7 @@ import {
   type DocumentSnapshot,
 } from 'firebase/firestore';
 import { useSyncExternalStore } from 'react';
+import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { ValueNotifier } from '../../core/system/store';
@@ -302,7 +303,7 @@ class ConversationRepository {
   async getOrCreate(feature: string): Promise<AIConversation> {
     const cached = this.get(feature);
     if (cached) return cached;
-    const id = uid();
+    const id = AgentMode.demo ? '' : uid();
     if (id === '') {
       const conv = conversation(`local_${feature}_${Date.now()}`, feature);
       this.set(feature, conv);
@@ -324,7 +325,7 @@ class ConversationRepository {
   }
 
   async save(conv: AIConversation): Promise<void> {
-    const id = uid();
+    const id = AgentMode.demo ? '' : uid();
     if (id === '') return;
     try {
       const payload = conversationToJson(conv);
@@ -336,6 +337,7 @@ class ConversationRepository {
   }
 
   async archiveSession(conv: AIConversation): Promise<void> {
+    if (AgentMode.demo) return;
     try {
       const messagesJson = conv.messages.map(messageToJson);
       await addDoc(sessionsRef(), {
@@ -444,7 +446,7 @@ class ConversationRepository {
     const toArchive = archive && conv && conv.messages.length >= 2 ? conv : null;
     this.set(feature, conversation(feature, feature));
     if (toArchive) await this.archiveSession(toArchive);
-    const id = uid();
+    const id = AgentMode.demo ? '' : uid();
     if (id === '') return;
     try {
       await deleteDoc(doc(db, 'users', id, 'ai_conversations', feature));
@@ -468,11 +470,16 @@ class ConversationRepository {
   }
 
   async listSessions(max = 50): Promise<AISession[]> {
+    if (AgentMode.demo) return [];
     const snap = await getDocs(this.sessionsQuery(max));
     return snap.docs.map(sessionFromDoc);
   }
 
   watchSessions(max: number, onData: (s: AISession[]) => void, onError: (e: unknown) => void): () => void {
+    if (AgentMode.demo) {
+      queueMicrotask(() => onData([]));
+      return () => {};
+    }
     return onSnapshot(
       this.sessionsQuery(max),
       (snap) => onData(snap.docs.map(sessionFromDoc)),

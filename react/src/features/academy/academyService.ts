@@ -21,6 +21,7 @@ import {
   type DocumentData,
   type DocumentSnapshot,
 } from 'firebase/firestore';
+import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
@@ -155,8 +156,21 @@ function matchToMap(m: GameMatch): DocumentData {
 const questionsRef = () => collection(db, 'academy_questions');
 const matchesRef = () => collection(db, 'active_matches');
 
+async function loadDemoQuestions(category: string, max: number): Promise<AcademyQuestion[]> {
+  try {
+    const data = (await (await fetch('/data/academy_questions_seed.json')).json()) as Array<Record<string, unknown>>;
+    const mapped = data
+      .filter((q) => !category || q.category === category)
+      .map((q, i) => questionFromMap(q, `demo_${category}_${i}`));
+    return shuffle(mapped).slice(0, max);
+  } catch {
+    return [];
+  }
+}
+
 export const academyService = {
   async getQuestions(category: string, max = 10): Promise<AcademyQuestion[]> {
+    if (AgentMode.demo) return loadDemoQuestions(category, max);
     const snap = await withGetTimeout(
       getDocs(query(questionsRef(), where('category', '==', category), limit(max * 3))),
       'academy questions',
@@ -166,6 +180,7 @@ export const academyService = {
   },
 
   async getQuestionsExcluding(category: string, max = 10, excludeIds: Set<string> = new Set()): Promise<AcademyQuestion[]> {
+    if (AgentMode.demo) return loadDemoQuestions(category, max);
     const snap = await withGetTimeout(
       getDocs(query(questionsRef(), where('category', '==', category), limit(max * 5))),
       'academy questions excluding seen',
@@ -520,6 +535,7 @@ export const studySetService = {
   },
 
   watchSoloStats(): Source<SoloStats | null> {
+    if (AgentMode.demo) return just(null);
     const uid = auth.currentUser?.uid;
     if (!uid) return just(null);
     return snapshots<DocumentSnapshot, SoloStats | null>(

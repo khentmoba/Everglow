@@ -1,5 +1,6 @@
 // Port of lib/features/ai/data/services/motchi_today_service.dart.
 import { collection, doc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { AgentMode } from '../../core/agent/agentMode';
 import { db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { memoryFactFromJson, type MemoryFact, type Mood } from './memory';
@@ -18,6 +19,9 @@ const pad = (n: number, w = 2) => String(n).padStart(w, '0');
 export const isoDay = (d: Date) => `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 export async function fetchToday(now = new Date()): Promise<TodaySnapshot> {
+  if (AgentMode.demo) {
+    return { date: now, moods: [], activities: [], watchlist: [], starlight: [], memories: [] };
+  }
   try {
     const [moods, activity, cinema, stars, memories] = await Promise.all([
       getDocs(query(collection(db, 'moods'), where('date', '==', isoDay(now)))),

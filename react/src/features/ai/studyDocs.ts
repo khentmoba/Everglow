@@ -15,6 +15,7 @@ import {
   Timestamp,
   type DocumentSnapshot,
 } from 'firebase/firestore';
+import { AgentMode } from '../../core/agent/agentMode';
 import { db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 
@@ -195,6 +196,7 @@ function fromDoc(snap: DocumentSnapshot): StudySession {
 
 export const studyHistory = {
   async saveSession(sessionId: string | null, sources: StudyDoc[], turns: StudyTurn[]): Promise<string | null> {
+    if (AgentMode.demo) return sessionId;
     if (sources.length === 0 && turns.length === 0) return sessionId;
     const title =
       turns.length === 0
@@ -223,6 +225,7 @@ export const studyHistory = {
   },
 
   async listSessions(max = 30): Promise<StudySession[]> {
+    if (AgentMode.demo) return [];
     try {
       const snap = await getDocs(query(sessionsRef(), orderBy('updatedAt', 'desc'), limit(max)));
       return snap.docs.map(fromDoc);
@@ -238,6 +241,7 @@ export const studyHistory = {
   },
 
   async loadSession(sessionId: string): Promise<StudySession | null> {
+    if (AgentMode.demo) return null;
     try {
       const snap = await getDoc(doc(sessionsRef(), sessionId));
       if (!snap.exists()) return null;
@@ -249,6 +253,7 @@ export const studyHistory = {
   },
 
   async deleteSession(sessionId: string): Promise<void> {
+    if (AgentMode.demo) return;
     try {
       await deleteDoc(doc(sessionsRef(), sessionId));
     } catch (e) {

@@ -12,9 +12,10 @@ import {
   Timestamp,
   type QuerySnapshot,
 } from 'firebase/firestore';
+import { AgentMode } from '../../core/agent/agentMode';
 import { db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { snapshots, type Source } from '../../core/utils/liveSource';
+import { just, snapshots, type Source } from '../../core/utils/liveSource';
 
 export type MiniGame = { id: string; title: string; html: string; createdBy: string; createdAt: Date | null };
 
@@ -33,6 +34,7 @@ function parseTimestamp(v: unknown): Date | null {
 
 export const motchiMinisService = {
   watchMinis(): Source<MiniGame[]> {
+    if (AgentMode.demo) return just([]);
     return snapshots<QuerySnapshot, MiniGame[]>(
       (next, error) =>
         onSnapshot(query(collection(db, 'motchi_games'), orderBy('createdAt', 'desc'), limit(SHELF_LIMIT)), next, error),
@@ -53,6 +55,7 @@ export const motchiMinisService = {
   async saveMini({ title, html, createdBy }: { title: string; html: string; createdBy: string }): Promise<boolean> {
     const clean = title.trim() === '' ? 'Motchi Mini' : title.trim();
     if (html.trim() === '') return false;
+    if (AgentMode.demo) return true;
     try {
       await addDoc(collection(db, 'motchi_games'), {
         title: clean.length > 80 ? `${clean.slice(0, 80)}…` : clean,
@@ -68,6 +71,7 @@ export const motchiMinisService = {
   },
 
   async deleteMini(id: string): Promise<void> {
+    if (AgentMode.demo) return;
     try {
       await deleteDoc(doc(db, 'motchi_games', id));
     } catch (e) {
