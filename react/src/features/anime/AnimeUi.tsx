@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Align, boxShadow, linear, sigma } from '../../core/theme/paint';
-import { withAlpha } from '../../core/theme/colors';
+import { AppColors, withAlpha } from '../../core/theme/colors';
 import { useViewport } from '../../core/system/viewport';
 import { reduceAmbientMotion } from '../../core/system/device';
 import { useController } from '../../core/anim/controller';
@@ -11,15 +11,7 @@ import { fetchAniListDetails, type AnimexPageKind } from './animeService';
 import { TrailerPlayer } from '../cinema/TrailerPlayer';
 import { AnimeXTokens, bebasStyle, dmSansStyle, interBodyStyle } from './animeTokens';
 
-export type AnimeBadgeKind =
-  | 'sub'
-  | 'dub'
-  | 'episodes'
-  | 'rating'
-  | 'airing'
-  | 'finished'
-  | 'upcoming'
-  | 'newBadge';
+export type AnimeBadgeKind = 'sub' | 'dub' | 'episodes' | 'rating' | 'airing' | 'finished' | 'upcoming' | 'newBadge';
 
 export function AnimeXBadge({
   label,
@@ -154,7 +146,10 @@ export function AnimeXPrimaryButton({
               <div style={{ width: 8 }} />
             </>
           )}
-          <div className="ellipsis" style={{ ...dmSansStyle({ size: 14, color: '#FFFFFF', weight: 600, letterSpacing: 0.02 }), minWidth: 0 }}>
+          <div
+            className="ellipsis"
+            style={{ ...dmSansStyle({ size: 14, color: '#FFFFFF', weight: 600, letterSpacing: 0.02 }), minWidth: 0 }}
+          >
             {label}
           </div>
         </>
@@ -184,15 +179,7 @@ export function AnimeXWatchNowButton({ label, onClick }: { label: string; onClic
   );
 }
 
-export function AnimeXSecondaryButton({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string;
-  icon?: string;
-  onClick?: () => void;
-}) {
+export function AnimeXSecondaryButton({ label, icon, onClick }: { label: string; icon?: string; onClick?: () => void }) {
   return (
     <HoverTap
       onClick={onClick}
@@ -309,6 +296,8 @@ export function AnimeXTopHeader({
   onGoBack,
   onNavigate,
   onSearch,
+  onMotchiToggle,
+  isMotchiOpen = false,
 }: {
   page: AnimexPageKind;
   hasDetail: boolean;
@@ -322,6 +311,8 @@ export function AnimeXTopHeader({
   onGoBack: () => void;
   onNavigate: (p: AnimexPageKind) => void;
   onSearch: () => void;
+  onMotchiToggle?: () => void;
+  isMotchiOpen?: boolean;
 }) {
   const navItems: [AnimexPageKind, string][] = [
     ['home', 'Home'],
@@ -391,6 +382,25 @@ export function AnimeXTopHeader({
         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           {isCinemaOnlyUser && <MediaSectionMenuButton currentRoute="/anime" />}
           <AnimeXIconButton icon="search" tooltip="Search" onClick={onSearch} />
+          {isCoupleUser && hasDetail && onMotchiToggle && (
+            <>
+              <div style={{ width: isDesktop ? 4 : 2 }} />
+              {isDesktop ? (
+                <AnimeXGhostButton
+                  label="Motchi"
+                  iconNode={<MotchiHeaderAvatar size={20} open={isMotchiOpen} glow={0.4} />}
+                  color={isMotchiOpen ? AppColors.blushGold : AnimeXTokens.textPrimary}
+                  onClick={onMotchiToggle}
+                />
+              ) : (
+                <AnimeXIconButton
+                  iconNode={<MotchiHeaderAvatar size={22} open={isMotchiOpen} glow={0.45} />}
+                  tooltip="Motchi Chat"
+                  onClick={onMotchiToggle}
+                />
+              )}
+            </>
+          )}
           {isDesktop && (
             <>
               <div style={{ width: 4 }} />
@@ -426,7 +436,10 @@ export function AnimeXTopHeader({
                 <>
                   <Icon name="person_outline" size={14} color={AnimeXTokens.bg} />
                   <div style={{ width: 6 }} />
-                  <div className="ellipsis" style={{ ...dmSansStyle({ size: 13.5, color: '#0F0F13', weight: 600 }), minWidth: 0 }}>
+                  <div
+                    className="ellipsis"
+                    style={{ ...dmSansStyle({ size: 13.5, color: '#0F0F13', weight: 600 }), minWidth: 0 }}
+                  >
                     {userName || 'Login'}
                   </div>
                 </>
@@ -436,6 +449,28 @@ export function AnimeXTopHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function MotchiHeaderAvatar({ size, open, glow }: { size: number; open: boolean; glow: number }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        boxSizing: 'border-box',
+        borderRadius: '50%',
+        border: `1.2px solid ${open ? AppColors.blushGold : withAlpha(AppColors.blushGold, 0.6)}`,
+        boxShadow: open ? boxShadow([{ color: withAlpha(AppColors.blushGold, glow), blur: 8 }]) : undefined,
+        overflow: 'hidden',
+      }}
+    >
+      <img
+        src="/images/motchi_avatar.webp"
+        alt=""
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
+    </div>
   );
 }
 
@@ -530,12 +565,32 @@ export function AnimeXMobileBottomNav({
     { key: 'schedule', label: 'Schedule', icon: ['calendar_month', 'outlined'], activeIcon: ['calendar_month', 'round'] },
     { key: 'search', label: 'Search', icon: ['search', 'round'], activeIcon: ['search', 'round'] },
     { key: 'myList', label: 'My List', icon: ['bookmark_add', 'outlined'], activeIcon: ['bookmark_add', 'round'] },
-    { key: 'downloads', label: 'Downloads', icon: ['download_for_offline', 'outlined'], activeIcon: ['download_for_offline', 'round'] },
+    {
+      key: 'downloads',
+      label: 'Downloads',
+      icon: ['download_for_offline', 'outlined'],
+      activeIcon: ['download_for_offline', 'round'],
+    },
     { key: 'history', label: 'History', icon: ['history', 'round'], activeIcon: ['history', 'round'] },
   ];
   return (
-    <nav style={{ flexShrink: 0, background: AnimeXTokens.surface, position: 'relative', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div style={{ height: AnimeXTokens.mobileNavHeight, boxSizing: 'border-box', borderTop: `1px solid ${AnimeXTokens.border}`, display: 'flex' }}>
+    <nav
+      style={{
+        flexShrink: 0,
+        background: AnimeXTokens.surface,
+        position: 'relative',
+        zIndex: 50,
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
+      <div
+        style={{
+          height: AnimeXTokens.mobileNavHeight,
+          boxSizing: 'border-box',
+          borderTop: `1px solid ${AnimeXTokens.border}`,
+          display: 'flex',
+        }}
+      >
         {items.map((item) => {
           const current = page === item.key;
           const active = current && !hasDetail;
@@ -547,7 +602,14 @@ export function AnimeXMobileBottomNav({
               className="bare-button"
               aria-selected={active}
               onClick={() => (item.key === 'search' ? onSearch() : onNavigate(item.key))}
-              style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
               <div
                 style={{
@@ -562,7 +624,12 @@ export function AnimeXMobileBottomNav({
                   transition: 'background-color 160ms',
                 }}
               >
-                <Icon name={name} variant={variant} size={22} color={active ? AnimeXTokens.accentWarm : AnimeXTokens.textSecondary} />
+                <Icon
+                  name={name}
+                  variant={variant}
+                  size={22}
+                  color={active ? AnimeXTokens.accentWarm : AnimeXTokens.textSecondary}
+                />
               </div>
               <div style={{ height: 4, flexShrink: 0 }} />
               <div
@@ -760,7 +827,10 @@ export function AnimeXSpotlight({
   const [slides, setSlides] = useState<{ key: string; item: MediaItem; leaving: boolean }[]>([]);
   useEffect(() => {
     if (!active) return;
-    setSlides((prev) => [...prev.filter((s) => s.key !== activeKey).map((s) => ({ ...s, leaving: true })), { key: activeKey, item: active, leaving: false }]);
+    setSlides((prev) => [
+      ...prev.filter((s) => s.key !== activeKey).map((s) => ({ ...s, leaving: true })),
+      { key: activeKey, item: active, leaving: false },
+    ]);
     const t = window.setTimeout(() => setSlides((prev) => prev.filter((s) => !s.leaving)), 700);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -770,11 +840,21 @@ export function AnimeXSpotlight({
 
   const trailerKey = resolveKey(active, trailerCache);
   const hasTrailer = !!trailerKey;
-  const isAiring = active.airingStatus.toUpperCase().includes('RELEASING') || active.airingStatus.toUpperCase().includes('AIRING');
+  const isAiring =
+    active.airingStatus.toUpperCase().includes('RELEASING') || active.airingStatus.toUpperCase().includes('AIRING');
   const meta = (label: string) => <div style={dmSansStyle({ size: 13, color: AnimeXTokens.white85 })}>{label}</div>;
 
   return (
-    <section style={{ position: 'relative', minHeight: heroHeight, overflow: 'hidden', background: AnimeXTokens.bg, display: 'flex', alignItems: 'flex-end' }}>
+    <section
+      style={{
+        position: 'relative',
+        minHeight: heroHeight,
+        overflow: 'hidden',
+        background: AnimeXTokens.bg,
+        display: 'flex',
+        alignItems: 'flex-end',
+      }}
+    >
       <div style={{ position: 'absolute', inset: 0 }}>
         {slides.map((s) => (
           <SlideLayer key={s.key} item={s.item} leaving={s.leaving} />
@@ -784,7 +864,13 @@ export function AnimeXSpotlight({
       {hasTrailer && armed && (
         <div
           key={`hero-trailer-layer-${trailerKey}`}
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: ready && playing ? 1 : 0, transition: 'opacity 600ms ease-in-out' }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            opacity: ready && playing ? 1 : 0,
+            transition: 'opacity 600ms ease-in-out',
+          }}
         >
           <TrailerPlayer key={trailerKey} videoKey={trailerKey} muted={muted} playing={playing} onLoaded={onTrailerLoaded} />
         </div>
@@ -805,11 +891,17 @@ export function AnimeXSpotlight({
         style={{
           position: 'absolute',
           inset: 0,
-          background: linear(['#E6000000', '#8C000000', 'transparent'], { begin: Align.centerLeft, end: Align.centerRight, stops: [0, 0.35, 0.7] }),
+          background: linear(['#E6000000', '#8C000000', 'transparent'], {
+            begin: Align.centerLeft,
+            end: Align.centerRight,
+            stops: [0, 0.35, 0.7],
+          }),
         }}
       />
 
-      <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box', padding: `80px 24px 80px ${phone ? 24 : 48}px` }}>
+      <div
+        style={{ position: 'relative', width: '100%', boxSizing: 'border-box', padding: `80px 24px 80px ${phone ? 24 : 48}px` }}
+      >
         <div key={active.tmdbId} style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <div className="clamp-2" style={bebasStyle({ size: phone ? 38 : 60 })}>
             {active.title}
@@ -840,7 +932,10 @@ export function AnimeXSpotlight({
           {active.synopsis && (
             <>
               <div style={{ height: 14 }} />
-              <div className="clamp-3" style={{ ...interBodyStyle({ size: 14, height: 1.55, color: AnimeXTokens.white85 }), whiteSpace: 'pre-wrap' }}>
+              <div
+                className="clamp-3"
+                style={{ ...interBodyStyle({ size: 14, height: 1.55, color: AnimeXTokens.white85 }), whiteSpace: 'pre-wrap' }}
+              >
                 {active.synopsis}
               </div>
             </>
@@ -892,7 +987,15 @@ export function AnimeXSpotlight({
                 title={`Show ${it.title}`}
                 onClick={() => select(i)}
                 // IconButton: 44 minimum, padded to a 48px tap target.
-                style={{ minWidth: 48, height: 48, padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}
+                style={{
+                  minWidth: 48,
+                  height: 48,
+                  padding: '0 6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxSizing: 'border-box',
+                }}
               >
                 <div
                   style={{
@@ -923,7 +1026,11 @@ export function AnimeXSpotlight({
             boxShadow: boxShadow([{ color: withAlpha('#000000', 0.4), blur: 12, offset: [0, 2] }]),
           }}
         >
-          <HeroControlButton icon={playing ? 'pause' : 'play_arrow'} tooltip={playing ? 'Pause trailer' : 'Play trailer'} onClick={togglePlay} />
+          <HeroControlButton
+            icon={playing ? 'pause' : 'play_arrow'}
+            tooltip={playing ? 'Pause trailer' : 'Play trailer'}
+            onClick={togglePlay}
+          />
           <div style={{ width: 4 }} />
           <HeroControlButton
             icon={muted ? 'volume_off' : 'volume_up'}
@@ -944,14 +1051,29 @@ function SlideLayer({ item, leaving }: { item: MediaItem; leaving: boolean }) {
     <div className={leaving ? 'anx-fade-out' : 'anx-fade-in'} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       <div className="anx-hero-zoom" style={{ position: 'absolute', inset: 0, background: AnimeXTokens.surfaceRaised }}>
         {url && !failed && (
-          <img src={url} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img
+            src={url}
+            alt=""
+            onError={() => setFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function HeroControlButton({ icon, tooltip, onClick, highlighted = false }: { icon: string; tooltip: string; onClick: () => void; highlighted?: boolean }) {
+function HeroControlButton({
+  icon,
+  tooltip,
+  onClick,
+  highlighted = false,
+}: {
+  icon: string;
+  tooltip: string;
+  onClick: () => void;
+  highlighted?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -980,7 +1102,15 @@ function HeroControlButton({ icon, tooltip, onClick, highlighted = false }: { ic
 }
 
 // animex_skeleton.dart
-export function AnimeXSkeletonBox({ width, height, radius = AnimeXTokens.radiusLg }: { width?: number; height: number; radius?: number }) {
+export function AnimeXSkeletonBox({
+  width,
+  height,
+  radius = AnimeXTokens.radiusLg,
+}: {
+  width?: number;
+  height: number;
+  radius?: number;
+}) {
   return (
     <div
       className="anx-shimmer"
@@ -992,9 +1122,24 @@ export function AnimeXSkeletonBox({ width, height, radius = AnimeXTokens.radiusL
 function AnimeXSpotlightSkeleton({ height }: { height: number }) {
   return (
     <div style={{ height, position: 'relative', background: AnimeXTokens.surface }}>
-      <div style={{ position: 'absolute', inset: 0, background: linear(['#33000000', '#8C000000'], { begin: Align.topCenter, end: Align.bottomCenter }) }} />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: linear(['#33000000', '#8C000000'], { begin: Align.topCenter, end: Align.bottomCenter }),
+        }}
+      />
       <div style={{ position: 'absolute', inset: 0, padding: '12px 16px 64px', display: 'flex', alignItems: 'flex-end' }}>
-        <div style={{ padding: '0 16px', width: 520, maxWidth: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+        <div
+          style={{
+            padding: '0 16px',
+            width: 520,
+            maxWidth: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+          }}
+        >
           <AnimeXSkeletonBox width={120} height={20} radius={4} />
           <div style={{ height: 12 }} />
           <AnimeXSkeletonBox width={380} height={60} radius={4} />
@@ -1044,9 +1189,14 @@ export function AnimeXTicker({
       onClick={() => onSelect(it)}
       style={{ display: 'flex', alignItems: 'center', flexShrink: 0, padding: '0 14px', cursor: 'pointer' }}
     >
-      <div style={{ width: 5, height: 5, borderRadius: '50%', background: withAlpha(AnimeXTokens.accentWarm, 0.7), flexShrink: 0 }} />
+      <div
+        style={{ width: 5, height: 5, borderRadius: '50%', background: withAlpha(AnimeXTokens.accentWarm, 0.7), flexShrink: 0 }}
+      />
       <div style={{ width: 10 }} />
-      <div className="ellipsis" style={{ ...dmSansStyle({ size: 12.5, color: AnimeXTokens.textSecondary, weight: 600 }), maxWidth: 190 }}>
+      <div
+        className="ellipsis"
+        style={{ ...dmSansStyle({ size: 12.5, color: AnimeXTokens.textSecondary, weight: 600 }), maxWidth: 190 }}
+      >
         {it.title}
       </div>
       <div style={{ width: 8 }} />
@@ -1120,8 +1270,10 @@ export function AnimeXTicker({
             display: 'flex',
             alignItems: 'stretch',
             // ShaderMask: 24px fade in on the left, 32px fade out on the right.
-            maskImage: 'linear-gradient(to right, transparent 0, #fff min(24px, 20%), #fff max(calc(100% - 32px), 80%), transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to right, transparent 0, #fff min(24px, 20%), #fff max(calc(100% - 32px), 80%), transparent 100%)',
+            maskImage:
+              'linear-gradient(to right, transparent 0, #fff min(24px, 20%), #fff max(calc(100% - 32px), 80%), transparent 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to right, transparent 0, #fff min(24px, 20%), #fff max(calc(100% - 32px), 80%), transparent 100%)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'stretch', transform: `translateX(${-controller.value * trackWidth}px)` }}>
@@ -1169,7 +1321,13 @@ export function AnimeXSectionHeader({
           }}
         >
           {/* Button text uses only its own style: no inherited spacing or height. */}
-          <span style={{ ...dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary, weight: 600 }), letterSpacing: 0, lineHeight: 'normal' }}>
+          <span
+            style={{
+              ...dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary, weight: 600 }),
+              letterSpacing: 0,
+              lineHeight: 'normal',
+            }}
+          >
             {viewAllLabel}
           </span>
           <Icon name="chevron_right" size={16} color={AnimeXTokens.textSecondary} />
@@ -1267,15 +1425,35 @@ export function AnimeXPosterCard({
           {hoverAction}
         </div>
       )}
-      <div style={{ position: 'absolute', left: 10, right: 10, bottom: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: 10,
+          right: 10,
+          bottom: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+        }}
+      >
         {airing && (
           <div style={{ paddingBottom: 8 }}>
             <AnimeXBadge label="Airing" kind="airing" dot />
           </div>
         )}
         {progress != null && (
-          <div style={{ alignSelf: 'stretch', height: 4, borderRadius: 4, background: withAlpha('#FFFFFF', 0.18), overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%`, height: '100%', background: AnimeXTokens.accent }} />
+          <div
+            style={{
+              alignSelf: 'stretch',
+              height: 4,
+              borderRadius: 4,
+              background: withAlpha('#FFFFFF', 0.18),
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%`, height: '100%', background: AnimeXTokens.accent }}
+            />
           </div>
         )}
       </div>
@@ -1448,7 +1626,14 @@ export function AnimeXPosterRow({
       <div
         ref={scrollerRef}
         className="no-scrollbar"
-        style={{ height: '100%', display: 'flex', alignItems: 'flex-start', overflowX: 'auto', overflowY: 'hidden', padding: '0 24px' }}
+        style={{
+          height: '100%',
+          display: 'flex',
+          alignItems: 'flex-start',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          padding: '0 24px',
+        }}
       >
         {items.map((item, i) => (
           <Fragment key={`${item.anilistId ?? item.tmdbId}-${i}`}>
@@ -1530,17 +1715,26 @@ export function AnimeXRowSkeleton({ count = 8, cardWidth }: { count?: number; ca
   );
 }
 
-export function AnimeXFooter({
-  onGoHome,
-  onOpenDmca,
-}: {
-  onGoHome: () => void;
-  onOpenDmca: () => void;
-}) {
+export function AnimeXFooter({ onGoHome, onOpenDmca }: { onGoHome: () => void; onOpenDmca: () => void }) {
+  const { width } = useViewport();
+  const isWide = Math.min(width - 32, AnimeXTokens.pageMaxWidth) >= 840;
   const linkStyle: CSSProperties = {
-    ...dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary, weight: 600 }),
+    ...dmSansStyle({ size: 13, color: AnimeXTokens.textMuted, weight: 600 }),
     cursor: 'pointer',
   };
+  const links = (
+    <>
+      <button type="button" className="bare-button" onClick={onOpenDmca} style={linkStyle}>
+        DMCA
+      </button>
+      <div style={{ width: 20 }} />
+      <button type="button" className="bare-button" onClick={onGoHome} style={linkStyle}>
+        Home
+      </button>
+      <div style={{ width: 20 }} />
+      <span style={dmSansStyle({ size: 12, color: AnimeXTokens.textMuted })}>© 2026 Everglow. For entertainment purposes only.</span>
+    </>
+  );
   return (
     <footer
       style={{
@@ -1553,25 +1747,19 @@ export function AnimeXFooter({
         alignItems: 'center',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '8px 10px' }}>
+        <div style={{ display: 'flex' }}>
           <span style={bebasStyle({ size: 19, color: AnimeXTokens.textPrimary })}>EVER</span>
           <span style={bebasStyle({ size: 19, color: AnimeXTokens.accent })}>GLOW</span>
-        </span>
+        </div>
         <span style={dmSansStyle({ size: 12, color: AnimeXTokens.textMuted })}>— anime section</span>
       </div>
       <div style={{ height: 16 }} />
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '8px 20px' }}>
-        <button type="button" className="bare-button" onClick={onOpenDmca} style={linkStyle}>
-          DMCA
-        </button>
-        <button type="button" className="bare-button" onClick={onGoHome} style={linkStyle}>
-          Home
-        </button>
-        <span style={dmSansStyle({ size: 12, color: AnimeXTokens.textMuted })}>
-          © 2026 Everglow. For entertainment purposes only.
-        </span>
-      </div>
+      {isWide ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{links}</div>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center', gap: '8px 16px' }}>{links}</div>
+      )}
     </footer>
   );
 }

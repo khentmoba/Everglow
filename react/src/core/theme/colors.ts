@@ -49,6 +49,8 @@ export type Rgba = [r: number, g: number, b: number, a: number];
 
 /** Reads `#RRGGBB`, `#RRGGBBAA` or `rgba(r, g, b, a)`. */
 export function parse(color: string): Rgba {
+  // Flutter's Colors.transparent is transparent black.
+  if (color === 'transparent') return [0, 0, 0, 0];
   if (color.startsWith('rgb')) {
     const [r, g, b, a = 1] = color.slice(color.indexOf('(') + 1, -1).split(',').map(Number);
     return [r, g, b, a];

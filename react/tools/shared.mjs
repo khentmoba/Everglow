@@ -90,7 +90,7 @@ export async function withApps(fn) {
   }
   const flutterServer = await serve(flutterRoot);
   const reactServer = await serve(reactRoot, [resolve('..', 'assets')]);
-  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio', '--autoplay-policy=no-user-gesture-required'] });
   try {
     await fn(browser, {
       flutter: `http://127.0.0.1:${flutterServer.address().port}`,
