@@ -22,7 +22,7 @@ Review: independent — second-model review, no blocking findings
 **Blast radius:** demo fixtures only
 ## Still to do
 None`;
-const pr = {body,paths:['lib/core/agent/agent_fixtures.dart']};
+const pr = {body,paths:['react/src/core/agent/fixtures.ts']};
 
 test('CLI checks the merge parent when the PR event base is unavailable', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'pr-contract-'));
@@ -113,8 +113,8 @@ test('--body checks a local branch and tells a visual PR to open as a draft firs
     git('add', '.');
     git('commit', '-m', 'base');
     git('checkout', '-b', 'feature');
-    mkdirSync(join(cwd, 'lib/features/notes/presentation'), {recursive:true});
-    writeFileSync(join(cwd, 'lib/features/notes/presentation/screen.dart'), 'class NotesScreen {}');
+    mkdirSync(join(cwd, 'react/src/features/notes'), {recursive:true});
+    writeFileSync(join(cwd, 'react/src/features/notes/NotesPage.tsx'), 'export function NotesPage() { return null; }');
     git('add', '.');
     git('commit', '-m', 'visual change');
 

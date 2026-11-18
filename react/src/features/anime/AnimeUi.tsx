@@ -1671,12 +1671,11 @@ export function AnimeXGrid({
   onSelect: (item: MediaItem) => void;
   cardHoverAction?: (item: MediaItem) => ReactNode;
 }) {
-  const cols = useMemo(() => {
-    if (width >= 1200) return 6;
-    if (width >= 960) return 5;
-    if (width >= 720) return 4;
-    if (width >= 500) return 3;
-    return 2;
+  const { cols, tileWidth } = useMemo(() => {
+    const contentWidth = Math.max(240, width - 48);
+    const count = Math.min(8, Math.max(2, Math.floor(contentWidth / 140)));
+    const w = Math.floor((contentWidth - 14 * (count - 1)) / count);
+    return { cols: count, tileWidth: w };
   }, [width]);
 
   return (
@@ -1684,14 +1683,15 @@ export function AnimeXGrid({
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        gap: 16,
+        columnGap: 14,
+        rowGap: 28,
       }}
     >
       {items.map((item) => (
         <div key={`${item.anilistId ?? item.tmdbId}-${item.title}`} style={{ minWidth: 0 }}>
           <AnimeXPosterCard
             item={item}
-            width={Math.floor((Math.min(width - 48, AnimeXTokens.pageMaxWidth) - (cols - 1) * 16) / cols)}
+            width={tileWidth}
             onClick={() => onSelect(item)}
             hoverAction={cardHoverAction?.(item)}
           />

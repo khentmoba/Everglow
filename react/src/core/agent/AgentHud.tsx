@@ -58,7 +58,7 @@ export function AgentHudOverlay() {
   const show = useValue(AgentMode.showHud);
   if (!active || !show) return null;
   return (
-    <div style={{ position: 'fixed', left: 16, right: 16, bottom: 16, zIndex: 1000, display: 'flex', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', left: 16, right: 16, bottom: 16, zIndex: 1000, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
       <AgentHud />
     </div>
   );
@@ -72,12 +72,13 @@ function AgentHud() {
 
   if (collapsed) {
     return (
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'none' }}>
         <button
           className="bare-button"
           aria-label="Expand agent toolbar"
           onClick={() => (AgentMode.hudCollapsed.value = false)}
           style={{
+            pointerEvents: 'auto',
             padding: 10,
             borderRadius: '50%',
             background: withAlpha(AppColors.velvet, 0.92),
@@ -106,6 +107,7 @@ function AgentHud() {
   return (
     <div
       style={{
+        pointerEvents: 'auto',
         width: '100%',
         maxWidth: 820,
         padding: '8px 12px',

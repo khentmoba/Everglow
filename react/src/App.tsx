@@ -52,8 +52,11 @@ import { SanctuaryPage } from './features/chat/SanctuaryPage';
 import { StarlightPage } from './features/starlight_jar/StarlightPage';
 import { TonightPage } from './features/tonight/TonightPage';
 import { WatchPartyPage } from './features/watch_party/WatchPartyPage';
+import { AppUpdatePrompt } from './shared/widgets/AppUpdatePrompt';
 import { DialogHost } from './shared/widgets/Dialogs';
-import { SnackBarHost } from './shared/widgets/SnackBar';
+import { showSnackBar, SnackBarHost } from './shared/widgets/SnackBar';
+import { notificationService } from './core/services/notifications';
+import { useNavigate } from 'react-router';
 
 /** The redirect rules from the Flutter router, run before each page. */
 function guard({ request }: LoaderFunctionArgs) {
@@ -109,12 +112,27 @@ function guard({ request }: LoaderFunctionArgs) {
 
 function RootLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   useEffect(() => {
     RouteMemory.remember(location.pathname + location.search);
   }, [location.pathname, location.search]);
+  useEffect(() => {
+    notificationService.setForegroundHandler((n) => {
+      const label = [n.title, n.body].filter(Boolean).join(' — ');
+      showSnackBar(label, {
+        duration: 4000,
+        action: n.route ? { label: 'View', onPressed: () => navigate(n.route!) } : undefined,
+      });
+    });
+    if (!AgentMode.demo) {
+      void notificationService.initialize();
+    }
+    return () => notificationService.setForegroundHandler(null);
+  }, [navigate]);
   return (
     <>
       <Outlet />
+      <AppUpdatePrompt />
       <AgentHudOverlay />
       <DialogHost />
       <SnackBarHost />

@@ -1,12 +1,31 @@
-import { cpSync, existsSync, statSync, createReadStream } from 'node:fs';
+import {
+  cpSync,
+  createReadStream,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { execSync } from 'node:child_process';
 import { extname, join, resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Self-contained web games that live in the Flutter `web/` folder and are
-// shown in an iframe. Served as-is at the same paths the Flutter build uses.
+// Self-contained web games that live in the `web/` folder and are
+// shown in an iframe, plus PWA metadata/icons and service worker.
 const WEB_FOLDERS = ['table_tennis'];
+const PWA_FILES = [
+  'manifest.json',
+  'manifest_screen.json',
+  'favicon.png',
+  'firebase-messaging-sw.js',
+  'embed.html',
+  'embed.js',
+  'hls_bridge.js',
+];
 const webRoot = resolve(__dirname, '../web');
+const pkgPath = resolve(__dirname, 'package.json');
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -21,13 +40,146 @@ const TYPES: Record<string, string> = {
   '.wav': 'audio/wav',
 };
 
-function webGames(): Plugin {
+function readAppBuildStamp(): string {
+  let version = '0.0.0';
+  if (existsSync(pkgPath)) {
+    const parsed = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string };
+    if (parsed.version) version = parsed.version.trim();
+  }
+  let sha = 'local';
+  try {
+    sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString('utf8')
+      .trim();
+  } catch {
+    // ignore if git unavailable
+  }
+  return `${version}-${sha}`;
+}
+
+function buildServiceWorkerSource(buildStamp: string, precacheUrls: string[]): string {
+  const precacheList = JSON.stringify(['/index.html', '/manifest.json', ...precacheUrls]);
+  return `// BUILD=${buildStamp}
+const SHELL = "${buildStamp}-SHELL-v1";
+const OFFLINE_PHOTOS = "everglow-offline-photos-v1";
+const OFFLINE_MEDIA = "everglow-offline-media-v1";
+const OFFLINE_MANGA = "everglow-offline-manga-v1";
+const PRESERVED = new Set([SHELL, OFFLINE_PHOTOS, OFFLINE_MEDIA, OFFLINE_MANGA]);
+const PRECACHE = ${precacheList};
+const NO_STORE = new Set(["/", "/index.html", "/version.json", "/sw.js", "/firebase-messaging-sw.js", "/manifest.json", "/manifest_screen.json"]);
+
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(SHELL).then((cache) => cache.addAll(PRECACHE).catch(() => {})).catch(() => {})
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => (PRESERVED.has(key) ? undefined : caches.delete(key)))
+      )
+    ).then(() => self.clients.claim()).catch(() => {})
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  const path = url.pathname;
+  if (path.startsWith("/api/") || path === "/version.json" || path === "/sw.js" || path === "/firebase-messaging-sw.js") {
+    return;
+  }
+
+  if (path.startsWith("/assets/") || path.startsWith("/icons/") || /\\.(wasm|ttf|otf|woff2?|mp3|webp|png|jpg)$/.test(path)) {
+    event.respondWith(
+      caches.open(SHELL).then(async (cache) => {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) await cache.put(req, res.clone());
+          return res;
+        } catch {
+          return hit || Response.error();
+        }
+      })
+    );
+    return;
+  }
+
+  if (req.mode === "navigate" || !NO_STORE.has(path)) {
+    event.respondWith(
+      fetch(req).catch(async () => {
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        if (req.mode === "navigate") {
+          const fallback = await caches.match("/index.html", { cacheName: SHELL });
+          if (fallback) return fallback;
+        }
+        return Response.error();
+      })
+    );
+  }
+});
+
+try {
+  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
+  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+  firebase.initializeApp({
+    apiKey: "AIzaSyBMk0z4e-k_SAYzaLypYKJn3euwfx0fW5c",
+    authDomain: "everglow-1c6db.firebaseapp.com",
+    projectId: "everglow-1c6db",
+    storageBucket: "everglow-1c6db.firebasestorage.app",
+    messagingSenderId: "220334592353",
+    appId: "1:220334592353:web:6b31555509529613647520",
+  });
+  const messaging = firebase.messaging();
+  messaging.onBackgroundMessage(function(payload) {
+    const title = (payload.notification && payload.notification.title) || "Everglow";
+    const body = (payload.notification && payload.notification.body) || "";
+    const data = payload.data || {};
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/Icon-192.png",
+      badge: "/icons/Icon-192.png",
+      data,
+      tag: data.type || "everglow",
+    });
+  });
+} catch {
+  // Push unavailable when offline or CDN unreachable.
+}
+
+self.addEventListener("notificationclick", function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clientList) {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      return clients.openWindow("/");
+    })
+  );
+});
+`;
+}
+
+function webShellPlugin(): Plugin {
   return {
-    name: 'everglow-web-games',
+    name: 'everglow-web-shell',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = decodeURIComponent((req.url ?? '').split('?')[0]);
-        if (!WEB_FOLDERS.some((f) => path.startsWith(`/${f}/`))) return next();
+        const allowed =
+          WEB_FOLDERS.some((f) => path.startsWith(`/${f}/`)) ||
+          path.startsWith('/icons/') ||
+          PWA_FILES.some((f) => path === `/${f}`);
+        if (!allowed) return next();
         const file = join(webRoot, path);
         if (!file.startsWith(webRoot) || !existsSync(file) || !statSync(file).isFile()) return next();
         res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
@@ -35,7 +187,37 @@ function webGames(): Plugin {
       });
     },
     closeBundle() {
-      for (const f of WEB_FOLDERS) cpSync(join(webRoot, f), resolve(__dirname, 'dist', f), { recursive: true });
+      const distRoot = resolve(__dirname, 'dist');
+      for (const f of WEB_FOLDERS) {
+        const src = join(webRoot, f);
+        if (existsSync(src)) cpSync(src, join(distRoot, f), { recursive: true });
+      }
+      if (existsSync(join(webRoot, 'icons'))) {
+        cpSync(join(webRoot, 'icons'), join(distRoot, 'icons'), { recursive: true });
+      }
+      for (const f of PWA_FILES) {
+        const src = join(webRoot, f);
+        if (existsSync(src)) cpSync(src, join(distRoot, f));
+      }
+
+      const assetsDir = join(distRoot, 'assets');
+      const assetFiles = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
+      const mainEntry = assetFiles.find((n) => /^index-.*\.js$/.test(n));
+      const mainCss = assetFiles.find((n) => /^index-.*\.css$/.test(n));
+      const parts = assetFiles.filter((n) => n.endsWith('.js') && n !== mainEntry).sort();
+      const build = readAppBuildStamp();
+      const core = mainEntry ? `/assets/${mainEntry}` : '/index.html';
+
+      writeFileSync(
+        join(distRoot, 'version.json'),
+        `${JSON.stringify({ build, core, parts })}\n`,
+        'utf8',
+      );
+      const precache = [
+        ...(mainEntry ? [`/assets/${mainEntry}`] : []),
+        ...(mainCss ? [`/assets/${mainCss}`] : []),
+      ];
+      writeFileSync(join(distRoot, 'sw.js'), buildServiceWorkerSource(build, precache), 'utf8');
     },
   };
 }
@@ -43,7 +225,7 @@ function webGames(): Plugin {
 // The Flutter app and this one share one `assets/` folder, so fonts and
 // images live in a single place until the move is finished.
 export default defineConfig({
-  plugins: [react(), webGames()],
+  plugins: [react(), webShellPlugin()],
   publicDir: '../assets',
   server: { open: false },
   preview: { open: false },

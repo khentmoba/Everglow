@@ -1,14 +1,14 @@
 {
   "name": "everglow-react",
   "private": true,
-  "version": "0.0.0",
+  "version": "6.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --open=false",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "preview": "vite preview --open=false",
-    "compare": "node tools/compare.mjs"
+    "test": "node --test tools/shell.test.mjs",
+    "preview": "vite preview --open=false"
   },
   "dependencies": {
     "firebase": "12.19.0",

@@ -27,7 +27,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # A PR checkout is the merge commit; its first parent is the base.
           fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
@@ -47,89 +46,43 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node tool/ci/changes.mjs
 
-  flutter:
-    needs: changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # check_format_churn.dart diffs the PR against HEAD^1, the base tip.
-          fetch-depth: 2
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
-      - if: needs.changes.outputs.app == 'true'
-        run: flutter pub get
-      - if: needs.changes.outputs.app == 'true'
-        run: flutter analyze
-      # Goldens vary by platform; network-tagged tests hit external sites.
-      - if: needs.changes.outputs.app == 'true'
-        run: flutter test --exclude-tags="golden,network"
-      - name: Regression guards (including docs/release consistency)
-        run: |
-          ls tool/ci/
-          for guard in tool/ci/check_*.dart; do
-            dart "$guard" || exit 1
-          done
-      # These exercise the real app's browser-only implementations.
-      - if: needs.changes.outputs.browser == 'true'
-        run: >-
-          flutter test --platform chrome
-          test/features/anime/anime_web_memory_test.dart
-          test/features/anime/animex_player_web_bridge_test.dart
-          test/cinema_fullscreen_web_test.dart
-          test/embedded_media_web_memory_test.dart
-          test/features/ai/motchi_streaming_scroll_test.dart
-          test/core/system/web_standalone_browser_test.dart
-          test/performance_regressions_browser_test.dart
-          test/table_tennis_sync_browser_test.dart
-          test/desktop_app_browser_test.dart
-
   web_build:
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: flutter pub get
-      - name: Test generated service worker without Chrome
-        run: node --test tool/service_worker_test.mjs tool/web_bootstrap_test.mjs
-      - name: Prepare local env asset
-        run: |
-          if [ ! -f assets/env.txt ]; then
-            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
-          fi
-      - run: dart tool/generate_sw.dart
-      # Build the release web app once.
+          cache: npm
+          cache-dependency-path: react/package-lock.json
+      - working-directory: react
+        run: npm ci
+      - working-directory: react
+        run: npm run typecheck
       - name: Build web
         env:
-          FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
-          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-        run: |
-          ARGS=(--release --no-source-maps)
-          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
-            VAL="${!KEY}"
-            if [ -n "$VAL" ]; then
-              ARGS+=(--dart-define="$KEY=$VAL")
-            fi
-          done
-          dart tool/build_web.dart -- "${ARGS[@]}"
+          VITE_FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
+          VITE_SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        working-directory: react
+        run: npm run build
+      - name: Regression guards (including docs/release consistency)
+        run: node tool/ci/run_checks.mjs
+      - name: React shell & offline SW tests
+        if: needs.changes.outputs.browser == 'true' || needs.changes.outputs.web == 'true'
+        env:
+          CHROME_PATH: /opt/google/chrome/chrome
+        working-directory: react
+        run: npm test
       - name: Smoke-test every agent destination in the release app
+        if: needs.changes.outputs.web == 'true' || needs.changes.outputs.browser == 'true'
         env:
           CHROME_PATH: /opt/google/chrome/chrome
         run: |
           "$CHROME_PATH" --version
-          node tool/agent_smoke.mjs build/web
+          node tool/agent_smoke.mjs react/dist
 
   functions:
     needs: changes

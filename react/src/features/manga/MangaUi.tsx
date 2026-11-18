@@ -577,8 +577,8 @@ export function KatanaHeader({
                     }}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '8px 12px' }}
                   >
-                    <div style={{ width: 38, height: 50, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
-                      {it.coverUrl && <img src={it.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                    <div style={{ position: 'relative', width: 38, height: 50, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                      <KatanaCoverImage url={it.coverUrl} iconSize={16} />
                     </div>
                     <div style={{ width: 10, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -629,7 +629,7 @@ export function KatanaHeader({
 
 // katana_item_card.dart ------------------------------------------------------
 
-function CoverImage({ url, emptyIcon, errorIcon, iconSize, fill }: { url: string; emptyIcon: string; errorIcon: string; iconSize: number; fill: string }) {
+export function KatanaCoverImage({ url, emptyIcon = 'menu_book', errorIcon = 'broken_image', iconSize = 32, fill = KatanaColors.surfaceAlt }: { url: string; emptyIcon?: string; errorIcon?: string; iconSize?: number; fill?: string }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     return (
@@ -648,6 +648,26 @@ function CoverImage({ url, emptyIcon, errorIcon, iconSize, fill }: { url: string
     />
   );
 }
+
+export function KatanaBreadcrumb({ items, onHome }: { items: string[]; onHome: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+      <button type="button" className="bare-button" onClick={onHome} style={{ display: 'inline-flex', alignItems: 'center' }}>
+        <Icon name="home" size={14} color={KatanaColors.textMuted} />
+      </button>
+      {items.map((label, i) => (
+        <span key={`${label}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="chevron_right" size={13} color={KatanaColors.textLight} />
+          <span style={outfit(12.5, i === items.length - 1 ? 600 : 500, i === items.length - 1 ? KatanaColors.text : KatanaColors.textMuted)}>
+            {label}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const CoverImage = KatanaCoverImage;
 
 function ItemCover({ url, width, height, status }: { url: string; width: number; height: number; status: string }) {
   const completed = status === 'completed';

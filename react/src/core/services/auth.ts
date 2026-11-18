@@ -28,6 +28,7 @@ import { withGetTimeout } from '../utils/liveSource';
 import { initializeProgress } from '../../features/xp/xpService';
 import { letterboxService } from '../../features/dashboard/letterboxService';
 import { auth, db } from './firebase';
+import { notificationService } from './notifications';
 
 export class PasscodeConnectionError extends Error {}
 
@@ -69,10 +70,13 @@ class AuthService {
       if (user && this.currentUser != null) {
         if (user.isAnonymous && this.isCoupleUser) {
           Logger.e(`[AuthService] clearing anonymous session for couple user ${this.currentUser} — real login required`);
+          void notificationService.syncAuthSession(false);
           void signOut(auth);
         } else {
           void this.syncUserDoc();
         }
+      } else {
+        void notificationService.syncAuthSession(false);
       }
       this.notify();
     });
@@ -278,7 +282,12 @@ class AuthService {
       void Promise.all([
         this.resolvePartnerInfo().catch((e) => Logger.e('AuthService._resolvePartnerInfo failed (bg)', e)),
         initializeProgress(me.uid).catch((e) => Logger.e('XP init failed (bg)', e)),
-        ...(this.isCoupleUser ? [letterboxService.ensureSeeded().catch((e) => Logger.e('Letterbox seed failed (bg)', e))] : []),
+        ...(this.isCoupleUser
+          ? [
+              letterboxService.ensureSeeded().catch((e) => Logger.e('Letterbox seed failed (bg)', e)),
+              notificationService.syncAuthSession(true).catch((e) => Logger.e('FCM sync failed (bg)', e)),
+            ]
+          : []),
       ]);
     } catch (e) {
       let repaired = false;
@@ -360,6 +369,11 @@ class AuthService {
   async logout() {
     this.isAgentSession = false;
     this.lastAuthError = null;
+    try {
+      await notificationService.unregisterForLogout();
+    } catch (e) {
+      Logger.w(`FCM logout cleanup warning: ${String(e)}`);
+    }
     try {
       await signOut(auth);
     } catch (e) {

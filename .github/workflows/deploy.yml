@@ -19,69 +19,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: react/package-lock.json
 
-      - name: Prepare local env asset
-        run: |
-          if [ ! -f assets/env.txt ]; then
-            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
-          fi
+      - name: Install React dependencies
+        working-directory: react
+        run: npm ci
 
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate cache-busting service worker
-        # NOTE: generate_sw.dart runs again AFTER the web build (see below)
-        # so the ENGINE_REV stamp matches the Flutter engine that was built.
-        run: dart tool/generate_sw.dart
-
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: Test Flutter app
-        id: test-flutter
-        # Golden-image tests are excluded: committed PNGs are generated on
-        # Windows and font/Skia rasterization differs on Linux CI.
-        # Network-tagged tests are excluded: they hit live external sites
-        # (e.g. MangaKatana) and cannot pass in sandboxed CI. Run by hand:
-        #   flutter test --tags=network test/katana_smoke_test.dart
-        run: flutter test --exclude-tags="golden,network"
+      - name: Typecheck React app
+        id: test-react
+        working-directory: react
+        run: npm run typecheck
 
       - name: Build web
         id: build-web
         env:
-          FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
-          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-        run: |
-          # tool/build_web.dart forwards to `flutter build web` and adds the
-          # engine-pinned gstatic CanvasKit URL when reachable (safe fallback).
-          ARGS=(--release --no-source-maps) # prod: no maps; staging uses --source-maps
-          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
-            VAL="${!KEY}"
-            if [ -n "$VAL" ]; then
-              ARGS+=(--dart-define="$KEY=$VAL")
-            fi
-          done
-          dart tool/build_web.dart -- "${ARGS[@]}"
-          # Re-stamp the worker now that build/web exists: ENGINE_REV is read
-          # from the built flutter_bootstrap.js so the immutable CanvasKit
-          # cache matches the shipped engine, and version.json matches HEAD.
-          # The worker is regenerated pre-build (above) for analyze/test, then
-          # re-stamped here for the artifact that actually deploys.
-          REV=$(grep -o '"engineRevision":"[0-9a-f]*"' build/web/flutter_bootstrap.js | head -1 | cut -d'"' -f4 || true)
-          dart tool/generate_sw.dart
-          if [ -n "$REV" ]; then
-            sed -i "s/__ENGINE_REV__/$REV/g" web/sw.js
-            # build/web/sw.js is the artifact that actually deploys (copied
-            # from web/ during the build above, before this stamp ran).
-            sed -i "s/__ENGINE_REV__/$REV/g" build/web/sw.js
-          else
-            echo "::warning::ENGINE_REV not found in flutter_bootstrap.js; worker engine cache will not rotate on upgrades"
-          fi
+          VITE_FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
+          VITE_SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        working-directory: react
+        run: npm run build
 
       - name: Install firebase-tools
         run: npm install -g firebase-tools
@@ -164,7 +120,7 @@ jobs:
       # Never publish a new client against a failed backend deployment.
       - name: Deploy to Firebase Hosting
         id: hosting
-        if: steps.backend.outcome == 'success' && steps.test-flutter.outcome == 'success' && steps.build-web.outcome == 'success'
+        if: steps.backend.outcome == 'success' && steps.test-react.outcome == 'success' && steps.build-web.outcome == 'success'
         uses: FirebaseExtended/action-hosting-deploy@v0.9.0
         env:
           NODE_OPTIONS: '--no-warnings'

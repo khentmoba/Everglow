@@ -827,6 +827,57 @@ export class AIChatService {
     }
   }
 
+  /** `sendTemporaryMessage`: a reply that never touches the saved Motchi conversation (the Anime sidebar). */
+  async sendTemporaryMessage(o: {
+    message: string;
+    history: AIMessage[];
+    callerName?: string | null;
+    enableThinking?: boolean;
+    canvasEnabled?: boolean;
+    imageUrls?: string[];
+    sessionId?: string;
+    contextOverride?: string;
+  }): Promise<AIMessage> {
+    this.isLoading = true;
+    this.activeRequest++;
+    const myRequest = this.activeRequest;
+    const isCurrent = () => myRequest === this.activeRequest;
+    this.lastError = null;
+    this.resetDraftState();
+    this.notify();
+    const caller = o.callerName ?? (uid() || 'unknown');
+    try {
+      const userMessage = aiMessage({ role: 'user', content: o.message, imageUrls: o.imageUrls ?? [] });
+      const recent = stripStaleImages(trimHistoryForRequest([...o.history, userMessage].map(messageToApiPayload), HISTORY_LIMIT));
+      let reply = await this.callStream(recent, 'assistant', caller, this.streamHandlers(isCurrent), {
+        enableThinking: o.enableThinking ?? shouldAutoThink(o.message),
+        canvasEnabled: o.canvasEnabled ?? true,
+        artifactExpected: motchiWantsArtifact(o.message),
+        sessionIdOverride: o.sessionId ?? `temp_anime_${Date.now()}`,
+        temporary: true,
+        context: o.contextOverride ?? '',
+      });
+      if (!isCurrent()) return aiMessage({ role: 'assistant', content: visibleText(reply) });
+      const sources = webSourcesFromToolResults(this.toolResults);
+      const details = detailsFromResults(this.toolResults);
+      if (reply.trim() === '' && !detailsEmpty(details)) reply = detailsSummary(details);
+      if (reply.trim() === '') throw new Error('Motchi got distracted and lost her train of thought. Try asking again?');
+      const cleaned = visibleText(reply).trimStart();
+      this.isLoading = false;
+      this.lastError = null;
+      this.resetDraftState();
+      this.notify();
+      return aiMessage({ role: 'assistant', content: cleaned, sources, details });
+    } catch (e) {
+      if (!isCurrent()) return aiMessage({ role: 'assistant', content: '' });
+      this.isLoading = false;
+      this.lastError = e instanceof Error ? `Exception: ${e.message}` : String(e);
+      this.resetDraftState();
+      this.notify();
+      throw e;
+    }
+  }
+
   cancelCurrentReply(): boolean {
     if (!this.isLoading || this.activeRequest === 0) return false;
     this.activeRequest++;

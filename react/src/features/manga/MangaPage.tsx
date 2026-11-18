@@ -7,8 +7,10 @@ import { Icon } from '../../shared/widgets/Icon';
 import { MangaHome } from './MangaHome';
 import { MangaReaderView, type MangaReaderParams } from './MangaReaderPage';
 import {
+  KatanaBreadcrumb,
   KatanaButton,
   KatanaCard,
+  KatanaCoverImage,
   KatanaHeader,
   KatanaItemCard,
   KatanaPagination,
@@ -234,34 +236,98 @@ export function MangaPage() {
               </KatanaCard>
             ) : (
               <div>
-                <button
-                  type="button"
-                  className="bare-button"
-                  onClick={() => setDetailSlug(null)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, ...KatanaType.small, color: KatanaColors.accentSoft }}
-                >
-                  <Icon name="arrow_back" size={16} color={KatanaColors.accentSoft} />
-                  Back
-                </button>
-                <KatanaCard padding={18}>
-                  <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-                    {detail.coverUrl && (
-                      <img src={detail.coverUrl} alt={detail.title} style={{ width: 150, height: 220, borderRadius: 10, objectFit: 'cover' }} />
-                    )}
+                <KatanaBreadcrumb
+                  items={['Manga', detail.title]}
+                  onHome={() => {
+                    setDetailSlug(null);
+                    setTab('home');
+                  }}
+                />
+                <KatanaCard padding={16}>
+                  <div style={{ display: 'flex', gap: desktop ? 20 : 14, flexWrap: desktop ? 'nowrap' : 'wrap', alignItems: 'flex-start' }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: desktop ? 200 : 120,
+                        height: desktop ? 285 : 170,
+                        borderRadius: 10,
+                        border: `1px solid ${KatanaColors.borderStrong}`,
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        background: KatanaColors.surfaceAlt,
+                      }}
+                    >
+                      <KatanaCoverImage url={detail.coverUrl} iconSize={34} />
+                    </div>
                     <div style={{ flex: 1, minWidth: 220 }}>
-                      <h1 style={{ ...KatanaType.heading, margin: 0 }}>{detail.title}</h1>
-                      {detail.authors.length > 0 && (
-                        <div style={{ ...KatanaType.small, marginTop: 6 }}>Author(s): {detail.authors.join(', ')}</div>
+                      <h1 style={{ ...KatanaType.heading, fontSize: 22, margin: 0 }}>{detail.title}</h1>
+                      <div style={{ height: 10 }} />
+                      {detail.altNames.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8 }}>
+                          <span style={{ width: 132, flexShrink: 0, ...KatanaType.small, color: KatanaColors.textMuted }}>Alt name(s):</span>
+                          <span style={{ flex: 1, ...KatanaType.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>{detail.altNames.join(' ; ')}</span>
+                        </div>
                       )}
-                      {detail.summary && (
-                        <p style={{ ...KatanaType.body, marginTop: 10 }}>{detail.summary}</p>
+                      {(detail.authors.length > 0 || detail.artists.length > 0) && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8 }}>
+                          <span style={{ width: 132, flexShrink: 0, ...KatanaType.small, color: KatanaColors.textMuted }}>Author(s) / Artist(s):</span>
+                          <span style={{ flex: 1, ...KatanaType.body, fontSize: 13, fontWeight: 600, color: KatanaColors.accent }}>{[...detail.authors, ...detail.artists].join(', ')}</span>
+                        </div>
                       )}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+                      {detail.genres.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                          {detail.genres.map((g) => (
+                            <button
+                              key={g.slug}
+                              type="button"
+                              className="bare-button"
+                              onClick={() => handleSelectGenre(g)}
+                              style={{
+                                padding: '3px 10px',
+                                borderRadius: 99,
+                                border: `1px solid ${KatanaColors.border}`,
+                                background: 'rgba(255,255,255,0.03)',
+                                ...KatanaType.small,
+                                color: KatanaColors.textMuted,
+                              }}
+                            >
+                              {g.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <span style={{ width: 132, flexShrink: 0, ...KatanaType.small, color: KatanaColors.textMuted }}>Status:</span>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: detail.status === 'completed' ? KatanaColors.green : KatanaColors.accent }}>
+                          {detail.status === 'completed' ? 'Completed' : 'Ongoing'}
+                        </span>
+                      </div>
+                      {detail.latestChapter && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 6 }}>
+                          <span style={{ width: 132, flexShrink: 0, ...KatanaType.small, color: KatanaColors.textMuted }}>Latest chapter(s):</span>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>{chapterDisplayTitle(detail.latestChapter)}</span>
+                        </div>
+                      )}
+                      {detail.updateText && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 6 }}>
+                          <span style={{ width: 132, flexShrink: 0, ...KatanaType.small, color: KatanaColors.textMuted }}>Update at:</span>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>{detail.updateText}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                         {detail.chapters.length > 0 && (
                           <KatanaButton
-                            label="Read Latest"
-                            icon="menu_book"
-                            onClick={() => openChapter(detail, detail.chapters[0].id)}
+                            label={(() => {
+                              const bm = bookmarks.find((b) => b.slug === detail.slug);
+                              return bm?.lastReadChapterId ? 'Continue' : 'First Chapter';
+                            })()}
+                            icon="play_arrow"
+                            onClick={() => {
+                              const bm = bookmarks.find((b) => b.slug === detail.slug);
+                              const target = bm?.lastReadChapterId
+                                || detail.chapters[detail.chapters.length - 1].id;
+                              openChapter(detail, target, bm?.lastReadPage || 0);
+                            }}
                           />
                         )}
                         <KatanaButton
@@ -281,7 +347,14 @@ export function MangaPage() {
                   </div>
                 </KatanaCard>
 
-                <KatanaCard padding={16} style={{ marginTop: 16 }}>
+                {detail.summary && (
+                  <KatanaCard padding={16} style={{ marginTop: 14 }}>
+                    <KatanaSectionHeader title="Description" />
+                    <p style={{ ...KatanaType.body, marginTop: 10, marginBottom: 0 }}>{detail.summary}</p>
+                  </KatanaCard>
+                )}
+
+                <KatanaCard padding={16} style={{ marginTop: 14 }}>
                   <KatanaSectionHeader title={`Chapters (${detail.chapters.length})`} />
                   <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {detail.chapters.map((c) => (
@@ -310,6 +383,7 @@ export function MangaPage() {
             )
           ) : tab === 'bookmarks' ? (
             <div>
+              <KatanaBreadcrumb items={['Bookmarks']} onHome={() => setTab('home')} />
               <KatanaSectionHeader title="Bookmarks" />
               <div style={{ height: 12 }} />
               {savedBookmarks.length === 0 ? (
@@ -321,7 +395,9 @@ export function MangaPage() {
                   {savedBookmarks.map((bm) => (
                     <KatanaCard key={bm.slug} padding={12}>
                       <div onClick={() => openBookmarkReader(bm)} style={{ display: 'flex', gap: 12, cursor: 'pointer' }}>
-                        {bm.coverUrl && <img src={bm.coverUrl} alt={bm.title} style={{ width: 64, height: 92, borderRadius: 8, objectFit: 'cover' }} />}
+                        <div style={{ position: 'relative', width: 64, height: 92, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                          <KatanaCoverImage url={bm.coverUrl} iconSize={22} />
+                        </div>
                         <div>
                           <div style={KatanaType.title}>{bm.title}</div>
                           {bm.lastReadChapterTitle && (
@@ -338,6 +414,7 @@ export function MangaPage() {
             </div>
           ) : tab === 'reading' ? (
             <div>
+              <KatanaBreadcrumb items={['Currently Reading']} onHome={() => setTab('home')} />
               <KatanaSectionHeader title="Currently Reading" />
               <div style={{ height: 12 }} />
               {currentlyReading.length === 0 ? (
@@ -349,7 +426,9 @@ export function MangaPage() {
                   {currentlyReading.map((bm) => (
                     <KatanaCard key={bm.slug} padding={12}>
                       <div onClick={() => openBookmarkReader(bm)} style={{ display: 'flex', gap: 12, cursor: 'pointer', alignItems: 'center' }}>
-                        {bm.coverUrl && <img src={bm.coverUrl} alt={bm.title} style={{ width: 54, height: 76, borderRadius: 8, objectFit: 'cover' }} />}
+                        <div style={{ position: 'relative', width: 54, height: 76, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                          <KatanaCoverImage url={bm.coverUrl} iconSize={20} />
+                        </div>
                         <div style={{ flex: 1 }}>
                           <div style={KatanaType.title}>{bm.title}</div>
                           <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft, marginTop: 4 }}>
@@ -371,6 +450,20 @@ export function MangaPage() {
             </KatanaCard>
           ) : tab !== 'home' ? (
             <div>
+              <KatanaBreadcrumb
+                items={[
+                  catalogMode === 'search'
+                    ? `Search: "${searchQuery}"`
+                    : catalogMode === 'genre'
+                      ? genreTitle || genreSlug
+                      : catalogMode === 'latest'
+                        ? 'Latest Update'
+                        : catalogMode === 'new'
+                          ? 'New Manga'
+                          : 'Manga Directory',
+                ]}
+                onHome={() => setTab('home')}
+              />
               <KatanaSectionHeader
                 title={
                   catalogMode === 'search'

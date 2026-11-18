@@ -31,8 +31,9 @@ import { AnimexStores, useAnimexStores } from './animexStores';
 import { AnimeXTokens } from './animeTokens';
 import { AnimeXMobileBottomNav, AnimeXTopHeader } from './AnimeUi';
 import { showAnimexTrailer } from './AnimeXPlayerFrame';
-import { AnimeXMotchiFloatingTrigger } from './AnimeXMotchi';
+import { AnimeXMotchiFloatingTrigger, AnimeXMotchiSidebar } from './AnimeXMotchi';
 import { AnimeXWatchPage } from './AnimeXWatchPage';
+import type { AIMessage } from '../ai/motchiDomain';
 
 export function AnimePage() {
   const { width, height } = useViewport();
@@ -51,6 +52,7 @@ export function AnimePage() {
     genre?: string;
   } | null>(null);
   const [motchiOpen, setMotchiOpen] = useState(false);
+  const [motchiMessages, setMotchiMessages] = useState<AIMessage[]>([]);
   const [params] = useSearchParams();
   const stores = useAnimexStores();
 
@@ -163,6 +165,7 @@ export function AnimePage() {
 
   const openWatch = (item: MediaItem, episode?: number) => {
     setWatchItem({ item, episode });
+    setMotchiMessages([]);
     setDmcaOpen(false);
     setMotchiOpen(false);
     scrollerRef.current?.scrollTo({ top: 0 });
@@ -286,6 +289,17 @@ export function AnimePage() {
           <div style={{ position: 'absolute', bottom: 20, right: 18 }}>
             <AnimeXMotchiFloatingTrigger onTap={() => setMotchiOpen(true)} />
           </div>
+        )}
+        {isCoupleUser && watchItem && (
+          <AnimeXMotchiSidebar
+            isOpen={motchiOpen}
+            onClose={() => setMotchiOpen(false)}
+            watchItem={watchItem.item}
+            watchEpisode={watchItem.episode}
+            messages={motchiMessages}
+            onAddMessage={(m) => setMotchiMessages((prev) => [...prev, m])}
+            onClear={() => setMotchiMessages([])}
+          />
         )}
       </div>
 

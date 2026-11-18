@@ -22,8 +22,10 @@ test('web build inputs and client config cannot ship any login credentials', () 
   const path = require('node:path');
   const root = path.join(__dirname, '..');
   const forbidden = /(?:CLAIR|KHENT|BREYAN|OCTAGRAM)_(?:PASSCODE|PASSWORD|EMAIL)/;
-  const config = fs.readFileSync(path.join(root, 'lib/core/config/env_config.dart'), 'utf8');
-  assert.ok(!forbidden.test(config));
+  for (const rel of ['react/src/core/services/firebase.ts', 'react/src/core/services/auth.ts', 'react/vite.config.ts']) {
+    const config = fs.readFileSync(path.join(root, rel), 'utf8');
+    assert.ok(!forbidden.test(config), rel);
+  }
   for (const workflow of ['deploy.yml', 'quality.yml']) {
     const source = fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8');
     const build = source.split('- name: Build web')[1].split('\n      - name:')[0];

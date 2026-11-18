@@ -50,16 +50,11 @@ harness-specific tools required.
 Run these in order. Red locally means don't open the PR yet:
 
 0. **Code hygiene:** Run the `no-comments` skill (load its discovered global path; fallback `C:/Users/Admin/.agents/skills/no-comments/SKILL.md`) to remove redundant comments only within the task diff. Preserve constraints and tool directives; propose behavioral changes separately.
-1. `flutter analyze`
-2. `flutter test --exclude-tags="golden,network"` (golden PNGs render
-   differently per platform; network tests hit live external sites and
-   can't pass in sandboxes)
-3. `dart tool/ci/check_*.dart` — the regression guards. List them
-   first with `ls tool/ci/` and run each one. NEVER guess a guard
-   name or invent a `dart tool/...` command: if the file isn't there,
-   the command doesn't exist.
-4. `flutter run -d chrome` — actually open the app and look at what
-   you changed. A typo fix doesn't need this; anything visual does.
+1. `npm --prefix react run typecheck`
+2. `npm --prefix react run build`
+3. `npm --prefix react test`
+4. `node tool/ci/run_checks.mjs` and `node --test tool/ci/*.test.mjs` — the regression guards.
+5. `node tool/agent_smoke.mjs react/dist` (or `npm --prefix react run dev`) — actually open the app and look at what you changed. A typo fix doesn't need this; anything visual does.
 5. If you touched `functions/`: `cd functions`, then `npm ci` and
    `npm run verify` (the same lint, tests, syntax, eval, and production audit
    gate used by Quality and deployment).

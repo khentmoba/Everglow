@@ -5,17 +5,16 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: Browser tooling to verify
+        description: Browser checks to run
         type: choice
-        options: [all, performance, offline]
+        options: [all, shell, smoke]
         default: all
 
 permissions:
   contents: read
 
 jobs:
-  performance:
-    if: inputs.suite == 'all' || inputs.suite == 'performance'
+  browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -23,21 +22,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - env:
-          PERF_REQUIRE_CHROME: '1'
-        run: node --test tool/perf/harness.test.mjs
-
-  offline:
-    if: inputs.suite == 'all' || inputs.suite == 'offline'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: node tool/service_worker_test.mjs --browser
+          cache: npm
+          cache-dependency-path: react/package-lock.json
+      - run: npm --prefix react ci
+      - run: npm --prefix react run build
+      - if: inputs.suite == 'all' || inputs.suite == 'shell'
+        run: npm --prefix react test
+      - if: inputs.suite == 'all' || inputs.suite == 'smoke'
+        run: node tool/agent_smoke.mjs react/dist

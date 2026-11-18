@@ -18,18 +18,16 @@ export function selectChecks(paths) {
       enable('web', 'backend', 'security');
     } else if (['firestore.rules', 'storage.rules', 'firestore.indexes.json', 'firebase.emulators.json'].includes(path)) {
       enable('security');
-    } else if (path.startsWith('lib/')) {
+    } else if (path.startsWith('react/src/')) {
       enable('app', 'web');
-      if (!path.startsWith('lib/features/') || /^lib\/features\/(anime|ai|cinema|jukebox)\//.test(path)) enable('browser');
-      if (/auth|access|permission|core\/config/.test(path)) enable('security');
-    } else if (path.startsWith('test/')) {
-      enable('app');
-      if (/^test\/(core|shared|features\/(anime|ai|cinema|jukebox))\//.test(path) || path === 'test/embedded_media_web_memory_test.dart') enable('browser');
-    } else if (path.startsWith('assets/') || path.startsWith('web/') || /^pubspec\.(yaml|lock)$/.test(path)) {
+      if (!path.startsWith('react/src/features/') || /^react\/src\/features\/(?:anime|ai|cinema|jukebox)\//.test(path)) enable('browser');
+      if (/auth|access|permission|firebase|notifications/.test(path)) enable('security');
+    } else if (path.startsWith('react/tools/')) {
+      enable('app', 'web');
+      if (path === 'react/tools/shell.test.mjs') enable('browser');
+    } else if (path.startsWith('assets/') || path.startsWith('web/') || /^react\/(?:package(?:-lock)?\.json|vite\.config\.ts|tsconfig.*\.json|index\.html)$/.test(path)) {
       enable('app', 'browser', 'web');
-    } else if (path === 'analysis_options.yaml') {
-      enable('app');
-    } else if (/^tool\/(build_web|build_stamp|generate_sw)\.dart$/.test(path) || path === 'tool/service_worker_test.mjs') {
+    } else if (path === 'tool/agent_smoke.mjs') {
       enable('web');
     } else if (path.startsWith('tool/perf/') || path.startsWith('docs/') ||
         (path.startsWith('.agents/skills/') && path.endsWith('.md')) || /^[^/]+\.md$/.test(path) ||

@@ -1,1 +1,0 @@
-void applyRenderScaleOverride(double? scale) {}
