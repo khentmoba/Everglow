@@ -14,7 +14,7 @@ export type QuickAction = {
   hue: string;
 };
 
-export function QuickActionTile({ action }: { action: QuickAction }) {
+export function QuickActionTile({ action, badge = 0 }: { action: QuickAction; badge?: number }) {
   const navigate = useNavigate();
   const { width, height } = useViewport();
   const reduceAmbient = reduceAmbientMotion(width, height);
@@ -28,7 +28,7 @@ export function QuickActionTile({ action }: { action: QuickAction }) {
     <button
       type="button"
       className="bare-button"
-      aria-label={action.label}
+      aria-label={badge > 0 ? `${action.label}, ${badge} new` : action.label}
       onMouseEnter={() => !reduceAmbient && setHovered(true)}
       onMouseLeave={() => {
         setHovered(false);
@@ -51,7 +51,33 @@ export function QuickActionTile({ action }: { action: QuickAction }) {
         minWidth: 0,
       }}
     >
-      <HueGlyph icon={action.icon} hue={action.hue} size={56} iconSize={24} />
+      <div style={{ position: 'relative' }}>
+        <HueGlyph icon={action.icon} hue={action.hue} size={56} iconSize={24} />
+        {badge > 0 && (
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: -5,
+              right: -7,
+              minWidth: 20,
+              height: 20,
+              padding: '0 6px',
+              boxSizing: 'border-box',
+              borderRadius: 999,
+              background: AppColors.deepRose,
+              boxShadow: `0 0 0 2px ${AppColors.inkDeep}, 0 2px 10px ${withAlpha(AppColors.deepRose, 0.6)}`,
+              ...AppTypography.outfitBold,
+              fontSize: 11,
+              lineHeight: '20px',
+              textAlign: 'center',
+              color: AppColors.petalWhite,
+            }}
+          >
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
+      </div>
       <span
         style={{
           ...AppTypography.outfitBold,

@@ -10,6 +10,7 @@ import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint, AppSpacing, responsive } from '../../core/theme/layout';
 import { Align, letterSpacing, lineHeight, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
+import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { EverglowBackground, type RadialGlow } from '../../shared/widgets/EverglowBackground';
 import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeader';
@@ -33,6 +34,7 @@ import { DashboardPair, DashboardZoneHeader } from './DashboardZoneHeader';
 import { GalleryPreview } from './GalleryPreview';
 import { KeepsakesCluster } from './KeepsakesCluster';
 import { LetterboxView } from './LetterboxView';
+import { isNoteUnlocked, letterboxService } from './letterboxService';
 import { AnimePreview, BooksPreview, CinemaPreview, CurrentlyWatchingPreview, MangaPreview } from './MediaShelves';
 import { OnThisDayCard } from './OnThisDayCard';
 import { AcademyPortalCard, PlayZonePortalCard } from './PortalCards';
@@ -248,8 +250,19 @@ export function DashboardPage() {
   );
 }
 
+function greetingFor(username: string | null, hour: number): string {
+  const name = username === 'clairjassen' ? 'Clair' : username === 'khentsgdz' ? 'Khent' : null;
+  if (name == null) return 'welcome home';
+  if (hour >= 5 && hour < 12) return `good morning, ${name}`;
+  if (hour >= 12 && hour < 18) return `good afternoon, ${name}`;
+  if (hour >= 18 && hour < 22) return `good evening, ${name}`;
+  return `still up, ${name}?`;
+}
+
 function DashboardHeader({ width }: { width: number }) {
+  const auth = useAuth();
   const titleSize = width < 400 ? 38 : 48;
+  const greeting = greetingFor(auth.currentUser, new Date().getHours());
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <BreathingEmblem>
@@ -295,7 +308,7 @@ function DashboardHeader({ width }: { width: number }) {
           letterSpacing: 0.2,
         }}
       >
-        welcome home
+        {greeting}
       </span>
       <div style={{ height: 4 }} />
       <ShimmerTitle>
@@ -353,6 +366,8 @@ function DashboardHeader({ width }: { width: number }) {
 function QuickActionsSection({ width }: { width: number }) {
   const bp = AppBreakpoint.of(width);
   const columns = bp === 'mobile' ? 4 : 7;
+  const letters = useSource(() => letterboxService.notesPreview(10), [], letterboxService.cachedNotes);
+  const unreadLetters = letters.filter((n) => isNoteUnlocked(n) && !n.isRead).length;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
       <EverglowSectionHeader label="Quick Access" icon="grid_view" hue={AppColors.blushGold} />
@@ -366,7 +381,7 @@ function QuickActionsSection({ width }: { width: number }) {
         }}
       >
         {QUICK_ACTIONS.map((action) => (
-          <QuickActionTile key={action.route} action={action} />
+          <QuickActionTile key={action.route} action={action} badge={action.route === '/letterbox' ? unreadLetters : 0} />
         ))}
       </div>
     </div>
