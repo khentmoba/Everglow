@@ -97,7 +97,7 @@ ordinary Quality success does not prove that those browser checks passed.
   - Directly open any destination across the entire site via query parameter: `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, etc., or by appending `?agent=1` to any deep link.
   - Or click any of the 1-click fast-jump destination chips on the doorway launchpad (Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, etc.).
   - In Agent Mode, password gates are bypassed and all couple surfaces automatically render safe in-memory demo fixtures.
-  - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize button (`—`) on the HUD before snapping the proof screenshot.
+  - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Add `&hud=0` to the URL to hide the HUD before snapping the proof screenshot.
 - **iPhone Home Screen changes** (status bar, bottom strip, installed
   launch): Chrome cannot prove these. Serve `react/dist` on the LAN with an
   SPA fallback (`serve()` in `tool/perf/_harness.mjs` is loopback-only) and
@@ -244,6 +244,13 @@ rules judge honesty:
 - For performance work, reproduce and measure the target interaction before
   planning tooling. Report tooling repair separately from user-visible
   improvement. Keep an unmet device target open and name the missing evidence.
+- Work that spans sessions or models (a port, a sweep, a long goal) keeps
+  its checklist in the repo, like `react/MIGRATION.md` did: a tick needs
+  the check that proved it. A rate limit or provider swap then resumes from
+  the file, not from chat memory.
+- "Done" is a list, not a feeling: name each check you ran and what it
+  returned, plus anything left uncommitted or unticked. If Khent has to ask
+  "is it done?", the last report was not.
 - Finish with the result, the checks you actually ran, where the evidence is,
   and what is still unverified. Worker-reported success you did not check
   yourself is not your evidence.

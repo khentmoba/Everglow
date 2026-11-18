@@ -5,11 +5,12 @@ import { execFileSync } from 'node:child_process';
 import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
-const DIST = resolve('dist');
+const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const TYPES = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -117,7 +118,7 @@ test('browser registers service worker, shows update prompt on new version.json,
 });
 
 test('notification routing covers all Flutter notification types', () => {
-  const src = readFileSync(resolve('src/core/services/notifications.ts'), 'utf8');
+  const src = readFileSync(new URL('../src/core/services/notifications.ts', import.meta.url), 'utf8');
   const expected = {
     chat_message: '/sanctuary',
     mood_update: '/dashboard',

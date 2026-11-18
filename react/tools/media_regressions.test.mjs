@@ -4,11 +4,12 @@ import assert from 'node:assert/strict';
 import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
-const DIST = resolve('dist');
+const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const TYPES = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -132,13 +133,15 @@ test('Dashboard: Living Archive images, Jukebox artwork, carousels, and scroll r
     await page.waitForSelector('text=Trending Now', { timeout: 10_000 });
     await page.locator('button:has-text("Everglow")').first().click();
     await page.waitForSelector('text=LIVING ARCHIVE', { timeout: 10_000 });
-    await page.waitForTimeout(350);
-    const restoredScroll = await page.evaluate(() => {
+    const readScroll = () => {
       const scroller = [...document.querySelectorAll('div')].find(
         (d) => getComputedStyle(d).overflowY === 'auto' && d.scrollHeight > d.clientHeight + 200,
       );
       return scroller ? scroller.scrollTop : 0;
-    });
+    };
+    // Restore keeps retrying while async sections grow the page; slow runners need more than a fixed sleep.
+    await page.waitForFunction(`(${readScroll})() >= 800`, null, { timeout: 5_000 }).catch(() => {});
+    const restoredScroll = await page.evaluate(readScroll);
     assert.ok(restoredScroll >= 800, `expected Dashboard scrollTop to restore near ${savedScroll}, got ${restoredScroll}`);
     assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
     await context.close();
