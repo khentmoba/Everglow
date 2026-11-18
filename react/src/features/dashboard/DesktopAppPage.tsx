@@ -12,28 +12,23 @@ import { canPop } from '../../shared/widgets/MaterialFields';
 const DOWNLOAD_URL = 'https://github.com/khentmoba/Everglow-Desktop/releases/latest/download/Everglow-Desktop-Setup.exe';
 const RELEASES_URL = 'https://github.com/khentmoba/Everglow-Desktop/releases/latest';
 
-interface DesktopBridge {
-  version?: string;
-  checkForUpdates?: () => void;
-}
-
-function getDesktopBridge(): DesktopBridge | null {
-  const w = window as unknown as { everglowDesktop?: DesktopBridge };
-  return w.everglowDesktop ?? null;
-}
+// Injected by Everglow-Desktop (src-tauri/src/website_bridge.rs) into the
+// top-level production page only.
+type DesktopWindow = { __everglowDesktopVersion?: string; __everglowCheckForUpdates?: () => void };
 
 export function DesktopAppPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const bridge = getDesktopBridge();
-  const version = bridge?.version ?? null;
+  const desktop = window as unknown as DesktopWindow;
+  const version = desktop.__everglowDesktopVersion ?? null;
+  const checkForUpdates = desktop.__everglowCheckForUpdates;
   const isWindows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent);
 
   const handleActivate = () => {
     setError(null);
     try {
-      if (version && bridge?.checkForUpdates) {
-        bridge.checkForUpdates();
+      if (version && checkForUpdates) {
+        checkForUpdates();
       } else {
         window.open(isWindows ? DOWNLOAD_URL : RELEASES_URL, '_blank', 'noopener,noreferrer');
       }
