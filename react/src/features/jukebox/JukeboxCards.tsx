@@ -7,6 +7,7 @@ import { AppRadius, AppSpacing } from '../../core/theme/layout';
 import { Align, boxShadow, linear, lineHeight, radial } from '../../core/theme/paint';
 import { AppTypography, Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
+import { HueGlyph } from '../../shared/widgets/HueGlyph';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import {
@@ -63,7 +64,7 @@ const GRAIN_DOTS = (() => {
   return dots;
 })();
 
-export function JukeboxWidget() {
+export function JukeboxWidget({ showHeader = true }: { showHeader?: boolean } = {}) {
   const auth = useAuth();
   const { width } = useViewport();
   const statuses = useSource<Record<string, MusicStatus>>(() => musicStatusSource(), [auth.uid], {});
@@ -183,8 +184,12 @@ export function JukeboxWidget() {
       </div>
 
       <div style={{ position: 'relative', padding: 18 }}>
-        <JukeboxHeader eitherLive={eitherLive} />
-        <div style={{ height: 12 }} />
+        {showHeader && (
+          <>
+            <JukeboxHeader eitherLive={eitherLive} />
+            <div style={{ height: 12 }} />
+          </>
+        )}
         <SpotifyConnectCard />
         <div style={{ height: 16 }} />
         <div
@@ -230,17 +235,7 @@ function JukeboxHeader({ eitherLive }: { eitherLive: boolean }) {
       </div>
       <div style={{ width: 10 }} />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-        <span
-          style={{
-            fontFamily: 'Outfit, sans-serif',
-            fontSize: 12.5,
-            fontWeight: 800,
-            letterSpacing: '1.4px',
-            color: withAlpha(AppColors.petalWhite, 0.92),
-          }}
-        >
-          JUKEBOX
-        </span>
+        <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 19, lineHeight: 1.1 }}>Jukebox</span>
         <span
           style={{
             fontFamily: 'Outfit, sans-serif',
@@ -277,13 +272,12 @@ function JukeboxHeader({ eitherLive }: { eitherLive: boolean }) {
         <span
           style={{
             fontFamily: 'Outfit, sans-serif',
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: '0.9px',
-            color: eitherLive ? AppColors.success : withAlpha(AppColors.petalWhite, 0.5),
+            fontSize: 11,
+            fontWeight: 700,
+            color: eitherLive ? AppColors.success : withAlpha(AppColors.petalWhite, 0.55),
           }}
         >
-          {eitherLive ? 'ON AIR' : 'STANDBY'}
+          {eitherLive ? 'On air' : 'Quiet'}
         </span>
       </div>
     </div>
@@ -378,6 +372,30 @@ function SpotifyConnectCard() {
 function MusicCard({ status, title }: { status: MusicStatus; title: string }) {
   const [hovered, setHovered] = useState(false);
   const isLive = status.isPlaying;
+
+  if (!isLive && status.timestamp == null && status.trackName === 'Silent Night') {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 14px',
+          borderRadius: AppRadius.xl,
+          background: withAlpha(AppColors.moonlight, 0.06),
+          border: `1px solid ${withAlpha(AppColors.moonlight, 0.1)}`,
+        }}
+      >
+        <HueGlyph icon="music_note" hue={AppColors.softLavender} size={32} iconSize={16} />
+        <span style={{ ...AppTypography.outfitBold, fontSize: 13, color: withAlpha(AppColors.petalWhite, 0.86) }}>
+          {title.split(' ')[0]}
+        </span>
+        <span style={{ ...AppTypography.handwrittenBody, fontSize: 17, lineHeight: 1, color: withAlpha(AppColors.petalWhite, 0.5) }}>
+          nothing playing yet
+        </span>
+      </div>
+    );
+  }
 
   return (
     <button
@@ -1376,17 +1394,16 @@ function MusicStatsBlock({
           <div style={{ height: 2 }} />
           <div
             style={{
-              ...AppTypography.outfitMedium,
-              fontSize: 10,
-              fontWeight: 600,
+              ...AppTypography.handwrittenBody,
+              fontSize: 17,
+              lineHeight: 1.1,
               color: isClair ? AppColors.auroraRose : AppColors.blushGold,
-              letterSpacing: '1.6px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}
           >
-            {`${username} · most listened all-time`.toUpperCase()}
+            most listened, all-time
           </div>
         </div>
         {totalPlays > 0 && (
@@ -1459,14 +1476,13 @@ function MusicStatsBlock({
           <div style={{ height: 2 }} />
           <div
             style={{
-              ...AppTypography.outfitMedium,
-              fontSize: 10,
-              fontWeight: 600,
+              ...AppTypography.handwrittenBody,
+              fontSize: 17,
+              lineHeight: 1.1,
               color: isClair ? AppColors.auroraRose : AppColors.blushGold,
-              letterSpacing: '1.6px',
             }}
           >
-            {`${username}'s latest 5 scrobbles`.toUpperCase()}
+            latest 5 plays
           </div>
         </div>
         {needsSpotifyRecentScope && (
