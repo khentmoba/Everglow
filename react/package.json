@@ -7,7 +7,7 @@
     "dev": "vite --open=false",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "node --experimental-strip-types --test tools/*.test.mjs",
+    "test": "node tools/check_dist.mjs && node --experimental-strip-types --test tools/*.test.mjs",
     "preview": "vite preview --open=false"
   },
   "dependencies": {

@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
-const DIST = resolve('dist');
-const ASSETS_DATA = resolve('../assets/data');
+const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
+const ASSETS_DATA = fileURLToPath(new URL('../../assets/data/', import.meta.url));
 const TYPES = {
   '.html': 'text/html',
   '.js': 'text/javascript',

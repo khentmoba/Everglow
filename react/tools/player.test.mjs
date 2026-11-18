@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { isEditableTarget, resolveEverglowPlayerKey } from '../src/shared/widgets/everglowPlayerKeys.ts';
 
-const DIST = resolve('dist');
+const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const TYPES = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -130,11 +131,15 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
       const sc = [...document.querySelectorAll('div')].find((d) => d.scrollTop > 0);
       if (sc) sc.scrollTop = 0;
     });
-    const frame = page.frames().find((f) => f.url().includes('everglow-stream.khentplaysmoba.workers.dev'));
+    // The iframe's src is set before its frame navigates, so wait for the navigation instead of assuming it happened.
+    const isEmbed = (f) => f.url().includes('everglow-stream.khentplaysmoba.workers.dev');
+    const frame =
+      page.frames().find(isEmbed) ??
+      (await page.waitForEvent('framenavigated', { predicate: isEmbed, timeout: 10_000 }).catch(() => undefined));
     assert.ok(frame, 'everglow-embed iframe should load');
     await page.waitForFunction(() => Array.isArray(window.__rx) && window.__rx.length > 0, null, { timeout: 5_000 }).catch(() => {});
     await frame.waitForFunction(() => Array.isArray(window.__rx) && window.__rx.some((m) => m?.type === 'animex-player-state'), null, {
-      timeout: 5_000,
+      timeout: 10_000,
     });
     const rxBeforeKey = await frame.evaluate(() => window.__rx);
     assert.ok(
