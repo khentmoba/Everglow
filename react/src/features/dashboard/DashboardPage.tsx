@@ -10,6 +10,7 @@ import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint, AppSpacing, responsive } from '../../core/theme/layout';
 import { Align, letterSpacing, lineHeight, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
+import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { EverglowBackground, type RadialGlow } from '../../shared/widgets/EverglowBackground';
 import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeader';
@@ -33,6 +34,7 @@ import { DashboardPair, DashboardZoneHeader } from './DashboardZoneHeader';
 import { GalleryPreview } from './GalleryPreview';
 import { KeepsakesCluster } from './KeepsakesCluster';
 import { LetterboxView } from './LetterboxView';
+import { isNoteUnlocked, letterboxService } from './letterboxService';
 import { AnimePreview, BooksPreview, CinemaPreview, CurrentlyWatchingPreview, MangaPreview } from './MediaShelves';
 import { OnThisDayCard } from './OnThisDayCard';
 import { AcademyPortalCard, PlayZonePortalCard } from './PortalCards';
@@ -155,14 +157,11 @@ export function DashboardPage() {
             <QuickActionsSection width={width} />
           </div>
           <AnniversaryMetrics />
-          <div style={{ padding: '10px 24px 8px' }}>
+          <div style={{ padding: '24px 20px 0' }}>
             <DashboardJumpBar onJump={jumpTo} />
           </div>
-          <div style={{ height: 12 }} />
-
           <div ref={(el) => { zoneRefs.current['zone-today'] = el; }} />
           <DashboardZoneHeader
-            label="Today"
             title="Alive today"
             subtitle="memories, dates & letters waiting for you"
             icon="wb_twilight"
@@ -180,7 +179,6 @@ export function DashboardPage() {
 
           <div ref={(el) => { zoneRefs.current['zone-together'] = el; }} />
           <DashboardZoneHeader
-            label="Together"
             title="Just us"
             subtitle="gratitude, words & the long story of us"
             icon="favorite"
@@ -188,17 +186,16 @@ export function DashboardPage() {
           />
           {width < AppBreakpoint.mobile ? (
             <>
-              <StarlightJarWidget />
+              <StarlightJarWidget embedded />
               <div style={{ height: 16 }} />
               <TimelineView />
             </>
           ) : (
-            <DashboardPair left={<StarlightJarWidget />} right={<TimelineView />} />
+            <DashboardPair left={<StarlightJarWidget embedded />} right={<TimelineView />} />
           )}
 
           <div ref={(el) => { zoneRefs.current['zone-world'] = el; }} />
           <DashboardZoneHeader
-            label="Our World"
             title="Places & keepsakes"
             subtitle="photos, plans & little universes you built"
             icon="public"
@@ -210,7 +207,6 @@ export function DashboardPage() {
 
           <div ref={(el) => { zoneRefs.current['zone-play'] = el; }} />
           <DashboardZoneHeader
-            label="Play"
             title="Sound & screen"
             subtitle="jukebox, watch party, shelves & games"
             icon="videogame_asset"
@@ -254,45 +250,21 @@ export function DashboardPage() {
   );
 }
 
+function greetingFor(username: string | null, hour: number): string {
+  const name = username === 'clairjassen' ? 'Clair' : username === 'khentsgdz' ? 'Khent' : null;
+  if (name == null) return 'welcome home';
+  if (hour >= 5 && hour < 12) return `good morning, ${name}`;
+  if (hour >= 12 && hour < 18) return `good afternoon, ${name}`;
+  if (hour >= 18 && hour < 22) return `good evening, ${name}`;
+  return `still up, ${name}?`;
+}
+
 function DashboardHeader({ width }: { width: number }) {
+  const auth = useAuth();
   const titleSize = width < 400 ? 38 : 48;
+  const greeting = greetingFor(auth.currentUser, new Date().getHours());
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div
-        style={{
-          padding: '6px 12px',
-          background: withAlpha(AppColors.moonlight, 0.06),
-          borderRadius: 999,
-          border: `1px solid ${withAlpha(AppColors.moonlight, 0.1)}`,
-          display: 'inline-flex',
-          alignItems: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: AppColors.auroraRose,
-            boxShadow: `0 0 4px ${withAlpha(AppColors.auroraRose, 0.6)}`,
-          }}
-        />
-        <div style={{ width: 8 }} />
-        <span
-          style={{
-            ...AppTypography.outfitHeading,
-            fontSize: 9.5,
-            ...letterSpacing(2.0),
-            color: withAlpha(AppColors.blushGold, 0.85),
-            whiteSpace: 'pre',
-          }}
-        >
-          EST.  FEBRUARY 14, 2026  —  KHENT  &amp;  CLAIR
-        </span>
-      </div>
-
-      <div style={{ height: 18 }} />
-
       <BreathingEmblem>
         <div style={{ position: 'relative', width: 108, height: 108 }}>
           <div
@@ -336,7 +308,7 @@ function DashboardHeader({ width }: { width: number }) {
           letterSpacing: 0.2,
         }}
       >
-        welcome home
+        {greeting}
       </span>
       <div style={{ height: 4 }} />
       <ShimmerTitle>
@@ -393,20 +365,23 @@ function DashboardHeader({ width }: { width: number }) {
 
 function QuickActionsSection({ width }: { width: number }) {
   const bp = AppBreakpoint.of(width);
-  const columns = bp === 'mobile' ? 3 : bp === 'tablet' ? 5 : 6;
+  const columns = bp === 'mobile' ? 4 : 7;
+  const letters = useSource(() => letterboxService.notesPreview(10), [], letterboxService.cachedNotes);
+  const unreadLetters = letters.filter((n) => isNoteUnlocked(n) && !n.isRead).length;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
       <EverglowSectionHeader label="Quick Access" icon="grid_view" hue={AppColors.blushGold} />
-      <div style={{ height: 14 }} />
+      <div style={{ height: 16 }} />
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-          gap: 12,
+          columnGap: 6,
+          rowGap: 14,
         }}
       >
         {QUICK_ACTIONS.map((action) => (
-          <QuickActionTile key={action.route} action={action} />
+          <QuickActionTile key={action.route} action={action} badge={action.route === '/letterbox' ? unreadLetters : 0} />
         ))}
       </div>
     </div>

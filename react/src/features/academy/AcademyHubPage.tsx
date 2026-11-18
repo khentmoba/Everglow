@@ -299,7 +299,7 @@ export function AcademyHubPage() {
                   <AcademyModeCard
                     title="1v1 Challenge"
                     subtitle="Race your love in real time"
-                    badge="LIVE · TOGETHER"
+                    badge="live, together"
                     icon="bolt"
                     accent={AppColors.deepRose}
                     onTap={() => showCategoryPicker(false, (category) => void startMatchmaking(category))}
@@ -308,7 +308,7 @@ export function AcademyHubPage() {
                   <AcademyModeCard
                     title="Solo Study"
                     subtitle={soloSubtitle(soloStats)}
-                    badge="CALM PRACTICE"
+                    badge="calm practice"
                     icon="menu_book"
                     accent={AppColors.auroraGold}
                     onTap={() => showCategoryPicker(true, (c, t) => void startSoloStudy(c, t))}
@@ -317,7 +317,7 @@ export function AcademyHubPage() {
                   <AcademyModeCard
                     title="Study with Motchi"
                     subtitle="Ask about your PDFs"
-                    badge="AI HELPER"
+                    badge="with Motchi"
                     icon="picture_as_pdf"
                     accent={AppColors.softLavender}
                     onTap={() => navigate('/study')}
@@ -409,40 +409,38 @@ function AcademyModeCard({
     justifyContent: 'center',
   });
   return (
-    <EverglowCard onTap={onTap} semanticLabel={title} padding={AppSpacing.xl}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={circle(52, withAlpha(accent, 0.14), withAlpha(accent, 0.35))}>
+    <EverglowCard
+      onTap={onTap}
+      semanticLabel={title}
+      padding={0}
+      fillColor={withAlpha(accent, 0.1)}
+      style={{ overflow: 'hidden', borderRadius: AppRadius.x2, boxShadow: `inset 0 0 0 1px ${withAlpha(accent, 0.32)}` }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          minHeight: 132,
+          padding: AppSpacing.xl,
+          boxSizing: 'border-box',
+          background: `radial-gradient(120% 140% at 100% 0%, ${withAlpha(accent, 0.32)}, transparent 60%)`,
+          display: 'flex',
+          alignItems: 'flex-end',
+        }}
+      >
+        <div aria-hidden style={{ position: 'absolute', right: -14, top: -10, opacity: 0.18, pointerEvents: 'none' }}>
+          <Icon name={icon} size={132} color={accent} />
+        </div>
+        <div style={{ position: 'absolute', left: AppSpacing.xl, top: AppSpacing.xl, ...circle(48, withAlpha(accent, 0.2), withAlpha(accent, 0.45)) }}>
           <Icon name={icon} size={24} color={accent} />
         </div>
-        <div style={{ width: AppSpacing.lg }} />
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingTop: 56 }}>
           {badge != null && (
-            <>
-              <div
-                style={{
-                  maxWidth: '100%',
-                  boxSizing: 'border-box',
-                  padding: `2px ${AppSpacing.sm}px`,
-                  background: withAlpha(accent, 0.14),
-                  borderRadius: AppRadius.full,
-                  border: `1px solid ${withAlpha(accent, 0.3)}`,
-                }}
-              >
-                <span
-                  className="ellipsis"
-                  style={{
-                    display: 'block',
-                    ...AppTypography.outfitHeading,
-                    fontSize: 9.5,
-                    ...letterSpacing(1.2),
-                    color: accent,
-                  }}
-                >
-                  {badge}
-                </span>
-              </div>
-              <div style={{ height: AppSpacing.xs }} />
-            </>
+            <span
+              className="ellipsis"
+              style={{ display: 'block', maxWidth: '100%', ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1.05, color: accent }}
+            >
+              {badge}
+            </span>
           )}
           <span
             className="ellipsis"
@@ -450,8 +448,8 @@ function AcademyModeCard({
               display: 'block',
               maxWidth: '100%',
               ...AppTypography.cormorantBold,
-              fontSize: 21,
-              lineHeight: lineHeight(21, 1.1),
+              fontSize: 26,
+              lineHeight: lineHeight(26, 1.1),
             }}
           >
             {title}
@@ -463,15 +461,15 @@ function AcademyModeCard({
               ...AppTypography.outfitWhite,
               fontSize: 13,
               lineHeight: lineHeight(13, 1.35),
-              color: withAlpha(AppColors.petalWhite, 0.78),
+              color: withAlpha(AppColors.petalWhite, 0.8),
             }}
           >
             {subtitle}
           </span>
         </div>
         <div style={{ width: AppSpacing.md }} />
-        <div style={circle(32, withAlpha(AppColors.moonlight, 0.08), withAlpha(AppColors.moonlight, 0.14))}>
-          <Icon name="arrow_forward_ios" size={14} color={accent} />
+        <div style={{ position: 'relative', ...circle(36, accent, withAlpha(AppColors.petalWhite, 0.2)) }}>
+          <Icon name="arrow_forward_ios" size={14} color={AppColors.inkDeep} />
         </div>
       </div>
     </EverglowCard>

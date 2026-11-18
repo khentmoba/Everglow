@@ -67,7 +67,7 @@ export function LetterboxView() {
   };
 
   return (
-    <div style={{ padding: '6px 16px' }}>
+    <div style={{ padding: '6px 0' }}>
       <FeatureSection
         icon="mail_outline"
         hue={AppColors.blushGold}

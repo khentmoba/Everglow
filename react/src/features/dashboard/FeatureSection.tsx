@@ -6,6 +6,7 @@ import { AppRadius } from '../../core/theme/layout';
 import { CssCurves, orZero, reduceAmbientMotion } from '../../core/theme/motion';
 import { linear, shadowLayer } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
+import { HueGlyph } from '../../shared/widgets/HueGlyph';
 import { Icon } from '../../shared/widgets/Icon';
 
 export function FeatureSection({
@@ -74,21 +75,7 @@ export function FeatureSection({
         />
         <div style={{ padding }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: AppRadius.md,
-                background: withAlpha(hue, 0.12),
-                border: `1px solid ${withAlpha(hue, 0.24)}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Icon name={icon} size={19} color={hue} />
-            </div>
+            <HueGlyph icon={icon} hue={hue} size={40} iconSize={19} />
             <div style={{ width: 12 }} />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <span style={{ ...AppTypography.cormorantBold, fontSize: 20, lineHeight: 1 }}>{title}</span>

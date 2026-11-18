@@ -4,7 +4,7 @@ import { authService } from '../../core/services/auth';
 import { useBoxSize } from '../../core/system/useBoxSize';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
-import { Align, boxShadow, linear, lineHeight, mixedLineHeight } from '../../core/theme/paint';
+import { Align, boxShadow, linear, lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { formatPeso } from '../../shared/utils/text';
 import { showModalBottomSheet } from '../../shared/widgets/Dialogs';
@@ -111,19 +111,8 @@ export function SubsMoneyHero({ all }: { all: Subscription[] }) {
           flexDirection: 'column',
         }}
       >
-        <div
-          style={{
-            ...AppTypography.outfitBold,
-            fontSize: 10,
-            letterSpacing: 1.6,
-            lineHeight: mixedLineHeight(10),
-            color: withAlpha(AppColors.blushGold, 0.9),
-            whiteSpace: 'pre',
-          }}
-        >
-          {'💸  EVERY MONTH'}
-        </div>
-        <div style={{ height: 6 }} />
+        <div style={{ ...AppTypography.handwrittenBody, fontSize: 19, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.9) }}>every month</div>
+        <div style={{ height: 4 }} />
         <div style={{ ...AppTypography.cormorantBold, fontSize: 38, lineHeight: '38px', color: AppColors.petalWhite }}>
           {formatPeso(Math.round(monthly))}
         </div>

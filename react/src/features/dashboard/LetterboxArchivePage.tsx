@@ -1,4 +1,5 @@
 // Port of lib/features/dashboard/presentation/screens/letterbox_archive_screen.dart.
+import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -125,12 +126,15 @@ export function LetterboxArchivePage() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: AppColors.inkDeep }}>
-      <LetterAppBar
+      <EverglowFeatureHeader
         title="Letter Archive"
-        titleSize={24}
+        subtitle="every letter, kept"
+        icon="mail_outline"
+        hue={AppColors.blushGold}
         onBack={() => navigate('/dashboard')}
-        action={
+        actions={[
           <button
+            key="search"
             type="button"
             className="bare-button"
             aria-label="Search letters"
@@ -139,7 +143,7 @@ export function LetterboxArchivePage() {
           >
             <Icon name="search" color={AppColors.blushGold} />
           </button>
-        }
+        ]}
       />
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -349,59 +353,75 @@ function SearchLettersPage({
   );
 }
 
+/** An envelope: a folded flap across the top, a wax seal that shows the letter's state, and the title in serif. */
 function LetterListTile({ note, onTap }: { note: HiddenNote; onTap: () => void }) {
   const unlocked = isNoteUnlocked(note);
   const isNew = unlocked && !note.isRead;
+  const tint = unlocked ? (isNew ? AppColors.deepRose : AppColors.roseQuartz) : AppColors.blushGold;
+  const sealLabel = unlocked ? (isNew ? 'New letter' : 'Read letter') : 'Sealed letter';
   return (
-    <div style={{ paddingBottom: 10 }}>
+    <div style={{ paddingBottom: 14 }}>
       <button
         type="button"
         className="bare-button"
         onClick={onTap}
         style={{
+          position: 'relative',
           width: '100%',
           textAlign: 'left',
-          padding: 16,
+          padding: '30px 18px 16px 76px',
+          minHeight: 104,
           boxSizing: 'border-box',
-          background: isNew ? withAlpha(AppColors.deepRose, 0.2) : withAlpha(AppColors.velvet, 0.4),
-          borderRadius: 16,
-          border: `1px solid ${isNew ? withAlpha(AppColors.blushGold, 0.4) : withAlpha(AppColors.moonlight, 0.1)}`,
+          overflow: 'hidden',
+          background: `linear-gradient(160deg, ${withAlpha(tint, isNew ? 0.24 : 0.12)}, ${withAlpha(AppColors.velvet, 0.75)} 70%)`,
+          borderRadius: 18,
+          border: `1px solid ${withAlpha(tint, isNew ? 0.5 : 0.22)}`,
+          boxShadow: boxShadow([{ blur: 18, offset: [0, 8], color: withAlpha(AppColors.inkDeep, 0.45) }]),
           display: 'flex',
           alignItems: 'center',
           cursor: 'pointer',
         }}
       >
+        <svg
+          aria-hidden
+          viewBox="0 0 100 20"
+          preserveAspectRatio="none"
+          style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 26 }}
+        >
+          <path d="M0 0 L50 18 L100 0" fill={withAlpha(tint, 0.1)} stroke={withAlpha(tint, 0.35)} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
+        </svg>
         <div
+          aria-label={sealLabel}
+          role="img"
           style={{
-            width: 44,
-            height: 44,
+            position: 'absolute',
+            left: 16,
+            top: '50%',
+            marginTop: -2,
+            transform: 'translateY(-50%)',
+            width: 46,
+            height: 46,
             borderRadius: '50%',
-            background: unlocked
-              ? isNew
-                ? withAlpha(AppColors.deepRose, 0.3)
-                : AppColors.velvet
-              : withAlpha(AppColors.blushGold, 0.15),
+            background: `radial-gradient(circle at 35% 30%, ${withAlpha(AppColors.petalWhite, 0.35)}, ${tint} 55%, ${withAlpha(tint, 0.7)})`,
+            boxShadow: boxShadow([{ blur: isNew ? 14 : 6, color: withAlpha(tint, isNew ? 0.6 : 0.3) }]),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0,
           }}
         >
           <Icon
             name={unlocked ? (note.isRead ? 'drafts_outlined' : 'favorite') : 'lock_outline'}
             variant="filled"
             size={20}
-            color={unlocked ? (isNew ? AppColors.deepRose : AppColors.roseQuartz) : AppColors.blushGold}
+            color={AppColors.inkDeep}
           />
         </div>
-        <div style={{ width: 14, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              ...AppTypography.outfitWhite,
-              fontSize: 14,
-              lineHeight: lineHeight(14),
-              fontWeight: isNew ? 700 : 500,
+              ...AppTypography.cormorantBold,
+              fontSize: 19,
+              lineHeight: lineHeight(19),
               color: AppColors.petalWhite,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -410,14 +430,14 @@ function LetterListTile({ note, onTap }: { note: HiddenNote; onTap: () => void }
           >
             {note.title}
           </div>
-          <div style={{ height: 4 }} />
+          <div style={{ height: 2 }} />
           <div
             className="clamp-2"
             style={{
-              ...AppTypography.outfitWhite,
-              fontSize: 12,
-              lineHeight: lineHeight(12),
-              color: withAlpha(AppColors.roseQuartz, 0.6),
+              ...AppTypography.handwrittenBody,
+              fontSize: 17,
+              lineHeight: 1.15,
+              color: withAlpha(unlocked ? AppColors.roseQuartz : AppColors.blushGold, 0.75),
             }}
           >
             {unlocked
@@ -434,19 +454,21 @@ function LetterListTile({ note, onTap }: { note: HiddenNote; onTap: () => void }
           </>
         )}
         {isNew && (
-          <>
-            <div style={{ width: 8, flexShrink: 0 }} />
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: AppColors.blushGold,
-                boxShadow: boxShadow([{ blur: 6, color: withAlpha(AppColors.blushGold, 0.5) }]),
-                flexShrink: 0,
-              }}
-            />
-          </>
+          <span
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 12,
+              ...AppTypography.outfitWhite,
+              fontSize: 10,
+              lineHeight: lineHeight(10),
+              fontWeight: 700,
+              letterSpacing: 1.2,
+              color: AppColors.blushGold,
+            }}
+          >
+            NEW
+          </span>
         )}
       </button>
     </div>

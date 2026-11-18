@@ -323,18 +323,33 @@ export function GalleryPage() {
 }
 
 function PhotoGrid({ photos, cols, onOpen }: { photos: MemoryPhoto[]; cols: number; onOpen: (index: number) => void }) {
+  const newest = photos[0]?.uploadedAt;
   return (
     <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      {photos.length > 0 && (
+        <div style={{ padding: '2px 18px 8px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22, lineHeight: 1 }}>{photos.length}</span>
+          <span style={{ ...AppTypography.handwrittenBody, fontSize: 16, color: withAlpha(AppColors.blushGold, 0.85) }}>
+            {photos.length === 1 ? 'memory kept' : 'memories kept'}
+          </span>
+          {newest && (
+            <span style={{ marginLeft: 'auto', ...AppTypography.outfitWhite, fontSize: 11.5, color: withAlpha(AppColors.petalWhite, 0.5) }}>
+              newest {newest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
+        </div>
+      )}
       <div
         style={{
-          padding: '6px 16px',
+          padding: '0 16px 96px',
           display: 'grid',
           gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridAutoFlow: 'dense',
           gap: 10,
         }}
       >
         {photos.map((photo, index) => (
-          <PhotoCard key={photo.id} photo={photo} onClick={() => onOpen(index)} />
+          <PhotoCard key={photo.id} photo={photo} featured={index === 0 && photos.length > 2} onClick={() => onOpen(index)} />
         ))}
       </div>
     </div>
@@ -390,7 +405,7 @@ function FloatingAddButton({ onPressed }: { onPressed: () => void }) {
   );
 }
 
-function PhotoCard({ photo, onClick }: { photo: MemoryPhoto; onClick: () => void }) {
+function PhotoCard({ photo, featured = false, onClick }: { photo: MemoryPhoto; featured?: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
@@ -402,6 +417,8 @@ function PhotoCard({ photo, onClick }: { photo: MemoryPhoto; onClick: () => void
       aria-label={photo.caption || 'Memory photo'}
       style={{
         aspectRatio: '0.82',
+        gridColumn: featured ? 'span 2' : undefined,
+        gridRow: featured ? 'span 2' : undefined,
         borderRadius: AppRadius.lg,
         overflow: 'hidden',
         position: 'relative',
@@ -420,7 +437,7 @@ function PhotoCard({ photo, onClick }: { photo: MemoryPhoto; onClick: () => void
         src={gridPhotoUrl(photo)}
         alt={photo.caption || 'Memory photo'}
         loading="lazy"
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        style={{ position: featured ? 'absolute' : undefined, inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
       />
       <div
         style={{
@@ -432,16 +449,19 @@ function PhotoCard({ photo, onClick }: { photo: MemoryPhoto; onClick: () => void
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
-          padding: '34px 10px 9px',
+          padding: featured ? '48px 14px 13px' : '34px 10px 9px',
           textAlign: 'left',
         }}
       >
+        {featured && (
+          <span style={{ ...AppTypography.handwrittenBody, fontSize: 14, color: AppColors.blushGold, marginBottom: 2 }}>latest memory</span>
+        )}
         {photo.caption && (
           <div
             style={{
-              ...AppTypography.outfitWhite,
-              fontSize: 11,
-              fontWeight: 500,
+              ...(featured ? { ...AppTypography.cormorantBoldWhite, fontSize: 19 } : AppTypography.outfitWhite),
+              fontSize: featured ? 19 : 11,
+              fontWeight: featured ? 700 : 500,
               lineHeight: 1.25,
               color: AppColors.petalWhite,
               display: '-webkit-box',

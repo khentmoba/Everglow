@@ -1,6 +1,6 @@
 # Everglow System Architecture
 
-> Private digital relationship scrapbook for Khent & Clair. Flutter Web + Firebase.
+> Private digital relationship scrapbook for Khent & Clair. React + Vite + Firebase.
 > This document is the system-level contract for how Everglow scales, where data
 > lives, how it flows, and what the minimal production core must guarantee.
 
@@ -19,10 +19,12 @@
 
 ### Constraints
 
-- Frontend is Flutter Web deployed to Firebase Hosting; there is no native
-  client in the current production path.
+- Frontend is a React 19 + TypeScript PWA built with Vite and deployed to
+  Firebase Hosting. The Windows desktop app (`khentmoba/Everglow-Desktop`)
+  wraps the same site.
 - Backend is serverless Firebase: Auth, Firestore, Storage, Functions, FCM.
-- State management is Provider; routing is go_router; no Riverpod/Bloc.
+- State lives in small services with `subscribe()`, read through hooks;
+  routing is React Router 7; no state library.
 - Secrets never ship in source; `assets/env.txt` is local-only and ignored by
   the design below.
 - One shared Firestore database, no sharding in the current product stage.
@@ -79,11 +81,11 @@ proxies, AI streaming, push fan-out, and scheduled maintenance.
 
 ```mermaid
 flowchart TB
-  subgraph Client[Flutter Web PWA]
-    UI[Screens / Widgets]
-    P[Provider controllers]
+  subgraph Client[React PWA]
+    UI[Pages / components]
+    P[Hooks: useSource, useAuth]
     R[Feature services / repositories]
-    CORE[Core system bootstrap + health]
+    CORE[Core: agent mode, app update, prefs]
     SDK[Firebase SDK + local cache]
   end
 
@@ -115,10 +117,10 @@ flowchart TB
 
 ### Layering rules
 
-1. Screens never touch Firestore directly; they call a feature service or
-   controller through Provider.
-2. Feature services return domain models, not raw `DocumentSnapshot`.
-3. Streams use `withFirestoreTimeout` so a wedged web listener degrades to a
+1. Pages and components never touch Firestore directly; they read a feature
+   service through `useSource` or a `subscribe()` hook.
+2. Feature services return plain typed objects, not raw `DocumentSnapshot`.
+3. Live sources use `withFirestoreTimeout` (`react/src/core/utils/liveSource.ts`) so a wedged web listener degrades to a
    retry UI instead of an infinite spinner.
 4. Writes are validated twice: client-side before dispatch and server-side by
    security rules (shape + ownership).
@@ -128,27 +130,24 @@ flowchart TB
 ## 4. Component Structure
 
 ```text
-lib/
-  main.dart                     # runZonedGuarded -> AppBootstrap -> EverglowApp
-  core/
-    system/                     # NEW minimal production core
-      app_bootstrap.dart        # deterministic startup orchestrator
-      app_version.dart          # version source of truth
-      health_service.dart       # /api/health probe (offline-tolerant)
-      system_status.dart        # typed health contract
-    router/app_router.dart      # composes per-feature route modules (each feature owns presentation/routes/)
-    theme/                      # Dusk Petal design tokens (colors, typography, spacing, art palette)
-    utils/                      # app-wide helpers: logger, stream timeouts, connectivity
-    services/                   # AuthService, PresenceService, StorageService, NotificationService
-    models/                     # shared models (PresenceStatus)
-  features/<feature>/
-    data/                       # models + services + repository impls
-    domain/                     # domain models + repository interfaces (only where the feature needs them)
-    presentation/               # screens, widgets, controllers, providers, routes
-  shared/
-    utils/                      # feature-agnostic data helpers (proxies, pagination, text, images)
-    widgets/everglow/           # global design system (buttons, cards, scaffolds)
-    widgets/shelf/              # media browsing UI shared by cinema/anime/books (posters, carousels)
+react/
+  src/
+    main.tsx                    # agent mode init, service worker, render <App/>
+    App.tsx                     # every route, guarded by auth loaders
+    core/
+      agent/                    # ?agent= jumps, floating HUD, demo fixtures
+      router/                   # route helpers, route + scroll memory, error page
+      services/                 # firebase, auth, presence, notifications, offline media
+      system/                   # logger, prefs, viewport, app update, device/TV mode
+      theme/                    # Dusk Petal tokens: colors, typography, layout, motion, paint
+      utils/liveSource.ts       # Source<T>, snapshots, withFirestoreTimeout, useSource
+    features/<feature>/         # pages, components and services side by side
+    shared/
+      utils/                    # feature-agnostic helpers
+      widgets/                  # global design system (cards, headers, buttons, states)
+      widgets/shelf/            # media browsing UI shared by cinema/anime/books
+  tools/*.test.mjs              # headless Chrome tests (shell, offline SW, players)
+  vite.config.ts                # build + generated service worker (dist/sw.js)
 
 functions/
   index.js                      # thin barrel: wires HTTP functions, triggers, schedules
@@ -159,7 +158,8 @@ functions/
 
 firestore.rules                 # single source of truth for access control
 firestore.indexes.json          # explicit composite indexes
-web/                            # PWA shell, service worker, icons
+web/                            # icons, manifest, embed helpers copied into the build
+assets/                         # fonts and images (Vite publicDir)
 ```
 
 ### Serverless function taxonomy
@@ -175,16 +175,16 @@ web/                            # PWA shell, service worker, icons
 
 ### Agent map — where to put things
 
-- New screen? `lib/features/<feature>/presentation/screens/<name>_screen.dart`
-  + route in `presentation/routes/`, composed by `core/router/app_router.dart`.
-- New data call? Feature `data/services/` first. Only add `domain/` when the
-  feature needs repository interfaces or shared domain models.
-- Shared helper? `core/utils/` for app-wide (logging, streams, connectivity);
-  `shared/utils/` for data helpers (proxies, pagination, text, images).
-- Shared widget? `shared/widgets/everglow/` for global design system;
+- New page? `react/src/features/<feature>/<Name>Page.tsx`, plus a route in
+  `react/src/App.tsx` (and an agent alias in `core/agent/agentMode.ts`).
+- New data call? A service in the same feature folder that returns a `Source`
+  or exposes `subscribe()`.
+- Shared helper? `core/utils/` or `core/system/` for app-wide;
+  `shared/utils/` for feature-agnostic data helpers.
+- Shared widget? `shared/widgets/` for the global design system;
   `shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books.
-- Colors? `core/theme/app_colors.dart` for UI, `app_art.dart` for
-  decorative art (flowers, vinyl, painters). Never hardcode `Color(0x…)`.
+- Colors? `core/theme/colors.ts` (`AppColors`, `withAlpha`). Never hardcode
+  hex values in components.
 - Server proxy or secret? `functions/` module + export in `index.js`.
   The app never calls third-party APIs directly.
 
@@ -195,17 +195,16 @@ web/                            # PWA shell, service worker, icons
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant B as AppBootstrap
+  participant M as main.tsx
   participant F as Firebase
-  participant H as /api/health
+  participant SW as Service worker
 
-  U->>B: open app
-  B->>B: bind widgets, path strategy, env, connectivity
-  B->>F: initializeApp + Firestore persistence settings
-  B->>B: self-hosted fonts only, notification keys
-  B-->>H: non-blocking health probe
-  H-->>B: {status, service, version, checks}
-  B->>U: first frame (never blocked by health probe)
+  U->>M: open app
+  M->>M: AgentMode.init()
+  M->>F: initializeApp (core/services/firebase.ts)
+  M->>U: render App: router + auth loaders
+  M-->>SW: register /sw.js after load (production only)
+  SW-->>U: precached shell for offline starts
 ```
 
 ### 5.2 Passcode -> authenticated session
@@ -217,19 +216,19 @@ sequenceDiagram
   participant FA as FirebaseAuth
   participant FS as Firestore
 
-  G->>A: loginWithPasscode(username)
-  A->>FA: signInWithEmailAndPassword
+  G->>A: login with profile + code
+  A->>A: POST /api/verifyPasscode
+  A->>FA: signInWithCustomToken
   FA-->>A: User
   A->>FS: set users/{uid} {username, updatedAt}
   A->>FS: query users where username == partner
   FS-->>A: partner uid
   A->>A: isCoupleUser / partnerUid resolved
-  A-->>G: notifyListeners -> router to /dashboard
+  A-->>G: subscribers notified -> navigate to /dashboard
 ```
 
-Couple passcodes are verified server-side (`verifyPasscode` Cloud Function);
-cinema-profile credentials come from `EnvConfig` (build-time `--dart-define`
-or local `.env`, never committed). The user document is the root of access:
+All four profiles' codes are verified server-side (`verifyPasscode` Cloud
+Function), which returns a custom token; no credentials ship in the client. The user document is the root of access:
 security rules grant sanctuary access to authenticated users with a
 `users/{uid}` document.
 
@@ -420,24 +419,20 @@ per-owner rules where subcollections exist.
 
 ### Layer 1: Firebase Hosting CDN
 
-`web/` static assets are immutable once built and served with
-`Cache-Control: public, max-age=31536000, immutable` for hashed files
-(`*.js`, `*.css`, fonts, icons). `index.html`, `sw.js`, `flutter.js`, and
-`version.json` are explicitly `no-cache` so new builds take effect immediately.
+`react/dist` hashed assets (`*.js`, `*.css`, fonts, icons) are served with
+long-lived immutable caching. `index.html`, `sw.js`, and `version.json` are
+`no-cache` so new builds take effect immediately (`firebase.json` headers).
 
-### Layer 2: Firestore offline persistence
+### Layer 2: Service worker shell
 
-Enabled globally with a 100 MB cap:
-
-- Chat, presence, mood, and watchlist reads replay from the local cache before
-  the network confirms, so the app works on flaky connections.
-- Writes are queued offline and reconciled by Firestore.
-- `withFirestoreTimeout` prevents a hung listener from freezing the UI.
+The generated `sw.js` precaches the app shell so the app starts offline.
+Firestore uses its default in-memory cache; `withFirestoreTimeout` turns a
+hung listener into a retry state instead of a frozen screen.
 
 ### Layer 3: Local device state
 
-`SharedPreferences` caches the current profile (`current_user_name`) and FCM
-token metadata. This is the only cross-restart session state; everything else
+`localStorage` (`core/system/prefs.ts`) keeps the current profile
+(`current_user_name`) and small UI preferences. This is the only cross-restart session state; everything else
 is derived from Firestore.
 
 ### Layer 4: Function response caching
@@ -522,65 +517,64 @@ is derived from Firestore.
 
 ### Deploy pipeline
 
-`push main -> CI -> flutter analyze -> build web release -> generate sw.js ->
-deploy Hosting -> install functions -> deploy functions + rules + storage ->
-verify site 200`.
+`push main -> typecheck + build react/dist (with sw.js) -> functions verify ->
+deploy functions + rules + storage -> deploy Hosting -> verify site 200`
+(`.github/workflows/deploy.yml`).
 
 ### Health monitoring
 
 - Public `GET /api/health` returns service identity, version, uptime, and a
   Firestore reachability check.
-- Clients probe once at startup (non-blocking) and record
-  `backend=ok|degraded|unreachable` in the boot log.
 - Uptime monitors should alert on non-200 or `status != ok` for two
   consecutive checks.
 
 ### Error visibility roadmap
 
 Current release builds suppress unhandled errors by design; the immediate
-follow-up is wiring `Logger` error sinks to a production reporter (Sentry for
-Flutter Web, or a `error_reports` Firestore collection) and uploading source
+follow-up is wiring `Logger` error sinks to a production reporter (Sentry, or an
+`error_reports` Firestore collection) and uploading source
 maps in CI.
 
 ### Rollback
 
-Hosting: redeploy the previous tagged `build/web` to the live channel.
+Hosting: roll back to the previous release in the Firebase Hosting console,
+or rebuild `react/dist` from the previous tag and redeploy.
 Functions: `firebase deploy --only functions` from the previous tag. Rules:
 revert `firestore.rules`/`firestore.indexes.json` and redeploy
 `--only firestore`.
 
 ## 12. Minimal Production Version
 
-The full product features already exist, so the minimal production version is
-the *core foundation every feature depends on*, implemented now:
+The core every feature depends on:
 
-1. **Deterministic bootstrap** — `AppBootstrap` owns env load, Firebase init,
-   Firestore persistence settings, fonts, notification wiring, and the health
-   probe in a single testable sequence (`lib/core/system/app_bootstrap.dart`).
-2. **Version source of truth** — `AppVersion` and the Functions `APP_VERSION`
-   constant mirror `pubspec.yaml`; the app title and health endpoint report it.
-3. **Health contract** — `GET /api/health` plus the offline-tolerant
-   `HealthService` client and typed `SystemStatus`.
-4. **Presence TTL** — `sweepStalePresence` scheduled job with pure, tested
+1. **Deterministic startup**: `react/src/main.tsx` initialises agent mode,
+   registers the service worker, and renders the router; auth state comes
+   from `core/services/auth.ts`.
+2. **Version source of truth**: `react/package.json`, mirrored by the
+   Functions `APP_VERSION` constant (`functions/common.js`); the health
+   endpoint reports it.
+3. **Health contract**: `GET /api/health`.
+4. **Presence TTL**: `sweepStalePresence` scheduled job with pure, tested
    staleness logic (`functions/system_core.js`).
-5. **Query schema** — explicit composite indexes for `moods` and `presence`
+5. **Query schema**: explicit composite indexes for `moods` and `presence`
    sweeper queries.
 
 ### Verification
 
 ```text
-flutter analyze
-flutter test
-cd functions && npm run lint && npm test
+npm --prefix react run typecheck
+npm --prefix react run build
+npm --prefix react test
+cd functions && npm run verify
 ```
 
 ## 13. Runbook Cheat Sheet
 
 | Task | Command |
 |------|---------|
-| Local app | `flutter run -d chrome` |
-| Analyze | `flutter analyze` |
-| Tests | `flutter test` |
+| Local app | `npm --prefix react run dev` |
+| Typecheck | `npm --prefix react run typecheck` |
+| Tests | `npm --prefix react test` (after a build) |
 | Functions lint | `cd functions && npm run lint` (CI adds `-- --max-warnings=25`) |
 | Functions tests | `cd functions && npm test` |
 | Health check | `curl https://everglow-1c6db.web.app/api/health` |

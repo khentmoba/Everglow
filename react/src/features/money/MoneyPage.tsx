@@ -169,11 +169,42 @@ function SummaryCard({ total }: { total: MonthlyTotal }) {
       >
         {formatPeso(total.balance)}
       </div>
+      {total.income > 0 && <SpentBar income={total.income} expense={total.expense} />}
       <div style={{ height: 12 }} />
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <MiniStat label="Got" value={formatPeso(total.income)} color={AppColors.success} icon="arrow_downward" />
         <div style={{ width: 1, height: 36, background: Derived.divider }} />
         <MiniStat label="Spent" value={formatPeso(total.expense)} color={AppColors.auroraRose} icon="arrow_upward" />
+      </div>
+    </div>
+  );
+}
+
+function SpentBar({ income, expense }: { income: number; expense: number }) {
+  const ratio = Math.max(0, expense / income);
+  const over = ratio > 1;
+  const pct = Math.round(ratio * 100);
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div
+        role="progressbar"
+        aria-label="Share of this month's money spent"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.min(100, pct)}
+        style={{ height: 8, borderRadius: 999, background: withAlpha(AppColors.moonlight, 0.1), overflow: 'hidden' }}
+      >
+        <div
+          style={{
+            width: `${Math.min(100, Math.max(ratio > 0 ? 3 : 0, pct))}%`,
+            height: '100%',
+            borderRadius: 999,
+            background: over ? AppColors.error : `linear-gradient(90deg, ${AppColors.blushGold}, ${AppColors.auroraRose})`,
+          }}
+        />
+      </div>
+      <div style={{ ...AppTypography.handwrittenBody, fontSize: 17, lineHeight: 1.2, marginTop: 6, color: over ? AppColors.error : withAlpha(AppColors.petalWhite, 0.62) }}>
+        {over ? `${Math.max(1, pct - 100)}% more than came in` : `${ratio >= 1 ? 100 : Math.min(99, pct)}% of this month's money spent`}
       </div>
     </div>
   );

@@ -282,16 +282,8 @@ function JourneyHero({
             }}
           />
           <div style={{ position: 'relative', padding: '18px 20px 16px', display: 'flex', flexDirection: 'column' }}>
-            <div
-              style={{
-                ...bold(10, withAlpha(AppColors.blushGold, 0.9), mixedLineHeight(10)),
-                ...letterSpacing(1.6),
-                whiteSpace: 'pre',
-              }}
-            >
-              {'✨  OUR JOURNEY SO FAR'}
-            </div>
-            <div style={{ height: 6 }} />
+            <div style={{ ...AppTypography.handwrittenBody, fontSize: 19, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.9) }}>our journey so far</div>
+            <div style={{ height: 4 }} />
             <div
               style={{
                 ...AppTypography.cormorantBold,

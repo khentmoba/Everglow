@@ -1,8 +1,8 @@
 // Port of lib/features/canvas/presentation: canvas_screen.dart,
 // canvas_painter.dart, canvas_toolbar.dart and
 // lib/shared/widgets/partner_doodle_indicator.dart.
+import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router';
 import {
   presenceService,
   isActivelyDoodlingAt,
@@ -19,10 +19,8 @@ import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
-import { EverglowIconButton } from '../../shared/widgets/EverglowScaffold';
 import { EverglowErrorState } from '../../shared/widgets/EverglowStates';
 import { Icon } from '../../shared/widgets/Icon';
-import { canPop } from '../../shared/widgets/MaterialFields';
 import {
   canvasService,
   isTextAnnotation,
@@ -95,11 +93,11 @@ function paintSurface(canvas: HTMLCanvasElement, strokes: DoodleStroke[]) {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = withAlpha(AppColors.velvet, 0.25);
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = withAlpha(AppColors.roseQuartz, 0.1);
-  for (let x = 28; x < w; x += 28) {
-    for (let y = 28; y < h; y += 28) {
+  ctx.fillStyle = withAlpha(AppColors.roseQuartz, 0.22);
+  for (let x = 24; x < w; x += 24) {
+    for (let y = 24; y < h; y += 24) {
       ctx.beginPath();
-      ctx.arc(x, y, 0.75, 0, Math.PI * 2);
+      ctx.arc(x, y, 1.1, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -107,7 +105,6 @@ function paintSurface(canvas: HTMLCanvasElement, strokes: DoodleStroke[]) {
 }
 
 export function CanvasPage() {
-  const navigate = useNavigate();
   const auth = useAuth();
   const userId = auth.uid ?? 'unknown';
   const [retry, setRetry] = useState(0);
@@ -386,20 +383,12 @@ export function CanvasPage() {
   return (
     <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
       <div style={{ paddingTop: 'env(safe-area-inset-top)', flexShrink: 0 }}>
-        <div style={{ height: 56, display: 'flex', alignItems: 'center' }}>
-          <div style={{ width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <EverglowIconButton
-              icon="arrow_back_ios_new"
-              size={36}
-              semanticLabel="Go back"
-              tooltip="Back"
-              iconColor={AppColors.roseQuartz}
-              onPressed={() => (canPop() ? navigate(-1) : navigate('/dashboard'))}
-            />
-          </div>
-          <div style={{ width: 16 }} />
-          <div style={{ ...AppTypography.cormorantBold, fontSize: 24, lineHeight: lineHeight(24, 28 / 22) }}>Everglow Canvas</div>
-        </div>
+        <EverglowFeatureHeader
+          title="Everglow Canvas"
+          subtitle="draw something together"
+          icon="brush"
+          hue={AppColors.softLavender}
+        />
       </div>
       <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <EverglowBackground
@@ -426,17 +415,46 @@ export function CanvasPage() {
               </div>
             )}
             {!isLoading && history.length + othersLive.length === 0 && active == null && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  paddingBottom: 96,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                  pointerEvents: 'none',
+                }}
+              >
+                <div
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: '50%',
+                    border: `2px dashed ${withAlpha(AppColors.softLavender, 0.45)}`,
+                    background: `radial-gradient(circle, ${withAlpha(AppColors.softLavender, 0.18)}, transparent 70%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name="brush" size={40} color={AppColors.softLavender} />
+                </div>
                 <span
                   style={{
                     ...AppTypography.cormorantRegular,
-                    fontSize: 26,
+                    fontSize: 28,
                     letterSpacing: 1.2,
-                    fontWeight: 500,
-                    lineHeight: lineHeight(26),
+                    fontWeight: 600,
+                    lineHeight: lineHeight(28),
                   }}
                 >
                   Draw something together
+                </span>
+                <span style={{ ...AppTypography.handwrittenBody, fontSize: 19, color: withAlpha(AppColors.roseQuartz, 0.8) }}>
+                  pick a colour below and start anywhere
                 </span>
               </div>
             )}

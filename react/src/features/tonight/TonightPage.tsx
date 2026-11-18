@@ -202,10 +202,8 @@ export function TonightPage() {
           <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column' }}>
             {decision.status === 'voting' && (
               <>
-                <div style={{ ...AppTypography.labelSmall, color: AppColors.blushGold, ...letterSpacing(2) }}>
-                  JUST US, TONIGHT
-                </div>
-                <div style={{ height: AppSpacing.sm }} />
+                <div style={{ ...AppTypography.handwrittenBody, fontSize: 19, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.9) }}>just us, tonight</div>
+                <div style={{ height: AppSpacing.xs }} />
                 <div
                   style={{
                     ...AppTypography.cormorantBoldWhite,
@@ -689,12 +687,12 @@ function TonightOptionCard({
     ...(decision.votes.khentsgdz === option.id ? ['Khent'] : []),
     ...(decision.votes.clairjassen === option.id ? ['Clair'] : []),
   ];
-  const label = typeLabel(option.type).toUpperCase();
+  const label = typeLabel(option.type).toLowerCase();
 
   const details = (
     <div style={{ flex: compact ? 1 : undefined, minWidth: 0 }}>
-      <div style={{ ...AppTypography.labelSmall, color: hue, ...letterSpacing(1.4) }}>
-        {isWinner ? `OUR PICK · ${label}` : label}
+      <div style={{ ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1.05, color: hue }}>
+        {isWinner ? `our pick · ${label}` : label}
       </div>
       <div style={{ height: AppSpacing.sm }} />
       <div
