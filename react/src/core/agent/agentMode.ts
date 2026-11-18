@@ -29,6 +29,8 @@ export const AgentMode = {
   useDemoData: new ValueNotifier(true),
   showHud: new ValueNotifier(true),
   hudCollapsed: new ValueNotifier(false),
+  /** `&gift=1` with `?agent=`: preview Clair's welcome gift with demo content. */
+  giftPreview: false,
 
   /** Services read demo fixtures instead of Firestore when this is true. */
   get demo(): boolean {
@@ -59,6 +61,7 @@ export const AgentMode = {
     const params = new URLSearchParams(window.location.search);
     const agentParam = params.get('agent') ?? params.get('demo');
     if (agentParam != null) {
+      AgentMode.giftPreview = params.get('gift') === '1';
       AgentMode.enable(AgentMode.parseProfile(agentParam));
       return;
     }

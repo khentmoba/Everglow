@@ -108,6 +108,41 @@ test('Dashboard RandomizerCard toggles AI mode, spins roulette, and renders Cele
   }
 });
 
+test('Welcome gift covers the app for Clair until Continue, and only for Clair', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const gift = page.getByRole('dialog', { name: 'A gift for you' });
+    const proceed = page.getByRole('button', { name: 'Continue to Everglow' });
+
+    await page.goto(`${baseUrl}/dashboard?agent=clair&gift=1`, { waitUntil: 'domcontentloaded' });
+    await gift.waitFor({ state: 'visible', timeout: 10_000 });
+    assert.equal(await proceed.count(), 0, 'Continue stays hidden until the letter ends');
+    await page.frameLocator('iframe[title="A gift for you"]').getByRole('button', { name: 'Read on' }).click();
+    await proceed.click();
+    await gift.waitFor({ state: 'detached', timeout: 5_000 });
+
+    for (const route of ['/dashboard?agent=clair', '/dashboard?agent=khent&gift=1']) {
+      const other = await context.newPage();
+      await other.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
+      await other.waitForSelector('text=Digital Roulette', { timeout: 10_000 });
+      await other.waitForTimeout(500);
+      assert.equal(await other.getByRole('dialog', { name: 'A gift for you' }).count(), 0, `${route} must not show the gift`);
+      await other.close();
+    }
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, Downloads, and Reader work', async () => {
   const { server, baseUrl } = await startDistServer();
   const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });

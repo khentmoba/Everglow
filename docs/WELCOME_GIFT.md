@@ -25,19 +25,18 @@ normally and tries again on a later session; a failed completion keeps the gift
 open with a retry message. Offline opening does not consume the gift.
 
 The existing sandboxed HTML viewer keeps the document isolated from app state.
-Continue belongs to Flutter and stays hidden until the letter's final action
+Continue belongs to the app and stays hidden until the letter's final action
 opens the closing message. The document reports `everglow:content-finished`
 at that point and `everglow:content-reading` when restarting or revisiting.
 The optional viewer callback accepts only those two messages; web messages
-must come from this viewer's own iframe. Native uses the optional
-`EverglowCanvas` JavaScript channel. Neither exposes account data or writes a
-receipt. Only the visible Flutter Continue button completes the gift.
+must come from this viewer's own iframe. It exposes no account data and
+writes no receipt. Only the app's own visible Continue button completes the gift.
 
-For a synthetic local preview:
+Code: `react/src/features/entry/welcomeGiftService.ts` (who sees it, the
+server read, the receipt) and `WelcomeGiftGate.tsx` (mounted once in
+`RootLayout` in `react/src/App.tsx`).
 
-```sh
-flutter run -d chrome -t tool/welcome_gift_preview.dart
-```
-
-The harness can simulate another visit after completion or reset its in-memory
-demo receipt. It never reads or changes a real account.
+For a synthetic local preview, open `/dashboard?agent=clair&gift=1`. It shows
+a made-up gift from `react/src/core/agent/fixtures.ts`, keeps the receipt in
+memory (reload the page to see it again), and never reads or changes a real
+account. `react/tools/regressions.test.mjs` drives this preview.
