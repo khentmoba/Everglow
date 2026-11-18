@@ -4,6 +4,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { showDialog } from '../../shared/widgets/Dialogs';
+import { isEditableTarget, resolveEverglowPlayerKey } from '../../shared/widgets/everglowPlayerKeys';
+import { OfflineVideoHud } from '../../shared/widgets/OfflineVideoHud';
 import type { AniSkipTimes } from './animexData';
 import { fetchDetailsWithFallback } from './animexData';
 import {
@@ -52,6 +54,8 @@ export interface AnimeXPlayerFrameProps {
   onShowEpisodes?: () => void;
   onPlayerEpisodeChanged?: (season: number, episode: number) => void;
   sandbox?: boolean;
+  title?: string;
+  onAutoNextChanged?: (autoNext: boolean) => void;
 }
 
 const isWholePositive = (v: unknown): v is number =>
@@ -61,7 +65,8 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
   const { url, referrerPolicy = 'no-referrer', sandbox = true } = props;
   const hostRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
   const [loaded, setLoaded] = useState(false);
   const contentError = useRef(false);
   const latest = useRef(props);
@@ -96,15 +101,18 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
 
   const sendPlayerState = () => {
     if (!loadedRef.current || !isAnimeXProxyPlayerUrl(latest.current.url)) return;
-    const { skipTimes, nextToken, nextIsSeason } = latest.current;
+    const { skipTimes, nextToken, nextIsSeason, autoAdvance, title } = latest.current;
     const op = skipTimes?.opening;
     const ed = skipTimes?.ending;
+    const cleanTitle = title?.trim();
     post({
       type: 'animex-player-state',
       ...(op ? { op: [op.start, op.end] } : {}),
       ...(ed ? { ed: [ed.start, ed.end] } : {}),
       next: nextToken ?? null,
       nextKind: nextIsSeason ? 'season' : 'episode',
+      autoNext: autoAdvance ?? true,
+      ...(cleanTitle ? { title: cleanTitle } : {}),
     });
   };
 
@@ -132,6 +140,10 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
         if (act === 'next-episode') p.onNextEpisode?.();
         else if (act === 'episodes') p.onShowEpisodes?.();
         else if (act === 'audio' && (map.audio === 'sub' || map.audio === 'dub')) p.onAudioChanged?.(map.audio);
+        return;
+      }
+      if (map?.type === 'animex-pref' && map.key === 'autoNext' && typeof map.value === 'boolean') {
+        p.onAutoNextChanged?.(map.value);
         return;
       }
       if (map?.type === 'cinesrc:nextepisode') {
@@ -175,7 +187,25 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
   useEffect(() => {
     sendPlayerState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.skipTimes, props.nextToken, props.nextIsSeason]);
+  }, [props.skipTimes, props.nextToken, props.nextIsSeason, props.autoAdvance, props.title]);
+
+  useEffect(() => {
+    if (isDirectVideo || !isAnimeXProxyPlayerUrl(url)) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isEditableTarget(event.target)) return;
+      const key = resolveEverglowPlayerKey(event.key);
+      if (!key) return;
+      try {
+        iframeRef.current?.contentWindow?.postMessage({ type: 'everglow-key', key }, ANIMEX_PROXY_ORIGIN);
+        event.preventDefault();
+      } catch {
+        // Detached frames drop forwarded shortcuts.
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isDirectVideo, url]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -210,9 +240,12 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
     >
       {isDirectVideo ? (
         <video
-          ref={videoRef}
+          ref={(el) => {
+            videoRef.current = el;
+            setVideoEl((prev) => (prev === el ? prev : el));
+          }}
           src={url}
-          controls
+          controls={false}
           autoPlay
           playsInline
           onLoadedData={() => setLoaded(true)}
@@ -242,6 +275,17 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
           sandbox={sandboxed ? SANDBOX : undefined}
           onLoad={onLoad}
           style={{ border: 'none', width: '100%', height: '100%', display: 'block' }}
+        />
+      )}
+      {isDirectVideo && loaded && videoEl && !contentError.current && (
+        <OfflineVideoHud
+          video={videoEl}
+          host={hostRef.current}
+          title={props.title}
+          nextLabel={props.nextToken}
+          onNextEpisode={props.onNextEpisode}
+          onShowEpisodes={props.onShowEpisodes}
+          accentColor={AnimeXTokens.accent}
         />
       )}
       {!loaded && (

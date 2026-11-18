@@ -1339,11 +1339,12 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     play() { this.paused = false; return Promise.resolve(); },
     pause() { this.paused = true; },
   });
-  const els = { v, 'sub-txt': el(), 'sub-box': el(), boot: el(),
+  const els = { v, 'sub-txt': el(), 'sub-box': el(), boot: el(), 'hud-title': el(), 'hud-ep': el(),
     tapw: Object.assign(el(), { hidden: true }), tap: el(),
     dead: Object.assign(el(), { hidden: true }),
     'btn-cc': el(), 'cc-menu': Object.assign(el(), { hidden: true }),
-    'btn-play': el(), 'btn-vol': el(), 'btn-speed': el(), 'btn-pip': el(), 'vol-range': el(),
+    'btn-play': el(), 'btn-vol': el(), 'vol-w': el(), 'vol-x': Object.assign(el(), { hidden: true }),
+    'btn-speed': el(), 'btn-pip': el(), 'vol-range': el(),
     's-buf': el(), 's-hover': el(), 's-fill': el(), 's-thumb': el(),
     'time-lbl': el(), scrub: el(), 'scrub-wrap': el(),
     'scrub-prev': Object.assign(el(), { hidden: true }),
@@ -1351,9 +1352,13 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     'pv-c': Object.assign(el(), { hidden: false }),
     'pv-time': el(), 'pv-tag': Object.assign(el(), { hidden: true }),
     'sp-menu': Object.assign(el(), { hidden: true }),
-    'q-menu': Object.assign(el(), { hidden: true }),
+    'btn-more': el(), 'more-menu': Object.assign(el(), { hidden: true }),
+    'btn-q': el(), 'q-menu': Object.assign(el(), { hidden: true }),
     'btn-sv': el(), 'sv-menu': Object.assign(el(), { hidden: true }),
     'btn-fs': el(), 'fs-p': el(),
+    'btn-lock': el(), 'unlock-w': Object.assign(el(), { hidden: true }), 'unlock-btn': el(),
+    'btn-nx': Object.assign(el(), { hidden: true }), 'btn-next': Object.assign(el(), { hidden: true }), 'btn-next-x': el(),
+    'next-tok': el(), 'next-cd': el(), 'keys-menu': Object.assign(el(), { hidden: true }),
     buf: Object.assign(el(), { hidden: true }) };
   function Hls(opts) {
     this.opts = opts || {};
@@ -1413,10 +1418,25 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
   return { els, v, html, window: win, doc, fire, key, tap, relay, loads, handlers, instances, Hls };
 }
 
+function menuFlat(node) {
+  const out = [];
+  for (const c of (node && node.children) || []) {
+    out.push(c, ...menuFlat(c));
+  }
+  return out;
+}
+
+function findMenuBtn(menu, text) {
+  return menuFlat(menu).find((c) => c.textContent === text);
+}
+
 function ccRow(menu, header) {
-  const at = menu.children.findIndex((c) => c.textContent === header);
+  const nodes = menuFlat(menu);
+  const at = nodes.findIndex((c) => c.textContent === header);
   assert.ok(at >= 0, `CC panel has a "${header}" section`);
-  return menu.children[at + 1];
+  const parent = nodes[at].parentNode;
+  const idx = parent.children.indexOf(nodes[at]);
+  return parent.children[idx + 1];
 }
 
 test('the server picker appears only when there is more than one server', () => {
@@ -1556,7 +1576,7 @@ test('a pick keeps her caption language when the new source still has it', async
   });
 
   els['btn-cc'].dispatch('click');
-  const spanish = els['cc-menu'].children.find((c) => c.textContent === 'Spanish');
+  const spanish = findMenuBtn(els['cc-menu'], 'Spanish');
   assert.ok(spanish, 'the language row is there to pick');
   spanish.onclick();
 
@@ -1587,7 +1607,7 @@ test('a pick onto a source with no captions keeps her remembered language', asyn
   });
 
   els['btn-cc'].dispatch('click');
-  els['cc-menu'].children.find((c) => c.textContent === 'Spanish').onclick();
+  findMenuBtn(els['cc-menu'], 'Spanish').onclick();
   els['btn-sv'].dispatch('click');
   els['sv-menu'].children[1].onclick();
   await new Promise((r) => setTimeout(r, 0));
@@ -1999,12 +2019,21 @@ test('the CC panel holds captions, language, delay and size', () => {
   const menu = els['cc-menu'];
   els['btn-cc'].dispatch('click');
   assert.equal(menu.hidden, false, 'the CC button opens the panel');
-  assert.deepEqual(
-    menu.children.map((c) => c.textContent),
-    ['Captions on', 'Language', 'English', 'Icelandic', 'Subtitle delay', '', 'Text size', ''],
-  );
-  assert.equal(menu.children[0].className, 'qi on', 'captions start on');
-  assert.equal(menu.children[2].className, 'qi on', 'first track is the default');
+  const headers = menuFlat(menu).filter((c) => c.className === 'cc-h').map((c) => c.textContent);
+  assert.deepEqual(headers, [
+    'Captions',
+    'Language',
+    'Subtitle delay',
+    'Text size',
+    'Caption style',
+    'Caption color',
+    'Position',
+  ]);
+  const capRow = ccRow(menu, 'Captions');
+  assert.equal(capRow.children[1].className, 'qi on', 'captions start on');
+  assert.equal(capRow.children[1].getAttribute('role'), 'menuitem', 'menu items expose ARIA role');
+  const eng = findMenuBtn(menu, 'English');
+  assert.equal(eng.className, 'qi on', 'first track is the default');
 
   const delayRow = ccRow(menu, 'Subtitle delay');
   assert.deepEqual(delayRow.children.map((b) => b.textContent), ['\u2212', '0.0s', '+']);
@@ -2023,7 +2052,11 @@ test('the CC panel holds captions, language, delay and size', () => {
   sizeRow.children[2].onclick();
   assert.equal(els['sub-txt'].style.getPropertyValue('--sub-scale'), '1.3', 'large text');
 
-  menu.children[3].onclick();
+  const posRow = ccRow(menu, 'Position');
+  posRow.children[2].onclick();
+  assert.equal(els['sub-box'].style.getPropertyValue('--sub-pos'), '44px', 'high subtitle position');
+
+  findMenuBtn(menu, 'Icelandic').onclick();
   assert.deepEqual(v.textTracks.map((t) => t.mode), ['disabled', 'hidden']);
   assert.equal(menu.hidden, false, 'the panel stays open for more tuning');
 });
@@ -2062,7 +2095,7 @@ test('subtitle delay shifts which line is on screen', () => {
   fire('timeupdate');
   assert.equal(sub.textContent, '');
 
-  els['cc-menu'].children[0].onclick();
+  ccRow(els['cc-menu'], 'Captions').children[0].onclick();
   v.currentTime = 9.5;
   fire('timeupdate');
   assert.equal(sub.textContent, '');
@@ -2099,7 +2132,7 @@ test('subtitle settings survive the next episode', () => {
   ccRow(firstMenu, 'Subtitle delay').children[2].onclick();
   ccRow(firstMenu, 'Subtitle delay').children[2].onclick();
   ccRow(firstMenu, 'Text size').children[0].onclick();
-  firstMenu.children[0].onclick();
+  ccRow(firstMenu, 'Captions').children[0].onclick();
 
   const second = runPlayerDom({
     tracks: ['English'], trackEls: [{ label: 'English' }], store,
@@ -2107,7 +2140,7 @@ test('subtitle settings survive the next episode', () => {
   const menu = second.els['cc-menu'];
   assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '+0.2s');
   assert.equal(ccRow(menu, 'Text size').children[0].className, 'qi on', 'small text kept');
-  assert.equal(menu.children[0].textContent, 'Captions off', 'captions stay off');
+  assert.equal(ccRow(menu, 'Captions').children[0].className, 'qi on', 'captions stay off');
   assert.equal(second.els['btn-cc'].classList.contains('on'), false);
 });
 
@@ -2434,4 +2467,226 @@ test('preview seeks debounce, cache decoded frames, and fall back to video tag o
   });
   els.pv.dispatch('seeked');
   assert.equal(els['pv-c'].hidden, true, 'taint fallback hides canvas to reveal preview video');
+});
+
+test('Cinema player exposes Episodes button when hasEpisodes is enabled and routes theater exit', () => {
+  const withEps = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Breaking Bad',
+    kind: 'cinema',
+    hasEpisodes: true,
+  });
+  assert.ok(withEps.includes('id="btn-eps"'), 'cinema series keeps episodes button');
+  assert.ok(!withEps.includes('id="btn-sub"'), 'cinema still drops SUB/DUB');
+
+  const { els, window, doc } = runPlayerDom({ tracks: [], trackEls: [] });
+  const posted = [];
+  window.parent.postMessage = (msg) => posted.push(msg);
+  const ctrlRt = Object.assign(els['btn-fs'], {
+    insertBefore(node) { this.children.push(node); },
+  });
+  els['btn-cc'].parentNode = ctrlRt;
+  doc.querySelector = (sel) => (sel === '.ctrl-rt' ? ctrlRt : null);
+
+  window.dispatch('message', {
+    source: window.parent,
+    origin: 'https://everglow-1c6db.web.app',
+    data: { type: 'animex-player-state', hasEpisodes: true, theater: true },
+  });
+  const dynBtn = ctrlRt.children.find((c) => c.getAttribute && c.getAttribute('id') === 'btn-eps');
+  assert.ok(dynBtn, 'animex-player-state creates episodes button when missing');
+  dynBtn.dispatch('click');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted[0])), { type: 'animex-action', action: 'episodes' });
+
+  els['btn-fs'].dispatch('click');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted[1])), { type: 'animex-action', action: 'exit-theater' });
+});
+
+test('Quality menu items carry ARIA menuitem role and time label toggles elapsed vs -remaining', () => {
+  const { els, v, instances, fire } = runPlayerDom({ tracks: [], trackEls: [] });
+  v.duration = 120;
+  v.currentTime = 30;
+  instances[0].levels = [{ height: 720 }, { height: 1080 }];
+  instances[0]._handlers.m();
+  assert.equal(els['q-menu'].children.length, 3);
+  assert.equal(els['q-menu'].children[0].getAttribute('role'), 'menuitem');
+  assert.equal(els['q-menu'].children[0].type, 'button');
+
+  fire('timeupdate');
+  assert.equal(els['time-lbl'].textContent, '00:30 / 02:00');
+  els['time-lbl'].dispatch('click');
+  assert.equal(els['time-lbl'].textContent, '-01:30');
+});
+
+test('Cinema keeps neutral styling without Everglow badge, and Z/I keys cycle aspect and stats', () => {
+  const cinemaHtml = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
+  const animeHtml = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Ep 1', kind: 'anime' });
+  assert.ok(cinemaHtml.includes('<body class="is-cinema">'), 'cinema gets neutral theme class');
+  assert.ok(!cinemaHtml.includes('class="eg-badge"'), 'cinema omits Everglow badge');
+  assert.ok(!cinemaHtml.includes('class="eg-cat"'), 'cinema omits cat icon');
+  assert.ok(animeHtml.includes('class="eg-badge"'), 'anime keeps Everglow badge');
+
+  const { els, v, key } = runPlayerDom({ tracks: [], trackEls: [] });
+  els['stats-card'] = Object.assign({}, els['q-menu'], { hidden: true, innerHTML: '' });
+  key('z');
+  assert.equal(v.classList.contains('fill'), true);
+  key('z');
+  assert.equal(v.classList.contains('zoom'), true);
+  key('z');
+  assert.equal(v.classList.contains('fill'), false);
+  assert.equal(v.classList.contains('zoom'), false);
+});
+
+test('screen lock blocks keyboard shortcuts and floating Next hides bottom Next icon', () => {
+  const { els, v, window, fire, key } = runPlayerDom({
+    tracks: [{ label: 'English - English (SDH)' }, { label: 'Spanish' }],
+    trackEls: [{ label: 'English - English (SDH)' }, { label: 'Spanish' }],
+  });
+  v.duration = 200;
+  v.currentTime = 50;
+  els['btn-cc'].dispatch('click');
+  assert.ok(findMenuBtn(els['cc-menu'], 'English (SDH)'), 'dedupes repeated language label');
+
+  els['btn-lock'].dispatch('click');
+  const before = v.currentTime;
+  const pausedBefore = v.paused;
+  key(' ');
+  key('l');
+  assert.equal(v.paused, pausedBefore);
+  assert.equal(v.currentTime, before);
+  assert.equal(els['unlock-w'].hidden, false);
+  els['unlock-btn'].dispatch('click');
+
+  window.dispatch('message', {
+    source: window.parent,
+    origin: 'https://everglow-1c6db.web.app',
+    data: { type: 'animex-player-state', next: 'EP 2', nextKind: 'episode' },
+  });
+  assert.equal(els['btn-nx'].hidden, false);
+  assert.equal(els['btn-next'].hidden, true);
+
+  v.currentTime = 150;
+  fire('timeupdate');
+  assert.equal(els['btn-next'].hidden, false);
+  assert.equal(els['btn-nx'].hidden, true, 'bottom Next steps aside when pill appears');
+
+  els['btn-next-x'].dispatch('click', {});
+  assert.equal(els['btn-next'].hidden, true, 'dismiss X hides floating Next pill');
+  assert.equal(els['btn-nx'].hidden, false, 'bottom Next restores after dismiss');
+
+  key('m');
+  assert.equal(els['vol-w'].hidden, true, 'mute hides sound waves');
+  assert.equal(els['vol-x'].hidden, false, 'mute reveals X glyph');
+  key('m');
+  assert.equal(els['vol-w'].hidden, false);
+  assert.equal(els['vol-x'].hidden, true);
+});
+
+test('mobile settings falls back to Auto quality on native HLS and desktop settings keep 416px width', () => {
+  const { els, html, window } = runPlayerDom({ tracks: [], trackEls: [] });
+  assert.ok(html.includes('#more-menu{width:min(416px'), 'desktop settings matches 416px width');
+  assert.ok(html.includes('#more-menu .cc-row .qi{min-width:0;padding:5px 4px}'));
+  assert.ok(html.includes('#binge{padding:0 12px;bottom:92px}'));
+  assert.ok(html.includes('Intro: Off') && html.includes('Intro: Auto'), 'plain Intro label in settings');
+  assert.ok(html.includes('binge-left'), 'compact subtitle clearance');
+  assert.ok(hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Ep 1', kind: 'anime' }).includes('id="tap-opts"'), 'anime pre-play exposes quick selectors');
+
+  els['btn-more'].dispatch('click');
+  assert.ok(findMenuBtn(els['more-menu'], '\u2715'), 'desktop/tablet settings has close button');
+  els['btn-more'].dispatch('click');
+
+  window.innerWidth = 430;
+  window.innerHeight = 242;
+  els['btn-more'].dispatch('click');
+  assert.ok(findMenuBtn(els['more-menu'], 'Auto'), 'native HLS keeps Quality -> Auto row on narrow screens');
+});
+
+test('CC menu exposes Audio track switching when subtitles are absent and labels Subtitles accurately', () => {
+  const { els, instances } = runPlayerDom({ tracks: [], trackEls: [] });
+  assert.equal(els['btn-cc'].hidden, true, 'no subs and no multi-audio hides button');
+
+  instances[0].audioTracks = [{ name: 'Japanese' }, { name: 'English' }];
+  instances[0]._handlers.m();
+  assert.equal(els['btn-cc'].hidden, false, 'multi-audio without subtitles shows CC/Audio button');
+  els['btn-cc'].dispatch('click');
+  assert.ok(findMenuBtn(els['cc-menu'], 'Japanese') && findMenuBtn(els['cc-menu'], 'English'), 'audio options render');
+  assert.equal(findMenuBtn(els['cc-menu'], 'Outline'), undefined, 'subtitle-only controls omitted');
+});
+
+test('shortcuts guide, mute slider collapse, next-ep countdown, and server title hint preserve DOM contracts', async () => {
+  const { els, v, doc, key, fire, relay } = runPlayerDom({
+    tracks: ['English'],
+    trackEls: [{ label: 'English', src: 'https://x/English.vtt' }],
+    current: 'yume-1',
+    servers: [
+      { id: 'yume-1', label: 'Yume 1', url: 'https://w/proxyAnime?server=yume-1' },
+      { id: 'yume-2', label: 'Yume 2', url: 'https://w/proxyAnime?server=yume-2' },
+    ],
+    fetchImpl: async () => ({ json: async () => ({ src: 'https://w/proxyMegavidHls?t=s2' }) }),
+  });
+
+  assert.equal(els['btn-sv'].getAttribute('title'), 'Server: Yume 1');
+  assert.equal(els['btn-sv'].getAttribute('data-sv'), 'Yume 1');
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(els['btn-sv'].textContent, 'Servers');
+  assert.equal(els['btn-sv'].getAttribute('title'), 'Server: Yume 2');
+  assert.equal(els['btn-sv'].getAttribute('data-sv'), 'Yume 2');
+
+  key('m');
+  assert.equal(doc.body.classList.contains('is-muted'), true);
+  key('m');
+  assert.equal(doc.body.classList.contains('is-muted'), false);
+
+  relay({ type: 'animex-player-state', next: 'EP 2', nextKind: 'episode' });
+  v.duration = 200;
+  v.currentTime = 175;
+  fire('timeupdate');
+  assert.equal(els['btn-next'].hidden, false);
+  assert.equal(els['next-tok'].textContent, 'EP 2');
+  assert.equal(els['next-cd'].textContent, '00:25');
+
+  key('?');
+  assert.equal(els['keys-menu'].hidden, false, '? opens keyboard shortcuts dialog');
+  key('Escape');
+  assert.equal(els['keys-menu'].hidden, true, 'Escape closes keyboard shortcuts dialog');
+
+  relay({ type: 'animex-player-state', title: 'My Hero Academia: Vigilantes · S1 E12', next: 'S1 E13', nextKind: 'episode', autoNext: true });
+  assert.equal(els['hud-title'].textContent, 'My Hero Academia: Vigilantes');
+  assert.equal(els['hud-ep'].textContent, ' \u00b7 S1 E12');
+  assert.equal(els['hud-ep'].hidden, false);
+
+  els['btn-more'].dispatch('click');
+  const autoNextBtn = findMenuBtn(els['more-menu'], 'Auto next: On');
+  assert.ok(autoNextBtn, 'Cinema player settings exposes Auto next toggle');
+  assert.equal(findMenuBtn(els['more-menu'], '+85s'), undefined, 'Cinema keeps anime +85s hidden');
+  els['btn-more'].dispatch('click');
+
+  key('?');
+  assert.equal(findMenuBtn(els['keys-menu'], 'S / N'), undefined);
+  assert.ok(menuFlat(els['keys-menu']).some((n) => n.textContent === 'N'), 'Cinema shortcuts omit inactive Skip key');
+  key('Escape');
+
+  v.currentTime = 20;
+  fire('timeupdate');
+  assert.equal(els['btn-next'].hidden, true);
+  assert.equal(els['btn-nx'].hidden, false);
+  let nxClicked = 0;
+  const origNxClick = els['btn-nx'].click;
+  els['btn-nx'].click = () => { nxClicked++; if (origNxClick) origNxClick.call(els['btn-nx']); };
+  key('n');
+  assert.equal(nxClicked, 1, 'N triggers bottom Next button mid-episode');
+
+  els['btn-cc'].dispatch('click');
+  const topPosBtn = findMenuBtn(els['cc-menu'], 'Top');
+  assert.ok(topPosBtn, 'CC Position menu exposes Top option for OP/ED avoidance');
+  topPosBtn.onclick();
+  assert.equal(doc.body.classList.contains('sub-top'), true);
+  assert.equal(els.scrub.getAttribute('role'), 'slider');
+  assert.equal(els.scrub.getAttribute('aria-label'), 'Seek timeline');
+  assert.equal(els.scrub.getAttribute('aria-valuenow'), '20');
+  const renderedHtml = hlsPlayerHtml({ streamUrl: 'https://x/master.m3u8', title: 'Test' });
+  assert.ok(renderedHtml.includes('<button type="button" id="time-lbl"'), '#time-lbl uses semantic button element');
+  assert.ok(renderedHtml.includes('id="scrub" role="slider" tabindex="0"'), '#scrub carries static ARIA slider attrs');
 });

@@ -14,7 +14,9 @@ import { boxShadow, lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { fetchAniZipTmdbId } from '../../shared/utils/catalogProxy';
 import { showModalBottomSheet } from '../../shared/widgets/Dialogs';
+import { isEditableTarget, resolveEverglowPlayerKey } from '../../shared/widgets/everglowPlayerKeys';
 import { Icon } from '../../shared/widgets/Icon';
+import { OfflineVideoHud } from '../../shared/widgets/OfflineVideoHud';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { cinemaPreferences } from './cinemaPreferences';
@@ -22,6 +24,7 @@ import { NetflixColors, resumeSecondsOf, type MediaItem } from './cinemaTypes';
 import {
   buildVideoSourceUrl,
   decodeMessage,
+  nextEpisodeLabel,
   parseEverglowHlsProgress,
   PlaybackProgressWriter,
   PlayerMemoryService,
@@ -95,43 +98,6 @@ const LOAD_TIMEOUT = 15000;
 const CONTENT_CHECK = 8000;
 const CINESRC_CONTENT_CHECK = 14000;
 const UP_NEXT_SECONDS = 10;
-const PLAYER_KEYS = new Set([
-  ' ',
-  'k',
-  'K',
-  'j',
-  'J',
-  'l',
-  'L',
-  'ArrowLeft',
-  'ArrowRight',
-  'ArrowUp',
-  'ArrowDown',
-  'm',
-  'M',
-  'f',
-  'F',
-  'c',
-  'C',
-  'n',
-  'N',
-  '0',
-  '1',
-  '2',
-  '3',
-  '4',
-  '5',
-  '6',
-  '7',
-  '8',
-  '9',
-]);
-const MEDIA_KEY_ALIASES: Record<string, string> = {
-  MediaPlayPause: ' ',
-  MediaFastForward: 'l',
-  MediaRewind: 'j',
-  MediaTrackNext: 'n',
-};
 
 /** `parseEverglowEmbedScrollDelta`. */
 function parseEmbedScrollDelta(data: unknown): number | null {
@@ -227,6 +193,7 @@ class PlayerController {
   private readonly failedProviderIds = new Set<string>();
 
   isFullscreen = false;
+  hostHidden = false;
   private preFullscreenScroll = 0;
   scrollEl: HTMLDivElement | null = null;
   playerAreaHeight = 0;
@@ -234,9 +201,25 @@ class PlayerController {
   private video: HTMLVideoElement | null = null;
   private isOfflinePlayback = false;
   private exitButton: HTMLButtonElement | null = null;
+  private exitFadeTimer: number | null = null;
+  private exitWakeListener: (() => void) | null = null;
   private bodyOverflowPrev: string | null = null;
   private externalTmdbId: number | undefined;
   private unsubscribers: Array<() => void> = [];
+  onShowEpisodesSheet?: () => void;
+
+  get offlinePlayback() {
+    return this.isOfflinePlayback;
+  }
+
+  get videoElement() {
+    return this.video;
+  }
+
+  setHostHidden(hidden: boolean) {
+    if (this.hostHidden === hidden) return;
+    this.setState(() => (this.hostHidden = hidden));
+  }
 
   constructor(p: PlayerProps, rerender: () => void) {
     this.p = p;
@@ -301,6 +284,7 @@ class PlayerController {
   }
 
   init() {
+    offlineMedia.init();
     cinemaPreferences.setUser(this.userName);
     this.restoreDone = this.restorePlayerMemory();
     this.applySandbox(this.selectedProvider);
@@ -309,6 +293,7 @@ class PlayerController {
       this.setState(() => (this.isLoading = false));
       this.startContentCheck();
       this.saveWatchProgress();
+      this.sendCinemaPlayerState();
     };
     const onError = () => this.onIframeLoadError();
     this.iframe.addEventListener('load', onLoad);
@@ -317,7 +302,7 @@ class PlayerController {
       this.iframe.removeEventListener('load', onLoad);
       this.iframe.removeEventListener('error', onError);
     });
-    this.startLoadTimer();
+    if (!this.isOfflinePlayback) this.startLoadTimer();
 
     const onMessage = (e: MessageEvent) => this.onMessage(e);
     window.addEventListener('message', onMessage);
@@ -339,8 +324,10 @@ class PlayerController {
     this.unsubscribers.push(() => document.removeEventListener('visibilitychange', onHide));
 
     void this.resolveNext();
-    if (this.p.isAnime) void this.bootstrapAnime();
-    else this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+    if (!this.isOfflinePlayback) {
+      if (this.p.isAnime) void this.bootstrapAnime();
+      else this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+    }
   }
 
   dispose() {
@@ -433,6 +420,7 @@ class PlayerController {
 
   mountPlayerHost(host: HTMLDivElement) {
     this.playerHost = host;
+    offlineMedia.init();
     const item = offlineMedia.getItem(this.currentDownloadId);
     if (item && item.status === 'completed') this.mountOfflineVideo(host, item);
     else this.mountOnlineIframe(host);
@@ -444,7 +432,7 @@ class PlayerController {
     this.isOfflinePlayback = true;
     if (!this.video) {
       const v = document.createElement('video');
-      v.controls = true;
+      v.controls = false;
       v.autoplay = true;
       Object.assign(v.style, { width: '100%', height: '100%', backgroundColor: '#000', display: 'block' });
       v.setAttribute('playsinline', 'true');
@@ -491,6 +479,7 @@ class PlayerController {
       }
     });
     host.replaceChildren(video);
+    this.setState();
   }
 
   private tryPlayOfflineEpisode(season: number, episode: number): boolean {
@@ -512,9 +501,11 @@ class PlayerController {
   }
 
   private mountOnlineIframe(host: HTMLDivElement) {
+    const wasOffline = this.isOfflinePlayback;
     this.isOfflinePlayback = false;
     this.video?.pause();
     if (this.iframe.parentElement !== host || host.childNodes.length !== 1) host.replaceChildren(this.iframe);
+    if (wasOffline) this.setState();
   }
 
   private applySandbox(provider: VideoSourceConfig) {
@@ -571,6 +562,7 @@ class PlayerController {
     } else {
       this.setState(() => (this.iframeFailed = true));
     }
+    this.syncExitButton();
   }
 
   selectProvider(provider: VideoSourceConfig, retry = false) {
@@ -588,6 +580,7 @@ class PlayerController {
     this.applySandbox(provider);
     this.iframe.src = this.buildPlayerUrl(provider);
     this.persistPlayerMemory();
+    this.syncExitButton();
   }
 
   // --- episodes ---
@@ -745,6 +738,7 @@ class PlayerController {
     if (!this.mounted) return;
     if (!cinemaPreferences.value.autoplayNext && this.upNextVisible) this.cancelUpNext();
     this.setState();
+    this.sendCinemaPlayerState();
   }
 
   // --- up next ---
@@ -764,6 +758,37 @@ class PlayerController {
     if (!this.mounted || season !== this.currentSeason || episode !== this.currentEpisode) return;
     this.setState(() => (this.nextEpisode = next));
     this.checkUpNext();
+    this.sendCinemaPlayerState();
+  }
+
+  private sendCinemaPlayerState() {
+    if (this.isOfflinePlayback || this.selectedProvider.id !== 'everglow-embed' || this.isLoading) return;
+    const displayTitle = playerDisplayTitle(this.p.title);
+    const hudTitle =
+      this.p.mediaType === 'tv' ? `${displayTitle} · S${this.currentSeason} E${this.currentEpisode}` : displayTitle;
+    const next = this.nextEpisode;
+    const rawPoster = this.p.posterPath.trim();
+    const posterUrl = rawPoster.startsWith('https://')
+      ? rawPoster
+      : rawPoster.startsWith('/')
+        ? `https://image.tmdb.org/t/p/w780${rawPoster}`
+        : '';
+    try {
+      this.iframe.contentWindow?.postMessage(
+        {
+          type: 'animex-player-state',
+          ...(next ? { next: `S${next.season} E${next.episode}`, nextKind: 'episode' } : {}),
+          ...(this.p.mediaType === 'tv' && !this.p.isAnime ? { hasEpisodes: true } : {}),
+          theater: this.isFullscreen,
+          autoNext: cinemaPreferences.value.autoplayNext,
+          ...(posterUrl ? { poster: posterUrl } : {}),
+          ...(hudTitle.trim() ? { title: hudTitle.trim() } : {}),
+        },
+        PROXY_CINEMA_ORIGIN,
+      );
+    } catch {
+      // Ignore transient detached iframe state before load settles.
+    }
   }
 
   private checkUpNext() {
@@ -944,6 +969,24 @@ class PlayerController {
         return;
       }
       const obj = decodeMessage(data) as Record<string, unknown> | string | null;
+      if (id === 'everglow-embed' && obj && typeof obj === 'object' && !Array.isArray(obj)) {
+        const msg = obj as Record<string, unknown>;
+        if (msg.type === 'animex-action') {
+          const action = msg.action;
+          if (action === 'next-episode') {
+            if (this.mounted) this.playNextEpisode();
+          } else if (action === 'episodes') {
+            if (this.mounted && this.p.mediaType === 'tv' && !this.p.isAnime) this.onShowEpisodesSheet?.();
+          } else if (action === 'exit-theater') {
+            if (this.mounted && this.isFullscreen) this.toggleFullScreen();
+          }
+          return;
+        }
+        if (msg.type === 'animex-pref' && msg.key === 'autoNext' && typeof msg.value === 'boolean') {
+          if (this.mounted) cinemaPreferences.setAutoplayNext(msg.value);
+          return;
+        }
+      }
       if (
         (id === 'everglow-embed' || id === 'everglow-shell') &&
         (obj === 'animex-content-error' || (obj && typeof obj === 'object' && obj.type === 'everglow-embed-failed'))
@@ -1021,12 +1064,11 @@ class PlayerController {
       event.preventDefault();
       return;
     }
-    if (this.selectedProvider.id !== 'everglow-embed') return;
+    if (this.isOfflinePlayback || this.selectedProvider.id !== 'everglow-embed') return;
     if (this.scrollEl && this.playerAreaHeight > 0 && this.scrollEl.scrollTop > this.playerAreaHeight) return;
-    const tag = (event.target as Element | null)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    const key = MEDIA_KEY_ALIASES[raw] ?? raw;
-    if (!key || !PLAYER_KEYS.has(key)) return;
+    if (isEditableTarget(event.target)) return;
+    const key = resolveEverglowPlayerKey(raw);
+    if (!key) return;
     try {
       this.iframe.contentWindow?.postMessage({ type: 'everglow-key', key }, PROXY_CINEMA_ORIGIN);
       event.preventDefault();
@@ -1053,7 +1095,12 @@ class PlayerController {
       if (this.scrollEl) this.scrollEl.scrollTop = 0;
       this.setState(() => (this.isFullscreen = true));
       this.animateTheaterTransition();
-      this.showExitButton();
+      if (this.selectedProvider.id !== 'everglow-embed' || this.isOfflinePlayback) {
+        this.showExitButton();
+      } else {
+        this.hideExitButton();
+      }
+      this.sendCinemaPlayerState();
       this.setBodyOverflowHidden(true);
     } else {
       this.restoreHostStyle();
@@ -1065,6 +1112,7 @@ class PlayerController {
         this.scrollEl.scrollTop = saved;
       });
       this.hideExitButton();
+      this.sendCinemaPlayerState();
       this.setBodyOverflowHidden(false);
     }
   };
@@ -1101,6 +1149,16 @@ class PlayerController {
     }
   }
 
+  private syncExitButton() {
+    if (!this.isFullscreen) {
+      this.hideExitButton();
+    } else if (this.selectedProvider.id !== 'everglow-embed' || this.isOfflinePlayback) {
+      this.showExitButton();
+    } else {
+      this.hideExitButton();
+    }
+  }
+
   private showExitButton() {
     if (this.exitButton) return;
     const b = document.createElement('button');
@@ -1109,11 +1167,12 @@ class PlayerController {
     b.setAttribute('aria-label', 'Exit theater');
     Object.assign(b.style, {
       position: 'fixed',
-      top: 'calc(16px + env(safe-area-inset-top, 0px))',
-      right: '16px',
+      top: 'calc(10px + env(safe-area-inset-top, 0px))',
+      left: '50%',
+      transform: 'translateX(-50%)',
       zIndex: '10000',
-      padding: '10px 14px',
-      background: 'rgba(28, 18, 40, 0.92)',
+      padding: '8px 14px',
+      background: this.p.isAnime ? 'rgba(20, 14, 28, 0.88)' : 'rgba(12, 12, 14, 0.88)',
       border: '1px solid rgba(255, 255, 255, 0.28)',
       borderRadius: '999px',
       boxShadow: '0 6px 22px rgba(0, 0, 0, 0.5)',
@@ -1123,13 +1182,44 @@ class PlayerController {
       fontWeight: '700',
       fontFamily: 'system-ui, sans-serif',
       userSelect: 'none',
+      transition: 'opacity 0.25s ease',
     });
     b.addEventListener('click', () => this.toggleFullScreen());
     document.body.appendChild(b);
     this.exitButton = b;
+
+    const wakeExitButton = () => {
+      const btn = this.exitButton;
+      if (!btn) return;
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      if (this.exitFadeTimer != null) window.clearTimeout(this.exitFadeTimer);
+      this.exitFadeTimer = window.setTimeout(() => {
+        if (this.exitButton === btn) {
+          btn.style.opacity = '0';
+          btn.style.pointerEvents = 'none';
+        }
+      }, 3000);
+    };
+
+    this.exitWakeListener = wakeExitButton;
+    window.addEventListener('mousemove', wakeExitButton);
+    window.addEventListener('touchstart', wakeExitButton);
+    window.addEventListener('keydown', wakeExitButton);
+    wakeExitButton();
   }
 
   private hideExitButton() {
+    if (this.exitFadeTimer != null) {
+      window.clearTimeout(this.exitFadeTimer);
+      this.exitFadeTimer = null;
+    }
+    if (this.exitWakeListener) {
+      window.removeEventListener('mousemove', this.exitWakeListener);
+      window.removeEventListener('touchstart', this.exitWakeListener);
+      window.removeEventListener('keydown', this.exitWakeListener);
+      this.exitWakeListener = null;
+    }
     this.exitButton?.remove();
     this.exitButton = null;
   }
@@ -1193,6 +1283,55 @@ function VideoPlayerScreen(props: PlayerProps) {
     )).then(() => c.mounted && c.setIframePointerEvents(true));
   };
 
+  const showEpisodesSheet = () => {
+    if (!c.mounted || !isTv || props.isAnime) return;
+    if (document.fullscreenElement != null) void document.exitFullscreen().catch(() => undefined);
+    const wasFullscreen = c.isFullscreen;
+    c.setIframePointerEvents(false);
+    if (wasFullscreen) c.setHostHidden(true);
+    void showModalBottomSheet<void>((close) => (
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <div
+          style={{
+            background: surface,
+            borderRadius: `${AppRadius.x2}px ${AppRadius.x2}px 0 0`,
+            maxHeight: 'calc(92dvh - env(safe-area-inset-top, 0px))',
+            overflowY: 'auto',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <SheetDragHandle />
+            <div style={{ height: 10 }} />
+            <div style={{ width: 40, height: 4, borderRadius: AppRadius.full, background: hairline }} />
+          </div>
+          <EpisodeNavigator
+            key={`sheet-ep-${c.currentSeason}-${c.currentEpisode}`}
+            tmdbId={props.tmdbId}
+            initialSeason={c.currentSeason}
+            initialEpisode={c.currentEpisode}
+            title={props.title}
+            positionSeconds={c.positionSeconds}
+            durationSeconds={c.durationSeconds}
+            allEpisodesWatched={props.allEpisodesWatched}
+            currentEpisodeCompleted={c.currentEpisodeCompleted}
+            initiallyExpanded={true}
+            onSeasonChanged={c.onSeasonChanged}
+            onEpisodeChanged={(ep) => {
+              close(null);
+              c.onEpisodeChanged(ep);
+            }}
+          />
+        </div>
+      </div>
+    )).then(() => {
+      if (!c.mounted) return;
+      c.setIframePointerEvents(true);
+      if (wasFullscreen) c.setHostHidden(false);
+    });
+  };
+  c.onShowEpisodesSheet = showEpisodesSheet;
+
   const showProviderSheet = () => {
     c.setIframePointerEvents(false);
     void showModalBottomSheet<VideoSourceConfig>((close) => (
@@ -1240,6 +1379,7 @@ function VideoPlayerScreen(props: PlayerProps) {
         zIndex: 9999,
         overflow: 'hidden',
         background: '#000',
+        visibility: c.hostHidden ? 'hidden' : 'visible',
       }
     : { position: 'absolute', inset: 0 };
 
@@ -1325,19 +1465,38 @@ function VideoPlayerScreen(props: PlayerProps) {
                 background: '#000',
               }}
             >
-              <div ref={hostRef} style={hostStyle} />
-              {c.isLoading && <CinematicLoader providerName={c.selectedProvider.shortName} />}
-              {!c.isLoading && !c.iframeFailed && c.upNextVisible && isTv && upNext && (
-                <div style={{ position: 'absolute', right: 12, bottom: 12 }}>
-                  <UpNextOverlay
-                    next={upNext}
-                    secondsLeft={c.upNextLeft}
-                    totalSeconds={UP_NEXT_SECONDS}
-                    onPlayNow={c.playNextEpisode}
-                    onCancel={c.cancelUpNext}
+              <div style={hostStyle}>
+                <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />
+                {c.offlinePlayback && !c.isLoading && c.videoElement && (
+                  <OfflineVideoHud
+                    video={c.videoElement}
+                    host={c.playerHost}
+                    title={isTv ? `${title} · S${c.currentSeason} E${c.currentEpisode}` : title}
+                    nextLabel={upNext ? `Next: ${nextEpisodeLabel(upNext)}` : undefined}
+                    onNextEpisode={isTv && c.nextEpisode ? c.playNextEpisode : undefined}
+                    onShowEpisodes={isTv && !props.isAnime ? showEpisodesSheet : undefined}
+                    accentColor={accent}
                   />
-                </div>
-              )}
+                )}
+              </div>
+              {c.isLoading && <CinematicLoader providerName={c.selectedProvider.shortName} />}
+              {!c.isLoading &&
+                !c.iframeFailed &&
+                c.upNextVisible &&
+                isTv &&
+                upNext &&
+                !c.offlinePlayback &&
+                c.selectedProvider.id !== 'everglow-embed' && (
+                  <div style={{ position: 'absolute', right: 12, bottom: 68 }}>
+                    <UpNextOverlay
+                      next={upNext}
+                      secondsLeft={c.upNextLeft}
+                      totalSeconds={UP_NEXT_SECONDS}
+                      onPlayNow={c.playNextEpisode}
+                      onCancel={c.cancelUpNext}
+                    />
+                  </div>
+                )}
             </div>
           </div>
         )}
@@ -1358,14 +1517,18 @@ function VideoPlayerScreen(props: PlayerProps) {
             />
           )}
           <CompactViewingPreferences />
-          <div style={{ padding: '16px 20px 0', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {metaBadge(isTv ? 'tv' : 'movie', isTv ? 'TV Show' : 'Movie')}
-            {isTv && metaBadge('layers', `S${c.currentSeason} E${c.currentEpisode}`)}
-          </div>
           <div style={{ padding: '16px 20px 0' }}>
             <div
               role="button"
+              tabIndex={0}
               onClick={showProviderSheet}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  showProviderSheet();
+                }
+              }}
+              className="player-focusable"
               style={{
                 borderRadius: AppRadius.x2,
                 background: surfaceElevated,
@@ -1375,7 +1538,7 @@ function VideoPlayerScreen(props: PlayerProps) {
             >
               <div
                 style={{
-                  padding: '12px 8px 12px 16px',
+                  padding: `${compact ? 8 : 12}px 8px ${compact ? 8 : 12}px ${compact ? 12 : 16}px`,
                   background: surface,
                   borderRadius: AppRadius.x2,
                   display: 'flex',
@@ -1386,17 +1549,25 @@ function VideoPlayerScreen(props: PlayerProps) {
                 <div style={{ width: 12, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), letterSpacing: 0.2 }}>
-                    Server: {c.selectedProvider.name}
+                    Provider: {c.selectedProvider.name}
                   </div>
-                  <div style={{ height: 2 }} />
-                  <div style={{ ...AppTypography.outfitWhite, color: secondary, fontSize: 11, lineHeight: lineHeight(11) }}>
-                    {c.selectedProvider.desc}
-                  </div>
+                  {(!compact || c.selectedProvider.id !== 'everglow-embed') && (
+                    <>
+                      <div style={{ height: 2 }} />
+                      <div style={{ ...AppTypography.outfitWhite, color: secondary, fontSize: 11, lineHeight: lineHeight(11) }}>
+                        {c.selectedProvider.desc}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div style={{ width: 8, flexShrink: 0 }} />
                 <PlayerIconButton icon="swap_horiz" onTap={showProviderSheet} />
               </div>
             </div>
+          </div>
+          <div style={{ padding: '16px 20px 0', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {metaBadge(isTv ? 'tv' : 'movie', isTv ? 'TV Show' : 'Movie')}
+            {isTv && metaBadge('layers', `S${c.currentSeason} E${c.currentEpisode}`)}
           </div>
           <div style={{ height: 40 }} />
         </div>
@@ -1455,7 +1626,7 @@ function ProviderSheet({
           </div>
           <div style={{ height: 12 }} />
           <div style={{ ...AppTypography.outfitWhite, color: '#fff', fontSize: 17, fontWeight: 700, lineHeight: lineHeight(17) }}>
-            Switch Source
+            Switch Provider
           </div>
           <div style={{ height: 4 }} />
           <div
@@ -1525,18 +1696,19 @@ function ProviderSheet({
                       <Icon name="radio_button_checked" variant="filled" size={18} color={accent} />
                     ) : (
                       <Tooltip message="Set as default source">
-                        <span
-                          role="button"
+                        <button
+                          type="button"
+                          className="bare-button player-focusable"
                           aria-label="Set as default source"
                           onClick={(e) => {
                             e.stopPropagation();
                             VideoSourceService.saveDefaultSourceId(p.id);
                             showSnackBar(`${p.name} set as default`, { background: accent, duration: 2000 });
                           }}
-                          style={{ display: 'flex' }}
+                          style={{ display: 'flex', padding: 4, borderRadius: 6 }}
                         >
                           <Icon name="star_border" size={20} color="rgba(255,255,255,0.38)" />
-                        </span>
+                        </button>
                       </Tooltip>
                     )}
                   </div>
