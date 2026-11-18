@@ -59,10 +59,13 @@ export function GardenPage() {
         <div
           style={{
             flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
             display: 'flex',
             flexDirection: isWide ? 'row' : 'column',
-            alignItems: isWide ? 'stretch' : 'center',
-            gap: 16,
+            alignItems: isWide ? 'flex-start' : 'stretch',
+            gap: 14,
+            paddingBottom: 24,
           }}
         >
           <GardenCard name={myName} stats={stats} wide={isWide} />
@@ -78,56 +81,96 @@ function GardenCard({ name, stats, wide }: { name: string; stats: GardenStats | 
   const stage = stats?.currentStage ?? 0;
   const effStage = effectiveStage(plantType, stage);
 
+  const maxStage = plantType.stageDescriptions.length - 1;
+  const stageLabel = plantType.stageDescriptions[Math.min(effStage, maxStage)];
+  const seasonal = isPlantInSeason(plantType);
   return (
     <div
       style={{
-        flex: '1 1 0',
-        minHeight: 0,
-        alignSelf: wide ? undefined : 'center',
+        flex: wide ? '1 1 0' : '0 0 auto',
         margin: '0 16px',
+        padding: wide ? '22px 18px' : '16px 16px 16px 10px',
         boxSizing: 'border-box',
-        background: withAlpha(AppColors.moonlight, 0.08),
-        borderRadius: 20,
-        border: `1px solid ${withAlpha(AppColors.blushGold, 0.15)}`,
+        borderRadius: 24,
+        background: `linear-gradient(160deg, ${withAlpha(AppColors.auroraTeal, 0.1)}, ${withAlpha(AppColors.inkDeep, 0.55)} 70%)`,
+        boxShadow: `inset 0 0 0 1px ${withAlpha(AppColors.auroraTeal, 0.18)}, 0 12px 28px ${withAlpha(AppColors.inkDeep, 0.45)}`,
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: wide ? 'column' : 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: wide ? 14 : 12,
         overflow: 'hidden',
       }}
     >
-      <div style={{ ...AppTypography.cormorantBold, fontSize: 18 }}>{name}</div>
-      <div style={{ height: 4 }} />
-      {isPlantInSeason(plantType) && (
+      <div style={{ position: 'relative', width: wide ? 190 : 150, height: wide ? 190 : 150, flex: '0 0 auto' }}>
         <div
+          aria-hidden
           style={{
-            padding: '2px 8px',
-            borderRadius: 10,
-            background: withAlpha(AppColors.blushGold, 0.15),
-            ...AppTypography.outfitHeading,
-            fontSize: 10,
-            color: AppColors.blushGold,
+            position: 'absolute',
+            left: '8%',
+            right: '8%',
+            bottom: 2,
+            height: '18%',
+            borderRadius: '50%',
+            background: `radial-gradient(ellipse at center, ${withAlpha(AppColors.auroraTeal, 0.28)}, transparent 70%)`,
           }}
-        >
-          {plantType.seasonalBonusName} ✨
-        </div>
-      )}
-      <div style={{ height: 12 }} />
-      <div style={{ width: 150, height: 150 }}>
+        />
         <GardenPlantView plantType={plantType} stage={effStage} />
       </div>
-      <div style={{ height: 8 }} />
-      {stats && (
-        <div
-          style={{
-            ...AppTypography.outfitWhite,
-            fontSize: 11,
-            color: withAlpha(AppColors.petalWhite, 0.6),
-          }}
-        >
-          {stats.streakCount} day streak · {stats.totalInteractions} visits
+      <div style={{ flex: 1, minWidth: 0, width: wide ? '100%' : undefined, textAlign: wide ? 'center' : 'left' }}>
+        <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 24, lineHeight: 1.05 }}>{name}</div>
+        <div style={{ ...AppTypography.handwrittenBody, fontSize: 17, color: withAlpha(AppColors.auroraTeal, 0.95), marginTop: 2 }}>
+          {plantType.emoji} {plantType.displayName.toLowerCase()} · {stageLabel.toLowerCase()}
         </div>
-      )}
+        {seasonal && (
+          <div style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.blushGold, marginTop: 4 }}>
+            {plantType.seasonalBonusName} ✨
+          </div>
+        )}
+        <div
+          role="progressbar"
+          aria-label={`${name}'s plant growth`}
+          aria-valuemin={0}
+          aria-valuemax={maxStage}
+          aria-valuenow={effStage}
+          style={{ display: 'flex', gap: 4, marginTop: 10, justifyContent: wide ? 'center' : 'flex-start' }}
+        >
+          {Array.from({ length: maxStage }, (_, i) => (
+            <span
+              key={i}
+              style={{
+                flex: wide ? '0 0 22px' : 1,
+                maxWidth: 34,
+                height: 5,
+                borderRadius: 3,
+                background: i < effStage ? AppColors.auroraTeal : withAlpha(AppColors.petalWhite, 0.12),
+              }}
+            />
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: wide ? 'center' : 'flex-start' }}>
+          <GardenStat value={stats?.streakCount ?? 0} label="day streak" />
+          <GardenStat value={stats?.totalInteractions ?? 0} label="visits" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GardenStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div
+      style={{
+        padding: '6px 10px',
+        borderRadius: 12,
+        background: withAlpha(AppColors.petalWhite, 0.05),
+        boxShadow: `inset 0 0 0 1px ${withAlpha(AppColors.petalWhite, 0.08)}`,
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 5,
+      }}
+    >
+      <span style={{ ...AppTypography.outfitBold, fontSize: 15, color: AppColors.petalWhite }}>{value}</span>
+      <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.6) }}>{label}</span>
     </div>
   );
 }
