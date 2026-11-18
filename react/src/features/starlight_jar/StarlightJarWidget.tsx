@@ -1,6 +1,7 @@
 // Port of lib/features/starlight_jar/presentation/screens/starlight_jar_widget.dart
 // and widgets/glass_jar.dart.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { Logger } from '../../core/system/logger';
 import { useViewport } from '../../core/system/viewport';
@@ -157,7 +158,8 @@ function shakeAt(v: number): number {
   return 0;
 }
 
-export function StarlightJarWidget() {
+export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } = {}) {
+  const navigate = useNavigate();
   const auth = useAuth();
   const viewport = useViewport();
   const serverNotes = useSource(() => starlightService.getStarNotes(), [], [] as StarNote[]);
@@ -364,6 +366,32 @@ export function StarlightJarWidget() {
         subtitle="gratitude under the stars"
         icon="auto_awesome"
         hue={AppColors.blushGold}
+        showBack={!embedded}
+        actions={
+          embedded
+            ? [
+                <button
+                  key="open"
+                  type="button"
+                  className="bare-button"
+                  aria-label="Open Starlight Jar"
+                  onClick={() => navigate('/starlight')}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: withAlpha(AppColors.moonlight, 0.07),
+                    boxShadow: `inset 0 0 0 1px ${withAlpha(AppColors.moonlight, 0.12)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name="arrow_forward" size={18} color={AppColors.roseQuartz} />
+                </button>,
+              ]
+            : []
+        }
       />
 
       {onThisDay.length > 0 && <OnThisDayCard note={onThisDay[0]} onTap={() => void showNote(onThisDay[0])} />}

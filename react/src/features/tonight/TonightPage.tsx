@@ -202,10 +202,8 @@ export function TonightPage() {
           <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column' }}>
             {decision.status === 'voting' && (
               <>
-                <div style={{ ...AppTypography.labelSmall, color: AppColors.blushGold, ...letterSpacing(2) }}>
-                  JUST US, TONIGHT
-                </div>
-                <div style={{ height: AppSpacing.sm }} />
+                <div style={{ ...AppTypography.handwrittenBody, fontSize: 19, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.9) }}>just us, tonight</div>
+                <div style={{ height: AppSpacing.xs }} />
                 <div
                   style={{
                     ...AppTypography.cormorantBoldWhite,

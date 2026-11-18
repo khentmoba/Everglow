@@ -1,11 +1,10 @@
 // Port of lib/features/dashboard/presentation/widgets/anniversary_metrics.dart.
 import { useEffect, useState } from 'react';
-import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
-import { reduceAmbientMotion } from '../../core/theme/motion';
 import { Align, letterSpacing, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
+import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeader';
 import { Icon } from '../../shared/widgets/Icon';
 import {
   ANNIVERSARY_DATE,
@@ -27,7 +26,7 @@ export function AnniversaryMetrics() {
   const totalDays = totalDaysSinceAnniversary(now);
 
   return (
-    <div style={{ padding: '12px 24px 0', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+    <div style={{ padding: '20px 24px 0', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
       <SectionEyebrow counter={counter} />
       <div style={{ height: 14 }} />
       <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -40,86 +39,26 @@ export function AnniversaryMetrics() {
 }
 
 function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {
-  const { width, height } = useViewport();
-  const reduceAmbient = reduceAmbientMotion(width, height);
   const tag =
     counter.years === 0
       ? counter.months === 1
-        ? '1 MONTH'
-        : `${counter.months} MONTHS`
+        ? '1 month'
+        : `${counter.months} months`
       : counter.years === 1
-        ? '1 YEAR'
-        : `${counter.years} YEARS`;
+        ? '1 year'
+        : `${counter.years} years`;
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-      <div style={{ position: 'relative', display: 'flex' }}>
-        {!reduceAmbient && (
-          <>
-            <div style={shadowLayer({ color: 'rgba(0,0,0,0.15)', blur: 10, offset: [0, 2] }, { radius: 999 })} aria-hidden />
-            <div style={shadowLayer({ color: withAlpha(AppColors.auroraRose, 0.1), blur: 8, offset: [0, 1] }, { radius: 999 })} aria-hidden />
-          </>
-        )}
-        <div
-          style={{
-            position: 'relative',
-            padding: '6.5px 13px',
-            borderRadius: 999,
-            border: `1px solid ${withAlpha(AppColors.blushGold, 0.32)}`,
-            background: linear(
-              [withAlpha(AppColors.moonlight, 0.14), withAlpha(AppColors.auroraRose, 0.1), withAlpha(AppColors.inkDeep, 0.3)],
-              { begin: Align.topLeft, end: Align.bottomRight, size: [140, 28] },
-            ),
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}
-        >
-          <Icon name="favorite" size={11} color={withAlpha(AppColors.auroraRose, 0.95)} />
-          <div style={{ width: 6 }} />
-          <span
-            style={{
-              ...AppTypography.outfitHeading,
-              fontSize: 10.5,
-              ...letterSpacing(1.2),
-              fontWeight: 700,
-              color: AppColors.blushGold,
-            }}
-          >
-            TIME TOGETHER
-          </span>
-        </div>
-      </div>
-
-      <div style={{ position: 'relative', display: 'flex' }}>
-        <div style={shadowLayer({ color: 'rgba(0,0,0,0.12)', blur: 8, offset: [0, 2] }, { radius: 999 })} aria-hidden />
-        <div
-          style={{
-            position: 'relative',
-            padding: '6.5px 11px',
-            borderRadius: 999,
-            border: `1px solid ${withAlpha(AppColors.moonlight, 0.2)}`,
-            background: linear([withAlpha(AppColors.moonlight, 0.12), withAlpha(AppColors.inkDeep, 0.28)], {
-              begin: Align.topLeft,
-              end: Align.bottomRight,
-              size: [90, 28],
-            }),
-            display: 'flex',
-          }}
-        >
-          <span
-            style={{
-              ...AppTypography.outfitWhite,
-              fontSize: 10,
-              ...letterSpacing(0.9),
-              fontWeight: 600,
-              color: withAlpha(AppColors.petalWhite, 0.75),
-            }}
-          >
-            {tag}
-          </span>
-        </div>
-      </div>
-    </div>
+    <EverglowSectionHeader
+      label="Time together"
+      icon="favorite"
+      hue={AppColors.auroraRose}
+      trailing={
+        <span style={{ ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1, color: withAlpha(AppColors.blushGold, 0.9) }}>
+          {tag}
+        </span>
+      }
+    />
   );
 }
 

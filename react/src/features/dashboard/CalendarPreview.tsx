@@ -16,7 +16,7 @@ export function CalendarPreview() {
   const events = useSource<CalendarEvent[] | null>(() => calendarService.getUpcomingEvents(60), [], calendarService.cachedUpcoming);
 
   return (
-    <div style={{ padding: '6px 16px' }}>
+    <div style={{ padding: '6px 0' }}>
       <FeatureSection
         icon="calendar_month"
         hue={AppColors.warmAmber}

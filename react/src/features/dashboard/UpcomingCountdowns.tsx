@@ -66,7 +66,7 @@ export function UpcomingCountdowns() {
 
   if (!loading && (hasError || events == null)) {
     return (
-      <div style={{ padding: '6px 16px' }}>
+      <div style={{ padding: '6px 0' }}>
         <FeatureSection
           icon="event"
           hue={AppColors.warmAmber}
@@ -100,7 +100,7 @@ export function UpcomingCountdowns() {
 
   if (events == null) {
     return (
-      <div style={{ padding: '6px 16px' }}>
+      <div style={{ padding: '6px 0' }}>
         <FeatureSection
           icon="event"
           hue={AppColors.warmAmber}
@@ -123,7 +123,7 @@ export function UpcomingCountdowns() {
 
   const upcoming = events.slice(0, 6);
   return (
-    <div style={{ padding: '6px 16px' }}>
+    <div style={{ padding: '6px 0' }}>
       <FeatureSection
         icon="event"
         hue={AppColors.warmAmber}

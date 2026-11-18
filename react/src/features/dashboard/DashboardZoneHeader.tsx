@@ -3,19 +3,18 @@ import type { ReactNode } from 'react';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint } from '../../core/theme/layout';
-import { letterSpacing, linear } from '../../core/theme/paint';
+import { linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
-import { Icon } from '../../shared/widgets/Icon';
+import { HueGlyph } from '../../shared/widgets/HueGlyph';
 
 export function DashboardZoneHeader({
-  label,
   title,
   subtitle,
   icon,
   hue,
   trailing,
 }: {
-  label: string;
+  label?: string;
   title: string;
   subtitle: string;
   icon: string;
@@ -23,60 +22,30 @@ export function DashboardZoneHeader({
   trailing?: ReactNode;
 }) {
   const { width } = useViewport();
-  const hPad = width < 360 ? 16 : 24;
+  const hPad = width < 360 ? 16 : 20;
   return (
-    <div style={{ padding: `28px ${hPad}px 14px`, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-      <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'stretch' }}>
-        <div style={{ width: 22, height: 1, background: linear([AppColors.transparent, withAlpha(hue, 0.55)]) }} />
-        <div style={{ width: 10 }} />
-        <div
-          style={{
-            padding: '5px 10px',
-            background: withAlpha(hue, 0.1),
-            borderRadius: 999,
-            border: `1px solid ${withAlpha(hue, 0.2)}`,
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}
-        >
-          <Icon name={icon} size={11} color={hue} />
-          <div style={{ width: 6 }} />
-          <span
-            style={{
-              ...AppTypography.outfitHeading,
-              fontSize: 10,
-              ...letterSpacing(1.1),
-              color: hue,
-            }}
-          >
-            {label.toUpperCase()}
-          </span>
-        </div>
-        <div style={{ width: 10 }} />
-        <div style={{ flex: 1, height: 1, background: withAlpha(AppColors.moonlight, 0.07) }} />
-      </div>
-      <div style={{ height: 12 }} />
-      <div style={{ display: 'flex', alignItems: 'flex-end', alignSelf: 'stretch' }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+    <div style={{ padding: `40px ${hPad}px 16px` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <HueGlyph icon={icon} hue={hue} size={44} iconSize={20} />
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <h2
             style={{
               margin: 0,
-              ...AppTypography.cormorantBold,
-              fontSize: 26,
+              ...AppTypography.cormorantBoldWhite,
+              fontSize: 30,
               lineHeight: 1,
-              letterSpacing: -0.3,
-              color: AppColors.petalWhite,
+              letterSpacing: -0.4,
             }}
           >
             {title}
           </h2>
-          <div style={{ height: 4 }} />
           <span
             style={{
-              ...AppTypography.outfitWhite,
-              fontSize: 12,
-              color: withAlpha(AppColors.petalWhite, 0.52),
-              letterSpacing: 0.2,
+              ...AppTypography.handwrittenBody,
+              fontSize: 18,
+              lineHeight: 1.2,
+              marginTop: 2,
+              color: withAlpha(hue, 0.85),
             }}
           >
             {subtitle}
@@ -84,6 +53,10 @@ export function DashboardZoneHeader({
         </div>
         {trailing}
       </div>
+      <div
+        aria-hidden
+        style={{ height: 1, marginTop: 16, background: linear([withAlpha(hue, 0.4), withAlpha(AppColors.moonlight, 0.06), AppColors.transparent], { stops: [0, 0.5, 1] }) }}
+      />
     </div>
   );
 }

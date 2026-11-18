@@ -1,5 +1,6 @@
 // Port of lib/features/watch_party/presentation/screens/watch_party_lobby_screen.dart
 // and watch_party_screen_web.dart.
+import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
@@ -10,7 +11,6 @@ import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
-import { canPop } from '../../shared/widgets/MaterialFields';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { TmdbImages, type MediaItem } from '../cinema/cinemaTypes';
 import { searchMulti } from '../cinema/tmdbService';
@@ -54,30 +54,12 @@ export function WatchPartyPage() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          height: 56,
-          padding: '0 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          background: AppColors.inkDeep,
-          flexShrink: 0,
-        }}
-      >
-        {canPop() && (
-          <button
-            type="button"
-            className="bare-button"
-            aria-label="Back"
-            onClick={() => navigate(-1)}
-            style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Icon name="arrow_back" size={20} color={AppColors.petalWhite} />
-          </button>
-        )}
-        <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>Watch Together</span>
-      </header>
+      <EverglowFeatureHeader
+        title="Watch Together"
+        subtitle="pick a room, press play"
+        icon="live_tv"
+        hue={AppColors.auroraRose}
+      />
 
       <div
         className="no-scrollbar"
@@ -152,8 +134,6 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
           {!embedded && (
             <div style={{ marginBottom: AppSpacing.lg }}>
-              <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 30 }}>Watch Together</div>
-              <div style={{ height: 4 }} />
               <div style={{ ...AppTypography.outfitWhite, color: Derived.textMedium, fontSize: 13, lineHeight: 1.4 }}>
                 Pick a room, or make a new one. Both of you can walk in.
               </div>

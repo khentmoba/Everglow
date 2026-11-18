@@ -1,14 +1,13 @@
 // Port of lib/features/daily_bloom/presentation/widgets/shared_garden_view.dart.
+import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useValue } from '../../core/system/store';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
-import { letterSpacing } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
-import { Icon } from '../../shared/widgets/Icon';
 import { GardenPlantView } from './GardenPlantView';
 import {
   PLANT_TYPES,
@@ -47,41 +46,13 @@ export function GardenPage() {
           flexDirection: 'column',
         }}
       >
-        <div
-          style={{
-            padding: '8px 16px 0',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <button
-            type="button"
-            className="bare-button"
-            aria-label="Back to dashboard"
-            onClick={() => navigate('/dashboard')}
-            style={{
-              width: 48,
-              height: 48,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon name="arrow_back_ios_new" size={20} color={AppColors.roseQuartz} />
-          </button>
-          <div style={{ flex: 1 }} />
-          <div
-            style={{
-              ...AppTypography.cormorantBold,
-              fontSize: 22,
-              ...letterSpacing(1.5),
-            }}
-          >
-            Our Garden
-          </div>
-          <div style={{ flex: 1 }} />
-          <div style={{ width: 48 }} />
-        </div>
+        <EverglowFeatureHeader
+          title="Our Garden"
+          subtitle="a little bloom for each of us"
+          icon="local_florist"
+          hue={AppColors.auroraTeal}
+          onBack={() => navigate('/dashboard')}
+        />
 
         <div style={{ height: 16 }} />
 

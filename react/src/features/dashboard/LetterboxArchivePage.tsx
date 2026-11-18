@@ -1,4 +1,5 @@
 // Port of lib/features/dashboard/presentation/screens/letterbox_archive_screen.dart.
+import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -125,12 +126,15 @@ export function LetterboxArchivePage() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: AppColors.inkDeep }}>
-      <LetterAppBar
+      <EverglowFeatureHeader
         title="Letter Archive"
-        titleSize={24}
+        subtitle="every letter, kept"
+        icon="mail_outline"
+        hue={AppColors.blushGold}
         onBack={() => navigate('/dashboard')}
-        action={
+        actions={[
           <button
+            key="search"
             type="button"
             className="bare-button"
             aria-label="Search letters"
@@ -139,7 +143,7 @@ export function LetterboxArchivePage() {
           >
             <Icon name="search" color={AppColors.blushGold} />
           </button>
-        }
+        ]}
       />
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
