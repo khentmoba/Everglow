@@ -348,6 +348,34 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 | MangaDex / Bato / Comick / Mangakakalot / Mangasee123 | manga catalog + images | allow-listed host proxies |
 | Last.fm | music status | server-side via `proxyLastfm` (authenticated) |
 
+### 6.5 Hidden contracts (read before changing these)
+
+Nothing in the type system ties these together; each one broke or cost a
+long search once.
+
+- **Video streams** go through the Cloudflare Worker
+  (`everglow-stream…workers.dev`, `cloudflare/`; origins in
+  `react/src/features/cinema/playerServices.ts` and
+  `react/src/features/anime/animexWatchConfig.ts`). `proxyVideoStream`,
+  `proxyEmbed`, and `onWatchPartyInvite` were removed on purpose (#527);
+  `functions/test/media_proxy_html.test.js` keeps them gone. Check
+  `git log -S <name>` before rebuilding something that looks missing.
+- **Legacy milestone photos:** Firestore still stores
+  `assets/images/milestones/<file>`; `repairLegacyMilestoneImageUrl` in
+  `react/src/features/dashboard/milestoneService.ts` maps it to Storage
+  `milestones/legacy/<file>`. Keep that mapping when touching the Living Archive.
+- **Desktop app bridge:** the Tauri app injects
+  `window.__everglowDesktopVersion` and `window.__everglowCheckForUpdates`
+  (Everglow-Desktop `src-tauri/src/website_bridge.rs`);
+  `react/src/features/dashboard/DesktopAppPage.tsx` reads those exact names.
+  See `docs/DESKTOP_APP.md`.
+- **OAuth scopes:** adding a Spotify scope (`jukeboxService.ts`) does not
+  upgrade tokens already linked. Ship a re-link path with the new scope.
+- **Low-end gate:** `reduceAmbientMotion` (`react/src/core/system/device.ts`)
+  turns ambient motion off on 4-core machines, which includes the CI runner,
+  and under 600px. Features that must still move or hover belong outside that
+  gate; test them with `?lowend=1`.
+
 ## 7. Database Schema
 
 All timestamps are Firestore server timestamps; IDs are client-created or

@@ -59,7 +59,7 @@ Add `?agent=1` or `?agent=<alias>` to any URL (`/?agent=cinema`,
 passcode. Aliases live in `react/src/core/agent/agentMode.ts`.
 
 - The floating HUD jumps between pages and switches profiles
-  (Khent, Clair, Cinema guest). Collapse it with `—` before proof screenshots.
+  (Khent, Clair, Cinema guest). Add `&hud=0` to hide it for proof screenshots.
 - Couple-only features read in-memory demo data from
   `react/src/core/agent/fixtures.ts`. Real couple data and private photos
   stay untouched, so agent mode is the place for proof screenshots.
@@ -67,7 +67,8 @@ passcode. Aliases live in `react/src/core/agent/agentMode.ts`.
 ### Browser checks
 
 `npm --prefix react test` drives a real headless Chrome against `react/dist`
-(build first; Node 22+). It covers the shell, the offline service worker
+(build first; Node 22+; it refuses a stale build; set `CHROME_PATH` if
+Chrome isn't found). It covers the shell, the offline service worker
 (`react/tools/shell.test.mjs`, built by `buildServiceWorkerSource` in
 `react/vite.config.ts`), the players, and media regressions.
 `node tool/agent_smoke.mjs react/dist` visits every agent destination at
@@ -99,6 +100,15 @@ no bump does nothing.
 - **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
 - **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-pr` skill.
+- **Hidden contracts** (stream proxies removed on purpose, legacy photo paths, the desktop bridge, OAuth scopes, the low-end motion gate): `docs/ARCHITECTURE.md` §6.5.
+- **Redesigns keep the identity:** read `DESIGN.md` first. Improve page bodies, not just shared headers, and show the difference in before/after shots.
+- **Score loops stop:** a loop chasing a reviewer's score (UI rating, %) ends after two rounds that find nothing new, and includes one code review early. An AI score alone never means done.
+
+## Shell
+
+- Claude runs Git Bash; Gemini/opencode helpers run PowerShell, where `&&`, `rg`, and `head` fail: use `;`, `git grep`, `Select-String`.
+- Write files with the Write/Edit tools, never `cat <<EOF` or script heredocs (they mangle quotes and backslashes).
+- In a fresh worktree run `npm --prefix react ci` before typecheck or tests.
 
 ## Rules that matter
 
@@ -111,7 +121,6 @@ no bump does nothing.
   Services keep state and expose `subscribe()`; no state libraries.
   On failure, call `Logger.e` (`react/src/core/system/logger.ts`) so it
   shows in release builds too.
-* Subagents run on GPT-6 Luna (`gpt-6-luna`) unless Khent names another model.
 * Imports inside `react/src/` are relative, like `../../core/theme/colors`.
 * Components are PascalCase `.tsx`; routed pages end in `Page`. Services and
   helpers are camelCase `.ts`.
@@ -120,4 +129,5 @@ no bump does nothing.
 
 * Plain and simple words. No jargon unless Khent asks.
 * Say what happened, why it matters for Clair, and what to do next.
+* Put results and numbers in plain text in the reply first; a chart or HTML page is extra, never the only copy.
 * Keep answers in a way that a normal human would be able to understand properly.
