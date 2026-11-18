@@ -1,12 +1,13 @@
 # Desktop download and updates
 
-The website's `DesktopAppAction` appears before login on the entrance and
-under the Dashboard heading. Windows browsers download the stable installer;
-other platforms open the desktop release information instead of an executable.
-Desktop builds with the bridge show their native version and request a native
-update check. Older desktop builds can use **Everglow > Check for Updates**.
+The Dashboard's **Desktop App** quick action opens `/desktop-app`
+(`react/src/features/dashboard/DesktopAppPage.tsx`, signed-in only). Windows
+browsers download the stable installer; other platforms open the desktop
+release page instead of an executable. Inside the desktop app, the page reads
+the native bridge to show the native version and request an update check.
+Older desktop builds can use **Everglow > Check for Updates**.
 
-Desktop source: `khentmoba/Everglow-Desktop` (Tauri, separate from this Flutter
+Desktop source: `khentmoba/Everglow-Desktop` (Tauri, separate from this
 repository). Its native version and the website version are independent.
 
 ## Release order
@@ -37,15 +38,14 @@ download; the next launch checks again. Existing ad blocking stays enabled.
 
 ## Verification
 
-- Widget tests cover Windows download selection, phone information links and
-  retryable launch errors.
-- `flutter test --platform chrome test/desktop_app_browser_test.dart`
-  covers the bridge and the native-version update button with a fake callback.
-  Quality includes this test in its browser suite. Flutter 3.44.4's local
-  Windows test server can fail to serve `/canvaskit/` (HTTP 404); report that
-  runner failure separately from app failures and use the Linux CI result.
+- `react/tools/regressions.test.mjs` opens `/desktop-app?agent=1` and checks
+  its back button returns to the Dashboard.
+- The page reads the bridge as `window.everglowDesktop.{version,
+  checkForUpdates}`; the native side injects `__everglowDesktopVersion` and
+  `__everglowCheckForUpdates` (`src-tauri/src/website_bridge.rs`). Match the
+  two names before relying on the in-app update button.
 - Desktop Rust tests reject lookalike origins and unknown actions. Its fake-page
   WebView2 suite checks bridge injection without accessing couple data or
   checking the live update feed.
-- Before publishing, test an actual installed 0.2.0-to-0.3.0 signed upgrade.
-  Fake bridge tests do not prove installer execution or session preservation.
+- Before publishing, test an actual installed signed upgrade. Fake bridge
+  tests do not prove installer execution or session preservation.

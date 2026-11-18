@@ -102,15 +102,13 @@ _Previous releases: [v6.2.0](https://github.com/khentmoba/Everglow/releases/tag/
 
 | Layer | Technology |
 |-------|------------|
-| **Framework** | Flutter Web (SDK ^3.11.3) |
+| **Framework** | React 19 + TypeScript, built with Vite |
+| **Routing** | React Router 7 |
+| **State** | Small services with `subscribe()`, read through React hooks (no state library) |
 | **Backend** | Firebase (Auth, Firestore, Storage, Hosting, Cloud Functions, FCM) |
-| **State Management** | Provider (ChangeNotifierProvider, Selector) |
-| **Routing** | go_router |
-| **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify |
-| **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
-| **Voice Chat** | WebRTC via Firestore signaling |
+| **Real-Time** | Firestore listeners (chat, canvas, presence, watchlist, multiplayer) |
+| **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify, always through Cloud Functions |
 | **AI** | Agnes 3.0 Flash via SSE streaming with 50+ function-calling tools |
-| **Cloud Functions** | Authenticated proxies (TMDB, Last.fm, Spotify, manga, anime, Open Library) + AI (Agnes) + schedules/triggers |
 | **Notifications** | Firebase Cloud Messaging (FCM) with topic subscriptions |
 
 ---
@@ -118,104 +116,65 @@ _Previous releases: [v6.2.0](https://github.com/khentmoba/Everglow/releases/tag/
 ## Project Structure
 
 ```
-lib/
-  main.dart                          # Entry point, Provider setup, NotificationService, PresenceService
-  core/
-    audio/                           # Sound effects (just_audio)
-    config/env_config.dart          # EnvConfig — dotenv / --dart-define, no source passcodes
-    di/                              # Composition root (appProviders) + app shell (AppRoot)
-    models/                          # Shared models (PresenceStatus)
-    router/app_router.dart           # GoRouter composition root; feature routes under each feature
-    services/                        # AuthService, PresenceService, StorageService, NotificationService
-    system/                          # AppBootstrap, AppVersion, HealthService
-    theme/                           # Dusk Petal design system (colors, typography, spacing, etc.)
-    utils/                           # Logger, Firestore stream helpers, connectivity
-  features/
-    academy/                         # Trivia game — 8 categories, solo study, 1v1 matches
-    ai/                              # Motchi AI assistant (Agnes 3.0 Flash + 50+ function tools via apihub.agnes-ai.com)
-    books/                           # Book discovery & reader (Open Library) + Our Books list
-    bucket_list/                     # Shared bucket list kanban (todo / doing / done)
-    calendar/                        # Shared calendar + date polls (Rallly-style voting)
-    canvas/                          # Collaborative drawing (real-time Firestore sync)
-    chat/                            # Sanctuary private couple chat (real-time)
-    cinema/                          # Watchlist — TMDB, multi-provider video, trailers, episode drawer
-    daily_bloom/                     # Virtual garden (5 plant types, seasonal, shared)
-    dashboard/                       # Main hub — anniversary counter, milestone cards, previews
-    date_randomizer/                 # Date idea generator (1000+ ideas, shake gesture)
-    entry/                           # Passcode gateway (codes verified server-side, never in source)
-    gallery/                         # Photo gallery with map view + memories
-    guardian/                        # Animated cat mascot with AI-powered messages
-    heartbeat/                       # Daily mood tracking (mood picker, partner status)
-    journal/                         # Shared journal with locked/private entries and tags
-    jukebox/                         # Last.fm + Spotify sync, listen-along, insights
-    manga/                           # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
-    play_zone/                       # Games hub + Table Tennis (WebGL + Firestore multiplayer)
-    starlight_jar/                   # Gratitude notes jar
-    tonight/                         # Shared evening picks, live votes, and calendar plans
-    watch_party/                     # Watch party with WebRTC voice chat (Firestore signaling)
-    xp/                              # XP/leveling system
-  shared/
-    utils/text_utils.dart            # stripMarkdown, extractTitles
-    widgets/everglow/                # Design system: EverglowButton, EverglowCard, EverglowScaffold, etc.
-    widgets/shelf/                   # Shelf UI: ShelfPosterCard, ShelfHeroCarousel, CinemaNavBar, etc.
-  firebase_options.dart              # Generated Firebase config
-functions/                           # Cloud Functions: proxies + AI (Motchi) + schedules/triggers
-  index.js                           # Thin barrel that wires up the modules below plus auth, catalog, media, system
-test/                                # Unit + widget tests mirroring lib/ (one folder per feature, plus core/shared)
+react/
+  src/
+    main.tsx                         # Entry: agent mode, service worker, renders App
+    App.tsx                          # Every route, wired to a feature page
+    core/
+      agent/                         # Agent mode: ?agent= jumps, floating HUD, demo fixtures
+      services/                      # Firebase, auth, presence, notifications
+      system/                        # Logger, prefs, viewport, app updates
+      theme/                         # Dusk Petal tokens: colors, typography, motion, paint
+      utils/liveSource.ts            # Live Firestore data with timeouts and retries
+    features/<name>/                 # One folder per feature: pages, components, services
+    shared/widgets/                  # Everglow design system (cards, headers, buttons, states)
+    shared/widgets/shelf/            # Poster shelves shared by Cinema, Anime, and Books
+  tools/*.test.mjs                   # Headless Chrome tests: shell, offline worker, players
+  vite.config.ts                     # Build + generated service worker (dist/sw.js)
+assets/                              # Fonts and images, served as-is
+web/                                 # Icons, manifest, and embed helpers copied into the build
+functions/                           # Cloud Functions: proxies, Motchi AI, schedules, triggers
+tool/                                # CI guards (tool/ci/run_checks.mjs) and the agent smoke test
+firestore.rules                      # Who can read and write what
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Flutter SDK ^3.11.3
-- Firebase CLI (`npm install -g firebase-tools`)
-- A Firebase project with the services enabled
+- Node.js 22+
+- Firebase CLI (`npm install -g firebase-tools`) for deploys
+- Chrome, for the browser tests
 
 ### Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/khentmoba/Everglow.git
 cd Everglow
-
-# Install Flutter dependencies
-flutter pub get
-
-# Run locally
-flutter run -d chrome
+npm --prefix react ci
+npm --prefix react run dev        # http://localhost:5173/?agent=1 for demo data
 ```
 
-### Full Build & Deploy
+### Checks
 
 ```bash
-# 1. Build Flutter web
-flutter build web --release
-
-# 2. Deploy to Firebase
-firebase deploy --only hosting
+npm --prefix react run typecheck
+npm --prefix react run build
+npm --prefix react test
+node tool/ci/run_checks.mjs
+node tool/agent_smoke.mjs react/dist
 ```
-
-### Firebase Configuration
-
-1. Place your Firebase admin SDK JSON in the project root:
-   ```
-   everglow-1c6db-firebase-adminsdk-*.json
-   ```
-
-2. The `firebase_options.dart` is pre-configured for the `everglow-1c6db` project.
 
 ## Deployment
 
-Auto-deploys to **[everglow-1c6db.web.app](https://everglow-1c6db.web.app)** on every push to `main` via GitHub Actions.
+Every push to `main` deploys to **[everglow-1c6db.web.app](https://everglow-1c6db.web.app)** through `.github/workflows/deploy.yml`:
 
-The workflow:
-1. Builds Flutter web
-2. Generates cache-busting service worker
-3. Deploys Cloud Functions
-4. Deploys to Firebase Hosting
+1. Typechecks and builds the React app (`react/dist`, with its service worker)
+2. Verifies Cloud Functions (`npm run verify` in `functions/`)
+3. Deploys Cloud Functions, Firestore rules, and Storage rules
+4. Deploys Firebase Hosting, then checks the site is live
 
-> **Note:** The GitHub Actions workflow expects a repository secret named `FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB` containing a Firebase service account JSON key with the **Firebase Hosting Admin** role.
+> **Note:** The workflow expects a repository secret named `FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB` containing a Firebase service account JSON key with the **Firebase Hosting Admin** role.
 
 ## Cloud Functions
 

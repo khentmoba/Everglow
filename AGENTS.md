@@ -52,58 +52,46 @@ Three rules never bend, even if the skill is not loaded:
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data.
 
-### Agent Mode & Local Testing (Direct Navigation & Privacy-Safe Demo Data)
+### Agent mode (testing without logins)
 
-Agents and local developers do not need real credentials or passcodes to test Everglow across the ENTIRE site:
+Add `?agent=1` or `?agent=<alias>` to any URL (`/?agent=cinema`,
+`/manga?agent=1`) to start a simulated session and land on that page, no
+passcode. Aliases live in `react/src/core/agent/agentMode.ts`.
 
-- **Direct URL Jumps:** Append `?agent=1` or `?agent=<destination>` directly to the URL (e.g. `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, or `/manga?agent=1`). This unlocks an isolated simulated session and navigates directly to the target feature without password prompts or redirect bounce loops.
-- **Doorway Agent Fast-Jump Launchpad:** When on the gateway door (`/`), the bottom dev bar provides 1-click fast-jumps to **every single section of Everglow**: Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, Academy, Garden, Starlight, Calendar, Trip Kit, Jukebox, Canvas, Bucket List, Money, and profile pickers (Khent, Clair, Cinema Guest).
-- **Floating Agent HUD:** A floating toolbar is present at the bottom of the screen across the app in dev / agent mode. Click route chips across all 20 surfaces to instantly jump between features, or toggle profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize (`—`) button to collapse the HUD into a tiny pill for clean PR proof screenshots.
-- **Privacy-Safe Demo Fixtures:** In Agent Mode, all couple-only features (milestones, notes, mood, starlight, bucket list, calendar, chat, tonight, journal, gallery, date ideas, guardian) automatically feed isolated in-memory mock demo data. Real couple data and private photos are never touched or exposed.
+- The floating HUD jumps between pages and switches profiles
+  (Khent, Clair, Cinema guest). Collapse it with `—` before proof screenshots.
+- Couple-only features read in-memory demo data from
+  `react/src/core/agent/fixtures.ts`. Real couple data and private photos
+  stay untouched, so agent mode is the place for proof screenshots.
 
-### Manual browser tooling checks
+### Browser checks
 
-Agents must run the relevant checks below before requesting review. Use
-Node 22+ and a disposable Chrome profile; these tools do not need a login
-or real couple data. Ordinary app edits do not require these tool tests.
+`npm --prefix react test` drives a real headless Chrome against `react/dist`
+(build first; Node 22+). It covers the shell, the offline service worker
+(`react/tools/shell.test.mjs`, built by `buildServiceWorkerSource` in
+`react/vite.config.ts`), the players, and media regressions.
+`node tool/agent_smoke.mjs react/dist` visits every agent destination at
+phone and tablet widths. Pass one alias as a third argument to reproduce a
+single failure, then rerun the full sweep.
 
-- **Performance tools:** when changing `tool/perf/`, `lib/core/perf/`,
-  the performance bench routes/fixtures, or the manual browser workflow,
-  set `PERF_REQUIRE_CHROME=1`, then run
-  `node --test tool/perf/harness.test.mjs`. In PowerShell set it with
-  `$env:PERF_REQUIRE_CHROME = '1'`. Unset it afterwards. Requiring Chrome
-  prevents a missing browser from producing a passing skipped suite.
-- **Offline/update behavior:** when changing `tool/generate_sw.dart`,
-  `tool/build_stamp.dart`, `tool/build_web.dart`, `tool/service_worker_test.mjs`,
-  web loaders/worker, hosting cache configuration, or the manual browser
-  workflow, run `node tool/service_worker_test.mjs --browser`.
-  CI also keeps the deterministic worker tests on relevant web builds.
-- When changing Quality's browser/build wiring, run both tooling checks
-  and the browser-only Flutter tests listed in `.github/workflows/quality.yml`.
-- Record commands, pass/fail counts, and environment in the PR. If Chrome
-  startup or another missing prerequisite blocks a run, state the blocker
-  and what remains unverified. Do not claim a skipped or incomplete run
-  proves browser behavior; investigate test/measurement failures.
-
-The **Manual browser checks** workflow is an opt-in Linux alternative once
-it exists on `main`: run
+Record commands, pass/fail counts, and environment in the PR. When Chrome or
+another prerequisite blocks a run, name the blocker and what stays unverified.
+To rerun these on Linux, dispatch
 `gh workflow run browser_checks.yml --ref YOUR_BRANCH -f suite=all --repo khentmoba/Everglow`
-(or select `performance` / `offline`). It never runs on ordinary PR updates.
-When available, use T3's PR watcher for PR checks rather than polling.
-These tooling checks validate the measuring tools and offline behavior;
-claims about app speed still need measurements described in `docs/PERF_NOTES.md``.
-For CI failures and runner recovery, see
-[`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md).
-Before removing a worktree, follow [`docs/WORKTREE_CLEANUP.md`](docs/WORKTREE_CLEANUP.md).
+(or `shell` / `smoke`); ordinary PR updates never start it. Speed claims need
+measurements, not passing tests. CI failures and runner recovery:
+[`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md). Removing a
+worktree: [`docs/WORKTREE_CLEANUP.md`](docs/WORKTREE_CLEANUP.md).
 
 ## Releases — keep the version, README, and GitHub in sync
 
 Full procedure lives in the `everglow-release` skill
 (`.agents/skills/everglow-release/SKILL.md`). Load it when cutting a release.
 
-The rule that never bends: version, CHANGELOG, and README must agree,
-or `tool/ci/check_release_sync.dart` fails the PR. The workflow publishes
-only on a version bump — a merge with no bump does nothing.
+The rule that never bends: `react/package.json`, the newest CHANGELOG entry,
+and README must agree, or the release check in `tool/ci/run_checks.mjs`
+fails the PR. The workflow publishes only on a version bump; a merge with
+no bump does nothing.
 
 ## Watch-outs (learned from live breaks)
 
@@ -118,11 +106,15 @@ only on a version bump — a merge with no bump does nothing.
 * Agents never create service-account keys, deploy temporary or diagnostic rules to production, run `wrangler deploy` by hand (merging deploys the Worker), or change IAM, even to fix a live outage. Ask Khent first.
 * Login codes are checked on the server. Do not put them in the file.
 * Keyless public catalogs (Open Library, Jikan) go through `proxyCatalog` with a login token when signed in. No direct third-party fetches from the client except `proxyBookText` candidates and cover/thumbnail `<img>` URLs.
-* For live data use `.snapshots()`. If something fails, leave a `Logger.e` so we can see it in release too (raw `print` is banned by `avoid_print`).
-* Use Provider only. No Riverpod, no Bloc.
+* Live data is a `Source` from `react/src/core/utils/liveSource.ts`
+  (`snapshots`, `withFirestoreTimeout`), read in components with `useSource`.
+  Services keep state and expose `subscribe()`; no state libraries.
+  On failure, call `Logger.e` (`react/src/core/system/logger.ts`) so it
+  shows in release builds too.
 * Subagents run on GPT-6 Luna (`gpt-6-luna`) unless Khent names another model.
-* Use relative imports inside `lib/`, like `../../features/...`.
-* Dart files are `snake_case`. Screens end in `Screen`.
+* Imports inside `react/src/` are relative, like `../../core/theme/colors`.
+* Components are PascalCase `.tsx`; routed pages end in `Page`. Services and
+  helpers are camelCase `.ts`.
 
 ## How to talk
 

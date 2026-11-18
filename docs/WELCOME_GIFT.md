@@ -1,5 +1,10 @@
 # One-time welcome gift
 
+> **Status: not in the React app.** This shipped in the Flutter build. The
+> React port has no gift check and the Flutter preview harness is gone, so a
+> gift saved in Firestore will not appear today. This page keeps the design
+> for when it is ported.
+
 Clair's normal sign-in can display a private, self-contained HTML gift before
 she continues into Everglow. Other profiles and agent sessions skip the check.
 There are no new passwords, dependencies, routes, or Firestore rules.
@@ -25,19 +30,14 @@ normally and tries again on a later session; a failed completion keeps the gift
 open with a retry message. Offline opening does not consume the gift.
 
 The existing sandboxed HTML viewer keeps the document isolated from app state.
-Continue belongs to Flutter and stays hidden until the letter's final action
+Continue belongs to the app and stays hidden until the letter's final action
 opens the closing message. The document reports `everglow:content-finished`
 at that point and `everglow:content-reading` when restarting or revisiting.
 The optional viewer callback accepts only those two messages; web messages
 must come from this viewer's own iframe. Native uses the optional
 `EverglowCanvas` JavaScript channel. Neither exposes account data or writes a
-receipt. Only the visible Flutter Continue button completes the gift.
+receipt. Only the app's own visible Continue button completes the gift.
 
-For a synthetic local preview:
-
-```sh
-flutter run -d chrome -t tool/welcome_gift_preview.dart
-```
-
-The harness can simulate another visit after completion or reset its in-memory
-demo receipt. It never reads or changes a real account.
+A port needs a synthetic local preview that can simulate another visit after
+completion or reset an in-memory demo receipt, without reading or changing a
+real account.

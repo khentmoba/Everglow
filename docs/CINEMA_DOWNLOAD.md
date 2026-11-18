@@ -22,10 +22,10 @@ magnet cannot open, so the row copies the link instead of failing quietly.
 
 ## Where it lives
 
-- `lib/features/cinema/data/services/torrent_index_service.dart` — lookup,
+- `react/src/features/cinema/playerServices.ts` (`searchTorrents`) — lookup,
   magnet building, sorting, dedupe.
-- `lib/features/cinema/presentation/widgets/torrent_download_sheet.dart` —
-  the list and its actions.
+- `react/src/features/cinema/VideoPlayerWidgets.tsx` (`TorrentDownloadSheet`)
+  — the list and its actions.
 - `functions/media_proxy_catalog.js` — the `torrentio` base. The browser
   never talks to an index host directly, same rule as TMDB, Jikan, ani.zip.
 - Agent Mode shows three demo copies, so preview builds and proof
