@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { useSource } from '../../core/utils/liveSource';
-import { catalogKeyOf, type MediaItem } from '../cinema/cinemaTypes';
+import { catalogKeyOf, resumeSecondsOf, type MediaItem } from '../cinema/cinemaTypes';
+import { isCurrentlyWatchingItem, isWatchedItem } from '../cinema/tmdbService';
 import {
   AnimeXBrowsePage,
   AnimeXDmcaPage,
@@ -73,33 +74,61 @@ export function AnimePage() {
   const library = useSource(() => watchAnimeWatchlist(userName), [userName], []);
 
   const history: AnimexHistoryEntry[] = useMemo(() => {
-    return library
-      .filter(
-        (it) =>
-          it.currentEpisode != null ||
-          it.currentTimestamp != null ||
-          it.status === 'watching-self' ||
-          it.status === 'watching-together',
-      )
-      .map((it) => {
-        const dur = it.durationSeconds ?? 0;
-        const pos = it.currentTimestamp ?? 0;
-        const progress = dur > 0 && pos > 0 ? Math.min(1, pos / dur) : undefined;
-        return {
-          key: catalogKeyOf(it),
-          tmdbId: it.tmdbId,
-          anilistId: it.anilistId,
-          title: it.title,
-          posterUrl: it.posterPath || it.backdropPath,
-          episode: it.currentEpisode ?? 1,
-          audio: 'sub' as const,
-          progress,
-          updatedAt: it.progressUpdatedAt ?? it.addedAt,
-          savedItem: it,
-        };
-      })
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    const sorted = [...library]
+      .filter((it) => it.currentEpisode != null || it.currentTimestamp != null || isCurrentlyWatchingItem(it))
+      .sort((a, b) => (b.progressUpdatedAt ?? b.addedAt).getTime() - (a.progressUpdatedAt ?? a.addedAt).getTime());
+
+    const seen = new Set<string>();
+    const out: AnimexHistoryEntry[] = [];
+    for (const it of sorted) {
+      const dedupeKey =
+        it.anilistId != null && it.anilistId > 0
+          ? `anilist:${it.anilistId}`
+          : it.tmdbId > 0
+            ? `${it.source}:${it.mediaType}:${it.tmdbId}`
+            : `title:${it.title.trim().toLowerCase()}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
+      const isMovie = it.mediaType.trim().toLowerCase() !== 'tv' || it.format.trim().toLowerCase() === 'movie';
+      const totalEpisodes = isMovie ? 1 : (it.episodeCount ?? 0);
+      const episode = it.currentEpisode ?? 1;
+      const dur = it.durationSeconds ?? 0;
+      const pos = it.currentTimestamp ?? 0;
+      const progress =
+        dur > 0 && pos > 0
+          ? Math.min(1, pos / dur)
+          : totalEpisodes > 1 && episode > 0
+            ? Math.min(1, Math.max(0, (episode - 1) / totalEpisodes))
+            : undefined;
+      out.push({
+        key: catalogKeyOf(it),
+        tmdbId: it.tmdbId,
+        anilistId: it.anilistId,
+        title: it.title,
+        posterUrl: it.posterPath || it.backdropPath,
+        episode,
+        totalEpisodes,
+        audio: 'sub',
+        progress,
+        resumeSeconds: resumeSecondsOf(it) ?? undefined,
+        isMovie,
+        updatedAt: it.progressUpdatedAt ?? it.addedAt,
+        savedItem: it,
+      });
+    }
+    return out;
   }, [library]);
+
+  const continueWatching = useMemo(
+    () =>
+      history.filter((entry) => {
+        const saved = entry.savedItem;
+        if (!saved) return false;
+        return !isWatchedItem(saved) && isCurrentlyWatchingItem(saved);
+      }),
+    [history],
+  );
 
   const savedAnime = (item: MediaItem): MediaItem | undefined => {
     for (const saved of library) {
@@ -178,6 +207,7 @@ export function AnimePage() {
     titleJapanese: stores.titleJapanese,
     library,
     history,
+    continueWatching,
     playlists: store.playlists,
     onWatch: openWatch,
     onTrailer: (it) =>

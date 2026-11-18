@@ -1,8 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Align, boxShadow, linear, sigma } from '../../core/theme/paint';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { useViewport } from '../../core/system/viewport';
 import { reduceAmbientMotion } from '../../core/system/device';
+import { motionReduced } from '../../core/theme/motion';
 import { useController } from '../../core/anim/controller';
 import { Icon, type IconStyle } from '../../shared/widgets/Icon';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
@@ -1337,6 +1339,127 @@ export function AnimeXSectionHeader({
   );
 }
 
+const animePopoverCache = new Map<string, MediaItem>();
+let closeActiveAnimePopover: (() => void) | null = null;
+
+function animeCacheKey(item: MediaItem): string | null {
+  if (item.anilistId && item.anilistId > 0) return `al:${item.anilistId}`;
+  if (item.tmdbId > 0) return `mal:${item.tmdbId}`;
+  return null;
+}
+
+function AnimeXCardPopover({
+  item,
+  anchor,
+  loadingDetails,
+  onClick,
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  item: MediaItem;
+  anchor: DOMRect;
+  loadingDetails: boolean;
+  onClick: () => void;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+}) {
+  const width = 290;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const placeLeft = anchor.right + width + 24 > vw && anchor.left - width - 16 >= 8;
+  const left = placeLeft ? Math.max(8, anchor.left - width - 12) : Math.min(vw - width - 8, anchor.right + 12);
+  const top = Math.max(12, Math.min(vh - 280, anchor.top));
+  const airing = item.airingStatus.toUpperCase().includes('RELEASING') || item.airingStatus.toUpperCase().includes('AIRING');
+  const metaParts = [
+    item.year,
+    item.format,
+    item.episodeCount != null && item.episodeCount > 0 ? `${item.episodeCount} EP` : '',
+    item.studio,
+  ].filter(Boolean);
+
+  return createPortal(
+    <div
+      onMouseEnter={onPointerEnter}
+      onMouseLeave={onPointerLeave}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{
+        position: 'fixed',
+        left,
+        top,
+        width,
+        zIndex: 1300,
+        padding: 14,
+        borderRadius: AnimeXTokens.radiusLg,
+        background: AnimeXTokens.surfaceRaised,
+        border: `1px solid ${withAlpha(AnimeXTokens.accent, 0.38)}`,
+        boxShadow: '0 18px 42px rgba(0,0,0,0.75)',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        animation: 'shelf-entrance 160ms cubic-bezier(0.215, 0.61, 0.355, 1) both',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <div className="clamp-2" style={{ ...dmSansStyle({ size: 15, weight: 700, color: '#FFFFFF', height: 1.25 }), flex: 1 }}>
+          {item.title}
+        </div>
+        {item.score != null && item.score > 0 && (
+          <AnimeXBadge label={item.score.toFixed(1)} kind="rating" icon="star" />
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        {airing ? <AnimeXBadge label="Airing" kind="airing" dot /> : item.airingStatus ? <AnimeXBadge label={item.airingStatus} kind="finished" /> : null}
+        {metaParts.length > 0 && (
+          <span style={dmSansStyle({ size: 11.5, color: AnimeXTokens.textSecondary, weight: 500 })}>
+            {metaParts.join(' · ')}
+          </span>
+        )}
+      </div>
+
+      {item.genres.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          {item.genres.slice(0, 3).map((g) => (
+            <span
+              key={g}
+              style={{
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: withAlpha('#FFFFFF', 0.06),
+                border: `1px solid ${AnimeXTokens.glassBorder}`,
+                ...dmSansStyle({ size: 10.5, color: AnimeXTokens.textPrimary, weight: 600 }),
+              }}
+            >
+              {g}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {item.synopsis ? (
+        <div
+          className="clamp-4"
+          style={interBodyStyle({ size: 12, height: 1.45, color: AnimeXTokens.textSecondary })}
+        >
+          {item.synopsis.replace(/<[^>]+>/g, '')}
+        </div>
+      ) : loadingDetails ? (
+        <div style={dmSansStyle({ size: 12, color: AnimeXTokens.textMuted })}>Loading details…</div>
+      ) : null}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <Icon name="play_circle_filled" size={16} color={AnimeXTokens.accentWarm} />
+        <span style={dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 700 })}>Watch / More Info</span>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function AnimeXPosterCard({
   item,
   width = AnimeXTokens.rowPosterWidthDesktop,
@@ -1353,16 +1476,105 @@ export function AnimeXPosterCard({
   hoverAction?: ReactNode;
 }) {
   const [hover, setHover] = useState(false);
+  const [popoverRect, setPopoverRect] = useState<DOMRect | null>(null);
+  const [resolvedItem, setResolvedItem] = useState<MediaItem | null>(() => {
+    const key = animeCacheKey(item);
+    return key ? (animePopoverCache.get(key) ?? null) : null;
+  });
+  const [resolving, setResolving] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const showTimerRef = useRef<number | undefined>(undefined);
+  const hideTimerRef = useRef<number | undefined>(undefined);
   const viewport = useViewport();
   // Phones and slow devices get the still card: border drawn over the
   // poster, no shadow, lift or zoom.
   const interactive = !reduceAmbientMotion(viewport);
+  const hoverDetails = viewport.width >= 768 && !motionReduced();
+  const activeItem = resolvedItem ?? item;
   const lit = interactive && hover;
-  const airing = item.airingStatus.toUpperCase().includes('RELEASING') || item.airingStatus.toUpperCase().includes('AIRING');
-  const epCount = item.episodeCount;
-  const metaParts = [item.year, item.format].filter(Boolean);
+  const airing = activeItem.airingStatus.toUpperCase().includes('RELEASING') || activeItem.airingStatus.toUpperCase().includes('AIRING');
+  const epCount = activeItem.episodeCount;
+  const metaParts = [activeItem.year, activeItem.format].filter(Boolean);
   const metaLine = metaParts.length ? metaParts.join(' · ') : 'Anime';
   const borderColor = lit ? AnimeXTokens.accent : withAlpha('#FFFFFF', 0.08);
+
+  const closePopover = useCallback(() => {
+    window.clearTimeout(showTimerRef.current);
+    window.clearTimeout(hideTimerRef.current);
+    setHover(false);
+    setPopoverRect(null);
+  }, []);
+
+  useEffect(() => {
+    if (!popoverRect) return;
+    const onScroll = () => closePopover();
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', onScroll, { capture: true });
+  }, [popoverRect]);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(showTimerRef.current);
+      window.clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  const maybeResolveDetails = () => {
+    if (item.synopsis && item.genres.length > 0) return;
+    const key = animeCacheKey(item);
+    if (!key) return;
+    const cached = animePopoverCache.get(key);
+    if (cached) {
+      setResolvedItem(cached);
+      return;
+    }
+    if (resolving) return;
+    setResolving(true);
+    void fetchAniListDetails({ anilistId: item.anilistId, malId: item.tmdbId || undefined })
+      .then((detail) => {
+        if (!detail) return;
+        const enriched: MediaItem = {
+          ...item,
+          synopsis: item.synopsis || detail.synopsis,
+          genres: item.genres.length ? item.genres : detail.genres,
+          episodeCount: item.episodeCount ?? detail.episodeCount,
+          airingStatus: item.airingStatus || detail.airingStatus,
+          format: item.format || detail.format,
+          studio: item.studio || detail.studios[0] || '',
+          score: item.score ?? detail.averageScore,
+          year: item.year || (detail.seasonYear ? String(detail.seasonYear) : ''),
+          anilistId: item.anilistId ?? (detail.id || undefined),
+        };
+        animePopoverCache.set(key, enriched);
+        setResolvedItem(enriched);
+      })
+      .finally(() => setResolving(false));
+  };
+
+  const handleEnter = () => {
+    window.clearTimeout(hideTimerRef.current);
+    setHover(true);
+    if (!hoverDetails) return;
+    maybeResolveDetails();
+    window.clearTimeout(showTimerRef.current);
+    showTimerRef.current = window.setTimeout(() => {
+      const rect = cardRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      if (closeActiveAnimePopover && closeActiveAnimePopover !== closePopover) {
+        closeActiveAnimePopover();
+      }
+      closeActiveAnimePopover = closePopover;
+      setPopoverRect(rect);
+    }, 160);
+  };
+
+  const handleLeave = () => {
+    window.clearTimeout(showTimerRef.current);
+    setHover(false);
+    hideTimerRef.current = window.setTimeout(() => {
+      setPopoverRect(null);
+    }, 90);
+  };
 
   const posterStack = (
     <div
@@ -1415,9 +1627,9 @@ export function AnimeXPosterCard({
           </>
         )}
       </div>
-      {item.score != null && item.score > 0 && !hoverAction && (
+      {activeItem.score != null && activeItem.score > 0 && !hoverAction && (
         <div style={{ position: 'absolute', top: 8, right: 8 }}>
-          <AnimeXBadge label={item.score.toFixed(1)} kind="rating" icon="star" />
+          <AnimeXBadge label={activeItem.score.toFixed(1)} kind="rating" icon="star" />
         </div>
       )}
       {hoverAction && hover && (
@@ -1462,10 +1674,15 @@ export function AnimeXPosterCard({
 
   return (
     <div
+      ref={cardRef}
+      data-animex-card="poster"
       style={{ width, flexShrink: 0, cursor: 'pointer' }}
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onClick={() => {
+        closePopover();
+        onClick();
+      }}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       {interactive ? (
         // AnimatedContainer: the border pads the poster in by 1px.
@@ -1523,6 +1740,19 @@ export function AnimeXPosterCard({
       >
         {metaLine}
       </div>
+      {popoverRect && (
+        <AnimeXCardPopover
+          item={activeItem}
+          anchor={popoverRect}
+          loadingDetails={resolving && !resolvedItem}
+          onClick={() => {
+            closePopover();
+            onClick();
+          }}
+          onPointerEnter={() => window.clearTimeout(hideTimerRef.current)}
+          onPointerLeave={handleLeave}
+        />
+      )}
     </div>
   );
 }

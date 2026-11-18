@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useRememberedScroll } from '../../core/router/scrollMemory';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { useSource } from '../../core/utils/liveSource';
@@ -134,6 +135,8 @@ export function MangaPage() {
   const desktop = width >= 960;
   const compactCard = width < 720;
   const isHome = !detailSlug && tab === 'home' && homeData != null;
+  const homeScrollRef = useRef<HTMLDivElement>(null);
+  useRememberedScroll('manga:home', homeScrollRef, isHome);
 
   const handleNav = (next: KatanaNavKey) => {
     setDetailSlug(null);
@@ -200,10 +203,11 @@ export function MangaPage() {
       />
 
       {isHome ? (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div ref={homeScrollRef} style={{ flex: 1, overflowY: 'auto' }}>
           <MangaHome
             width={width}
             data={homeData!}
+            currentlyReading={isCoupleUser ? currentlyReading : []}
             type={typeFilter}
             typeItems={typeItems}
             typeLoading={typeLoading}
@@ -219,6 +223,7 @@ export function MangaPage() {
             onSelectManga={(slug) => setDetailSlug(slug)}
             onSelectGenre={handleSelectGenre}
             onOpenChapter={(m, chapterId) => openChapter(m, chapterId)}
+            onViewAllReading={() => handleNav('reading')}
           />
         </div>
       ) : (

@@ -12,6 +12,8 @@ import {
   chapterDisplayTitle,
   fetchKatanaSuggestions,
   formatKatanaTime,
+  katanaCdnFallback,
+  proxyKatanaImageUrl,
   type KatanaGenre,
   type KatanaManga,
 } from './katanaService';
@@ -630,8 +632,16 @@ export function KatanaHeader({
 // katana_item_card.dart ------------------------------------------------------
 
 export function KatanaCoverImage({ url, emptyIcon = 'menu_book', errorIcon = 'broken_image', iconSize = 32, fill = KatanaColors.surfaceAlt }: { url: string; emptyIcon?: string; errorIcon?: string; iconSize?: number; fill?: string }) {
+  const [step, setStep] = useState(0);
   const [failed, setFailed] = useState(false);
-  if (!url || failed) {
+
+  useEffect(() => {
+    setStep(0);
+    setFailed(false);
+  }, [url]);
+
+  const resolved = url ? proxyKatanaImageUrl(katanaCdnFallback(url, step)) : '';
+  if (!resolved || failed) {
     return (
       <div style={{ position: 'absolute', inset: 0, background: fill, display: 'grid', placeItems: 'center' }}>
         <Icon name={url ? errorIcon : emptyIcon} size={iconSize} color={KatanaColors.textLight} />
@@ -640,10 +650,13 @@ export function KatanaCoverImage({ url, emptyIcon = 'menu_book', errorIcon = 'br
   }
   return (
     <img
-      src={url}
+      src={resolved}
       alt=""
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (step < 4) setStep((s) => s + 1);
+        else setFailed(true);
+      }}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
     />
   );
@@ -710,6 +723,9 @@ export function KatanaItemCard({
   onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
   const viewport = useViewport();
+  const [hovered, setHovered] = useState(false);
+  const interactive = !reduceAmbientMotion(viewport);
+  const lit = interactive && hovered;
   const small = dense || compact;
   const genres = compact ? manga.genres.slice(0, 3) : manga.genres;
   const chapters = manga.recentChapters.slice(0, compact ? 2 : 3);
@@ -723,14 +739,22 @@ export function KatanaItemCard({
       role="button"
       tabIndex={0}
       onClick={() => onSelectManga(manga.slug)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onSelectManga(manga.slug);
       }}
       style={{
         background: KatanaColors.surface,
         borderRadius: 12,
-        border: `2px solid ${KatanaColors.border}`,
-        boxShadow: reduceAmbientMotion(viewport) ? undefined : boxShadow([{ color: scrimStrong, blur: 18, offset: [0, 6] }]),
+        border: `2px solid ${lit ? withAlpha(KatanaColors.accent, 0.72) : KatanaColors.border}`,
+        boxShadow: !interactive
+          ? undefined
+          : lit
+            ? boxShadow([{ color: withAlpha(KatanaColors.accent, 0.25), blur: 20, offset: [0, 8] }])
+            : boxShadow([{ color: scrimStrong, blur: 18, offset: [0, 6] }]),
+        transform: lit ? 'translateY(-2px)' : undefined,
+        transition: interactive ? 'border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease' : undefined,
         padding: 11,
         display: 'flex',
         alignItems: 'flex-start',
@@ -849,17 +873,34 @@ export function KatanaCompactCard({
   onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
   const viewport = useViewport();
+  const [hovered, setHovered] = useState(false);
   const interactive = !reduceAmbientMotion(viewport);
+  const lit = interactive && hovered;
   const completed = manga.status === 'completed';
   return (
-    <div onClick={onSelect} style={{ width, flexShrink: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ borderRadius: 8, padding: interactive ? 2.5 : 0, alignSelf: 'flex-start' }}>
+    <div
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ width, flexShrink: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+    >
+      <div
+        style={{
+          borderRadius: 8,
+          padding: interactive ? 2.5 : 0,
+          border: interactive ? `2px solid ${lit ? KatanaColors.accent : 'transparent'}` : undefined,
+          boxShadow: lit ? boxShadow([{ color: withAlpha(KatanaColors.accent, 0.45), blur: 14 }]) : undefined,
+          transform: lit ? 'translateY(-2px)' : undefined,
+          transition: interactive ? 'border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease' : undefined,
+          alignSelf: 'flex-start',
+        }}
+      >
         <div style={{ position: 'relative', width, height: width * 1.42, borderRadius: 6, overflow: 'hidden' }}>
           <CoverImage url={manga.coverUrl} emptyIcon="menu_book" errorIcon="broken_image" iconSize={24} fill={KatanaColors.border} />
         </div>
       </div>
       <div style={{ height: 7 }} />
-      <div className="clamp-2" style={outfit(12.5, 600, KatanaColors.text, 1.25)}>
+      <div className="clamp-2" style={outfit(12.5, 600, lit ? KatanaColors.accent : KatanaColors.text, 1.25)}>
         {manga.title}
       </div>
       <div style={{ height: 3 }} />

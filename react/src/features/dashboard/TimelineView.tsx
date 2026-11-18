@@ -1,5 +1,7 @@
-// Port of lib/features/dashboard/presentation/widgets/timeline_view.dart.
-import { useState } from 'react';
+// Port of lib/features/dashboard/presentation/widgets/timeline_view.dart
+// and milestone_photo.dart.
+import { useEffect, useRef, useState } from 'react';
+import { motionReduced } from '../../core/theme/motion';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
 import { Align, letterSpacing, linear } from '../../core/theme/paint';
@@ -7,11 +9,113 @@ import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { Icon } from '../../shared/widgets/Icon';
-import { MILESTONE_META, milestoneService, type Milestone } from './milestoneService';
+import {
+  MILESTONE_META,
+  milestoneService,
+  resolveMilestoneImageUrl,
+  type Milestone,
+} from './milestoneService';
+
+function MilestonePhoto({
+  path,
+  alt,
+  style,
+}: {
+  path: string;
+  alt: string;
+  style?: React.CSSProperties;
+}) {
+  const [src, setSrc] = useState<string | null>(() =>
+    /^(https?:|data:|blob:|\/)/i.test(path) ? path : null,
+  );
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+    if (!path) {
+      setSrc(null);
+      return;
+    }
+    if (/^(https?:|data:|blob:|\/)/i.test(path)) {
+      setSrc(path);
+      return;
+    }
+    let alive = true;
+    setSrc(null);
+    void resolveMilestoneImageUrl(path).then((resolved) => {
+      if (!alive) return;
+      if (resolved) setSrc(resolved);
+      else setFailed(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+
+  if (!path || failed || !src) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          background: withAlpha(AppColors.deepRose, 0.08),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...style,
+        }}
+      >
+        <Icon
+          name={failed ? 'broken_image' : 'image'}
+          size={28}
+          color={withAlpha(AppColors.roseQuartz, 0.4)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style }}
+    />
+  );
+}
 
 export function TimelineView() {
   const milestones = useSource<Milestone[] | null>(() => milestoneService.milestonesPreview(12), [], null);
   const [selected, setSelected] = useState<Milestone | null>(null);
+  const [modalPhotoIdx, setModalPhotoIdx] = useState(0);
+  const [carouselHovered, setCarouselHovered] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const activeCardRef = useRef(0);
+  const reduceAmbient = motionReduced();
+
+  useEffect(() => {
+    if (reduceAmbient || carouselHovered || selected != null) return;
+    if (!milestones || milestones.length <= 1) return;
+    const id = window.setInterval(() => {
+      const el = scrollerRef.current;
+      if (!el || document.visibilityState !== 'visible') return;
+      const stepWidth = 316; // 300px card + 16px gap
+      const next = (activeCardRef.current + 1) % milestones.length;
+      activeCardRef.current = next;
+      if (next === 0) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollTo({ left: next * stepWidth, behavior: 'smooth' });
+      }
+    }, 5500);
+    return () => window.clearInterval(id);
+  }, [milestones, reduceAmbient, carouselHovered, selected]);
+
+  const scrollCardsBy = (delta: number) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollBy({ left: delta, behavior: 'smooth' });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -68,7 +172,11 @@ export function TimelineView() {
         )}
       </div>
 
-      <div style={{ width: '100%', height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{ width: '100%', height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+        onMouseEnter={() => setCarouselHovered(true)}
+        onMouseLeave={() => setCarouselHovered(false)}
+      >
         {milestones == null ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <CircularProgress size={24} strokeWidth={2} color={withAlpha(AppColors.deepRose, 0.5)} />
@@ -77,13 +185,80 @@ export function TimelineView() {
             </span>
           </div>
         ) : (
-          <div className="no-scrollbar" style={{ width: '100%', overflowX: 'auto', padding: '0 24px', scrollSnapType: 'x mandatory' }}>
-            <div style={{ display: 'flex', gap: 16, width: 'max-content', margin: '0 auto' }}>
-              {milestones.map((m) => (
-                <MilestoneCarouselCard key={m.id} milestone={m} onTap={() => setSelected(m)} />
-              ))}
+          <>
+            <div
+              ref={scrollerRef}
+              className="no-scrollbar"
+              onScroll={(e) => {
+                activeCardRef.current = Math.round(e.currentTarget.scrollLeft / 316);
+              }}
+              style={{ width: '100%', overflowX: 'auto', padding: '0 24px', scrollSnapType: 'x mandatory' }}
+            >
+              <div style={{ display: 'flex', gap: 16, width: 'max-content', margin: '0 auto' }}>
+                {milestones.map((m) => (
+                  <MilestoneCarouselCard
+                    key={m.id}
+                    milestone={m}
+                    reduceAmbient={reduceAmbient}
+                    onTap={() => {
+                      setModalPhotoIdx(0);
+                      setSelected(m);
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+            {milestones.length > 1 && carouselHovered && (
+              <>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label="Previous memory"
+                  onClick={() => scrollCardsBy(-316)}
+                  style={{
+                    position: 'absolute',
+                    left: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 38,
+                    height: 38,
+                    borderRadius: '50%',
+                    background: withAlpha(AppColors.inkDeep, 0.78),
+                    border: `1px solid ${withAlpha(AppColors.blushGold, 0.4)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 4,
+                  }}
+                >
+                  <Icon name="chevron_left" size={20} color={AppColors.petalWhite} />
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label="Next memory"
+                  onClick={() => scrollCardsBy(316)}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 38,
+                    height: 38,
+                    borderRadius: '50%',
+                    background: withAlpha(AppColors.inkDeep, 0.78),
+                    border: `1px solid ${withAlpha(AppColors.blushGold, 0.4)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 4,
+                  }}
+                >
+                  <Icon name="chevron_right" size={20} color={AppColors.petalWhite} />
+                </button>
+              </>
+            )}
+          </>
         )}
       </div>
       <div style={{ height: 20 }} />
@@ -114,12 +289,76 @@ export function TimelineView() {
               padding: 24,
             }}
           >
-            {selected.imageUrls[0] && (
-              <img
-                src={selected.imageUrls[0]}
-                alt={selected.title}
-                style={{ width: '100%', height: 240, objectFit: 'cover', borderRadius: 16, marginBottom: 16 }}
-              />
+            {selected.imageUrls.length > 0 && (
+              <div style={{ position: 'relative', width: '100%', height: 260, borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
+                <MilestonePhoto
+                  path={selected.imageUrls[modalPhotoIdx % selected.imageUrls.length]}
+                  alt={selected.title}
+                />
+                {selected.imageUrls.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label="Previous photo"
+                      onClick={() =>
+                        setModalPhotoIdx((i) => (i - 1 + selected.imageUrls.length) % selected.imageUrls.length)
+                      }
+                      style={{
+                        position: 'absolute',
+                        left: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 34,
+                        height: 34,
+                        borderRadius: '50%',
+                        background: withAlpha(AppColors.inkDeep, 0.72),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Icon name="chevron_left" size={18} color={AppColors.petalWhite} />
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label="Next photo"
+                      onClick={() => setModalPhotoIdx((i) => (i + 1) % selected.imageUrls.length)}
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 34,
+                        height: 34,
+                        borderRadius: '50%',
+                        background: withAlpha(AppColors.inkDeep, 0.72),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Icon name="chevron_right" size={18} color={AppColors.petalWhite} />
+                    </button>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 10,
+                        right: 10,
+                        padding: '3px 9px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.inkDeep, 0.75),
+                        ...AppTypography.outfitBold,
+                        fontSize: 10,
+                        color: AppColors.petalWhite,
+                      }}
+                    >
+                      {(modalPhotoIdx % selected.imageUrls.length) + 1} / {selected.imageUrls.length}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
             <div style={{ ...AppTypography.cormorantBold, fontSize: 24, color: AppColors.petalWhite }}>
               {selected.title}
@@ -137,14 +376,43 @@ export function TimelineView() {
   );
 }
 
-function MilestoneCarouselCard({ milestone, onTap }: { milestone: Milestone; onTap: () => void }) {
+function MilestoneCarouselCard({
+  milestone,
+  reduceAmbient,
+  onTap,
+}: {
+  milestone: Milestone;
+  reduceAmbient: boolean;
+  onTap: () => void;
+}) {
   const meta = MILESTONE_META[milestone.category];
-  const img = milestone.imageUrls[0];
+  const count = milestone.imageUrls.length;
+  const [imgIndex, setImgIndex] = useState(0);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    setImgIndex(0);
+  }, [milestone.id]);
+
+  useEffect(() => {
+    if (reduceAmbient || hovered || count <= 1) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        setImgIndex((i) => (i + 1) % count);
+      }
+    }, 4500);
+    return () => window.clearInterval(id);
+  }, [count, reduceAmbient, hovered]);
+
+  const activePath = count > 0 ? milestone.imageUrls[imgIndex % count] : '';
+
   return (
     <button
       type="button"
       className="bare-button"
       aria-label={`Open memory ${milestone.title}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onClick={onTap}
       style={{
         width: 300,
@@ -157,7 +425,9 @@ function MilestoneCarouselCard({ milestone, onTap }: { milestone: Milestone; onT
           end: Align.bottomRight,
           stops: [0, 0.55, 1],
         }),
-        border: `1px solid ${withAlpha(AppColors.blushGold, 0.32)}`,
+        border: `1px solid ${withAlpha(AppColors.blushGold, hovered ? 0.52 : 0.32)}`,
+        transform: hovered && !reduceAmbient ? 'translateY(-4px)' : undefined,
+        transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -171,8 +441,8 @@ function MilestoneCarouselCard({ milestone, onTap }: { milestone: Milestone; onT
         }}
       />
       <div style={{ flex: 3, position: 'relative', width: '100%', overflow: 'hidden' }}>
-        {img ? (
-          <img src={img} alt={milestone.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        {activePath ? (
+          <MilestonePhoto path={activePath} alt={milestone.title} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: withAlpha(AppColors.deepRose, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="image" size={32} color={withAlpha(AppColors.roseQuartz, 0.3)} />
@@ -197,7 +467,7 @@ function MilestoneCarouselCard({ milestone, onTap }: { milestone: Milestone; onT
             {meta.label.toUpperCase()}
           </span>
         </div>
-        {milestone.imageUrls.length > 1 && (
+        {count > 1 && (
           <div
             style={{
               position: 'absolute',
@@ -209,9 +479,41 @@ function MilestoneCarouselCard({ milestone, onTap }: { milestone: Milestone; onT
               border: `1px solid ${withAlpha(AppColors.moonlight, 0.18)}`,
               ...AppTypography.outfitBold,
               fontSize: 10,
+              color: AppColors.petalWhite,
             }}
           >
-            1 / {milestone.imageUrls.length}
+            {(imgIndex % count) + 1} / {count}
+          </div>
+        )}
+        {count > 1 && count <= 6 && (
+          <div
+            style={{
+              position: 'absolute',
+              right: 12,
+              bottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 7px',
+              borderRadius: 999,
+              background: withAlpha(AppColors.inkDeep, 0.65),
+            }}
+          >
+            {milestone.imageUrls.map((_, i) => {
+              const active = i === imgIndex % count;
+              return (
+                <span
+                  key={i}
+                  style={{
+                    width: active ? 14 : 5,
+                    height: 5,
+                    borderRadius: 99,
+                    background: active ? AppColors.blushGold : withAlpha(AppColors.petalWhite, 0.45),
+                    transition: 'width 240ms ease',
+                  }}
+                />
+              );
+            })}
           </div>
         )}
       </div>

@@ -34,6 +34,7 @@ import {
   fetchTrending,
   fetchTrendingByCountry,
   fetchUpcoming,
+  setListMembership,
   watchCinemaWatchlist,
 } from './tmdbService';
 
@@ -283,6 +284,8 @@ export function CinemaPage() {
             onRefresh={loadHome}
             onTapItem={setDrawerItem}
             onPlay={(item) => launchPlayer(item)}
+            onToggleList={(item, add) => void setListMembership(item, userName, add)}
+            isInList={(item) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(item) && w.status.toLowerCase() === 'to-watch')}
             onExploreBrowse={() => setCurrentTab(2)}
           />
         )}
@@ -358,6 +361,8 @@ function HomeTab({
   onRefresh,
   onTapItem,
   onPlay,
+  onToggleList,
+  isInList,
   onExploreBrowse,
 }: {
   isDesktop: boolean;
@@ -373,10 +378,13 @@ function HomeTab({
   onRefresh: () => void;
   onTapItem: (m: MediaItem) => void;
   onPlay: (m: MediaItem) => void;
+  onToggleList: (m: MediaItem, add: boolean) => void;
+  isInList: (m: MediaItem) => boolean;
   onExploreBrowse: () => void;
 }) {
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
+  const rowProps = { isDesktop, onTapItem, onPlayItem: onPlay, onToggleListItem: onToggleList, isInList };
 
   return (
     <div>
@@ -403,10 +411,10 @@ function HomeTab({
       )}
 
       {watchingList.length > 0 && (
-        <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} isDesktop={isDesktop} onTapItem={onTapItem} />
+        <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} {...rowProps} />
       )}
       {savedList.length > 0 && (
-        <NetflixRow title="Your picks" items={savedList.slice(0, 10)} isDesktop={isDesktop} onTapItem={onTapItem} />
+        <NetflixRow title="Your picks" items={savedList.slice(0, 10)} {...rowProps} />
       )}
 
       {emptyCatalogue && (
@@ -430,18 +438,17 @@ function HomeTab({
         </div>
       )}
 
-      <NetflixRow title="Trending Now" items={trendingGlobal} isDesktop={isDesktop} onTapItem={onTapItem} />
+      <NetflixRow title="Trending Now" items={trendingGlobal} {...rowProps} />
       <NetflixRow
         title={`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`}
         items={topTenToday.slice(0, 10)}
         ranked
-        isDesktop={isDesktop}
-        onTapItem={onTapItem}
+        {...rowProps}
       />
-      <NetflixRow title="Coming Soon" items={newlyReleased} isDesktop={isDesktop} onTapItem={onTapItem} />
-      <NetflixRow title="Popular Series" items={popularTV} isDesktop={isDesktop} onTapItem={onTapItem} />
+      <NetflixRow title="Coming Soon" items={newlyReleased} {...rowProps} />
+      <NetflixRow title="Popular Series" items={popularTV} {...rowProps} />
       {Object.entries(discoveryRows).map(([title, items]) => (
-        <NetflixRow key={title} title={title} items={items} isDesktop={isDesktop} onTapItem={onTapItem} />
+        <NetflixRow key={title} title={title} items={items} {...rowProps} />
       ))}
 
       <div style={{ padding: 16 }}>
