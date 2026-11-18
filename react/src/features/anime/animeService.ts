@@ -126,8 +126,11 @@ export interface AnimexHistoryEntry {
   title: string;
   posterUrl: string;
   episode: number;
+  totalEpisodes: number;
   audio: 'sub' | 'dub';
   progress?: number;
+  resumeSeconds?: number;
+  isMovie?: boolean;
   updatedAt: Date;
   savedItem?: MediaItem;
 }

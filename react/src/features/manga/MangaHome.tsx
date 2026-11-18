@@ -1,11 +1,12 @@
 // Port of lib/features/manga/presentation/screens/katana_home_screen.dart
 // (the embedded home tab): type chips, latest updates, Hot Manga, Genres.
 import type { ReactNode } from 'react';
+import { withAlpha } from '../../core/theme/colors';
 import { lineHeight, Align, linear } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
-import { KatanaCard, KatanaCompactCard, KatanaItemCard, KatanaPagination, KatanaSectionHeader } from './MangaUi';
-import type { KatanaGenre, KatanaHomeData, KatanaManga } from './katanaService';
+import { KatanaCard, KatanaCompactCard, KatanaCoverImage, KatanaItemCard, KatanaPagination, KatanaSectionHeader } from './MangaUi';
+import type { KatanaBookmark, KatanaGenre, KatanaHomeData, KatanaManga } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
 
 export type MangaType = 'all' | 'manga' | 'manhwa' | 'manhua';
@@ -57,9 +58,106 @@ function SmallCard({ children }: { children: ReactNode }) {
   );
 }
 
+function CurrentlyReadingShelf({
+  items,
+  onSelectManga,
+  onViewAll,
+}: {
+  items: KatanaBookmark[];
+  onSelectManga: (slug: string) => void;
+  onViewAll: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <KatanaSectionHeader
+        title="Currently Reading"
+        badge="READING NOOK"
+        trailing={
+          <button
+            type="button"
+            className="bare-button"
+            onClick={onViewAll}
+            style={{
+              padding: '4px 10px',
+              borderRadius: 99,
+              background: KatanaColors.surfaceAlt,
+              border: `1px solid ${KatanaColors.borderStrong}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <span style={KatanaType.accent}>View all</span>
+            <Icon name="chevron_right" size={16} color={KatanaColors.accent} />
+          </button>
+        }
+      />
+      <div style={{ height: 10 }} />
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+        {items.slice(0, 10).map((bm) => (
+          <button
+            key={bm.slug}
+            type="button"
+            className="bare-button"
+            onClick={() => onSelectManga(bm.slug)}
+            style={{
+              width: 112,
+              flexShrink: 0,
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div
+              style={{
+                position: 'relative',
+                width: 112,
+                height: 158,
+                borderRadius: 8,
+                overflow: 'hidden',
+                border: `1px solid ${withAlpha(KatanaColors.accent, 0.35)}`,
+                background: KatanaColors.surfaceAlt,
+              }}
+            >
+              <KatanaCoverImage url={bm.coverUrl} iconSize={24} />
+              {bm.lastReadChapterTitle && (
+                <div
+                  className="ellipsis"
+                  style={{
+                    position: 'absolute',
+                    left: 6,
+                    right: 6,
+                    bottom: 6,
+                    padding: '3px 7px',
+                    borderRadius: 6,
+                    background: 'rgba(10, 10, 18, 0.85)',
+                    border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
+                    fontFamily: Fonts.body,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: KatanaColors.accentSoft,
+                  }}
+                >
+                  {bm.lastReadChapterTitle}
+                </div>
+              )}
+            </div>
+            <div style={{ height: 6 }} />
+            <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 600, color: KatanaColors.text, lineHeight: 1.25 }}>
+              {bm.title || bm.slug.replace(/-/g, ' ')}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MangaHome({
   width,
   data,
+  currentlyReading = [],
   type,
   typeItems,
   typeLoading,
@@ -70,9 +168,11 @@ export function MangaHome({
   onSelectManga,
   onSelectGenre,
   onOpenChapter,
+  onViewAllReading,
 }: {
   width: number;
   data: KatanaHomeData;
+  currentlyReading?: KatanaBookmark[];
   type: MangaType;
   typeItems: KatanaManga[];
   typeLoading: boolean;
@@ -83,6 +183,7 @@ export function MangaHome({
   onSelectManga: (slug: string) => void;
   onSelectGenre: (g: KatanaGenre) => void;
   onOpenChapter: (manga: KatanaManga, chapterId: string) => void;
+  onViewAllReading?: () => void;
 }) {
   const desktop = width >= 960;
   const compact = width < 720;
@@ -178,6 +279,7 @@ export function MangaHome({
     return (
       <div>
         <div style={{ padding: '16px 16px 0' }}>
+          <CurrentlyReadingShelf items={currentlyReading} onSelectManga={onSelectManga} onViewAll={() => onViewAllReading?.()} />
           {typeChips}
           <div style={{ height: 14 }} />
           {type === 'all' ? (
@@ -211,6 +313,7 @@ export function MangaHome({
   const center = (child: ReactNode) => <div style={{ maxWidth: 1240, margin: '0 auto' }}>{child}</div>;
   return (
     <div style={{ padding: '16px 16px 60px' }}>
+      {center(<CurrentlyReadingShelf items={currentlyReading} onSelectManga={onSelectManga} onViewAll={() => onViewAllReading?.()} />)}
       {center(typeChips)}
       <div style={{ height: 14 }} />
       {type === 'all' && data.hotUpdates.length > 0 && (

@@ -15,9 +15,12 @@ import {
   LASTFM_USER_KHENT,
   disconnectSpotify,
   emptyMusicStatus,
-  linkSpotify,
+  fetchArtistImage,
   fetchArtistShowdown,
+  fetchArtistShowdownHistory,
   fetchMusicStats,
+  fetchTrackMetadata,
+  linkSpotify,
   musicStatusSource,
   searchLastfmArtists,
   spotifyTokenSource,
@@ -662,6 +665,436 @@ function VinylDisc() {
   );
 }
 
+function formatRelativeTime(timestamp: Date | null, isPlaying: boolean): string {
+  if (isPlaying) return 'now';
+  if (!timestamp) return 'heard';
+  const diffSec = Math.floor((Date.now() - timestamp.getTime()) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function JukeboxArtwork({
+  imageUrl,
+  size = 44,
+  radius = 12,
+  borderColor = withAlpha(AppColors.moonlight, 0.14),
+  borderWidth = 1,
+  glowColor,
+  iconSize = 18,
+}: {
+  imageUrl: string | null;
+  size?: number;
+  radius?: number;
+  borderColor?: string;
+  borderWidth?: number;
+  glowColor?: string;
+  iconSize?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [imageUrl]);
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        overflow: 'hidden',
+        background: AppColors.velvet,
+        border: `${borderWidth}px solid ${borderColor}`,
+        boxShadow: glowColor ? boxShadow([{ offset: [0, 4], blur: 14, color: withAlpha(glowColor, 0.35) }]) : undefined,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      {imageUrl && !failed ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <Icon name="music_note" size={iconSize} color={withAlpha(AppColors.roseQuartz, 0.72)} />
+      )}
+    </div>
+  );
+}
+
+function podiumColorFor(rank: number, isPink: boolean): string {
+  if (isPink) {
+    if (rank === 1) return AppColors.cinemaPink;
+    if (rank === 2) return AppColors.roseQuartz;
+    if (rank === 3) return AppColors.softLavender;
+    return AppColors.auroraRose;
+  }
+  if (rank === 1) return AppColors.auroraGold;
+  if (rank === 2) return '#D8D6F0';
+  if (rank === 3) return '#E69F6B';
+  return AppColors.blushGold;
+}
+
+function RankBadge({ rank, isPink }: { rank: number; isPink: boolean }) {
+  if (rank <= 3) {
+    const c = podiumColorFor(rank, isPink);
+    return (
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          background: linear([withAlpha(c, 0.34), withAlpha(c, 0.1)], { begin: Align.topLeft, end: Align.bottomRight }),
+          border: `1.4px solid ${withAlpha(c, 0.72)}`,
+          boxShadow: boxShadow([{ blur: 12, color: withAlpha(c, 0.35) }]),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ ...AppTypography.cormorantBold, fontSize: 17, lineHeight: 1, color: c }}>{rank}</span>
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        background: isPink ? withAlpha(AppColors.auroraRose, 0.1) : withAlpha(AppColors.moonlight, 0.06),
+        border: `1px solid ${isPink ? withAlpha(AppColors.auroraRose, 0.35) : withAlpha(AppColors.moonlight, 0.12)}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ ...AppTypography.cormorantHeading, fontSize: 16, lineHeight: 1, color: Derived.textMedium }}>
+        {rank}
+      </span>
+    </div>
+  );
+}
+
+function PodiumArtwork({
+  imageUrl,
+  rank,
+  isPink,
+}: {
+  imageUrl: string | null;
+  rank: number;
+  isPink: boolean;
+}) {
+  const isPodium = rank <= 3;
+  const color = podiumColorFor(rank, isPink);
+  const size = isPodium ? 48 : 44;
+  const art = (
+    <JukeboxArtwork
+      imageUrl={imageUrl}
+      size={size}
+      radius={12}
+      borderColor={isPodium ? withAlpha(color, rank === 1 ? 0.9 : 0.75) : withAlpha(AppColors.moonlight, 0.14)}
+      borderWidth={isPodium ? 1.6 : 1}
+      glowColor={isPodium ? color : undefined}
+    />
+  );
+  if (!isPodium) return art;
+  const medalIcon = rank === 1 ? 'emoji_events' : rank === 2 ? 'workspace_premium' : 'military_tech';
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      {art}
+      <div
+        style={{
+          position: 'absolute',
+          top: -7,
+          right: -7,
+          width: 20,
+          height: 20,
+          borderRadius: '50%',
+          background: linear(
+            isPink
+              ? rank === 1
+                ? ['#FFF0F6', AppColors.cinemaPink]
+                : rank === 2
+                  ? ['#FFF0F6', AppColors.roseQuartz]
+                  : [AppColors.moonlight, AppColors.softLavender]
+              : rank === 1
+                ? ['#FFF3B0', AppColors.auroraGold]
+                : rank === 2
+                  ? ['#F0F0FF', '#B8B9D6']
+                  : ['#FFD7B5', '#C47A3A'],
+            { begin: Align.topLeft, end: Align.bottomRight },
+          ),
+          border: `1.2px solid ${withAlpha(AppColors.petalWhite, 0.85)}`,
+          boxShadow: boxShadow([{ blur: 8, color: withAlpha(color, 0.55) }]),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon name={medalIcon} size={11} color={isPink ? (rank === 1 ? '#5D1032' : '#2A2340') : rank === 1 ? '#5E4200' : '#2A2340'} />
+      </div>
+    </div>
+  );
+}
+
+function TopTrackRow({
+  track,
+  username,
+  maxPlays,
+  isPink,
+}: {
+  track: TopMusicTrack;
+  username: string;
+  maxPlays: number;
+  isPink: boolean;
+}) {
+  const isPodium = track.rank <= 3;
+  const color = podiumColorFor(track.rank, isPink);
+  const fraction = Math.max(0.08, Math.min(1, track.playCount / Math.max(maxPlays, 1)));
+
+  const openTrack = () =>
+    void showListenAlong({
+      username,
+      trackName: track.trackName,
+      artistName: track.artistName,
+      albumName: track.albumName && track.albumName !== 'No Album' ? track.albumName : '',
+      imageUrl: track.imageUrl,
+      isPlaying: false,
+      spotifyUrl: track.spotifyUrl,
+      timestamp: null,
+    });
+
+  const rowCore = (
+    <div style={{ minHeight: isPodium ? 66 : 62, display: 'flex', alignItems: 'center', gap: AppSpacing.md }}>
+      <RankBadge rank={track.rank} isPink={isPink} />
+      <PodiumArtwork imageUrl={track.imageUrl} rank={track.rank} isPink={isPink} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          className="ellipsis"
+          style={{
+            ...AppTypography.outfitHeading,
+            fontSize: isPodium ? 15 : 14,
+            lineHeight: 1.15,
+            color: AppColors.petalWhite,
+            textShadow: isPodium ? `0 0 12px ${withAlpha(color, 0.35)}` : undefined,
+          }}
+        >
+          {track.trackName}
+        </div>
+        <div style={{ height: 2 }} />
+        <div
+          className="ellipsis"
+          style={{
+            ...AppTypography.outfitMedium,
+            fontSize: 12.5,
+            lineHeight: 1.15,
+            color: isPodium ? withAlpha(AppColors.petalWhite, 0.88) : Derived.textMedium,
+          }}
+        >
+          {track.artistName}
+        </div>
+        {isPodium && (
+          <div
+            style={{
+              height: 4,
+              borderRadius: 99,
+              background: withAlpha(AppColors.petalWhite, 0.1),
+              overflow: 'hidden',
+              marginTop: 6,
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.round(fraction * 100)}%`,
+                borderRadius: 99,
+                background: linear([withAlpha(color, 0.95), withAlpha(color, 0.45)]),
+                boxShadow: boxShadow([{ blur: 8, color: withAlpha(color, 0.55) }]),
+              }}
+            />
+          </div>
+        )}
+      </div>
+      {isPodium ? (
+        <div
+          style={{
+            padding: '5px 9px',
+            borderRadius: 99,
+            background: linear([withAlpha(color, 0.22), withAlpha(color, 0.08)]),
+            border: `1px solid ${withAlpha(color, 0.4)}`,
+            boxShadow: boxShadow([{ blur: 14, color: withAlpha(color, 0.22) }]),
+            textAlign: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ ...AppTypography.cormorantHeading, fontSize: 15, lineHeight: 1, color }}>
+            {formatNumber(track.playCount)}
+          </div>
+          <div style={{ ...AppTypography.outfitMedium, fontSize: 8, fontWeight: 700, color: withAlpha(color, 0.85), letterSpacing: '1.1px', marginTop: 2 }}>
+            {track.playCount === 1 ? 'play' : 'plays'}
+          </div>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 44 }}>
+          <div style={{ ...AppTypography.cormorantHeading, fontSize: 18, lineHeight: 1, color: isPink ? AppColors.roseQuartz : AppColors.blushGold }}>
+            {formatNumber(track.playCount)}
+          </div>
+          <div style={{ ...AppTypography.outfitMedium, fontSize: 9, fontWeight: 600, color: isPink ? withAlpha(AppColors.roseQuartz, 0.72) : Derived.textMuted, letterSpacing: '1.3px', marginTop: 3 }}>
+            {track.playCount === 1 ? 'play' : 'plays'}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (!isPodium) {
+    return (
+      <button type="button" className="bare-button" onClick={openTrack} style={{ width: '100%', textAlign: 'left' }}>
+        {rowCore}
+      </button>
+    );
+  }
+
+  const cardGradient = isPink
+    ? track.rank === 1
+      ? [withAlpha(AppColors.cinemaPink, 0.22), withAlpha(AppColors.deepRose, 0.2), withAlpha(AppColors.inkDeep, 0.32)]
+      : track.rank === 2
+        ? [withAlpha(AppColors.roseQuartz, 0.2), withAlpha('#522443', 0.22), withAlpha(AppColors.inkDeep, 0.3)]
+        : [withAlpha(AppColors.softLavender, 0.2), withAlpha('#5B2A4A', 0.2), withAlpha(AppColors.inkDeep, 0.28)]
+    : track.rank === 1
+      ? [withAlpha(AppColors.auroraGold, 0.22), withAlpha('#8D6500', 0.22), withAlpha(AppColors.inkDeep, 0.35)]
+      : track.rank === 2
+        ? [withAlpha('#D8D6F0', 0.22), withAlpha('#3A3566', 0.22), withAlpha(AppColors.inkDeep, 0.32)]
+        : [withAlpha('#E69F6B', 0.22), withAlpha('#6B3A14', 0.22), withAlpha(AppColors.inkDeep, 0.3)];
+
+  return (
+    <div style={{ position: 'relative', marginTop: track.rank === 1 ? 6 : 0 }}>
+      <button
+        type="button"
+        className="bare-button stats-shimmer"
+        onClick={openTrack}
+        style={{
+          width: '100%',
+          textAlign: 'left',
+          padding: '8px 10px',
+          borderRadius: 18,
+          background: linear(cardGradient, { begin: Align.topLeft, end: Align.bottomRight }),
+          border: `1.25px solid ${withAlpha(color, 0.48)}`,
+          boxShadow: boxShadow([
+            { offset: [0, 8], blur: track.rank === 1 ? 22 : 16, color: withAlpha(color, track.rank === 1 ? 0.28 : 0.18) },
+            { offset: [0, 4], blur: 14, color: withAlpha(AppColors.inkDeep, 0.45) },
+          ]),
+        }}
+      >
+        {rowCore}
+      </button>
+      {track.rank === 1 && (
+        <div className="stats-sparkle" style={{ position: 'absolute', top: -6, right: 8, pointerEvents: 'none' }}>
+          <Icon name="auto_awesome" size={13} color={withAlpha(color, 0.95)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecentTrackRow({ status }: { status: MusicStatus }) {
+  const isLive = status.isPlaying;
+  return (
+    <button
+      type="button"
+      className="bare-button"
+      onClick={() => void showListenAlong(status)}
+      style={{ width: '100%', textAlign: 'left' }}
+    >
+      <div style={{ minHeight: 62, padding: '6px 0', display: 'flex', alignItems: 'center', gap: AppSpacing.md }}>
+        <JukeboxArtwork imageUrl={status.imageUrl} size={44} radius={12} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="ellipsis" style={{ ...AppTypography.outfitHeading, fontSize: 15, lineHeight: 1.15, color: AppColors.petalWhite }}>
+              {status.trackName}
+            </span>
+            {isLive && (
+              <span
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: 99,
+                  background: withAlpha(AppColors.success, 0.16),
+                  border: `1px solid ${withAlpha(AppColors.success, 0.45)}`,
+                  ...AppTypography.outfitBold,
+                  fontSize: 9,
+                  letterSpacing: '0.8px',
+                  color: AppColors.success,
+                  flexShrink: 0,
+                }}
+              >
+                LIVE
+              </span>
+            )}
+          </div>
+          <div style={{ height: 3 }} />
+          <div className="ellipsis" style={{ ...AppTypography.outfitMedium, fontSize: 12.5, lineHeight: 1.15, color: Derived.textMedium }}>
+            {status.artistName}
+          </div>
+        </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <Icon name="schedule" size={13} color={isLive ? AppColors.warmAmber : Derived.textMuted} />
+          <span
+            style={{
+              ...AppTypography.outfitMedium,
+              fontSize: 11.5,
+              fontWeight: isLive ? 700 : 500,
+              color: isLive ? AppColors.warmAmber : Derived.textMedium,
+            }}
+          >
+            {formatRelativeTime(status.timestamp, isLive)}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+async function enrichTrackListArtwork<T extends { artistName?: string; trackName: string; imageUrl: string | null; mbid?: string | null }>(
+  list: T[],
+  artistFallback: string | undefined,
+  onPatch: (index: number, imageUrl: string, albumName?: string | null) => void,
+  isAlive: () => boolean,
+): Promise<void> {
+  const missing = list
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !item.imageUrl);
+  const concurrency = 4;
+  for (let i = 0; i < missing.length; i += concurrency) {
+    if (!isAlive()) return;
+    const chunk = missing.slice(i, i + concurrency);
+    const results = await Promise.all(
+      chunk.map(async ({ item, index }) => {
+        const artist = item.artistName ?? artistFallback ?? '';
+        if (!artist) return null;
+        const meta = await fetchTrackMetadata({ artist, track: item.trackName, mbid: item.mbid });
+        return meta?.artworkUrl ? { index, artworkUrl: meta.artworkUrl, albumName: meta.albumName } : null;
+      }),
+    );
+    if (!isAlive()) return;
+    for (const r of results) {
+      if (r) onPatch(r.index, r.artworkUrl, r.albumName);
+    }
+  }
+}
+
 export function MusicStatsSection() {
   const auth = useAuth();
   const { width } = useViewport();
@@ -670,7 +1103,62 @@ export function MusicStatsSection() {
   useEffect(() => {
     let alive = true;
     void fetchMusicStats().then((res) => {
-      if (alive) setData(res);
+      if (!alive) return;
+      setData(res);
+      void enrichTrackListArtwork(
+        res.topTracks,
+        undefined,
+        (idx, imageUrl, albumName) =>
+          setData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  topTracks: prev.topTracks.map((t, i) =>
+                    i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
+                  ),
+                }
+              : prev,
+          ),
+        () => alive,
+      );
+      void enrichTrackListArtwork(
+        res.clairTopTracks,
+        undefined,
+        (idx, imageUrl, albumName) =>
+          setData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  clairTopTracks: prev.clairTopTracks.map((t, i) =>
+                    i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
+                  ),
+                }
+              : prev,
+          ),
+        () => alive,
+      );
+      void enrichTrackListArtwork(
+        res.recentTracks,
+        undefined,
+        (idx, imageUrl) =>
+          setData((prev) =>
+            prev
+              ? { ...prev, recentTracks: prev.recentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
+              : prev,
+          ),
+        () => alive,
+      );
+      void enrichTrackListArtwork(
+        res.clairRecentTracks,
+        undefined,
+        (idx, imageUrl) =>
+          setData((prev) =>
+            prev
+              ? { ...prev, clairRecentTracks: prev.clairRecentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
+              : prev,
+          ),
+        () => alive,
+      );
     });
     return () => {
       alive = false;
@@ -852,70 +1340,7 @@ function MusicStatsBlock({
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {topTracks.map((track, idx) => (
             <div key={`${track.rank}-${track.trackName}`}>
-              <div style={{ height: track.rank <= 3 ? 66 : 62, display: 'flex', alignItems: 'center', gap: AppSpacing.md }}>
-                <span
-                  style={{
-                    width: 24,
-                    textAlign: 'center',
-                    ...AppTypography.outfitBold,
-                    fontSize: 13,
-                    color: track.rank <= 3 ? (isClair ? AppColors.auroraRose : AppColors.auroraGold) : Derived.textMuted,
-                  }}
-                >
-                  #{track.rank}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      ...AppTypography.outfitHeading,
-                      fontSize: track.rank <= 3 ? 15 : 14,
-                      lineHeight: 1.15,
-                      color: AppColors.petalWhite,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {track.trackName}
-                  </div>
-                  <div
-                    style={{
-                      ...AppTypography.outfitMedium,
-                      fontSize: 12.5,
-                      lineHeight: 1.15,
-                      color: track.rank <= 3 ? withAlpha(AppColors.petalWhite, 0.88) : Derived.textMedium,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {track.artistName}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', minWidth: 46 }}>
-                  <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: AppColors.blushGold }}>
-                    {formatNumber(track.playCount)}
-                  </span>
-                  <div
-                    style={{
-                      height: 3,
-                      width: 46,
-                      borderRadius: 99,
-                      background: withAlpha(AppColors.moonlight, 0.1),
-                      overflow: 'hidden',
-                      marginTop: 4,
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: '100%',
-                        width: `${Math.round((track.playCount / maxPlays) * 100)}%`,
-                        background: isClair ? AppColors.auroraRose : AppColors.blushGold,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
+              <TopTrackRow track={track} username={username} maxPlays={maxPlays} isPink={isClair} />
               {idx !== topTracks.length - 1 && (
                 <div
                   style={{
@@ -979,39 +1404,7 @@ function MusicStatsBlock({
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {recentTracks.map((rt, idx) => (
             <div key={`${rt.trackName}-${idx}`}>
-              <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      ...AppTypography.outfitHeading,
-                      fontSize: 13.5,
-                      color: AppColors.petalWhite,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {rt.trackName}
-                  </div>
-                  <div
-                    style={{
-                      ...AppTypography.outfitMedium,
-                      fontSize: 12,
-                      color: Derived.textMedium,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {rt.artistName}
-                  </div>
-                </div>
-                {rt.timestamp && (
-                  <span style={{ ...AppTypography.outfitMedium, fontSize: 11, color: Derived.textMuted }}>
-                    {formatTime(rt.timestamp)}
-                  </span>
-                )}
-              </div>
+              <RecentTrackRow status={rt} />
               {idx !== recentTracks.length - 1 && <div style={{ height: 1, background: withAlpha(AppColors.moonlight, 0.14) }} />}
             </div>
           ))}
@@ -1072,13 +1465,16 @@ export function ArtistShowdownCard() {
   const auth = useAuth();
   const { width } = useViewport();
   const [artist, setArtist] = useState(DEFAULT_SHOWDOWN_ARTIST);
+  const [artistImage, setArtistImage] = useState<string | null>(null);
   const [queryStr, setQueryStr] = useState('');
   const [suggestions, setSuggestions] = useState<ArtistSuggestion[]>([]);
+  const [quickArtists, setQuickArtists] = useState<string[]>([DEFAULT_SHOWDOWN_ARTIST]);
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [khentTotal, setKhentTotal] = useState(0);
   const [clairTotal, setClairTotal] = useState(0);
   const [tracks, setTracks] = useState<ShowdownTrack[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const reqIdRef = useRef(0);
 
   const loadArtist = async (target: string) => {
@@ -1086,18 +1482,49 @@ export function ArtistShowdownCard() {
     if (!trimmed) return;
     const reqId = ++reqIdRef.current;
     setArtist(trimmed);
+    setArtistImage(null);
     setSuggestions([]);
+    setExpanded(false);
     setIsLoading(true);
+    void fetchArtistImage(trimmed).then((img) => {
+      if (reqId === reqIdRef.current) setArtistImage(img);
+    });
     const res = await fetchArtistShowdown(trimmed);
     if (reqId !== reqIdRef.current) return;
     setKhentTotal(res.khentTotal);
     setClairTotal(res.clairTotal);
     setTracks(res.tracks);
     setIsLoading(false);
+    void enrichTrackListArtwork(
+      res.tracks,
+      trimmed,
+      (idx, imageUrl) => {
+        if (reqId !== reqIdRef.current) return;
+        setTracks((prev) => prev.map((t, i) => (i === idx ? { ...t, imageUrl } : t)));
+      },
+      () => reqId === reqIdRef.current,
+    );
   };
 
   useEffect(() => {
     void loadArtist(DEFAULT_SHOWDOWN_ARTIST);
+    let alive = true;
+    void fetchMusicStats().then((stats) => {
+      if (!alive) return;
+      const seen = new Set<string>([DEFAULT_SHOWDOWN_ARTIST.toLowerCase()]);
+      const picks = [DEFAULT_SHOWDOWN_ARTIST];
+      for (const tr of [...stats.topTracks, ...stats.clairTopTracks]) {
+        const name = tr.artistName.trim();
+        const key = name.toLowerCase();
+        if (!name || key === 'unknown artist' || seen.has(key)) continue;
+        seen.add(key);
+        picks.push(name);
+      }
+      setQuickArtists(picks.slice(0, 12));
+    });
+    return () => {
+      alive = false;
+    };
   }, [auth.uid]);
 
   useEffect(() => {
@@ -1106,15 +1533,27 @@ export function ArtistShowdownCard() {
       setSuggestions([]);
       return;
     }
+    let alive = true;
     const timer = window.setTimeout(() => {
-      void searchLastfmArtists(q).then(setSuggestions);
+      void searchLastfmArtists(q).then(async (list) => {
+        if (!alive) return;
+        setSuggestions(list);
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].imageUrl) continue;
+          const img = await fetchArtistImage(list[i].name);
+          if (!alive || !img) continue;
+          setSuggestions((prev) => prev.map((item, idx) => (idx === i ? { ...item, imageUrl: img } : item)));
+        }
+      });
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [queryStr]);
 
   const hasData = khentTotal > 0 || clairTotal > 0;
   const isCompact = width - 32 - AppSpacing.xl * 2 < 360;
-  const quickArtists = useMemo(() => [DEFAULT_SHOWDOWN_ARTIST], []);
   const totalSum = Math.max(khentTotal + clairTotal, 1);
   const kShare = hasData ? khentTotal / totalSum : 0.5;
   const shownTracks = expanded ? tracks : tracks.slice(0, 6);
@@ -1138,20 +1577,31 @@ export function ArtistShowdownCard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div
           style={{
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             borderRadius: '50%',
+            overflow: 'hidden',
             background: linear([AppColors.cinemaPink, AppColors.auroraLilac], {
               begin: Align.topLeft,
               end: Align.bottomRight,
             }),
+            border: `1px solid ${withAlpha(AppColors.blushGold, 0.4)}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <Icon name="leaderboard" size={18} color={AppColors.petalWhite} />
+          {artistImage ? (
+            <img
+              src={artistImage}
+              alt={artist}
+              onError={() => setArtistImage(null)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <Icon name="leaderboard" size={18} color={AppColors.petalWhite} />
+          )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ ...AppTypography.outfitBold, fontSize: 10, letterSpacing: '1.8px', color: AppColors.blushGold }}>
@@ -1195,7 +1645,7 @@ export function ArtistShowdownCard() {
         <button
           type="button"
           className="bare-button"
-          onClick={() => showSnackBar(`Play history for ${artist} requires signed-in Last.fm access.`)}
+          onClick={() => setHistoryOpen(true)}
           style={{
             padding: '6px 10px',
             borderRadius: 99,
@@ -1272,7 +1722,7 @@ export function ArtistShowdownCard() {
           style={{
             marginTop: 8,
             borderRadius: 12,
-            background: withAlpha(AppColors.velvet, 0.95),
+            background: AppColors.inkDeep,
             border: `1px solid ${withAlpha(AppColors.petalWhite, 0.12)}`,
             overflow: 'hidden',
           }}
@@ -1288,18 +1738,26 @@ export function ArtistShowdownCard() {
               }}
               style={{
                 width: '100%',
-                padding: '10px 12px',
+                padding: '8px 12px',
                 textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: 10,
                 color: AppColors.petalWhite,
                 ...AppTypography.outfitMedium,
                 fontSize: 12.5,
               }}
             >
-              <span>{s.name}</span>
-              <span style={{ fontSize: 11, color: Derived.textMuted }}>{`${formatNumber(s.listeners)} listeners`}</span>
+              <JukeboxArtwork imageUrl={s.imageUrl} size={36} radius={10} borderColor={withAlpha(AppColors.petalWhite, 0.08)} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ellipsis" style={{ ...AppTypography.outfitHeading, fontSize: 13, color: AppColors.petalWhite }}>
+                  {s.name}
+                </div>
+                <div style={{ fontSize: 11, color: Derived.textMuted }}>
+                  {s.listeners > 0 ? `${formatNumber(s.listeners)} listeners` : 'Tap to compare'}
+                </div>
+              </div>
+              <Icon name="north_west" size={15} color={AppColors.blushGold} />
             </button>
           ))}
         </div>
@@ -1416,33 +1874,83 @@ export function ArtistShowdownCard() {
               style={{ flex: Math.max(Math.round((1 - kShare) * 1000), 1), background: withAlpha(AppColors.cinemaPink, 0.85) }}
             />
           </div>
-          {shownTracks.map((t) => (
-            <div
-              key={t.trackName}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}
-            >
-              <span
-                style={{
-                  ...AppTypography.outfitMedium,
-                  fontSize: 12.5,
-                  color: AppColors.petalWhite,
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {t.trackName}
-              </span>
-              <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.auroraTeal, marginLeft: 12 }}>
-                {formatNumber(t.khentPlays)}
-              </span>
-              <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.cinemaPink, marginLeft: 10 }}>
-                {formatNumber(t.clairPlays)}
-              </span>
-            </div>
-          ))}
+
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => setHistoryOpen(true)}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 12,
+              background: withAlpha(AppColors.petalWhite, 0.04),
+              border: `1px solid ${withAlpha(AppColors.blushGold, 0.26)}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <Icon name="history" size={15} color={AppColors.blushGold} />
+            <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: AppColors.blushGold }}>
+              {`View ${artist} listening history`}
+            </span>
+            <Icon name="chevron_right" size={15} color={AppColors.blushGold} />
+          </button>
+
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {shownTracks.map((t, i) => {
+              const leader = t.khentPlays > t.clairPlays ? 'khent' : t.clairPlays > t.khentPlays ? 'clair' : null;
+              const leaderColor = leader === 'khent' ? AppColors.auroraTeal : leader === 'clair' ? AppColors.cinemaPink : Derived.textMuted;
+              return (
+                <button
+                  key={t.trackName}
+                  type="button"
+                  className="bare-button"
+                  onClick={() =>
+                    void showListenAlong({
+                      username: '',
+                      trackName: t.trackName,
+                      artistName: artist,
+                      albumName: '',
+                      imageUrl: t.imageUrl,
+                      isPlaying: false,
+                      spotifyUrl: t.spotifyUrl,
+                      timestamp: null,
+                    })
+                  }
+                  style={{ width: '100%', textAlign: 'left' }}
+                >
+                  <div style={{ height: 58, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 22, ...AppTypography.outfitBold, fontSize: 11, color: Derived.textMuted }}>
+                      {i + 1}
+                    </span>
+                    <JukeboxArtwork
+                      imageUrl={t.imageUrl}
+                      size={40}
+                      radius={10}
+                      borderColor={withAlpha(AppColors.petalWhite, 0.08)}
+                      iconSize={16}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ellipsis" style={{ ...AppTypography.outfitHeading, fontSize: 13, color: AppColors.petalWhite }}>
+                        {t.trackName}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                        <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.auroraTeal }}>
+                          {`Khent ${formatNumber(t.khentPlays)}`}
+                        </span>
+                        <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.cinemaPink }}>
+                          {`Clair ${formatNumber(t.clairPlays)}`}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: leaderColor, flexShrink: 0 }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
           {tracks.length > 6 && (
             <button
               type="button"
@@ -1453,14 +1961,148 @@ export function ArtistShowdownCard() {
                 ...AppTypography.outfitBold,
                 fontSize: 11,
                 color: AppColors.blushGold,
-                padding: '4px 8px',
+                padding: '6px 12px',
+                borderRadius: 99,
+                border: `1px solid ${withAlpha(AppColors.blushGold, 0.28)}`,
               }}
             >
-              {expanded ? 'Show less' : `Show all ${tracks.length} tracks`}
+              {expanded ? 'Show less' : `Show all ${tracks.length} songs`}
             </button>
           )}
         </div>
       )}
+
+      {historyOpen && <ShowdownHistoryModal artist={artist} onClose={() => setHistoryOpen(false)} />}
+    </div>
+  );
+}
+
+function ShowdownHistoryModal({ artist, onClose }: { artist: string; onClose: () => void }) {
+  const [filter, setFilter] = useState<'both' | 'khent' | 'clair'>('both');
+  const [loading, setLoading] = useState(true);
+  const [khent, setKhent] = useState<MusicStatus[]>([]);
+  const [clair, setClair] = useState<MusicStatus[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    void fetchArtistShowdownHistory(artist).then((res) => {
+      if (!alive) return;
+      setKhent(res.khent);
+      setClair(res.clair);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [artist]);
+
+  const combined = useMemo(() => {
+    const items: { status: MusicStatus; isKhent: boolean }[] = [];
+    if (filter !== 'clair') for (const s of khent) items.push({ status: s, isKhent: true });
+    if (filter !== 'khent') for (const s of clair) items.push({ status: s, isKhent: false });
+    items.sort((a, b) => (b.status.timestamp?.getTime() ?? 0) - (a.status.timestamp?.getTime() ?? 0));
+    return items;
+  }, [filter, khent, clair]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: withAlpha(AppColors.inkDeep, 0.72),
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          maxHeight: '82vh',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 24,
+          background: linear([AppColors.velvet, AppColors.inkDeep]),
+          border: `1px solid ${withAlpha(AppColors.blushGold, 0.3)}`,
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${withAlpha(AppColors.moonlight, 0.12)}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="history" size={20} color={AppColors.blushGold} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 21 }}>{`${artist} History`}</div>
+            <div style={{ ...AppTypography.outfitMuted, fontSize: 11 }}>Recent scrobbles by Khent &amp; Clair</div>
+          </div>
+          <button type="button" className="bare-button" aria-label="Close" onClick={onClose} style={{ padding: 6 }}>
+            <Icon name="close" size={20} color={Derived.textMedium} />
+          </button>
+        </div>
+
+        <div style={{ padding: '12px 20px 8px', display: 'flex', gap: 8 }}>
+          {(['both', 'khent', 'clair'] as const).map((k) => {
+            const active = filter === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                className="bare-button"
+                onClick={() => setFilter(k)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 99,
+                  background: active ? withAlpha(AppColors.blushGold, 0.18) : withAlpha(AppColors.petalWhite, 0.05),
+                  border: `1px solid ${active ? withAlpha(AppColors.blushGold, 0.5) : withAlpha(AppColors.petalWhite, 0.1)}`,
+                  ...AppTypography.outfitBold,
+                  fontSize: 11.5,
+                  color: active ? AppColors.blushGold : Derived.textMedium,
+                }}
+              >
+                {k === 'both' ? 'Both' : k === 'khent' ? 'Khent' : 'Clair'}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 20px' }}>
+          {loading ? (
+            <div style={{ padding: 28, textAlign: 'center', color: Derived.textMuted }}>Loading listening history…</div>
+          ) : combined.length === 0 ? (
+            <div style={{ padding: 28, textAlign: 'center', color: Derived.textMuted }}>No recent plays found for {artist}.</div>
+          ) : (
+            combined.map((entry, idx) => (
+              <div
+                key={`${entry.status.username}-${entry.status.trackName}-${idx}`}
+                style={{
+                  padding: '10px 0',
+                  borderBottom: idx === combined.length - 1 ? undefined : `1px solid ${withAlpha(AppColors.moonlight, 0.1)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <JukeboxArtwork imageUrl={entry.status.imageUrl} size={38} radius={10} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="ellipsis" style={{ ...AppTypography.outfitHeading, fontSize: 13, color: AppColors.petalWhite }}>
+                    {entry.status.trackName}
+                  </div>
+                  <div style={{ ...AppTypography.outfitMedium, fontSize: 11, color: entry.isKhent ? AppColors.auroraTeal : AppColors.cinemaPink }}>
+                    {entry.isKhent ? 'Khent' : 'Clair'}
+                  </div>
+                </div>
+                <span style={{ ...AppTypography.outfitMedium, fontSize: 11, color: Derived.textMuted }}>
+                  {formatRelativeTime(entry.status.timestamp, entry.status.isPlaying)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1491,7 +2133,10 @@ function ScoreBlock({
         alignItems: alignEnd ? 'flex-end' : 'flex-start',
       }}
     >
-      <span style={{ ...AppTypography.outfitBold, fontSize: 11, color }}>{name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        {isLeader && <Icon name="emoji_events" size={12} color={color} />}
+        <span style={{ ...AppTypography.outfitBold, fontSize: 11, color }}>{name}</span>
+      </div>
       <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22, lineHeight: 1.1 }}>{formatNumber(plays)}</span>
     </div>
   );

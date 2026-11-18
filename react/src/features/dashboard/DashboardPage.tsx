@@ -1,6 +1,7 @@
 // Port of lib/features/dashboard/presentation/screens/dashboard_screen.dart
 // and dashboard_screen_sections.dart.
 import { useEffect, useRef, useState } from 'react';
+import { useRememberedScroll } from '../../core/router/scrollMemory';
 import { useAuth } from '../../core/services/auth';
 import { useOnline, useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -66,6 +67,7 @@ export function DashboardPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  useRememberedScroll('dashboard', scrollRef, auth.isReady);
 
   useEffect(() => {
     if (!auth.isReady) return;

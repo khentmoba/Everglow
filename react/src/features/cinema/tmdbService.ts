@@ -31,6 +31,67 @@ const demoWatchlistChanges = new Changes<Record<string, MediaItem[]>>(() => {
   return out;
 });
 
+function ensureDemoWatchlist(userName: string): MediaItem[] {
+  const existing = demoWatchlist.get(userName);
+  if (existing) return existing;
+  const seeded: MediaItem[] = [
+    {
+      id: 'demo_anime_watching',
+      tmdbId: 21,
+      anilistId: 21,
+      title: 'Demo Anime Adventure',
+      mediaType: 'tv',
+      posterPath: '/images/demo/poster-3.jpg',
+      backdropPath: '/images/demo/poster-3.jpg',
+      year: '2026',
+      status: 'watching-self',
+      isAnime: true,
+      userName,
+      addedAt: new Date(2026, 1, 15),
+      progressUpdatedAt: new Date(2026, 1, 18),
+      source: 'jikan',
+      synopsis: 'A fictional ongoing anime demo entry.',
+      airingStatus: 'RELEASING',
+      format: 'TV',
+      studio: 'Demo Studio',
+      genres: ['Adventure', 'Fantasy'],
+      episodeCount: 12,
+      currentEpisode: 5,
+      currentTimestamp: 425,
+      durationSeconds: 1440,
+      remindMe: false,
+    },
+    {
+      id: 'demo_anime_watched',
+      tmdbId: 16498,
+      anilistId: 16498,
+      title: 'Demo Finished Quest',
+      mediaType: 'tv',
+      posterPath: '/images/demo/poster-4.jpg',
+      backdropPath: '/images/demo/poster-4.jpg',
+      year: '2025',
+      status: 'watched-self',
+      isAnime: true,
+      userName,
+      addedAt: new Date(2026, 1, 10),
+      progressUpdatedAt: new Date(2026, 1, 17),
+      source: 'jikan',
+      synopsis: 'A fictional completed anime demo entry.',
+      airingStatus: 'FINISHED',
+      format: 'TV',
+      studio: 'Demo Studio',
+      genres: ['Action'],
+      episodeCount: 25,
+      currentEpisode: 25,
+      currentTimestamp: 1400,
+      durationSeconds: 1440,
+      remindMe: false,
+    },
+  ];
+  demoWatchlist.set(userName, seeded);
+  return seeded;
+}
+
 function detectAnime(item: Record<string, unknown>): boolean {
   const lang = String(item.original_language ?? '').toLowerCase();
   const genres = Array.isArray(item.genre_ids)
@@ -282,6 +343,7 @@ export function watchCinemaWatchlist(userName: string): Source<MediaItem[]> {
     };
   }
   if (AgentMode.demo) {
+    ensureDemoWatchlist(userName);
     return (l) =>
       demoWatchlistChanges.source({
         data: (all) => l.data(all[userName] ?? []),
@@ -352,7 +414,10 @@ export async function setListMembership(item: MediaItem, userName: string, add: 
 }
 
 export async function saveWatchProgress(
-  item: Pick<MediaItem, 'tmdbId' | 'title' | 'mediaType' | 'posterPath' | 'backdropPath' | 'year' | 'isAnime' | 'source'>,
+  item: Pick<
+    MediaItem,
+    'tmdbId' | 'title' | 'mediaType' | 'posterPath' | 'backdropPath' | 'year' | 'isAnime' | 'source' | 'anilistId' | 'episodeCount' | 'format'
+  >,
   userName: string,
   opts: {
     season?: number;
@@ -363,6 +428,13 @@ export async function saveWatchProgress(
   },
 ): Promise<void> {
   if (!userName) return;
+  const isMovie = item.mediaType.trim().toLowerCase() !== 'tv' || (item.format ?? '').trim().toLowerCase() === 'movie';
+  const finale = !isMovie && item.episodeCount != null && item.episodeCount > 1 && opts.episode != null && opts.episode >= item.episodeCount;
+  const effectiveStatus =
+    finale && (opts.status == null || opts.status.toLowerCase().includes('watching'))
+      ? 'watched-self'
+      : (opts.status ?? 'watching-self');
+
   if (AgentMode.demo) {
     const key = catalogKeyOf(item);
     const prev = demoWatchlist.get(userName) ?? [];
@@ -376,13 +448,13 @@ export async function saveWatchProgress(
             genres: [],
             synopsis: '',
             airingStatus: '',
-            format: '',
+            format: item.format ?? '',
             studio: '',
             remindMe: false,
             addedAt: new Date(),
             userName,
           }),
-      status: opts.status ?? 'watching-self',
+      status: effectiveStatus,
       currentSeason: opts.season,
       currentEpisode: opts.episode,
       currentTimestamp: opts.timestamp,
@@ -400,6 +472,7 @@ export async function saveWatchProgress(
   const snap = await getDocs(query(collection(db, 'watch_list'), where('userName', '==', userName), limit(500)));
   const existing = snap.docs.find((d) => {
     const data = d.data();
+    if (item.isAnime && (item.anilistId ?? 0) > 0 && data.anilistId === item.anilistId) return true;
     return (
       Number(data.tmdbId ?? 0) === item.tmdbId && String(data.mediaType ?? 'movie').toLowerCase() === item.mediaType.toLowerCase()
     );
@@ -414,7 +487,10 @@ export async function saveWatchProgress(
     isAnime: item.isAnime,
     userName,
     source: item.source || 'tmdb',
-    status: opts.status ?? 'watching-self',
+    status: effectiveStatus,
+    ...(item.anilistId != null ? { anilistId: item.anilistId } : {}),
+    ...(item.episodeCount != null ? { episodeCount: item.episodeCount } : {}),
+    ...(item.format ? { format: item.format } : {}),
     ...(opts.season != null ? { currentSeason: opts.season } : {}),
     ...(opts.episode != null ? { currentEpisode: opts.episode } : {}),
     ...(opts.timestamp != null ? { currentTimestamp: opts.timestamp } : {}),
@@ -453,13 +529,27 @@ export async function clearWatchProgress(item: MediaItem, userName: string): Pro
 }
 
 const WATCHED = new Set(['watched', 'watched-khent', 'watched-clair', 'watched-both', 'watched-self']);
+const WATCHING = new Set(['watching', 'watching-khent', 'watching-clair', 'watching-both', 'watching-self', 'watching-together']);
+
+export function isSeriesCompleted(
+  item: Pick<MediaItem, 'mediaType' | 'format' | 'episodeCount' | 'currentEpisode'>,
+): boolean {
+  const isMovie = item.mediaType.trim().toLowerCase() !== 'tv' || item.format.trim().toLowerCase() === 'movie';
+  if (isMovie || item.episodeCount == null || item.episodeCount <= 1 || item.currentEpisode == null) return false;
+  return item.currentEpisode >= item.episodeCount;
+}
 
 /** `MediaItem.isWatched`: a watched status, or a series whose last episode is reached. */
 export function isWatchedItem(item: MediaItem): boolean {
   if (WATCHED.has(item.status.trim().toLowerCase())) return true;
-  const isMovie = item.mediaType.trim().toLowerCase() !== 'tv' || item.format.trim().toLowerCase() === 'movie';
-  if (isMovie || item.episodeCount == null || item.episodeCount <= 1 || item.currentEpisode == null) return false;
-  return item.currentEpisode >= item.episodeCount;
+  return isSeriesCompleted(item);
+}
+
+/** `MediaItem.isCurrentlyWatching`: actively watching and not yet completed. */
+export function isCurrentlyWatchingItem(item: MediaItem): boolean {
+  if (isWatchedItem(item)) return false;
+  const s = item.status.trim().toLowerCase();
+  return WATCHING.has(s) || s.includes('watching');
 }
 
 /** `getWatchListFromThisDay`: titles added on today's date in earlier years (none in agent mode). */

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
+import { EverglowMarquee } from '../../shared/widgets/EverglowMarquee';
 import { Icon } from '../../shared/widgets/Icon';
 import { displayGalleryUrl, galleryService, type MemoryPhoto } from '../gallery/galleryService';
 import { FeatureSection, SectionChevron } from './FeatureSection';
@@ -38,19 +39,17 @@ export function GalleryPreview() {
             </span>
           </div>
         ) : (
-          <div className="no-scrollbar" style={{ overflowX: 'auto', height: 194 }}>
-            <div style={{ display: 'flex', gap: 12, width: 'max-content' }}>
-              {photos.slice(0, 12).map((p) => (
-                <ShelfCard
-                  key={p.id}
-                  accent="gallery"
-                  imageUrl={displayGalleryUrl(p.thumbUrl || p.imageUrl)}
-                  title=""
-                  onTap={() => navigate('/gallery')}
-                />
-              ))}
-            </div>
-          </div>
+          <EverglowMarquee height={194}>
+            {photos.slice(0, 12).map((p) => (
+              <ShelfCard
+                key={p.id}
+                accent="gallery"
+                imageUrl={displayGalleryUrl(p.thumbUrl || p.imageUrl)}
+                title=""
+                onTap={() => navigate('/gallery')}
+              />
+            ))}
+          </EverglowMarquee>
         )}
       </FeatureSection>
     </div>

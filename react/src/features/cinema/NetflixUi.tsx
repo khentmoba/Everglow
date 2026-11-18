@@ -1,6 +1,8 @@
 // Port of lib/features/cinema/presentation/widgets/netflix/*.dart.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
+import { useViewport } from '../../core/system/viewport';
 import { AppColors } from '../../core/theme/colors';
 import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
@@ -69,9 +71,289 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
   return showDownloads ? all : all.filter((i) => i.tab !== 5);
 }
 
+const cinemaDetailCache = new Map<string, Record<string, unknown>>();
+let closeActiveCinemaPreview: (() => void) | null = null;
+
+function prefetchCinemaDetails(item: MediaItem): Promise<Record<string, unknown>> {
+  const key = `${item.tmdbId}:${item.mediaType}`;
+  const cached = cinemaDetailCache.get(key);
+  if (cached) return Promise.resolve(cached);
+  return fetchMediaDetails(item.tmdbId, item.mediaType)
+    .then((d) => {
+      const res = d ?? {};
+      cinemaDetailCache.set(key, res);
+      return res;
+    })
+    .catch(() => ({}));
+}
+
+function NetflixHoverPreview({
+  item,
+  anchor,
+  inList,
+  onClose,
+  onTap,
+  onPlay,
+  onToggleList,
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  item: MediaItem;
+  anchor: DOMRect;
+  inList: boolean;
+  onClose: () => void;
+  onTap: () => void;
+  onPlay?: (item: MediaItem) => void;
+  onToggleList?: (item: MediaItem, add: boolean) => void;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+}) {
+  const key = `${item.tmdbId}:${item.mediaType}`;
+  const [details, setDetails] = useState<Record<string, unknown> | null>(() => cinemaDetailCache.get(key) ?? null);
+  const [listed, setListed] = useState(inList);
+
+  useEffect(() => {
+    setListed(inList);
+  }, [inList]);
+
+  useEffect(() => {
+    if (cinemaDetailCache.has(key)) {
+      setDetails(cinemaDetailCache.get(key)!);
+      return;
+    }
+    let alive = true;
+    void prefetchCinemaDetails(item).then((d) => {
+      if (alive) setDetails(d);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [key, item]);
+
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const width = Math.min(340, Math.max(290, Math.round(vw * 0.25)));
+  const estHeight = Math.round(width * 0.5625 + 215);
+  const margin = 12;
+  const left = Math.max(margin, Math.min(vw - width - margin, anchor.left + anchor.width / 2 - width / 2));
+  const top = Math.max(margin, Math.min(vh - estHeight - margin, anchor.top + anchor.height / 2 - estHeight / 2));
+
+  const backdropPath =
+    item.backdropPath || (typeof details?.backdrop_path === 'string' ? details.backdrop_path : '');
+  const backdropUrl = backdropPath ? TmdbImages.backdropFor(backdropPath) : TmdbImages.cardFor(item.posterPath);
+  const voteAvg = typeof details?.vote_average === 'number' ? details.vote_average : (item.score ?? 0);
+  const releaseDate = String(details?.release_date ?? details?.first_air_date ?? '');
+  const year = item.year || (releaseDate.length >= 4 ? releaseDate.slice(0, 4) : '');
+  const runtimeRaw =
+    typeof details?.runtime === 'number'
+      ? details.runtime
+      : Array.isArray(details?.episode_run_time) && typeof details.episode_run_time[0] === 'number'
+        ? details.episode_run_time[0]
+        : null;
+  const runtime =
+    runtimeRaw && runtimeRaw > 0
+      ? runtimeRaw >= 60
+        ? `${Math.floor(runtimeRaw / 60)}h ${runtimeRaw % 60}m`
+        : `${runtimeRaw}m`
+      : null;
+  const seasons = typeof details?.number_of_seasons === 'number' ? details.number_of_seasons : null;
+  const seriesInfo = item.mediaType === 'tv' && seasons && seasons > 0 ? `${seasons} Season${seasons === 1 ? '' : 's'}` : null;
+  const rawGenres =
+    item.genres.length > 0
+      ? item.genres
+      : Array.isArray(details?.genres)
+        ? details.genres.map((g) => String((g as Record<string, unknown>)?.name ?? '')).filter(Boolean)
+        : [];
+  const synopsis =
+    item.synopsis ||
+    (typeof details?.overview === 'string' && details.overview.trim() ? details.overview.trim() : '') ||
+    `${item.mediaType === 'movie' ? 'Movie' : 'Series'}${year ? ` from ${year}` : ''}. Click for details, episodes, cast and more.`;
+
+  return createPortal(
+    <div
+      onMouseEnter={onPointerEnter}
+      onMouseLeave={onPointerLeave}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+        onTap();
+      }}
+      style={{
+        position: 'fixed',
+        left,
+        top,
+        width,
+        zIndex: 1300,
+        borderRadius: 12,
+        overflow: 'hidden',
+        background: NetflixColors.surfaceElevated,
+        border: `1px solid ${NetflixColors.hairline}`,
+        boxShadow: '0 20px 44px rgba(0, 0, 0, 0.78)',
+        cursor: 'pointer',
+        animation: 'shelf-entrance 180ms cubic-bezier(0.22, 1, 0.36, 1) both',
+      }}
+    >
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: NetflixColors.surface }}>
+        {backdropUrl && (
+          <img
+            src={backdropUrl}
+            alt={item.title}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        )}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: linear(['rgba(0,0,0,0)', 'rgba(24,24,24,0.92)'], {
+              begin: Align.topCenter,
+              end: Align.bottomCenter,
+              stops: [0.35, 1],
+            }),
+          }}
+        />
+        <div
+          className="clamp-2"
+          style={{
+            position: 'absolute',
+            left: 14,
+            right: 14,
+            bottom: 10,
+            ...AppTypography.cormorantBold,
+            fontSize: 20,
+            lineHeight: 1.1,
+            color: '#FFFFFF',
+            textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+          }}
+        >
+          {item.title}
+        </div>
+      </div>
+
+      <div style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label={`Play ${item.title}`}
+            title="Play"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+              if (onPlay) onPlay(item);
+              else onTap();
+            }}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="play_arrow" size={20} color="#000000" />
+          </button>
+          {onToggleList && (
+            <button
+              type="button"
+              className="bare-button"
+              aria-label={listed ? 'Remove from My List' : 'Add to My List'}
+              title={listed ? 'Remove from My List' : 'Add to My List'}
+              onClick={(e) => {
+                e.stopPropagation();
+                const next = !listed;
+                setListed(next);
+                onToggleList(item, next);
+              }}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                background: 'rgba(42,42,42,0.8)',
+                border: '1.5px solid rgba(255,255,255,0.45)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name={listed ? 'check' : 'add'} size={18} color="#FFFFFF" />
+            </button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="bare-button"
+            aria-label={`More info for ${item.title}`}
+            title="More info"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+              onTap();
+            }}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              background: 'rgba(42,42,42,0.8)',
+              border: '1.5px solid rgba(255,255,255,0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="expand_more" size={20} color="#FFFFFF" />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px' }}>
+          {voteAvg > 0 && (
+            <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: '#46D369' }}>
+              {`${Math.round(voteAvg * 10)}% Match`}
+            </span>
+          )}
+          {year && <span style={{ ...AppTypography.outfitMedium, fontSize: 12, color: NetflixColors.textSecondary }}>{year}</span>}
+          {(seriesInfo || runtime) && (
+            <span style={{ ...AppTypography.outfitMedium, fontSize: 12, color: NetflixColors.textSecondary }}>
+              {seriesInfo ?? runtime}
+            </span>
+          )}
+          <span
+            style={{
+              padding: '1px 5px',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: 3,
+              ...AppTypography.outfitBold,
+              fontSize: 9.5,
+              color: NetflixColors.textSecondary,
+            }}
+          >
+            HD
+          </span>
+        </div>
+
+        {rawGenres.length > 0 && (
+          <div className="ellipsis" style={{ ...AppTypography.outfitMedium, fontSize: 11.5, color: '#FFFFFF' }}>
+            {rawGenres.slice(0, 3).join('  •  ')}
+          </div>
+        )}
+
+        <div className="clamp-3" style={{ ...AppTypography.bodySmall, fontSize: 11.5, lineHeight: 1.4, color: NetflixColors.textSecondary }}>
+          {synopsis}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function NetflixPosterCard({
   item,
   onTap,
+  onPlay,
+  onToggleList,
+  isInList,
   progress,
   rank,
   compact = false,
@@ -80,6 +362,9 @@ export function NetflixPosterCard({
 }: {
   item: MediaItem;
   onTap: () => void;
+  onPlay?: (item: MediaItem) => void;
+  onToggleList?: (item: MediaItem, add: boolean) => void;
+  isInList?: (item: MediaItem) => boolean;
   progress?: number | null;
   rank?: number;
   compact?: boolean;
@@ -87,19 +372,75 @@ export function NetflixPosterCard({
   /** The row's height: Flutter's horizontal ListView stretches every card to it. */
   height?: number;
 }) {
+  const { width: vw } = useViewport();
+  const desktopCapable = isDesktop || vw >= 1024;
   const [hovered, setHovered] = useState(false);
+  const [previewRect, setPreviewRect] = useState<DOMRect | null>(null);
   const [imgErr, setImgErr] = useState(false);
+  const cardRef = useRef<HTMLButtonElement>(null);
+  const showTimerRef = useRef<number | undefined>(undefined);
+  const hideTimerRef = useRef<number | undefined>(undefined);
   const posterUrl = TmdbImages.cardFor(item.posterPath);
   const cardWidth = compact ? undefined : rank != null ? 118 : isDesktop ? 172 : 124;
 
+  const closePreview = useCallback(() => {
+    window.clearTimeout(showTimerRef.current);
+    window.clearTimeout(hideTimerRef.current);
+    setHovered(false);
+    setPreviewRect(null);
+  }, []);
+
+  useEffect(() => {
+    if (!previewRect) return;
+    const onScroll = () => closePreview();
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', onScroll, { capture: true });
+  }, [previewRect]);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(showTimerRef.current);
+      window.clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  const handleEnter = () => {
+    window.clearTimeout(hideTimerRef.current);
+    setHovered(true);
+    if (!desktopCapable) return;
+    void prefetchCinemaDetails(item);
+    window.clearTimeout(showTimerRef.current);
+    showTimerRef.current = window.setTimeout(() => {
+      const rect = cardRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      if (closeActiveCinemaPreview && closeActiveCinemaPreview !== closePreview) {
+        closeActiveCinemaPreview();
+      }
+      closeActiveCinemaPreview = closePreview;
+      setPreviewRect(rect);
+    }, 260);
+  };
+
+  const handleLeave = () => {
+    window.clearTimeout(showTimerRef.current);
+    setHovered(false);
+    hideTimerRef.current = window.setTimeout(() => {
+      setPreviewRect(null);
+    }, 90);
+  };
+
   const posterBox = (
     <button
+      ref={cardRef}
       type="button"
       className="bare-button"
       aria-label={`Details for ${item.title}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onTap}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      onClick={() => {
+        closePreview();
+        onTap();
+      }}
       style={{
         position: 'relative',
         width: cardWidth ?? '100%',
@@ -108,11 +449,11 @@ export function NetflixPosterCard({
         overflow: 'hidden',
         background: NetflixColors.surfaceElevated,
         boxShadow: boxShadow([
-          hovered && isDesktop
+          hovered && desktopCapable
             ? { offset: [0, 14], blur: 24, color: 'rgba(0,0,0,0.65)' }
             : { offset: [0, 4], blur: 10, color: 'rgba(0,0,0,0.45)' },
         ]),
-        transform: hovered && isDesktop ? 'scale(1.04)' : 'scale(1)',
+        transform: hovered && desktopCapable ? 'scale(1.04)' : 'scale(1)',
         transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
         display: 'flex',
         alignItems: 'center',
@@ -150,7 +491,20 @@ export function NetflixPosterCard({
           </span>
         </div>
       )}
-      {hovered && isDesktop && <div style={{ position: 'absolute', inset: 0, background: NetflixColors.hoverScrim }} />}
+      {hovered && desktopCapable && <div style={{ position: 'absolute', inset: 0, background: NetflixColors.hoverScrim }} />}
+      {previewRect && (
+        <NetflixHoverPreview
+          item={item}
+          anchor={previewRect}
+          inList={isInList?.(item) ?? false}
+          onClose={closePreview}
+          onTap={onTap}
+          onPlay={onPlay}
+          onToggleList={onToggleList}
+          onPointerEnter={() => window.clearTimeout(hideTimerRef.current)}
+          onPointerLeave={handleLeave}
+        />
+      )}
       {item.remindMe && (
         <div
           style={{
@@ -255,12 +609,18 @@ export function NetflixRow({
   items,
   ranked = false,
   onTapItem,
+  onPlayItem,
+  onToggleListItem,
+  isInList,
   isDesktop = false,
 }: {
   title: string;
   items: MediaItem[];
   ranked?: boolean;
   onTapItem: (item: MediaItem) => void;
+  onPlayItem?: (item: MediaItem) => void;
+  onToggleListItem?: (item: MediaItem, add: boolean) => void;
+  isInList?: (item: MediaItem) => boolean;
   isDesktop?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -307,6 +667,9 @@ export function NetflixRow({
                 isDesktop={isDesktop}
                 height={rowHeight}
                 onTap={() => onTapItem(item)}
+                onPlay={onPlayItem}
+                onToggleList={onToggleListItem}
+                isInList={isInList}
               />
             </div>
           ))}

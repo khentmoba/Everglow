@@ -18,10 +18,31 @@ import {
 import { PartnerSubrow, partnerEyebrowLabelFor } from './PartnerSubrow';
 import { SHELF_ACCENTS, ShelfCard, ShelfHeader } from './ShelfWidgets';
 
-const isWatching = (m: WatchMediaItem) => m.status.toLowerCase().includes('watching');
-const isWatched = (m: WatchMediaItem) => m.status.toLowerCase().includes('watched');
-const isCinema = (m: WatchMediaItem) => m.source !== 'jikan';
-const isAnime = (m: WatchMediaItem) => m.source === 'jikan';
+const isSeriesCompleted = (m: WatchMediaItem) => {
+  const isMovie = m.mediaType.trim().toLowerCase() !== 'tv' || m.format.trim().toLowerCase() === 'movie';
+  return !isMovie && m.episodeCount != null && m.episodeCount > 1 && m.currentEpisode != null && m.currentEpisode >= m.episodeCount;
+};
+const isWatched = (m: WatchMediaItem) => m.status.toLowerCase().includes('watched') || isSeriesCompleted(m);
+const isWatching = (m: WatchMediaItem) => !isWatched(m) && m.status.toLowerCase().includes('watching');
+const isAnime = (m: WatchMediaItem) => m.isAnime || m.source === 'jikan';
+const isCinema = (m: WatchMediaItem) => !isAnime(m);
+
+function dedupeWatchItems(items: WatchMediaItem[]): WatchMediaItem[] {
+  const seen = new Set<string>();
+  const out: WatchMediaItem[] = [];
+  for (const m of items) {
+    const key =
+      m.anilistId && m.anilistId > 0
+        ? `anilist:${m.anilistId}`
+        : m.tmdbId > 0
+          ? `${m.source}:${m.mediaType}:${m.tmdbId}`
+          : m.title.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(m);
+  }
+  return out;
+}
 
 export function CurrentlyWatchingPreview() {
   const auth = useAuth();
@@ -31,8 +52,8 @@ export function CurrentlyWatchingPreview() {
   const myItems = useSource(() => watchUserWatchList(me), [me], []);
   const partnerItems = useSource(() => watchUserWatchList(partner), [partner], []);
 
-  const myWatching = myItems.filter((m) => isCinema(m) && isWatching(m));
-  const partnerWatching = partnerItems.filter((m) => isCinema(m) && isWatching(m));
+  const myWatching = dedupeWatchItems(myItems.filter((m) => isCinema(m) && isWatching(m)));
+  const partnerWatching = dedupeWatchItems(partnerItems.filter((m) => isCinema(m) && isWatching(m)));
 
   return (
     <div style={{ padding: '0 24px' }}>
@@ -74,8 +95,8 @@ export function CinemaPreview() {
   const myItems = useSource(() => watchUserWatchList(me), [me], []);
   const partnerItems = useSource(() => watchUserWatchList(partner), [partner], []);
 
-  const myWatched = myItems.filter((m) => isCinema(m) && isWatched(m));
-  const partnerWatched = partnerItems.filter((m) => isCinema(m) && isWatched(m));
+  const myWatched = dedupeWatchItems(myItems.filter((m) => isCinema(m) && isWatched(m)));
+  const partnerWatched = dedupeWatchItems(partnerItems.filter((m) => isCinema(m) && isWatched(m)));
 
   return (
     <div style={{ padding: '0 24px' }}>
@@ -112,10 +133,10 @@ export function AnimePreview() {
   const myItems = useSource(() => watchUserWatchList(me), [me], []);
   const partnerItems = useSource(() => watchUserWatchList(partner), [partner], []);
 
-  const myWatching = myItems.filter((m) => isAnime(m) && isWatching(m));
-  const partnerWatching = partnerItems.filter((m) => isAnime(m) && isWatching(m));
-  const myDone = myItems.filter((m) => isAnime(m) && isWatched(m));
-  const partnerDone = partnerItems.filter((m) => isAnime(m) && isWatched(m));
+  const myWatching = dedupeWatchItems(myItems.filter((m) => isAnime(m) && isWatching(m)));
+  const partnerWatching = dedupeWatchItems(partnerItems.filter((m) => isAnime(m) && isWatching(m)));
+  const myDone = dedupeWatchItems(myItems.filter((m) => isAnime(m) && isWatched(m)));
+  const partnerDone = dedupeWatchItems(partnerItems.filter((m) => isAnime(m) && isWatched(m)));
 
   return (
     <div style={{ padding: '0 24px' }}>

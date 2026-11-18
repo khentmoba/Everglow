@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { letterSpacing, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
+import { EverglowMarquee } from '../../shared/widgets/EverglowMarquee';
 import { Icon } from '../../shared/widgets/Icon';
 import { SHELF_ACCENTS, type ShelfAccentKey } from './ShelfWidgets';
 
@@ -74,9 +75,7 @@ export function PartnerSubrow({
 
       <div style={{ height: 8 }} />
       {hasItems ? (
-        <div className="no-scrollbar" style={{ overflowX: 'auto', height }}>
-          <div style={{ display: 'flex', gap: 12, width: 'max-content' }}>{children.slice(0, 12)}</div>
-        </div>
+        <EverglowMarquee height={height}>{children.slice(0, 12)}</EverglowMarquee>
       ) : emptyMessage != null ? (
         <div
           style={{

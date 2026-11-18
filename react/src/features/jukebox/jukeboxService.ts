@@ -16,6 +16,7 @@ import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 
 export const LASTFM_USER_KHENT = 'khentsgdz';
 export const LASTFM_USER_CLAIR = 'clairjassen';
@@ -42,6 +43,7 @@ export interface TopMusicTrack {
   rank: number;
   trackName: string;
   artistName: string;
+  albumName?: string | null;
   playCount: number;
   imageUrl: string | null;
   spotifyUrl: string;
@@ -54,6 +56,7 @@ export interface ShowdownTrack {
   clairPlays: number;
   imageUrl: string | null;
   spotifyUrl: string;
+  mbid?: string | null;
 }
 
 export interface ArtistSuggestion {
@@ -341,7 +344,39 @@ export interface MusicStatsData {
   clairTotalPlays: number;
 }
 
+function demoMusicStats(): MusicStatsData {
+  const makeTop = (user: 'khent' | 'clair'): TopMusicTrack[] =>
+    user === 'khent'
+      ? [
+          { rank: 1, trackName: 'Demo Track One', artistName: 'Demo Artist A', albumName: 'Starlight EP', playCount: 326, imageUrl: '/images/demo/poster-1.jpg', spotifyUrl: 'https://open.spotify.com' },
+          { rank: 2, trackName: 'Demo Track Two', artistName: 'Demo Artist B', albumName: 'Midnight', playCount: 280, imageUrl: '/images/demo/poster-2.jpg', spotifyUrl: 'https://open.spotify.com' },
+          { rank: 3, trackName: 'Demo Track Three', artistName: 'Demo Artist C', albumName: 'Everglow', playCount: 244, imageUrl: '/images/demo/poster-3.jpg', spotifyUrl: 'https://open.spotify.com' },
+          { rank: 4, trackName: 'Demo Track Four', artistName: 'Demo Artist A', albumName: 'Starlight EP', playCount: 198, imageUrl: '/images/demo/poster-4.jpg', spotifyUrl: 'https://open.spotify.com' },
+        ]
+      : [
+          { rank: 1, trackName: 'Demo Song Alpha', artistName: 'Demo Artist D', albumName: 'Moonlight', playCount: 288, imageUrl: '/images/demo/poster-2.jpg', spotifyUrl: 'https://open.spotify.com' },
+          { rank: 2, trackName: 'Demo Song Beta', artistName: 'Demo Artist E', albumName: 'Velvet', playCount: 211, imageUrl: '/images/demo/poster-3.jpg', spotifyUrl: 'https://open.spotify.com' },
+          { rank: 3, trackName: 'Demo Song Gamma', artistName: 'Demo Artist F', albumName: 'Blossom', playCount: 195, imageUrl: '/images/demo/poster-4.jpg', spotifyUrl: 'https://open.spotify.com' },
+          { rank: 4, trackName: 'Demo Song Delta', artistName: 'Demo Artist D', albumName: 'Moonlight', playCount: 167, imageUrl: '/images/demo/poster-1.jpg', spotifyUrl: 'https://open.spotify.com' },
+        ];
+  const now = Date.now();
+  const makeRecent = (username: string): MusicStatus[] => [
+    { username, trackName: 'Demo Recent One', artistName: 'Demo Artist A', albumName: 'Starlight EP', imageUrl: '/images/demo/poster-1.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: new Date(now - 6 * 60_000) },
+    { username, trackName: 'Demo Recent Two', artistName: 'Demo Artist B', albumName: 'Midnight', imageUrl: '/images/demo/poster-2.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: new Date(now - 24 * 60_000) },
+    { username, trackName: 'Demo Recent Three', artistName: 'Demo Artist C', albumName: 'Everglow', imageUrl: '/images/demo/poster-3.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: new Date(now - 2 * 3600_000) },
+  ];
+  return {
+    topTracks: makeTop('khent'),
+    recentTracks: makeRecent(LASTFM_USER_KHENT),
+    clairTopTracks: makeTop('clair'),
+    clairRecentTracks: makeRecent(LASTFM_USER_CLAIR),
+    khentTotalPlays: 8474,
+    clairTotalPlays: 8292,
+  };
+}
+
 export async function fetchMusicStats(): Promise<MusicStatsData> {
+  if (AgentMode.demo) return demoMusicStats();
   const empty: MusicStatsData = {
     topTracks: [],
     recentTracks: [],
@@ -403,11 +438,185 @@ export async function fetchMusicStats(): Promise<MusicStatsData> {
   };
 }
 
+export interface TrackMetadata {
+  artworkUrl: string | null;
+  albumName: string | null;
+}
+
+const trackMetadataCache = new Map<string, Promise<TrackMetadata | null>>();
+const artistImageCache = new Map<string, Promise<string | null>>();
+
+const normText = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+function matchesItunesTrack(result: Record<string, unknown>, track: string, artist?: string): boolean {
+  const rTrack = normText(String(result.trackName ?? ''));
+  const tNorm = normText(track);
+  if (!rTrack || !tNorm) return false;
+  const trackOk = rTrack === tNorm || rTrack.includes(tNorm) || tNorm.includes(rTrack);
+  if (!trackOk) return false;
+  if (!artist) return true;
+  const rArtist = normText(String(result.artistName ?? ''));
+  const aNorm = normText(artist);
+  return !rArtist || !aNorm || rArtist.includes(aNorm) || aNorm.includes(rArtist);
+}
+
+async function fetchLastfmTrackMeta(artist: string, track: string, mbid?: string | null): Promise<TrackMetadata | null> {
+  const params: Record<string, string> = { method: 'track.getinfo', autocorrect: '1' };
+  if (mbid) params.mbid = mbid;
+  else {
+    params.artist = artist;
+    params.track = track;
+  }
+  const data = await fetchLastfmJson(params);
+  const tr = data?.track as Record<string, unknown> | undefined;
+  const album = tr?.album as Record<string, unknown> | undefined;
+  if (!album) return null;
+  const artworkUrl = pickLastfmImageUrl(album.image);
+  const title = typeof album.title === 'string' && album.title.trim() ? album.title.trim() : null;
+  return artworkUrl || title ? { artworkUrl, albumName: title } : null;
+}
+
+async function fetchItunesTrackMeta(artist: string, track: string): Promise<TrackMetadata | null> {
+  try {
+    const search = async (term: string) => {
+      const resp = await catalogProxyGet('itunes', 'search', {
+        query: { term, entity: 'song', media: 'music', limit: '8' },
+        timeoutMs: 8000,
+      });
+      if (!resp.ok) return [] as Record<string, unknown>[];
+      const json = (await resp.json()) as Record<string, unknown>;
+      return Array.isArray(json.results) ? (json.results as Record<string, unknown>[]) : [];
+    };
+    const results = await search(`${artist} ${track}`);
+    let selected = results.find((r) => matchesItunesTrack(r, track, artist));
+    if (!selected) {
+      const retry = await search(track);
+      selected = retry.find((r) => matchesItunesTrack(r, track));
+    }
+    if (!selected) return null;
+    const rawArt = typeof selected.artworkUrl100 === 'string' ? selected.artworkUrl100 : '';
+    const artworkUrl = rawArt ? rawArt.replace('/100x100bb.jpg', '/600x600bb.jpg') : null;
+    const rawAlbum = typeof selected.collectionName === 'string' ? selected.collectionName.trim() : '';
+    const albumName = rawAlbum || null;
+    return artworkUrl || albumName ? { artworkUrl, albumName } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSpotifyTrackMeta(artist: string, track: string): Promise<TrackMetadata | null> {
+  const token = await getIdToken();
+  if (!token) return null;
+  try {
+    const qs = new URLSearchParams({ artist, track, type: 'track' });
+    const resp = await fetch(`${FUNCTIONS_BASE_URL}/proxySpotifySearch?${qs.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as Record<string, unknown>;
+    const artworkUrl = typeof data.imageUrl === 'string' && data.imageUrl ? data.imageUrl : null;
+    const albumName = typeof data.albumName === 'string' && data.albumName ? data.albumName : null;
+    return artworkUrl || albumName ? { artworkUrl, albumName } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function fetchTrackMetadata(opts: {
+  artist: string;
+  track: string;
+  mbid?: string | null;
+}): Promise<TrackMetadata | null> {
+  if (AgentMode.demo) return Promise.resolve(null);
+  const artist = opts.artist.trim();
+  const track = opts.track.trim();
+  if (!artist || !track) return Promise.resolve(null);
+  const key = `${artist.toLowerCase()}\u0000${track.toLowerCase()}`;
+  const cached = trackMetadataCache.get(key);
+  if (cached) return cached;
+
+  const pending = (async (): Promise<TrackMetadata | null> => {
+    const lfm = await fetchLastfmTrackMeta(artist, track, opts.mbid);
+    if (lfm?.artworkUrl && lfm.albumName) return lfm;
+    const itunes = await fetchItunesTrackMeta(artist, track);
+    if (itunes?.artworkUrl) {
+      return {
+        artworkUrl: lfm?.artworkUrl ?? itunes.artworkUrl,
+        albumName: lfm?.albumName ?? itunes.albumName,
+      };
+    }
+    const spotify = await fetchSpotifyTrackMeta(artist, track);
+    if (spotify?.artworkUrl) {
+      return {
+        artworkUrl: lfm?.artworkUrl ?? itunes?.artworkUrl ?? spotify.artworkUrl,
+        albumName: lfm?.albumName ?? itunes?.albumName ?? spotify.albumName,
+      };
+    }
+    return lfm ?? itunes ?? spotify;
+  })();
+  trackMetadataCache.set(key, pending);
+  void pending.then((val) => {
+    if (!val && trackMetadataCache.get(key) === pending) {
+      trackMetadataCache.delete(key);
+    }
+  });
+  return pending;
+}
+
+export function fetchArtistImage(artist: string): Promise<string | null> {
+  const trimmed = artist.trim();
+  if (!trimmed) return Promise.resolve(null);
+  if (AgentMode.demo) return Promise.resolve('/images/demo/poster-2.jpg');
+  const key = trimmed.toLowerCase();
+  const cached = artistImageCache.get(key);
+  if (cached) return cached;
+
+  const pending = (async (): Promise<string | null> => {
+    const token = await getIdToken();
+    if (!token) return null;
+    try {
+      const qs = new URLSearchParams({ artist: trimmed, type: 'artist' });
+      const resp = await fetch(`${FUNCTIONS_BASE_URL}/proxySpotifySearch?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as Record<string, unknown>;
+      return typeof data.imageUrl === 'string' && data.imageUrl ? data.imageUrl : null;
+    } catch {
+      return null;
+    }
+  })();
+  artistImageCache.set(key, pending);
+  void pending.then((val) => {
+    if (!val && artistImageCache.get(key) === pending) {
+      artistImageCache.delete(key);
+    }
+  });
+  return pending;
+}
+
 export async function fetchArtistShowdown(artist: string): Promise<{
   khentTotal: number;
   clairTotal: number;
   tracks: ShowdownTrack[];
 }> {
+  if (AgentMode.demo) {
+    return {
+      khentTotal: 113,
+      clairTotal: 276,
+      tracks: [
+        { trackName: 'Demo Ballad One', khentPlays: 20, clairPlays: 78, imageUrl: '/images/demo/poster-1.jpg', spotifyUrl: 'https://open.spotify.com' },
+        { trackName: 'Demo Ballad Two', khentPlays: 27, clairPlays: 31, imageUrl: '/images/demo/poster-2.jpg', spotifyUrl: 'https://open.spotify.com' },
+        { trackName: 'Demo Ballad Three', khentPlays: 30, clairPlays: 17, imageUrl: '/images/demo/poster-3.jpg', spotifyUrl: 'https://open.spotify.com' },
+        { trackName: 'Demo Ballad Four', khentPlays: 12, clairPlays: 19, imageUrl: '/images/demo/poster-4.jpg', spotifyUrl: 'https://open.spotify.com' },
+        { trackName: 'Demo Ballad Five', khentPlays: 18, clairPlays: 10, imageUrl: '/images/demo/poster-1.jpg', spotifyUrl: 'https://open.spotify.com' },
+        { trackName: 'Demo Ballad Six', khentPlays: 0, clairPlays: 16, imageUrl: '/images/demo/poster-2.jpg', spotifyUrl: 'https://open.spotify.com' },
+        { trackName: 'Demo Ballad Seven', khentPlays: 6, clairPlays: 105, imageUrl: '/images/demo/poster-3.jpg', spotifyUrl: 'https://open.spotify.com' },
+      ],
+    };
+  }
   const token = await getIdToken();
   if (!token || !artist.trim()) {
     return { khentTotal: 0, clairTotal: 0, tracks: [] };
@@ -415,8 +624,8 @@ export async function fetchArtistShowdown(artist: string): Promise<{
 
   const fetchUserArtistCounts = async (
     user: string,
-  ): Promise<Map<string, { name: string; count: number; image: string | null }>> => {
-    const out = new Map<string, { name: string; count: number; image: string | null }>();
+  ): Promise<Map<string, { name: string; count: number; image: string | null; mbid: string | null }>> => {
+    const out = new Map<string, { name: string; count: number; image: string | null; mbid: string | null }>();
     const targetLower = artist.trim().toLowerCase();
     for (let page = 1; page <= 2; page++) {
       const data = await fetchLastfmJson({
@@ -438,10 +647,12 @@ export async function fetchArtistShowdown(artist: string): Promise<{
         const key = trackName.toLowerCase();
         const count = Number(t.playcount ?? 0) || 0;
         const prev = out.get(key);
+        const mbid = typeof t.mbid === 'string' && t.mbid ? t.mbid : null;
         out.set(key, {
           name: trackName,
           count: Math.max(prev?.count ?? 0, count),
           image: prev?.image ?? pickLastfmImageUrl(t.image),
+          mbid: prev?.mbid ?? mbid,
         });
       }
       if (raw.length < 200) break;
@@ -468,11 +679,44 @@ export async function fetchArtistShowdown(artist: string): Promise<{
       khentPlays: kp,
       clairPlays: cp,
       imageUrl: k?.image ?? c?.image ?? null,
+      mbid: k?.mbid ?? c?.mbid ?? null,
       spotifyUrl: `https://open.spotify.com/search/${encodeURIComponent(`${artist} ${trackName}`)}`,
     });
   }
   tracks.sort((a, b) => b.khentPlays + b.clairPlays - (a.khentPlays + a.clairPlays));
   return { khentTotal, clairTotal, tracks };
+}
+
+export async function fetchArtistShowdownHistory(artist: string): Promise<{
+  khent: MusicStatus[];
+  clair: MusicStatus[];
+}> {
+  if (AgentMode.demo) {
+    const now = Date.now();
+    return {
+      khent: [
+        { username: LASTFM_USER_KHENT, trackName: 'Demo Ballad Three', artistName: artist, albumName: 'Demo Album', imageUrl: '/images/demo/poster-3.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: new Date(now - 3 * 3600_000) },
+      ],
+      clair: [
+        { username: LASTFM_USER_CLAIR, trackName: 'Demo Ballad One', artistName: artist, albumName: 'Demo Album', imageUrl: '/images/demo/poster-1.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: new Date(now - 5 * 3600_000) },
+      ],
+    };
+  }
+  const fetchUserArtistTracks = async (user: string): Promise<MusicStatus[]> => {
+    const data = await fetchLastfmJson({
+      method: 'user.getartisttracks',
+      user,
+      artist: artist.trim(),
+      limit: '50',
+    });
+    const raw = asArray<Record<string, unknown>>((data?.artisttracks as Record<string, unknown> | undefined)?.track);
+    return raw.map((t) => parseRecentTrackJson(t, user));
+  };
+  const [khent, clair] = await Promise.all([
+    fetchUserArtistTracks(LASTFM_USER_KHENT),
+    fetchUserArtistTracks(LASTFM_USER_CLAIR),
+  ]);
+  return { khent, clair };
 }
 
 export async function searchLastfmArtists(queryStr: string): Promise<ArtistSuggestion[]> {

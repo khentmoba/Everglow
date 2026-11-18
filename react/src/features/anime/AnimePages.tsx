@@ -16,6 +16,7 @@ import {
 } from './animeService';
 import { AnimeXTokens, bebasStyle, dmSansStyle, interBodyStyle } from './animeTokens';
 import {
+  AnimeXBadge,
   AnimeXFooter,
   AnimeXGrid,
   AnimeXPosterRow,
@@ -61,6 +62,7 @@ export interface AnimeNavActions {
   titleJapanese: boolean;
   library: MediaItem[];
   history: AnimexHistoryEntry[];
+  continueWatching: AnimexHistoryEntry[];
   playlists: AnimexPlaylist[];
   onWatch: (item: MediaItem, episode?: number) => void;
   onTrailer: (item: MediaItem) => void;
@@ -80,6 +82,101 @@ interface HomeRowState {
   icon: string;
   loading: boolean;
   items: MediaItem[];
+}
+
+function ContinueWatchingCard({ entry, onClick }: { entry: AnimexHistoryEntry; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const badgeLabel = entry.isMovie
+    ? 'MOVIE'
+    : entry.totalEpisodes > 1
+      ? `EP ${entry.episode}/${entry.totalEpisodes}`
+      : `EP ${entry.episode}`;
+  const baseResume = entry.isMovie ? 'Resume movie' : `Resume Episode ${entry.episode}`;
+  const resumeSec = entry.resumeSeconds;
+  const resumeLabel =
+    resumeSec != null && resumeSec > 0
+      ? `${baseResume} · ${Math.floor(resumeSec / 60)}:${String(resumeSec % 60).padStart(2, '0')}`
+      : baseResume;
+
+  return (
+    <button
+      type="button"
+      className="bare-button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: 'relative',
+        width: 280,
+        height: 200,
+        flexShrink: 0,
+        borderRadius: AnimeXTokens.radius2xl,
+        border: `1px solid ${hovered ? AnimeXTokens.accent : AnimeXTokens.border}`,
+        boxShadow: boxShadow([{ color: '#0000004D', blur: 16, offset: [0, 6] }]),
+        overflow: 'hidden',
+        textAlign: 'left',
+        transform: hovered ? 'translateY(-3px)' : undefined,
+        transition: 'transform 180ms ease, border-color 180ms ease',
+      }}
+    >
+      <div style={{ position: 'absolute', inset: 0, background: AnimeXTokens.surfaceRaised }}>
+        {entry.posterUrl && (
+          <img
+            src={entry.posterUrl}
+            alt={entry.title}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        )}
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: linear(['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.55)'], {
+            begin: Align.centerLeft,
+            end: Align.centerRight,
+          }),
+        }}
+      />
+      <div style={{ position: 'absolute', left: 14, right: 62, bottom: 14, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+        <AnimeXBadge label={badgeLabel} kind="airing" />
+        <div style={{ height: 10 }} />
+        <div className="clamp-2" style={bebasStyle({ size: 24, color: '#FFFFFF' })}>
+          {entry.title}
+        </div>
+        <div style={{ height: 6 }} />
+        <div className="ellipsis" style={{ ...dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 600 }), maxWidth: '100%' }}>
+          {resumeLabel}
+        </div>
+        {entry.progress != null && (
+          <>
+            <div style={{ height: 10 }} />
+            <div style={{ width: '100%', height: 3, borderRadius: 3, background: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, Math.max(0, entry.progress * 100))}%`, height: '100%', background: AnimeXTokens.accent }} />
+            </div>
+          </>
+        )}
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          right: 12,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          background: AnimeXTokens.accent,
+          boxShadow: boxShadow([{ color: 'rgba(194,24,91,0.45)', blur: 12 }]),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon name="play_arrow" size={24} color="#FFFFFF" />
+      </div>
+    </button>
+  );
 }
 
 export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
@@ -140,7 +237,7 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
         onTrailer={nav.onTrailer}
       />
 
-      {nav.history.length > 0 && (
+      {nav.continueWatching.length > 0 && (
         <div style={{ marginTop: 24, marginBottom: 40 }}>
           <div style={{ padding: '0 24px' }}>
             <AnimeXSectionHeader
@@ -150,38 +247,13 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
               onViewAll={() => nav.onNavigate('history')}
             />
           </div>
-          <div className="no-scrollbar" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '0 24px' }}>
-            {nav.history.slice(0, 12).map((e) => (
-              <div
+          <div className="no-scrollbar" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '0 24px', height: 200 }}>
+            {nav.continueWatching.slice(0, 12).map((e) => (
+              <ContinueWatchingCard
                 key={e.key}
+                entry={e}
                 onClick={() => e.savedItem && nav.onWatch(e.savedItem, e.episode)}
-                style={{
-                  width: 170,
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                  background: AnimeXTokens.surface,
-                  borderRadius: AnimeXTokens.radiusLg,
-                  border: `1px solid ${AnimeXTokens.border}`,
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ position: 'relative', height: 112, background: AnimeXTokens.surfaceRaised }}>
-                  {e.posterUrl && <img src={e.posterUrl} alt={e.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  {e.progress != null && (
-                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: 'rgba(255,255,255,0.2)' }}>
-                      <div style={{ width: `${e.progress * 100}%`, height: '100%', background: AnimeXTokens.accent }} />
-                    </div>
-                  )}
-                </div>
-                <div style={{ padding: 10 }}>
-                  <div className="clamp-2" style={dmSansStyle({ size: 12.5, weight: 700, color: AnimeXTokens.textPrimary })}>
-                    {e.title}
-                  </div>
-                  <div style={{ ...dmSansStyle({ size: 11, color: AnimeXTokens.accentWarm }), marginTop: 4 }}>
-                    Episode {e.episode}
-                  </div>
-                </div>
-              </div>
+              />
             ))}
           </div>
         </div>
