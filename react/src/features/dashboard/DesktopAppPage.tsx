@@ -7,6 +7,7 @@ import { AppSpacing } from '../../core/theme/layout';
 import { AppTypography } from '../../core/theme/typography';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 
 const DOWNLOAD_URL = 'https://github.com/khentmoba/Everglow-Desktop/releases/latest/download/Everglow-Desktop-Setup.exe';
 const RELEASES_URL = 'https://github.com/khentmoba/Everglow-Desktop/releases/latest';
@@ -66,7 +67,7 @@ export function DesktopAppPage() {
             type="button"
             className="bare-button"
             aria-label="Go back"
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
+            onClick={() => (canPop() ? navigate(-1) : navigate('/dashboard'))}
             style={{
               width: 44,
               height: 44,

@@ -12,6 +12,7 @@ import { EverglowEmptyState, EverglowSkeleton, EverglowStreamView } from '../../
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { MaterialIconButton } from '../../shared/widgets/MaterialFields';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { openCanvasPreview } from './CanvasPreviewSheet';
 import { motchiMinisService, type MiniGame } from './motchiMinisService';
 
@@ -72,7 +73,7 @@ export function MotchiMinisPage() {
           subtitle="saved games · made for you two"
           icon="sports_esports"
           hue={AppColors.auroraRose}
-          onBack={() => navigate(-1)}
+          onBack={() => (canPop() ? navigate(-1) : navigate('/motchi'))}
         />
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <EverglowStreamView

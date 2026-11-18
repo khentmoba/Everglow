@@ -7,6 +7,7 @@ import { radial } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { ourBookToBookItem, searchResultToBookItem, type BookSearchResult } from './bookTypes';
 import { addToOurBooks, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
 
@@ -61,7 +62,7 @@ export function OurBooksPage() {
         <button
           type="button"
           className="bare-button"
-          onClick={() => navigate(-1)}
+          onClick={() => (canPop() ? navigate(-1) : navigate('/books'))}
           style={{
             width: 40,
             height: 40,

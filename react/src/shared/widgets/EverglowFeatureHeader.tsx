@@ -6,6 +6,7 @@ import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from './Icon';
+import { canPop } from './MaterialFields';
 import { Tooltip } from './Tooltip';
 
 export function EverglowFeatureHeader({
@@ -50,7 +51,7 @@ export function EverglowFeatureHeader({
                 type="button"
                 className="bare-button"
                 aria-label="Back"
-                onClick={onBack ?? (() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard')))}
+                onClick={onBack ?? (() => (canPop() ? navigate(-1) : navigate('/dashboard')))}
                 style={{
                   width: 44,
                   height: 44,

@@ -11,6 +11,7 @@ import { TextButton } from '../../shared/widgets/Dialogs';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { EverglowIconButton } from '../../shared/widgets/EverglowScaffold';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { studySetService, type AcademyQuestion } from './academyService';
 
 // `context.pop('challenge')`: the hub reads this once when it shows again.
@@ -65,7 +66,8 @@ function SoloStudy({ questions: initial, category, topic }: { questions: Academy
   const setLabel = topic !== '' ? topic : category === '' ? 'Study' : category[0].toUpperCase() + category.slice(1);
   const pop = (result?: string) => {
     soloResult = result ?? null;
-    navigate(-1);
+    if (canPop()) navigate(-1);
+    else navigate('/academy', { replace: true });
   };
 
   const practiceAgain = async () => {
