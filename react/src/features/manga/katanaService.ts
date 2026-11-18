@@ -67,6 +67,8 @@ export interface KatanaBookmark {
   recommendationNote: string;
   readChapterIds: string[];
   bookmarked: boolean;
+  /** Set once the reader reaches the last page of the final chapter of a completed series. */
+  finishedAt?: Date;
 }
 
 export interface KatanaPageResult {
@@ -486,8 +488,46 @@ export async function fetchKatanaChapterPages(slug: string, chapterId: string, p
   return [];
 }
 
-// Agent mode keeps bookmarks in memory, per user.
-const demoBookmarks = new Map<string, KatanaBookmark[]>();
+const demoProgress = (
+  slug: string,
+  title: string,
+  coverUrl: string,
+  chapter: number,
+  finishedAt?: Date,
+): KatanaBookmark => ({
+  slug,
+  title,
+  coverUrl,
+  status: finishedAt ? 'completed' : 'ongoing',
+  addedAt: new Date(2026, 1, 14),
+  lastReadChapterId: `c${chapter}`,
+  lastReadPage: 1,
+  lastReadChapterTitle: `Chapter ${chapter}`,
+  latestChapterTitle: '',
+  recommendedBy: '',
+  recommendationNote: '',
+  readChapterIds: [`c${chapter}`],
+  bookmarked: true,
+  finishedAt,
+});
+
+// Agent mode keeps bookmarks in memory, per user, seeded with made-up reading progress.
+const demoBookmarks = new Map<string, KatanaBookmark[]>([
+  [
+    'khentsgdz',
+    [
+      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 42),
+      demoProgress('demo-paper-moon', 'Demo Paper Moon', '/images/demo/poster-2.jpg', 120, new Date(2026, 2, 1)),
+    ],
+  ],
+  [
+    'clairjassen',
+    [
+      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 12),
+      demoProgress('demo-garden-of-letters', 'Demo Garden of Letters', '/images/demo/poster-3.jpg', 7),
+    ],
+  ],
+]);
 const demoChanges = new Changes<Record<string, KatanaBookmark[]>>(() => {
   const out: Record<string, KatanaBookmark[]> = {};
   for (const [user, list] of demoBookmarks.entries()) out[user] = list;
@@ -510,6 +550,7 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     recommendationNote: String(data.recommendationNote ?? ''),
     readChapterIds: Array.isArray(data.readChapterIds) ? data.readChapterIds.map(String) : [],
     bookmarked: data.bookmarked !== false,
+    finishedAt: (data.finishedAt as Timestamp | undefined)?.toDate?.(),
   };
 }
 
@@ -597,6 +638,7 @@ export async function saveKatanaReadingProgress(p: {
   chapterTitle: string;
   title?: string;
   coverUrl?: string;
+  finished?: boolean;
 }): Promise<void> {
   if (!p.userName || !p.slug) return;
   if (AgentMode.demo) {
@@ -618,6 +660,7 @@ export async function saveKatanaReadingProgress(p: {
       recommendationNote: cur?.recommendationNote ?? '',
       readChapterIds,
       bookmarked: cur?.bookmarked ?? false,
+      finishedAt: cur?.finishedAt ?? (p.finished ? new Date() : undefined),
     };
     const next = [...list];
     if (idx >= 0) next[idx] = entry;
@@ -637,6 +680,7 @@ export async function saveKatanaReadingProgress(p: {
       lastReadPage: p.page,
       lastReadChapterTitle: p.chapterTitle,
       readChapterIds,
+      ...(p.finished && !existing?.finishedAt ? { finishedAt: Timestamp.now(), status: 'completed' } : {}),
       ...(p.title ? { title: p.title } : {}),
       ...(p.coverUrl ? { coverUrl: p.coverUrl } : {}),
     },

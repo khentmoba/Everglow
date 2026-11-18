@@ -189,6 +189,7 @@ export function MangaPage() {
       coverUrl: manga.coverUrl,
       chapters: manga.chapters,
       initialPage,
+      mangaStatus: manga.status,
     });
   };
 
