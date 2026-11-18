@@ -70,7 +70,7 @@ export function resolveEverglowPlayerKey(rawKey: string): string | null {
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return false;
   const tag = target.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (target instanceof HTMLElement && target.isContentEditable);
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (typeof HTMLElement !== 'undefined' && target instanceof HTMLElement && target.isContentEditable);
 }
