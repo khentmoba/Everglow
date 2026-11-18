@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tool/ci/changes.test.mjs tool/ci/deploy_parity.test.mjs
+      - run: node --test tool/ci/changes.test.mjs tool/ci/deploy_parity.test.mjs tool/ci/run_checks.test.mjs
       - run: node --test tool/ci/pr_contract.test.mjs tool/remove_worktree.test.mjs
       # The verify gate's rules, tested without the pi runtime.
       - name: Verify gate rules
@@ -83,6 +83,7 @@ jobs:
         run: |
           "$CHROME_PATH" --version
           node tool/agent_smoke.mjs react/dist
+          node --test tool/ci/agent_smoke.test.mjs
 
   functions:
     needs: changes

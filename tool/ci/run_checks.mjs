@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 function walk(dir, exts, out = []) {
   if (!existsSync(dir)) return out;
@@ -29,6 +30,17 @@ function checkFirebaseHosting() {
   console.log('[hosting] OK: firebase.json points to react/dist with proper cache rules.');
 }
 
+/** `functions/common.js` APP_VERSION ('X.Y.Z+N') must carry the app version. */
+export function functionsVersionMatches(commonJs, ver) {
+  const appVersion = /APP_VERSION\s*=\s*['"]([^'"]+)['"]/.exec(commonJs)?.[1];
+  return appVersion?.split('+')[0] === ver;
+}
+
+/** A live collection stream must call limit(), an aliased import of it, or limitToLast(). */
+export function hasStreamLimit(src) {
+  return /\b(?:\w*Limit|limit|limitToLast)\(/.test(src);
+}
+
 function checkReleaseSync() {
   const pkg = JSON.parse(readFileSync('react/package.json', 'utf8'));
   const ver = String(pkg.version ?? '').trim();
@@ -38,7 +50,11 @@ function checkReleaseSync() {
   assert.equal(firstEntry, ver, `CHANGELOG.md newest entry [${firstEntry}] != react/package.json (${ver})`);
   const readme = readFileSync('README.md', 'utf8');
   assert.ok(readme.includes(`v${ver}`), `README.md must mention v${ver}`);
-  console.log(`[release] OK: react/package.json, CHANGELOG.md, and README.md synced at v${ver}.`);
+  assert.ok(
+    functionsVersionMatches(readFileSync('functions/common.js', 'utf8'), ver),
+    `functions/common.js APP_VERSION must start with ${ver}`,
+  );
+  console.log(`[release] OK: react/package.json, CHANGELOG.md, README.md, and functions/common.js synced at v${ver}.`);
 }
 
 function checkDemoPrivacy() {
@@ -105,9 +121,11 @@ function checkBuiltDistIfPresent() {
   console.log('[dist] OK: react/dist contains required SPA, PWA, SW, and embed outputs.');
 }
 
-checkFirebaseHosting();
-checkReleaseSync();
-checkDemoPrivacy();
-checkNoAds();
-checkFirestoreCollectionsAndLimits();
-checkBuiltDistIfPresent();
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  checkFirebaseHosting();
+  checkReleaseSync();
+  checkDemoPrivacy();
+  checkNoAds();
+  checkFirestoreCollectionsAndLimits();
+  checkBuiltDistIfPresent();
+}
