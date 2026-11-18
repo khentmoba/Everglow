@@ -204,7 +204,7 @@ function SpentBar({ income, expense }: { income: number; expense: number }) {
         />
       </div>
       <div style={{ ...AppTypography.handwrittenBody, fontSize: 17, lineHeight: 1.2, marginTop: 6, color: over ? AppColors.error : withAlpha(AppColors.petalWhite, 0.62) }}>
-        {over ? `${pct - 100}% more than came in` : `${pct}% of this month's money spent`}
+        {over ? `${Math.max(1, pct - 100)}% more than came in` : `${Math.min(99, pct)}% of this month's money spent`}
       </div>
     </div>
   );
