@@ -396,6 +396,7 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
 
       {onThisDay.length > 0 && <OnThisDayCard note={onThisDay[0]} onTap={() => void showNote(onThisDay[0])} />}
 
+      {!embedded && (
       <div style={{ padding: '6px 20px' }}>
         <FilledField
           value={search}
@@ -442,6 +443,7 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
           ))}
         </div>
       </div>
+      )}
 
       <div style={{ height: 4 }} />
 

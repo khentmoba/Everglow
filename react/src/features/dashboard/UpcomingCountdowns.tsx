@@ -333,17 +333,17 @@ function CountdownEventCard({ event }: { event: CalendarEvent }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
-                  ...AppTypography.outfitHeading,
-                  fontSize: 13,
-                  ...letterSpacing(0.7),
+                  ...AppTypography.cormorantBold,
+                  fontSize: 18,
                   lineHeight: 1.1,
                   color: AppColors.petalWhite,
-                  whiteSpace: 'nowrap',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                 }}
               >
-                {event.title.toUpperCase()}
+                {event.title}
               </div>
               <div style={{ height: 5 }} />
               <div
@@ -367,8 +367,8 @@ function CountdownEventCard({ event }: { event: CalendarEvent }) {
                     <div style={{ width: 5 }} />
                     <div style={{ width: 3, height: 3, borderRadius: '50%', background: hue }} />
                     <div style={{ width: 5 }} />
-                    <span style={{ ...AppTypography.outfitBold, fontSize: 7.5, ...letterSpacing(0.8), color: withAlpha(hue, 0.85) }}>
-                      ANNIVERSARY
+                    <span style={{ ...AppTypography.outfitBold, fontSize: 10, color: withAlpha(hue, 0.9) }}>
+                      anniversary
                     </span>
                   </>
                 )}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
-import { Align, letterSpacing, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
+import { Align, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeader';
 import { Icon } from '../../shared/widgets/Icon';
@@ -63,9 +63,13 @@ function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {
 }
 
 function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; totalDays: number }) {
+  const inYears = counter.years > 0;
+  const heroValue = inYears ? counter.years : totalDays;
+  const heroLabel = inYears ? (counter.years === 1 ? 'year together' : 'years together') : 'days together';
+  const sinceLine = inYears ? `${totalDays} days · since Feb 14, 2026` : 'since Feb 14, 2026';
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{ paddingBottom: 18, position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
         <div style={shadowLayer({ color: 'rgba(0,0,0,0.32)', blur: 30, offset: [0, 16] }, { radius: AppRadius.x3 })} aria-hidden />
         <div
           style={shadowLayer(
@@ -163,18 +167,10 @@ function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; to
             </div>
 
             <div style={{ height: 10 }} />
-            <span
-              style={{
-                ...AppTypography.outfitHeading,
-                fontSize: 10.5,
-                ...letterSpacing(2.4),
-                fontWeight: 700,
-                color: withAlpha(AppColors.blushGold, 0.95),
-              }}
-            >
-              YEARS TOGETHER
+            <span style={{ ...AppTypography.handwrittenBody, fontSize: 21, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.95) }}>
+              {heroLabel}
             </span>
-            <div style={{ height: 4 }} />
+            <div style={{ height: 2 }} />
             <span
               style={{
                 ...AppTypography.cormorantExtraBold,
@@ -185,7 +181,7 @@ function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; to
                 textShadow: `0 2px 12px ${withAlpha(AppColors.auroraGold, 0.45)}, 0 4px 6.3px ${withAlpha(AppColors.goldShadow, 0.35)}`,
               }}
             >
-              {String(counter.years).padStart(2, '0')}
+              {heroValue}
             </span>
             <div style={{ height: 10 }} />
             <DiamondDivider />
@@ -199,7 +195,7 @@ function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; to
                 color: withAlpha(AppColors.petalWhite, 0.72),
               }}
             >
-              since Feb 14, 2026
+              {sinceLine}
             </span>
             <div style={{ height: 18 }} />
 
@@ -255,10 +251,6 @@ function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; to
           </div>
         </div>
       </div>
-
-      <div style={{ position: 'absolute', left: 24, right: 24, bottom: 0, display: 'flex', justifyContent: 'center' }}>
-        <TotalDaysRibbon totalDays={totalDays} />
-      </div>
     </div>
   );
 }
@@ -310,53 +302,5 @@ function HDivider() {
         ),
       }}
     />
-  );
-}
-
-function TotalDaysRibbon({ totalDays }: { totalDays: number }) {
-  return (
-    <div style={{ position: 'relative' }}>
-      <div style={shadowLayer({ color: 'rgba(0,0,0,0.32)', blur: 16, offset: [0, 6] }, { radius: 999 })} aria-hidden />
-      <div
-        style={shadowLayer(
-          { color: withAlpha(AppColors.auroraRose, 0.15), blur: 14, spread: -2, offset: [0, 2] },
-          { radius: 999 },
-        )}
-        aria-hidden
-      />
-      <div
-        style={{
-          position: 'relative',
-          padding: '10px 18px',
-          borderRadius: 999,
-          border: `1px solid ${withAlpha(AppColors.blushGold, 0.35)}`,
-          background: linear(
-            [withAlpha(AppColors.moonlight, 0.16), withAlpha(AppColors.velvet, 0.62), withAlpha(AppColors.inkDeep, 0.72)],
-            { begin: Align.topLeft, end: Align.bottomRight, size: [260, 36] },
-          ),
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 14,
-            right: 14,
-            height: 1,
-            background: linear([AppColors.transparent, withAlpha(AppColors.petalWhite, 0.35), AppColors.transparent]),
-          }}
-        />
-        <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-          <Icon name="favorite" size={11} color={AppColors.auroraRose} />
-          <div style={{ width: 8 }} />
-          <span style={{ ...AppTypography.outfitWhite, fontSize: 12, letterSpacing: 0.3, fontWeight: 600, color: AppColors.petalWhite }}>
-            {totalDays} days of us
-          </span>
-          <span style={{ ...AppTypography.outfitWhite, fontSize: 12, letterSpacing: 0.3, fontWeight: 500, color: withAlpha(AppColors.petalWhite, 0.62) }}>
-            &nbsp;&nbsp;·&nbsp;&nbsp;since Feb 14, 2026
-          </span>
-        </div>
-      </div>
-    </div>
   );
 }

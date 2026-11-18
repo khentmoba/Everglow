@@ -3,7 +3,7 @@ import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
 import { reduceAmbientMotion } from '../../core/theme/motion';
-import { letterSpacing, linear, radial, shadowLayer } from '../../core/theme/paint';
+import { linear, radial, shadowLayer } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { BucketListPreview } from '../bucket_list/BucketListPreview';
 import { JournalPreview } from './JournalPreview';
@@ -74,10 +74,10 @@ export function KeepsakesCluster() {
           }}
         />
         <div style={{ position: 'relative', padding: 18 }}>
-          <div style={{ ...AppTypography.outfitHeading, fontSize: 10, ...letterSpacing(1.8), color: AppColors.blushGold }}>
-            KEEPSAKES &amp; DREAMS
+          <div style={{ ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1.1, color: withAlpha(AppColors.blushGold, 0.9) }}>
+            keepsakes &amp; dreams
           </div>
-          <div style={{ ...AppTypography.cormorantBold, fontSize: 22, color: AppColors.petalWhite, marginTop: 4 }}>
+          <div style={{ ...AppTypography.cormorantBold, fontSize: 22, color: AppColors.petalWhite, marginTop: 2 }}>
             Where your story lives
           </div>
           <div style={{ height: 16 }} />

@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { motionReduced } from '../../core/theme/motion';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
-import { Align, letterSpacing, linear } from '../../core/theme/paint';
+import { Align, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
+import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeader';
 import { Icon } from '../../shared/widgets/Icon';
 import {
   MILESTONE_META,
@@ -119,57 +120,22 @@ export function TimelineView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ padding: `${AppSpacing.x3}px ${AppSpacing.x3}px ${AppSpacing.sm}px`, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div
-          style={{
-            padding: `6px ${AppSpacing.md}px`,
-            background: withAlpha(AppColors.moonlight, 0.06),
-            borderRadius: 999,
-            border: `1px solid ${withAlpha(AppColors.moonlight, 0.12)}`,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <Icon name="favorite" size={10} color={AppColors.auroraRose} />
-          <span style={{ ...AppTypography.outfitHeading, fontSize: 10, ...letterSpacing(3.0), color: AppColors.blushGold }}>
-            FOR CLAIR
-          </span>
+      <div style={{ padding: `${AppSpacing.x3}px 20px ${AppSpacing.sm}px`, width: '100%', boxSizing: 'border-box' }}>
+        <EverglowSectionHeader
+          label="Living Archive"
+          icon="photo_library"
+          hue={AppColors.auroraRose}
+          trailing={
+            milestones && milestones.length > 0 ? (
+              <span style={{ ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1, color: withAlpha(AppColors.blushGold, 0.9) }}>
+                {milestones.length} kept
+              </span>
+            ) : undefined
+          }
+        />
+        <div style={{ ...AppTypography.handwrittenBody, fontSize: 18, lineHeight: 1.2, color: withAlpha(AppColors.roseQuartz, 0.8), margin: '4px 0 0 36px' }}>
+          little moments, kept for Clair
         </div>
-
-        <div style={{ height: AppSpacing.md }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-          <div style={{ flex: 1, height: 1, background: linear([AppColors.transparent, withAlpha(AppColors.blushGold, 0.45)]) }} />
-          <div style={{ padding: `0 ${AppSpacing.lg}px` }}>
-            <span
-              style={{
-                ...AppTypography.cormorantBlack,
-                fontSize: 26,
-                ...letterSpacing(3.0),
-                color: AppColors.petalWhite,
-                textShadow: `0 0 8.6px ${withAlpha(AppColors.deepRose, 0.45)}, 0 2px 2.8px ${withAlpha(AppColors.black, 0.35)}`,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              LIVING ARCHIVE
-            </span>
-          </div>
-          <div style={{ flex: 1, height: 1, background: linear([withAlpha(AppColors.blushGold, 0.45), AppColors.transparent]) }} />
-        </div>
-
-        <div style={{ height: AppSpacing.sm }} />
-        <span style={{ ...AppTypography.handwrittenTitle, fontSize: 19, color: withAlpha(AppColors.blushGold, 0.92) }}>
-          little moments, kept forever
-        </span>
-        {milestones && milestones.length > 0 && (
-          <>
-            <div style={{ height: AppSpacing.sm }} />
-            <span style={{ ...AppTypography.outfitWhite, fontSize: 11, ...letterSpacing(1.6), color: withAlpha(AppColors.roseQuartz, 0.62) }}>
-              ♡ {milestones.length} frame{milestones.length === 1 ? '' : 's'} kept ♡
-            </span>
-          </>
-        )}
       </div>
 
       <div
@@ -463,8 +429,8 @@ function MilestoneCarouselCard({
           }}
         >
           <span style={{ fontSize: 11 }}>{meta.emoji}</span>
-          <span style={{ ...AppTypography.outfitHeading, fontSize: 10, ...letterSpacing(1.4), color: Derived.textHigh }}>
-            {meta.label.toUpperCase()}
+          <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: Derived.textHigh }}>
+            {meta.label}
           </span>
         </div>
         {count > 1 && (
