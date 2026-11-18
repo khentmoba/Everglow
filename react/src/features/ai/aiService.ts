@@ -52,3 +52,17 @@ export async function companionOperation(operation: string, value?: Record<strin
   if (response.status !== 200) throw new Error('Could not save your Motchi preferences. Try again.');
   return (await response.json()) as CompanionState;
 }
+
+export async function quickAsk(message: string, systemPrompt?: string): Promise<string> {
+  if (AgentMode.isActive.value) return '';
+  const response = await postWithTimeout(
+    {
+      ...(systemPrompt ? { systemPrompt } : {}),
+      messages: [{ role: 'user', content: message }],
+    },
+    30000,
+  );
+  if (response.status !== 200) return '';
+  const data = (await response.json()) as { reply?: unknown };
+  return typeof data.reply === 'string' ? data.reply.trim() : '';
+}

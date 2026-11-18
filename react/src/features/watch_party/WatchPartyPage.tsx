@@ -10,6 +10,7 @@ import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { TmdbImages, type MediaItem } from '../cinema/cinemaTypes';
 import { searchMulti } from '../cinema/tmdbService';
@@ -64,7 +65,7 @@ export function WatchPartyPage() {
           flexShrink: 0,
         }}
       >
-        {window.history.length > 2 && (
+        {canPop() && (
           <button
             type="button"
             className="bare-button"

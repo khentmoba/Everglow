@@ -2,6 +2,7 @@
 import { getDocs, limit, query, collection } from 'firebase/firestore';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
+import { AgentMode } from '../../core/agent/agentMode';
 import { useAuth } from '../../core/services/auth';
 import { db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
@@ -69,14 +70,16 @@ export function AcademyHubPage() {
 
   useEffect(() => {
     mounted.current = true;
-    void (async () => {
-      try {
-        const snap = await withGetTimeout(getDocs(query(collection(db, 'academy_questions'), limit(1))), 'academy seed check');
-        if (snap.empty) await academyService.seedQuestions();
-      } catch (e) {
-        Logger.e('Error checking and seeding questions', e);
-      }
-    })();
+    if (!AgentMode.demo) {
+      void (async () => {
+        try {
+          const snap = await withGetTimeout(getDocs(query(collection(db, 'academy_questions'), limit(1))), 'academy seed check');
+          if (snap.empty) await academyService.seedQuestions();
+        } catch (e) {
+          Logger.e('Error checking and seeding questions', e);
+        }
+      })();
+    }
     if (takeSoloResult() === 'challenge') {
       showCategoryPicker(false, (picked) => startMatchmaking(picked));
     }

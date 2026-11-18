@@ -22,6 +22,7 @@ import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { EverglowIconButton } from '../../shared/widgets/EverglowScaffold';
 import { EverglowErrorState } from '../../shared/widgets/EverglowStates';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import {
   canvasService,
   isTextAnnotation,
@@ -393,7 +394,7 @@ export function CanvasPage() {
               semanticLabel="Go back"
               tooltip="Back"
               iconColor={AppColors.roseQuartz}
-              onPressed={() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard'))}
+              onPressed={() => (canPop() ? navigate(-1) : navigate('/dashboard'))}
             />
           </div>
           <div style={{ width: 16 }} />

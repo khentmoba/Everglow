@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AppTypography } from '../../core/theme/typography';
 import { EverglowIconButton } from './EverglowScaffold';
+import { canPop } from './MaterialFields';
 
 export function EverglowAppBar({
   title,
@@ -20,7 +21,7 @@ export function EverglowAppBar({
   height?: number;
 }) {
   const navigate = useNavigate();
-  const back = onBackPressed ?? (() => (window.history.length > 1 ? navigate(-1) : navigate('/dashboard')));
+  const back = onBackPressed ?? (() => (canPop() ? navigate(-1) : navigate('/dashboard')));
   return (
     <div style={{ height, boxSizing: 'border-box', padding: '8px 16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
       {showBack && (

@@ -11,6 +11,7 @@ import { AppTypography } from '../../core/theme/typography';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { Confetti } from '../../shared/widgets/Confetti';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { displayNameFor, type GameMatch } from './academyService';
 import { useRoseGold } from './SoloStudyPage';
 
@@ -73,7 +74,7 @@ function Podium({ match }: { match: GameMatch }) {
           <ScoreDisplay name={displayNameFor(match.participantUsername)} score={match.guestScore} />
         </div>
         <div style={{ height: 60 }} />
-        <ReturnButton onPressed={() => navigate(-1)} />
+        <ReturnButton onPressed={() => (canPop() ? navigate(-1) : navigate('/academy', { replace: true }))} />
       </div>
       <Confetti colors={CONFETTI_COLORS} />
     </div>

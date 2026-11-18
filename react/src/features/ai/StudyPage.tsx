@@ -17,6 +17,7 @@ import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeade
 import { EverglowMarkdown } from '../../shared/widgets/EverglowMarkdown';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { aiChat, useAIChat } from './aiChat';
@@ -207,7 +208,7 @@ export function StudyPage() {
         subtitle="your PDFs, Motchi on top"
         icon="school"
         hue={AppColors.softLavender}
-        onBack={() => navigate(-1)}
+        onBack={() => (canPop() ? navigate(-1) : navigate('/motchi'))}
         actions={[
           <HeaderIconButton key="history" icon="history" tooltip="Study history" onTap={() => setHistoryOpen((v) => !v)} />,
           <HeaderIconButton key="new" icon="add" tooltip="New study" onTap={newStudy} />,

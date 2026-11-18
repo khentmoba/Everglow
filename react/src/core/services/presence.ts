@@ -1,6 +1,6 @@
-// The parts of lib/core/services/presence_service.dart and
-// lib/core/models/presence_status.dart the canvas needs (doodle presence).
-import { doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
+// Port of lib/core/services/presence_service.dart and
+// lib/core/models/presence_status.dart.
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
 import { AgentMode } from '../agent/agentMode';
 import { Logger } from '../system/logger';
 import { just, type Source } from '../utils/liveSource';
@@ -18,6 +18,7 @@ export type PresenceStatus = {
 const ONLINE_THRESHOLD_MS = 4 * 60_000;
 const DOODLE_THRESHOLD_MS = 15_000;
 const DOODLE_TOUCH_MS = 15_000;
+const HEARTBEAT_INTERVAL_MS = 180_000;
 
 export const emptyPresence = (uid: string): PresenceStatus => ({
   uid,
@@ -35,10 +36,76 @@ export const isActivelyDoodlingAt = (s: PresenceStatus, now: number) =>
 
 const toDate = (v: unknown) => (v instanceof Timestamp ? v.toDate() : v instanceof Date ? v : null);
 
+let heartbeatTimer = 0;
+let currentUid: string | null = null;
+let currentUsername: string | null = null;
+let activeSessionId: string | null = null;
 let doodlingUid: string | null = null;
 let doodleIdleTimer = 0;
 
+function clearTimers() {
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = 0;
+  clearTimeout(doodleIdleTimer);
+  doodleIdleTimer = 0;
+  doodlingUid = null;
+}
+
+async function createSession(uid: string, username: string): Promise<void> {
+  try {
+    const ref = await addDoc(collection(db, 'presence_sessions'), {
+      uid,
+      username,
+      startedAt: serverTimestamp(),
+      lastSeenAt: serverTimestamp(),
+      endedAt: null,
+      isActive: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    activeSessionId = ref.id;
+  } catch (e) {
+    Logger.e('PresenceService _createSession failed', e);
+    activeSessionId = null;
+  }
+}
+
+async function touchSession(): Promise<void> {
+  const sid = activeSessionId;
+  if (!sid) return;
+  try {
+    await setDoc(
+      doc(db, 'presence_sessions', sid),
+      { lastSeenAt: serverTimestamp(), updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+  } catch (e) {
+    Logger.e('PresenceService _touchSession failed', e);
+  }
+}
+
+async function closeSession(): Promise<void> {
+  const sid = activeSessionId;
+  activeSessionId = null;
+  if (!sid) return;
+  try {
+    await setDoc(
+      doc(db, 'presence_sessions', sid),
+      {
+        endedAt: serverTimestamp(),
+        isActive: false,
+        lastSeenAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (e) {
+    Logger.e('PresenceService _closeSession failed', e);
+  }
+}
+
 export const presenceService = {
+  // ci:unbounded-stream — onSnapshot listens to a single doc(db, 'presence', uid); collection() is only used for addDoc.
   watchPresence(uid: string): Source<PresenceStatus> {
     if (AgentMode.demo) return just(emptyPresence(uid));
     return (l) =>
@@ -61,6 +128,77 @@ export const presenceService = {
           l.data(emptyPresence(uid));
         },
       );
+  },
+
+  startHeartbeat(uid: string, username: string): void {
+    if (!uid || AgentMode.demo) return;
+    if (currentUid === uid && heartbeatTimer !== 0) return;
+    if (currentUid != null && currentUid !== uid && activeSessionId != null) {
+      void closeSession();
+    }
+    clearTimers();
+    currentUid = uid;
+    currentUsername = username;
+
+    void presenceService.setOnline(uid, username);
+    if (activeSessionId == null) void createSession(uid, username);
+    else void touchSession();
+
+    heartbeatTimer = window.setInterval(() => {
+      if (!currentUid) return;
+      void presenceService.setOnline(currentUid, currentUsername ?? '');
+      void touchSession();
+    }, HEARTBEAT_INTERVAL_MS);
+  },
+
+  async stopHeartbeat(): Promise<void> {
+    const uid = currentUid;
+    clearTimers();
+    currentUid = null;
+    currentUsername = null;
+    if (uid) {
+      await closeSession();
+      await presenceService.setOffline(uid);
+    } else if (activeSessionId != null) {
+      await closeSession();
+    }
+  },
+
+  async setOnline(uid: string, username: string): Promise<void> {
+    if (!uid || AgentMode.demo) return;
+    try {
+      await setDoc(
+        doc(db, 'presence', uid),
+        {
+          isOnline: true,
+          lastSeen: serverTimestamp(),
+          username,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (e) {
+      Logger.e(`PresenceService.setOnline FAILED for ${uid} (${username})`, e);
+    }
+  },
+
+  async setOffline(uid: string): Promise<void> {
+    if (!uid || AgentMode.demo) return;
+    if (currentUid === uid) clearTimers();
+    try {
+      await setDoc(
+        doc(db, 'presence', uid),
+        {
+          isOnline: false,
+          isDoodling: false,
+          lastSeen: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (e) {
+      Logger.e(`PresenceService.setOffline FAILED for ${uid}`, e);
+    }
   },
 
   async markDoodling(uid: string): Promise<void> {

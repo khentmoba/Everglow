@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formattedDuration, formattedSize, offlineMedia, useOfflineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
 import { Align, boxShadow, linear } from '../../core/theme/paint';
+import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
+import { LinearProgress } from '../../shared/widgets/LinearProgress';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import type { MediaItem } from '../cinema/cinemaTypes';
 import {
@@ -1624,19 +1627,230 @@ export function AnimeXSeasonalPage({ nav }: { nav: AnimeNavActions }) {
 // ---------- Downloads / DMCA ----------
 
 export function AnimeXDownloadsPage({ nav }: { nav: AnimeNavActions }) {
+  const service = useOfflineMedia();
+  const items = service.animeItems;
+
+  const playOffline = (item: OfflineMediaItem) => {
+    const numId = Number(item.mediaId) || 0;
+    const media: MediaItem = {
+      id: item.id,
+      tmdbId: numId,
+      anilistId: numId > 0 ? numId : undefined,
+      title: item.title,
+      posterPath: item.coverUrl,
+      backdropPath: '',
+      year: '',
+      mediaType: 'tv',
+      status: '',
+      isAnime: true,
+      userName: nav.userName,
+      addedAt: new Date(),
+      source: 'anilist',
+      synopsis: '',
+      airingStatus: '',
+      format: '',
+      studio: '',
+      genres: [],
+      remindMe: false,
+    };
+    nav.onWatch(media, item.episode ?? 1);
+  };
+
+  const confirmClearAll = () =>
+    void showDialog<void>((close) => (
+      <AlertDialog
+        background={AnimeXTokens.surfaceRaised}
+        title={<div style={dmSansStyle({ size: 17, weight: 700 })}>Clear Anime Downloads</div>}
+        content={
+          <div style={dmSansStyle({ size: 13.5, color: AnimeXTokens.textSecondary })}>
+            Remove all offline anime episodes from this device?
+          </div>
+        }
+        actions={[
+          <TextButton key="cancel" onPressed={() => close(null)} color={AnimeXTokens.textSecondary}>
+            Cancel
+          </TextButton>,
+          <TextButton
+            key="clear"
+            color="#FF453A"
+            onPressed={() => {
+              close(null);
+              void offlineMedia.clearAll('anime');
+            }}
+          >
+            Clear All
+          </TextButton>,
+        ]}
+      />
+    ));
+
+  const groups = new Map<string, OfflineMediaItem[]>();
+  for (const item of items) {
+    const list = groups.get(item.mediaId) ?? [];
+    list.push(item);
+    groups.set(item.mediaId, list);
+  }
+
   return (
     <div style={{ padding: '24px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Icon name="download_for_offline" size={26} color={AnimeXTokens.accent} />
-        <h1 style={{ ...dmSansStyle({ size: 22, weight: 700 }), margin: 0 }}>Downloads</h1>
-      </div>
-      <div style={{ padding: '64px 0', textAlign: 'center' }}>
-        <Icon name="download_for_offline" size={48} color={AnimeXTokens.textMuted} />
-        <div style={{ ...dmSansStyle({ size: 16, weight: 700 }), marginTop: 14 }}>No downloaded anime yet</div>
-        <div style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }), marginTop: 6 }}>
-          Offline anime downloads are available in the desktop/native app.
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <Icon name="download_for_offline" size={26} color={AnimeXTokens.accent} />
+          <h1 style={{ ...dmSansStyle({ size: 22, weight: 700 }), margin: 0 }}>Downloads</h1>
+          {items.length > 0 && (
+            <span
+              style={{
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: AnimeXTokens.surfaceRaised,
+                border: `1px solid ${AnimeXTokens.border}`,
+                ...dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary, weight: 600 }),
+              }}
+            >
+              {items.length}
+            </span>
+          )}
         </div>
+        {items.length > 0 && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={confirmClearAll}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+          >
+            <Icon name="delete_sweep" variant="outlined" size={18} color={AnimeXTokens.textMuted} />
+            <span style={dmSansStyle({ size: 13, color: AnimeXTokens.textMuted, weight: 600 })}>Clear All</span>
+          </button>
+        )}
       </div>
+
+      {items.length === 0 ? (
+        <div style={{ padding: '64px 0', textAlign: 'center' }}>
+          <Icon name="download_for_offline" size={48} color={AnimeXTokens.textMuted} />
+          <div style={{ ...dmSansStyle({ size: 16, weight: 700 }), marginTop: 14 }}>No downloaded anime yet</div>
+          <div style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }), marginTop: 6 }}>
+            Downloaded episodes for offline viewing will appear here.
+          </div>
+          <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
+            <AnimeXPrimaryButton label="Browse Anime" icon="explore" onClick={() => nav.onNavigate('browse')} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              marginTop: 16,
+              padding: '12px 16px',
+              borderRadius: AnimeXTokens.radiusLg,
+              background: AnimeXTokens.surface,
+              border: `1px solid ${AnimeXTokens.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon name="storage" size={18} color={AnimeXTokens.accent} />
+              <span style={dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary })}>Offline storage used</span>
+            </div>
+            <span style={dmSansStyle({ size: 13.5, color: AnimeXTokens.textPrimary, weight: 700 })}>
+              {service.formattedAnimeStorage}
+            </span>
+          </div>
+
+          <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[...groups.values()].map((eps) => {
+              const sorted = [...eps].sort((a, b) => (a.episode ?? 0) - (b.episode ?? 0));
+              const head = sorted[0];
+              return (
+                <div
+                  key={head.mediaId}
+                  style={{
+                    borderRadius: AnimeXTokens.radiusLg,
+                    background: AnimeXTokens.surface,
+                    border: `1px solid ${AnimeXTokens.border}`,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: `1px solid ${AnimeXTokens.border}` }}>
+                    {head.coverUrl && (
+                      <img
+                        src={head.coverUrl}
+                        alt={head.title}
+                        style={{ width: 44, height: 62, borderRadius: AnimeXTokens.radiusMd, objectFit: 'cover', flexShrink: 0 }}
+                      />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="clamp-1" style={dmSansStyle({ size: 14.5, weight: 700 })}>{head.title}</div>
+                      <div style={dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary })}>
+                        {sorted.length} {sorted.length === 1 ? 'episode' : 'episodes'} offline
+                      </div>
+                    </div>
+                  </div>
+                  {sorted.map((ep, idx) => {
+                    const dur = formattedDuration(ep);
+                    const meta = `${formattedSize(ep)}${dur ? ` • ${dur}` : ''}`;
+                    return (
+                      <div
+                        key={ep.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '10px 12px',
+                          borderTop: idx > 0 ? `1px solid ${AnimeXTokens.border}` : undefined,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="bare-button"
+                          onClick={() => playOffline(ep)}
+                          style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}
+                        >
+                          <div
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '50%',
+                              background: 'rgba(255,255,255,0.06)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Icon name="play_arrow" size={18} color={AnimeXTokens.accent} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={dmSansStyle({ size: 13.5, weight: 600 })}>
+                              {ep.subtitle || `Episode ${ep.episode ?? 1}`}
+                            </div>
+                            <div style={dmSansStyle({ size: 11.5, color: AnimeXTokens.textSecondary })}>{meta}</div>
+                            {ep.status === 'downloading' && (
+                              <div style={{ marginTop: 4 }}>
+                                <LinearProgress value={ep.progress} color={AnimeXTokens.accent} />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="bare-button"
+                          aria-label={`Delete ${ep.subtitle || ep.title}`}
+                          onClick={() => void offlineMedia.deleteDownload(ep.id)}
+                          style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                        >
+                          <Icon name="delete_outline" size={18} color={AnimeXTokens.textMuted} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
       <AnimeXFooter onGoHome={() => nav.onNavigate('home')} onOpenDmca={nav.onOpenDmca} />
     </div>
   );

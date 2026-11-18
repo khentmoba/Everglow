@@ -1,26 +1,35 @@
-// Port of lib/features/date_randomizer/presentation/widgets/randomizer_card.dart.
-import { useState } from 'react';
-import { AgentFixtures } from '../../core/agent/fixtures';
+// Port of lib/features/date_randomizer/presentation/widgets/randomizer_card.dart
+// and celebration_dialog.dart.
+import { useEffect, useState } from 'react';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
 import { Align, letterSpacing, linear, shadowLayer } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
+import { dateIdeaService } from './dateIdeaService';
 
 export function RandomizerCard() {
   const [useAI, setUseAI] = useState(false);
   const [spinning, setSpinning] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
-  const handleSpin = () => {
+  useEffect(() => {
+    void dateIdeaService.initialize();
+  }, []);
+
+  const handleSpin = async () => {
     if (spinning) return;
     setSpinning(true);
-    window.setTimeout(() => {
-      const ideas = AgentFixtures.demoDateIdeas();
-      const chosen = ideas[Math.floor(Math.random() * ideas.length)];
+    try {
+      const delayPromise = new Promise((resolve) => window.setTimeout(resolve, 1800));
+      const aiPromise = useAI ? dateIdeaService.generateAiIdea() : Promise.resolve(null);
+      await dateIdeaService.initialize();
+      const [, aiIdea] = await Promise.all([delayPromise, aiPromise]);
+      const chosen = aiIdea ?? dateIdeaService.getRandomIdea();
+      if (chosen) setPicked(chosen.title);
+    } finally {
       setSpinning(false);
-      setPicked(chosen.title);
-    }, 1800);
+    }
   };
 
   return (
@@ -108,7 +117,7 @@ export function RandomizerCard() {
             type="button"
             className="bare-button"
             aria-label="Spin date roulette"
-            onClick={handleSpin}
+            onClick={() => void handleSpin()}
             style={{
               position: 'relative',
               width: 72,
@@ -144,19 +153,22 @@ export function RandomizerCard() {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
-              maxWidth: 380,
-              padding: 28,
-              borderRadius: 28,
-              background: linear([AppColors.velvet, AppColors.inkDeep]),
-              border: `1.5px solid ${withAlpha(AppColors.auroraGold, 0.5)}`,
+              maxWidth: 400,
+              padding: 32,
+              borderRadius: 24,
+              background: AppColors.velvet,
+              border: `1.5px solid ${withAlpha(AppColors.blushGold, 0.25)}`,
+              boxShadow: `0 0 30px 5px ${withAlpha(AppColors.deepRose, 0.3)}`,
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: 32 }}>🎉</div>
-            <div style={{ ...AppTypography.cormorantBold, fontSize: 24, color: AppColors.auroraGold, marginTop: 8 }}>
-              Tonight&rsquo;s Date Destiny
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <Icon name="favorite" size={48} color={AppColors.deepRose} />
             </div>
-            <div style={{ ...AppTypography.outfitBold, fontSize: 16, color: AppColors.petalWhite, marginTop: 12 }}>
+            <div style={{ ...AppTypography.outfitBold, fontSize: 16, letterSpacing: 1.2, color: AppColors.blushGold, marginTop: 24 }}>
+              You should...
+            </div>
+            <div style={{ ...AppTypography.cormorantBlack, fontSize: 28, lineHeight: 1.2, color: AppColors.petalWhite, marginTop: 16 }}>
               {picked}
             </div>
             <button
@@ -164,15 +176,17 @@ export function RandomizerCard() {
               className="bare-button"
               onClick={() => setPicked(null)}
               style={{
-                margin: '18px auto 0',
-                padding: '10px 22px',
-                borderRadius: 999,
+                margin: '32px auto 0',
+                padding: '16px 48px',
+                borderRadius: 24,
                 background: AppColors.deepRose,
-                ...AppTypography.outfitBold,
-                fontSize: 13,
+                ...AppTypography.outfitWhite,
+                fontSize: 18,
+                fontWeight: 700,
+                color: AppColors.petalWhite,
               }}
             >
-              Let&rsquo;s do it! 💖
+              Perfect!
             </button>
           </div>
         </div>

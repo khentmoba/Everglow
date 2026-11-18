@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import {
   chapterDisplayTitle,
   fetchKatanaChapterPages,
@@ -21,9 +23,14 @@ export interface MangaReaderParams {
   initialPage?: number;
 }
 
+function normalizeAssetUrl(src: string): string {
+  if (src.startsWith('assets/')) return `/${src.slice('assets/'.length)}`;
+  return src;
+}
+
 function ReaderPageImage({ src, alt }: { src: string; alt: string }) {
   const [step, setStep] = useState(0);
-  const resolved = proxyKatanaImageUrl(katanaCdnFallback(src, step));
+  const resolved = src.startsWith('blob:') || src.startsWith('/') ? normalizeAssetUrl(src) : proxyKatanaImageUrl(katanaCdnFallback(src, step));
   return (
     <img
       src={resolved}
@@ -50,14 +57,53 @@ export function MangaReaderView({
   const [pageIdx, setPageIdx] = useState(Math.max(0, (params.initialPage ?? 1) - 1));
   const [server, setServer] = useState('');
   const [showUi, setShowUi] = useState(true);
+  const saveTimer = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const chapter = params.chapters.find((c) => c.id === chapterId) ?? { id: chapterId, num: '', title: chapterId };
   const chapterIndex = params.chapters.findIndex((c) => c.id === chapterId);
 
+  const persistProgress = (page: number) => {
+    const safePage = Math.max(1, page);
+    const offlineId = OfflineIds.mangaChapterId(params.slug, chapterId);
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      if (offlineMedia.getItem(offlineId)) {
+        offlineMedia.updatePlaybackPosition(offlineId, safePage, true);
+      }
+      if (!currentUser) return;
+      void saveKatanaReadingProgress({
+        slug: params.slug,
+        userName: currentUser,
+        chapterId,
+        chapterTitle: chapterDisplayTitle(chapter),
+        page: safePage,
+        title: params.mangaTitle,
+        coverUrl: params.coverUrl,
+      });
+    }, 350);
+  };
+
+  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetchKatanaChapterPages(params.slug, chapterId, server).then((urls) => {
+    offlineMedia.init();
+    const offlineItem = offlineMedia.getItem(OfflineIds.mangaChapterId(params.slug, chapterId));
+    const loadPages = async (): Promise<string[]> => {
+      if (offlineItem && offlineItem.pageUrls.length > 0) {
+        const resolved = await Promise.all(
+          offlineItem.pageUrls.map(async (raw, i) => {
+            const cached = await offlineMedia.getMangaPageUrl(offlineItem.id, i + 1);
+            return normalizeAssetUrl(cached ?? raw);
+          }),
+        );
+        return resolved.filter(Boolean);
+      }
+      return fetchKatanaChapterPages(params.slug, chapterId, server);
+    };
+    void loadPages().then((urls) => {
       if (!alive) return;
       setPages(urls);
       setLoading(false);
@@ -68,7 +114,7 @@ export function MangaReaderView({
         userName: currentUser,
         chapterId,
         chapterTitle: chapterDisplayTitle(chapter),
-        page: 1,
+        page: Math.max(1, params.initialPage ?? 1),
         title: params.mangaTitle,
         coverUrl: params.coverUrl,
       });
@@ -77,6 +123,13 @@ export function MangaReaderView({
       alive = false;
     };
   }, [params.slug, chapterId, server, currentUser]);
+
+  useEffect(() => {
+    if (mode === 'paged' && pages.length > 0) {
+      persistProgress(pageIdx + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, pageIdx]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: '#050508', color: KatanaColors.text, display: 'flex', flexDirection: 'column' }}>
@@ -137,6 +190,14 @@ export function MangaReaderView({
       )}
 
       <div
+        ref={scrollRef}
+        onScroll={() => {
+          if (mode !== 'webtoon' || pages.length === 0 || !scrollRef.current) return;
+          const el = scrollRef.current;
+          const ratio = el.scrollHeight > el.clientHeight ? el.scrollTop / (el.scrollHeight - el.clientHeight) : 0;
+          const page = Math.min(pages.length, Math.max(1, Math.round(ratio * (pages.length - 1)) + 1));
+          persistProgress(page);
+        }}
         onClick={() => setShowUi((s) => !s)}
         style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
       >
@@ -244,5 +305,5 @@ export function MangaReaderPage() {
       </div>
     );
   }
-  return <MangaReaderView params={params} onClose={() => navigate(-1)} />;
+  return <MangaReaderView params={params} onClose={() => (canPop() ? navigate(-1) : navigate('/manga'))} />;
 }

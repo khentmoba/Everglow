@@ -2,9 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useRememberedScroll } from '../../core/router/scrollMemory';
 import { useAuth } from '../../core/services/auth';
+import { formattedSize, offlineMedia, useOfflineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
 import { useSource } from '../../core/utils/liveSource';
+import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
+import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { MangaHome } from './MangaHome';
 import { MangaReaderView, type MangaReaderParams } from './MangaReaderPage';
 import {
@@ -35,8 +38,9 @@ import { KatanaColors, KatanaType } from './katanaTokens';
 
 export function MangaPage() {
   const { width } = useViewport();
-  const { currentUser, isCoupleUser } = useAuth();
+  const { currentUser, isCoupleUser, partnerUsername } = useAuth();
   const navigate = useNavigate();
+  const offline = useOfflineMedia();
 
   const [tab, setTab] = useState<KatanaNavKey>('home');
   const [catalogMode, setCatalogMode] = useState<'directory' | 'latest' | 'new' | 'genre' | 'search'>('directory');
@@ -46,6 +50,8 @@ export function MangaPage() {
   const [searchBy, setSearchBy] = useState<'m_name' | 'author'>('m_name');
   const [detailSlug, setDetailSlug] = useState<string | null>(null);
   const [readerParams, setReaderParams] = useState<MangaReaderParams | null>(null);
+  const [showPartnerReading, setShowPartnerReading] = useState(false);
+  const [resumingSlug, setResumingSlug] = useState<string | null>(null);
 
   // Home data
   const [homeData, setHomeData] = useState<KatanaHomeData | null>(null);
@@ -68,6 +74,11 @@ export function MangaPage() {
 
   const userName = currentUser ?? '';
   const bookmarks = useSource(() => watchKatanaBookmarks(userName), [userName], []);
+  const partnerBookmarks = useSource(
+    () => (partnerUsername ? watchKatanaBookmarks(partnerUsername) : null),
+    [partnerUsername],
+    [],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -98,7 +109,8 @@ export function MangaPage() {
   }, [typeFilter, typePage]);
 
   useEffect(() => {
-    if (!['latest', 'directory', 'newManga', 'genres'].includes(tab) && catalogMode !== 'search') return;
+    const isCatalogTab = ['latest', 'directory', 'newManga'].includes(tab) || (tab === 'genres' && genreSlug !== '') || catalogMode === 'search';
+    if (!isCatalogTab) return;
     let alive = true;
     setCatLoading(true);
     fetchKatanaCatalog({
@@ -145,6 +157,10 @@ export function MangaPage() {
     if (next === 'latest') setCatalogMode('latest');
     else if (next === 'directory') setCatalogMode('directory');
     else if (next === 'newManga') setCatalogMode('new');
+    else if (next === 'genres') {
+      setGenreSlug('');
+      setGenreTitle('');
+    }
   };
 
   const handleSelectGenre = (g: KatanaGenre) => {
@@ -157,8 +173,8 @@ export function MangaPage() {
   };
 
   const currentlyReading = useMemo(
-    () => bookmarks.filter((b) => b.lastReadChapterId),
-    [bookmarks],
+    () => (showPartnerReading ? partnerBookmarks : bookmarks).filter((b) => b.lastReadChapterId),
+    [bookmarks, partnerBookmarks, showPartnerReading],
   );
   const savedBookmarks = useMemo(
     () => bookmarks.filter((b) => b.bookmarked),
@@ -173,6 +189,41 @@ export function MangaPage() {
       coverUrl: manga.coverUrl,
       chapters: manga.chapters,
       initialPage,
+    });
+  };
+
+  const resumeBookmark = async (bm: KatanaBookmark) => {
+    if (!bm.lastReadChapterId) {
+      setDetailSlug(bm.slug);
+      return;
+    }
+    if (resumingSlug) return;
+    setResumingSlug(bm.slug);
+    try {
+      const loaded = await fetchKatanaDetail(bm.slug);
+      if (loaded && loaded.chapters.length > 0) {
+        const match = loaded.chapters.find((c) => c.id === bm.lastReadChapterId) ?? loaded.chapters[loaded.chapters.length - 1];
+        openChapter(loaded, match.id, Math.max(1, bm.lastReadPage || 1));
+      } else {
+        setDetailSlug(bm.slug);
+      }
+    } catch {
+      showSnackBar('Could not resume chapter — opening details');
+      setDetailSlug(bm.slug);
+    } finally {
+      setResumingSlug(null);
+    }
+  };
+
+  const openOfflineMangaChapter = (item: OfflineMediaItem) => {
+    const chapterId = item.chapterId ?? '1';
+    setReaderParams({
+      slug: item.mediaId,
+      chapterId,
+      mangaTitle: item.title,
+      coverUrl: item.coverUrl,
+      chapters: [{ id: chapterId, num: '', title: item.subtitle || chapterId }],
+      initialPage: item.lastPositionSeconds && item.lastPositionSeconds > 0 ? item.lastPositionSeconds : 1,
     });
   };
 
@@ -420,27 +471,79 @@ export function MangaPage() {
           ) : tab === 'reading' ? (
             <div>
               <KatanaBreadcrumb items={['Currently Reading']} onHome={() => setTab('home')} />
-              <KatanaSectionHeader title="Currently Reading" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <KatanaSectionHeader title="Currently Reading" />
+                {partnerUsername && (
+                  <div style={{ display: 'inline-flex', gap: 6, padding: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
+                    {[false, true].map((partner) => {
+                      const active = showPartnerReading === partner;
+                      const label = partner ? (partnerUsername === 'khentsgdz' ? 'Khent' : 'Clair') : 'Mine';
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          className="bare-button"
+                          onClick={() => setShowPartnerReading(partner)}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: 99,
+                            background: active ? KatanaColors.accent : 'transparent',
+                            color: active ? '#FFF' : KatanaColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               <div style={{ height: 12 }} />
               {currentlyReading.length === 0 ? (
                 <KatanaCard padding={24}>
-                  <div style={KatanaType.body}>No reading progress recorded yet.</div>
+                  <div style={KatanaType.body}>
+                    {showPartnerReading ? 'No reading progress recorded yet.' : 'No reading progress recorded yet.'}
+                  </div>
                 </KatanaCard>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {currentlyReading.map((bm) => (
                     <KatanaCard key={bm.slug} padding={12}>
-                      <div onClick={() => openBookmarkReader(bm)} style={{ display: 'flex', gap: 12, cursor: 'pointer', alignItems: 'center' }}>
-                        <div style={{ position: 'relative', width: 54, height: 76, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
-                          <KatanaCoverImage url={bm.coverUrl} iconSize={20} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={KatanaType.title}>{bm.title}</div>
-                          <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft, marginTop: 4 }}>
-                            {bm.lastReadChapterTitle} · Page {bm.lastReadPage || 1}
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <div
+                          onClick={() => openBookmarkReader(bm)}
+                          style={{ display: 'flex', gap: 12, cursor: 'pointer', alignItems: 'center', flex: 1, minWidth: 0 }}
+                        >
+                          <div style={{ position: 'relative', width: 54, height: 76, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                            <KatanaCoverImage url={bm.coverUrl} iconSize={20} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={KatanaType.title}>{bm.title}</div>
+                            <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft, marginTop: 4 }}>
+                              {bm.lastReadChapterTitle} · Page {bm.lastReadPage || 1}
+                            </div>
                           </div>
                         </div>
-                        <Icon name="play_arrow" size={20} color={KatanaColors.accent} />
+                        <button
+                          type="button"
+                          className="bare-button"
+                          aria-label={`Resume ${bm.title}`}
+                          onClick={() => void resumeBookmark(bm)}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '50%',
+                            background: KatanaColors.surfaceAlt,
+                            border: `1px solid ${KatanaColors.border}`,
+                            display: 'grid',
+                            placeItems: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Icon name={resumingSlug === bm.slug ? 'hourglass_top' : 'play_arrow'} size={20} color={KatanaColors.accent} />
+                        </button>
                       </div>
                     </KatanaCard>
                   ))}
@@ -448,11 +551,65 @@ export function MangaPage() {
               )}
             </div>
           ) : tab === 'downloads' ? (
-            <KatanaCard padding={32} style={{ textAlign: 'center' }}>
-              <Icon name="download_done" size={44} color={KatanaColors.textLight} />
-              <div style={{ ...KatanaType.title, marginTop: 12 }}>No offline chapters yet</div>
-              <div style={{ ...KatanaType.small, marginTop: 6 }}>Offline downloads are stored on the native/desktop app.</div>
-            </KatanaCard>
+            <KatanaDownloadsView
+              items={offline.mangaItems}
+              storage={offline.formattedMangaStorage}
+              onOpen={openOfflineMangaChapter}
+              onDelete={(id) => void offlineMedia.deleteDownload(id)}
+              onClearAll={() =>
+                void showDialog<void>((close) => (
+                  <AlertDialog
+                    background={KatanaColors.surface}
+                    title={<div style={KatanaType.title}>Clear Manga Downloads</div>}
+                    content={<div style={KatanaType.small}>Remove all offline manga chapters from this device?</div>}
+                    actions={[
+                      <TextButton key="cancel" onPressed={() => close(null)} color={KatanaColors.textMuted}>Cancel</TextButton>,
+                      <TextButton
+                        key="clear"
+                        color="#FF453A"
+                        onPressed={() => {
+                          close(null);
+                          void offlineMedia.clearAll('manga');
+                        }}
+                      >
+                        Clear All
+                      </TextButton>,
+                    ]}
+                  />
+                ))
+              }
+              onBrowse={() => handleNav('home')}
+            />
+          ) : tab === 'genres' && !genreSlug ? (
+            <div>
+              <KatanaBreadcrumb items={['Genres']} onHome={() => setTab('home')} />
+              <KatanaSectionHeader title="Genres" trailing={<span style={KatanaType.small}>{(homeData?.genres ?? []).length} genres</span>} />
+              <div style={{ height: 12 }} />
+              <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                {(homeData?.genres ?? []).map((g) => (
+                  <KatanaCard key={g.slug} padding={12}>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      onClick={() => handleSelectGenre(g)}
+                      style={{ width: '100%', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6 }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ ...KatanaType.title, color: KatanaColors.link, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {g.name}
+                        </span>
+                        {g.count > 0 && (
+                          <span style={{ padding: '2px 7px', borderRadius: 10, background: 'rgba(194,24,91,0.12)', ...KatanaType.accent, fontSize: 11 }}>
+                            {g.count}
+                          </span>
+                        )}
+                      </div>
+                      {g.description && <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 11 }}>{g.description}</div>}
+                    </button>
+                  </KatanaCard>
+                ))}
+              </div>
+            </div>
           ) : tab !== 'home' ? (
             <div>
               <KatanaBreadcrumb
@@ -513,6 +670,128 @@ export function MangaPage() {
       )}
 
       {readerParams && <MangaReaderView params={readerParams} onClose={() => setReaderParams(null)} />}
+    </div>
+  );
+}
+
+function KatanaDownloadsView({
+  items,
+  storage,
+  onOpen,
+  onDelete,
+  onClearAll,
+  onBrowse,
+}: {
+  items: OfflineMediaItem[];
+  storage: string;
+  onOpen: (item: OfflineMediaItem) => void;
+  onDelete: (id: string) => void;
+  onClearAll: () => void;
+  onBrowse: () => void;
+}) {
+  const groups = new Map<string, OfflineMediaItem[]>();
+  for (const it of items) {
+    const list = groups.get(it.mediaId) ?? [];
+    list.push(it);
+    groups.set(it.mediaId, list);
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <KatanaSectionHeader
+          title="Downloads"
+          badge={items.length > 0 ? String(items.length) : undefined}
+        />
+        {items.length > 0 && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={onClearAll}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+          >
+            <Icon name="delete_sweep" variant="outlined" size={18} color={KatanaColors.textLight} />
+            <span style={KatanaType.small}>Clear All</span>
+          </button>
+        )}
+      </div>
+      <div style={{ height: 14 }} />
+      {items.length === 0 ? (
+        <KatanaCard padding={32} style={{ textAlign: 'center' }}>
+          <Icon name="download_done" size={44} color={KatanaColors.textLight} />
+          <div style={{ ...KatanaType.title, marginTop: 12 }}>No offline chapters yet</div>
+          <div style={{ ...KatanaType.small, marginTop: 6 }}>Chapters saved for offline reading will appear here.</div>
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            <KatanaButton label="Browse Manga" icon="home" onClick={onBrowse} />
+          </div>
+        </KatanaCard>
+      ) : (
+        <>
+          <KatanaCard padding={14} style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="storage" size={18} color={KatanaColors.accent} />
+                <span style={KatanaType.small}>Offline storage used</span>
+              </div>
+              <span style={{ ...KatanaType.title, fontSize: 13.5 }}>{storage}</span>
+            </div>
+          </KatanaCard>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[...groups.values()].map((chapters) => {
+              const head = chapters[0];
+              return (
+                <KatanaCard key={head.mediaId} padding={0} style={{ overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: `1px solid ${KatanaColors.border}` }}>
+                    <div style={{ position: 'relative', width: 44, height: 62, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                      <KatanaCoverImage url={head.coverUrl} iconSize={18} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={KatanaType.title}>{head.title}</div>
+                      <div style={KatanaType.small}>
+                        {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'} offline
+                      </div>
+                    </div>
+                  </div>
+                  {chapters.map((ch, idx) => (
+                    <div
+                      key={ch.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 12px',
+                        borderTop: idx > 0 ? `1px solid ${KatanaColors.border}` : undefined,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="bare-button"
+                        onClick={() => onOpen(ch)}
+                        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
+                      >
+                        <Icon name="menu_book" size={18} color={KatanaColors.accentSoft} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ ...KatanaType.title, fontSize: 13 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
+                          <div style={KatanaType.small}>{formattedSize(ch)}</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        className="bare-button"
+                        aria-label={`Delete ${ch.subtitle || ch.title}`}
+                        onClick={() => onDelete(ch.id)}
+                        style={{ width: 32, height: 32, display: 'grid', placeItems: 'center' }}
+                      >
+                        <Icon name="delete_outline" size={18} color={KatanaColors.textLight} />
+                      </button>
+                    </div>
+                  ))}
+                </KatanaCard>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

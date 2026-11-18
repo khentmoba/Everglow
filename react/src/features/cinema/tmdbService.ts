@@ -878,3 +878,27 @@ export async function heartbeatProgress(
     Logger.e('Error heartbeating progress', e);
   }
 }
+
+export async function migrateWatchListOwnership(): Promise<number> {
+  if (AgentMode.demo) return 0;
+  try {
+    const snap = await withGetTimeout(
+      getDocs(query(collection(db, 'watch_list'), limit(500))),
+      'watchlist ownership migration scan',
+    );
+    let migrated = 0;
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (typeof data.userName === 'string' && data.userName !== '') continue;
+      const status = typeof data.status === 'string' ? data.status : 'to-watch';
+      const owner = resolveStatusOwner(status) ?? 'khentsgdz';
+      await updateDoc(d.ref, { userName: owner });
+      migrated++;
+    }
+    if (migrated > 0) Logger.i(`Migrated ${migrated} legacy watch_list items to user-scoped ownership.`);
+    return migrated;
+  } catch (e) {
+    Logger.e('Watchlist migration error', e);
+    return 0;
+  }
+}

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
+import { WebTts } from '../../core/system/webTts';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
 import { ShelfAtmosphericBackdrop, ShelfIconButton } from '../../shared/widgets/shelf/Shelf';
 import {
   BOOK_CATEGORIES,
@@ -25,6 +28,7 @@ import {
   fetchBookText,
   fetchPopularBooks,
   fetchRecentBooks,
+  recordBookDownload,
   saveToReadList,
   toggleBookFavorite,
   watchBookFavorites,
@@ -107,7 +111,7 @@ export function BookDetailPage() {
         ]}
       />
       <div style={{ position: 'relative', padding: '14px 20px 0' }}>
-        <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => navigate(-1)} />
+        <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
           <BookCover width={168} imageUrl={result.coverUrl} title={result.title} author={result.author} radius={10} />
@@ -178,7 +182,10 @@ export function BookDetailPage() {
             <button
               type="button"
               className="bare-button"
-              onClick={() => window.open(downloads[0][1], '_blank', 'noopener')}
+              onClick={() => {
+                void recordBookDownload(item, downloads[0][0], userName);
+                window.open(downloads[0][1], '_blank', 'noopener');
+              }}
               style={{
                 width: '100%',
                 display: 'inline-flex',
@@ -305,21 +312,66 @@ function DetailActionCircle({ icon, label, active, onClick }: { icon: string; la
   );
 }
 
+type BookChapter = { title: string; body: string };
+
+function stripGutenbergBoilerplate(raw: string): string {
+  const startMatch = /\*\*\*\s*START OF (?:THE|THIS)?\s*PROJECT[^\n]*\n?/i.exec(raw);
+  const endMatch = /\*\*\*\s*END OF (?:THE|THIS)?\s*PROJECT/i.exec(raw);
+  if (!startMatch || !endMatch || endMatch.index <= startMatch.index) return raw;
+  return raw.slice(startMatch.index + startMatch[0].length, endMatch.index);
+}
+
+function splitBookChapters(raw: string, fallbackTitle: string): BookChapter[] {
+  const cleaned = stripGutenbergBoilerplate(raw).replace(/\r\n/g, '\n');
+  const explicitRe = /^(?:CHAPTER|Chapter|PART|Part|BOOK|Book|PROLOGUE|EPILOGUE|Act|ACT)\s+(?:[IVXLCDM]+|\d+|[A-Za-z]+)(?:[.: \t]+[^\n]*)?$/gm;
+  const matches = [...cleaned.matchAll(explicitRe)];
+  if (matches.length >= 2) {
+    const out: BookChapter[] = [];
+    for (let i = 0; i < matches.length; i++) {
+      const start = matches[i].index ?? 0;
+      const end = i + 1 < matches.length ? (matches[i + 1].index ?? cleaned.length) : cleaned.length;
+      const slice = cleaned.slice(start, end);
+      const nl = slice.indexOf('\n');
+      const title = (nl >= 0 ? slice.slice(0, nl) : slice).trim();
+      const body = (nl >= 0 ? slice.slice(nl + 1) : '').trim();
+      if (body) out.push({ title, body });
+    }
+    if (out.length >= 2) return out;
+  }
+  const starParts = cleaned.split(/^\s*\*{3,}\s*$/m).map((s) => s.trim()).filter(Boolean);
+  if (starParts.length >= 2) {
+    return starParts.map((body, idx) => {
+      const firstLine = body.split('\n').find((l) => l.trim() !== '')?.trim() ?? `Section ${idx + 1}`;
+      return { title: firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine, body };
+    });
+  }
+  return [{ title: fallbackTitle, body: cleaned.trim() }];
+}
+
+const TTS_RATES = [0.85, 1.0, 1.25, 1.5] as const;
+
 export function BookReaderPage({ startListening = false }: { startListening?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const book = (location.state as { book?: BookItem } | null)?.book ?? null;
 
-  const [text, setText] = useState('');
+  const [chapters, setChapters] = useState<BookChapter[]>([]);
+  const [chapterIdx, setChapterIdx] = useState(0);
+  const [tocOpen, setTocOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'sepia' | 'light'>('dark');
   const [fontSize, setFontSize] = useState(17);
   const [speaking, setSpeaking] = useState(false);
+  const [ttsRate, setTtsRate] = useState<number>(1.0);
+
+  const progressKey = book ? `reader_progress::${book.workKey}` : '';
 
   useEffect(() => {
     if (!book) return;
     let alive = true;
+    const saved = Prefs.get(`int:${progressKey}`) ?? Prefs.get(progressKey);
+    const savedIdx = typeof saved === 'number' && saved >= 0 ? saved : 0;
     const candidates = buildReadCandidates(book);
     if (candidates.length === 0) {
       setLoading(false);
@@ -330,11 +382,15 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     fetchBookText(candidates).then((res) => {
       if (!alive) return;
       if (res.text) {
-        setText(res.text);
-        if (startListening && 'speechSynthesis' in window) {
-          const u = new SpeechSynthesisUtterance(res.text.slice(0, 6000));
-          u.onend = () => setSpeaking(false);
-          window.speechSynthesis.speak(u);
+        const list = splitBookChapters(res.text, book.title);
+        const initial = savedIdx < list.length ? savedIdx : 0;
+        setChapters(list);
+        setChapterIdx(initial);
+        if (startListening && WebTts.isSupported && list[initial]) {
+          WebTts.speak(list[initial].body, {
+            rate: ttsRate,
+            onComplete: () => alive && setSpeaking(false),
+          });
           setSpeaking(true);
         }
       } else {
@@ -344,8 +400,9 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     });
     return () => {
       alive = false;
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      WebTts.stop();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, startListening]);
 
   if (!book) {
@@ -358,17 +415,33 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     );
   }
 
+  const currentChapter = chapters[chapterIdx] ?? null;
+
+  const selectChapter = (nextIdx: number) => {
+    if (nextIdx < 0 || nextIdx >= chapters.length) return;
+    setChapterIdx(nextIdx);
+    setTocOpen(false);
+    if (progressKey) Prefs.set(progressKey, nextIdx);
+    if (speaking && WebTts.isSupported) {
+      WebTts.speak(chapters[nextIdx].body, { rate: ttsRate, onComplete: () => setSpeaking(false) });
+    }
+  };
+
   const toggleSpeech = () => {
-    if (!('speechSynthesis' in window)) return;
+    if (!WebTts.isSupported) return;
     if (speaking) {
-      window.speechSynthesis.cancel();
+      WebTts.stop();
       setSpeaking(false);
-    } else if (text) {
-      const u = new SpeechSynthesisUtterance(text.slice(0, 10000));
-      u.onend = () => setSpeaking(false);
-      window.speechSynthesis.speak(u);
+    } else if (currentChapter) {
+      WebTts.speak(currentChapter.body, { rate: ttsRate, onComplete: () => setSpeaking(false) });
       setSpeaking(true);
     }
+  };
+
+  const cycleRate = () => {
+    const next = TTS_RATES[(TTS_RATES.indexOf(ttsRate as (typeof TTS_RATES)[number]) + 1) % TTS_RATES.length];
+    setTtsRate(next);
+    WebTts.setRate(next);
   };
 
   const bg = themeMode === 'dark' ? '#0D0B12' : themeMode === 'sepia' ? '#F4ECD8' : '#FAFAFA';
@@ -376,16 +449,38 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
   return (
     <div style={{ height: '100%', background: bg, color: fg, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '10px 16px', borderBottom: `1px solid ${withAlpha(fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button type="button" className="bare-button" onClick={() => navigate(-1)} style={{ padding: 6 }}>
+      <div style={{ padding: '10px 16px', borderBottom: `1px solid ${withAlpha(fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ padding: 6 }}>
           <Icon name="arrow_back" size={20} color={fg} />
         </button>
-        <div style={{ flex: 1, fontFamily: Fonts.display, fontWeight: 700, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {book.title}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {book.title}
+          </div>
+          {chapters.length > 1 && currentChapter && (
+            <div style={{ fontSize: 11, opacity: 0.65, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {currentChapter.title} ({chapterIdx + 1}/{chapters.length})
+            </div>
+          )}
         </div>
+        {chapters.length > 1 && (
+          <button type="button" className="bare-button" onClick={() => setTocOpen((o) => !o)} style={{ padding: 6 }} title="Chapters">
+            <Icon name="format_list_bulleted" size={20} color={fg} />
+          </button>
+        )}
         <button type="button" className="bare-button" onClick={toggleSpeech} style={{ padding: 6 }} title={speaking ? 'Pause' : 'Listen'}>
           <Icon name={speaking ? 'stop' : 'headphones'} size={20} color={speaking ? BookColors.deepRose : fg} />
         </button>
+        {speaking && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={cycleRate}
+            style={{ padding: '4px 7px', borderRadius: 8, border: `1px solid ${withAlpha(fg, 0.25)}`, fontSize: 11, fontWeight: 700 }}
+          >
+            {ttsRate}x
+          </button>
+        )}
         <button type="button" className="bare-button" onClick={() => setFontSize((f) => Math.max(13, f - 2))} style={{ padding: '4px 8px', fontSize: 13 }}>A-</button>
         <button type="button" className="bare-button" onClick={() => setFontSize((f) => Math.min(26, f + 2))} style={{ padding: '4px 8px', fontSize: 13 }}>A+</button>
         <button
@@ -398,13 +493,66 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         </button>
       </div>
 
+      {tocOpen && chapters.length > 1 && (
+        <div style={{ maxHeight: 240, overflowY: 'auto', borderBottom: `1px solid ${withAlpha(fg, 0.12)}`, background: withAlpha(fg, 0.04), padding: '8px 16px' }}>
+          {chapters.map((ch, i) => (
+            <button
+              key={`${ch.title}-${i}`}
+              type="button"
+              className="bare-button"
+              onClick={() => selectChapter(i)}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '7px 8px',
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: i === chapterIdx ? 700 : 500,
+                color: i === chapterIdx ? BookColors.deepRose : fg,
+              }}
+            >
+              {ch.title}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
         {loading ? (
           <div style={{ padding: 64, textAlign: 'center', fontFamily: Fonts.display, fontSize: 18 }}>Opening the pages…</div>
-        ) : text ? (
-          <pre style={{ maxWidth: 680, margin: '0 auto', whiteSpace: 'pre-wrap', fontFamily: Fonts.display, fontSize, lineHeight: 1.75 }}>
-            {text.slice(0, 120000)}
-          </pre>
+        ) : currentChapter ? (
+          <div style={{ maxWidth: 680, margin: '0 auto' }}>
+            {chapters.length > 1 && (
+              <h2 style={{ fontFamily: Fonts.display, fontSize: fontSize + 5, fontWeight: 700, margin: '0 0 18px' }}>
+                {currentChapter.title}
+              </h2>
+            )}
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: Fonts.display, fontSize, lineHeight: 1.75 }}>
+              {currentChapter.body}
+            </pre>
+            {chapters.length > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, paddingTop: 16, borderTop: `1px solid ${withAlpha(fg, 0.12)}` }}>
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={chapterIdx === 0}
+                  onClick={() => selectChapter(chapterIdx - 1)}
+                  style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(fg, 0.2)}`, opacity: chapterIdx === 0 ? 0.35 : 1, fontSize: 13 }}
+                >
+                  ← Previous
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={chapterIdx >= chapters.length - 1}
+                  onClick={() => selectChapter(chapterIdx + 1)}
+                  style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(fg, 0.2)}`, opacity: chapterIdx >= chapters.length - 1 ? 0.35 : 1, fontSize: 13 }}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
         ) : book.iaId ? (
           <iframe
             src={`https://archive.org/embed/${book.iaId}`}
@@ -468,7 +616,7 @@ export function BookListPage() {
       />
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '14px 20px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ShelfIconButton icon="arrow_back_ios_new" label="Back" tooltip="Back" onClick={() => navigate(-1)} />
+          <ShelfIconButton icon="arrow_back_ios_new" label="Back" tooltip="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700, margin: 0, color: BookColors.white, lineHeight: 1.1 }}>{title}</h1>
             <div style={{ fontFamily: Fonts.body, fontWeight: 700, fontSize: 9, color: BookColors.muted, letterSpacing: 2.0, marginTop: 2 }}>
@@ -529,7 +677,7 @@ export function BookCategoriesPage() {
       />
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '14px 20px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ShelfIconButton icon="arrow_back_ios_new" label="Back" tooltip="Back" onClick={() => navigate(-1)} />
+          <ShelfIconButton icon="arrow_back_ios_new" label="Back" tooltip="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700, margin: 0, color: BookColors.white, lineHeight: lineHeight(26) }}>
               Categories

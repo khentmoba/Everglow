@@ -1,6 +1,4 @@
 // Port of lib/features/entry/presentation/pages/gateway_page.dart.
-// Still to port with their features: the dashboard load veil and the
-// cinema watch-list migration that start after a successful unlock.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAnimatedValue } from '../../core/anim/controller';
@@ -18,6 +16,8 @@ import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
+import { migrateWatchListOwnership } from '../cinema/tmdbService';
+import { DashboardLoadVeilControl } from '../dashboard/DashboardLoadVeil';
 import { AnimatedDoor, archPath, doorScale } from './AnimatedDoor';
 import { GatewayNotifier, type GatewayState } from './gatewayState';
 import { PasscodeInput } from './PasscodeInput';
@@ -57,8 +57,14 @@ export function GatewayPage() {
 
     if (state === 'unlocking') {
       const isCinemaOnly = authService.isCinemaOnlyUser;
+      if (!isCinemaOnly) {
+        DashboardLoadVeilControl.requestPasscodeLoader();
+      }
       const authTask = authService.ensureAuthenticated();
       void authTask
+        .then(() => {
+          void migrateWatchListOwnership().catch((e) => Logger.e('Watchlist migration background error', e));
+        })
         .catch((e) => {
           Logger.e('Error during passcode login', e);
           void authService.ensureAuthenticated().catch(() => {});

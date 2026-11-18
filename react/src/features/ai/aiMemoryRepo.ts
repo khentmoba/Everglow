@@ -13,6 +13,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { memoryFactFromJson, parseFactStructure, type MemoryFact } from './memory';
@@ -41,6 +42,10 @@ export class AIMemoryRepository {
 
   async load(): Promise<void> {
     if (this.loaded) return;
+    if (AgentMode.demo) {
+      this.loaded = true;
+      return;
+    }
     try {
       const snap = await getDocs(query(factsRef(), orderBy('createdAt', 'desc'), limit(150)));
       this.memories = snap.docs.map((d) => d.data().fact).filter((f): f is string => typeof f === 'string' && f !== '');
