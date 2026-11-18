@@ -1,6 +1,7 @@
 // Ports of lib/features/manga/presentation/katana/ (katana_theme.dart,
 // katana_header.dart, katana_item_card.dart): box for box.
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { reduceAmbientMotion } from '../../core/system/device';
 import { useViewport } from '../../core/system/viewport';
 import { withAlpha } from '../../core/theme/colors';
@@ -223,52 +224,118 @@ function GenresDropdown({
   genres,
   active,
   onSelectGenre,
+  onOpenGenresPage,
 }: {
   genres: KatanaGenre[];
   active: boolean;
   onSelectGenre: (genre: KatanaGenre) => void;
+  onOpenGenresPage: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number }>({ top: 96, left: 16, width: 320 });
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const updatePos = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const w = Math.min(320, Math.max(220, window.innerWidth - 24));
+      const left = Math.min(Math.max(12, rect.left), window.innerWidth - w - 12);
+      setPos({ top: rect.bottom + 4, left, width: w });
+    };
+    updatePos();
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <div
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}
-    >
-      <NavItem label="Genres" icon="local_offer" active={active} onClick={() => setOpen((o) => !o)} />
-      {open && (
-        <div
-          className="no-scrollbar"
-          style={{
-            marginTop: 4,
-            width: 320,
-            maxHeight: 420,
-            overflowY: 'auto',
-            background: KatanaColors.surface,
-            borderRadius: 8,
-            border: `1px solid ${KatanaColors.border}`,
-            boxShadow: boxShadow([{ color: '#00000022', blur: 16, offset: [0, 6] }]),
-            padding: '6px 0',
-            boxSizing: 'border-box',
-          }}
-        >
-          {genres.map((genre) => (
+    <div ref={triggerRef} style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <NavItem
+        label="Genres"
+        icon="local_offer"
+        active={active}
+        onClick={() => {
+          if (genres.length === 0) {
+            setOpen(false);
+            onOpenGenresPage();
+          } else {
+            setOpen((o) => !o);
+          }
+        }}
+      />
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="no-scrollbar"
+            style={{
+              position: 'fixed',
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              maxHeight: Math.min(420, window.innerHeight - pos.top - 16),
+              overflowY: 'auto',
+              zIndex: 800,
+              background: KatanaColors.surface,
+              borderRadius: 8,
+              border: `1px solid ${KatanaColors.border}`,
+              boxShadow: boxShadow([{ color: '#00000044', blur: 16, offset: [0, 6] }]),
+              padding: '6px 0',
+              boxSizing: 'border-box',
+            }}
+          >
             <button
-              key={genre.slug}
               type="button"
               className="bare-button"
               onClick={() => {
                 setOpen(false);
-                onSelectGenre(genre);
+                onOpenGenresPage();
               }}
-              style={{ width: '100%', padding: '7px 14px', display: 'flex', alignItems: 'center' }}
+              style={{
+                width: '100%',
+                padding: '7px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                borderBottom: `1px solid ${KatanaColors.border}`,
+              }}
             >
-              <span style={{ ...outfit(13, 500, KatanaColors.text), flex: 1 }}>{genre.name}</span>
-              {genre.count > 0 && <span style={KatanaType.small}>({genre.count})</span>}
+              <span style={{ ...outfit(12.5, 700, KatanaColors.accentSoft), flex: 1 }}>Browse all genres</span>
+              <Icon name="grid_view" size={14} color={KatanaColors.accentSoft} />
             </button>
-          ))}
-        </div>
-      )}
+            {genres.map((genre) => (
+              <button
+                key={genre.slug}
+                type="button"
+                className="bare-button"
+                onClick={() => {
+                  setOpen(false);
+                  onSelectGenre(genre);
+                }}
+                style={{ width: '100%', padding: '7px 14px', display: 'flex', alignItems: 'center' }}
+              >
+                <span style={{ ...outfit(13, 500, KatanaColors.text), flex: 1 }}>{genre.name}</span>
+                {genre.count > 0 && <span style={KatanaType.small}>({genre.count})</span>}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -614,7 +681,12 @@ export function KatanaHeader({
           {nav('latest', 'Latest update', 'bolt')}
           {nav('directory', 'Manga Directory', 'grid_view')}
           {nav('newManga', 'New Manga', 'auto_awesome')}
-          <GenresDropdown genres={genres} active={active === 'genres'} onSelectGenre={onSelectGenre} />
+          <GenresDropdown
+            genres={genres}
+            active={active === 'genres'}
+            onSelectGenre={onSelectGenre}
+            onOpenGenresPage={() => onSelectNav('genres')}
+          />
           {showBack && nav('reading', 'Currently Reading', 'auto_stories')}
           {nav('downloads', 'Downloads', 'download_done')}
           {!desktop && showBack && (
