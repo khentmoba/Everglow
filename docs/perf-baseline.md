@@ -1,15 +1,24 @@
-# Benchmark baseline — previous report withdrawn
+# Benchmark baseline — TypeScript React & Legacy Flutter
 
-The old tables were produced by a driver that could accept zero-frame mirrors,
-non-scrolling animated pages, missing boot observers and invalid cold network
-shaping. They are not performance acceptance evidence or a before/after baseline.
+> **Note:** Pre-PR #588 synthetic/broken driver tables were withdrawn and are not performance acceptance evidence. The active baseline below is for **TypeScript React** (`react/`); PR #588 and PR #599 **Flutter CanvasKit** figures are retained strictly as **legacy** historical reference. Real-phone and authenticated-screen targets remain unverified.
 
-A corrected run must use the new synthetic posters, fresh cumulative meter
-samples, actual scene/scroll state and full-window long-task observations. See
-`PERF_NOTES.md` and `pr-proof/perf-cleanup/README.md` for current verification.
-Real-phone and authenticated-screen targets remain unverified.
+## Current TypeScript React Dashboard Baseline (Post-Migration)
 
-## Current CanvasKit Dashboard Scroll Baseline (PR #588)
+Measured on `react/dist` (`npm --prefix react run build`, commit `47721a17`) in agent mode (`/?agent=dashboard`) with headless Chrome via `tool/perf/_harness.mjs` at `430x932 @3x`, CPU throttled `4x` (3 boot runs, 2 scroll runs). Raw samples: `docs/pr-proof/react-perf-baseline/raw/react-boot-scroll.json`.
+
+| Metric | Value (React) | Legacy Flutter (PR #588) |
+| --- | --- | --- |
+| First dashboard mount/paint (`4x` CPU) | `1,679.4 ms` | `6,536 ms` |
+| Boot worst long task (`4x` CPU) | `635 ms` | `1,508 ms` |
+| Long tasks > 200 ms (boot + scroll) | `4` (`4` boot + `0` scroll) | `19` (whole session: boot + scroll) |
+| Unthrottled desktop boot (`1x` CPU) | `556.1 ms` (`155 ms` worst LT, `0` > 200 ms) | — |
+| Cold boot (`4x` CPU + `fast3g`) | `5,561.5 ms` (`4,716.5 ms` load) | — |
+| Initial JS (`index-*.js`) | `2,526.5 kB` raw (`709.4 kB` gzip) | `4,822.5 kB` (`main.dart.js` only) |
+| Scroll worst frame (`4x` CPU) | `115.5 / 119.2 ms` (avg `10.0 ms`, p95 `38.5 ms`) | `425.8 ms` *(PR #599: `145 / 133 ms`)* |
+| Scroll frames > 200 ms | `0 / 0` | `4` |
+| Scroll worst long task (`4x` CPU) | `51 / 54 ms` (`0` > 200 ms) | — |
+
+## Legacy Flutter CanvasKit Dashboard Scroll Baseline (PR #588)
 
 Measured on the real dashboard in agent mode (`/?agent=dashboard&perf=1`)
 with headless Chrome CanvasKit at `430x932 @3x`, CPU throttled `4x`, default

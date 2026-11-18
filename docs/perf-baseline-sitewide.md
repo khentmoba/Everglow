@@ -5,10 +5,40 @@ This file holds the before and after numbers for the places Clair moves
 between most: the dashboard and the four media sections. Each section lists
 what changed, what was measured, and what is still not proven.
 
-Use these numbers as the next baseline to hold or beat. Re-run them on the
-same machine and flags before comparing.
+> **Note:** Everglow migrated from Flutter Web (CanvasKit) to TypeScript React (`react/`). The Flutter CanvasKit sections below are retained as **legacy** reference numbers; the TypeScript React measurements at the top are the active baseline.
 
-## How it was measured
+## Active TypeScript React Baseline (Post-Migration)
+
+Measured on `react/dist` (`npm --prefix react run build`, commit `47721a17`) in isolated agent demo mode (`430x932 @3x`, CPU throttled `4x`, headless Chrome via `tool/perf/_harness.mjs`). Raw samples: `docs/pr-proof/react-perf-baseline/raw/react-boot-scroll.json` and `docs/pr-proof/react-perf-baseline/raw/react-navigation.json`.
+
+### Navigation: dashboard to section (median ms, `4x` CPU, `fast3g` after boot, 3 runs)
+
+| Section | Visit | Legacy Flutter | React | React worst long task |
+| --- | --- | ---: | ---: | ---: |
+| Cinema | first | 198 | **25.9** | 0 ms (`0` > 50 ms) |
+| Cinema | revisit | 230 | **15.9** | 0 ms (`0` > 50 ms) |
+| Anime | first | 142 | **16.7** | 0 ms (`0` > 50 ms) |
+| Anime | revisit | 89 | **13.4** | 0 ms (`0` > 50 ms) |
+| Mangacelestia | first | 130 | **14.5** | 0 ms (`0` > 50 ms) |
+| Mangacelestia | revisit | 97 | **15.4** | 0 ms (`0` > 50 ms) |
+| Books | first | 66 | **16.6** | 0 ms (`0` > 50 ms) |
+| Books | revisit | 56 | **12.9** | 0 ms (`0` > 50 ms) |
+
+*Methodology note:* Legacy Flutter timed `route:<label>` marks inside `DeferredRouteLoader`; React timed click-to-mounted-`requestAnimationFrame` with all routes currently bundled in `index-*.js` (`2,526.5 kB` raw / `709.4 kB` gzip).
+
+### Scrolling the home screen (`4x` CPU, 2 runs per screen)
+
+| Section | Legacy Flutter worst frame | React worst frame | React avg / p95 frame | React worst long task | Frames > 200 ms |
+| --- | --- | --- | --- | --- | --- |
+| Dashboard | 145, 133 ms | **115.5, 119.2 ms** | 10.0 / 38.5 ms | 51, 54 ms | 0, 0 |
+| Cinema | 155, 166 ms | **7.8, 7.7 ms** | 3.85 / 3.9 ms | 0, 0 ms | 0, 0 |
+| Anime | 118, 125 ms | **76.9, 73.0 ms** | 4.3 / 9.6 ms | 0, 0 ms | 0, 0 |
+| Mangacelestia | 81, 98 ms | **19.3, 19.2 ms** | 3.9 / 3.9 ms | 0, 0 ms | 0, 0 |
+| Books | 90, 86 ms | **42.3, 50.0 ms** | 3.85 / 3.9 ms | 0, 0 ms | 0, 0 |
+
+---
+
+## Legacy Flutter CanvasKit — How it was measured
 
 - Rig: Windows 11 desktop, headless Chrome with CanvasKit, phone viewport
   `430x932 @3x`, CPU throttled `4x`. Isolated agent demo session, so no login
