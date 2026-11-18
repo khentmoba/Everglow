@@ -7,7 +7,7 @@ Clair : the girlfriend of Khent, shes the user of this project, so basically thi
 # Everglow
 
 A private love-letter app for Khent and Clair.
-Live at https://everglow-1c6db.web.app. Version in `pubspec.yaml`.
+Live at https://everglow-1c6db.web.app. Version in `react/package.json`.
 
 Clair is the one we are building for. Everything should feel warm,
 simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make sure that its perfect on those.
@@ -26,15 +26,15 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 
 ## Where things live
 
-* Start: `lib/main.dart` - starts Firebase, then opens `EverglowApp`.
-* Setup: `lib/core/di/app_providers.dart` - this is where services are created. Do not add setup in `main.dart`.
-* Pages: `lib/core/router/app_router.dart` just joins pages together. Each feature keeps its own pages under `lib/features/<name>/presentation/routes/`.
-* Looks: use `lib/core/theme/` for colors and spacing (`app_colors.dart` for UI, `app_art.dart` for decorative art). Use `lib/shared/widgets/everglow/` for buttons and cards. Never hardcode colors.
-* Features: about 30 small parts under `lib/features/`. Full list is in `README.md`. Each one is `data/` -> `presentation/`, plus `domain/` only when it needs repository interfaces or shared models.
-* Helpers: `lib/core/utils/` is app-wide (logging, streams, connectivity). `lib/shared/utils/` is data helpers (proxies, pagination, text, images).
-* Shelf widgets: `lib/shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books (posters, carousels). Everything else shared goes in `everglow/`.
+* Start: `react/src/main.tsx` - starts service worker registration, then renders `react/src/App.tsx`.
+* Firebase & Auth: `react/src/core/services/` (`firebase.ts`, `auth.ts`, `notifications.ts`).
+* Pages & Routes: `react/src/App.tsx` wires all routes cleanly to feature modules under `react/src/features/<name>/`.
+* Looks: use `react/src/core/theme/` for colors and spacing (`colors.ts`, `paint.ts`, `typography.ts`). Use `react/src/shared/widgets/` for buttons, cards, and UI primitives. Never hardcode colors.
+* Features: small self-contained modules under `react/src/features/`, with services and React components alongside each other.
+* Helpers: `react/src/core/` holds app-wide agent mode, router memory, viewport/update services, and audio/TTS helpers.
+* Shelf widgets: `react/src/shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books (posters, carousels).
 * Server: `functions/` talks to movies, music, and AI (`index.js` only wires modules together). The app never calls those sites directly.
-* Rules: `firestore.rules` decides who sees what. |
+* Rules: `firestore.rules` decides who sees what.
 
 ## Workflow — how we ship (agreed with Khent)
 
@@ -45,9 +45,10 @@ or merging, and for any "is this done?" judgement.
 Three rules never bend, even if the skill is not loaded:
 
 - **Never push to `main`.** It auto-deploys live to Clair. One task, one branch.
-- **Run the checks before every PR** — `flutter analyze`,
-  `flutter test --exclude-tags="golden,network"`, and every
-  `dart tool/ci/check_*.dart`. `ls tool/ci/` first; never invent a guard name.
+- **Run the checks before every PR** — `npm --prefix react run typecheck`,
+  `npm --prefix react run build`, `npm --prefix react test`,
+  `node tool/ci/run_checks.mjs`, `node tool/agent_smoke.mjs react/dist`,
+  and `node --test tool/ci/*.test.mjs`.
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data.
 

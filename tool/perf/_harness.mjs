@@ -20,7 +20,7 @@ export function chromePath() {
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/usr/local/bin/google-chrome', '/usr/bin/google-chrome',
+    '/usr/local/bin/google-chrome', '/usr/bin/google-chrome', '/opt/google/chrome/chrome',
     '/usr/bin/chromium', '/usr/bin/chromium-browser',
   ].filter(Boolean);
   for (const c of candidates) if (existsSync(c)) return c;
@@ -86,12 +86,18 @@ export class Cdp {
     this.ws = ws;
     this.timeoutMs = timeoutMs;
     this.pending = new Map();
+    this.listeners = new Map();
     this.id = 1;
     this.closed = false;
     ws.onmessage = (e) => {
       let m;
       try { m = JSON.parse(e.data); }
       catch { this.fail(new Error('invalid CDP JSON')); return; }
+      if (m.method) {
+        const set = this.listeners.get(m.method);
+        if (set) for (const fn of [...set]) fn(m.params ?? {}, m);
+      }
+      if (m.id == null) return;
       const p = this.pending.get(m.id);
       if (!p) return;
       this.pending.delete(m.id);
@@ -131,6 +137,12 @@ export class Cdp {
     }
     if (!r.result?.result) throw new Error('Runtime.evaluate: missing protocol result');
     return r.result.result.value;
+  }
+  on(method, fn) {
+    let set = this.listeners.get(method);
+    if (!set) { set = new Set(); this.listeners.set(method, set); }
+    set.add(fn);
+    return () => set.delete(fn);
   }
   close() { this.fail(new Error('CDP closed by harness')); this.ws.close(); }
 }

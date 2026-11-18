@@ -107,3 +107,6 @@ cloudflare/.wrangler/
 
 # Local performance scratch (measurement logs, throwaway builds)
 .perfwork/
+react/dist/
+react/compare-out/
+react/*.tsbuildinfo

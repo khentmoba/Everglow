@@ -21,13 +21,13 @@ function run(entries: GateData[]): GateState {
 const edit = (path: string): GateData => ({ kind: "edit", path });
 const verify = (signal: string): GateData => ({ kind: "verify", signal });
 
-const READER = "lib/features/manga/presentation/screens/katana_reader_screen.dart";
-const READER_TEST = "test/features/manga/katana_reader_chrome_test.dart";
+const READER = "react/src/features/manga/MangaReaderPage.tsx";
+const SHELL_TEST = "react/tools/shell.test.mjs";
 
-test("verifySignals maps the commands the skill tells agents to run", () => {
-	assert.deepEqual(verifySignals("flutter analyze"), ["flutter analyze"]);
-	assert.deepEqual(verifySignals('flutter test --exclude-tags="golden,network"'), ["flutter test"]);
-	assert.deepEqual(verifySignals("dart tool/ci/check_release_sync.dart"), ["regression guard"]);
+test("verifySignals maps the React and backend verification commands", () => {
+	assert.deepEqual(verifySignals("npm --prefix react run typecheck"), ["react typecheck"]);
+	assert.deepEqual(verifySignals("npm --prefix react run build"), ["react build"]);
+	assert.deepEqual(verifySignals("node tool/ci/run_checks.mjs"), ["regression guard"]);
 	assert.deepEqual(verifySignals("npm run verify"), ["npm verify"]);
 	assert.deepEqual(verifySignals("git status"), []);
 });
@@ -38,11 +38,11 @@ test("commit is blocked when code was edited and nothing was verified", () => {
 });
 
 test("commit is blocked when the last edit came after the last verification", () => {
-	const reason = commitBlockReason(run([edit(READER), verify("flutter analyze")]));
+	const reason = commitBlockReason(run([edit(READER), verify("react typecheck")]));
 	assert.equal(reason, null, "verification after the edit should pass");
 
 	const stale = commitBlockReason(
-		run([edit(READER), verify("flutter analyze"), edit(READER)]),
+		run([edit(READER), verify("react typecheck"), edit(READER)]),
 	);
 	assert.match(stale ?? "", /came after the last verification/);
 });
@@ -51,26 +51,20 @@ test("commit ignores docs, proof shots and CI yml", () => {
 	assert.equal(commitBlockReason(run([edit("docs/PERF_NOTES.md")])), null);
 	assert.equal(commitBlockReason(run([edit("docs/pr-proof/pr-1/shot.png")])), null);
 	assert.equal(commitBlockReason(run([edit(".github/workflows/quality.yml")])), null);
+	assert.equal(commitBlockReason(run([edit(SHELL_TEST)])), null);
 });
 
-// The exact shape of PR 584: analyze never ran, the test file was added after
-// the only verification, and the PR body still said "Analysis: passed".
-test("PR is blocked when the claimed analyze never ran", () => {
-	const state = run([
-		edit(READER),
-		verify("flutter test"),
-		edit(READER_TEST),
-	]);
+test("PR is blocked when typecheck ran without build", () => {
+	const state = run([edit(READER), verify("react typecheck")]);
 	const reason = prBlockReason(state);
-	assert.match(reason ?? "", /flutter analyze/);
+	assert.match(reason ?? "", /react build/);
 });
 
-test("PR passes when both Dart checks ran after the last edit", () => {
+test("PR passes when both React checks ran after the last edit", () => {
 	const state = run([
 		edit(READER),
-		edit(READER_TEST),
-		verify("flutter analyze"),
-		verify("flutter test"),
+		verify("react typecheck"),
+		verify("react build"),
 	]);
 	assert.equal(prBlockReason(state), null);
 });
@@ -78,8 +72,8 @@ test("PR passes when both Dart checks ran after the last edit", () => {
 test("PR is blocked when verification is older than the last edit", () => {
 	const state = run([
 		edit(READER),
-		verify("flutter analyze"),
-		verify("flutter test"),
+		verify("react typecheck"),
+		verify("react build"),
 		edit(READER),
 	]);
 	assert.match(prBlockReason(state) ?? "", /re-run the checks after your last edit/);
@@ -92,14 +86,15 @@ test("PR needs npm run verify for functions/", () => {
 });
 
 test("PR says nothing when this session edited no code", () => {
-	assert.equal(prBlockReason(run([verify("flutter test")])), null);
+	assert.equal(prBlockReason(run([verify("react typecheck")])), null);
 	assert.equal(prBlockReason(run([])), null);
 });
 
 test("state rebuilds in order, so resume cannot reorder the evidence", () => {
 	const entries: GateData[] = [
-		verify("flutter analyze"),
-		verify("flutter test"),
+		edit(READER),
+		verify("react typecheck"),
+		verify("react build"),
 		edit(READER),
 	];
 	const rebuilt = run(entries);

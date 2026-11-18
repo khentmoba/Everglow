@@ -1,21 +1,11 @@
 # Release publisher: cuts a tag + GitHub Release whenever the shipped
 # version changes on main.
-#
-# This is NOT the old every-deploy auto-release (removed in 4b451a2 for
-# cluttering the page with date tags). This workflow only acts when
-# `pubspec.yaml` changes on main, and it publishes exactly one release
-# per version: tag vX.Y.Z + notes taken from the matching CHANGELOG.md
-# entry. Merges that don't bump the version are a no-op.
-#
-# Flow for a release PR: bump pubspec + AppVersion, add the CHANGELOG
-# entry, mirror it in README (the check_release_sync guard enforces all
-# of this), merge. This workflow then tags HEAD and publishes.
 name: Release
 
 on:
   push:
     branches: [main]
-    paths: [pubspec.yaml]
+    paths: [react/package.json]
 
 permissions:
   contents: write
@@ -29,10 +19,9 @@ jobs:
       - name: Read version + notes from CHANGELOG
         id: meta
         run: |
-          FULL=$(grep -oP '^version:\s*\K\S+' pubspec.yaml)
-          VER=${FULL%%+*}
+          VER=$(node -p "require('./react/package.json').version")
           if ! printf '%s' "$VER" | grep -qP '^\d+\.\d+\.\d+$'; then
-            echo "pubspec version '$FULL' is not X.Y.Z(+N)."
+            echo "react/package.json version '$VER' is not X.Y.Z."
             exit 1
           fi
           if ! grep -qP "^## \\[$VER\\]" CHANGELOG.md; then
@@ -40,11 +29,9 @@ jobs:
             exit 1
           fi
           echo "version=$VER" >> "$GITHUB_OUTPUT"
-          # Nickname from '## [X.Y.Z] - DATE - Nickname' (optional part).
           NICK=$(grep -oP "^## \\[$VER\\] - \\S+ - \\K.+" CHANGELOG.md | head -1)
           if [ -n "$NICK" ]; then TITLE="v$VER — $NICK"; else TITLE="v$VER"; fi
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
-          # Entry body: lines after the heading up to the next '## ['.
           awk -v ver="$VER" '
             index($0, "## [" ver "]") == 1 { flag=1; next }
             /^## \[/ { flag=0 }
@@ -67,9 +54,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Tag first via git (exactly at this merge commit), then publish.
-      # Never moves an existing tag: if the tag is already there without
-      # a release, only the release is created (recovery path).
       - name: Create tag + GitHub Release
         if: steps.check.outputs.exists != 'true'
         run: |

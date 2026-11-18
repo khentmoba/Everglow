@@ -32,12 +32,12 @@ export interface GateState {
 
 /** Files that count as "real code". Docs, proof shots and CI yml do not. */
 export const CODE_FILE =
-	/^(lib\/.*\.dart|functions\/(?!.*\.md$).*\.js|test\/.*\.dart|tool\/.*\.dart)$/;
+	/^(react\/src\/.*\.(?:ts|tsx)|react\/vite\.config\.ts|functions\/(?!.*\.md$).*\.js|tool\/(?:ci\/.*\.mjs|agent_smoke\.mjs))$/;
 
 export const VERIFY_PATTERNS: Array<[RegExp, string]> = [
-	[/\bflutter\s+analyze\b/, "flutter analyze"],
-	[/\bflutter\s+test\b/, "flutter test"],
-	[/\bdart\s+tool\/ci\/check_\w+\.dart\b/, "regression guard"],
+	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+typecheck\b/, "react typecheck"],
+	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+build\b/, "react build"],
+	[/\bnode\s+(--?\S+\s+)*tool\/ci\/run_checks\.mjs\b/, "regression guard"],
 	[/\bnpm\s+(--prefix\s+\S+\s+)?(test|run\s+test)\b/, "npm test"],
 	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+verify\b/, "npm verify"],
 	[/\bnode\s+(--?\S+\s+)*[\w./-]*eval_gate\.js\b/, "eval_gate.js"],
@@ -89,9 +89,8 @@ export function commitBlockReason(state: GateState): string | null {
 	return (
 		`verify-gate: ${ran ? "your last code edit came after the last verification" : "this session edited code but ran no verification"}. ` +
 		`Edited: ${code.slice(0, 3).join(", ")}. ` +
-		`Re-run the checks after your final edit: flutter analyze; ` +
-		`flutter test --exclude-tags="golden,network"; dart tool/ci/check_*.dart; ` +
-		`and flutter run -d chrome for UI changes. ` +
+		`Re-run the checks after your final edit: npm --prefix react run typecheck; ` +
+		`npm --prefix react run build; npm --prefix react test; node tool/ci/run_checks.mjs. ` +
 		`Legit exception: add "# verify-gate allow" to the command.`
 	);
 }
@@ -105,8 +104,8 @@ export function prBlockReason(state: GateState): string | null {
 	if (code.length === 0) return null;
 
 	const missing: string[] = [];
-	if (code.some((path) => /^(lib|test)\/.*\.dart$/.test(path))) {
-		for (const signal of ["flutter analyze", "flutter test"]) {
+	if (code.some((path) => path.startsWith("react/"))) {
+		for (const signal of ["react typecheck", "react build"]) {
 			if (!state.verified.has(signal)) missing.push(signal);
 		}
 	}

@@ -11,7 +11,7 @@
     "runtime": "nodejs22"
   },
   "hosting": {
-    "public": "build/web",
+    "public": "react/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -99,33 +99,6 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public, max-age=0, must-revalidate"
-          }
-        ],
-        "source": "/main.dart.js*"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=0, must-revalidate"
-          }
-        ],
-        "source": "/assets/fonts/MaterialIcons-Regular.otf"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=0, must-revalidate"
-          }
-        ],
-        "source": "/assets/FontManifest.json"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
             "value": "no-cache"
           }
         ],
@@ -148,42 +121,6 @@
           }
         ],
         "source": "/index.html"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ],
-        "source": "/screen_test.html"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ],
-        "source": "/flutter_bootstrap.js"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ],
-        "source": "/flutter.js"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ],
-        "source": "/flutter_service_worker.js"
       },
       {
         "headers": [

@@ -6,7 +6,7 @@
 [![Deploy Status](https://img.shields.io/github/actions/workflow/status/khentmoba/Everglow/deploy.yml?style=flat-square&label=deploy)](https://github.com/khentmoba/Everglow/actions/workflows/deploy.yml)
 [![Firebase Hosting](https://img.shields.io/badge/hosted%20on-firebase-FFCA28?style=flat-square&logo=firebase)](https://everglow-1c6db.web.app)
 
-A private digital relationship scrapbook built with Flutter Web for **Khent** and **Clair**.
+A private digital relationship scrapbook built with React, TypeScript & Vite for **Khent** and **Clair**.
 
 Everglow tracks your relationship journey through gamified experiences, shared activities, daily engagement, and an AI companion — all wrapped in a warm, animated interface.
 
