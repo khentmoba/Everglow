@@ -41,6 +41,7 @@ import { CinemaPage } from './features/cinema/CinemaPage';
 import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
 import { GardenPage } from './features/daily_bloom/GardenPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
+import { WelcomeGiftGate } from './features/entry/WelcomeGiftGate';
 import { DesktopAppPage } from './features/dashboard/DesktopAppPage';
 import { LetterboxArchivePage } from './features/dashboard/LetterboxArchivePage';
 import { GatewayPage } from './features/entry/GatewayPage';
@@ -136,6 +137,7 @@ function RootLayout() {
       <AgentHudOverlay />
       <DialogHost />
       <SnackBarHost />
+      <WelcomeGiftGate />
     </>
   );
 }

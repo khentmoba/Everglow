@@ -425,3 +425,10 @@ export const AgentFixtures = {
     { id: 'demo_idea_4', title: 'Picnic with Homemade Sandwiches & Fruit Tea' },
   ],
 };
+
+/** Made-up welcome gift for `?agent=clair&gift=1`; its last button reports the end like a real gift. */
+export const DEMO_WELCOME_GIFT = `<!doctype html><html><body style="margin:0;font-family:Georgia,serif;background:#fff5f5;color:#5a1f33;display:grid;place-items:center;min-height:100vh;text-align:center">
+<main style="padding:24px;max-width:420px"><p id="page">A little demo letter.</p>
+<button id="next" style="font:inherit;padding:12px 20px;border-radius:999px;border:0;background:#7a2442;color:#fff5f5">Read on</button></main>
+<script>document.getElementById('next').onclick=function(){document.getElementById('page').textContent='The end of the demo letter.';this.remove();parent.postMessage('everglow:content-finished','*');};</script>
+</body></html>`;

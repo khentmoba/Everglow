@@ -138,9 +138,11 @@ function SaveMiniButton({ app }: { app: HtmlArtifact }) {
 /** The sandboxed iframe Motchi's HTML runs in; reports `everglow:content-finished` / `-reading`. */
 export function CanvasHtmlView({
   html,
+  title = 'Motchi canvas preview',
   onContentFinishedChanged,
 }: {
   html: string;
+  title?: string;
   onContentFinishedChanged?: (finished: boolean) => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
@@ -162,7 +164,7 @@ export function CanvasHtmlView({
       srcDoc={html}
       sandbox="allow-scripts"
       referrerPolicy="no-referrer"
-      title="Motchi canvas preview"
+      title={title}
       style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
     />
   );
