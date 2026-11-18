@@ -62,6 +62,8 @@ export const AgentMode = {
     const agentParam = params.get('agent') ?? params.get('demo');
     if (agentParam != null) {
       AgentMode.giftPreview = params.get('gift') === '1';
+      // `&hud=0` hides the agent toolbar for clean proof screenshots.
+      if (params.get('hud') === '0') AgentMode.showHud.value = false;
       AgentMode.enable(AgentMode.parseProfile(agentParam));
       return;
     }
