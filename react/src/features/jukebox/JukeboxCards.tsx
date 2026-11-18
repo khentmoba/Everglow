@@ -24,6 +24,7 @@ import {
   musicStatusSource,
   searchLastfmArtists,
   spotifyTokenSource,
+  syncMusicStatusPoll,
   type ArtistSuggestion,
   type MusicStatsData,
   type MusicStatus,
@@ -70,6 +71,49 @@ export function JukeboxWidget() {
   const clairStatus = statuses[LASTFM_USER_CLAIR] ?? emptyMusicStatus(LASTFM_USER_CLAIR);
   const eitherLive = khentStatus.isPlaying || clairStatus.isPlaying;
   const isMobile = width - 32 < 620;
+
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+    let lastRunAt = 0;
+
+    const schedule = (delayMs: number) => {
+      if (!alive) return;
+      if (timer != null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void run();
+      }, delayMs);
+    };
+
+    const run = async () => {
+      if (!alive || inFlight || document.visibilityState === 'hidden') return;
+      inFlight = true;
+      lastRunAt = Date.now();
+      let live = false;
+      try {
+        live = await syncMusicStatusPoll(auth.currentUser);
+      } finally {
+        inFlight = false;
+      }
+      if (!alive) return;
+      schedule(live ? 25_000 : 60_000);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastRunAt > 15_000) {
+        void run();
+      }
+    };
+
+    void run();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      alive = false;
+      if (timer != null) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [auth.uid, auth.currentUser]);
 
   return (
     // In Flutter the gradient Container has no child, so inside the Stack it is
@@ -1102,68 +1146,92 @@ export function MusicStatsSection() {
 
   useEffect(() => {
     let alive = true;
-    void fetchMusicStats().then((res) => {
-      if (!alive) return;
-      setData(res);
-      void enrichTrackListArtwork(
-        res.topTracks,
-        undefined,
-        (idx, imageUrl, albumName) =>
-          setData((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  topTracks: prev.topTracks.map((t, i) =>
-                    i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
-                  ),
-                }
-              : prev,
-          ),
-        () => alive,
-      );
-      void enrichTrackListArtwork(
-        res.clairTopTracks,
-        undefined,
-        (idx, imageUrl, albumName) =>
-          setData((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  clairTopTracks: prev.clairTopTracks.map((t, i) =>
-                    i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
-                  ),
-                }
-              : prev,
-          ),
-        () => alive,
-      );
-      void enrichTrackListArtwork(
-        res.recentTracks,
-        undefined,
-        (idx, imageUrl) =>
-          setData((prev) =>
-            prev
-              ? { ...prev, recentTracks: prev.recentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
-              : prev,
-          ),
-        () => alive,
-      );
-      void enrichTrackListArtwork(
-        res.clairRecentTracks,
-        undefined,
-        (idx, imageUrl) =>
-          setData((prev) =>
-            prev
-              ? { ...prev, clairRecentTracks: prev.clairRecentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
-              : prev,
-          ),
-        () => alive,
-      );
-    });
+    let lastLoadAt = 0;
+    let inFlight = false;
+
+    const load = () => {
+      if (!alive || inFlight || document.visibilityState === 'hidden') return;
+      inFlight = true;
+      lastLoadAt = Date.now();
+      void fetchMusicStats(auth.currentUser ?? undefined)
+        .then((res) => {
+          if (!alive) return;
+          setData(res);
+          void enrichTrackListArtwork(
+            res.topTracks,
+            undefined,
+            (idx, imageUrl, albumName) =>
+              setData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      topTracks: prev.topTracks.map((t, i) =>
+                        i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
+                      ),
+                    }
+                  : prev,
+              ),
+            () => alive,
+          );
+          void enrichTrackListArtwork(
+            res.clairTopTracks,
+            undefined,
+            (idx, imageUrl, albumName) =>
+              setData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      clairTopTracks: prev.clairTopTracks.map((t, i) =>
+                        i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
+                      ),
+                    }
+                  : prev,
+              ),
+            () => alive,
+          );
+          void enrichTrackListArtwork(
+            res.recentTracks,
+            undefined,
+            (idx, imageUrl) =>
+              setData((prev) =>
+                prev
+                  ? { ...prev, recentTracks: prev.recentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
+                  : prev,
+              ),
+            () => alive,
+          );
+          void enrichTrackListArtwork(
+            res.clairRecentTracks,
+            undefined,
+            (idx, imageUrl) =>
+              setData((prev) =>
+                prev
+                  ? { ...prev, clairRecentTracks: prev.clairRecentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
+                  : prev,
+              ),
+            () => alive,
+          );
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoadAt > 30_000) {
+        load();
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 60_000);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       alive = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [auth.uid]);
+  }, [auth.uid, auth.currentUser]);
 
   if (!data) {
     return (
@@ -1223,6 +1291,7 @@ export function MusicStatsSection() {
               recentTracks={data.recentTracks}
               totalPlays={data.khentTotalPlays}
               isLeader={kLeader}
+              needsSpotifyRecentScope={Boolean(data.needsSpotifyRecentScope && auth.currentUser === LASTFM_USER_KHENT)}
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1234,6 +1303,7 @@ export function MusicStatsSection() {
               totalPlays={data.clairTotalPlays}
               isLeader={cLeader}
               isClair
+              needsSpotifyRecentScope={Boolean(data.needsSpotifyRecentScope && auth.currentUser === LASTFM_USER_CLAIR)}
             />
           </div>
         </div>
@@ -1246,6 +1316,7 @@ export function MusicStatsSection() {
             recentTracks={data.recentTracks}
             totalPlays={data.khentTotalPlays}
             isLeader={kLeader}
+            needsSpotifyRecentScope={Boolean(data.needsSpotifyRecentScope && auth.currentUser === LASTFM_USER_KHENT)}
           />
           <StatsDivider />
           <MusicStatsBlock
@@ -1256,6 +1327,7 @@ export function MusicStatsSection() {
             totalPlays={data.clairTotalPlays}
             isLeader={cLeader}
             isClair
+            needsSpotifyRecentScope={Boolean(data.needsSpotifyRecentScope && auth.currentUser === LASTFM_USER_CLAIR)}
           />
         </div>
       )}
@@ -1271,6 +1343,7 @@ function MusicStatsBlock({
   totalPlays,
   isLeader,
   isClair = false,
+  needsSpotifyRecentScope = false,
 }: {
   displayName: string;
   username: string;
@@ -1279,6 +1352,7 @@ function MusicStatsBlock({
   totalPlays: number;
   isLeader: boolean;
   isClair?: boolean;
+  needsSpotifyRecentScope?: boolean;
 }) {
   const maxPlays = topTracks.length > 0 ? Math.max(...topTracks.map((t) => t.playCount), 1) : 1;
   const content = (
@@ -1395,6 +1469,29 @@ function MusicStatsBlock({
             {`${username}'s latest 5 scrobbles`.toUpperCase()}
           </div>
         </div>
+        {needsSpotifyRecentScope && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() =>
+              void linkSpotify().catch((e: unknown) =>
+                showSnackBar(String(e instanceof Error ? e.message : e).replace(/^Exception: /, '')),
+              )
+            }
+            style={{
+              padding: '6px 10px',
+              borderRadius: 999,
+              background: withAlpha('#1DB954', 0.16),
+              border: `1px solid ${withAlpha('#1DB954', 0.4)}`,
+              ...AppTypography.outfitBold,
+              fontSize: 10.5,
+              color: AppColors.petalWhite,
+              flexShrink: 0,
+            }}
+          >
+            Re-link Spotify
+          </button>
+        )}
       </div>
 
       <div style={{ height: AppSpacing.lg }} />

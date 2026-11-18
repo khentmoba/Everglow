@@ -186,6 +186,39 @@ const spotifyRefresh = cappedHttps(10, async (req, res) => {
   }
 });
 
+function _mapSpotifyTrack(item, { isPlaying = false, timestamp = Date.now() } = {}) {
+  if (!item) return null;
+  const img = (item.album && item.album.images && item.album.images[0] && item.album.images[0].url) || null;
+  return {
+    trackId: item.id || null,
+    trackName: item.name || '',
+    artistName: (item.artists && item.artists[0] && item.artists[0].name) || '',
+    albumName: (item.album && item.album.name) || '',
+    imageUrl: img,
+    previewUrl: item.preview_url || null,
+    spotifyUrl: (item.external_urls && item.external_urls.spotify) || (item.id ? 'https://open.spotify.com/track/' + item.id : ''),
+    embedUrl: item.id ? 'https://open.spotify.com/embed/track/' + item.id : null,
+    durationMs: item.duration_ms || null,
+    isPlaying: !!isPlaying,
+    timestamp,
+  };
+}
+
+function _mapSpotifyRecentItems(items) {
+  if (!Array.isArray(items)) return [];
+  const out = [];
+  for (const entry of items) {
+    if (!entry || !entry.track) continue;
+    const playedMs = entry.played_at ? Date.parse(entry.played_at) : NaN;
+    const mapped = _mapSpotifyTrack(entry.track, {
+      isPlaying: false,
+      timestamp: Number.isFinite(playedMs) ? playedMs : null,
+    });
+    if (mapped && mapped.trackName) out.push(mapped);
+  }
+  return out;
+}
+
 const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -195,6 +228,7 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
   if (enforceRateLimit(req, res, { endpoint: 'spotifyCurrentlyPlaying', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
+  const includeRecent = req.query.includeRecent === '1' || req.query.includeRecent === 'true';
   try {
     const ref = getAdmin().firestore().collection('spotify_tokens').doc(decoded.uid);
     const snap = await ref.get();
@@ -219,26 +253,31 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
         } catch (_) {}
       }
     }
-    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(8000) });
-    if (r.status === 204) { res.json({ connected: true, isPlaying: false }); return; }
-    if (r.status === 401) { res.json({ connected: true, isPlaying: false, needsReauth: true }); return; }
+    const authHeaders = { 'Authorization': 'Bearer ' + token };
+    const [r, recentResp] = await Promise.all([
+      fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: authHeaders, signal: AbortSignal.timeout(8000) }),
+      includeRecent
+        ? fetch('https://api.spotify.com/v1/me/player/recently-played?limit=5', { headers: authHeaders, signal: AbortSignal.timeout(8000) }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    let recentTracks = [];
+    if (recentResp && recentResp.ok) {
+      const recentData = await recentResp.json().catch(() => null);
+      recentTracks = _mapSpotifyRecentItems(recentData && recentData.items);
+    }
+    const needsRecentScope = includeRecent && Boolean(recentResp && recentResp.status === 403);
+    const extra = includeRecent ? { recentTracks, ...(needsRecentScope ? { needsRecentScope: true } : {}) } : {};
+    if (r.status === 204) { res.json({ connected: true, isPlaying: false, ...extra }); return; }
+    if (r.status === 401) { res.json({ connected: true, isPlaying: false, needsReauth: true, ...extra }); return; }
     if (!r.ok) { res.status(r.status).json({ error: 'Spotify API ' + r.status }); return; }
     const data = await r.json();
-    const item = data.item;
-    if (!item) { res.json({ connected: true, isPlaying: !!data.is_playing }); return; }
+    const mapped = _mapSpotifyTrack(data.item, { isPlaying: !!data.is_playing, timestamp: Date.now() });
+    if (!mapped) { res.json({ connected: true, isPlaying: !!data.is_playing, ...extra }); return; }
     res.json({
       connected: true,
-      isPlaying: !!data.is_playing,
       progressMs: data.progress_ms,
-      trackId: item.id,
-      trackName: item.name,
-      artistName: (item.artists && item.artists[0] && item.artists[0].name) || '',
-      albumName: (item.album && item.album.name) || '',
-      imageUrl: (item.album && item.album.images && item.album.images[0] && item.album.images[0].url) || null,
-      spotifyUrl: item.external_urls && item.external_urls.spotify,
-      embedUrl: 'https://open.spotify.com/embed/track/' + item.id,
-      durationMs: item.duration_ms,
-      timestamp: Date.now(),
+      ...mapped,
+      ...extra,
     });
   } catch (e) {
     console.warn('[spotifyCurrentlyPlaying]', e.message);
@@ -252,5 +291,6 @@ module.exports = {
   spotifyExchange,
   spotifyRefresh,
   spotifyCurrentlyPlaying,
+  _mapSpotifyRecentItems,
 };
 
