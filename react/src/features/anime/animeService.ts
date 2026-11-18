@@ -4,6 +4,7 @@ import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Changes, type Source } from '../../core/utils/liveSource';
 import { catalogKeyOf, type MediaItem } from '../cinema/cinemaTypes';
+import { fetchAniZipMappings } from '../../shared/utils/catalogProxy';
 import { clearWatchProgress, saveWatchProgress, setListMembership, watchCinemaWatchlist } from '../cinema/tmdbService';
 
 const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
@@ -695,12 +696,9 @@ export async function fetchAiringSchedule(weekday: number): Promise<AnimexSchedu
 }
 
 export async function fetchAniZipEpisodes(opts: { anilistId?: number; malId?: number }): Promise<Record<number, { title?: string; overview?: string; image?: string; airdate?: string; runtime?: number }>> {
-  const param = opts.anilistId ? `anilist_id=${opts.anilistId}` : opts.malId ? `mal_id=${opts.malId}` : '';
-  if (!param) return {};
   try {
-    const resp = await fetch(`https://api.ani.zip/mappings?${param}`, { signal: AbortSignal.timeout(8000) });
-    if (!resp.ok) return {};
-    const json = (await resp.json()) as { episodes?: Record<string, Record<string, unknown>> };
+    const json = (await fetchAniZipMappings(opts)) as { episodes?: Record<string, Record<string, unknown>> } | null;
+    if (!json) return {};
     const out: Record<number, { title?: string; overview?: string; image?: string; airdate?: string; runtime?: number }> = {};
     for (const [k, v] of Object.entries(json.episodes ?? {})) {
       const num = Number(k);

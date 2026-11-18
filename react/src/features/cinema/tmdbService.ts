@@ -253,6 +253,9 @@ export interface TvEpisode {
   overview: string;
   stillPath: string;
   runtime?: number;
+  airDate?: string;
+  /** The raw `still_path` (TmdbImages rebases it). */
+  stillRaw?: string;
 }
 
 export async function fetchSeasonEpisodes(tmdbId: number, seasonNumber: number): Promise<TvEpisode[]> {
@@ -266,6 +269,8 @@ export async function fetchSeasonEpisodes(tmdbId: number, seasonNumber: number):
     overview: String(e.overview ?? ''),
     stillPath: typeof e.still_path === 'string' && e.still_path ? `${TmdbImages.backdrop}${e.still_path}` : '',
     runtime: typeof e.runtime === 'number' ? e.runtime : undefined,
+    airDate: typeof e.air_date === 'string' ? e.air_date : undefined,
+    stillRaw: typeof e.still_path === 'string' ? e.still_path : undefined,
   }));
 }
 
@@ -652,5 +657,134 @@ export async function cleanStalePartnerStatus(item: MediaItem, userName: string,
     if (existing && stale && existing.data().status === stale) await updateDoc(existing.ref, { status: 'to-watch' });
   } catch (e) {
     Logger.e('[WatchList] Error cleaning stale partner status', e);
+  }
+}
+
+const imdbIds = new Map<string, string>();
+
+/** TMDBDetailsService.fetchImdbId. */
+export async function fetchImdbId(id: number, mediaType: string): Promise<string | null> {
+  if (id <= 0) return null;
+  const key = `${mediaType}:${id}`;
+  const known = imdbIds.get(key);
+  if (known != null) return known || null;
+  let value = '';
+  try {
+    if (mediaType === 'movie') {
+      const d = await fetchMediaDetails(id, mediaType);
+      if (typeof d?.imdb_id === 'string') value = d.imdb_id;
+    } else {
+      const d = await tmdbJson(`/${mediaType}/${id}/external_ids`);
+      if (typeof d?.imdb_id === 'string') value = d.imdb_id;
+    }
+  } catch (e) {
+    Logger.e(`TMDB IMDB id lookup failed for ${key}`, e);
+    return null;
+  }
+  imdbIds.set(key, value);
+  return value || null;
+}
+
+const sameCatalogDoc = (data: Record<string, unknown>, id: number, source: string, mediaType: string) => {
+  const mt = (v: unknown) => (String(v ?? 'movie').trim().toLowerCase() === 'tv' ? 'tv' : 'movie');
+  return data.tmdbId === id && (data.source ?? 'tmdb') === source && mt(data.mediaType) === mt(mediaType);
+};
+
+async function catalogDocFor(id: number, userName: string, source: string, mediaType: string) {
+  const snap = await withGetTimeout(
+    getDocs(query(collection(db, 'watch_list'), where('tmdbId', '==', id), where('userName', '==', userName))),
+    'watch progress lookup',
+  );
+  return snap.docs.find((d) => sameCatalogDoc(d.data(), id, source, mediaType));
+}
+
+/** TMDBWatchlistService.getSavedProgress (TMDB titles; none in agent mode). */
+export async function getSavedProgress(
+  catalogId: number,
+  userName: string,
+  opts: { source: string; mediaType: string },
+): Promise<MediaItem | null> {
+  if (AgentMode.demo || !userName || catalogId <= 0) return null;
+  try {
+    const d = await catalogDocFor(catalogId, userName, opts.source, opts.mediaType);
+    return d ? fromFirestoreDoc(d.data(), d.id) : null;
+  } catch (e) {
+    Logger.e('Error reading saved watch progress', e);
+    return null;
+  }
+}
+
+/** TMDBWatchlistService.updateProgress: the player's first save for this episode. */
+export async function updateProgress(
+  item: MediaItem,
+  userName: string,
+  opts: { season?: number; episode?: number; timestamp?: number; durationSeconds?: number; status?: string },
+): Promise<void> {
+  if (!userName) return;
+  if (AgentMode.demo) {
+    await saveWatchProgress(item, userName, opts);
+    return;
+  }
+  try {
+    const id = catalogIdOf(item);
+    if (id <= 0) return;
+    const existing = item.tmdbId > 0 ? await catalogDocFor(item.tmdbId, userName, item.source, item.mediaType) : undefined;
+    let status = opts.status == null ? null : toSelfStatus(opts.status);
+    const isMovie = item.mediaType.trim().toLowerCase() !== 'tv' || item.format.trim().toLowerCase() === 'movie';
+    const finale = !isMovie && item.episodeCount != null && item.episodeCount > 1 && opts.episode != null && opts.episode >= item.episodeCount;
+    if (finale && (status == null || status.startsWith('watching'))) status = 'watched-self';
+    const data: Record<string, unknown> = {
+      currentSeason: opts.season ?? null,
+      currentEpisode: opts.episode ?? null,
+      currentTimestamp: opts.timestamp ?? null,
+      durationSeconds: opts.durationSeconds ?? null,
+      progressUpdatedAt: serverTimestamp(),
+    };
+    if (status != null) data.status = status;
+    if (item.episodeCount != null) data.episodeCount = item.episodeCount;
+    if (existing) {
+      const old = existing.data();
+      if (item.posterPath && !old.posterPath) data.posterPath = item.posterPath;
+      if (item.title && !old.title) data.title = item.title;
+      await updateDoc(existing.ref, data);
+    } else {
+      await setDoc(doc(collection(db, 'watch_list')), {
+        tmdbId: id,
+        title: item.title,
+        mediaType: item.mediaType,
+        posterPath: item.posterPath,
+        backdropPath: item.backdropPath,
+        year: item.year,
+        isAnime: item.isAnime,
+        userName,
+        source: item.source || 'tmdb',
+        ...data,
+        status: status ?? 'watching-self',
+        addedAt: serverTimestamp(),
+      });
+    }
+  } catch (e) {
+    Logger.e('Error updating watch progress', e);
+  }
+}
+
+/** TMDBWatchlistService.heartbeatProgress: moves the saved spot without touching the status. */
+export async function heartbeatProgress(
+  catalogId: number,
+  userName: string,
+  opts: { source: string; mediaType: string; season?: number; episode?: number; timestamp?: number; durationSeconds?: number },
+): Promise<void> {
+  if (AgentMode.demo || !userName) return;
+  try {
+    const existing = await catalogDocFor(catalogId, userName, opts.source, opts.mediaType);
+    if (!existing) return;
+    const data: Record<string, unknown> = { progressUpdatedAt: serverTimestamp() };
+    if (opts.season != null) data.currentSeason = opts.season;
+    if (opts.episode != null) data.currentEpisode = opts.episode;
+    if (opts.timestamp != null) data.currentTimestamp = opts.timestamp;
+    if (opts.durationSeconds != null) data.durationSeconds = opts.durationSeconds;
+    await updateDoc(existing.ref, data);
+  } catch (e) {
+    Logger.e('Error heartbeating progress', e);
   }
 }
