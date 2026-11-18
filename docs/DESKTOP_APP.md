@@ -40,10 +40,10 @@ download; the next launch checks again. Existing ad blocking stays enabled.
 
 - `react/tools/regressions.test.mjs` opens `/desktop-app?agent=1` and checks
   its back button returns to the Dashboard.
-- The page reads the bridge as `window.everglowDesktop.{version,
-  checkForUpdates}`; the native side injects `__everglowDesktopVersion` and
-  `__everglowCheckForUpdates` (`src-tauri/src/website_bridge.rs`). Match the
-  two names before relying on the in-app update button.
+- The page reads `window.__everglowDesktopVersion` and calls
+  `window.__everglowCheckForUpdates()`, the names the desktop app injects
+  (`src-tauri/src/website_bridge.rs`). A regression test injects that same
+  script and checks the update button (#619).
 - Desktop Rust tests reject lookalike origins and unknown actions. Its fake-page
   WebView2 suite checks bridge injection without accessing couple data or
   checking the live update feed.
