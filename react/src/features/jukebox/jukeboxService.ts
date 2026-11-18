@@ -6,6 +6,7 @@ import {
   limit,
   onSnapshot,
   query,
+  setDoc,
   where,
   type DocumentData,
   type DocumentSnapshot,
@@ -17,6 +18,7 @@ import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
+import { mergeRecentTracks, musicStatusTrackKey, normTrackText, pickPreferredMusicStatus } from './jukeboxPure';
 
 export const LASTFM_USER_KHENT = 'khentsgdz';
 export const LASTFM_USER_CLAIR = 'clairjassen';
@@ -253,6 +255,7 @@ const SPOTIFY_SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-currently-playing',
+  'user-read-recently-played',
 ];
 
 const spotifyRedirectUri = () => `${window.location.origin}/spotify/callback`;
@@ -342,6 +345,7 @@ export interface MusicStatsData {
   clairRecentTracks: MusicStatus[];
   khentTotalPlays: number;
   clairTotalPlays: number;
+  needsSpotifyRecentScope?: boolean;
 }
 
 function demoMusicStats(): MusicStatsData {
@@ -375,7 +379,144 @@ function demoMusicStats(): MusicStatsData {
   };
 }
 
-export async function fetchMusicStats(): Promise<MusicStatsData> {
+interface SpotifyPlaybackResult {
+  connected: boolean;
+  isPlaying: boolean;
+  current: MusicStatus | null;
+  recentTracks: MusicStatus[];
+  needsRecentScope?: boolean;
+}
+
+function mapSpotifyTrackPayload(raw: Record<string, unknown>, username: string): MusicStatus | null {
+  const trackName = typeof raw.trackName === 'string' ? raw.trackName.trim() : '';
+  if (!trackName) return null;
+  const artistName = typeof raw.artistName === 'string' ? raw.artistName.trim() : '';
+  const albumName = typeof raw.albumName === 'string' ? raw.albumName.trim() : '';
+  const trackId = typeof raw.trackId === 'string' && raw.trackId ? raw.trackId : null;
+  const spotifyUrl =
+    typeof raw.spotifyUrl === 'string' && raw.spotifyUrl
+      ? raw.spotifyUrl
+      : trackId
+        ? `https://open.spotify.com/track/${trackId}`
+        : `https://open.spotify.com/search/${encodeURIComponent(`${artistName} ${trackName}`)}`;
+  const rawTs = raw.timestamp;
+  let timestamp: Date | null = null;
+  if (typeof rawTs === 'number' && Number.isFinite(rawTs) && rawTs > 0) {
+    timestamp = new Date(rawTs);
+  } else if (typeof rawTs === 'string') {
+    const parsed = new Date(rawTs);
+    if (!Number.isNaN(parsed.getTime())) timestamp = parsed;
+  }
+  return {
+    username,
+    trackName,
+    artistName,
+    albumName,
+    imageUrl: typeof raw.imageUrl === 'string' && raw.imageUrl ? raw.imageUrl : null,
+    isPlaying: raw.isPlaying === true,
+    spotifyUrl,
+    timestamp,
+    spotifyTrackId: trackId,
+    spotifyEmbedUrl: typeof raw.embedUrl === 'string' ? raw.embedUrl : trackId ? `https://open.spotify.com/embed/track/${trackId}` : null,
+    previewUrl: typeof raw.previewUrl === 'string' ? raw.previewUrl : null,
+  };
+}
+
+export async function fetchSpotifyPlayback(
+  includeRecent: boolean,
+  username: string,
+): Promise<SpotifyPlaybackResult | null> {
+  const token = await getIdToken();
+  if (!token) return null;
+  const qs = includeRecent ? '?includeRecent=1' : '';
+  const get = (url: string) =>
+    fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+  try {
+    let resp: Response;
+    try {
+      resp = await get(`${FUNCTIONS_BASE_URL}/spotifyCurrentlyPlaying${qs}`);
+      if (resp.status === 404) throw new Error('404');
+    } catch {
+      resp = await get(`/api/spotifyCurrentlyPlaying${qs}`);
+    }
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as Record<string, unknown>;
+    if (data.connected !== true) return { connected: false, isPlaying: false, current: null, recentTracks: [] };
+    const current = mapSpotifyTrackPayload(data, username);
+    const recentTracks = Array.isArray(data.recentTracks)
+      ? data.recentTracks
+          .map((item) =>
+            item && typeof item === 'object' ? mapSpotifyTrackPayload(item as Record<string, unknown>, username) : null,
+          )
+          .filter((item): item is MusicStatus => item !== null)
+      : [];
+    return {
+      connected: true,
+      isPlaying: data.isPlaying === true,
+      current,
+      recentTracks,
+      needsRecentScope: data.needsRecentScope === true,
+    };
+  } catch (e) {
+    Logger.w(`Spotify playback fetch failed: ${String(e)}`);
+    return null;
+  }
+}
+
+function musicStatusToMap(status: MusicStatus): Record<string, unknown> {
+  return {
+    username: status.username,
+    trackName: status.trackName,
+    artistName: status.artistName,
+    albumName: status.albumName,
+    imageUrl: status.imageUrl,
+    isPlaying: status.isPlaying,
+    spotifyUrl: status.spotifyUrl,
+    timestamp: status.timestamp ? status.timestamp.toISOString() : null,
+    ...(status.spotifyTrackId != null ? { spotifyTrackId: status.spotifyTrackId } : {}),
+    ...(status.spotifyEmbedUrl != null ? { spotifyEmbedUrl: status.spotifyEmbedUrl } : {}),
+    ...(status.previewUrl != null ? { previewUrl: status.previewUrl } : {}),
+  };
+}
+
+const lastSyncedTrackKeys: Record<string, string> = {};
+
+export async function syncMusicStatusPoll(currentUsername: string | null): Promise<boolean> {
+  if (AgentMode.isActive.value && AgentMode.useDemoData.value) return false;
+  if (currentUsername !== LASTFM_USER_KHENT && currentUsername !== LASTFM_USER_CLAIR) return false;
+  const token = await getIdToken();
+  if (!token) return false;
+
+  const [rec, spotify] = await Promise.all([
+    fetchLastfmJson({ method: 'user.getrecenttracks', user: currentUsername, limit: '1' }),
+    fetchSpotifyPlayback(false, currentUsername),
+  ]);
+
+  const raw = asArray<Record<string, unknown>>((rec?.recenttracks as Record<string, unknown> | undefined)?.track);
+  const lastfmFirst = raw.length > 0 ? parseRecentTrackJson(raw[0], currentUsername) : null;
+  const status = pickPreferredMusicStatus(
+    lastfmFirst && lastfmFirst.trackName ? lastfmFirst : null,
+    spotify?.current ?? null,
+  );
+  if (!status) return false;
+
+  const key = musicStatusTrackKey(status);
+  if (lastSyncedTrackKeys[currentUsername] !== key) {
+    try {
+      await setDoc(doc(db, 'music_status', currentUsername), musicStatusToMap(status), { merge: true });
+      lastSyncedTrackKeys[currentUsername] = key;
+    } catch (e) {
+      Logger.w(`Jukebox: failed to sync music_status for ${currentUsername}: ${String(e)}`);
+    }
+  }
+
+  return status.isPlaying;
+}
+
+export async function fetchMusicStats(currentUsername?: string): Promise<MusicStatsData> {
   if (AgentMode.demo) return demoMusicStats();
   const empty: MusicStatsData = {
     topTracks: [],
@@ -419,22 +560,35 @@ export async function fetchMusicStats(): Promise<MusicStatsData> {
     return Number(u?.playcount ?? 0) || 0;
   };
 
-  const [kTop, kRec, cTop, cRec, kInfo, cInfo] = await Promise.all([
+  const isCoupleUser = currentUsername === LASTFM_USER_KHENT || currentUsername === LASTFM_USER_CLAIR;
+
+  const [kTop, kRec, cTop, cRec, kInfo, cInfo, spotify] = await Promise.all([
     fetchLastfmJson({ method: 'user.gettoptracks', user: LASTFM_USER_KHENT, period: 'overall', limit: '10', page: '1' }),
     fetchLastfmJson({ method: 'user.getrecenttracks', user: LASTFM_USER_KHENT, limit: '5' }),
     fetchLastfmJson({ method: 'user.gettoptracks', user: LASTFM_USER_CLAIR, period: 'overall', limit: '10', page: '1' }),
     fetchLastfmJson({ method: 'user.getrecenttracks', user: LASTFM_USER_CLAIR, limit: '5' }),
     fetchLastfmJson({ method: 'user.getinfo', user: LASTFM_USER_KHENT }),
     fetchLastfmJson({ method: 'user.getinfo', user: LASTFM_USER_CLAIR }),
+    isCoupleUser && currentUsername ? fetchSpotifyPlayback(true, currentUsername) : Promise.resolve(null),
   ]);
+
+  const kLastfmRecent = parseRecent(kRec, LASTFM_USER_KHENT);
+  const cLastfmRecent = parseRecent(cRec, LASTFM_USER_CLAIR);
 
   return {
     topTracks: parseTop(kTop),
-    recentTracks: parseRecent(kRec, LASTFM_USER_KHENT),
+    recentTracks:
+      currentUsername === LASTFM_USER_KHENT && spotify
+        ? mergeRecentTracks(kLastfmRecent, spotify.current, spotify.recentTracks, 5)
+        : kLastfmRecent,
     clairTopTracks: parseTop(cTop),
-    clairRecentTracks: parseRecent(cRec, LASTFM_USER_CLAIR),
+    clairRecentTracks:
+      currentUsername === LASTFM_USER_CLAIR && spotify
+        ? mergeRecentTracks(cLastfmRecent, spotify.current, spotify.recentTracks, 5)
+        : cLastfmRecent,
     khentTotalPlays: parseUserTotal(kInfo),
     clairTotalPlays: parseUserTotal(cInfo),
+    needsSpotifyRecentScope: spotify?.needsRecentScope === true,
   };
 }
 
@@ -446,7 +600,7 @@ export interface TrackMetadata {
 const trackMetadataCache = new Map<string, Promise<TrackMetadata | null>>();
 const artistImageCache = new Map<string, Promise<string | null>>();
 
-const normText = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+const normText = normTrackText;
 
 function matchesItunesTrack(result: Record<string, unknown>, track: string, artist?: string): boolean {
   const rTrack = normText(String(result.trackName ?? ''));
