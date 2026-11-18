@@ -160,7 +160,6 @@ export function DashboardPage() {
           </div>
           <div ref={(el) => { zoneRefs.current['zone-today'] = el; }} />
           <DashboardZoneHeader
-            label="Today"
             title="Alive today"
             subtitle="memories, dates & letters waiting for you"
             icon="wb_twilight"
@@ -178,7 +177,6 @@ export function DashboardPage() {
 
           <div ref={(el) => { zoneRefs.current['zone-together'] = el; }} />
           <DashboardZoneHeader
-            label="Together"
             title="Just us"
             subtitle="gratitude, words & the long story of us"
             icon="favorite"
@@ -196,7 +194,6 @@ export function DashboardPage() {
 
           <div ref={(el) => { zoneRefs.current['zone-world'] = el; }} />
           <DashboardZoneHeader
-            label="Our World"
             title="Places & keepsakes"
             subtitle="photos, plans & little universes you built"
             icon="public"
@@ -208,7 +205,6 @@ export function DashboardPage() {
 
           <div ref={(el) => { zoneRefs.current['zone-play'] = el; }} />
           <DashboardZoneHeader
-            label="Play"
             title="Sound & screen"
             subtitle="jukebox, watch party, shelves & games"
             icon="videogame_asset"

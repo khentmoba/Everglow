@@ -14,7 +14,6 @@ export function DashboardZoneHeader({
   hue,
   trailing,
 }: {
-  label?: string;
   title: string;
   subtitle: string;
   icon: string;
