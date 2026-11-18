@@ -1,7 +1,6 @@
 // Port of lib/shared/widgets/everglow/everglow_marquee.dart.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { reduceAmbientMotion } from '../../core/system/device';
-import { useViewport } from '../../core/system/viewport';
+import { motionReduced } from '../../core/theme/motion';
 
 export function EverglowMarquee({
   children,
@@ -16,8 +15,7 @@ export function EverglowMarquee({
   itemSpacing?: number;
   edgeFade?: boolean;
 }) {
-  const viewport = useViewport();
-  const reduceAmbient = reduceAmbientMotion(viewport);
+  const reduceAmbient = motionReduced();
   const outerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const firstSetRef = useRef<HTMLDivElement>(null);

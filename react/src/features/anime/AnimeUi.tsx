@@ -4,6 +4,7 @@ import { Align, boxShadow, linear, sigma } from '../../core/theme/paint';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { useViewport } from '../../core/system/viewport';
 import { reduceAmbientMotion } from '../../core/system/device';
+import { motionReduced } from '../../core/theme/motion';
 import { useController } from '../../core/anim/controller';
 import { Icon, type IconStyle } from '../../shared/widgets/Icon';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
@@ -1488,6 +1489,7 @@ export function AnimeXPosterCard({
   // Phones and slow devices get the still card: border drawn over the
   // poster, no shadow, lift or zoom.
   const interactive = !reduceAmbientMotion(viewport);
+  const hoverDetails = viewport.width >= 768 && !motionReduced();
   const activeItem = resolvedItem ?? item;
   const lit = interactive && hover;
   const airing = activeItem.airingStatus.toUpperCase().includes('RELEASING') || activeItem.airingStatus.toUpperCase().includes('AIRING');
@@ -1552,7 +1554,7 @@ export function AnimeXPosterCard({
   const handleEnter = () => {
     window.clearTimeout(hideTimerRef.current);
     setHover(true);
-    if (!interactive) return;
+    if (!hoverDetails) return;
     maybeResolveDetails();
     window.clearTimeout(showTimerRef.current);
     showTimerRef.current = window.setTimeout(() => {

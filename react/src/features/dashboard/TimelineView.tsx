@@ -1,8 +1,7 @@
 // Port of lib/features/dashboard/presentation/widgets/timeline_view.dart
 // and milestone_photo.dart.
 import { useEffect, useRef, useState } from 'react';
-import { reduceAmbientMotion } from '../../core/system/device';
-import { useViewport } from '../../core/system/viewport';
+import { motionReduced } from '../../core/theme/motion';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
 import { Align, letterSpacing, linear } from '../../core/theme/paint';
@@ -92,8 +91,7 @@ export function TimelineView() {
   const [carouselHovered, setCarouselHovered] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const activeCardRef = useRef(0);
-  const viewport = useViewport();
-  const reduceAmbient = reduceAmbientMotion(viewport);
+  const reduceAmbient = motionReduced();
 
   useEffect(() => {
     if (reduceAmbient || carouselHovered || selected != null) return;
