@@ -457,6 +457,48 @@ export async function toggleBookFavorite(item: BookItem, userName: string, add: 
   }
 }
 
+export async function recordBookDownload(item: BookItem, format: string, userName: string): Promise<void> {
+  if (!userName || !item.workKey) return;
+  if (AgentMode.demo) {
+    const prev = demoDownloads.get(userName) ?? [];
+    const entry: BookItem = { ...item, status: 'downloaded', userName, addedAt: new Date() };
+    demoDownloads.set(userName, [entry, ...prev.filter((x) => x.workKey !== item.workKey)]);
+    demoBookChanges.emit();
+    return;
+  }
+  try {
+    const col = collection(db, 'book_download_history');
+    const existing = await getDocs(
+      query(col, where('workKey', '==', item.workKey), where('userName', '==', userName), where('format', '==', format), limit(1)),
+    );
+    if (existing.docs.length > 0) {
+      await updateDoc(existing.docs[0].ref, { addedAt: serverTimestamp() });
+      return;
+    }
+    await addDoc(col, {
+      workKey: item.workKey,
+      editionKey: item.editionKey,
+      iaId: item.iaId,
+      title: item.title,
+      author: item.author,
+      coverUrl: item.coverUrl,
+      year: item.year,
+      publisher: item.publisher,
+      isbn: item.isbn,
+      pageCount: item.pageCount,
+      subjects: item.subjects,
+      format,
+      status: 'downloaded',
+      userName,
+      readSourceUrl: item.readSourceUrl,
+      readSourceLabel: item.readSourceLabel,
+      addedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    Logger.w(`recordBookDownload failed: ${String(e)}`);
+  }
+}
+
 export function watchOurBooks(limitCount = 300): Source<OurBooksItem[]> {
   if (AgentMode.demo) {
     return (l) =>
