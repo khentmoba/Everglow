@@ -9,7 +9,6 @@ import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { Icon } from '../../shared/widgets/Icon';
-import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Logger } from '../../core/system/logger';
 import { CinemaHomeCache } from './cinemaHomeCache';
 import { CinemaSearchTab } from './CinemaSearchTab';
@@ -17,9 +16,9 @@ import { CinemaBrowseTab } from './CinemaBrowseTab';
 import { CinemaDownloadsTab } from './CinemaDownloadsTab';
 import { CinemaLibraryTab } from './CinemaLibraryTab';
 import { CinemaWatchTogetherTab } from '../watch_party/CinemaWatchTogetherTab';
+import { CinemaEpisodeDrawer } from './CinemaEpisodeDrawer';
 import { NetflixColors, TOP_TEN_COUNTRY_LABEL, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
 import {
-  EpisodeDrawerModal,
   MediaSectionMenuButton,
   NetflixBillboard,
   NetflixBottomNav,
@@ -35,7 +34,6 @@ import {
   fetchTrending,
   fetchTrendingByCountry,
   fetchUpcoming,
-  setListMembership,
   watchCinemaWatchlist,
 } from './tmdbService';
 
@@ -97,6 +95,7 @@ export function CinemaPage() {
     Object.fromEntries(DISCOVERY_SHELVES.map((shelf) => [shelf.title, cached[shelf.title] ?? []])),
   );
   const [drawerItem, setDrawerItem] = useState<MediaItem | null>(null);
+  const [drawerSeq, setDrawerSeq] = useState(0);
   const homeRequest = useRef(0);
 
   const loadHome = useCallback(async () => {
@@ -183,17 +182,22 @@ export function CinemaPage() {
     navigate(`/cinema/video/${item.tmdbId}?${qs.toString()}`);
   };
 
-  const watchlistKeys = useMemo(() => new Set(watchlist.map((w) => catalogKeyOf(w))), [watchlist]);
-
-  const handleToggleList = async (item: MediaItem, add: boolean) => {
-    if (!userName) return;
-    try {
-      await setListMembership(item, userName, add);
-    } catch {
-      showSnackBar(`Could not update "${item.title}" in your list.`);
-    }
+  // `_showMediaDetails`: the drawer opens with the saved status and progress.
+  const withSavedProgress = (item: MediaItem): MediaItem => {
+    const saved = watchlist.find((w) => catalogKeyOf(w) === catalogKeyOf(item));
+    if (!saved) return item;
+    return {
+      ...item,
+      id: saved.id,
+      status: saved.status,
+      userName: saved.userName,
+      currentSeason: saved.currentSeason,
+      currentEpisode: saved.currentEpisode,
+      currentTimestamp: saved.currentTimestamp,
+      durationSeconds: saved.durationSeconds,
+      progressUpdatedAt: saved.progressUpdatedAt,
+    };
   };
-
   const handleLogout = async () => {
     await auth.logout();
     navigate('/');
@@ -325,16 +329,15 @@ export function CinemaPage() {
       )}
 
       {drawerItem && (
-        <EpisodeDrawerModal
-          item={drawerItem}
-          inList={watchlistKeys.has(catalogKeyOf(drawerItem))}
+        <CinemaEpisodeDrawer
+          key={`${drawerItem.mediaType}:${drawerItem.tmdbId}:${drawerSeq}`}
+          item={withSavedProgress(drawerItem)}
+          topTenItems={topTenToday}
           onClose={() => setDrawerItem(null)}
-          onPlay={(it, s, e) => {
-            setDrawerItem(null);
-            launchPlayer(it, s, e);
+          onShowItem={(it) => {
+            setDrawerSeq((n) => n + 1);
+            setDrawerItem(it);
           }}
-          onToggleList={(it, add) => void handleToggleList(it, add)}
-          onSelectItem={setDrawerItem}
         />
       )}
     </div>

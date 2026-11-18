@@ -76,6 +76,25 @@ export const TmdbImages = {
     }
     return `${this.posterCard}${t.startsWith('/') ? '' : '/'}${t}`;
   },
+  /** Flutter TmdbImages._resolve: rebases TMDB URLs and raw paths onto `base`. */
+  resolve(path: string | null | undefined, base: string): string {
+    const t = (path ?? '').trim();
+    if (!t || ['null', 'undefined', 'false', 'none', 'nan'].includes(t.toLowerCase()) || /\s/.test(t)) return '';
+    if (t.startsWith('assets/')) return t;
+    const m = /^https?:\/\/image\.tmdb\.org\/t\/p\/[^/]+(\/.+)$/.exec(t);
+    if (m) return `${base}${m[1]}`;
+    if (t.startsWith('http')) return t;
+    return `${base}${t.startsWith('/') ? t : `/${t}`}`;
+  },
+  posterFor(path?: string | null): string {
+    return this.resolve(path, this.poster);
+  },
+  stillFor(path?: string | null): string {
+    return this.resolve(path, 'https://image.tmdb.org/t/p/w300');
+  },
+  backdropOf(path?: string | null, large = false): string {
+    return this.resolve(path, large ? this.backdropHero : this.backdrop);
+  },
   backdropFor(raw: string): string {
     const t = raw.trim();
     if (!t) return '';

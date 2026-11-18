@@ -489,3 +489,168 @@ export async function getWatchListFromThisDay(): Promise<MediaItem[]> {
     return [];
   }
 }
+
+export interface CinemaReview {
+  id: string;
+  author: string;
+  content: string;
+  rating?: number;
+  avatar: string;
+}
+
+export async function fetchReviews(tmdbId: number, mediaType: string): Promise<CinemaReview[]> {
+  const data = await tmdbJson(`/${mediaType}/${tmdbId}/reviews`);
+  const raw = Array.isArray(data?.results) ? (data.results as Record<string, unknown>[]) : [];
+  return raw.slice(0, 8).map((r) => {
+    const details = (r.author_details ?? {}) as Record<string, unknown>;
+    return {
+      id: String(r.id ?? ''),
+      author: String(r.author ?? 'Anonymous'),
+      content: String(r.content ?? ''),
+      rating: typeof details.rating === 'number' ? details.rating : undefined,
+      avatar: typeof details.avatar_path === 'string' ? `${TmdbImages.profile}${details.avatar_path}` : '',
+    };
+  });
+}
+
+const trailerCache = new Map<string, string | null>();
+
+/** TMDBTrailerService.fetchTrailerKey: official YouTube trailer, then any trailer, then any YouTube video. */
+export async function fetchTrailerKey(tmdbId: number, mediaType: string): Promise<string | null> {
+  const cacheKey = `${mediaType}_${tmdbId}`;
+  if (trailerCache.has(cacheKey)) return trailerCache.get(cacheKey)!;
+  const data = await tmdbJson(`/${mediaType}/${tmdbId}/videos`);
+  if (data == null) return null;
+  const results = Array.isArray(data.results) ? (data.results as Record<string, unknown>[]) : [];
+  const trailer =
+    results.find((v) => v.site === 'YouTube' && v.type === 'Trailer' && v.official === true) ??
+    results.find((v) => v.site === 'YouTube' && v.type === 'Trailer') ??
+    results.find((v) => v.site === 'YouTube');
+  const key = typeof trailer?.key === 'string' ? trailer.key : null;
+  if (trailerCache.size >= 80 && !trailerCache.has(cacheKey)) trailerCache.delete(trailerCache.keys().next().value!);
+  trailerCache.set(cacheKey, key);
+  return key;
+}
+
+export async function isAnimeByTmdbId(tmdbId: number, mediaType: string): Promise<boolean> {
+  const details = await fetchMediaDetails(tmdbId, mediaType);
+  return details != null && detectAnime(details);
+}
+
+const COUPLE_USERS = new Set(['khentsgdz', 'clairjassen']);
+const COUPLE_STATUSES = new Set(['watching-khent', 'watching-clair', 'watching-both', 'watched-khent', 'watched-clair', 'watched-both']);
+
+/** TMDBWatchlistService.resolveStatusOwner: partner statuses live on that partner's doc. */
+export function resolveStatusOwner(status: string): string | null {
+  if (status === 'watched-clair' || status === 'watching-clair') return 'clairjassen';
+  if (status === 'watched-khent' || status === 'watching-khent') return 'khentsgdz';
+  return null;
+}
+
+function toSelfStatus(status: string): string {
+  if (status === 'watched-clair' || status === 'watched-khent') return 'watched-self';
+  if (status === 'watching-clair' || status === 'watching-khent') return 'watching-self';
+  return status;
+}
+
+const catalogIdOf = (item: MediaItem) => (item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0));
+
+async function findCatalogDoc(item: MediaItem, userName: string) {
+  const id = catalogIdOf(item);
+  const snap = await getDocs(query(collection(db, 'watch_list'), where('tmdbId', '==', id), where('userName', '==', userName)));
+  const mt = (v: unknown) => (String(v ?? 'movie').trim().toLowerCase() === 'tv' ? 'tv' : 'movie');
+  return snap.docs.find((d) => {
+    const data = d.data();
+    return data.tmdbId === id && (data.source ?? 'tmdb') === item.source && mt(data.mediaType) === mt(item.mediaType);
+  });
+}
+
+function demoUpsert(item: MediaItem, userName: string, status: string | null) {
+  const key = catalogKeyOf(item);
+  const prev = demoWatchlist.get(userName) ?? [];
+  const rest = prev.filter((x) => catalogKeyOf(x) !== key);
+  const old = prev.find((x) => catalogKeyOf(x) === key);
+  demoWatchlist.set(userName, status == null ? rest : [{ ...(old ?? item), status, userName, addedAt: new Date() }, ...rest]);
+  demoWatchlistChanges.emit();
+}
+
+/** TMDBWatchlistService.saveToWatchList. */
+export async function saveToWatchList(
+  item: MediaItem,
+  status: string,
+  userName: string,
+  opts: { isAnimeOverride?: boolean | null; statusOwner?: string | null } = {},
+): Promise<void> {
+  if (!userName) return;
+  const isCoupleOwner = COUPLE_USERS.has(userName);
+  if (!isCoupleOwner && COUPLE_STATUSES.has(status)) return;
+  if (opts.statusOwner != null && (!isCoupleOwner || !COUPLE_USERS.has(opts.statusOwner))) return;
+  const owner = opts.statusOwner ?? userName;
+  const effectiveStatus = toSelfStatus(status);
+  if (AgentMode.demo) {
+    demoUpsert(item, owner, effectiveStatus);
+    return;
+  }
+  const isAnime = opts.isAnimeOverride ?? item.isAnime;
+  const existing = await findCatalogDoc(item, owner);
+  if (existing) {
+    await updateDoc(existing.ref, {
+      status: effectiveStatus,
+      isAnime,
+      addedAt: serverTimestamp(),
+      backdropPath: item.backdropPath,
+      title: item.title,
+      year: item.year,
+      mediaType: item.mediaType,
+      source: item.source,
+      ...(item.posterPath ? { posterPath: item.posterPath } : {}),
+    });
+  } else {
+    await setDoc(doc(collection(db, 'watch_list')), {
+      tmdbId: catalogIdOf(item),
+      title: item.title,
+      mediaType: item.mediaType,
+      posterPath: item.posterPath,
+      backdropPath: item.backdropPath,
+      year: item.year,
+      status: effectiveStatus,
+      isAnime,
+      userName: owner,
+      source: item.source || 'tmdb',
+      ...(item.anilistId != null ? { anilistId: item.anilistId } : {}),
+      synopsis: item.synopsis,
+      genres: item.genres,
+      ...(item.score != null ? { score: item.score } : {}),
+      addedAt: serverTimestamp(),
+    });
+  }
+}
+
+/** TMDBWatchlistService.removeFromWatchList. */
+export async function removeFromWatchList(item: MediaItem, userName: string): Promise<void> {
+  if (!userName) return;
+  if (AgentMode.demo) {
+    demoUpsert(item, userName, null);
+    return;
+  }
+  const existing = await findCatalogDoc(item, userName);
+  if (existing) await deleteDoc(existing.ref);
+}
+
+/** TMDBWatchlistService.cleanStalePartnerStatus: drop the opposite watching/watched status left on the viewer's doc. */
+export async function cleanStalePartnerStatus(item: MediaItem, userName: string, newStatus: string): Promise<void> {
+  if (AgentMode.demo) return;
+  const companion: Record<string, string> = {
+    'watched-clair': 'watching-clair',
+    'watched-khent': 'watching-khent',
+    'watching-clair': 'watched-clair',
+    'watching-khent': 'watched-khent',
+  };
+  try {
+    const existing = await findCatalogDoc(item, userName);
+    const stale = companion[newStatus];
+    if (existing && stale && existing.data().status === stale) await updateDoc(existing.ref, { status: 'to-watch' });
+  } catch (e) {
+    Logger.e('[WatchList] Error cleaning stale partner status', e);
+  }
+}
