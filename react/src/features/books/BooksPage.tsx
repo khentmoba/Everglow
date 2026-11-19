@@ -208,7 +208,7 @@ function Spotlight({ pick, onOpen, onDetails }: { pick: BookSearchResult; onOpen
               <div style={{ height: '100%', width: `${Math.max(4, pct)}%`, background: AppColors.warmAmber }} />
             </div>
             <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 6 }}>
-              Chapter {progress.chapter + 1} · {pct}% through · Tap to resume
+              {progress.readerName ? `${progress.readerName} is reading · ` : ''}Chapter {progress.chapter + 1} · {pct}% through · Tap to resume
             </div>
           </div>
           <Icon name="play_arrow" size={20} color={AppColors.warmAmber} />
@@ -249,6 +249,7 @@ export function BooksPage() {
   const homeRef = useRef<HTMLDivElement>(null);
   const advPanelRef = useRef<HTMLDivElement>(null);
   const advTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [popular, setPopular] = useState<BookSearchResult[]>([]);
   const [recent, setRecent] = useState<BookSearchResult[]>([]);
@@ -452,6 +453,10 @@ export function BooksPage() {
     return () => window.cancelAnimationFrame(id);
   }, [showSkeleton, tab]);
 
+  useEffect(() => {
+    if (tab === 1) window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [tab]);
+
   useDialogFocus(advOpen, advPanelRef, () => setAdvOpen(false), advTriggerRef);
   const libraryList =
     librarySegment === 0 ? toReadList : librarySegment === 1 ? readHistoryList : librarySegment === 2 ? favorites : downloads;
@@ -646,6 +651,7 @@ export function BooksPage() {
               {feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recent, 'recent')}
             </>
           )}
+          <div style={{ position: 'sticky', bottom: 0, height: 72, marginTop: -72, background: `linear-gradient(to bottom, transparent, ${cBlack})`, pointerEvents: 'none', zIndex: 2 }} />
           <div style={{ height: 100 }} />
         </div>
       )}
@@ -677,6 +683,7 @@ export function BooksPage() {
               >
                 <Icon name="search" size={22} color={BookColors.deepRose} />
                 <input
+                  ref={searchInputRef}
                   aria-label="Search books"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -770,6 +777,9 @@ export function BooksPage() {
                   </button>
                 );
               })}
+              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                More
+              </button>
               <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <Icon name="tune" size={14} color={BookColors.deepRose} /> Filters
                 {(searchLang !== 'All' || appliedAdv.title || appliedAdv.author || appliedAdv.publisher || appliedAdv.isbn || appliedAdv.yearFrom || appliedAdv.yearTo || appliedAdv.exact || (searchFormat && searchFormat !== 'EPUB' && searchFormat !== 'PDF')) && (
@@ -907,7 +917,7 @@ export function BooksPage() {
                             </span>
                           )}
                           {r.sourceLabel && <span>{r.sourceLabel}</span>}
-                          {r.ratingCount ? <span style={{ color: AppColors.warmAmber, fontWeight: 700 }}>★ {r.ratingCount >= 1000 ? `${(r.ratingCount / 1000).toFixed(0)}k` : r.ratingCount}</span> : null}
+                          {r.ratingCount ? <span style={{ color: AppColors.warmAmber, fontWeight: 700 }}>{r.ratingCount >= 1000 ? `${(r.ratingCount / 1000).toFixed(0)}k` : r.ratingCount} downloads</span> : null}
                         </div>
                       </div>
                       <Icon name="chevron_right" size={18} color={BookColors.muted} />
@@ -1107,8 +1117,8 @@ export function BooksPage() {
                 <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), flex: 1 }}>
                   A gentle goal of {goal} books this year — no pressure.
                 </span>
-                <button type="button" className="bare-button" aria-label="Lower reading goal" onClick={() => setGoal(goal - 1)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontSize: 16 }}>−</button>
-                <button type="button" className="bare-button" aria-label="Raise reading goal" onClick={() => setGoal(goal + 1)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontSize: 16 }}>+</button>
+                <button type="button" className="bare-button" aria-label="Lower reading goal" onClick={() => setGoal(goal - 1)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontSize: 18 }}>−</button>
+                <button type="button" className="bare-button" aria-label="Raise reading goal" onClick={() => setGoal(goal + 1)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontSize: 18 }}>+</button>
               </div>
             </div>
 

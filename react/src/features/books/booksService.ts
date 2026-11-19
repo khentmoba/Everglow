@@ -437,6 +437,24 @@ export async function fetchBookDetails(result: BookSearchResult): Promise<BookSe
 
 export async function fetchBookText(candidates: string[]): Promise<{ text: string; usedUrl: string; error?: string }> {
   if (!candidates.length) return { text: '', usedUrl: '', error: 'No read source URLs available.' };
+  if (AgentMode.demo) {
+    const demoText = [
+      '*** START OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***',
+      '',
+      'CHAPTER I',
+      'You will rejoice to hear that no disaster has accompanied the commencement of an enterprise which you have regarded with such evil forebodings.',
+      '',
+      'I arrived here yesterday, and my first task is to assure my dear sister of my welfare and increasing confidence in the success of my undertaking.',
+      '',
+      'CHAPTER II',
+      'I am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze play upon my cheeks, which braces my nerves and fills me with delight.',
+      '',
+      'Do you understand this feeling? This breeze, which has travelled from the regions towards which I am advancing, gives me a foretaste of those icy climes.',
+      '',
+      '*** END OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***',
+    ].join('\n');
+    return { text: demoText, usedUrl: 'demo://frankenstein' };
+  }
   try {
     const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
     const resp = await fetch(BOOK_TEXT_PROXY, {
@@ -642,6 +660,17 @@ export async function saveToReadList(item: BookItem, status: string, userName: s
       addedAt: serverTimestamp(),
     });
   }
+}
+
+export async function removeFromReadList(workKey: string, userName: string): Promise<void> {
+  if (!userName || !workKey) return;
+  if (AgentMode.demo) {
+    demoReadlist.set(userName, (demoReadlist.get(userName) ?? []).filter((b) => b.workKey !== workKey));
+    demoBookChanges.emit();
+    return;
+  }
+  const existing = await getDocs(query(collection(db, 'read_list'), where('workKey', '==', workKey), where('userName', '==', userName), limit(10)));
+  for (const d of existing.docs) await deleteDoc(d.ref);
 }
 
 export async function toggleBookFavorite(item: BookItem, userName: string, add: boolean): Promise<void> {

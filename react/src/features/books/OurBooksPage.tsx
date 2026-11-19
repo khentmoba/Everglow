@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { radial } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
-import { useSource } from '../../core/utils/liveSource';
+import { useSourceState } from '../../core/utils/liveSource';
 import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
 import { BookColors, coupleLabel, isKhent, ourBookToBookItem, searchResultToBookItem, type BookSearchResult, type OurBooksItem } from './bookTypes';
-import { addToOurBooks, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
+import { addToOurBooks, catalogFailedRecently, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
 import { BookCover } from './BookCover';
 
 export function OurBooksPage() {
@@ -24,19 +25,19 @@ export function OurBooksPage() {
   const [searching, setSearching] = useState(false);
   const [addSearchError, setAddSearchError] = useState(false);
   const [searchNowKey, setSearchNowKey] = useState(0);
-  const [itemsReady, setItemsReady] = useState(false);
+  const [shelfRetry, setShelfRetry] = useState(0);
+  const [readOverrides, setReadOverrides] = useState<Record<string, boolean>>({});
+  const [goal] = useState(() => {
+    const saved = Prefs.get('books_goal');
+    return typeof saved === 'number' && saved > 0 ? saved : 12;
+  });
   const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
   const addPanelRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
   const confirmPanelRef = useRef<HTMLDivElement>(null);
 
-  const items = useSource(() => watchOurBooks(300), [], []);
+  const { value: items, loading: itemsLoading, error: itemsError } = useSourceState(() => watchOurBooks(300), [shelfRetry], [] as OurBooksItem[]);
   const userName = currentUser ?? '';
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setItemsReady(true), 900);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   useDialogFocus(addOpen, addPanelRef, () => setAddOpen(false), addTriggerRef);
   useDialogFocus(pendingDelete != null, confirmPanelRef, () => setPendingDelete(null));
@@ -57,6 +58,7 @@ export function OurBooksPage() {
         .then((res) => {
           if (!alive) return;
           setResults(res.results.slice(0, 30));
+          setAddSearchError(res.results.length === 0 && catalogFailedRecently());
           setSearching(false);
         })
         .catch(() => {
@@ -210,13 +212,19 @@ export function OurBooksPage() {
           {readList.length} book{readList.length === 1 ? '' : 's'} read together · {toReadList.length} waiting on the shelf
         </div>
         <div style={{ height: 4, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 10, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${Math.min(100, (readList.length / 12) * 100)}%`, background: AppColors.deepRose }} />
+          <div style={{ height: '100%', width: `${Math.min(100, (readList.length / goal) * 100)}%`, background: AppColors.deepRose }} />
         </div>
       </div>
 
       <div style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: '8px 20px 100px' }}>
-        {shown.length === 0 && !itemsReady ? (
+        {shown.length === 0 && (itemsLoading || itemsError) ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
+            {Boolean(itemsError) && (
+              <div style={{ textAlign: 'center', padding: 12, color: AppColors.error, fontSize: 13 }}>
+                Couldn’t load the shared shelf.{' '}
+                <button type="button" className="bare-button" onClick={() => setShelfRetry((k) => k + 1)} style={{ color: AppColors.roseQuartz, fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
+              </div>
+            )}
             {[0, 1, 2].map((i) => (
               <div key={i} style={{ display: 'flex', gap: 14, padding: 14, borderRadius: 18, background: withAlpha(AppColors.roseQuartz, 0.04) }}>
                 <div className="skeleton-pulse" style={{ width: 72, height: 108, borderRadius: 10, background: withAlpha(AppColors.roseQuartz, 0.1), flexShrink: 0 }} />
@@ -247,7 +255,8 @@ export function OurBooksPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
             {shown.map((b) => {
-              const iRead = isKhent(userName) ? Boolean(b.khentReadAt) : Boolean(b.clairReadAt);
+              const storedRead = isKhent(userName) ? Boolean(b.khentReadAt) : Boolean(b.clairReadAt);
+              const iRead = readOverrides[b.workKey] ?? storedRead;
               return (
                 <div
                   key={b.id || b.workKey}
@@ -328,7 +337,7 @@ export function OurBooksPage() {
                       <button
                         type="button"
                         className="bare-button"
-                        onClick={() => void setOurBookReadFlag(b.workKey, userName, !iRead)}
+                        onClick={() => { setReadOverrides((o) => ({ ...o, [b.workKey]: !iRead })); void setOurBookReadFlag(b.workKey, userName, !iRead); }}
                         style={{
                           flex: 1,
                           display: 'flex',

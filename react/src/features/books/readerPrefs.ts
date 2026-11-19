@@ -16,6 +16,7 @@ export interface ReaderSettings {
   brightness: number;
   margin: number;
   pageTurn: boolean;
+  voiceUri?: string;
 }
 
 const timeOfDayTheme = (): ReaderTheme => {
@@ -60,6 +61,7 @@ export function loadSettings(): ReaderSettings {
     brightness: clamp(saved.brightness, 0.5, 1, DEFAULT_READER_SETTINGS.brightness),
     margin: clamp(saved.margin, 0, 1, DEFAULT_READER_SETTINGS.margin),
     pageTurn: typeof saved.pageTurn === 'boolean' ? saved.pageTurn : false,
+    voiceUri: typeof saved.voiceUri === 'string' ? saved.voiceUri : undefined,
   };
 }
 
@@ -74,6 +76,7 @@ export interface ReaderProgress {
   /** Anchor to a paragraph so changing font size or spacing keeps the place. */
   paragraphIndex?: number;
   charOffset?: number;
+  readerName?: string;
   updatedAt: number;
   title: string;
   author: string;
@@ -96,6 +99,7 @@ function readRecord(workKey: string): ReaderProgress | null {
     scroll: clamp(r.scroll, 0, 1, 0),
     paragraphIndex: typeof r.paragraphIndex === 'number' ? r.paragraphIndex : undefined,
     charOffset: typeof r.charOffset === 'number' ? r.charOffset : undefined,
+    readerName: typeof r.readerName === 'string' ? r.readerName : undefined,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
     title: typeof r.title === 'string' ? r.title : '',
     author: typeof r.author === 'string' ? r.author : '',
@@ -133,6 +137,7 @@ export interface ReaderHighlight {
   chapter: number;
   text: string;
   note: string;
+  color?: string;
   createdAt: number;
 }
 

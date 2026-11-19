@@ -16,6 +16,7 @@ import {
   BookColors,
   buildReadCandidates,
   isBookRead,
+  isKhent,
   searchResultToBookItem,
   type BookCategory,
   type BookItem,
@@ -31,6 +32,7 @@ import {
   fetchRecentBooks,
   recordBookDownload,
   removeFromOurBooks,
+  removeFromReadList,
   resolveBookByWorkKey,
   saveReaderState,
   saveToReadList,
@@ -324,10 +326,21 @@ export function BookDetailPage() {
             <>
               <DetailActionCircle
                 icon={inReadlist ? 'bookmark' : 'bookmark_outline'}
-                label={isBookRead(inReadlist?.status ?? '') ? 'Read' : inReadlist ? 'Saved' : 'Save'}
+                label={inReadlist ? 'Saved' : 'Save'}
                 active={Boolean(inReadlist)}
-                onClick={() => void saveToReadList(item, inReadlist?.status === 'to-read' ? 'read-self' : 'to-read', userName)}
+                onClick={() => {
+                  if (inReadlist) void removeFromReadList(item.workKey, userName);
+                  else void saveToReadList(item, 'to-read', userName);
+                }}
               />
+              {inReadlist && (
+                <DetailActionCircle
+                  icon="check_circle"
+                  label={isBookRead(inReadlist.status) ? 'Read' : 'Mark read'}
+                  active={isBookRead(inReadlist.status)}
+                  onClick={() => void saveToReadList(item, isBookRead(inReadlist.status) ? 'to-read' : 'read-self', userName)}
+                />
+              )}
               <DetailActionCircle
                 icon={isLoved ? 'favorite' : 'favorite_border'}
                 label={isLoved ? 'Loved' : 'Love'}
@@ -480,6 +493,8 @@ function splitBookChapters(raw: string, fallbackTitle: string): BookChapter[] {
 
 const TTS_RATES = [0.85, 1, 1.25, 1.5, 1.75, 2] as const;
 
+const HIGHLIGHT_COLORS = [AppColors.warmAmber, AppColors.auroraRose, AppColors.auroraTeal, AppColors.auroraLilac, AppColors.success];
+
 const FONT_FAMILIES: Record<ReaderFont, string> = {
   classic: Fonts.display,
   modern: Fonts.reading,
@@ -515,7 +530,7 @@ function renderHighlighted(text: string, marks: ReaderHighlight[], accent: strin
         role="button"
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick(first.h); }}
         onClick={() => onPick(first.h)}
-        style={{ background: withAlpha(accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
+        style={{ background: withAlpha(first.h.color ?? accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
         title={first.h.note || 'Highlight — tap to add a note'}
       >
         {first.h.text}
@@ -549,7 +564,9 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [paused, setPaused] = useState(false);
   const [followChar, setFollowChar] = useState(-1);
   const [sleepMinutes, setSleepMinutes] = useState(0);
-  const [voiceUri, setVoiceUri] = useState('');
+  const [voiceUri, setVoiceUri] = useState(() => loadSettings().voiceUri ?? '');
+  const [highlightColor, setHighlightColor] = useState<string>(AppColors.warmAmber);
+  const [sleepAtChapterEnd, setSleepAtChapterEnd] = useState(false);
   const [scrollPct, setScrollPct] = useState(0);
   const [bookmarks, setBookmarks] = useState<ReturnType<typeof loadBookmarks>>([]);
   const [highlights, setHighlights] = useState<ReturnType<typeof loadHighlights>>([]);
@@ -560,6 +577,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [menuOpen, setMenuOpen] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [slowReader, setSlowReader] = useState(false);
   const [webEdition, setWebEdition] = useState(false);
   const [pageIdx, setPageIdx] = useState(0);
   const [bookSearch, setBookSearch] = useState('');
@@ -571,6 +589,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const searchPanelRef = useRef<HTMLDivElement>(null);
   const notePanelRef = useRef<HTMLDivElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
+  const activeChapterRef = useRef<HTMLButtonElement>(null);
   const chapterRef = useRef(0);
   const scrollFracRef = useRef(0);
   const lastScrollSaveRef = useRef(0);
@@ -622,6 +641,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       scroll,
       paragraphIndex: currentParagraphIndex(),
       charOffset: 0,
+      readerName: isKhent(currentUser ?? '') ? 'Khent' : 'Clair',
       updatedAt: Date.now(),
       title: book.title,
       author: book.author,
@@ -648,6 +668,10 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       rate,
       onBoundary: (index) => setFollowChar(index),
       onComplete: () => {
+        if (sleepAtChapterEnd) {
+          WebTts.stop();
+          setSleepAtChapterEnd(false);
+        }
         setSpeaking(false);
         setPaused(false);
         setFollowChar(-1);
@@ -684,7 +708,10 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     setLoading(true);
     setError(null);
     setWebEdition(false);
+    setSlowReader(false);
+    const slowTimer = window.setTimeout(() => alive && setSlowReader(true), 4000);
     fetchBookText(candidates).then((res) => {
+      window.clearTimeout(slowTimer);
       if (!alive) return;
       if (res.text) {
         const list = splitBookChapters(res.text, book.title);
@@ -721,6 +748,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     });
     return () => {
       alive = false;
+      window.clearTimeout(slowTimer);
       WebTts.stop();
       if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
       saveProgressNow(chapterRef.current, scrollFracRef.current);
@@ -728,10 +756,17 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, startListening, retryKey]);
 
+  useEffect(() => {
+    if (voiceUri) WebTts.setVoice(voiceUri);
+  }, [voiceUri]);
+
   useDialogFocus(settingsOpen, settingsPanelRef, () => setSettingsOpen(false), settingsTriggerRef);
   useDialogFocus(searchOpen, searchPanelRef, () => setSearchOpen(false));
   useDialogFocus(noteFor != null, notePanelRef, () => setNoteFor(null));
   useDialogFocus(menuOpen, menuPanelRef, () => setMenuOpen(false));
+  useEffect(() => {
+    if (menuOpen) window.requestAnimationFrame(() => activeChapterRef.current?.scrollIntoView({ block: 'center' }));
+  }, [menuOpen]);
 
   if (!book) {
     return (
@@ -826,7 +861,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
   const addHighlight = (note: string) => {
     if (!book || !selectionText) return;
-    const highlight: ReaderHighlight = { id: `${Date.now()}`, chapter: chapterIdx, text: selectionText, note, createdAt: Date.now() };
+    const highlight: ReaderHighlight = { id: `${Date.now()}`, chapter: chapterIdx, text: selectionText, note, color: highlightColor, createdAt: Date.now() };
     setHighlights(saveHighlight(book.workKey, highlight));
     syncState();
     setSelectionText('');
@@ -1001,6 +1036,15 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             {[90, 100, 96, 98, 70, 100, 94, 88].map((w, i) => (
               <div key={i} style={{ height: 12, borderRadius: 6, background: withAlpha(theme.fg, 0.18), marginBottom: 14, width: `${w}%` }} />
             ))}
+            {slowReader && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <div style={{ fontSize: 12.5, color: withAlpha(theme.fg, 0.7) }}>Still opening the pages… the text source can be slow.</div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10 }}>
+                  <button type="button" className="bare-button" onClick={() => setRetryKey((k) => k + 1)} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.25)}`, color: theme.fg, fontWeight: 700, fontSize: 12.5 }}>Try again</button>
+                  {book.iaId && <button type="button" className="bare-button" onClick={() => { setWebEdition(true); setLoading(false); }} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.25)}`, color: theme.fg, fontWeight: 700, fontSize: 12.5 }}>Open web edition</button>}
+                </div>
+              </div>
+            )}
           </div>
         ) : currentChapter ? (
           <div style={{ maxWidth: measure, margin: '0 auto' }}>
@@ -1129,6 +1173,19 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             border: `1px solid ${withAlpha(theme.fg, 0.2)}`, boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
           }}
         >
+          <div style={{ display: 'flex', gap: 5, padding: '0 4px' }}>
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className="bare-button"
+                aria-label={`Highlight color ${c}`}
+                aria-pressed={highlightColor === c}
+                onClick={() => setHighlightColor(c)}
+                style={{ width: 24, height: 24, borderRadius: 12, background: withAlpha(c, 0.7), border: highlightColor === c ? `2px solid ${theme.fg}` : '2px solid transparent' }}
+              />
+            ))}
+          </div>
           <button type="button" className="bare-button" onClick={() => addHighlight('')} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Highlight</button>
           <button type="button" className="bare-button" onClick={() => { setNoteFor('new'); setNoteDraft(''); }} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Note</button>
           <button type="button" className="bare-button" onClick={() => { startSpeech(selectionText, settings.ttsRate); setSelectionText(''); }} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Read from here</button>
@@ -1200,7 +1257,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>CHAPTERS</div>
                 {chapters.map((ch, i) => (
-                  <button key={`${ch.title}-${i}`} type="button" className="bare-button" onClick={() => selectChapter(i)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, fontWeight: i === chapterIdx ? 700 : 500, color: i === chapterIdx ? AppColors.deepRose : theme.fg, background: i === chapterIdx ? withAlpha(AppColors.deepRose, 0.12) : 'transparent' }}>
+                  <button key={`${ch.title}-${i}`} ref={i === chapterIdx ? activeChapterRef : undefined} type="button" className="bare-button" onClick={() => selectChapter(i)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, fontWeight: i === chapterIdx ? 700 : 500, color: i === chapterIdx ? AppColors.deepRose : theme.fg, background: i === chapterIdx ? withAlpha(AppColors.deepRose, 0.12) : 'transparent' }}>
                     {ch.title}
                   </button>
                 ))}
@@ -1316,7 +1373,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                 <select
                   aria-label="Narration voice"
                   value={voiceUri}
-                  onChange={(e) => { setVoiceUri(e.target.value); WebTts.setVoice(e.target.value); }}
+                  onChange={(e) => { setVoiceUri(e.target.value); WebTts.setVoice(e.target.value); patchSettings({ voiceUri: e.target.value }); }}
                   style={{ width: '100%', minHeight: 44, borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 13 }}
                 >
                   <option value="">Device default</option>
@@ -1334,6 +1391,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               'Sleep timer',
               [
                 { value: 0, label: 'Off' },
+                { value: -1, label: 'End of chapter' },
                 { value: 5, label: '5 min' },
                 { value: 15, label: '15 min' },
                 { value: 30, label: '30 min' },
@@ -1341,6 +1399,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               sleepMinutes,
               (value) => {
                 setSleepMinutes(value);
+                setSleepAtChapterEnd(value === -1);
                 if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
                 sleepTimerRef.current = value > 0 ? window.setTimeout(stopSpeech, value * 60_000) : null;
               },

@@ -180,6 +180,22 @@ export function useSource<T>(make: () => Source<T> | null, key: unknown[], initi
   return value;
 }
 
+/** `useSource` plus loading/error, for screens that need a real waiting state. */
+export function useSourceState<T>(make: () => Source<T> | null, key: unknown[], initial: T): { value: T; loading: boolean; error: unknown | null } {
+  const [state, setState] = useState<{ value: T; loading: boolean; error: unknown | null }>({ value: initial, loading: true, error: null });
+  useEffect(() => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    const source = make();
+    if (!source) return;
+    return source({
+      data: (value) => setState({ value, loading: false, error: null }),
+      error: (error) => setState((s) => ({ ...s, loading: false, error })),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, key);
+  return state;
+}
+
 /** `query.snapshots()` / `doc.snapshots()` as a Source. */
 export function snapshots<S, T>(
   listen: (next: (s: S) => void, error: (e: unknown) => void) => () => void,

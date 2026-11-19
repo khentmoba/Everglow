@@ -20,10 +20,15 @@ function ClothCover({ title, author, width }: { title: string; author: string; w
   });
   if (width < 80) {
     return (
-      <div
-        style={{ position: 'absolute', inset: 0, background, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <Icon name="menu_book" size={width * 0.4} color={withAlpha(AppColors.auroraGold, 0.6)} />
+      <div style={{ position: 'absolute', inset: 0, background, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 5, boxSizing: 'border-box', gap: 5 }}>
+        <Icon name="menu_book" size={width * 0.32} color={withAlpha(AppColors.auroraGold, 0.6)} />
+        <div
+          className="clamp-3"
+          style={{ ...AppTypography.cormorantBold, color: AppColors.auroraGold, fontSize: Math.max(8, width * 0.13), lineHeight: 1.15, textAlign: 'center', width: '100%' }}
+        >
+          {title}
+        </div>
+        {author && <div className="ellipsis" style={{ ...AppTypography.outfitBold, color: withAlpha(AppColors.roseQuartz, 0.75), fontSize: 7, width: '100%', textAlign: 'center' }}>{author}</div>}
       </div>
     );
   }
