@@ -159,6 +159,7 @@ function SeeAllChip({ accent, onClick, label }: { accent: string; onClick: () =>
       onMouseLeave={() => setHover(false)}
       style={{
         flexShrink: 0,
+        minHeight: 44,
         padding: '10px 14px',
         borderRadius: 14,
         background: hover ? withAlpha(accent, 0.14) : 'transparent',

@@ -98,7 +98,7 @@ function ShimmerHome() {
   return (
     <div style={{ overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '14px 20px 20px' }}>{block(40, 8, 160)}</div>
-      <div style={{ padding: '0 12px' }}>{block(320, 24)}</div>
+      <div style={{ padding: '0 12px' }}>{block(210, 24)}</div>
       <div style={{ padding: '32px 20px 0' }}>{block(280, 16)}</div>
       <div style={{ padding: '32px 20px 14px' }}>{block(36, 8, 200)}</div>
       <div style={{ display: 'flex', gap: 12, padding: '0 20px' }}>
@@ -231,8 +231,10 @@ export function BooksPage() {
   // Navigator.canPop: true only when the app pushed this page.
   const canPop = (window.history.state as { idx?: number } | null)?.idx ? true : false;
 
-  const tabParam = Number(searchParams.get('tab'));
-  const segmentParam = Number(searchParams.get('seg'));
+  const rawTab = searchParams.get('tab');
+  const rawSeg = searchParams.get('seg');
+  const tabParam = rawTab != null ? Number(rawTab) : Number.NaN;
+  const segmentParam = rawSeg != null ? Number(rawSeg) : Number.NaN;
   const [tab, setTabState] = useState<0 | 1 | 2>(initialQuery ? 1 : tabParam >= 0 && tabParam <= 2 ? (tabParam as 0 | 1 | 2) : booksView.tab);
   const [librarySegment, setLibrarySegmentState] = useState<0 | 1 | 2 | 3>(segmentParam >= 0 && segmentParam <= 3 ? (segmentParam as 0 | 1 | 2 | 3) : booksView.segment);
   const setTab = (next: 0 | 1 | 2) => {
@@ -353,7 +355,7 @@ export function BooksPage() {
       return;
     }
     let alive = true;
-    void Promise.all(subjects.map((s) => fetchBooksBySubject(s, 10))).then((pages) => {
+    void Promise.all(subjects.map((s) => fetchBooksBySubject(s, 10).catch(() => [] as BookSearchResult[]))).then((pages) => {
       if (!alive) return;
       const seen = new Set([...readHistoryList, ...favorites].map((b) => b.workKey));
       const merged = pages.flat().filter((r) => r.title && !seen.has(r.workKey));
@@ -520,7 +522,7 @@ export function BooksPage() {
       </div>
       {isCoupleUser && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {width >= 700 && <span style={{ ...AppTypography.outfitBold, fontSize: 12.5, color: AppColors.roseQuartz }}>Our Books</span>}
+          <span style={{ ...AppTypography.outfitBold, fontSize: width >= 700 ? 12.5 : 11, color: AppColors.roseQuartz, maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Our Books</span>
           <ShelfIconButton icon="favorite" label="Open Our Books" tooltip="Our Books" onClick={() => navigate('/our-books')} />
         </div>
       )}
@@ -691,14 +693,14 @@ export function BooksPage() {
             <>
               {popError && popular.length === 0 ? (
                 <div style={{ margin: '16px 20px 0', fontSize: 12.5, color: AppColors.roseQuartz }}>
-                  Most Popular couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
+                  Most Popular couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ minHeight: 44, padding: '0 8px', fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
                 </div>
               ) : (
                 <StaggeredEntrance>{feedRail('The most downloaded', 'Most downloaded', AppColors.warmAmber, popularRail, 'popular')}</StaggeredEntrance>
               )}
               {recError && recent.length === 0 ? (
                 <div style={{ margin: '16px 20px 0', fontSize: 12.5, color: AppColors.roseQuartz }}>
-                  Recently Added couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
+                  Recently Added couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ minHeight: 44, padding: '0 8px', fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
                 </div>
               ) : (
                 feedRail('Fresh in the catalog', 'New arrivals', AppColors.deepRose, recentRail, 'recent')
@@ -959,7 +961,7 @@ export function BooksPage() {
                       type="button"
                       className="bare-button"
                       aria-label={r.author ? `Open ${r.title} by ${r.author}` : `Open ${r.title}`}
-                      onClick={() => openDetails(r)}
+                      onClick={() => (progressMap.get(r.workKey)?.scroll ? openReader(searchResultToBookItem(r)) : openDetails(r))}
                       style={{
                         width: '100%', textAlign: 'left', padding: 12,
                         borderRadius: 16,
@@ -983,6 +985,7 @@ export function BooksPage() {
                             </span>
                           )}
                           {r.sourceLabel && <span>{r.sourceLabel}</span>}
+                          {progressMap.get(r.workKey)?.scroll ? <span style={{ color: AppColors.warmAmber, fontWeight: 700 }}>Continue</span> : null}
                           {r.ratingCount ? <span style={{ color: AppColors.warmAmber, fontWeight: 700 }}>{r.ratingCount >= 1000 ? `${(r.ratingCount / 1000).toFixed(0)}k` : r.ratingCount} downloads</span> : null}
                         </div>
                       </div>
@@ -1036,7 +1039,7 @@ export function BooksPage() {
                         setAdvExact(false);
                         setAppliedAdv({ title: '', author: '', publisher: '', isbn: '', yearFrom: '', yearTo: '', exact: false });
                       }}
-                      style={{ fontSize: 12, fontWeight: 700, color: BookColors.muted }}
+                      style={{ minHeight: 44, padding: '0 10px', fontSize: 12, fontWeight: 700, color: BookColors.muted }}
                     >
                       Reset fields
                     </button>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { WebTts } from '../../core/system/webTts';
 import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
@@ -78,6 +79,7 @@ export function BookDetailPage() {
   const [similar, setSimilar] = useState<BookSearchResult[]>([]);
   const [addedToast, setAddedToast] = useState(false);
   const [shareToast, setShareToast] = useState(false);
+  const [actionError, setActionError] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const confirmRemoveRef = useRef<HTMLDivElement>(null);
@@ -169,6 +171,14 @@ export function BookDetailPage() {
     ['Year', result.year],
   ].filter(([, v]) => Boolean(v)) as [string, string][];
 
+  const runAction = (work: Promise<unknown>) => {
+    setActionError(false);
+    void work.catch(() => {
+      setActionError(true);
+      window.setTimeout(() => setActionError(false), 3000);
+    });
+  };
+
   const copyShare = () => {
     const url = result.gutenbergId > 0
       ? `https://www.gutenberg.org/ebooks/${result.gutenbergId}`
@@ -210,6 +220,11 @@ export function BookDetailPage() {
           Link copied
         </div>
       )}
+      {actionError && (
+        <div role="alert" style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 6, padding: '10px 18px', borderRadius: 22, background: withAlpha(AppColors.error, 0.9), color: '#FFF', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          Couldn’t save that change — try again
+        </div>
+      )}
       {confirmRemove && (
         <div onClick={() => setConfirmRemove(false)} style={{ position: 'fixed', inset: 0, zIndex: 96, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 24 }}>
           <div ref={confirmRemoveRef} role="dialog" aria-modal="true" aria-label="Remove from Our Books" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, padding: 22, borderRadius: 20, background: AppColors.shimmerBase, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}>
@@ -217,7 +232,7 @@ export function BookDetailPage() {
             <div style={{ fontSize: 13.5, color: AppColors.mutedPurple, marginTop: 8 }}>“{result.title}” will leave the shelf you share.</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button type="button" className="bare-button" onClick={() => setConfirmRemove(false)} style={{ flex: 1, minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontWeight: 700 }}>Keep it</button>
-              <button type="button" className="bare-button" onClick={() => { void removeFromOurBooks(ourBooksKey); setConfirmRemove(false); }} style={{ flex: 1, minHeight: 46, borderRadius: 14, background: AppColors.error, color: '#FFF', fontWeight: 700 }}>Remove</button>
+              <button type="button" className="bare-button" onClick={() => { runAction(removeFromOurBooks(ourBooksKey)); setConfirmRemove(false); }} style={{ flex: 1, minHeight: 46, borderRadius: 14, background: AppColors.error, color: '#FFF', fontWeight: 700 }}>Remove</button>
             </div>
           </div>
         </div>
@@ -344,8 +359,8 @@ export function BookDetailPage() {
                 label={inReadlist ? 'Saved' : 'Save'}
                 active={Boolean(inReadlist)}
                 onClick={() => {
-                  if (inReadlist) void removeFromReadList(item.workKey, userName);
-                  else void saveToReadList(item, 'to-read', userName);
+                  if (inReadlist) runAction(removeFromReadList(item.workKey, userName));
+                  else runAction(saveToReadList(item, 'to-read', userName));
                 }}
               />
               {inReadlist && (
@@ -353,14 +368,14 @@ export function BookDetailPage() {
                   icon="check_circle"
                   label={isBookRead(inReadlist.status) ? 'Read' : 'Mark read'}
                   active={isBookRead(inReadlist.status)}
-                  onClick={() => void saveToReadList(item, isBookRead(inReadlist.status) ? 'to-read' : 'read-self', userName)}
+                  onClick={() => runAction(saveToReadList(item, isBookRead(inReadlist.status) ? 'to-read' : 'read-self', userName))}
                 />
               )}
               <DetailActionCircle
                 icon={isLoved ? 'favorite' : 'favorite_border'}
                 label={isLoved ? 'Loved' : 'Love'}
                 active={isLoved}
-                onClick={() => void toggleBookFavorite(item, userName, !isLoved)}
+                onClick={() => runAction(toggleBookFavorite(item, userName, !isLoved))}
               />
               <DetailActionCircle
                 icon={inOurBooks ? 'check' : 'volunteer_activism'}
@@ -370,10 +385,10 @@ export function BookDetailPage() {
                   if (inOurBooks) {
                     setConfirmRemove(true);
                   } else {
-                    void addToOurBooks(item, userName).then(() => {
+                    runAction(addToOurBooks(item, userName).then(() => {
                       setAddedToast(true);
                       window.setTimeout(() => setAddedToast(false), 2600);
-                    });
+                    }));
                   }
                 }}
               />
@@ -754,8 +769,11 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     fetchBookText(candidates).then((res) => {
       window.clearTimeout(slowTimer);
       if (!alive) return;
-      if (res.text) {
-        const sourceText = sample ? `${res.text.split('\n\n').slice(0, 4).join('\n\n')}\n\n*** END OF SAMPLE ***` : res.text;
+      const cachedText = Prefs.getString(`book_text_work::${book.workKey}`) ?? '';
+      const rawText = res.text || cachedText;
+      if (rawText) {
+        if (res.text) Prefs.set(`book_text_work::${book.workKey}`, res.text);
+        const sourceText = sample ? `${rawText.split('\n\n').slice(0, 4).join('\n\n')}\n\n*** END OF SAMPLE ***` : rawText;
         const list = splitBookChapters(sourceText, book.title);
         const initial = saved && saved.chapter < list.length ? saved.chapter : 0;
         setChapters(list);
@@ -1245,21 +1263,22 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         <div
           style={{
             position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 60,
+            maxWidth: 'calc(100vw - 24px)', width: 'max-content', flexWrap: 'wrap', justifyContent: 'center',
             display: 'flex', alignItems: 'center', gap: 6, padding: 8, borderRadius: 18,
             background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia,
             border: `1px solid ${withAlpha(theme.fg, 0.2)}`, boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
           }}
         >
           <div style={{ display: 'flex', gap: 5, padding: '0 4px' }}>
-            {HIGHLIGHT_COLORS.map((c) => (
+            {HIGHLIGHT_COLORS.map((c, ci) => (
               <button
                 key={c}
                 type="button"
                 className="bare-button"
-                aria-label={`Highlight color ${c}`}
+                aria-label={`Highlight color ${['Amber', 'Rose', 'Teal', 'Lilac', 'Green'][ci] ?? ci}`}
                 aria-pressed={highlightColor === c}
                 onClick={() => setHighlightColor(c)}
-                style={{ width: 40, height: 40, borderRadius: 20, background: withAlpha(c, 0.7), border: highlightColor === c ? `3px solid ${theme.fg}` : '3px solid transparent' }}
+                style={{ width: 44, height: 44, borderRadius: 22, background: withAlpha(c, 0.7), border: highlightColor === c ? `3px solid ${theme.fg}` : '3px solid transparent' }}
               />
             ))}
           </div>
