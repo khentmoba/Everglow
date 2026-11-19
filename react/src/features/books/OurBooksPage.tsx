@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { radial } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
-import { useSource } from '../../core/utils/liveSource';
+import { useSource, useSourceState } from '../../core/utils/liveSource';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
-import { ourBookToBookItem, searchResultToBookItem, type BookSearchResult } from './bookTypes';
-import { addToOurBooks, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
+import { BookColors, coupleLabel, isKhent, ourBookToBookItem, searchResultToBookItem, type BookSearchResult, type OurBooksItem } from './bookTypes';
+import { addToOurBooks, catalogFailedRecently, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchCoupleGoal, watchOurBooks } from './booksService';
+import { BookCover } from './BookCover';
 
 export function OurBooksPage() {
   const { width, height } = useViewport();
@@ -20,13 +22,56 @@ export function OurBooksPage() {
   const [queryText, setQueryText] = useState('');
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [addSearchError, setAddSearchError] = useState(false);
+  const [searchNowKey, setSearchNowKey] = useState(0);
+  const [shelfRetry, setShelfRetry] = useState(0);
+  const [readOverrides, setReadOverrides] = useState<Record<string, boolean>>({});
+  const goal = useSource(() => watchCoupleGoal(), [], 12);
+  const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
+  const addPanelRef = useRef<HTMLDivElement>(null);
+  const addTriggerRef = useRef<HTMLButtonElement>(null);
+  const confirmPanelRef = useRef<HTMLDivElement>(null);
 
-  const items = useSource(() => watchOurBooks(300), [], []);
+  const { value: items, loading: itemsLoading, error: itemsError } = useSourceState(() => watchOurBooks(300), [shelfRetry], [] as OurBooksItem[]);
   const userName = currentUser ?? '';
+
+  useDialogFocus(addOpen, addPanelRef, () => setAddOpen(false), addTriggerRef);
+  useDialogFocus(pendingDelete != null, confirmPanelRef, () => setPendingDelete(null));
+
+  useEffect(() => {
+    const q = queryText.trim();
+    if (!addOpen || !q) {
+      setResults([]);
+      setSearching(false);
+      setAddSearchError(false);
+      return;
+    }
+    let alive = true;
+    setSearching(true);
+    setAddSearchError(false);
+    const t = window.setTimeout(() => {
+      void searchBooksCatalog(q, { limit: 30 })
+        .then((res) => {
+          if (!alive) return;
+          setResults(res.results.slice(0, 30));
+          setAddSearchError(res.results.length === 0 && catalogFailedRecently());
+          setSearching(false);
+        })
+        .catch(() => {
+          if (!alive) return;
+          setAddSearchError(true);
+          setSearching(false);
+        });
+    }, 450);
+    return () => {
+      alive = false;
+      window.clearTimeout(t);
+    };
+  }, [addOpen, queryText, searchNowKey]);
 
   if (!isCoupleUser) {
     return (
-      <div style={{ height: '100%', background: '#09060E', color: AppColors.petalWhite, display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ height: '100%', background: BookColors.black, color: AppColors.petalWhite, display: 'grid', placeItems: 'center', padding: 24 }}>
         <div style={{ fontFamily: Fonts.display, fontSize: 18 }}>This space is just for the two of you.</div>
       </div>
     );
@@ -34,18 +79,16 @@ export function OurBooksPage() {
 
   const toReadList = items.filter((b) => !b.khentReadAt && !b.clairReadAt);
   const readList = items.filter((b) => Boolean(b.khentReadAt || b.clairReadAt));
+  const readTogetherThisYear = readList.filter((b) => (b.khentReadAt ?? b.clairReadAt)?.getFullYear() === new Date().getFullYear()).length;
+  const bothFinished = readList.filter((b) => b.khentReadAt && b.clairReadAt).length;
+  const activeMonths = new Set(readList.map((b) => (b.khentReadAt ?? b.clairReadAt)!.getMonth())).size;
+  const genreCounts = new Map<string, number>();
+  for (const b of readList) for (const s of b.subjects.slice(0, 2)) genreCounts.set(s, (genreCounts.get(s) ?? 0) + 1);
+  const topGenre = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const shown = tab === 0 ? toReadList : readList;
 
-  const runSearch = async () => {
-    if (!queryText.trim()) return;
-    setSearching(true);
-    const res = await searchBooksCatalog(queryText);
-    setResults(res.results.slice(0, 12));
-    setSearching(false);
-  };
-
   return (
-    <div style={{ position: 'relative', height: '100%', background: '#09060E', color: AppColors.petalWhite, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100%', background: BookColors.black, color: AppColors.petalWhite, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div
         style={{
           position: 'absolute',
@@ -58,14 +101,14 @@ export function OurBooksPage() {
         }}
       />
 
-      <div style={{ position: 'relative', padding: '12px 20px 6px', display: 'flex', alignItems: 'center' }}>
+      <div style={{ position: 'relative', padding: '12px 20px 6px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center' }}>
         <button
           type="button"
           className="bare-button"
           onClick={() => (canPop() ? navigate(-1) : navigate('/books'))}
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 99,
             background: 'rgba(255,255,255,0.02)',
             border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.1)}`,
@@ -81,19 +124,21 @@ export function OurBooksPage() {
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <span style={{ width: 4, height: 4, borderRadius: 99, background: AppColors.deepRose }} />
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, color: withAlpha(AppColors.roseQuartz, 0.6) }}>
-              {userName === 'khentsgdz' ? 'KHENT & CLAIR' : 'CLAIR & KHENT'}
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: withAlpha(AppColors.roseQuartz, 0.6) }}>
+              {coupleLabel(userName)}
             </span>
             <span style={{ width: 4, height: 4, borderRadius: 99, background: AppColors.deepRose }} />
           </div>
         </div>
         <button
+          ref={addTriggerRef}
           type="button"
           className="bare-button"
+          aria-label="Add a book"
           onClick={() => setAddOpen(true)}
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 99,
             background: 'rgba(255,255,255,0.02)',
             border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.1)}`,
@@ -125,6 +170,7 @@ export function OurBooksPage() {
                 key={label}
                 type="button"
                 className="bare-button"
+                aria-pressed={active}
                 onClick={() => setTab(idx)}
                 style={{
                   flex: 1,
@@ -163,15 +209,62 @@ export function OurBooksPage() {
         </div>
       </div>
 
+      <div style={{ position: 'relative', margin: '2px 20px 12px', padding: 14, borderRadius: 18, background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.deepRose, 0.28)}` }}>
+        <div style={{ fontFamily: Fonts.display, fontSize: 17, fontWeight: 700, color: AppColors.petalWhite }}>A little reading life</div>
+        <div style={{ fontSize: 12.5, color: withAlpha(AppColors.roseQuartz, 0.85), marginTop: 3 }}>
+          {readTogetherThisYear} book{readTogetherThisYear === 1 ? '' : 's'} read together this year · {toReadList.length} waiting on the shelf
+        </div>
+        <div style={{ height: 4, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 10, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, (readTogetherThisYear / goal) * 100)}%`, background: AppColors.deepRose }} />
+        </div>
+        <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11.5, color: withAlpha(AppColors.roseQuartz, 0.82) }}>
+          {bothFinished > 0 && <span>♥ {bothFinished} finished together</span>}
+          {activeMonths > 0 && <span>· {activeMonths} active {activeMonths === 1 ? 'month' : 'months'}</span>}
+          {topGenre && <span>· a fondness for {topGenre.toLowerCase()}</span>}
+        </div>
+      </div>
+
       <div style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: '8px 20px 100px' }}>
-        {shown.length === 0 ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center', color: withAlpha(AppColors.roseQuartz, 0.6) }}>
-            {tab === 0 ? 'Nothing on your shared reading list yet.' : 'No finished books yet.'}
+        {shown.length === 0 && (itemsLoading || itemsError) ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
+            {Boolean(itemsError) && (
+              <div style={{ textAlign: 'center', padding: 12, color: AppColors.error, fontSize: 13 }}>
+                Couldn’t load the shared shelf.{' '}
+                <button type="button" className="bare-button" onClick={() => setShelfRetry((k) => k + 1)} style={{ color: AppColors.roseQuartz, fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
+              </div>
+            )}
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 14, padding: 14, borderRadius: 18, background: withAlpha(AppColors.roseQuartz, 0.04) }}>
+                <div className="skeleton-pulse" style={{ width: 72, height: 108, borderRadius: 10, background: withAlpha(AppColors.roseQuartz, 0.1), flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div className="skeleton-pulse" style={{ height: 13, borderRadius: 6, background: withAlpha(AppColors.roseQuartz, 0.1), width: '70%' }} />
+                  <div className="skeleton-pulse" style={{ height: 10, borderRadius: 6, background: withAlpha(AppColors.roseQuartz, 0.1), width: '45%', marginTop: 10 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : shown.length === 0 ? (
+          <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ width: 68, height: 68, borderRadius: '50%', background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.15)}`, display: 'grid', placeItems: 'center' }}>
+              <Icon name="volunteer_activism" size={30} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+            </div>
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: AppColors.petalWhite, marginTop: 16 }}>
+              {tab === 0 ? 'Your shared shelf is waiting' : 'No finished books yet'}
+            </div>
+            <div style={{ fontSize: 13, color: AppColors.mutedPurple, marginTop: 6 }}>
+              {tab === 0 ? 'Add a book you both want to read. Mark it read when either of you finishes.' : 'Books you mark as read will appear here together.'}
+            </div>
+            {tab === 0 && (
+              <button type="button" className="bare-button" onClick={() => setAddOpen(true)} style={{ marginTop: 20, minHeight: 46, padding: '0 22px', borderRadius: 16, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700, fontSize: 13 }}>
+                Add your first book
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
             {shown.map((b) => {
-              const iRead = userName === 'khentsgdz' ? Boolean(b.khentReadAt) : Boolean(b.clairReadAt);
+              const storedRead = isKhent(userName) ? Boolean(b.khentReadAt) : Boolean(b.clairReadAt);
+              const iRead = readOverrides[b.workKey] ?? storedRead;
               return (
                 <div
                   key={b.id || b.workKey}
@@ -185,16 +278,20 @@ export function OurBooksPage() {
                     alignItems: 'center',
                   }}
                 >
-                  {b.coverUrl && (
-                    <img
-                      src={b.coverUrl}
-                      alt={b.title}
-                      onClick={() => navigate('/books/reader', { state: { book: ourBookToBookItem(b) } })}
-                      style={{ width: 72, height: 108, borderRadius: 10, objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }}
-                    />
-                  )}
+                  <button
+                    type="button"
+                    className="bare-button"
+                    aria-label={`Read ${b.title}`}
+                    onClick={() => navigate('/books/reader', { state: { book: ourBookToBookItem(b) } })}
+                    style={{ flexShrink: 0, borderRadius: 10 }}
+                  >
+                    <BookCover imageUrl={b.coverUrl} title={b.title} author={b.author} width={72} radius={10} />
+                  </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: AppColors.petalWhite }}>{b.title}</div>
+                    <div style={{ fontSize: 11, color: AppColors.mutedPurple, marginTop: 3 }}>
+                      <span style={{ fontSize: 12.5 }}>Added by {isKhent(b.addedBy) ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
                     <div style={{ marginTop: 6 }}>
                       <span
                         style={{
@@ -204,12 +301,12 @@ export function OurBooksPage() {
                           background: withAlpha(AppColors.deepRose, 0.14),
                           border: `1px solid ${withAlpha(AppColors.deepRose, 0.35)}`,
                           color: AppColors.roseQuartz,
-                          fontSize: 9.5,
+                          fontSize: 11,
                           fontWeight: 700,
                           letterSpacing: 0.7,
                         }}
                       >
-                        OPEN LIBRARY
+                        {(b.sourceLabel || 'OPEN LIBRARY').toUpperCase()}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
@@ -238,12 +335,17 @@ export function OurBooksPage() {
                           {name}
                         </span>
                       ))}
+                      {b.khentReadAt && b.clairReadAt && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 99, background: withAlpha(AppColors.deepRose, 0.16), border: `1px solid ${withAlpha(AppColors.deepRose, 0.45)}`, color: AppColors.roseQuartz, fontSize: 11, fontWeight: 700 }}>
+                          <Icon name="favorite" size={12} color={AppColors.roseQuartz} /> We both read it
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <button
                         type="button"
                         className="bare-button"
-                        onClick={() => void setOurBookReadFlag(b.workKey, userName, !iRead)}
+                        onClick={() => { setReadOverrides((o) => ({ ...o, [b.workKey]: !iRead })); void setOurBookReadFlag(b.workKey, userName, !iRead); }}
                         style={{
                           flex: 1,
                           display: 'flex',
@@ -265,10 +367,10 @@ export function OurBooksPage() {
                       <button
                         type="button"
                         className="bare-button"
-                        onClick={() => void removeFromOurBooks(b.workKey)}
+                        onClick={() => setPendingDelete(b)}
                         style={{
-                          width: 36,
-                          height: 36,
+                          width: 44,
+                          height: 44,
                           borderRadius: 10,
                           background: 'rgba(255,255,255,0.03)',
                           border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.14)}`,
@@ -293,19 +395,25 @@ export function OurBooksPage() {
           style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.75)', display: 'grid', placeItems: 'center', padding: 20 }}
         >
           <div
+            ref={addPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add to Our Books"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto', background: '#181022', borderRadius: 20, padding: 20, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}
+            style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto', outline: 'none', background: AppColors.shimmerBase, borderRadius: 20, padding: 20, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}
           >
             <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700 }}>Add to Our Books</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <input
+                aria-label="Search for a book"
                 value={queryText}
                 onChange={(e) => setQueryText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void runSearch()}
+                onKeyDown={(e) => e.key === 'Enter' && setSearchNowKey((k) => k + 1)}
                 placeholder="Search Open Library…"
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: '#09060E', border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: '#FFF', outline: 'none' }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, fontSize: 16, outlineOffset: 2 }}
               />
-              <button type="button" className="bare-button" onClick={() => void runSearch()} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: '#FFF', fontWeight: 700 }}>
+              <button type="button" className="bare-button" onClick={() => setSearchNowKey((k) => k + 1)} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700 }}>
                 Search
               </button>
             </div>
@@ -322,14 +430,62 @@ export function OurBooksPage() {
                   }}
                   style={{ display: 'flex', gap: 10, padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.04)', textAlign: 'left', alignItems: 'center' }}
                 >
-                  {r.coverUrl && <img src={r.coverUrl} alt={r.title} style={{ width: 38, height: 54, borderRadius: 6, objectFit: 'cover' }} />}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: AppColors.petalWhite }}>{r.title}</div>
+                  <BookCover imageUrl={r.coverUrl} title={r.title} author={r.author} width={38} radius={6} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="clamp-2" style={{ fontSize: 13.5, fontWeight: 700, color: AppColors.petalWhite }}>{r.title}</div>
                     <div style={{ fontSize: 11.5, color: AppColors.roseQuartz }}>{r.author}</div>
                   </div>
                   <Icon name="add" size={18} color={AppColors.roseQuartz} />
                 </button>
               ))}
+              {!searching && addSearchError && (
+                <div style={{ padding: '20px 4px', textAlign: 'center', fontSize: 12.5, color: AppColors.error }}>
+                  Couldn’t reach the catalogue. Try again in a moment.
+                </div>
+              )}
+              {!searching && !addSearchError && results.length === 0 && (
+                <div style={{ padding: '20px 4px', textAlign: 'center', fontSize: 12.5, color: AppColors.roseQuartz }}>
+                  {queryText.trim() ? 'No books found. Try another title or author.' : 'Type a title or author to find a book.'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          onClick={() => setPendingDelete(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 24 }}
+        >
+          <div
+            ref={confirmPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Remove book"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 380, background: AppColors.shimmerBase, borderRadius: 20, padding: 22, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}
+          >
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: AppColors.petalWhite }}>Remove from Our Books?</div>
+            <div style={{ fontSize: 13.5, color: AppColors.mutedPurple, marginTop: 8, lineHeight: 1.5 }}>
+              “{pendingDelete.title}” will be removed from the shelf you share. This can't be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button type="button" className="bare-button" onClick={() => setPendingDelete(null)} style={{ flex: 1, minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontWeight: 700, fontSize: 13 }}>
+                Keep it
+              </button>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => {
+                  void removeFromOurBooks(pendingDelete.workKey);
+                  setPendingDelete(null);
+                }}
+                style={{ flex: 1, minHeight: 46, borderRadius: 14, background: AppColors.error, color: '#FFF', fontWeight: 700, fontSize: 13 }}
+              >
+                Remove
+              </button>
             </div>
           </div>
         </div>

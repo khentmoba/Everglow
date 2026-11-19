@@ -20,10 +20,15 @@ function ClothCover({ title, author, width }: { title: string; author: string; w
   });
   if (width < 80) {
     return (
-      <div
-        style={{ position: 'absolute', inset: 0, background, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <Icon name="menu_book" size={width * 0.4} color={withAlpha(AppColors.auroraGold, 0.6)} />
+      <div style={{ position: 'absolute', inset: 0, background, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 5, boxSizing: 'border-box', gap: 5 }}>
+        <Icon name="menu_book" size={width * 0.32} color={withAlpha(AppColors.auroraGold, 0.6)} />
+        <div
+          className="clamp-3"
+          style={{ ...AppTypography.cormorantBold, color: AppColors.auroraGold, fontSize: Math.max(8, width * 0.13), lineHeight: 1.15, textAlign: 'center', width: '100%' }}
+        >
+          {title}
+        </div>
+        {author && <div className="ellipsis" style={{ ...AppTypography.outfitBold, color: withAlpha(AppColors.roseQuartz, 0.75), fontSize: 7, width: '100%', textAlign: 'center' }}>{author}</div>}
       </div>
     );
   }
@@ -101,17 +106,26 @@ export function BookCover({
   author = '',
   width,
   radius = 8,
+  eager = false,
 }: {
   imageUrl: string;
   title: string;
   author?: string;
   width: number;
   radius?: number;
+  eager?: boolean;
 }) {
   const viewport = useViewport();
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const showImage = imageUrl !== '' && !failed;
+  const isOlCover = imageUrl.includes('covers.openlibrary.org');
+  const coverSrc = isOlCover ? imageUrl.replace(/-(S|M|L)\.jpg/, width >= 180 ? '-L.jpg' : width >= 100 ? '-M.jpg' : '-S.jpg') : imageUrl;
+  const coverSrcSet = isOlCover
+    ? [['-S', '120'], ['-M', '300'], ['-L', '600']]
+        .map(([size, w]) => `${imageUrl.replace(/-(S|M|L)\.jpg/, `${size}.jpg`)} ${w}w`)
+        .join(', ')
+    : undefined;
   return (
     <div
       style={{
@@ -129,12 +143,15 @@ export function BookCover({
         {(!showImage || !loaded) && <ClothCover title={title} author={author} width={width} />}
         {showImage && (
           <img
-            src={imageUrl}
+            src={coverSrc}
+            srcSet={coverSrcSet}
+            sizes={`${width}px`}
             alt=""
-            loading="lazy"
+            loading={eager ? 'eager' : 'lazy'}
+            decoding="async"
             onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 260ms ease' }}
           />
         )}
         <div
@@ -162,6 +179,7 @@ export function BookCoverCard({
   height,
   statusBadge,
   badgeColor,
+  progress,
   onClick,
 }: {
   result?: BookSearchResult;
@@ -170,6 +188,7 @@ export function BookCoverCard({
   height?: number;
   statusBadge?: string;
   badgeColor?: string;
+  progress?: number;
   onClick: () => void;
 }) {
   const title = result?.title ?? item?.title ?? '';
@@ -184,7 +203,12 @@ export function BookCoverCard({
       style={{ width, height, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
     >
       <BookCover imageUrl={coverUrl} title={title} author={author} width={width} />
-      <div style={{ height: 10, flexShrink: 0 }} />
+      {progress != null && (
+        <div style={{ width, height: 3, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.14), marginTop: 6, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, Math.max(3, progress * 100))}%`, background: AppColors.warmAmber }} />
+        </div>
+      )}
+      <div style={{ height: progress != null ? 6 : 10, flexShrink: 0 }} />
       <div
         className="clamp-2"
         style={{
@@ -207,7 +231,7 @@ export function BookCoverCard({
             className="ellipsis"
             style={{
               ...AppTypography.outfitWhite,
-              color: AppColors.mutedPurple,
+              color: withAlpha(AppColors.roseQuartz, 0.82),
               fontSize: 10.5,
               lineHeight: lineHeight(10.5),
               flex: 1,
@@ -222,9 +246,9 @@ export function BookCoverCard({
           className="ellipsis"
           style={{
             ...AppTypography.outfitWhite,
-            color: AppColors.mutedPurple,
-            fontSize: 11,
-            lineHeight: lineHeight(11),
+            color: withAlpha(AppColors.roseQuartz, 0.82),
+            fontSize: 12,
+            lineHeight: lineHeight(12),
             paddingTop: 2,
             width: '100%',
           }}
@@ -232,6 +256,11 @@ export function BookCoverCard({
           {author}
         </div>
       ) : null}
+      {statusBadge == null && (result?.year || result?.rating || result?.ratingCount) && (
+        <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.85), fontSize: 12, lineHeight: lineHeight(12), paddingTop: 2, width: '100%' }}>
+          {[result?.year, result?.rating ? `★ ${result.rating.toFixed(1)}` : '', result?.ratingCount ? `${result.ratingCount >= 1000 ? `${(result.ratingCount / 1000).toFixed(0)}k` : result.ratingCount} downloads` : ''].filter(Boolean).join(' · ')}
+        </div>
+      )}
     </button>
   );
 }

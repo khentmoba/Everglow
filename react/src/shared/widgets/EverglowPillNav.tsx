@@ -22,7 +22,7 @@ export function EverglowPillNav({
         position: 'absolute',
         left: 16,
         right: 16,
-        bottom: 12,
+        bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
         zIndex: 5,
         padding: '6px 8px',
         borderRadius: 28,

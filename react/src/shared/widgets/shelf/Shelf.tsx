@@ -83,12 +83,14 @@ export function ShelfSectionHeader({
   subtitle,
   accent = AppColors.roseQuartz,
   onSeeAll,
+  seeAllLabel,
 }: {
   eyebrow: string;
   title: string;
   subtitle?: string;
   accent?: string;
   onSeeAll?: () => void;
+  seeAllLabel?: string;
 }) {
   return (
     <div role="heading" aria-level={2} style={{ display: 'flex', alignItems: 'center' }}>
@@ -106,10 +108,10 @@ export function ShelfSectionHeader({
         <div
           style={{
             ...AppTypography.outfitHeading,
-            fontSize: 9,
-            lineHeight: lineHeight(9),
+            fontSize: 11,
+            lineHeight: lineHeight(11),
             color: withAlpha(accent, 0.75),
-            letterSpacing: 2,
+            letterSpacing: 1.6,
             whiteSpace: 'nowrap',
           }}
         >
@@ -137,27 +139,28 @@ export function ShelfSectionHeader({
       {onSeeAll && (
         <>
           <div style={{ width: 8, flexShrink: 0 }} />
-          <SeeAllChip accent={accent} onClick={onSeeAll} />
+          <SeeAllChip accent={accent} onClick={onSeeAll} label={seeAllLabel ?? `See all ${title}`} />
         </>
       )}
     </div>
   );
 }
 
-function SeeAllChip({ accent, onClick }: { accent: string; onClick: () => void }) {
+function SeeAllChip({ accent, onClick, label }: { accent: string; onClick: () => void; label: string }) {
   const [hover, setHover] = useState(false);
   return (
     <button
       type="button"
       className="bare-button"
-      aria-label="See all"
-      title="See all"
+      aria-label={label}
+      title={label}
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         flexShrink: 0,
-        padding: '8.8px 12.8px',
+        minHeight: 44,
+        padding: '10px 14px',
         borderRadius: 14,
         background: hover ? withAlpha(accent, 0.14) : 'transparent',
         ...insetBorder(withAlpha(accent, hover ? 0.55 : 0.3), 0.8),

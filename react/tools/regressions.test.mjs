@@ -327,10 +327,41 @@ test('BookReaderPage splits chapters with TOC/TTS and direct-entry canPop back b
 
     await page.waitForSelector('text=CHAPTER I', { timeout: 10_000 });
     await page.waitForSelector('text=Next →', { timeout: 5_000 });
-    await page.locator('button[title="Chapters"]').click();
-    await page.waitForSelector('text=CHAPTER II', { timeout: 5_000 });
-    await page.getByText('CHAPTER II').first().click();
+    await page.locator('button[aria-label="Reading menu"]').click();
+    const chaptersMenu = page.getByRole('dialog', { name: 'Reading menu' });
+    await chaptersMenu.waitFor({ state: 'visible', timeout: 5_000 });
+    await chaptersMenu.getByText('CHAPTER II', { exact: true }).click();
     await page.waitForSelector('text=I am already far north of London', { timeout: 5_000 });
+
+    // The reader reflows text into paragraphs set in the dedicated reading font.
+    const bodyFont = await page.locator('article p').first().evaluate((el) => getComputedStyle(el).fontFamily);
+    assert.match(bodyFont, /DM Sans/, `reader body should use the reading font, got ${bodyFont}`);
+
+    // Reading settings live in a sheet, can be changed, and close with Escape.
+    await page.locator('button[aria-label="Reading settings"]').click();
+    await page.waitForSelector('[role="dialog"][aria-label="Reading settings"]', { timeout: 5_000 });
+    await page.locator('button[aria-label="Increase Text size"]').click();
+    const bodySize = await page.locator('article p').first().evaluate((el) => getComputedStyle(el).fontSize);
+    assert.equal(bodySize, '19px', `text size should grow from 18px to 19px, got ${bodySize}`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="dialog"][aria-label="Reading settings"]', { state: 'detached', timeout: 5_000 });
+
+    // Bookmarks and in-book search live in the single Reading menu.
+    await page.locator('button[aria-label="Reading menu"]').click();
+    const readingMenu = page.getByRole('dialog', { name: 'Reading menu' });
+    await readingMenu.waitFor({ state: 'visible', timeout: 5_000 });
+    await readingMenu.getByRole('button', { name: /Bookmark/ }).first().click();
+    await readingMenu.getByRole('button', { name: /Bookmarked/ }).first().waitFor({ timeout: 5_000 });
+    await readingMenu.getByRole('button', { name: /Search in book/ }).first().click();
+    await page.waitForSelector('[role="dialog"][aria-label="Search in book"]', { timeout: 5_000 });
+    await page.locator('input[aria-label="Search in book"]').fill('north');
+    await page.waitForSelector('text=I am already far north of London', { timeout: 5_000 });
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="dialog"][aria-label="Search in book"]', { state: 'detached', timeout: 5_000 });
+
+    // A book with saved progress shows a one-tap Continue reading card on Home.
+    await page.goto(`${baseUrl}/books?agent=1`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=CONTINUE READING', { timeout: 10_000 });
 
     for (const [routePath, backSelector, expectedTarget] of [
       ['/motchi-minis?agent=1', 'button[aria-label="Back"]', '/motchi'],

@@ -10,26 +10,36 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
   type DocumentData,
+  type DocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Prefs } from '../../core/system/prefs';
+import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import {
   buildReadCandidates,
+  isKhent,
   type BookItem,
   type BookSearchResult,
   type OurBooksItem,
 } from './bookTypes';
+import type { ReaderBookmark, ReaderHighlight, ReaderProgress } from './readerPrefs';
 
 const CATALOG_PROXY = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyCatalog';
 const BOOK_TEXT_PROXY = 'https://everglow-1c6db.web.app/api/proxyBookText';
-const OL_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn';
+const OL_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn,language,ratings_average,ratings_count';
+
+let lastCatalogFailure = 0;
+/** True when a catalogue call failed recently, so an empty result can show a retry instead of "no results". */
+export const catalogFailedRecently = (withinMs = 20000): boolean => Date.now() - lastCatalogFailure < withinMs;
+export const catalogFailureAt = (): number => lastCatalogFailure;
 
 async function catalogGet(source: 'openlibrary' | 'gutendex' | 'archive', path: string, params?: Record<string, string>): Promise<Record<string, unknown> | null> {
   const user = auth.currentUser;
@@ -39,13 +49,21 @@ async function catalogGet(source: 'openlibrary' | 'gutendex' | 'archive', path: 
     const token = user ? await user.getIdToken().catch(() => null) : null;
     const headers: Record<string, string> = { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
     const resp = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
-    if (!resp.ok) return null;
-    return (await resp.json()) as Record<string, unknown>;
+    if (!resp.ok) {
+      lastCatalogFailure = Date.now();
+      return null;
+    }
+    const data = (await resp.json()) as Record<string, unknown>;
+    lastCatalogFailure = 0;
+    return data;
   } catch (e) {
     Logger.w(`Catalog proxy failed (${source}/${path}): ${String(e)}`);
+    lastCatalogFailure = Date.now();
     return null;
   }
 }
+
+const GUTENDEX_LANG: Record<string, string> = { eng: 'en', spa: 'es', fre: 'fr', ger: 'de', chi: 'zh', jpn: 'ja' };
 
 function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const workKey = String(d.key ?? '');
@@ -55,9 +73,9 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const coverOlid = typeof d.cover_edition_key === 'string' ? d.cover_edition_key : '';
   const coverUrl =
     coverId > 0
-      ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+      ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
       : coverOlid
-        ? `https://covers.openlibrary.org/b/olid/${coverOlid}-L.jpg`
+        ? `https://covers.openlibrary.org/b/olid/${coverOlid}-M.jpg`
         : '';
   const yr = Number(d.first_publish_year ?? 0);
   const year = yr >= 1400 && yr <= new Date().getFullYear() + 1 ? String(yr) : '';
@@ -66,12 +84,21 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const subjects = Array.isArray(d.subject) ? d.subject.slice(0, 8).map(String) : [];
   const pubs = Array.isArray(d.publisher) ? d.publisher.map(String) : [];
   const isbns = Array.isArray(d.isbn) ? d.isbn.map(String) : [];
+  const langs = Array.isArray(d.language) ? d.language.map(String) : [];
+  const ratingAvg = Number(d.ratings_average ?? 0);
+  const ratingsCount = Number(d.ratings_count ?? 0);
   return {
+    rating: ratingAvg > 0 ? ratingAvg : undefined,
+    ratingsCount: ratingsCount > 0 ? ratingsCount : undefined,
     title,
-    author: authors[0] ?? '',
+    author: (() => {
+      const raw = authors[0] ?? '';
+      const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      return parts.length === 2 ? `${parts[1]} ${parts[0]}` : raw;
+    })(),
     coverUrl,
     year,
-    language: '',
+    language: langs[0] ?? '',
     publisher: pubs[0] ?? '',
     pageCount: 0,
     filetype: '',
@@ -127,6 +154,26 @@ function mapGutendexBook(b: Record<string, unknown>): BookSearchResult {
   };
 }
 
+function demoBooks(limitCount: number): BookSearchResult[] {
+  const docs = [
+    { key: '/works/demo0', title: 'Frankenstein', author_name: ['Mary Shelley'], first_publish_year: 1818, ia: ['pg84'], subject: ['Gothic'] },
+    { key: '/works/demo1', title: 'The Night Garden', author_name: ['A. Lane'], first_publish_year: 2019, ia: ['demo1'], subject: ['Fantasy', 'Adventure'] },
+    { key: '/works/demo2', title: 'Letters to Tomorrow', author_name: ['M. Rivera'], first_publish_year: 2021, ia: ['demo2'], subject: ['Romance', 'Literary Fiction'] },
+    { key: '/works/demo3', title: 'The Quiet Observatory', author_name: ['S. Okafor'], first_publish_year: 2020, ia: ['demo3'], subject: ['Science Fiction'] },
+    { key: '/works/demo4', title: 'A Map of Small Things', author_name: ['J. Bell'], first_publish_year: 2018, ia: ['demo4'], subject: ['Memoir'] },
+    { key: '/works/demo5', title: 'Winter Light', author_name: ['K. Adeyemi'], first_publish_year: 2022, ia: ['demo5'], subject: ['Mystery'] },
+  ];
+  const blurbs: Record<string, string> = {
+    '/works/demo0': 'A young scientist discovers the cost of playing God, in a story that still haunts readers two centuries later.',
+    '/works/demo1': 'A quiet novel about grief, greenhouses, and the people who grow things back from nothing.',
+    '/works/demo2': 'Letters sent into the future carry a love that refuses to be left behind.',
+    '/works/demo3': 'At the edge of the known sky, an observatory keeper listens for something that should not exist.',
+    '/works/demo4': 'A tender map of ordinary things, and the lives tucked quietly inside them.',
+    '/works/demo5': 'When the snows arrive, a small town remembers what it tried to forget.',
+  };
+  return docs.slice(0, limitCount).map((d) => ({ ...mapOlDoc(d), description: blurbs[d.key] ?? '' }));
+}
+
 // book_catalog_service.dart `_dedupeKey`.
 function dedupeKey(r: BookSearchResult): string {
   const t = r.title.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -155,6 +202,8 @@ function mergeResults(results: BookSearchResult[]): BookSearchResult[] {
       filetype: a.filetype || r.filetype,
       sizeMb: a.sizeMb ?? r.sizeMb,
       ratingCount: a.ratingCount ?? r.ratingCount,
+      rating: a.rating ?? r.rating,
+      ratingsCount: a.ratingsCount ?? r.ratingsCount,
       language: a.language || r.language,
       year: a.year || r.year,
       sourceLabel: a.sourceLabel || r.sourceLabel,
@@ -174,29 +223,32 @@ function olDocs(data: Record<string, unknown> | null): BookSearchResult[] {
 
 // BookCatalogService.mostPopular: Open Library "best" + Gutenberg's most
 // downloaded, merged, then most downloaded first.
-export async function fetchPopularBooks(limitCount = 12): Promise<BookSearchResult[]> {
+export async function fetchPopularBooks(limitCount = 12, offset = 0): Promise<BookSearchResult[]> {
+  if (AgentMode.demo) return demoBooks(limitCount + offset).slice(offset);
   const [ol, gut] = await Promise.all([
-    catalogGet('openlibrary', 'search.json', { subject: 'best', fields: OL_FIELDS, limit: '15', sort: 'trending' }),
+    catalogGet('openlibrary', 'search.json', { subject: 'best', fields: OL_FIELDS, limit: String(Math.min(limitCount + offset, 100)), sort: 'trending' }),
     catalogGet('gutendex', 'books', { sort: 'popular' }),
   ]);
   const gutDocs = Array.isArray(gut?.results)
-    ? (gut.results as Record<string, unknown>[]).slice(0, limitCount).map(mapGutendexBook).filter((x) => x.title)
+    ? (gut.results as Record<string, unknown>[]).slice(offset, offset + limitCount).map(mapGutendexBook).filter((x) => x.title)
     : [];
   const merged = mergeResults([...olDocs(ol), ...gutDocs]);
   merged.sort((a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0));
-  return merged.slice(0, limitCount);
+  return merged.slice(offset, offset + limitCount);
 }
 
 // OpenLibraryService.fetchRecent: trending works first published in the last
 // six years, with covers; falls back to trending fiction.
-export async function fetchRecentBooks(limitCount = 12): Promise<BookSearchResult[]> {
+export async function fetchRecentBooks(limitCount = 12, offset = 0): Promise<BookSearchResult[]> {
+  if (AgentMode.demo) return demoBooks(limitCount + offset).slice(offset);
   const nowYear = new Date().getFullYear();
   const usable = (r: BookSearchResult) => r.coverUrl !== '' && r.workKey.endsWith('W');
   const data = await catalogGet('openlibrary', 'search.json', {
     q: `first_publish_year:[${nowYear - 6} TO ${nowYear}]`,
     sort: 'trending',
     fields: OL_FIELDS,
-    limit: String(Math.min(Math.max(limitCount * 4, 1), 100)),
+    limit: String(Math.min(Math.max(limitCount * 4 + offset, 1), 100)),
+    ...(offset > 0 ? { offset: String(offset) } : {}),
   });
   const docs = Array.isArray(data?.docs)
     ? (data.docs as Record<string, unknown>[])
@@ -226,26 +278,133 @@ export async function fetchBooksBySubject(subject: string, limitCount = 24, offs
   return docs;
 }
 
-export async function searchBooksCatalog(queryText: string, opts?: { filetype?: string; language?: string; offset?: number; limit?: number }): Promise<{ results: BookSearchResult[]; total: number }> {
+export async function searchBooksCatalog(
+  queryText: string,
+  opts?: { filetype?: string; language?: string; title?: string; author?: string; isbn?: string; publisher?: string; offset?: number; limit?: number; sort?: 'relevant' | 'popular' | 'newest' },
+): Promise<{ results: BookSearchResult[]; total: number }> {
   const q = queryText.trim();
   if (!q) return { results: [], total: 0 };
+  if (AgentMode.demo) {
+    const list = demoBooks(30).filter((r) => r.title.toLowerCase().includes(q.toLowerCase()) || r.author.toLowerCase().includes(q.toLowerCase()));
+    return { results: list, total: list.length };
+  }
   const lim = opts?.limit ?? 30;
   const off = opts?.offset ?? 0;
+  const lang = opts?.language;
+  const gutLang = lang ? GUTENDEX_LANG[lang] : undefined;
+  const olSort = opts?.sort === 'newest' ? 'new' : opts?.sort === 'popular' ? 'rating' : undefined;
+
+  const olParams: Record<string, string> = {
+    q,
+    fields: OL_FIELDS,
+    limit: String(lim),
+    ...(olSort ? { sort: olSort } : {}),
+    ...(off > 0 ? { offset: String(off) } : {}),
+    ...(lang ? { language: lang } : {}),
+    ...(opts?.title ? { title: opts.title } : {}),
+    ...(opts?.author ? { author: opts.author } : {}),
+    ...(opts?.isbn ? { isbn: opts.isbn } : {}),
+    ...(opts?.publisher ? { publisher: opts.publisher } : {}),
+  };
 
   const [ol, gut] = await Promise.all([
-    catalogGet('openlibrary', 'search.json', { q, fields: OL_FIELDS, limit: String(lim), ...(off > 0 ? { offset: String(off) } : {}) }),
+    catalogGet('openlibrary', 'search.json', olParams),
     off === 0 ? catalogGet('gutendex', 'books', { search: q }) : Promise.resolve(null),
   ]);
 
   const olDocs = Array.isArray(ol?.docs) ? (ol.docs as Record<string, unknown>[]).map(mapOlDoc).filter((x) => x.title) : [];
-  const gutDocs = Array.isArray(gut?.results) ? (gut.results as Record<string, unknown>[]).map(mapGutendexBook).filter((x) => x.title) : [];
+  const gutRaw = Array.isArray(gut?.results) ? (gut.results as Record<string, unknown>[]) : [];
+  const gutDocs = gutRaw
+    .filter((b) => {
+      if (!gutLang) return true;
+      const langs = Array.isArray(b.languages) ? b.languages.map(String) : [];
+      return langs.includes(gutLang);
+    })
+    .map(mapGutendexBook)
+    .filter((x) => x.title);
   const total = Number(ol?.numFound ?? olDocs.length) + gutDocs.length;
 
-  let merged = [...olDocs, ...gutDocs];
+  let merged = mergeResults([...olDocs, ...gutDocs]);
   if (opts?.filetype) {
-    merged = merged.filter((r) => !r.filetype || r.filetype.toLowerCase() === opts.filetype!.toLowerCase());
+    const format = opts.filetype.toLowerCase();
+    merged = merged.filter((r) => Boolean(r.filetype) && r.filetype.toLowerCase() === format);
+  }
+  if (opts?.publisher) {
+    const pub = opts.publisher.toLowerCase();
+    merged = merged.filter((r) => r.publisher.toLowerCase().includes(pub));
+  }
+  if (opts?.isbn) {
+    const isbn = opts.isbn.replace(/[^0-9Xx]/g, '');
+    merged = merged.filter((r) => r.isbn.replace(/[^0-9Xx]/g, '').includes(isbn) || r.isbn13.replace(/[^0-9Xx]/g, '').includes(isbn));
   }
   return { results: merged, total };
+}
+
+/** Resolve a workKey from a deep link (e.g. /books/detail?workKey=pg:84) without router state. */
+export async function resolveBookByWorkKey(workKey: string): Promise<BookSearchResult | null> {
+  if (!workKey) return null;
+  if (workKey.startsWith('pg:')) {
+    const id = workKey.slice(3);
+    const data = await catalogGet('gutendex', `books/${id}`);
+    return data ? mapGutendexBook(data) : null;
+  }
+  if (workKey.startsWith('/works/')) {
+    const data = await catalogGet('openlibrary', `${workKey.slice(1)}.json`);
+    if (!data) return null;
+    const coverId = Array.isArray(data.covers) ? Number(data.covers[0]) : 0;
+    const desc = data.description;
+    const subjects = Array.isArray(data.subjects) ? data.subjects.map(String).slice(0, 8) : [];
+    const yr = Number(data.first_publish_year ?? 0);
+    return {
+      title: String(data.title ?? ''),
+      author: '',
+      coverUrl: coverId > 0 ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : '',
+      year: yr >= 1400 && yr <= new Date().getFullYear() + 1 ? String(yr) : '',
+      language: '',
+      publisher: '',
+      pageCount: 0,
+      filetype: '',
+      description: typeof desc === 'string' ? desc : String((desc as Record<string, unknown> | undefined)?.value ?? ''),
+      subjects,
+      isbn: '',
+      isbn13: '',
+      categories: subjects.slice(0, 3),
+      sourceLabel: 'Open Library',
+      workKey,
+      iaId: '',
+      gutenbergId: 0,
+      downloadUrls: {},
+      readCandidates: [],
+    };
+  }
+  if (workKey.startsWith('ia:')) {
+    const id = workKey.slice(3);
+    const data = await catalogGet('archive', `metadata/${id}`);
+    if (!data) return null;
+    const meta = (data.metadata as Record<string, unknown> | undefined) ?? {};
+    return {
+      title: String(meta.title ?? id),
+      author: String(meta.creator ?? ''),
+      coverUrl: '',
+      year: String(meta.year ?? ''),
+      language: '',
+      publisher: String(meta.publisher ?? ''),
+      pageCount: 0,
+      filetype: '',
+      description: String(meta.description ?? ''),
+      subjects: [],
+      isbn: '',
+      isbn13: '',
+      categories: [],
+      sourceLabel: 'Internet Archive',
+      workKey,
+      iaId: id,
+      gutenbergId: 0,
+      downloadUrls: {},
+      readCandidates: buildReadCandidates({ readSourceUrl: '', iaId: id, workKey }),
+    };
+  }
+  return null;
 }
 
 export async function fetchBookDetails(result: BookSearchResult): Promise<BookSearchResult> {
@@ -290,6 +449,24 @@ export async function fetchBookDetails(result: BookSearchResult): Promise<BookSe
 
 export async function fetchBookText(candidates: string[]): Promise<{ text: string; usedUrl: string; error?: string }> {
   if (!candidates.length) return { text: '', usedUrl: '', error: 'No read source URLs available.' };
+  if (AgentMode.demo) {
+    const demoText = [
+      '*** START OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***',
+      '',
+      'CHAPTER I',
+      'You will rejoice to hear that no disaster has accompanied the commencement of an enterprise which you have regarded with such evil forebodings.',
+      '',
+      'I arrived here yesterday, and my first task is to assure my dear sister of my welfare and increasing confidence in the success of my undertaking.',
+      '',
+      'CHAPTER II',
+      'I am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze play upon my cheeks, which braces my nerves and fills me with delight.',
+      '',
+      'Do you understand this feeling? This breeze, which has travelled from the regions towards which I am advancing, gives me a foretaste of those icy climes.',
+      '',
+      '*** END OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***',
+    ].join('\n');
+    return { text: demoText, usedUrl: 'demo://frankenstein' };
+  }
   try {
     const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
     const resp = await fetch(BOOK_TEXT_PROXY, {
@@ -303,13 +480,23 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
     });
     if (resp.ok) {
       const data = (await resp.json()) as { text?: string; usedUrl?: string; error?: string };
-      if (data.text) return { text: data.text, usedUrl: data.usedUrl ?? '' };
+      if (data.text) {
+        const cacheKey = `book_text::${data.usedUrl ?? candidates[0]}`;
+        Prefs.set(cacheKey, { text: data.text, usedUrl: data.usedUrl ?? candidates[0] });
+        return { text: data.text, usedUrl: data.usedUrl ?? '' };
+      }
       return { text: '', usedUrl: '', error: data.error || 'Proxy returned empty response.' };
     }
   } catch (e) {
     Logger.w(`proxyBookText failed: ${String(e)}`);
   }
-  return { text: '', usedUrl: '', error: `Tried ${candidates.length} source(s); none responded with readable text.` };
+  for (const url of candidates) {
+    const cached = Prefs.get(`book_text::${url}`);
+    if (cached && typeof cached === 'object' && typeof (cached as { text?: unknown }).text === 'string') {
+      return { text: (cached as { text: string }).text, usedUrl: url };
+    }
+  }
+  return { text: '', usedUrl: '', error: 'We couldn’t load the text right now.' };
 }
 
 // ---------- User Book Library & Our Books (Firestore + Agent Mode) ----------
@@ -327,7 +514,7 @@ let demoOurBooks: OurBooksItem[] = [
     iaId: '',
     title: 'A fictional reading adventure',
     author: '',
-    coverUrl: '/images/demo/poster-1.jpg',
+    coverUrl: '',
     year: '',
     subjects: [],
     addedBy: 'khentsgdz',
@@ -386,6 +573,92 @@ export const watchReadList = (u: string) => watchUserBookCol('read_list', u, dem
 export const watchBookFavorites = (u: string) => watchUserBookCol('book_favorites', u, demoFavorites);
 export const watchBookDownloads = (u: string) => watchUserBookCol('book_download_history', u, demoDownloads);
 
+export interface SyncedReaderState {
+  progress: ReaderProgress | null;
+  bookmarks: ReaderBookmark[];
+  highlights: ReaderHighlight[];
+}
+
+const EMPTY_READER_STATE: SyncedReaderState = { progress: null, bookmarks: [], highlights: [] };
+const READER_STATE_COL = 'reader_state';
+const readerStateId = (userName: string, workKey: string) => `${encodeURIComponent(userName)}__${encodeURIComponent(workKey)}`;
+
+function mapReaderState(data: Record<string, unknown> | undefined): SyncedReaderState {
+  if (!data) return EMPTY_READER_STATE;
+  return {
+    progress: (data.progress as ReaderProgress) ?? null,
+    bookmarks: Array.isArray(data.bookmarks) ? (data.bookmarks as ReaderBookmark[]) : [],
+    highlights: Array.isArray(data.highlights) ? (data.highlights as ReaderHighlight[]) : [],
+  };
+}
+
+/** Reading position and marks follow the couple across phone and tablet. */
+export function watchReaderState(userName: string, workKey: string): Source<SyncedReaderState> {
+  if (!userName || !workKey || AgentMode.demo) return just(EMPTY_READER_STATE);
+  return withFirestoreTimeout(
+    (l) =>
+      onSnapshot(
+        doc(db, READER_STATE_COL, readerStateId(userName, workKey)),
+        (snap) => l.data(mapReaderState(snap.data())),
+        (e) => l.error?.(e),
+      ),
+    { label: 'reader-state' },
+  );
+}
+
+/** A single goal shared by both partners, stored for the couple rather than per device. */
+export function watchCoupleGoal(): Source<number> {
+  if (AgentMode.demo) return just(12);
+  return withFirestoreTimeout(
+    snapshots<DocumentSnapshot, number>(
+      (next, err) => onSnapshot(doc(db, 'couple_prefs', 'main'), next, err),
+      (s) => {
+        const value = Number(s.data()?.goal ?? 12);
+        return Number.isFinite(value) && value > 0 ? value : 12;
+      },
+    ),
+    { label: 'couple-goal' },
+  );
+}
+
+export async function saveCoupleGoal(goal: number): Promise<void> {
+  if (AgentMode.demo) return;
+  try {
+    await setDoc(doc(db, 'couple_prefs', 'main'), { goal }, { merge: true });
+  } catch (e) {
+    Logger.w(`saveCoupleGoal failed: ${String(e)}`);
+  }
+}
+
+/** All recent reading states for the couple, newest first — feeds Home's Continue Reading. */
+export function watchAllReaderProgress(limitCount = 20): Source<ReaderProgress[]> {
+  if (AgentMode.demo) return just([]);
+  return withFirestoreTimeout(
+    snapshots<QuerySnapshot<DocumentData>, ReaderProgress[]>(
+      (next, err) => onSnapshot(query(collection(db, READER_STATE_COL), orderBy('updatedAt', 'desc'), limit(limitCount)), next, err),
+      (s) =>
+        s.docs
+          .map((d) => (d.data().progress as ReaderProgress | undefined))
+          .filter((p): p is ReaderProgress => Boolean(p?.title && p?.workKey))
+          .slice(0, limitCount),
+    ),
+    { label: 'all-reader-state' },
+  );
+}
+
+export async function saveReaderState(userName: string, workKey: string, state: SyncedReaderState): Promise<void> {
+  if (!userName || !workKey || AgentMode.demo) return;
+  try {
+    await setDoc(
+      doc(db, READER_STATE_COL, readerStateId(userName, workKey)),
+      { ...state, userName, workKey, updatedAt: Date.now() },
+      { merge: true },
+    );
+  } catch (e) {
+    Logger.w(`saveReaderState failed: ${String(e)}`);
+  }
+}
+
 export async function saveToReadList(item: BookItem, status: string, userName: string): Promise<void> {
   if (!userName) return;
   if (AgentMode.demo) {
@@ -423,6 +696,17 @@ export async function saveToReadList(item: BookItem, status: string, userName: s
       addedAt: serverTimestamp(),
     });
   }
+}
+
+export async function removeFromReadList(workKey: string, userName: string): Promise<void> {
+  if (!userName || !workKey) return;
+  if (AgentMode.demo) {
+    demoReadlist.set(userName, (demoReadlist.get(userName) ?? []).filter((b) => b.workKey !== workKey));
+    demoBookChanges.emit();
+    return;
+  }
+  const existing = await getDocs(query(collection(db, 'read_list'), where('workKey', '==', workKey), where('userName', '==', userName), limit(10)));
+  for (const d of existing.docs) await deleteDoc(d.ref);
 }
 
 export async function toggleBookFavorite(item: BookItem, userName: string, add: boolean): Promise<void> {
@@ -528,6 +812,7 @@ export function watchOurBooks(limitCount = 300): Source<OurBooksItem[]> {
             subjects: Array.isArray(data.subjects) ? data.subjects.map(String) : [],
             addedBy: String(data.addedBy ?? ''),
             addedAt: tsAdded?.toDate ? tsAdded.toDate() : new Date(),
+            sourceLabel: String(data.sourceLabel ?? ''),
             khentReadAt: tsK?.toDate ? tsK.toDate() : undefined,
             clairReadAt: tsC?.toDate ? tsC.toDate() : undefined,
           };
@@ -553,6 +838,7 @@ export async function addToOurBooks(item: BookItem, addedBy: string): Promise<vo
           subjects: item.subjects,
           addedBy,
           addedAt: new Date(),
+          sourceLabel: item.readSourceLabel,
         },
         ...demoOurBooks,
       ];
@@ -578,6 +864,7 @@ export async function addToOurBooks(item: BookItem, addedBy: string): Promise<vo
         subjects: item.subjects,
         addedBy,
         addedAt: serverTimestamp(),
+        sourceLabel: item.readSourceLabel,
       });
     }
   });
@@ -589,7 +876,7 @@ export async function setOurBookReadFlag(workKey: string, userName: string, read
       b.workKey === workKey
         ? {
             ...b,
-            ...(userName === 'khentsgdz'
+            ...(isKhent(userName)
               ? { khentReadAt: read ? new Date() : undefined }
               : { clairReadAt: read ? new Date() : undefined }),
           }
@@ -600,7 +887,7 @@ export async function setOurBookReadFlag(workKey: string, userName: string, read
   }
   const snap = await getDocs(query(collection(db, 'our_books'), where('workKey', '==', workKey), limit(1)));
   if (!snap.docs.length) return;
-  const field = userName === 'khentsgdz' ? 'khentReadAt' : 'clairReadAt';
+  const field = isKhent(userName) ? 'khentReadAt' : 'clairReadAt';
   await updateDoc(snap.docs[0].ref, { [field]: read ? serverTimestamp() : null });
 }
 

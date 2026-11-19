@@ -1,4 +1,4 @@
-import { AppColors } from '../../core/theme/colors';
+import { AppColors, withAlpha } from '../../core/theme/colors';
 
 export const BookColors = {
   black: '#080810',
@@ -7,7 +7,7 @@ export const BookColors = {
   deepRose: AppColors.deepRose,
   amber: AppColors.warmAmber,
   white: AppColors.petalWhite,
-  muted: AppColors.mutedPurple,
+  muted: withAlpha(AppColors.roseQuartz, 0.82),
   pink: '#FF6B9D',
   cyan: '#22D3EE',
   gold: '#F59E0B',
@@ -44,6 +44,8 @@ export interface BookSearchResult {
   filetype: string;
   sizeMb?: number;
   ratingCount?: number;
+  rating?: number;
+  ratingsCount?: number;
   description: string;
   subjects: string[];
   isbn: string;
@@ -69,6 +71,7 @@ export interface OurBooksItem {
   subjects: string[];
   addedBy: string;
   addedAt: Date;
+  sourceLabel?: string;
   khentReadAt?: Date;
   clairReadAt?: Date;
 }
@@ -80,6 +83,11 @@ export interface BookCategory {
   color: string;
 }
 
+export const KHENT_USER = 'khentsgdz';
+export const isKhent = (userName: string): boolean => userName === KHENT_USER;
+export const partnerName = (userName: string): string => (isKhent(userName) ? 'Clair' : 'Khent');
+export const coupleLabel = (userName: string): string => (isKhent(userName) ? 'KHENT & CLAIR' : 'CLAIR & KHENT');
+
 export const BOOK_CATEGORIES: BookCategory[] = [
   { name: 'Romance', query: 'romance', icon: 'favorite', color: '#E91E63' },
   { name: 'Mystery', query: 'mystery', icon: 'search', color: '#7B1FA2' },
@@ -87,7 +95,7 @@ export const BOOK_CATEGORIES: BookCategory[] = [
   { name: 'Fantasy', query: 'fantasy', icon: 'auto_awesome', color: '#3949AB' },
   { name: 'Classics', query: 'classics', icon: 'menu_book', color: '#E8C97A' },
   { name: 'Adventure', query: 'adventure', icon: 'explore', color: '#EF6C00' },
-  { name: 'Horror', query: 'horror', icon: 'brightness_3', color: AppColors.twilight },
+  { name: 'Horror', query: 'horror', icon: 'brightness_3', color: AppColors.softLavender },
   { name: 'Poetry', query: 'poetry', icon: 'auto_awesome_motion', color: AppColors.softLavender },
   { name: 'History', query: 'history', icon: 'account_balance', color: '#5D4037' },
   { name: 'Biography', query: 'biography', icon: 'person', color: AppColors.cinemaBlue },
@@ -211,6 +219,6 @@ export function ourBookToBookItem(b: OurBooksItem): BookItem {
     userName: b.addedBy,
     addedAt: b.addedAt,
     readSourceUrl: '',
-    readSourceLabel: b.iaId ? 'Internet Archive' : b.workKey ? 'Open Library' : '',
+    readSourceLabel: b.sourceLabel || (b.iaId ? 'Internet Archive' : b.workKey ? 'Open Library' : ''),
   };
 }
