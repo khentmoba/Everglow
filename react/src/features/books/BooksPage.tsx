@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { Align, linear, lineHeight } from '../../core/theme/paint';
@@ -36,6 +37,7 @@ import {
   fetchPopularBooks,
   fetchRecentBooks,
   searchBooksCatalog,
+  watchAllReaderProgress,
   watchBookDownloads,
   watchBookFavorites,
   watchReadList,
@@ -255,6 +257,15 @@ export function BooksPage() {
   const [homeError, setHomeError] = useState(false);
   const [homeRetryKey, setHomeRetryKey] = useState(0);
   const [slowLoad, setSlowLoad] = useState(false);
+  const [goal, setGoalState] = useState(() => {
+    const saved = Prefs.get('books_goal');
+    return typeof saved === 'number' && saved > 0 ? saved : 12;
+  });
+  const setGoal = (next: number) => {
+    const value = Math.max(1, Math.min(52, next));
+    setGoalState(value);
+    Prefs.set('books_goal', value);
+  };
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
@@ -310,20 +321,28 @@ export function BooksPage() {
   }, [homeRetryKey]);
 
   useEffect(() => {
-    const subject = readHistoryList[0]?.subjects[0];
-    if (!subject) {
+    const counts = new Map<string, number>();
+    for (const b of [...readHistoryList, ...favorites]) {
+      for (const s of b.subjects.slice(0, 3)) counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    const subjects = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([s]) => s);
+    if (subjects.length === 0) {
       setBecause([]);
       return;
     }
     let alive = true;
-    void fetchBooksBySubject(subject, 10).then((list) => {
-      if (alive) setBecause(list.filter((r) => !readHistoryList.some((b) => b.workKey === r.workKey)).slice(0, 8));
+    void Promise.all(subjects.map((s) => fetchBooksBySubject(s, 10))).then((pages) => {
+      if (!alive) return;
+      const seen = new Set([...readHistoryList, ...favorites].map((b) => b.workKey));
+      const merged = pages.flat().filter((r) => r.title && !seen.has(r.workKey));
+      const unique = [...new Map(merged.map((r) => [r.workKey, r])).values()];
+      setBecause(unique.slice(0, 10));
     });
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readHistoryList.map((b) => b.workKey).join('|')]);
+  }, [readHistoryList.map((b) => b.workKey).join('|'), favorites.map((b) => b.workKey).join('|')]);
 
   useEffect(() => {
     const q = searchQuery.trim();
@@ -395,16 +414,23 @@ export function BooksPage() {
   }, [searchQuery, searchFormat, searchLang, searchOrder, appliedAdv, searchRetryKey, searchLimit]);
 
   const openDetails = (r: BookSearchResult) => {
-    navigate('/books/detail', { state: { result: r } });
+    navigate(`/books/detail?workKey=${encodeURIComponent(r.workKey)}`, { state: { result: r } });
   };
 
   const openItemDetails = (b: BookItem) => {
-    navigate('/books/detail', { state: { result: bookItemToSearchResult(b), saved: b } });
+    navigate(`/books/detail?workKey=${encodeURIComponent(b.workKey)}`, { state: { result: bookItemToSearchResult(b), saved: b } });
+  };
+
+  const openReader = (item: BookItem) => {
+    navigate(`/books/reader?workKey=${encodeURIComponent(item.workKey)}`, { state: { book: item } });
   };
 
   const spotlight = popular[0] ?? recent[0] ?? null;
   const showSkeleton = loadingHome && popular.length === 0 && recent.length === 0;
-  const progressMap = new Map(listProgress().map((p) => [p.workKey, p]));
+  const remoteProgress = useSource(() => watchAllReaderProgress(20), [userName], [] as ReaderProgress[]);
+  const progressMap = new Map<string, ReaderProgress>();
+  for (const p of listProgress()) progressMap.set(p.workKey, p);
+  for (const p of remoteProgress) progressMap.set(p.workKey, p);
   const resumeList = [...progressMap.values()].filter((p) => p.title !== '' && (p.chapter > 0 || p.scroll > 0)).slice(0, 3);
   const isTablet = width >= 700;
   const cols = width >= 1024 ? 7 : width >= 600 ? 5 : 3;
@@ -521,7 +547,7 @@ export function BooksPage() {
           {header}
           {homeSearch}
           {resumeList.slice(0, 3).map((p) => (
-            <ContinueReading key={p.workKey} progress={p} onOpen={() => navigate('/books/reader', { state: { book: progressToBookItem(p) } })} />
+            <ContinueReading key={p.workKey} progress={p} onOpen={() => openReader(progressToBookItem(p))} />
           ))}
           {homeError && (
             <div style={{ margin: '14px 20px 0', padding: 14, borderRadius: 16, background: withAlpha(AppColors.error, 0.1), border: `1px solid ${withAlpha(AppColors.error, 0.35)}`, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -568,7 +594,7 @@ export function BooksPage() {
             <StaggeredEntrance>
               <Spotlight
                 pick={spotlight}
-                onOpen={() => navigate('/books/reader', { state: { book: searchResultToBookItem(spotlight) } })}
+                onOpen={() => openReader(searchResultToBookItem(spotlight))}
                 onDetails={() => openDetails(spotlight)}
               />
             </StaggeredEntrance>
@@ -608,7 +634,7 @@ export function BooksPage() {
                     statusBadge={bookReadDisplay(b.status)}
                     badgeColor={readBadgeColor(b.status)}
                     progress={progressMap.get(b.workKey)?.scroll}
-                    onClick={() => navigate('/books/reader', { state: { book: b } })}
+                    onClick={() => openReader(b)}
                   />
                 ))}
               </Rail>
@@ -1075,9 +1101,15 @@ export function BooksPage() {
                 ))}
               </div>
               <div style={{ height: 5, borderRadius: 3, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 14, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, (readHistoryList.length / 12) * 100)}%`, background: AppColors.warmAmber }} />
+                <div style={{ height: '100%', width: `${Math.min(100, (readHistoryList.length / goal) * 100)}%`, background: AppColors.warmAmber }} />
               </div>
-              <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 6 }}>A gentle goal of 12 books this year — no pressure.</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), flex: 1 }}>
+                  A gentle goal of {goal} books this year — no pressure.
+                </span>
+                <button type="button" className="bare-button" aria-label="Lower reading goal" onClick={() => setGoal(goal - 1)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontSize: 16 }}>−</button>
+                <button type="button" className="bare-button" aria-label="Raise reading goal" onClick={() => setGoal(goal + 1)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontSize: 16 }}>+</button>
+              </div>
             </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '14px 0' }}>

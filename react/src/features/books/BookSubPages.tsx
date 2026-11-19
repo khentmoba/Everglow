@@ -161,7 +161,6 @@ export function BookDetailPage() {
     ['File', (result.filetype || (hasReadable ? 'EPUB' : '')).toUpperCase()],
     ['Source', result.sourceLabel],
     ['Year', result.year],
-    ['Source ID', result.gutenbergId > 0 ? String(result.gutenbergId) : ''],
   ].filter(([, v]) => Boolean(v)) as [string, string][];
 
   const copyShare = () => {
@@ -233,7 +232,7 @@ export function BookDetailPage() {
           )}
           {metaLine && <div style={{ fontSize: 12, color: BookColors.muted, marginTop: 8 }}>{metaLine}</div>}
           {result.ratingCount ? (
-            <div style={{ fontSize: 12, fontWeight: 700, color: BookColors.amber, marginTop: 8 }}>{result.ratingCount} readers</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: BookColors.amber, marginTop: 8 }}>{result.ratingCount} downloads</div>
           ) : null}
         </div>
 
@@ -243,7 +242,7 @@ export function BookDetailPage() {
               <button
                 type="button"
                 className="bare-button"
-                onClick={() => navigate('/books/reader', { state: { book: item } })}
+                onClick={() => navigate(`/books/reader?workKey=${encodeURIComponent(item.workKey)}`, { state: { book: item } })}
                 style={{
                   flex: 3,
                   display: 'inline-flex',
@@ -263,7 +262,7 @@ export function BookDetailPage() {
               <button
                 type="button"
                 className="bare-button"
-                onClick={() => navigate('/books/listen', { state: { book: item, listen: true } })}
+                onClick={() => navigate(`/books/listen?workKey=${encodeURIComponent(item.workKey)}`, { state: { book: item, listen: true } })}
                 style={{
                   flex: 2,
                   display: 'inline-flex',
@@ -512,6 +511,9 @@ function renderHighlighted(text: string, marks: ReaderHighlight[], accent: strin
     <>
       {text.slice(0, first.idx)}
       <mark
+        tabIndex={0}
+        role="button"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick(first.h); }}
         onClick={() => onPick(first.h)}
         style={{ background: withAlpha(accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
         title={first.h.note || 'Highlight — tap to add a note'}
@@ -547,6 +549,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [paused, setPaused] = useState(false);
   const [followChar, setFollowChar] = useState(-1);
   const [sleepMinutes, setSleepMinutes] = useState(0);
+  const [voiceUri, setVoiceUri] = useState('');
   const [scrollPct, setScrollPct] = useState(0);
   const [bookmarks, setBookmarks] = useState<ReturnType<typeof loadBookmarks>>([]);
   const [highlights, setHighlights] = useState<ReturnType<typeof loadHighlights>>([]);
@@ -1307,6 +1310,20 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             )}
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, color: AppColors.warmAmber, marginBottom: 6, marginTop: 4 }}>LISTENING &amp; MARKS</div>
             <div style={{ fontSize: 11.5, color: withAlpha(theme.fg, 0.65), marginBottom: 12 }}>Listen uses your device's voice to read the text aloud — no audiobook download needed.</div>
+            {WebTts.voices.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: withAlpha(theme.fg, 0.55), marginBottom: 6 }}>VOICE</div>
+                <select
+                  aria-label="Narration voice"
+                  value={voiceUri}
+                  onChange={(e) => { setVoiceUri(e.target.value); WebTts.setVoice(e.target.value); }}
+                  style={{ width: '100%', minHeight: 44, borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 13 }}
+                >
+                  <option value="">Device default</option>
+                  {WebTts.voices.map((v) => <option key={v.uri} value={v.uri}>{v.name} ({v.lang})</option>)}
+                </select>
+              </div>
+            )}
             {segmented<number>(
               'Narration speed',
               TTS_RATES.map((r) => ({ value: r as number, label: `${r}x` })),
@@ -1351,11 +1368,11 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                 type="button"
                 className="bare-button"
                 onClick={() => {
-                  const text = highlights.map((h) => `Chapter ${h.chapter + 1}\n“${h.text}”${h.note ? `\nNote: ${h.note}` : ''}`).join('\n\n');
-                  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+                  const text = `# ${book?.title ?? 'Highlights'}\n\n` + highlights.map((h) => `## Chapter ${h.chapter + 1}\n\n> ${h.text}${h.note ? `\n\n**Note:** ${h.note}` : ''}`).join('\n\n');
+                  const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = 'everglow-highlights.txt';
+                  a.download = 'everglow-highlights.md';
                   a.click();
                   URL.revokeObjectURL(url);
                 }}

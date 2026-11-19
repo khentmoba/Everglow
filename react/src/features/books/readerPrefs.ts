@@ -18,9 +18,14 @@ export interface ReaderSettings {
   pageTurn: boolean;
 }
 
+const timeOfDayTheme = (): ReaderTheme => {
+  const hour = new Date().getHours();
+  return hour >= 7 && hour < 19 ? 'sepia' : 'dark';
+};
+
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   fontSize: 18,
-  theme: 'dark',
+  theme: timeOfDayTheme(),
   font: 'modern',
   lineHeight: 1.7,
   ttsRate: 1,

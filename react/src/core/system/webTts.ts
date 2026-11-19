@@ -21,6 +21,7 @@ let active = false;
 let watchdog: number | null = null;
 let idleTicks = 0;
 let rate = 1.0;
+let voiceURI = '';
 
 const supported = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -82,6 +83,10 @@ function speakCurrent(opts: SpeakOptions) {
   utterance.onboundary = (e) => {
     if (token === currentSession) opts.onBoundary?.(offset + e.charIndex);
   };
+  if (voiceURI) {
+    const chosen = window.speechSynthesis.getVoices().find((v) => v.voiceURI === voiceURI);
+    if (chosen) utterance.voice = chosen;
+  }
   current = utterance;
   idleTicks = 0;
   window.speechSynthesis.speak(utterance);
@@ -115,6 +120,13 @@ export const WebTts = {
   },
   get rate() {
     return rate;
+  },
+  get voices(): { uri: string; name: string; lang: string }[] {
+    if (!supported()) return [];
+    return window.speechSynthesis.getVoices().map((v) => ({ uri: v.voiceURI, name: v.name, lang: v.lang }));
+  },
+  setVoice(uri: string) {
+    voiceURI = uri;
   },
 
   speak(text: string, opts: SpeakOptions = {}) {

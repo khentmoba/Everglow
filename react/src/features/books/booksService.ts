@@ -20,6 +20,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { Prefs } from '../../core/system/prefs';
 import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import {
   buildReadCandidates,
@@ -152,7 +153,15 @@ function demoBooks(limitCount: number): BookSearchResult[] {
     { key: '/works/demo4', title: 'A Map of Small Things', author_name: ['J. Bell'], first_publish_year: 2018, ia: ['demo4'], subject: ['Memoir'] },
     { key: '/works/demo5', title: 'Winter Light', author_name: ['K. Adeyemi'], first_publish_year: 2022, ia: ['demo5'], subject: ['Mystery'] },
   ];
-  return docs.slice(0, limitCount).map((d) => mapOlDoc(d));
+  const blurbs: Record<string, string> = {
+    '/works/demo0': 'A young scientist discovers the cost of playing God, in a story that still haunts readers two centuries later.',
+    '/works/demo1': 'A quiet novel about grief, greenhouses, and the people who grow things back from nothing.',
+    '/works/demo2': 'Letters sent into the future carry a love that refuses to be left behind.',
+    '/works/demo3': 'At the edge of the known sky, an observatory keeper listens for something that should not exist.',
+    '/works/demo4': 'A tender map of ordinary things, and the lives tucked quietly inside them.',
+    '/works/demo5': 'When the snows arrive, a small town remembers what it tried to forget.',
+  };
+  return docs.slice(0, limitCount).map((d) => ({ ...mapOlDoc(d), description: blurbs[d.key] ?? '' }));
 }
 
 // book_catalog_service.dart `_dedupeKey`.
@@ -441,11 +450,21 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
     });
     if (resp.ok) {
       const data = (await resp.json()) as { text?: string; usedUrl?: string; error?: string };
-      if (data.text) return { text: data.text, usedUrl: data.usedUrl ?? '' };
+      if (data.text) {
+        const cacheKey = `book_text::${data.usedUrl ?? candidates[0]}`;
+        Prefs.set(cacheKey, { text: data.text, usedUrl: data.usedUrl ?? candidates[0] });
+        return { text: data.text, usedUrl: data.usedUrl ?? '' };
+      }
       return { text: '', usedUrl: '', error: data.error || 'Proxy returned empty response.' };
     }
   } catch (e) {
     Logger.w(`proxyBookText failed: ${String(e)}`);
+  }
+  for (const url of candidates) {
+    const cached = Prefs.get(`book_text::${url}`);
+    if (cached && typeof cached === 'object' && typeof (cached as { text?: unknown }).text === 'string') {
+      return { text: (cached as { text: string }).text, usedUrl: url };
+    }
   }
   return { text: '', usedUrl: '', error: 'We couldn’t load the text right now.' };
 }
@@ -554,6 +573,22 @@ export function watchReaderState(userName: string, workKey: string): Source<Sync
         (e) => l.error?.(e),
       ),
     { label: 'reader-state' },
+  );
+}
+
+/** All recent reading states for the couple, newest first — feeds Home's Continue Reading. */
+export function watchAllReaderProgress(limitCount = 20): Source<ReaderProgress[]> {
+  if (AgentMode.demo) return just([]);
+  return withFirestoreTimeout(
+    snapshots<QuerySnapshot<DocumentData>, ReaderProgress[]>(
+      (next, err) => onSnapshot(query(collection(db, READER_STATE_COL), orderBy('updatedAt', 'desc'), limit(limitCount)), next, err),
+      (s) =>
+        s.docs
+          .map((d) => (d.data().progress as ReaderProgress | undefined))
+          .filter((p): p is ReaderProgress => Boolean(p?.title && p?.workKey))
+          .slice(0, limitCount),
+    ),
+    { label: 'all-reader-state' },
   );
 }
 

@@ -24,6 +24,7 @@ export function OurBooksPage() {
   const [searching, setSearching] = useState(false);
   const [addSearchError, setAddSearchError] = useState(false);
   const [searchNowKey, setSearchNowKey] = useState(0);
+  const [itemsReady, setItemsReady] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
   const addPanelRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
@@ -31,6 +32,11 @@ export function OurBooksPage() {
 
   const items = useSource(() => watchOurBooks(300), [], []);
   const userName = currentUser ?? '';
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setItemsReady(true), 900);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useDialogFocus(addOpen, addPanelRef, () => setAddOpen(false), addTriggerRef);
   useDialogFocus(pendingDelete != null, confirmPanelRef, () => setPendingDelete(null));
@@ -209,7 +215,19 @@ export function OurBooksPage() {
       </div>
 
       <div style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: '8px 20px 100px' }}>
-        {shown.length === 0 ? (
+        {shown.length === 0 && !itemsReady ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 14, padding: 14, borderRadius: 18, background: withAlpha(AppColors.roseQuartz, 0.04) }}>
+                <div className="skeleton-pulse" style={{ width: 72, height: 108, borderRadius: 10, background: withAlpha(AppColors.roseQuartz, 0.1), flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div className="skeleton-pulse" style={{ height: 13, borderRadius: 6, background: withAlpha(AppColors.roseQuartz, 0.1), width: '70%' }} />
+                  <div className="skeleton-pulse" style={{ height: 10, borderRadius: 6, background: withAlpha(AppColors.roseQuartz, 0.1), width: '45%', marginTop: 10 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : shown.length === 0 ? (
           <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
             <div style={{ width: 68, height: 68, borderRadius: '50%', background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.15)}`, display: 'grid', placeItems: 'center' }}>
               <Icon name="volunteer_activism" size={30} color={withAlpha(AppColors.roseQuartz, 0.8)} />
