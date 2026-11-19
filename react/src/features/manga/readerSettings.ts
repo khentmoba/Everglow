@@ -485,6 +485,11 @@ export function saveResumeAnchor(slug: string, anchor: ResumeAnchor): void {
   Prefs.set(RESUME_PREFIX + slug, JSON.stringify({ chapters: existing }));
 }
 
+export function clearResumeAnchor(slug: string): void {
+  if (!slug) return;
+  Prefs.remove(RESUME_PREFIX + slug);
+}
+
 /** Returns the median aspect ratio observed across cached chapters of this series, or 0.68 fallback. */
 export function loadSeriesDefaultAspect(slug: string): number {
   if (!slug) return 0.68;

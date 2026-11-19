@@ -23,6 +23,7 @@ import {
 } from './MangaUi';
 import {
   chapterDisplayTitle,
+  clearKatanaReadingProgress,
   fetchKatanaByType,
   fetchKatanaCatalog,
   fetchKatanaDetail,
@@ -35,6 +36,7 @@ import {
   type KatanaManga,
 } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
+import { clearResumeAnchor } from './readerSettings';
 
 export function MangaPage() {
   const { width } = useViewport();
@@ -235,6 +237,17 @@ export function MangaPage() {
     setDetailSlug(bm.slug);
   };
 
+  const removeFromReading = async (slug: string, title: string) => {
+    if (!userName || !slug) return;
+    try {
+      await clearKatanaReadingProgress(slug, userName);
+      clearResumeAnchor(slug);
+      showSnackBar(`Removed ${title || 'manga'} from Currently Reading`);
+    } catch {
+      showSnackBar('Could not update reading status — try again');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: KatanaColors.background, color: KatanaColors.text }}>
       <KatanaHeader
@@ -375,33 +388,40 @@ export function MangaPage() {
                         </div>
                       )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-                        {detail.chapters.length > 0 && (
-                          <KatanaButton
-                            label={(() => {
-                              const bm = bookmarks.find((b) => b.slug === detail.slug);
-                              return bm?.lastReadChapterId ? 'Continue' : 'First Chapter';
-                            })()}
-                            icon="play_arrow"
-                            onClick={() => {
-                              const bm = bookmarks.find((b) => b.slug === detail.slug);
-                              const target = bm?.lastReadChapterId
-                                || detail.chapters[detail.chapters.length - 1].id;
-                              openChapter(detail, target, bm?.lastReadPage || 0);
-                            }}
-                          />
-                        )}
-                        <KatanaButton
-                          label={bookmarks.some((b) => b.slug === detail.slug && b.bookmarked) ? 'Bookmarked' : 'Bookmark'}
-                          icon="bookmark"
-                          filled={false}
-                          onClick={() =>
-                            void setKatanaBookmark(
-                              detail,
-                              userName,
-                              !bookmarks.some((b) => b.slug === detail.slug && b.bookmarked),
-                            )
-                          }
-                        />
+                        {(() => {
+                          const detailBm = bookmarks.find((b) => b.slug === detail.slug);
+                          const isBookmarked = Boolean(detailBm?.bookmarked);
+                          const hasReadingProgress = Boolean(detailBm?.lastReadChapterId);
+                          return (
+                            <>
+                              {detail.chapters.length > 0 && (
+                                <KatanaButton
+                                  label={hasReadingProgress ? 'Continue' : 'First Chapter'}
+                                  icon="play_arrow"
+                                  onClick={() => {
+                                    const target =
+                                      detailBm?.lastReadChapterId || detail.chapters[detail.chapters.length - 1].id;
+                                    openChapter(detail, target, detailBm?.lastReadPage || 0);
+                                  }}
+                                />
+                              )}
+                              <KatanaButton
+                                label={isBookmarked ? 'Bookmarked' : 'Bookmark'}
+                                icon="bookmark"
+                                filled={false}
+                                onClick={() => void setKatanaBookmark(detail, userName, !isBookmarked)}
+                              />
+                              {isCoupleUser && hasReadingProgress && (
+                                <KatanaButton
+                                  label="Remove from Reading"
+                                  icon="close"
+                                  filled={false}
+                                  onClick={() => void removeFromReading(detail.slug, detail.title)}
+                                />
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -548,6 +568,27 @@ export function MangaPage() {
                         >
                           <Icon name={resumingSlug === bm.slug ? 'hourglass_top' : 'play_arrow'} size={20} color={KatanaColors.accent} />
                         </button>
+                        {!showPartnerReading && (
+                          <button
+                            type="button"
+                            className="bare-button"
+                            aria-label={`Remove ${bm.title} from reading`}
+                            title="Remove from Currently Reading"
+                            onClick={() => void removeFromReading(bm.slug, bm.title)}
+                            style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: '50%',
+                              background: KatanaColors.surfaceAlt,
+                              border: `1px solid ${KatanaColors.border}`,
+                              display: 'grid',
+                              placeItems: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Icon name="close" size={18} color={KatanaColors.textMuted} />
+                          </button>
+                        )}
                       </div>
                     </KatanaCard>
                   ))}
