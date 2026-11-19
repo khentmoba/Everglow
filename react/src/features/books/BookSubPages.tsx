@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
@@ -7,6 +7,7 @@ import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
 import { ShelfAtmosphericBackdrop, ShelfIconButton } from '../../shared/widgets/shelf/Shelf';
@@ -22,6 +23,7 @@ import {
 } from './bookTypes';
 import {
   addToOurBooks,
+  catalogFailedRecently,
   fetchBookDetails,
   fetchBooksBySubject,
   fetchBookText,
@@ -29,6 +31,7 @@ import {
   fetchRecentBooks,
   recordBookDownload,
   removeFromOurBooks,
+  resolveBookByWorkKey,
   saveToReadList,
   toggleBookFavorite,
   watchBookFavorites,
@@ -38,11 +41,17 @@ import {
 import { BookCover, BookCoverCard } from './BookCover';
 import {
   DEFAULT_READER_SETTINGS,
+  loadBookmarks,
+  loadHighlights,
   loadProgress,
   loadSettings,
+  removeHighlight,
+  saveHighlight,
   saveProgress,
   saveSettings,
+  toggleBookmark,
   type ReaderFont,
+  type ReaderHighlight,
   type ReaderSettings,
   type ReaderTheme,
 } from './readerPrefs';
@@ -54,7 +63,9 @@ export function BookDetailPage() {
   const location = useLocation();
   const state = (location.state as { result?: BookSearchResult; saved?: BookItem } | null) ?? null;
 
+  const workKeyParam = new URLSearchParams(location.search).get('workKey');
   const [result, setResult] = useState<BookSearchResult | null>(state?.result ?? null);
+  const [resolving, setResolving] = useState(Boolean(workKeyParam) && !state?.result);
   const [similar, setSimilar] = useState<BookSearchResult[]>([]);
   const [addedToast, setAddedToast] = useState(false);
   const userName = currentUser ?? '';
@@ -63,26 +74,40 @@ export function BookDetailPage() {
   const ourBooks = useSource(() => watchOurBooks(300), [], []);
 
   useEffect(() => {
-    if (!state?.result) return;
+    if (state?.result || !workKeyParam) return;
     let alive = true;
-    fetchBookDetails(state.result).then((enriched) => {
-      if (alive) setResult(enriched);
-    });
-    const subj = state.result.subjects[0] || 'fiction';
-    fetchBooksBySubject(subj, 12).then((list) => {
-      if (alive) setSimilar(list.filter((b) => b.workKey !== state.result?.workKey).slice(0, 10));
+    void resolveBookByWorkKey(workKeyParam).then((found) => {
+      if (!alive) return;
+      setResult(found);
+      setResolving(false);
     });
     return () => {
       alive = false;
     };
-  }, [state?.result]);
+  }, [state?.result, workKeyParam]);
+
+  useEffect(() => {
+    if (!result) return;
+    let alive = true;
+    void fetchBookDetails(result).then((enriched) => {
+      if (alive) setResult(enriched);
+    });
+    const subj = result.subjects[0] || 'fiction';
+    void fetchBooksBySubject(subj, 12).then((list) => {
+      if (alive) setSimilar(list.filter((b) => b.workKey !== result.workKey).slice(0, 10));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.workKey]);
 
   if (!result) {
     return (
       <div style={{ height: '100%', background: BookColors.black, color: BookColors.white, display: 'grid', placeItems: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: Fonts.display, fontSize: 22 }}>Pick a book from the shelf first</div>
-          <button type="button" className="bare-button" onClick={() => navigate('/books')} style={{ marginTop: 14, padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>
+          <div style={{ fontFamily: Fonts.display, fontSize: 22 }}>{resolving ? 'Opening this book…' : 'Pick a book from the shelf first'}</div>
+          <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ marginTop: 14, padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>
             Back to Books
           </button>
         </div>
@@ -258,9 +283,10 @@ export function BookDetailPage() {
                   if (inOurBooks) {
                     void removeFromOurBooks(ourBooksKey);
                   } else {
-                    void addToOurBooks(item, userName);
-                    setAddedToast(true);
-                    window.setTimeout(() => setAddedToast(false), 2600);
+                    void addToOurBooks(item, userName).then(() => {
+                      setAddedToast(true);
+                      window.setTimeout(() => setAddedToast(false), 2600);
+                    });
                   }
                 }}
               />
@@ -408,10 +434,33 @@ function toParagraphs(body: string): string[] {
     .filter(Boolean);
 }
 
+function renderHighlighted(text: string, marks: ReaderHighlight[], accent: string, onPick: (h: ReaderHighlight) => void): ReactNode {
+  const found = marks
+    .map((h) => ({ h, idx: text.indexOf(h.text) }))
+    .filter((x) => x.idx >= 0)
+    .sort((a, b) => a.idx - b.idx);
+  if (found.length === 0) return text;
+  const first = found[0];
+  return (
+    <>
+      {text.slice(0, first.idx)}
+      <mark
+        onClick={() => onPick(first.h)}
+        style={{ background: withAlpha(accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
+        title={first.h.note || 'Highlight — tap to add a note'}
+      >
+        {first.h.text}
+      </mark>
+      {renderHighlighted(text.slice(first.idx + first.h.text.length), marks, accent, onPick)}
+    </>
+  );
+}
+
 export function BookReaderPage({ startListening = false }: { startListening?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const book = (location.state as { book?: BookItem } | null)?.book ?? null;
+  const workKeyParam = new URLSearchParams(location.search).get('workKey');
+  const [book, setBook] = useState<BookItem | null>((location.state as { book?: BookItem } | null)?.book ?? null);
 
   const [settings, setSettings] = useState<ReaderSettings>(() => loadSettings());
   const [chapters, setChapters] = useState<BookChapter[]>([]);
@@ -424,10 +473,21 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [paused, setPaused] = useState(false);
   const [followChar, setFollowChar] = useState(-1);
   const [sleepMinutes, setSleepMinutes] = useState(0);
+  const [scrollPct, setScrollPct] = useState(0);
+  const [bookmarks, setBookmarks] = useState<ReturnType<typeof loadBookmarks>>([]);
+  const [highlights, setHighlights] = useState<ReturnType<typeof loadHighlights>>([]);
+  const [selectionText, setSelectionText] = useState('');
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [bookSearch, setBookSearch] = useState('');
+  const [pendingJump, setPendingJump] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
+  const notePanelRef = useRef<HTMLDivElement>(null);
   const chapterRef = useRef(0);
   const scrollFracRef = useRef(0);
   const lastScrollSaveRef = useRef(0);
@@ -482,6 +542,17 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   };
 
   useEffect(() => {
+    if (book || !workKeyParam) return;
+    let alive = true;
+    void resolveBookByWorkKey(workKeyParam).then((found) => {
+      if (alive && found) setBook(searchResultToBookItem(found));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [book, workKeyParam]);
+
+  useEffect(() => {
     if (!book) return;
     let alive = true;
     const saved = loadProgress(book.workKey);
@@ -500,6 +571,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         setChapters(list);
         setChapterIdx(initial);
         chapterRef.current = initial;
+        setBookmarks(loadBookmarks(book.workKey));
+        setHighlights(loadHighlights(book.workKey));
         window.requestAnimationFrame(() => {
           if (!alive || !saved || saved.scroll <= 0 || !scrollRef.current) return;
           const el = scrollRef.current;
@@ -523,18 +596,9 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, startListening]);
 
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setSettingsOpen(false);
-        settingsTriggerRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    window.requestAnimationFrame(() => settingsPanelRef.current?.focus());
-    return () => window.removeEventListener('keydown', onKey);
-  }, [settingsOpen]);
+  useDialogFocus(settingsOpen, settingsPanelRef, () => setSettingsOpen(false), settingsTriggerRef);
+  useDialogFocus(searchOpen, searchPanelRef, () => setSearchOpen(false));
+  useDialogFocus(noteFor != null, notePanelRef, () => setNoteFor(null));
 
   if (!book) {
     return (
@@ -579,12 +643,67 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     if (!el) return;
     const max = el.scrollHeight - el.clientHeight;
     scrollFracRef.current = max > 0 ? Math.min(1, el.scrollTop / max) : 0;
+    setScrollPct(scrollFracRef.current);
     const now = Date.now();
     if (now - lastScrollSaveRef.current > 700) {
       lastScrollSaveRef.current = now;
       saveProgressNow(chapterRef.current, scrollFracRef.current);
     }
   };
+
+  const overallPct = chapters.length > 0 ? Math.round(((chapterIdx + scrollPct) / chapters.length) * 100) : 0;
+  const bookmarked = bookmarks.some((b) => b.chapter === chapterIdx);
+
+  const toggleThisBookmark = () => {
+    if (!book) return;
+    setBookmarks(toggleBookmark(book.workKey, { chapter: chapterIdx, scroll: scrollFracRef.current, createdAt: Date.now() }));
+  };
+
+  const captureSelection = () => {
+    const text = window.getSelection()?.toString().replace(/\s+/g, ' ').trim() ?? '';
+    if (text.length > 1 && text.length < 500) setSelectionText(text);
+  };
+
+  const addHighlight = (note: string) => {
+    if (!book || !selectionText) return;
+    const highlight: ReaderHighlight = { id: `${Date.now()}`, chapter: chapterIdx, text: selectionText, note, createdAt: Date.now() };
+    setHighlights(saveHighlight(book.workKey, highlight));
+    setSelectionText('');
+    setNoteFor(null);
+    setNoteDraft('');
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const updateNote = (id: string, note: string) => {
+    if (!book) return;
+    const existing = highlights.find((h) => h.id === id);
+    if (!existing) return;
+    setHighlights(saveHighlight(book.workKey, { ...existing, note }));
+    setNoteFor(null);
+    setNoteDraft('');
+  };
+
+  const deleteHighlight = (id: string) => {
+    if (!book) return;
+    setHighlights(removeHighlight(book.workKey, id));
+  };
+
+  useEffect(() => {
+    if (!pendingJump) return;
+    const id = window.requestAnimationFrame(() => {
+      const el = Array.from(scrollRef.current?.querySelectorAll('article p') ?? []).find((p) => p.textContent?.includes(pendingJump));
+      el?.scrollIntoView({ block: 'center' });
+      setPendingJump('');
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [pendingJump, chapterIdx]);
+
+  const bookMatches = bookSearch.trim()
+    ? chapters.flatMap((ch, i) => {
+        const at = ch.body.toLowerCase().indexOf(bookSearch.trim().toLowerCase());
+        return at >= 0 ? [{ chapter: i, title: ch.title, snippet: ch.body.slice(Math.max(0, at - 50), at + 120) }] : [];
+      })
+    : [];
 
   const paragraphs = currentChapter ? toParagraphs(currentChapter.body) : [];
   let runningOffset = 0;
@@ -648,7 +767,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
           </div>
           {chapters.length > 1 && currentChapter && (
             <div style={{ fontSize: 11, opacity: 0.65, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {currentChapter.title} ({chapterIdx + 1}/{chapters.length})
+              {currentChapter.title} ({chapterIdx + 1}/{chapters.length}) · {overallPct}%
             </div>
           )}
         </div>
@@ -657,6 +776,12 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             <Icon name="format_list_bulleted" size={21} color={theme.fg} />
           </button>
         )}
+        <button type="button" className="bare-button" title="Search in book" aria-label="Search in book" onClick={() => setSearchOpen(true)} style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="search" size={20} color={theme.fg} />
+        </button>
+        <button type="button" className="bare-button" title={bookmarked ? 'Remove bookmark' : 'Bookmark'} aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'} onClick={toggleThisBookmark} style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name={bookmarked ? 'bookmark' : 'bookmark_border'} size={20} color={bookmarked ? AppColors.warmAmber : theme.fg} />
+        </button>
         <button
           type="button"
           className="bare-button"
@@ -670,6 +795,9 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         <button ref={settingsTriggerRef} type="button" className="bare-button" title="Reading settings" aria-label="Reading settings" onClick={() => setSettingsOpen(true)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
           <Icon name="text_fields" size={21} color={theme.fg} />
         </button>
+      </div>
+      <div style={{ height: 3, background: withAlpha(theme.fg, 0.1) }} aria-label={`${overallPct}% read`}>
+        <div style={{ height: '100%', width: `${overallPct}%`, background: AppColors.warmAmber, transition: 'width 240ms ease' }} />
       </div>
 
       {tocOpen && chapters.length > 1 && (
@@ -695,7 +823,11 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: `22px ${Math.round(settings.margin * 22) + 12}px 36px` }}>
         {loading ? (
-          <div style={{ padding: 64, textAlign: 'center', fontFamily: Fonts.display, fontSize: 18 }}>Opening the pages…</div>
+          <div style={{ maxWidth: 680, margin: '0 auto', paddingTop: 8 }} aria-label="Opening the pages">
+            {[90, 100, 96, 98, 70, 100, 94, 88].map((w, i) => (
+              <div key={i} style={{ height: 12, borderRadius: 6, background: withAlpha(theme.fg, 0.08), marginBottom: 14, width: `${w}%` }} />
+            ))}
+          </div>
         ) : currentChapter ? (
           <div style={{ maxWidth: 680, margin: '0 auto' }}>
             {chapters.length > 1 && (
@@ -703,7 +835,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                 {currentChapter.title}
               </h2>
             )}
-            <article aria-label={currentChapter.title}>
+            <article aria-label={currentChapter.title} onMouseUp={captureSelection} onTouchEnd={captureSelection}>
               {paragraphs.map((text, i) => {
                 const start = paragraphOffsets[i];
                 const active = speaking && followChar >= start && followChar < start + text.length;
@@ -719,7 +851,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                       transition: 'background 180ms ease',
                     }}
                   >
-                    {text}
+                    {renderHighlighted(text, highlights.filter((h) => h.chapter === chapterIdx), AppColors.warmAmber, (h) => { setNoteFor(h.id); setNoteDraft(h.note); })}
                   </p>
                 );
               })}
@@ -766,6 +898,58 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
       {settings.brightness < 1 && (
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', background: `rgba(0,0,0,${1 - settings.brightness})` }} />
+      )}
+
+      {selectionText && !noteFor && !settingsOpen && !searchOpen && (
+        <div
+          style={{
+            position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 60,
+            display: 'flex', alignItems: 'center', gap: 6, padding: 8, borderRadius: 18,
+            background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia,
+            border: `1px solid ${withAlpha(theme.fg, 0.2)}`, boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+          }}
+        >
+          <button type="button" className="bare-button" onClick={() => addHighlight('')} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Highlight</button>
+          <button type="button" className="bare-button" onClick={() => { setNoteFor('new'); setNoteDraft(''); }} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Note</button>
+          <button type="button" className="bare-button" onClick={() => { startSpeech(selectionText, settings.ttsRate); setSelectionText(''); }} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Read from here</button>
+          <button type="button" className="bare-button" aria-label="Dismiss" onClick={() => setSelectionText('')} style={{ width: 36, height: 36, color: theme.fg, fontSize: 18 }}>×</button>
+        </div>
+      )}
+
+      {noteFor && (
+        <div onClick={() => setNoteFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,0.7)', display: 'grid', placeItems: 'center', padding: 20 }}>
+          <div ref={notePanelRef} role="dialog" aria-modal="true" aria-label="Add a note" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, padding: 20, borderRadius: 20, background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia, color: theme.fg }}>
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700 }}>Add a note</div>
+            <div style={{ fontSize: 12, color: withAlpha(theme.fg, 0.6), margin: '6px 0 12px' }}>{selectionText.slice(0, 140) || highlights.find((h) => h.id === noteFor)?.text.slice(0, 140)}</div>
+            <textarea aria-label="Note" value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder="What stood out to you?" style={{ width: '100%', boxSizing: 'border-box', minHeight: 110, padding: 12, borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 14, fontFamily: Fonts.body }} />
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button type="button" className="bare-button" onClick={() => setNoteFor(null)} style={{ flex: 1, minHeight: 44, borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, color: theme.fg, fontWeight: 700 }}>Cancel</button>
+              <button type="button" className="bare-button" onClick={() => (noteFor === 'new' ? addHighlight(noteDraft) : updateNote(noteFor, noteDraft))} style={{ flex: 1, minHeight: 44, borderRadius: 12, background: AppColors.deepRose, color: '#FFF', fontWeight: 700 }}>Save note</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {searchOpen && (
+        <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 94, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8vh 16px 16px' }}>
+          <div ref={searchPanelRef} role="dialog" aria-modal="true" aria-label="Search in book" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '82vh', overflowY: 'auto', padding: 20, borderRadius: 20, background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia, color: theme.fg }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontFamily: Fonts.display, fontSize: 24, fontWeight: 700 }}>Search in this book</div>
+              <button type="button" className="bare-button" aria-label="Close search" onClick={() => setSearchOpen(false)} style={{ width: 40, height: 40, fontSize: 22, color: theme.fg }}>×</button>
+            </div>
+            <input aria-label="Search in book" value={bookSearch} onChange={(e) => setBookSearch(e.target.value)} placeholder="A word or phrase…" style={{ width: '100%', boxSizing: 'border-box', marginTop: 12, padding: '12px 14px', borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 15 }} />
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {bookMatches.map((m) => (
+                <button key={m.chapter} type="button" className="bare-button" onClick={() => { setSearchOpen(false); selectChapter(m.chapter); setPendingJump(bookSearch.trim()); }} style={{ textAlign: 'left', padding: 12, borderRadius: 12, background: withAlpha(theme.fg, 0.05), border: `1px solid ${withAlpha(theme.fg, 0.12)}`, color: theme.fg }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: AppColors.warmAmber }}>{m.title}</div>
+                  <div className="clamp-2" style={{ fontSize: 12.5, marginTop: 4, opacity: 0.8 }}>…{m.snippet}…</div>
+                </button>
+              ))}
+              {!bookSearch.trim() && <div style={{ fontSize: 12.5, opacity: 0.65 }}>Type a word or phrase to find it anywhere in the book.</div>}
+              {bookSearch.trim() && bookMatches.length === 0 && <div style={{ fontSize: 12.5, opacity: 0.65 }}>No matches in this book.</div>}
+            </div>
+          </div>
+        </div>
       )}
 
       {settingsOpen && (
@@ -867,6 +1051,24 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                 sleepTimerRef.current = value > 0 ? window.setTimeout(stopSpeech, value * 60_000) : null;
               },
             )}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.1, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>
+                YOUR MARKS · {bookmarks.length} bookmark{bookmarks.length === 1 ? '' : 's'} · {highlights.length} highlight{highlights.length === 1 ? '' : 's'}
+              </div>
+              {highlights.length === 0 && bookmarks.length === 0 && (
+                <div style={{ fontSize: 12.5, opacity: 0.65 }}>Select text in the book to highlight it or add a note. Tap the ribbon to bookmark a page.</div>
+              )}
+              {highlights.slice(0, 10).map((h) => (
+                <div key={h.id} style={{ padding: '10px 0', borderBottom: `1px solid ${withAlpha(theme.fg, 0.1)}` }}>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>“{h.text.slice(0, 110)}{h.text.length > 110 ? '…' : ''}”</div>
+                  {h.note && <div style={{ fontSize: 11.5, opacity: 0.7, marginTop: 4 }}>{h.note}</div>}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <button type="button" className="bare-button" onClick={() => { setNoteFor(h.id); setNoteDraft(h.note); setSettingsOpen(false); }} style={{ fontSize: 11.5, fontWeight: 700, color: AppColors.warmAmber }}>Edit note</button>
+                    <button type="button" className="bare-button" onClick={() => deleteHighlight(h.id)} style={{ fontSize: 11.5, fontWeight: 700, color: AppColors.error }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
             <button
               type="button"
               className="bare-button"
@@ -894,6 +1096,8 @@ export function BookListPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [listError, setListError] = useState(false);
+  const [listRetryKey, setListRetryKey] = useState(0);
 
   const fetchPage = (start: number): Promise<BookSearchResult[]> =>
     state.category
@@ -905,32 +1109,46 @@ export function BookListPage() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    setListError(false);
     setOffset(0);
     setHasMore(true);
-    void fetchPage(0).then((res) => {
-      if (!alive) return;
-      setResults(res);
-      setHasMore(res.length >= PAGE);
-      setLoading(false);
-    });
+    void fetchPage(0)
+      .then((res) => {
+        if (!alive) return;
+        setResults(res);
+        setHasMore(res.length >= PAGE);
+        setListError(res.length === 0 && catalogFailedRecently());
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setListError(true);
+        setLoading(false);
+      });
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.kind, state.category]);
+  }, [state.kind, state.category, listRetryKey]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     const next = offset + PAGE;
-    const res = await fetchPage(next);
-    setResults((prev) => {
-      const seen = new Set(prev.map((r) => r.workKey));
-      return [...prev, ...res.filter((r) => !seen.has(r.workKey))];
-    });
-    setOffset(next);
-    setHasMore(res.length >= PAGE);
-    setLoadingMore(false);
+    try {
+      const res = await fetchPage(next);
+      setResults((prev) => {
+        const seen = new Set(prev.map((r) => r.workKey));
+        return [...prev, ...res.filter((r) => !seen.has(r.workKey))];
+      });
+      setOffset(next);
+      setHasMore(res.length >= PAGE);
+      setListError(false);
+    } catch {
+      setListError(true);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const title = state.category?.name ?? state.title ?? (state.kind === 'recent' ? 'Recently Added' : 'Most Popular');
@@ -980,6 +1198,21 @@ export function BookListPage() {
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 20px 40px' }}>
           {loading && results.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: BookColors.muted }}>Loading…</div>
+          ) : results.length === 0 ? (
+            <div style={{ padding: '72px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ width: 68, height: 68, borderRadius: '50%', background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.15)}`, display: 'grid', placeItems: 'center' }}>
+                <Icon name={listError ? 'cloud_off' : 'menu_book'} size={30} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+              </div>
+              <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: BookColors.white, marginTop: 16 }}>
+                {listError ? 'Couldn’t reach the catalogue' : 'Nothing on this shelf yet'}
+              </div>
+              <div style={{ fontSize: 13, color: BookColors.muted, marginTop: 6 }}>
+                {listError ? 'Check your connection and try again.' : 'Try another shelf or search for a book.'}
+              </div>
+              <button type="button" className="bare-button" onClick={() => (listError ? setListRetryKey((k) => k + 1) : navigate('/books'))} style={{ marginTop: 18, minHeight: 44, padding: '0 20px', borderRadius: 14, background: AppColors.deepRose, color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+                {listError ? 'Try again' : 'Back to Books'}
+              </button>
+            </div>
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '18px 14px' }}>
@@ -1075,10 +1308,11 @@ export function BookCategoriesPage() {
                     fontFamily: Fonts.body,
                     fontWeight: 600,
                     fontSize: 13,
+                    lineHeight: 1.2,
+                    textAlign: 'center',
                     color: BookColors.white,
-                    whiteSpace: 'nowrap',
+                    whiteSpace: 'normal',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
                     maxWidth: '100%',
                   }}
                 >

@@ -67,9 +67,9 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const coverOlid = typeof d.cover_edition_key === 'string' ? d.cover_edition_key : '';
   const coverUrl =
     coverId > 0
-      ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+      ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
       : coverOlid
-        ? `https://covers.openlibrary.org/b/olid/${coverOlid}-L.jpg`
+        ? `https://covers.openlibrary.org/b/olid/${coverOlid}-M.jpg`
         : '';
   const yr = Number(d.first_publish_year ?? 0);
   const year = yr >= 1400 && yr <= new Date().getFullYear() + 1 ? String(yr) : '';
@@ -292,6 +292,73 @@ export async function searchBooksCatalog(
     merged = merged.filter((r) => r.isbn.replace(/[^0-9Xx]/g, '').includes(isbn) || r.isbn13.replace(/[^0-9Xx]/g, '').includes(isbn));
   }
   return { results: merged, total };
+}
+
+/** Resolve a workKey from a deep link (e.g. /books/detail?workKey=pg:84) without router state. */
+export async function resolveBookByWorkKey(workKey: string): Promise<BookSearchResult | null> {
+  if (!workKey) return null;
+  if (workKey.startsWith('pg:')) {
+    const id = workKey.slice(3);
+    const data = await catalogGet('gutendex', `books/${id}`);
+    return data ? mapGutendexBook(data) : null;
+  }
+  if (workKey.startsWith('/works/')) {
+    const data = await catalogGet('openlibrary', `${workKey.slice(1)}.json`);
+    if (!data) return null;
+    const coverId = Array.isArray(data.covers) ? Number(data.covers[0]) : 0;
+    const desc = data.description;
+    const subjects = Array.isArray(data.subjects) ? data.subjects.map(String).slice(0, 8) : [];
+    const yr = Number(data.first_publish_year ?? 0);
+    return {
+      title: String(data.title ?? ''),
+      author: '',
+      coverUrl: coverId > 0 ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : '',
+      year: yr >= 1400 && yr <= new Date().getFullYear() + 1 ? String(yr) : '',
+      language: '',
+      publisher: '',
+      pageCount: 0,
+      filetype: '',
+      description: typeof desc === 'string' ? desc : String((desc as Record<string, unknown> | undefined)?.value ?? ''),
+      subjects,
+      isbn: '',
+      isbn13: '',
+      categories: subjects.slice(0, 3),
+      sourceLabel: 'Open Library',
+      workKey,
+      iaId: '',
+      gutenbergId: 0,
+      downloadUrls: {},
+      readCandidates: [],
+    };
+  }
+  if (workKey.startsWith('ia:')) {
+    const id = workKey.slice(3);
+    const data = await catalogGet('archive', `metadata/${id}`);
+    if (!data) return null;
+    const meta = (data.metadata as Record<string, unknown> | undefined) ?? {};
+    return {
+      title: String(meta.title ?? id),
+      author: String(meta.creator ?? ''),
+      coverUrl: '',
+      year: String(meta.year ?? ''),
+      language: '',
+      publisher: String(meta.publisher ?? ''),
+      pageCount: 0,
+      filetype: '',
+      description: String(meta.description ?? ''),
+      subjects: [],
+      isbn: '',
+      isbn13: '',
+      categories: [],
+      sourceLabel: 'Internet Archive',
+      workKey,
+      iaId: id,
+      gutenbergId: 0,
+      downloadUrls: {},
+      readCandidates: buildReadCandidates({ readSourceUrl: '', iaId: id, workKey }),
+    };
+  }
+  return null;
 }
 
 export async function fetchBookDetails(result: BookSearchResult): Promise<BookSearchResult> {

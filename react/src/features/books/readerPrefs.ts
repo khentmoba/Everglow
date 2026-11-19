@@ -109,6 +109,57 @@ export function listProgress(): ReaderProgress[] {
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+export interface ReaderBookmark {
+  chapter: number;
+  scroll: number;
+  createdAt: number;
+}
+
+export interface ReaderHighlight {
+  id: string;
+  chapter: number;
+  text: string;
+  note: string;
+  createdAt: number;
+}
+
+const BOOKMARK_PREFIX = 'reader_bookmarks::';
+const HIGHLIGHT_PREFIX = 'reader_highlights::';
+
+function readList<T>(key: string): T[] {
+  const raw = Prefs.get(key);
+  return Array.isArray(raw) ? (raw as T[]) : [];
+}
+
+export function loadBookmarks(workKey: string): ReaderBookmark[] {
+  return workKey ? readList<ReaderBookmark>(BOOKMARK_PREFIX + workKey) : [];
+}
+
+export function toggleBookmark(workKey: string, bookmark: ReaderBookmark): ReaderBookmark[] {
+  const list = loadBookmarks(workKey);
+  const next = list.some((b) => b.chapter === bookmark.chapter)
+    ? list.filter((b) => b.chapter !== bookmark.chapter)
+    : [bookmark, ...list];
+  Prefs.set(BOOKMARK_PREFIX + workKey, next);
+  return next;
+}
+
+export function loadHighlights(workKey: string): ReaderHighlight[] {
+  return workKey ? readList<ReaderHighlight>(HIGHLIGHT_PREFIX + workKey) : [];
+}
+
+export function saveHighlight(workKey: string, highlight: ReaderHighlight): ReaderHighlight[] {
+  const next = [highlight, ...loadHighlights(workKey).filter((h) => h.id !== highlight.id)];
+  Prefs.set(HIGHLIGHT_PREFIX + workKey, next);
+  return next;
+}
+
+export function removeHighlight(workKey: string, id: string): ReaderHighlight[] {
+  const next = loadHighlights(workKey).filter((h) => h.id !== id);
+  Prefs.set(HIGHLIGHT_PREFIX + workKey, next);
+  return next;
+}
+
 export function progressToBookItem(p: ReaderProgress): BookItem {
   return {
     id: '',

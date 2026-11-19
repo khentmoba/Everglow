@@ -6,9 +6,10 @@ import { AppColors, withAlpha } from '../../core/theme/colors';
 import { radial } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
-import { BookColors, ourBookToBookItem, searchResultToBookItem, type BookSearchResult } from './bookTypes';
+import { BookColors, ourBookToBookItem, searchResultToBookItem, type BookSearchResult, type OurBooksItem } from './bookTypes';
 import { addToOurBooks, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
 import { BookCover } from './BookCover';
 
@@ -21,24 +22,16 @@ export function OurBooksPage() {
   const [queryText, setQueryText] = useState('');
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
   const addPanelRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
+  const confirmPanelRef = useRef<HTMLDivElement>(null);
 
   const items = useSource(() => watchOurBooks(300), [], []);
   const userName = currentUser ?? '';
 
-  useEffect(() => {
-    if (!addOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setAddOpen(false);
-        addTriggerRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    window.requestAnimationFrame(() => addPanelRef.current?.focus());
-    return () => window.removeEventListener('keydown', onKey);
-  }, [addOpen]);
+  useDialogFocus(addOpen, addPanelRef, () => setAddOpen(false), addTriggerRef);
+  useDialogFocus(pendingDelete != null, confirmPanelRef, () => setPendingDelete(null));
 
   useEffect(() => {
     const q = queryText.trim();
@@ -250,7 +243,7 @@ export function OurBooksPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: AppColors.petalWhite }}>{b.title}</div>
                     <div style={{ fontSize: 11, color: AppColors.mutedPurple, marginTop: 3 }}>
-                      Added by {b.addedBy === 'khentsgdz' ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString()}
+                      Added by {b.addedBy === 'khentsgdz' ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <span
@@ -295,6 +288,11 @@ export function OurBooksPage() {
                           {name}
                         </span>
                       ))}
+                      {b.khentReadAt && b.clairReadAt && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 99, background: withAlpha(AppColors.deepRose, 0.16), border: `1px solid ${withAlpha(AppColors.deepRose, 0.45)}`, color: AppColors.roseQuartz, fontSize: 11, fontWeight: 700 }}>
+                          <Icon name="favorite" size={12} color={AppColors.roseQuartz} /> We both read it
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <button
@@ -322,7 +320,7 @@ export function OurBooksPage() {
                       <button
                         type="button"
                         className="bare-button"
-                        onClick={() => void removeFromOurBooks(b.workKey)}
+                        onClick={() => setPendingDelete(b)}
                         style={{
                           width: 36,
                           height: 36,
@@ -398,6 +396,44 @@ export function OurBooksPage() {
                   {queryText.trim() ? 'No books found. Try another title or author.' : 'Type a title or author to find a book.'}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          onClick={() => setPendingDelete(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 24 }}
+        >
+          <div
+            ref={confirmPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Remove book"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 380, background: AppColors.shimmerBase, borderRadius: 20, padding: 22, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}
+          >
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: AppColors.petalWhite }}>Remove from Our Books?</div>
+            <div style={{ fontSize: 13.5, color: AppColors.mutedPurple, marginTop: 8, lineHeight: 1.5 }}>
+              “{pendingDelete.title}” will be removed from the shelf you share. This can't be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button type="button" className="bare-button" onClick={() => setPendingDelete(null)} style={{ flex: 1, minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontWeight: 700, fontSize: 13 }}>
+                Keep it
+              </button>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => {
+                  void removeFromOurBooks(pendingDelete.workKey);
+                  setPendingDelete(null);
+                }}
+                style={{ flex: 1, minHeight: 46, borderRadius: 14, background: AppColors.error, color: '#FFF', fontWeight: 700, fontSize: 13 }}
+              >
+                Remove
+              </button>
             </div>
           </div>
         </div>

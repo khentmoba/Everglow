@@ -345,6 +345,16 @@ test('BookReaderPage splits chapters with TOC/TTS and direct-entry canPop back b
     await page.keyboard.press('Escape');
     await page.waitForSelector('[role="dialog"][aria-label="Reading settings"]', { state: 'detached', timeout: 5_000 });
 
+    // Bookmarks and in-book search are part of the reader baseline.
+    await page.locator('button[aria-label="Bookmark"]').click();
+    await page.waitForSelector('button[aria-label="Remove bookmark"]', { timeout: 5_000 });
+    await page.locator('button[aria-label="Search in book"]').first().click();
+    await page.waitForSelector('[role="dialog"][aria-label="Search in book"]', { timeout: 5_000 });
+    await page.locator('input[aria-label="Search in book"]').fill('north');
+    await page.waitForSelector('text=I am already far north of London', { timeout: 5_000 });
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="dialog"][aria-label="Search in book"]', { state: 'detached', timeout: 5_000 });
+
     // A book with saved progress shows a one-tap Continue reading card on Home.
     await page.goto(`${baseUrl}/books?agent=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('text=CONTINUE READING', { timeout: 10_000 });

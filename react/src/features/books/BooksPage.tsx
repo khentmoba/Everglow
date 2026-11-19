@@ -1,6 +1,6 @@
 // Port of lib/features/books/presentation/screens/books_screen.dart.
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -8,6 +8,7 @@ import { Align, linear, lineHeight } from '../../core/theme/paint';
 import { AppTypography, Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { useBoxSize } from '../../core/system/useBoxSize';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { EverglowPillNav } from '../../shared/widgets/EverglowPillNav';
 import { Icon } from '../../shared/widgets/Icon';
 import {
@@ -30,6 +31,7 @@ import {
 } from './bookTypes';
 import {
   catalogFailedRecently,
+  fetchBooksBySubject,
   fetchPopularBooks,
   fetchRecentBooks,
   searchBooksCatalog,
@@ -210,19 +212,29 @@ export function BooksPage() {
   const { currentUser, isCoupleUser, isCinemaOnlyUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = (location.state as { query?: string } | null)?.query ?? '';
   // Navigator.canPop: true only when the app pushed this page.
   const canPop = (window.history.state as { idx?: number } | null)?.idx ? true : false;
 
-  const [tab, setTabState] = useState<0 | 1 | 2>(initialQuery ? 1 : booksView.tab);
-  const [librarySegment, setLibrarySegmentState] = useState<0 | 1 | 2 | 3>(booksView.segment);
+  const tabParam = Number(searchParams.get('tab'));
+  const segmentParam = Number(searchParams.get('seg'));
+  const [tab, setTabState] = useState<0 | 1 | 2>(initialQuery ? 1 : tabParam >= 0 && tabParam <= 2 ? (tabParam as 0 | 1 | 2) : booksView.tab);
+  const [librarySegment, setLibrarySegmentState] = useState<0 | 1 | 2 | 3>(segmentParam >= 0 && segmentParam <= 3 ? (segmentParam as 0 | 1 | 2 | 3) : booksView.segment);
   const setTab = (next: 0 | 1 | 2) => {
     booksView.tab = next;
     setTabState(next);
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', String(next));
+    setSearchParams(params, { replace: true });
   };
   const setLibrarySegment = (next: 0 | 1 | 2 | 3) => {
     booksView.segment = next;
     setLibrarySegmentState(next);
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', '2');
+    params.set('seg', String(next));
+    setSearchParams(params, { replace: true });
   };
   const homeRef = useRef<HTMLDivElement>(null);
   const advPanelRef = useRef<HTMLDivElement>(null);
@@ -230,6 +242,7 @@ export function BooksPage() {
 
   const [popular, setPopular] = useState<BookSearchResult[]>([]);
   const [recent, setRecent] = useState<BookSearchResult[]>([]);
+  const [because, setBecause] = useState<BookSearchResult[]>([]);
   const [loadingHome, setLoadingHome] = useState(true);
   const [homeError, setHomeError] = useState(false);
   const [homeRetryKey, setHomeRetryKey] = useState(0);
@@ -239,6 +252,8 @@ export function BooksPage() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const [searchRetryKey, setSearchRetryKey] = useState(0);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchLimit, setSearchLimit] = useState(30);
   const [searchOrder, setSearchOrder] = useState<'relevant' | 'popular' | 'newest'>('relevant');
   const [searchFormat, setSearchFormat] = useState<string>('');
   const [searchLang, setSearchLang] = useState<string>('All');
@@ -286,6 +301,22 @@ export function BooksPage() {
   }, [homeRetryKey]);
 
   useEffect(() => {
+    const subject = readHistoryList[0]?.subjects[0];
+    if (!subject) {
+      setBecause([]);
+      return;
+    }
+    let alive = true;
+    void fetchBooksBySubject(subject, 10).then((list) => {
+      if (alive) setBecause(list.filter((r) => !readHistoryList.some((b) => b.workKey === r.workKey)).slice(0, 8));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readHistoryList.map((b) => b.workKey).join('|')]);
+
+  useEffect(() => {
     const q = searchQuery.trim();
     if (!q) {
       setSearchResults([]);
@@ -302,8 +333,10 @@ export function BooksPage() {
         language: searchLang !== 'All' ? LANG_CODES[searchLang] : undefined,
         isbn: appliedAdv.isbn || undefined,
         publisher: appliedAdv.publisher || undefined,
+        limit: searchLimit,
       }).then((res) => {
         if (!alive) return;
+        setSearchTotal(res.total);
         let list = res.results;
         const yFrom = Number.parseInt(appliedAdv.yearFrom, 10);
         if (Number.isFinite(yFrom)) {
@@ -347,7 +380,7 @@ export function BooksPage() {
       alive = false;
       window.clearTimeout(t);
     };
-  }, [searchQuery, searchFormat, searchLang, searchOrder, appliedAdv, searchRetryKey]);
+  }, [searchQuery, searchFormat, searchLang, searchOrder, appliedAdv, searchRetryKey, searchLimit]);
 
   const openDetails = (r: BookSearchResult) => {
     navigate('/books/detail', { state: { result: r } });
@@ -370,18 +403,7 @@ export function BooksPage() {
     return () => window.cancelAnimationFrame(id);
   }, [showSkeleton, tab]);
 
-  useEffect(() => {
-    if (!advOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setAdvOpen(false);
-        advTriggerRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    window.requestAnimationFrame(() => advPanelRef.current?.focus());
-    return () => window.removeEventListener('keydown', onKey);
-  }, [advOpen]);
+  useDialogFocus(advOpen, advPanelRef, () => setAdvOpen(false), advTriggerRef);
   const libraryList =
     librarySegment === 0 ? toReadList : librarySegment === 1 ? readHistoryList : librarySegment === 2 ? favorites : downloads;
 
@@ -489,6 +511,21 @@ export function BooksPage() {
             <ContinueReading key={p.workKey} progress={p} onOpen={() => navigate('/books/reader', { state: { book: progressToBookItem(p) } })} />
           ))}
           {spotlight && <StaggeredEntrance><Spotlight pick={spotlight} onOpen={() => openDetails(spotlight)} /></StaggeredEntrance>}
+          {because.length > 0 && (
+            <div>
+              <SectionHead
+                eyebrow="Picked for you"
+                title="Because you read…"
+                accent={AppColors.softLavender}
+                onSeeAll={() => navigate('/books/list', { state: { kind: 'popular', title: 'Picked for you', initialResults: because } })}
+              />
+              <Rail height={262} gap={14} padding="0 0 4px 20px">
+                {because.map((r) => (
+                  <BookCoverCard key={r.workKey || r.title} width={124} result={r} onClick={() => openDetails(r)} />
+                ))}
+              </Rail>
+            </div>
+          )}
           {readHistoryList.length > 0 && (
             <div>
               <SectionHead
@@ -514,6 +551,8 @@ export function BooksPage() {
               </Rail>
             </div>
           )}
+          <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popular, 'popular')}</StaggeredEntrance>
+          {feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recent, 'recent')}
           <div>
             <SectionHead eyebrow="Browse" title="Shelves" accent={AppColors.warmAmber} onSeeAll={() => navigate('/books/categories')} />
             <Rail height={44} gap={8} padding="0 0 0 20px">
@@ -542,8 +581,6 @@ export function BooksPage() {
               ))}
             </Rail>
           </div>
-          {feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popular, 'popular')}
-          {feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recent, 'recent')}
           <div style={{ height: 100 }} />
         </div>
       )}
@@ -575,6 +612,7 @@ export function BooksPage() {
               >
                 <Icon name="search" size={22} color={BookColors.deepRose} />
                 <input
+                  aria-label="Search books"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Title, author, ISBN..."
@@ -622,20 +660,19 @@ export function BooksPage() {
                   border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`,
                 }}
               >
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: BookColors.white }}>
-                  Order: {searchOrder}
-                </span>
-                <Icon name="keyboard_arrow_down" size={16} color={BookColors.muted} />
                 <select
                   value={searchOrder}
                   onChange={(e) => setSearchOrder(e.target.value as 'relevant' | 'popular' | 'newest')}
-                  aria-label="Order"
-                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', background: BookColors.card, color: BookColors.white }}
+                  aria-label="Order results"
+                  style={{ appearance: 'none', background: 'transparent', border: 'none', color: BookColors.white, fontSize: 12.5, fontWeight: 700, padding: '0 26px 0 0', cursor: 'pointer', outlineOffset: 3 }}
                 >
-                  <option value="relevant">Order: relevant</option>
-                  <option value="popular">Order: popular</option>
-                  <option value="newest">Order: newest</option>
+                  <option style={{ background: BookColors.card }} value="relevant">Order: relevant</option>
+                  <option style={{ background: BookColors.card }} value="popular">Order: popular</option>
+                  <option style={{ background: BookColors.card }} value="newest">Order: newest</option>
                 </select>
+                <div style={{ position: 'absolute', right: 8, pointerEvents: 'none', display: 'grid', placeItems: 'center' }}>
+                  <Icon name="keyboard_arrow_down" size={16} color={BookColors.muted} />
+                </div>
               </div>
               {([
                 ['EPUB', 'menu_book'],
@@ -782,8 +819,12 @@ export function BooksPage() {
                   </div>
                 )
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {searchResults.map((r) => (
+                <>
+                  <div style={{ fontSize: 12, color: BookColors.muted, marginBottom: 10 }}>
+                    {searchResults.length} of {searchTotal || searchResults.length} books
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {searchResults.map((r) => (
                     <button
                       key={r.workKey || r.title}
                       type="button"
@@ -817,8 +858,14 @@ export function BooksPage() {
                       </div>
                       <Icon name="chevron_right" size={18} color={BookColors.muted} />
                     </button>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  {searchResults.length < searchTotal && (
+                    <button type="button" className="bare-button" onClick={() => setSearchLimit((n) => n + 30)} style={{ display: 'block', margin: '18px auto 0', minHeight: 44, padding: '0 24px', borderRadius: 22, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.3)}`, color: AppColors.petalWhite, fontWeight: 700, fontSize: 13 }}>
+                      Show more books
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -861,7 +908,7 @@ export function BooksPage() {
                       }}
                       style={{ fontSize: 12, fontWeight: 700, color: BookColors.muted }}
                     >
-                      Clear all
+                      Reset fields
                     </button>
                   </div>
                   <div style={{ fontSize: 12, color: BookColors.muted, marginTop: 4, marginBottom: 14 }}>

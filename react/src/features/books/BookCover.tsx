@@ -112,6 +112,13 @@ export function BookCover({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const showImage = imageUrl !== '' && !failed;
+  const isOlCover = imageUrl.includes('covers.openlibrary.org');
+  const coverSrc = isOlCover ? imageUrl.replace(/-(S|M|L)\.jpg/, width >= 180 ? '-L.jpg' : width >= 100 ? '-M.jpg' : '-S.jpg') : imageUrl;
+  const coverSrcSet = isOlCover
+    ? [['-S', '120'], ['-M', '300'], ['-L', '600']]
+        .map(([size, w]) => `${imageUrl.replace(/-(S|M|L)\.jpg/, `${size}.jpg`)} ${w}w`)
+        .join(', ')
+    : undefined;
   return (
     <div
       style={{
@@ -129,12 +136,15 @@ export function BookCover({
         {(!showImage || !loaded) && <ClothCover title={title} author={author} width={width} />}
         {showImage && (
           <img
-            src={imageUrl}
+            src={coverSrc}
+            srcSet={coverSrcSet}
+            sizes={`${width}px`}
             alt=""
             loading="lazy"
+            decoding="async"
             onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 260ms ease' }}
           />
         )}
         <div
