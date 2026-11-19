@@ -88,6 +88,8 @@ function SectionHead(props: { eyebrow: string; title: string; accent: string; on
 
 // _buildShimmerHome: still skeleton blocks (phones never animate them).
 function ShimmerHome() {
+  const { width } = useViewport();
+  const big = width >= 700;
   const block = (h: number, r: number, w?: number) => (
     <div className="skeleton-pulse" style={{ height: h, width: w ?? '100%', borderRadius: r, background: AppColors.shimmerBase }} />
   );
@@ -99,7 +101,7 @@ function ShimmerHome() {
       <div style={{ padding: '32px 20px 14px' }}>{block(36, 8, 200)}</div>
       <div style={{ display: 'flex', gap: 12, padding: '0 20px' }}>
         {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} style={{ flexShrink: 0 }}>{block(240, 12, 150)}</div>
+          <div key={i} style={{ flexShrink: 0 }}>{block(big ? 310 : 262, 12, big ? 150 : 124)}</div>
         ))}
       </div>
     </div>
@@ -137,7 +139,7 @@ function Spotlight({ pick, onOpen, onDetails }: { pick: BookSearchResult; onOpen
             display: 'flex', alignItems: 'center', cursor: 'pointer',
           }}
         >
-          <BookCover imageUrl={pick.coverUrl} title={pick.title} author={pick.author} width={big ? 168 : 112} />
+          <BookCover imageUrl={pick.coverUrl} title={pick.title} author={pick.author} width={big ? 168 : 112} eager />
           <div style={{ width: 16, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ ...AppTypography.outfitBold, color: AppColors.warmAmber, fontSize: 10, lineHeight: lineHeight(10), letterSpacing: 1.6 }}>POPULAR PICK</div>
@@ -313,7 +315,7 @@ export function BooksPage() {
         if (!alive) return;
         setPopular(pop);
         setRecent(rec);
-        setHomeError(pop.length === 0 && rec.length === 0 && catalogFailedRecently());
+        setHomeError((pop.length === 0 || rec.length === 0) && catalogFailedRecently());
       })
       .finally(() => alive && setLoadingHome(false));
     return () => {
@@ -524,7 +526,7 @@ export function BooksPage() {
           eyebrow={eyebrow}
           title={title}
           accent={accent}
-          onSeeAll={() => navigate('/books/list', { state: { kind, title, initialResults: results } })}
+          onSeeAll={() => navigate(`/books/list?kind=${kind}&title=${encodeURIComponent(title)}`, { state: { kind, title, initialResults: results } })}
         />
         <Rail height={isTablet ? 310 : 262} gap={14} padding="0 0 4px 20px">
           {results.map((r) => (
@@ -551,9 +553,14 @@ export function BooksPage() {
         >
           {header}
           {homeSearch}
-          {resumeList.slice(0, 3).map((p) => (
+          {resumeList.slice(0, 1).map((p) => (
             <ContinueReading key={p.workKey} progress={p} onOpen={() => openReader(progressToBookItem(p))} />
           ))}
+          {resumeList.length > 1 && (
+            <button type="button" className="bare-button" onClick={() => { setLibrarySegment(1); setTab(2); }} style={{ display: 'block', width: 'calc(100% - 40px)', margin: '8px 20px 0', textAlign: 'left', fontSize: 12, fontWeight: 700, color: AppColors.warmAmber }}>
+              {resumeList.length} books in progress — see your shelf →
+            </button>
+          )}
           {homeError && (
             <div style={{ margin: '14px 20px 0', padding: 14, borderRadius: 16, background: withAlpha(AppColors.error, 0.1), border: `1px solid ${withAlpha(AppColors.error, 0.35)}`, display: 'flex', alignItems: 'center', gap: 12 }}>
               <Icon name="cloud_off" size={20} color={AppColors.error} />
@@ -575,7 +582,7 @@ export function BooksPage() {
                   key={cat.query}
                   type="button"
                   className="bare-button"
-                  onClick={() => navigate('/books/category', { state: { category: cat } })}
+                  onClick={() => navigate(`/books/category?subject=${encodeURIComponent(cat.query)}`, { state: { category: cat } })}
                   style={{ flexShrink: 0, padding: '0 16px', borderRadius: 22, background: withAlpha(cat.color, 0.12), border: `1px solid ${withAlpha(cat.color, 0.3)}`, display: 'flex', alignItems: 'center' }}
                 >
                   <Icon name={cat.icon} size={17} color={cat.color} />
@@ -610,10 +617,10 @@ export function BooksPage() {
                 eyebrow={readHistoryList.length > 0 ? 'Picked for you' : 'A good place to start'}
                 title={readHistoryList.length > 0 ? 'Because you read…' : 'Popular with readers'}
                 accent={AppColors.softLavender}
-                onSeeAll={() => navigate('/books/list', { state: { title: 'Picked for you', initialResults: because.length ? because : popular } })}
+                onSeeAll={() => navigate('/books/list?kind=recent&title=Fresh%20picks', { state: { title: 'Fresh picks', initialResults: because.length ? because : recent } })}
               />
               <Rail height={isTablet ? 310 : 262} gap={14} padding="0 0 4px 20px">
-                {(because.length ? because : popular.slice(0, 8)).map((r) => (
+                {(because.length ? because : recent.slice(0, 8)).map((r) => (
                   <BookCoverCard key={r.workKey || r.title} width={isTablet ? 150 : 124} result={r} onClick={() => openDetails(r)} />
                 ))}
               </Rail>
@@ -656,7 +663,7 @@ export function BooksPage() {
         </div>
       )}
 
-      <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 100, display: tab === 0 ? 'none' : undefined }}>
+      <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingBottom: 100, maxWidth: isTablet ? 1180 : undefined, margin: '0 auto', display: tab === 0 ? 'none' : undefined }}>
         {tab === 1 && (
           <div style={{ padding: '14px 20px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -688,7 +695,7 @@ export function BooksPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Title, author, ISBN..."
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: BookColors.white, fontSize: 15 }}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: BookColors.white, fontSize: 16 }}
                 />
                 {searchQuery && (
                   <button type="button" className="bare-button" onClick={() => setSearchQuery('')}>
@@ -777,9 +784,6 @@ export function BooksPage() {
                   </button>
                 );
               })}
-              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                More
-              </button>
               <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <Icon name="tune" size={14} color={BookColors.deepRose} /> Filters
                 {(searchLang !== 'All' || appliedAdv.title || appliedAdv.author || appliedAdv.publisher || appliedAdv.isbn || appliedAdv.yearFrom || appliedAdv.yearTo || appliedAdv.exact || (searchFormat && searchFormat !== 'EPUB' && searchFormat !== 'PDF')) && (
@@ -886,7 +890,7 @@ export function BooksPage() {
                   <div style={{ fontSize: 12, color: BookColors.muted, marginBottom: 10 }}>
                     {searchResults.length} of {searchTotal || searchResults.length} books
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isTablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 10 }}>
                     {searchResults.map((r) => (
                     <button
                       key={r.workKey || r.title}
@@ -999,7 +1003,7 @@ export function BooksPage() {
                           background: BookColors.black,
                           border: `1px solid ${withAlpha(BookColors.rose, 0.16)}`,
                           color: BookColors.white,
-                          fontSize: 13.5,
+                          fontSize: 16,
                         }}
                       />
                     </div>
@@ -1007,11 +1011,11 @@ export function BooksPage() {
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: BookColors.muted, textTransform: 'uppercase', marginBottom: 4 }}>YEAR FROM</div>
-                      <input aria-label="Year from" value={advYearFrom} onChange={(e) => setAdvYearFrom(e.target.value)} placeholder="e.g. 1900" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(BookColors.rose, 0.16)}`, color: BookColors.white, fontSize: 13.5 }} />
+                      <input aria-label="Year from" value={advYearFrom} onChange={(e) => setAdvYearFrom(e.target.value)} placeholder="e.g. 1900" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(BookColors.rose, 0.16)}`, color: BookColors.white, fontSize: 16 }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: BookColors.muted, textTransform: 'uppercase', marginBottom: 4 }}>YEAR TO</div>
-                      <input aria-label="Year to" value={advYearTo} onChange={(e) => setAdvYearTo(e.target.value)} placeholder="e.g. 1950" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(BookColors.rose, 0.16)}`, color: BookColors.white, fontSize: 13.5 }} />
+                      <input aria-label="Year to" value={advYearTo} onChange={(e) => setAdvYearTo(e.target.value)} placeholder="e.g. 1950" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(BookColors.rose, 0.16)}`, color: BookColors.white, fontSize: 16 }} />
                     </div>
                   </div>
                   <div style={{ marginBottom: 14 }}>

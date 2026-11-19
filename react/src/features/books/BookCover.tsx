@@ -106,12 +106,14 @@ export function BookCover({
   author = '',
   width,
   radius = 8,
+  eager = false,
 }: {
   imageUrl: string;
   title: string;
   author?: string;
   width: number;
   radius?: number;
+  eager?: boolean;
 }) {
   const viewport = useViewport();
   const [loaded, setLoaded] = useState(false);
@@ -145,7 +147,7 @@ export function BookCover({
             srcSet={coverSrcSet}
             sizes={`${width}px`}
             alt=""
-            loading="lazy"
+            loading={eager ? 'eager' : 'lazy'}
             decoding="async"
             onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}

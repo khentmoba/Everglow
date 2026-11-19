@@ -5,7 +5,7 @@ import { Prefs } from '../../core/system/prefs';
 import type { BookItem } from './bookTypes';
 
 export type ReaderTheme = 'dark' | 'sepia' | 'light';
-export type ReaderFont = 'classic' | 'modern' | 'soft';
+export type ReaderFont = 'classic' | 'modern' | 'soft' | 'dyslexic';
 
 export interface ReaderSettings {
   fontSize: number;
@@ -16,6 +16,7 @@ export interface ReaderSettings {
   brightness: number;
   margin: number;
   pageTurn: boolean;
+  align: 'left' | 'justify';
   voiceUri?: string;
 }
 
@@ -33,6 +34,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   brightness: 1,
   margin: 0.5,
   pageTurn: false,
+  align: 'left',
 };
 
 const SETTINGS_KEY = 'reader_settings';
@@ -46,7 +48,7 @@ function asTheme(value: unknown): ReaderTheme {
 }
 
 function asFont(value: unknown): ReaderFont {
-  return value === 'classic' || value === 'soft' || value === 'modern' ? value : DEFAULT_READER_SETTINGS.font;
+  return value === 'classic' || value === 'soft' || value === 'modern' || value === 'dyslexic' ? value : DEFAULT_READER_SETTINGS.font;
 }
 
 export function loadSettings(): ReaderSettings {
@@ -61,6 +63,7 @@ export function loadSettings(): ReaderSettings {
     brightness: clamp(saved.brightness, 0.5, 1, DEFAULT_READER_SETTINGS.brightness),
     margin: clamp(saved.margin, 0, 1, DEFAULT_READER_SETTINGS.margin),
     pageTurn: typeof saved.pageTurn === 'boolean' ? saved.pageTurn : false,
+    align: saved.align === 'justify' ? 'justify' : 'left',
     voiceUri: typeof saved.voiceUri === 'string' ? saved.voiceUri : undefined,
   };
 }

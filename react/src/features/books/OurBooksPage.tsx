@@ -105,8 +105,8 @@ export function OurBooksPage() {
           className="bare-button"
           onClick={() => (canPop() ? navigate(-1) : navigate('/books'))}
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 99,
             background: 'rgba(255,255,255,0.02)',
             border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.1)}`,
@@ -135,8 +135,8 @@ export function OurBooksPage() {
           aria-label="Add a book"
           onClick={() => setAddOpen(true)}
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 99,
             background: 'rgba(255,255,255,0.02)',
             border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.1)}`,
