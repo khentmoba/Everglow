@@ -20,7 +20,7 @@ export const Prefs = {
       return null;
     }
   },
-  set(key: string, value: string | boolean | number): void {
+  set(key: string, value: unknown): void {
     try {
       localStorage.setItem(PREFIX + key, JSON.stringify(value));
     } catch {
@@ -33,5 +33,18 @@ export const Prefs = {
     } catch {
       // Storage blocked.
     }
+  },
+  /** Stored keys (without the flutter. prefix) that start with `prefix`. */
+  keysWithPrefix(prefix: string): string[] {
+    const out: string[] = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(PREFIX + prefix)) out.push(key.slice(PREFIX.length));
+      }
+    } catch {
+      // Storage blocked.
+    }
+    return out;
   },
 };

@@ -45,6 +45,16 @@ export const AppColors = {
   orange700: '#F57C00',
 } as const;
 
+/** The three book-reader pages. Paper tones live here, not in the feature. */
+export const ReaderPaper = {
+  dark: AppColors.inkDeep,
+  darkText: AppColors.petalWhite,
+  sepia: '#F4ECD8',
+  sepiaText: '#2A2119',
+  light: '#FAFAFA',
+  lightText: '#1E1B18',
+} as const;
+
 export type Rgba = [r: number, g: number, b: number, a: number];
 
 /** Reads `#RRGGBB`, `#RRGGBBAA` or `rgba(r, g, b, a)`. */

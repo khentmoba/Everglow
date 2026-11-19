@@ -29,7 +29,11 @@ import {
 
 const CATALOG_PROXY = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyCatalog';
 const BOOK_TEXT_PROXY = 'https://everglow-1c6db.web.app/api/proxyBookText';
-const OL_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn';
+const OL_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn,language';
+
+let lastCatalogFailure = 0;
+/** True when a catalogue call failed recently, so an empty result can show a retry instead of "no results". */
+export const catalogFailedRecently = (withinMs = 20000): boolean => Date.now() - lastCatalogFailure < withinMs;
 
 async function catalogGet(source: 'openlibrary' | 'gutendex' | 'archive', path: string, params?: Record<string, string>): Promise<Record<string, unknown> | null> {
   const user = auth.currentUser;
@@ -39,13 +43,21 @@ async function catalogGet(source: 'openlibrary' | 'gutendex' | 'archive', path: 
     const token = user ? await user.getIdToken().catch(() => null) : null;
     const headers: Record<string, string> = { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
     const resp = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
-    if (!resp.ok) return null;
-    return (await resp.json()) as Record<string, unknown>;
+    if (!resp.ok) {
+      lastCatalogFailure = Date.now();
+      return null;
+    }
+    const data = (await resp.json()) as Record<string, unknown>;
+    lastCatalogFailure = 0;
+    return data;
   } catch (e) {
     Logger.w(`Catalog proxy failed (${source}/${path}): ${String(e)}`);
+    lastCatalogFailure = Date.now();
     return null;
   }
 }
+
+const GUTENDEX_LANG: Record<string, string> = { eng: 'en', spa: 'es', fre: 'fr', ger: 'de', chi: 'zh', jpn: 'ja' };
 
 function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const workKey = String(d.key ?? '');
@@ -66,12 +78,13 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const subjects = Array.isArray(d.subject) ? d.subject.slice(0, 8).map(String) : [];
   const pubs = Array.isArray(d.publisher) ? d.publisher.map(String) : [];
   const isbns = Array.isArray(d.isbn) ? d.isbn.map(String) : [];
+  const langs = Array.isArray(d.language) ? d.language.map(String) : [];
   return {
     title,
     author: authors[0] ?? '',
     coverUrl,
     year,
-    language: '',
+    language: langs[0] ?? '',
     publisher: pubs[0] ?? '',
     pageCount: 0,
     filetype: '',
@@ -174,29 +187,30 @@ function olDocs(data: Record<string, unknown> | null): BookSearchResult[] {
 
 // BookCatalogService.mostPopular: Open Library "best" + Gutenberg's most
 // downloaded, merged, then most downloaded first.
-export async function fetchPopularBooks(limitCount = 12): Promise<BookSearchResult[]> {
+export async function fetchPopularBooks(limitCount = 12, offset = 0): Promise<BookSearchResult[]> {
   const [ol, gut] = await Promise.all([
-    catalogGet('openlibrary', 'search.json', { subject: 'best', fields: OL_FIELDS, limit: '15', sort: 'trending' }),
+    catalogGet('openlibrary', 'search.json', { subject: 'best', fields: OL_FIELDS, limit: String(Math.min(limitCount + offset, 100)), sort: 'trending' }),
     catalogGet('gutendex', 'books', { sort: 'popular' }),
   ]);
   const gutDocs = Array.isArray(gut?.results)
-    ? (gut.results as Record<string, unknown>[]).slice(0, limitCount).map(mapGutendexBook).filter((x) => x.title)
+    ? (gut.results as Record<string, unknown>[]).slice(offset, offset + limitCount).map(mapGutendexBook).filter((x) => x.title)
     : [];
   const merged = mergeResults([...olDocs(ol), ...gutDocs]);
   merged.sort((a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0));
-  return merged.slice(0, limitCount);
+  return merged.slice(offset, offset + limitCount);
 }
 
 // OpenLibraryService.fetchRecent: trending works first published in the last
 // six years, with covers; falls back to trending fiction.
-export async function fetchRecentBooks(limitCount = 12): Promise<BookSearchResult[]> {
+export async function fetchRecentBooks(limitCount = 12, offset = 0): Promise<BookSearchResult[]> {
   const nowYear = new Date().getFullYear();
   const usable = (r: BookSearchResult) => r.coverUrl !== '' && r.workKey.endsWith('W');
   const data = await catalogGet('openlibrary', 'search.json', {
     q: `first_publish_year:[${nowYear - 6} TO ${nowYear}]`,
     sort: 'trending',
     fields: OL_FIELDS,
-    limit: String(Math.min(Math.max(limitCount * 4, 1), 100)),
+    limit: String(Math.min(Math.max(limitCount * 4 + offset, 1), 100)),
+    ...(offset > 0 ? { offset: String(offset) } : {}),
   });
   const docs = Array.isArray(data?.docs)
     ? (data.docs as Record<string, unknown>[])
@@ -226,24 +240,56 @@ export async function fetchBooksBySubject(subject: string, limitCount = 24, offs
   return docs;
 }
 
-export async function searchBooksCatalog(queryText: string, opts?: { filetype?: string; language?: string; offset?: number; limit?: number }): Promise<{ results: BookSearchResult[]; total: number }> {
+export async function searchBooksCatalog(
+  queryText: string,
+  opts?: { filetype?: string; language?: string; isbn?: string; publisher?: string; offset?: number; limit?: number },
+): Promise<{ results: BookSearchResult[]; total: number }> {
   const q = queryText.trim();
   if (!q) return { results: [], total: 0 };
   const lim = opts?.limit ?? 30;
   const off = opts?.offset ?? 0;
+  const lang = opts?.language;
+  const gutLang = lang ? GUTENDEX_LANG[lang] : undefined;
+
+  const olParams: Record<string, string> = {
+    q,
+    fields: OL_FIELDS,
+    limit: String(lim),
+    ...(off > 0 ? { offset: String(off) } : {}),
+    ...(lang ? { language: lang } : {}),
+    ...(opts?.isbn ? { isbn: opts.isbn } : {}),
+    ...(opts?.publisher ? { publisher: opts.publisher } : {}),
+  };
 
   const [ol, gut] = await Promise.all([
-    catalogGet('openlibrary', 'search.json', { q, fields: OL_FIELDS, limit: String(lim), ...(off > 0 ? { offset: String(off) } : {}) }),
+    catalogGet('openlibrary', 'search.json', olParams),
     off === 0 ? catalogGet('gutendex', 'books', { search: q }) : Promise.resolve(null),
   ]);
 
   const olDocs = Array.isArray(ol?.docs) ? (ol.docs as Record<string, unknown>[]).map(mapOlDoc).filter((x) => x.title) : [];
-  const gutDocs = Array.isArray(gut?.results) ? (gut.results as Record<string, unknown>[]).map(mapGutendexBook).filter((x) => x.title) : [];
+  const gutRaw = Array.isArray(gut?.results) ? (gut.results as Record<string, unknown>[]) : [];
+  const gutDocs = gutRaw
+    .filter((b) => {
+      if (!gutLang) return true;
+      const langs = Array.isArray(b.languages) ? b.languages.map(String) : [];
+      return langs.includes(gutLang);
+    })
+    .map(mapGutendexBook)
+    .filter((x) => x.title);
   const total = Number(ol?.numFound ?? olDocs.length) + gutDocs.length;
 
   let merged = [...olDocs, ...gutDocs];
   if (opts?.filetype) {
-    merged = merged.filter((r) => !r.filetype || r.filetype.toLowerCase() === opts.filetype!.toLowerCase());
+    const format = opts.filetype.toLowerCase();
+    merged = merged.filter((r) => Boolean(r.filetype) && r.filetype.toLowerCase() === format);
+  }
+  if (opts?.publisher) {
+    const pub = opts.publisher.toLowerCase();
+    merged = merged.filter((r) => r.publisher.toLowerCase().includes(pub));
+  }
+  if (opts?.isbn) {
+    const isbn = opts.isbn.replace(/[^0-9Xx]/g, '');
+    merged = merged.filter((r) => r.isbn.replace(/[^0-9Xx]/g, '').includes(isbn) || r.isbn13.replace(/[^0-9Xx]/g, '').includes(isbn));
   }
   return { results: merged, total };
 }

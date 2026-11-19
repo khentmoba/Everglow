@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
@@ -8,8 +8,9 @@ import { Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
-import { ourBookToBookItem, searchResultToBookItem, type BookSearchResult } from './bookTypes';
+import { BookColors, ourBookToBookItem, searchResultToBookItem, type BookSearchResult } from './bookTypes';
 import { addToOurBooks, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
+import { BookCover } from './BookCover';
 
 export function OurBooksPage() {
   const { width, height } = useViewport();
@@ -20,13 +21,50 @@ export function OurBooksPage() {
   const [queryText, setQueryText] = useState('');
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const addPanelRef = useRef<HTMLDivElement>(null);
+  const addTriggerRef = useRef<HTMLButtonElement>(null);
 
   const items = useSource(() => watchOurBooks(300), [], []);
   const userName = currentUser ?? '';
 
+  useEffect(() => {
+    if (!addOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setAddOpen(false);
+        addTriggerRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    window.requestAnimationFrame(() => addPanelRef.current?.focus());
+    return () => window.removeEventListener('keydown', onKey);
+  }, [addOpen]);
+
+  useEffect(() => {
+    const q = queryText.trim();
+    if (!addOpen || !q) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    let alive = true;
+    setSearching(true);
+    const t = window.setTimeout(() => {
+      void searchBooksCatalog(q, { limit: 30 }).then((res) => {
+        if (!alive) return;
+        setResults(res.results.slice(0, 30));
+        setSearching(false);
+      });
+    }, 450);
+    return () => {
+      alive = false;
+      window.clearTimeout(t);
+    };
+  }, [addOpen, queryText]);
+
   if (!isCoupleUser) {
     return (
-      <div style={{ height: '100%', background: '#09060E', color: AppColors.petalWhite, display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ height: '100%', background: BookColors.black, color: AppColors.petalWhite, display: 'grid', placeItems: 'center', padding: 24 }}>
         <div style={{ fontFamily: Fonts.display, fontSize: 18 }}>This space is just for the two of you.</div>
       </div>
     );
@@ -45,7 +83,7 @@ export function OurBooksPage() {
   };
 
   return (
-    <div style={{ position: 'relative', height: '100%', background: '#09060E', color: AppColors.petalWhite, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100%', background: BookColors.black, color: AppColors.petalWhite, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div
         style={{
           position: 'absolute',
@@ -81,15 +119,17 @@ export function OurBooksPage() {
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <span style={{ width: 4, height: 4, borderRadius: 99, background: AppColors.deepRose }} />
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, color: withAlpha(AppColors.roseQuartz, 0.6) }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: withAlpha(AppColors.roseQuartz, 0.6) }}>
               {userName === 'khentsgdz' ? 'KHENT & CLAIR' : 'CLAIR & KHENT'}
             </span>
             <span style={{ width: 4, height: 4, borderRadius: 99, background: AppColors.deepRose }} />
           </div>
         </div>
         <button
+          ref={addTriggerRef}
           type="button"
           className="bare-button"
+          aria-label="Add a book"
           onClick={() => setAddOpen(true)}
           style={{
             width: 40,
@@ -165,8 +205,21 @@ export function OurBooksPage() {
 
       <div style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: '8px 20px 100px' }}>
         {shown.length === 0 ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center', color: withAlpha(AppColors.roseQuartz, 0.6) }}>
-            {tab === 0 ? 'Nothing on your shared reading list yet.' : 'No finished books yet.'}
+          <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ width: 68, height: 68, borderRadius: '50%', background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.15)}`, display: 'grid', placeItems: 'center' }}>
+              <Icon name="volunteer_activism" size={30} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+            </div>
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: AppColors.petalWhite, marginTop: 16 }}>
+              {tab === 0 ? 'Your shared shelf is waiting' : 'No finished books yet'}
+            </div>
+            <div style={{ fontSize: 13, color: AppColors.mutedPurple, marginTop: 6 }}>
+              {tab === 0 ? 'Add a book you both want to read. Mark it read when either of you finishes.' : 'Books you mark as read will appear here together.'}
+            </div>
+            {tab === 0 && (
+              <button type="button" className="bare-button" onClick={() => setAddOpen(true)} style={{ marginTop: 20, minHeight: 46, padding: '0 22px', borderRadius: 16, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700, fontSize: 13 }}>
+                Add your first book
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
@@ -185,16 +238,20 @@ export function OurBooksPage() {
                     alignItems: 'center',
                   }}
                 >
-                  {b.coverUrl && (
-                    <img
-                      src={b.coverUrl}
-                      alt={b.title}
-                      onClick={() => navigate('/books/reader', { state: { book: ourBookToBookItem(b) } })}
-                      style={{ width: 72, height: 108, borderRadius: 10, objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }}
-                    />
-                  )}
+                  <button
+                    type="button"
+                    className="bare-button"
+                    aria-label={`Read ${b.title}`}
+                    onClick={() => navigate('/books/reader', { state: { book: ourBookToBookItem(b) } })}
+                    style={{ flexShrink: 0, borderRadius: 10 }}
+                  >
+                    <BookCover imageUrl={b.coverUrl} title={b.title} author={b.author} width={72} radius={10} />
+                  </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: AppColors.petalWhite }}>{b.title}</div>
+                    <div style={{ fontSize: 11, color: AppColors.mutedPurple, marginTop: 3 }}>
+                      Added by {b.addedBy === 'khentsgdz' ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString()}
+                    </div>
                     <div style={{ marginTop: 6 }}>
                       <span
                         style={{
@@ -204,7 +261,7 @@ export function OurBooksPage() {
                           background: withAlpha(AppColors.deepRose, 0.14),
                           border: `1px solid ${withAlpha(AppColors.deepRose, 0.35)}`,
                           color: AppColors.roseQuartz,
-                          fontSize: 9.5,
+                          fontSize: 11,
                           fontWeight: 700,
                           letterSpacing: 0.7,
                         }}
@@ -293,19 +350,25 @@ export function OurBooksPage() {
           style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.75)', display: 'grid', placeItems: 'center', padding: 20 }}
         >
           <div
+            ref={addPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add to Our Books"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto', background: '#181022', borderRadius: 20, padding: 20, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}
+            style={{ width: '100%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto', outline: 'none', background: AppColors.shimmerBase, borderRadius: 20, padding: 20, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}
           >
             <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700 }}>Add to Our Books</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <input
+                aria-label="Search for a book"
                 value={queryText}
                 onChange={(e) => setQueryText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && void runSearch()}
                 placeholder="Search Open Library…"
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: '#09060E', border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: '#FFF', outline: 'none' }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, outline: 'none' }}
               />
-              <button type="button" className="bare-button" onClick={() => void runSearch()} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: '#FFF', fontWeight: 700 }}>
+              <button type="button" className="bare-button" onClick={() => void runSearch()} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700 }}>
                 Search
               </button>
             </div>
@@ -322,14 +385,19 @@ export function OurBooksPage() {
                   }}
                   style={{ display: 'flex', gap: 10, padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.04)', textAlign: 'left', alignItems: 'center' }}
                 >
-                  {r.coverUrl && <img src={r.coverUrl} alt={r.title} style={{ width: 38, height: 54, borderRadius: 6, objectFit: 'cover' }} />}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: AppColors.petalWhite }}>{r.title}</div>
+                  <BookCover imageUrl={r.coverUrl} title={r.title} author={r.author} width={38} radius={6} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="clamp-2" style={{ fontSize: 13.5, fontWeight: 700, color: AppColors.petalWhite }}>{r.title}</div>
                     <div style={{ fontSize: 11.5, color: AppColors.roseQuartz }}>{r.author}</div>
                   </div>
                   <Icon name="add" size={18} color={AppColors.roseQuartz} />
                 </button>
               ))}
+              {!searching && results.length === 0 && (
+                <div style={{ padding: '20px 4px', textAlign: 'center', fontSize: 12.5, color: AppColors.mutedPurple }}>
+                  {queryText.trim() ? 'No books found. Try another title or author.' : 'Type a title or author to find a book.'}
+                </div>
+              )}
             </div>
           </div>
         </div>

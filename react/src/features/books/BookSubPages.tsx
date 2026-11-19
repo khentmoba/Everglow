@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
-import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { WebTts } from '../../core/system/webTts';
-import { AppColors, withAlpha } from '../../core/theme/colors';
+import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
@@ -29,12 +28,24 @@ import {
   fetchPopularBooks,
   fetchRecentBooks,
   recordBookDownload,
+  removeFromOurBooks,
   saveToReadList,
   toggleBookFavorite,
   watchBookFavorites,
+  watchOurBooks,
   watchReadList,
 } from './booksService';
 import { BookCover, BookCoverCard } from './BookCover';
+import {
+  DEFAULT_READER_SETTINGS,
+  loadProgress,
+  loadSettings,
+  saveProgress,
+  saveSettings,
+  type ReaderFont,
+  type ReaderSettings,
+  type ReaderTheme,
+} from './readerPrefs';
 
 export function BookDetailPage() {
   const { currentUser, isCoupleUser } = useAuth();
@@ -45,9 +56,11 @@ export function BookDetailPage() {
 
   const [result, setResult] = useState<BookSearchResult | null>(state?.result ?? null);
   const [similar, setSimilar] = useState<BookSearchResult[]>([]);
+  const [addedToast, setAddedToast] = useState(false);
   const userName = currentUser ?? '';
   const readlist = useSource(() => watchReadList(userName), [userName], []);
   const favorites = useSource(() => watchBookFavorites(userName), [userName], []);
+  const ourBooks = useSource(() => watchOurBooks(300), [], []);
 
   useEffect(() => {
     if (!state?.result) return;
@@ -80,6 +93,8 @@ export function BookDetailPage() {
   const item = state?.saved ?? searchResultToBookItem(result);
   const inReadlist = readlist.find((b) => b.workKey === item.workKey);
   const isLoved = favorites.some((b) => b.workKey === item.workKey);
+  const ourBooksKey = item.workKey || (item.iaId ? `ia:${item.iaId}` : '');
+  const inOurBooks = Boolean(ourBooksKey) && ourBooks.some((b) => b.workKey === ourBooksKey);
   const hasReadable = buildReadCandidates(item).length > 0 || Boolean(item.iaId) || result.gutenbergId > 0;
   const metaLine = [result.filetype || result.year, result.language || result.sourceLabel].filter(Boolean).join(' · ');
   const downloads = Object.entries(result.downloadUrls ?? {});
@@ -110,6 +125,20 @@ export function BookDetailPage() {
           { color: BookColors.deepRose, alignment: [0, 0.2], size: 0.9, opacity: 0.06 },
         ]}
       />
+      {addedToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 5,
+            padding: '10px 18px', borderRadius: 22, background: withAlpha(AppColors.success, 0.18),
+            border: `1px solid ${withAlpha(AppColors.success, 0.5)}`, color: AppColors.petalWhite,
+            fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+          }}
+        >
+          Added to Our Books
+        </div>
+      )}
       <div style={{ position: 'relative', padding: '14px 20px 0' }}>
         <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
 
@@ -222,9 +251,18 @@ export function BookDetailPage() {
                 onClick={() => void toggleBookFavorite(item, userName, !isLoved)}
               />
               <DetailActionCircle
-                icon="volunteer_activism"
-                label="Our Books"
-                onClick={() => void addToOurBooks(item, userName)}
+                icon={inOurBooks ? 'check' : 'volunteer_activism'}
+                label={inOurBooks ? 'In Our Books' : 'Our Books'}
+                active={inOurBooks}
+                onClick={() => {
+                  if (inOurBooks) {
+                    void removeFromOurBooks(ourBooksKey);
+                  } else {
+                    void addToOurBooks(item, userName);
+                    setAddedToast(true);
+                    window.setTimeout(() => setAddedToast(false), 2600);
+                  }
+                }}
               />
             </>
           )}
@@ -348,30 +386,105 @@ function splitBookChapters(raw: string, fallbackTitle: string): BookChapter[] {
   return [{ title: fallbackTitle, body: cleaned.trim() }];
 }
 
-const TTS_RATES = [0.85, 1.0, 1.25, 1.5] as const;
+const TTS_RATES = [0.85, 1, 1.25, 1.5, 1.75, 2] as const;
+
+const FONT_FAMILIES: Record<ReaderFont, string> = {
+  classic: Fonts.display,
+  modern: Fonts.reading,
+  soft: Fonts.body,
+};
+
+const THEME_TOKENS: Record<ReaderTheme, { bg: string; fg: string }> = {
+  dark: { bg: ReaderPaper.dark, fg: ReaderPaper.darkText },
+  sepia: { bg: ReaderPaper.sepia, fg: ReaderPaper.sepiaText },
+  light: { bg: ReaderPaper.light, fg: ReaderPaper.lightText },
+};
+
+/** Reflow Gutenberg's hard-wrapped lines into paragraphs that can be read. */
+function toParagraphs(body: string): string[] {
+  return body
+    .split(/\n\s*\n/)
+    .map((part) => part.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
 
 export function BookReaderPage({ startListening = false }: { startListening?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const book = (location.state as { book?: BookItem } | null)?.book ?? null;
 
+  const [settings, setSettings] = useState<ReaderSettings>(() => loadSettings());
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [chapterIdx, setChapterIdx] = useState(0);
   const [tocOpen, setTocOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<'dark' | 'sepia' | 'light'>('dark');
-  const [fontSize, setFontSize] = useState(17);
   const [speaking, setSpeaking] = useState(false);
-  const [ttsRate, setTtsRate] = useState<number>(1.0);
+  const [paused, setPaused] = useState(false);
+  const [followChar, setFollowChar] = useState(-1);
+  const [sleepMinutes, setSleepMinutes] = useState(0);
 
-  const progressKey = book ? `reader_progress::${book.workKey}` : '';
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const chapterRef = useRef(0);
+  const scrollFracRef = useRef(0);
+  const lastScrollSaveRef = useRef(0);
+  const sleepTimerRef = useRef<number | null>(null);
+
+  const patchSettings = (patch: Partial<ReaderSettings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      saveSettings(next);
+      return next;
+    });
+  };
+
+  const saveProgressNow = (chapter: number, scroll: number) => {
+    if (!book) return;
+    saveProgress({
+      workKey: book.workKey,
+      chapter,
+      scroll,
+      updatedAt: Date.now(),
+      title: book.title,
+      author: book.author,
+      coverUrl: book.coverUrl,
+      iaId: book.iaId,
+      readCandidates: buildReadCandidates(book),
+    });
+  };
+
+  const stopSpeech = () => {
+    WebTts.stop();
+    if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
+    sleepTimerRef.current = null;
+    setSleepMinutes(0);
+    setSpeaking(false);
+    setPaused(false);
+    setFollowChar(-1);
+  };
+
+  const startSpeech = (body: string, rate: number) => {
+    if (!WebTts.isSupported || body.trim() === '') return;
+    WebTts.speak(body, {
+      rate,
+      onBoundary: (index) => setFollowChar(index),
+      onComplete: () => {
+        setSpeaking(false);
+        setPaused(false);
+        setFollowChar(-1);
+      },
+    });
+    setSpeaking(true);
+    setPaused(false);
+  };
 
   useEffect(() => {
     if (!book) return;
     let alive = true;
-    const saved = Prefs.get(`int:${progressKey}`) ?? Prefs.get(progressKey);
-    const savedIdx = typeof saved === 'number' && saved >= 0 ? saved : 0;
+    const saved = loadProgress(book.workKey);
     const candidates = buildReadCandidates(book);
     if (candidates.length === 0) {
       setLoading(false);
@@ -383,15 +496,18 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       if (!alive) return;
       if (res.text) {
         const list = splitBookChapters(res.text, book.title);
-        const initial = savedIdx < list.length ? savedIdx : 0;
+        const initial = saved && saved.chapter < list.length ? saved.chapter : 0;
         setChapters(list);
         setChapterIdx(initial);
+        chapterRef.current = initial;
+        window.requestAnimationFrame(() => {
+          if (!alive || !saved || saved.scroll <= 0 || !scrollRef.current) return;
+          const el = scrollRef.current;
+          el.scrollTop = saved.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+          scrollFracRef.current = saved.scroll;
+        });
         if (startListening && WebTts.isSupported && list[initial]) {
-          WebTts.speak(list[initial].body, {
-            rate: ttsRate,
-            onComplete: () => alive && setSpeaking(false),
-          });
-          setSpeaking(true);
+          startSpeech(list[initial].body, loadSettings().ttsRate);
         }
       } else {
         setError(res.error ?? 'Could not load book text.');
@@ -401,9 +517,24 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     return () => {
       alive = false;
       WebTts.stop();
+      if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
+      saveProgressNow(chapterRef.current, scrollFracRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, startListening]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSettingsOpen(false);
+        settingsTriggerRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    window.requestAnimationFrame(() => settingsPanelRef.current?.focus());
+    return () => window.removeEventListener('keydown', onKey);
+  }, [settingsOpen]);
 
   if (!book) {
     return (
@@ -416,45 +547,103 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   }
 
   const currentChapter = chapters[chapterIdx] ?? null;
+  const theme = THEME_TOKENS[settings.theme];
 
   const selectChapter = (nextIdx: number) => {
     if (nextIdx < 0 || nextIdx >= chapters.length) return;
     setChapterIdx(nextIdx);
+    chapterRef.current = nextIdx;
     setTocOpen(false);
-    if (progressKey) Prefs.set(progressKey, nextIdx);
-    if (speaking && WebTts.isSupported) {
-      WebTts.speak(chapters[nextIdx].body, { rate: ttsRate, onComplete: () => setSpeaking(false) });
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    scrollFracRef.current = 0;
+    saveProgressNow(nextIdx, 0);
+    if (speaking && chapters[nextIdx]) startSpeech(chapters[nextIdx].body, settings.ttsRate);
   };
 
   const toggleSpeech = () => {
-    if (!WebTts.isSupported) return;
-    if (speaking) {
-      WebTts.stop();
-      setSpeaking(false);
-    } else if (currentChapter) {
-      WebTts.speak(currentChapter.body, { rate: ttsRate, onComplete: () => setSpeaking(false) });
-      setSpeaking(true);
+    if (!speaking) {
+      if (currentChapter) startSpeech(currentChapter.body, settings.ttsRate);
+      return;
+    }
+    if (paused) {
+      WebTts.resume();
+      setPaused(false);
+    } else {
+      WebTts.pause();
+      setPaused(true);
     }
   };
 
-  const cycleRate = () => {
-    const next = TTS_RATES[(TTS_RATES.indexOf(ttsRate as (typeof TTS_RATES)[number]) + 1) % TTS_RATES.length];
-    setTtsRate(next);
-    WebTts.setRate(next);
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    scrollFracRef.current = max > 0 ? Math.min(1, el.scrollTop / max) : 0;
+    const now = Date.now();
+    if (now - lastScrollSaveRef.current > 700) {
+      lastScrollSaveRef.current = now;
+      saveProgressNow(chapterRef.current, scrollFracRef.current);
+    }
   };
 
-  const bg = themeMode === 'dark' ? '#0D0B12' : themeMode === 'sepia' ? '#F4ECD8' : '#FAFAFA';
-  const fg = themeMode === 'dark' ? '#EAE4EE' : '#1E1B18';
+  const paragraphs = currentChapter ? toParagraphs(currentChapter.body) : [];
+  let runningOffset = 0;
+  const paragraphOffsets = paragraphs.map((text) => {
+    const start = runningOffset;
+    runningOffset += text.length + 1;
+    return start;
+  });
+  const fontFamily = FONT_FAMILIES[settings.font];
+
+  function segmented<T extends string | number>(
+    label: string,
+    options: { value: T; label: string }[],
+    active: T,
+    onPick: (value: T) => void,
+  ) {
+    return (
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.1, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>{label}</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {options.map((o) => (
+            <button
+              key={String(o.value)}
+              type="button"
+              className="bare-button"
+              onClick={() => onPick(o.value)}
+              style={{
+                padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: theme.fg,
+                background: o.value === active ? withAlpha(AppColors.deepRose, 0.3) : withAlpha(theme.fg, 0.06),
+                border: `1px solid ${o.value === active ? withAlpha(AppColors.deepRose, 0.75) : withAlpha(theme.fg, 0.14)}`,
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function stepper(label: string, display: string, onMinus: () => void, onPlus: () => void, canMinus: boolean, canPlus: boolean) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: theme.fg }}>{label}</div>
+        <button type="button" className="bare-button" aria-label={`Decrease ${label}`} disabled={!canMinus} onClick={onMinus} style={{ width: 42, height: 42, borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 20, opacity: canMinus ? 1 : 0.35 }}>−</button>
+        <div style={{ minWidth: 52, textAlign: 'center', fontSize: 13, fontWeight: 700, color: withAlpha(theme.fg, 0.8) }}>{display}</div>
+        <button type="button" className="bare-button" aria-label={`Increase ${label}`} disabled={!canPlus} onClick={onPlus} style={{ width: 42, height: 42, borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 20, opacity: canPlus ? 1 : 0.35 }}>+</button>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ height: '100%', background: bg, color: fg, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '10px 16px', borderBottom: `1px solid ${withAlpha(fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ padding: 6 }}>
-          <Icon name="arrow_back" size={20} color={fg} />
+    <div style={{ position: 'relative', height: '100%', background: theme.bg, color: theme.fg, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '8px 12px', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <button type="button" className="bare-button" aria-label="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="arrow_back" size={22} color={theme.fg} />
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: 17, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {book.title}
           </div>
           {chapters.length > 1 && currentChapter && (
@@ -464,37 +653,27 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
           )}
         </div>
         {chapters.length > 1 && (
-          <button type="button" className="bare-button" onClick={() => setTocOpen((o) => !o)} style={{ padding: 6 }} title="Chapters">
-            <Icon name="format_list_bulleted" size={20} color={fg} />
+          <button type="button" className="bare-button" title="Chapters" aria-label="Chapters" onClick={() => setTocOpen((o) => !o)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+            <Icon name="format_list_bulleted" size={21} color={theme.fg} />
           </button>
         )}
-        <button type="button" className="bare-button" onClick={toggleSpeech} style={{ padding: 6 }} title={speaking ? 'Pause' : 'Listen'}>
-          <Icon name={speaking ? 'stop' : 'headphones'} size={20} color={speaking ? BookColors.deepRose : fg} />
-        </button>
-        {speaking && (
-          <button
-            type="button"
-            className="bare-button"
-            onClick={cycleRate}
-            style={{ padding: '4px 7px', borderRadius: 8, border: `1px solid ${withAlpha(fg, 0.25)}`, fontSize: 11, fontWeight: 700 }}
-          >
-            {ttsRate}x
-          </button>
-        )}
-        <button type="button" className="bare-button" onClick={() => setFontSize((f) => Math.max(13, f - 2))} style={{ padding: '4px 8px', fontSize: 13 }}>A-</button>
-        <button type="button" className="bare-button" onClick={() => setFontSize((f) => Math.min(26, f + 2))} style={{ padding: '4px 8px', fontSize: 13 }}>A+</button>
         <button
           type="button"
           className="bare-button"
-          onClick={() => setThemeMode((t) => (t === 'dark' ? 'sepia' : t === 'sepia' ? 'light' : 'dark'))}
-          style={{ padding: '4px 10px', borderRadius: 10, border: `1px solid ${withAlpha(fg, 0.2)}`, fontSize: 12 }}
+          title={speaking ? (paused ? 'Resume' : 'Pause') : 'Listen'}
+          aria-label={speaking ? (paused ? 'Resume' : 'Pause') : 'Listen'}
+          onClick={toggleSpeech}
+          style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}
         >
-          {themeMode}
+          <Icon name={speaking ? (paused ? 'play_arrow' : 'pause') : 'headphones'} size={21} color={speaking ? AppColors.deepRose : theme.fg} />
+        </button>
+        <button ref={settingsTriggerRef} type="button" className="bare-button" title="Reading settings" aria-label="Reading settings" onClick={() => setSettingsOpen(true)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="text_fields" size={21} color={theme.fg} />
         </button>
       </div>
 
       {tocOpen && chapters.length > 1 && (
-        <div style={{ maxHeight: 240, overflowY: 'auto', borderBottom: `1px solid ${withAlpha(fg, 0.12)}`, background: withAlpha(fg, 0.04), padding: '8px 16px' }}>
+        <div style={{ maxHeight: 240, overflowY: 'auto', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, background: withAlpha(theme.fg, 0.04), padding: '8px 16px' }}>
           {chapters.map((ch, i) => (
             <button
               key={`${ch.title}-${i}`}
@@ -502,13 +681,10 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               className="bare-button"
               onClick={() => selectChapter(i)}
               style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '7px 8px',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: i === chapterIdx ? 700 : 500,
-                color: i === chapterIdx ? BookColors.deepRose : fg,
+                width: '100%', minHeight: 42, textAlign: 'left', padding: '8px', borderRadius: 10,
+                fontSize: 13, fontWeight: i === chapterIdx ? 700 : 500,
+                color: i === chapterIdx ? AppColors.deepRose : theme.fg,
+                background: i === chapterIdx ? withAlpha(AppColors.deepRose, 0.12) : 'transparent',
               }}
             >
               {ch.title}
@@ -517,27 +693,45 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
+      <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: `22px ${Math.round(settings.margin * 22) + 12}px 36px` }}>
         {loading ? (
           <div style={{ padding: 64, textAlign: 'center', fontFamily: Fonts.display, fontSize: 18 }}>Opening the pages…</div>
         ) : currentChapter ? (
           <div style={{ maxWidth: 680, margin: '0 auto' }}>
             {chapters.length > 1 && (
-              <h2 style={{ fontFamily: Fonts.display, fontSize: fontSize + 5, fontWeight: 700, margin: '0 0 18px' }}>
+              <h2 style={{ fontFamily: Fonts.display, fontSize: settings.fontSize + 6, fontWeight: 700, margin: '0 0 18px' }}>
                 {currentChapter.title}
               </h2>
             )}
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: Fonts.display, fontSize, lineHeight: 1.75 }}>
-              {currentChapter.body}
-            </pre>
+            <article aria-label={currentChapter.title}>
+              {paragraphs.map((text, i) => {
+                const start = paragraphOffsets[i];
+                const active = speaking && followChar >= start && followChar < start + text.length;
+                return (
+                  <p
+                    key={i}
+                    style={{
+                      fontFamily, fontSize: settings.fontSize, lineHeight: settings.lineHeight,
+                      margin: `0 0 ${Math.round(settings.fontSize * 0.9)}px`,
+                      padding: active ? '2px 6px' : '2px 0',
+                      borderRadius: 6,
+                      background: active ? withAlpha(AppColors.warmAmber, settings.theme === 'dark' ? 0.16 : 0.28) : 'transparent',
+                      transition: 'background 180ms ease',
+                    }}
+                  >
+                    {text}
+                  </p>
+                );
+              })}
+            </article>
             {chapters.length > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, paddingTop: 16, borderTop: `1px solid ${withAlpha(fg, 0.12)}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, paddingTop: 16, borderTop: `1px solid ${withAlpha(theme.fg, 0.12)}` }}>
                 <button
                   type="button"
                   className="bare-button"
                   disabled={chapterIdx === 0}
                   onClick={() => selectChapter(chapterIdx - 1)}
-                  style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(fg, 0.2)}`, opacity: chapterIdx === 0 ? 0.35 : 1, fontSize: 13 }}
+                  style={{ minHeight: 44, padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, opacity: chapterIdx === 0 ? 0.35 : 1, fontSize: 13, color: theme.fg }}
                 >
                   ← Previous
                 </button>
@@ -546,7 +740,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                   className="bare-button"
                   disabled={chapterIdx >= chapters.length - 1}
                   onClick={() => selectChapter(chapterIdx + 1)}
-                  style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(fg, 0.2)}`, opacity: chapterIdx >= chapters.length - 1 ? 0.35 : 1, fontSize: 13 }}
+                  style={{ minHeight: 44, padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, opacity: chapterIdx >= chapters.length - 1 ? 0.35 : 1, fontSize: 13, color: theme.fg }}
                 >
                   Next →
                 </button>
@@ -561,9 +755,129 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             style={{ width: '100%', height: '82vh', border: 'none', borderRadius: 12 }}
           />
         ) : (
-          <div style={{ padding: 48, textAlign: 'center' }}>{error || 'No readable text found.'}</div>
+          <div style={{ padding: 48, textAlign: 'center' }}>
+            <div>{error || 'No readable text found.'}</div>
+            <button type="button" className="bare-button" onClick={() => navigate('/books')} style={{ marginTop: 16, padding: '10px 18px', borderRadius: 14, background: AppColors.deepRose, color: '#FFF', fontWeight: 700 }}>
+              Back to Books
+            </button>
+          </div>
         )}
       </div>
+
+      {settings.brightness < 1 && (
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', background: `rgba(0,0,0,${1 - settings.brightness})` }} />
+      )}
+
+      {settingsOpen && (
+        <div
+          onClick={() => { setSettingsOpen(false); settingsTriggerRef.current?.focus(); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+        >
+          <div
+            ref={settingsPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reading settings"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 540, maxHeight: '85vh', overflowY: 'auto', outline: 'none',
+              background: settings.theme === 'dark' ? AppColors.inkDeep : settings.theme === 'sepia' ? ReaderPaper.sepia : ReaderPaper.light,
+              color: theme.fg, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: '14px 20px 30px',
+            }}
+          >
+            <div style={{ width: 38, height: 4, borderRadius: 2, background: withAlpha(theme.fg, 0.2), margin: '0 auto 14px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700 }}>Reading settings</div>
+              <button type="button" className="bare-button" onClick={() => setSettingsOpen(false)} style={{ minWidth: 44, minHeight: 44, fontSize: 22, color: theme.fg }} aria-label="Close settings">×</button>
+            </div>
+
+            {stepper(
+              'Text size',
+              `${settings.fontSize}px`,
+              () => patchSettings({ fontSize: Math.max(14, settings.fontSize - 1) }),
+              () => patchSettings({ fontSize: Math.min(28, settings.fontSize + 1) }),
+              settings.fontSize > 14,
+              settings.fontSize < 28,
+            )}
+            {segmented<ReaderFont>(
+              'Typeface',
+              [
+                { value: 'classic', label: 'Classic' },
+                { value: 'modern', label: 'Modern' },
+                { value: 'soft', label: 'Soft' },
+              ],
+              settings.font,
+              (value) => patchSettings({ font: value }),
+            )}
+            {segmented<ReaderTheme>(
+              'Page',
+              [
+                { value: 'dark', label: 'Night' },
+                { value: 'sepia', label: 'Sepia' },
+                { value: 'light', label: 'Day' },
+              ],
+              settings.theme,
+              (value) => patchSettings({ theme: value }),
+            )}
+            {segmented<number>(
+              'Line spacing',
+              [
+                { value: 1.45, label: 'Tight' },
+                { value: 1.7, label: 'Comfy' },
+                { value: 2, label: 'Airy' },
+              ],
+              settings.lineHeight,
+              (value) => patchSettings({ lineHeight: value }),
+            )}
+            {stepper(
+              'Brightness',
+              `${Math.round(settings.brightness * 100)}%`,
+              () => patchSettings({ brightness: Math.max(0.5, Math.round((settings.brightness - 0.1) * 10) / 10) }),
+              () => patchSettings({ brightness: Math.min(1, Math.round((settings.brightness + 0.1) * 10) / 10) }),
+              settings.brightness > 0.5,
+              settings.brightness < 1,
+            )}
+            {stepper(
+              'Margins',
+              settings.margin === 0 ? 'Narrow' : settings.margin === 0.5 ? 'Comfy' : 'Wide',
+              () => patchSettings({ margin: Math.max(0, settings.margin - 0.5) }),
+              () => patchSettings({ margin: Math.min(1, settings.margin + 0.5) }),
+              settings.margin > 0,
+              settings.margin < 1,
+            )}
+            {segmented<number>(
+              'Narration speed',
+              TTS_RATES.map((r) => ({ value: r as number, label: `${r}x` })),
+              settings.ttsRate,
+              (value) => { patchSettings({ ttsRate: value }); WebTts.setRate(value); },
+            )}
+            {segmented<number>(
+              'Sleep timer',
+              [
+                { value: 0, label: 'Off' },
+                { value: 5, label: '5 min' },
+                { value: 15, label: '15 min' },
+                { value: 30, label: '30 min' },
+              ],
+              sleepMinutes,
+              (value) => {
+                setSleepMinutes(value);
+                if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
+                sleepTimerRef.current = value > 0 ? window.setTimeout(stopSpeech, value * 60_000) : null;
+              },
+            )}
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => { patchSettings({ ...DEFAULT_READER_SETTINGS }); setSleepMinutes(0); }}
+              style={{ width: '100%', minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, fontSize: 13, fontWeight: 700, color: theme.fg }}
+            >
+              Reset to defaults
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -574,28 +888,50 @@ export function BookListPage() {
   const location = useLocation();
   const state = (location.state as { kind?: 'popular' | 'recent' | 'category'; title?: string; category?: BookCategory; initialResults?: BookSearchResult[] } | null) ?? {};
 
+  const PAGE = 30;
   const [results, setResults] = useState<BookSearchResult[]>(state.initialResults ?? []);
   const [loading, setLoading] = useState(!state.initialResults?.length);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
+  const fetchPage = (start: number): Promise<BookSearchResult[]> =>
+    state.category
+      ? fetchBooksBySubject(state.category.query, PAGE, start)
+      : state.kind === 'recent'
+        ? fetchRecentBooks(PAGE, start)
+        : fetchPopularBooks(PAGE, start);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    const load = async () => {
-      const res = state.category
-        ? await fetchBooksBySubject(state.category.query, 30)
-        : state.kind === 'recent'
-          ? await fetchRecentBooks(30)
-          : await fetchPopularBooks(30);
-      if (alive) {
-        setResults(res);
-        setLoading(false);
-      }
-    };
-    void load();
+    setOffset(0);
+    setHasMore(true);
+    void fetchPage(0).then((res) => {
+      if (!alive) return;
+      setResults(res);
+      setHasMore(res.length >= PAGE);
+      setLoading(false);
+    });
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.kind, state.category]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const next = offset + PAGE;
+    const res = await fetchPage(next);
+    setResults((prev) => {
+      const seen = new Set(prev.map((r) => r.workKey));
+      return [...prev, ...res.filter((r) => !seen.has(r.workKey))];
+    });
+    setOffset(next);
+    setHasMore(res.length >= PAGE);
+    setLoadingMore(false);
+  };
 
   const title = state.category?.name ?? state.title ?? (state.kind === 'recent' ? 'Recently Added' : 'Most Popular');
   const eyebrow =
@@ -619,7 +955,7 @@ export function BookListPage() {
           <ShelfIconButton icon="arrow_back_ios_new" label="Back" tooltip="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700, margin: 0, color: BookColors.white, lineHeight: 1.1 }}>{title}</h1>
-            <div style={{ fontFamily: Fonts.body, fontWeight: 700, fontSize: 9, color: BookColors.muted, letterSpacing: 2.0, marginTop: 2 }}>
+            <div style={{ fontFamily: Fonts.body, fontWeight: 700, fontSize: 11, color: BookColors.muted, letterSpacing: 1.8, marginTop: 2 }}>
               {eyebrow}
             </div>
           </div>
@@ -645,16 +981,29 @@ export function BookListPage() {
           {loading && results.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: BookColors.muted }}>Loading…</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '18px 14px' }}>
-              {results.map((r) => (
-                <BookCoverCard
-                  key={r.workKey || r.title}
-                  width={Math.floor((width - 40 - (cols - 1) * 14) / cols)}
-                  result={r}
-                  onClick={() => navigate('/books/detail', { state: { result: r } })}
-                />
-              ))}
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '18px 14px' }}>
+                {results.map((r) => (
+                  <BookCoverCard
+                    key={r.workKey || r.title}
+                    width={Math.floor((width - 40 - (cols - 1) * 14) / cols)}
+                    result={r}
+                    onClick={() => navigate('/books/detail', { state: { result: r } })}
+                  />
+                ))}
+              </div>
+              {hasMore && results.length > 0 && (
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={loadingMore}
+                  onClick={() => void loadMore()}
+                  style={{ display: 'block', margin: '24px auto 0', minHeight: 46, padding: '0 26px', borderRadius: 24, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.3)}`, color: AppColors.petalWhite, fontWeight: 700, fontSize: 13, opacity: loadingMore ? 0.6 : 1 }}
+                >
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -682,7 +1031,7 @@ export function BookCategoriesPage() {
             <h1 style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700, margin: 0, color: BookColors.white, lineHeight: lineHeight(26) }}>
               Categories
             </h1>
-            <div style={{ fontFamily: Fonts.body, fontWeight: 700, fontSize: 9, color: BookColors.muted, letterSpacing: 2.0, marginTop: 2 }}>
+            <div style={{ fontFamily: Fonts.body, fontWeight: 700, fontSize: 11, color: BookColors.muted, letterSpacing: 1.8, marginTop: 2 }}>
               PICK A SHELF
             </div>
           </div>
