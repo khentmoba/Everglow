@@ -21,6 +21,7 @@ export function pickPreferredMusicStatus(
   if (spotifyCurrent?.isPlaying && spotifyCurrent.trackName) return spotifyCurrent;
   if (lastfmStatus && lastfmStatus.trackName) {
     if (
+      !lastfmStatus.isPlaying &&
       spotifyCurrent?.trackName &&
       (spotifyCurrent.timestamp?.getTime() ?? 0) > (lastfmStatus.timestamp?.getTime() ?? 0)
     ) {
@@ -31,6 +32,24 @@ export function pickPreferredMusicStatus(
   return spotifyCurrent?.trackName ? spotifyCurrent : null;
 }
 
+export function shouldSyncPartnerStatus(
+  existing: MusicStatus | null,
+  lastfmLatest: MusicStatus | null,
+  nowMs = Date.now(),
+): boolean {
+  if (!lastfmLatest || !lastfmLatest.trackName) return false;
+  if (!existing || !existing.trackName) return true;
+  if (lastfmLatest.isPlaying) {
+    return musicStatusTrackKey(existing) !== musicStatusTrackKey(lastfmLatest);
+  }
+  const existingMs = existing.timestamp?.getTime() ?? 0;
+  const latestMs = lastfmLatest.timestamp?.getTime() ?? 0;
+  if (existing.isPlaying && existingMs > 0 && nowMs - existingMs < 10 * 60_000) {
+    return false;
+  }
+  return latestMs > existingMs;
+}
+
 export function mergeRecentTracks(
   lastfmTracks: MusicStatus[],
   spotifyCurrent: MusicStatus | null,
@@ -38,7 +57,7 @@ export function mergeRecentTracks(
   maxItems = 5,
 ): MusicStatus[] {
   const candidates: MusicStatus[] = [
-    ...(spotifyCurrent?.isPlaying && spotifyCurrent.trackName ? [spotifyCurrent] : []),
+    ...(spotifyCurrent?.trackName ? [spotifyCurrent] : []),
     ...spotifyRecent.filter((t) => Boolean(t.trackName)),
     ...lastfmTracks.filter((t) => Boolean(t.trackName)),
   ];

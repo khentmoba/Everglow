@@ -14,7 +14,9 @@ import { AgentFixtures, type MilestoneCategory, type MilestoneFixture } from '..
 import { db, loadStorage } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { dedupeMilestones } from './milestonePure';
 
+export { dedupeMilestones };
 export type Milestone = MilestoneFixture;
 
 export const MILESTONE_META: Record<MilestoneCategory, { label: string; emoji: string }> = {
@@ -44,6 +46,14 @@ export function repairLegacyMilestoneImageUrl(url: string): string {
 }
 
 const resolvedStorageUrlCache = new Map<string, Promise<string | null>>();
+const resolvedStorageUrlStrings = new Map<string, string>();
+
+export function getCachedMilestoneImageUrl(path: string): string | null {
+  const normalized = repairLegacyMilestoneImageUrl(path);
+  if (!normalized) return null;
+  if (/^(https?:|data:|blob:|\/)/i.test(normalized)) return normalized;
+  return resolvedStorageUrlStrings.get(normalized) ?? null;
+}
 
 export function resolveMilestoneImageUrl(path: string): Promise<string | null> {
   const normalized = repairLegacyMilestoneImageUrl(path);
@@ -55,11 +65,15 @@ export function resolveMilestoneImageUrl(path: string): Promise<string | null> {
   if (cached) return cached;
   const pending = loadStorage()
     .then(({ storage, mod }) => mod.getDownloadURL(mod.ref(storage, normalized)))
+    .then((url) => {
+      if (url) resolvedStorageUrlStrings.set(normalized, url);
+      return url;
+    })
     .catch((e: unknown) => {
-    Logger.e(`Milestone photo could not load (${normalized})`, e);
-    resolvedStorageUrlCache.delete(normalized);
-    return null;
-  });
+      Logger.e(`Milestone photo could not load (${normalized})`, e);
+      resolvedStorageUrlCache.delete(normalized);
+      return null;
+    });
   resolvedStorageUrlCache.set(normalized, pending);
   return pending;
 }
@@ -81,30 +95,33 @@ function parseMilestoneDate(v: unknown): Date {
 
 class MilestoneService {
   milestonesPreview(max = 12): Source<Milestone[]> {
-    if (AgentMode.demo) return just(AgentFixtures.demoMilestones());
-    const q = query(collection(db, 'milestones'), orderBy('date', 'desc'), limit(max));
+    if (AgentMode.demo) return just(dedupeMilestones(AgentFixtures.demoMilestones()).slice(0, max));
+    const fetchLimit = Math.min(Math.max(max * 3, 24), 50);
+    const q = query(collection(db, 'milestones'), orderBy('date', 'desc'), limit(fetchLimit));
     return withFirestoreTimeout(
       snapshots<QuerySnapshot<DocumentData>, Milestone[]>(
         (next, error) => onSnapshot(q, next, error),
         (s) =>
-          s.docs.map((d) => {
-            const data = d.data();
-            const rawUrls = Array.isArray(data.imageUrls)
-              ? data.imageUrls.map((u) => repairLegacyMilestoneImageUrl(String(u)))
-              : [];
-            if (rawUrls.length === 0 && typeof data.imageUrl === 'string' && data.imageUrl) {
-              rawUrls.push(repairLegacyMilestoneImageUrl(data.imageUrl));
-            }
-            return {
-              id: d.id,
-              title: String(data.title ?? ''),
-              description: String(data.description ?? ''),
-              date: parseMilestoneDate(data.date),
-              author: String(data.author ?? ''),
-              category: parseCategory(data.category),
-              imageUrls: rawUrls.filter(Boolean),
-            };
-          }),
+          dedupeMilestones(
+            s.docs.map((d) => {
+              const data = d.data();
+              const rawUrls = Array.isArray(data.imageUrls)
+                ? data.imageUrls.map((u) => repairLegacyMilestoneImageUrl(String(u)))
+                : [];
+              if (rawUrls.length === 0 && typeof data.imageUrl === 'string' && data.imageUrl) {
+                rawUrls.push(repairLegacyMilestoneImageUrl(data.imageUrl));
+              }
+              return {
+                id: d.id,
+                title: String(data.title ?? ''),
+                description: String(data.description ?? ''),
+                date: parseMilestoneDate(data.date),
+                author: String(data.author ?? ''),
+                category: parseCategory(data.category),
+                imageUrls: rawUrls.filter(Boolean),
+              };
+            }),
+          ).slice(0, max),
       ),
       { label: 'milestones-preview' },
     );

@@ -81,7 +81,7 @@ test('Dashboard: Living Archive images, Jukebox artwork, carousels, and scroll r
     await page.goto(`${baseUrl}/dashboard?agent=1&lowend=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('text=LIVING ARCHIVE', { timeout: 10_000 });
 
-    // Living Archive renders real milestone images with non-zero naturalWidth.
+    // Living Archive renders real milestone images with non-zero naturalWidth and sliding inner photo tracks.
     const archiveImgs = await page.evaluate(() => {
       const imgs = [...document.querySelectorAll('button[aria-label^="Open memory "] img')];
       return imgs.map((img) => ({ complete: img.complete, w: img.naturalWidth }));
@@ -90,6 +90,14 @@ test('Dashboard: Living Archive images, Jukebox artwork, carousels, and scroll r
     for (const img of archiveImgs) {
       assert.ok(img.complete && img.w > 0, `Living Archive image failed to load: ${JSON.stringify(img)}`);
     }
+    const innerTrackBefore = await page.locator('[data-archive-photo-track]').first().evaluate((el) => el.style.transform);
+    assert.ok(innerTrackBefore.startsWith('translate3d(0%'), `expected inner archive photo track at slide 0, got ${innerTrackBefore}`);
+    await page.locator('button[aria-label^="Show photo 2 of "]').first().click();
+    const innerTrackAfter = await page.locator('[data-archive-photo-track]').first().evaluate((el) => el.style.transform);
+    assert.ok(innerTrackAfter.startsWith('translate3d(-100%'), `expected inner archive photo track to slide to photo 2, got ${innerTrackAfter}`);
+
+    // On desktop width, EverglowGuardian triggers on-demand model-viewer loading for the 3D cat.
+    await page.waitForSelector('script[data-everglow-model-viewer], model-viewer', { state: 'attached', timeout: 5_000 });
 
     // Jukebox Top 10, Recently Heard, and Artist Showdown render album artwork.
     await page.waitForSelector("text=Khent's Top 10", { timeout: 10_000 });

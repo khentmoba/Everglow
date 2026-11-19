@@ -1,7 +1,7 @@
 // Port of lib/features/dashboard/presentation/widgets/timeline_view.dart
 // and milestone_photo.dart.
-import { useEffect, useRef, useState } from 'react';
-import { motionReduced } from '../../core/theme/motion';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Curves, motionReduced } from '../../core/theme/motion';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
 import { Align, linear } from '../../core/theme/paint';
@@ -12,10 +12,14 @@ import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeade
 import { Icon } from '../../shared/widgets/Icon';
 import {
   MILESTONE_META,
+  getCachedMilestoneImageUrl,
   milestoneService,
   resolveMilestoneImageUrl,
   type Milestone,
 } from './milestoneService';
+
+const CARD_WIDTH = 300;
+const CARD_GAP = 16;
 
 function MilestonePhoto({
   path,
@@ -26,9 +30,7 @@ function MilestonePhoto({
   alt: string;
   style?: React.CSSProperties;
 }) {
-  const [src, setSrc] = useState<string | null>(() =>
-    /^(https?:|data:|blob:|\/)/i.test(path) ? path : null,
-  );
+  const [src, setSrc] = useState<string | null>(() => getCachedMilestoneImageUrl(path));
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -37,8 +39,9 @@ function MilestonePhoto({
       setSrc(null);
       return;
     }
-    if (/^(https?:|data:|blob:|\/)/i.test(path)) {
-      setSrc(path);
+    const cached = getCachedMilestoneImageUrl(path);
+    if (cached) {
+      setSrc(cached);
       return;
     }
     let alive = true;
@@ -79,6 +82,7 @@ function MilestonePhoto({
     <img
       src={src}
       alt={alt}
+      draggable={false}
       onError={() => setFailed(true)}
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style }}
     />
@@ -91,31 +95,138 @@ export function TimelineView() {
   const [modalPhotoIdx, setModalPhotoIdx] = useState(0);
   const [carouselHovered, setCarouselHovered] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const cardSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const activeCardRef = useRef(0);
+  const glideRafRef = useRef<number | null>(null);
+  const focusRafRef = useRef<number | null>(null);
+  const isGlidingRef = useRef(false);
   const reduceAmbient = motionReduced();
+
+  const updateCardFocus = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const viewportCenter = el.scrollLeft + el.clientWidth / 2;
+    let nearestIdx = 0;
+    let nearestDist = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < cardSlotRefs.current.length; i++) {
+      const slot = cardSlotRefs.current[i];
+      if (!slot) continue;
+      const center = slot.offsetLeft + slot.offsetWidth / 2;
+      const dist = Math.abs(viewportCenter - center);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIdx = i;
+      }
+      if (!reduceAmbient) {
+        const norm = Math.min(1, dist / (CARD_WIDTH + CARD_GAP));
+        const scale = 1 - norm * 0.1;
+        const opacity = 1 - norm * 0.34;
+        slot.style.transform = `scale(${scale.toFixed(4)})`;
+        slot.style.opacity = opacity.toFixed(3);
+      } else {
+        slot.style.transform = '';
+        slot.style.opacity = '';
+      }
+    }
+
+    if (!isGlidingRef.current) {
+      activeCardRef.current = nearestIdx;
+    }
+  }, [reduceAmbient]);
+
+  const cancelGlide = useCallback(() => {
+    if (glideRafRef.current != null) {
+      cancelAnimationFrame(glideRafRef.current);
+      glideRafRef.current = null;
+    }
+    if (isGlidingRef.current) {
+      isGlidingRef.current = false;
+      const el = scrollerRef.current;
+      if (el) el.style.scrollSnapType = 'x mandatory';
+    }
+  }, []);
+
+  const glideToCard = useCallback(
+    (index: number, durationMs?: number) => {
+      const el = scrollerRef.current;
+      if (!el || !milestones || milestones.length === 0) return;
+      const clamped = ((index % milestones.length) + milestones.length) % milestones.length;
+      const slot = cardSlotRefs.current[clamped];
+      if (!slot) return;
+
+      const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+      const target = Math.max(0, Math.min(maxScroll, slot.offsetLeft + slot.offsetWidth / 2 - el.clientWidth / 2));
+      activeCardRef.current = clamped;
+      cancelGlide();
+
+      if (reduceAmbient || Math.abs(target - el.scrollLeft) < 1) {
+        el.scrollLeft = target;
+        updateCardFocus();
+        return;
+      }
+
+      const start = el.scrollLeft;
+      const delta = target - start;
+      const duration = durationMs ?? (clamped === 0 ? 950 : 1150);
+      const startedAt = performance.now();
+      isGlidingRef.current = true;
+      el.style.scrollSnapType = 'none';
+
+      const step = (now: number) => {
+        const t = Math.min(1, (now - startedAt) / duration);
+        const eased = clamped === 0 ? Curves.easeInOut(t) : Curves.easeInOutCubic(t);
+        el.scrollLeft = start + delta * eased;
+        updateCardFocus();
+        if (t < 1) {
+          glideRafRef.current = requestAnimationFrame(step);
+        } else {
+          glideRafRef.current = null;
+          isGlidingRef.current = false;
+          el.style.scrollSnapType = 'x mandatory';
+          updateCardFocus();
+        }
+      };
+
+      glideRafRef.current = requestAnimationFrame(step);
+    },
+    [cancelGlide, milestones, reduceAmbient, updateCardFocus],
+  );
+
+  useEffect(() => {
+    cardSlotRefs.current.length = milestones?.length ?? 0;
+    activeCardRef.current = 0;
+    const id = requestAnimationFrame(() => updateCardFocus());
+    return () => cancelAnimationFrame(id);
+  }, [milestones, updateCardFocus]);
+
+  useEffect(() => {
+    const onResize = () => updateCardFocus();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      cancelGlide();
+      if (focusRafRef.current != null) cancelAnimationFrame(focusRafRef.current);
+    };
+  }, [cancelGlide, updateCardFocus]);
 
   useEffect(() => {
     if (reduceAmbient || carouselHovered || selected != null) return;
     if (!milestones || milestones.length <= 1) return;
     const id = window.setInterval(() => {
-      const el = scrollerRef.current;
-      if (!el || document.visibilityState !== 'visible') return;
-      const stepWidth = 316; // 300px card + 16px gap
-      const next = (activeCardRef.current + 1) % milestones.length;
-      activeCardRef.current = next;
-      if (next === 0) {
-        el.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        el.scrollTo({ left: next * stepWidth, behavior: 'smooth' });
-      }
+      if (document.visibilityState !== 'visible') return;
+      glideToCard((activeCardRef.current + 1) % milestones.length);
     }, 5500);
     return () => window.clearInterval(id);
-  }, [milestones, reduceAmbient, carouselHovered, selected]);
+  }, [milestones, reduceAmbient, carouselHovered, selected, glideToCard]);
 
-  const scrollCardsBy = (delta: number) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: delta, behavior: 'smooth' });
+  const handleScroll = () => {
+    if (isGlidingRef.current) return;
+    if (focusRafRef.current != null) return;
+    focusRafRef.current = requestAnimationFrame(() => {
+      focusRafRef.current = null;
+      updateCardFocus();
+    });
   };
 
   return (
@@ -140,8 +251,12 @@ export function TimelineView() {
 
       <div
         style={{ width: '100%', height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
-        onMouseEnter={() => setCarouselHovered(true)}
-        onMouseLeave={() => setCarouselHovered(false)}
+        onPointerEnter={(e) => {
+          if (e.pointerType === 'mouse') setCarouselHovered(true);
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType === 'mouse') setCarouselHovered(false);
+        }}
       >
         {milestones == null ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -155,22 +270,41 @@ export function TimelineView() {
             <div
               ref={scrollerRef}
               className="no-scrollbar"
-              onScroll={(e) => {
-                activeCardRef.current = Math.round(e.currentTarget.scrollLeft / 316);
+              onScroll={handleScroll}
+              onPointerDown={cancelGlide}
+              onWheel={cancelGlide}
+              onTouchStart={cancelGlide}
+              style={{
+                width: '100%',
+                overflowX: 'auto',
+                paddingBlock: 8,
+                paddingInline: `max(16px, calc(50% - ${CARD_WIDTH / 2}px))`,
+                boxSizing: 'border-box',
+                scrollSnapType: 'x mandatory',
               }}
-              style={{ width: '100%', overflowX: 'auto', padding: '0 24px', scrollSnapType: 'x mandatory' }}
             >
-              <div style={{ display: 'flex', gap: 16, width: 'max-content', margin: '0 auto' }}>
-                {milestones.map((m) => (
-                  <MilestoneCarouselCard
+              <div style={{ display: 'flex', gap: CARD_GAP, width: 'max-content', alignItems: 'center' }}>
+                {milestones.map((m, idx) => (
+                  <div
                     key={m.id}
-                    milestone={m}
-                    reduceAmbient={reduceAmbient}
-                    onTap={() => {
-                      setModalPhotoIdx(0);
-                      setSelected(m);
+                    ref={(el) => {
+                      cardSlotRefs.current[idx] = el;
                     }}
-                  />
+                    style={{
+                      scrollSnapAlign: 'center',
+                      flexShrink: 0,
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    <MilestoneCarouselCard
+                      milestone={m}
+                      reduceAmbient={reduceAmbient}
+                      onTap={() => {
+                        setModalPhotoIdx(0);
+                        setSelected(m);
+                      }}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -180,7 +314,7 @@ export function TimelineView() {
                   type="button"
                   className="bare-button"
                   aria-label="Previous memory"
-                  onClick={() => scrollCardsBy(-316)}
+                  onClick={() => glideToCard(activeCardRef.current - 1, 650)}
                   style={{
                     position: 'absolute',
                     left: 8,
@@ -203,7 +337,7 @@ export function TimelineView() {
                   type="button"
                   className="bare-button"
                   aria-label="Next memory"
-                  onClick={() => scrollCardsBy(316)}
+                  onClick={() => glideToCard(activeCardRef.current + 1, 650)}
                   style={{
                     position: 'absolute',
                     right: 8,
@@ -257,10 +391,21 @@ export function TimelineView() {
           >
             {selected.imageUrls.length > 0 && (
               <div style={{ position: 'relative', width: '100%', height: 260, borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
-                <MilestonePhoto
-                  path={selected.imageUrls[modalPhotoIdx % selected.imageUrls.length]}
-                  alt={selected.title}
-                />
+                <div
+                  style={{
+                    display: 'flex',
+                    width: '100%',
+                    height: '100%',
+                    transform: `translate3d(-${(modalPhotoIdx % selected.imageUrls.length) * 100}%, 0, 0)`,
+                    transition: reduceAmbient ? 'none' : 'transform 520ms cubic-bezier(0.42, 0, 0.58, 1)',
+                  }}
+                >
+                  {selected.imageUrls.map((url, idx) => (
+                    <div key={`${selected.id}-modal-${idx}`} style={{ flex: '0 0 100%', width: '100%', height: '100%' }}>
+                      <MilestonePhoto path={url} alt={selected.title} />
+                    </div>
+                  ))}
+                </div>
                 {selected.imageUrls.length > 1 && (
                   <>
                     <button
@@ -366,24 +511,24 @@ function MilestoneCarouselCard({
       if (document.visibilityState === 'visible') {
         setImgIndex((i) => (i + 1) % count);
       }
-    }, 4500);
+    }, 4200);
     return () => window.clearInterval(id);
   }, [count, reduceAmbient, hovered]);
 
-  const activePath = count > 0 ? milestone.imageUrls[imgIndex % count] : '';
+  const activePhotoIdx = count > 0 ? imgIndex % count : 0;
 
   return (
-    <button
-      type="button"
-      className="bare-button"
-      aria-label={`Open memory ${milestone.title}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onTap}
+    <div
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') setHovered(true);
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') setHovered(false);
+      }}
       style={{
-        width: 300,
+        position: 'relative',
+        width: CARD_WIDTH,
         height: 500,
-        scrollSnapAlign: 'center',
         borderRadius: AppRadius.x3,
         overflow: 'hidden',
         background: linear([AppColors.silk, AppColors.velvet, AppColors.inkDeep], {
@@ -394,110 +539,232 @@ function MilestoneCarouselCard({
         border: `1px solid ${withAlpha(AppColors.blushGold, hovered ? 0.52 : 0.32)}`,
         transform: hovered && !reduceAmbient ? 'translateY(-4px)' : undefined,
         transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
       }}
     >
-      <div
+      <button
+        type="button"
+        className="bare-button"
+        aria-label={`Open memory ${milestone.title}`}
+        onClick={onTap}
         style={{
-          height: 1,
-          margin: '0 28px',
-          background: linear([AppColors.transparent, withAlpha(AppColors.blushGold, 0.6), AppColors.transparent]),
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          textAlign: 'left',
         }}
-      />
-      <div style={{ flex: 3, position: 'relative', width: '100%', overflow: 'hidden' }}>
-        {activePath ? (
-          <MilestonePhoto path={activePath} alt={milestone.title} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', background: withAlpha(AppColors.deepRose, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="image" size={32} color={withAlpha(AppColors.roseQuartz, 0.3)} />
-          </div>
-        )}
+      >
         <div
           style={{
-            position: 'absolute',
-            top: 12,
-            left: 12,
-            padding: '6px 10px',
-            borderRadius: 999,
-            background: Derived.panelGlass,
-            border: `1px solid ${withAlpha(AppColors.moonlight, 0.18)}`,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
+            height: 1,
+            margin: '0 28px',
+            background: linear([AppColors.transparent, withAlpha(AppColors.blushGold, 0.6), AppColors.transparent]),
           }}
-        >
-          <span style={{ fontSize: 11 }}>{meta.emoji}</span>
-          <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: Derived.textHigh }}>
-            {meta.label}
-          </span>
-        </div>
-        {count > 1 && (
+        />
+        <div style={{ flex: 3, position: 'relative', width: '100%', overflow: 'hidden' }}>
+          {count > 0 ? (
+            <div
+              data-archive-photo-track=""
+              style={{
+                display: 'flex',
+                width: '100%',
+                height: '100%',
+                transform: `translate3d(-${activePhotoIdx * 100}%, 0, 0)`,
+                transition: reduceAmbient ? 'none' : 'transform 850ms cubic-bezier(0.42, 0, 0.58, 1)',
+              }}
+            >
+              {milestone.imageUrls.map((url, idx) => (
+                <div key={`${milestone.id}-photo-${idx}`} style={{ flex: '0 0 100%', width: '100%', height: '100%' }}>
+                  <MilestonePhoto path={url} alt={milestone.title} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: withAlpha(AppColors.deepRose, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="image" size={32} color={withAlpha(AppColors.roseQuartz, 0.3)} />
+            </div>
+          )}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 64,
+              pointerEvents: 'none',
+              background: linear([withAlpha(AppColors.inkDeep, 0.48), AppColors.transparent], {
+                begin: Align.topCenter,
+                end: Align.bottomCenter,
+              }),
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 84,
+              pointerEvents: 'none',
+              background: linear([AppColors.transparent, withAlpha(AppColors.inkDeep, 0.72)], {
+                begin: Align.topCenter,
+                end: Align.bottomCenter,
+              }),
+            }}
+          />
           <div
             style={{
               position: 'absolute',
               top: 12,
-              right: 12,
-              padding: '4px 9px',
+              left: 12,
+              padding: '6px 10px',
               borderRadius: 999,
               background: Derived.panelGlass,
               border: `1px solid ${withAlpha(AppColors.moonlight, 0.18)}`,
-              ...AppTypography.outfitBold,
-              fontSize: 10,
-              color: AppColors.petalWhite,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
             }}
           >
-            {(imgIndex % count) + 1} / {count}
+            <span style={{ fontSize: 11 }}>{meta.emoji}</span>
+            <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: Derived.textHigh }}>
+              {meta.label}
+            </span>
           </div>
-        )}
-        {count > 1 && count <= 6 && (
-          <div
+          {count > 1 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                padding: '4px 9px',
+                borderRadius: 999,
+                background: Derived.panelGlass,
+                border: `1px solid ${withAlpha(AppColors.moonlight, 0.18)}`,
+                ...AppTypography.outfitBold,
+                fontSize: 10,
+                color: AppColors.petalWhite,
+              }}
+            >
+              {activePhotoIdx + 1} / {count}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 2, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'left', width: '100%', boxSizing: 'border-box' }}>
+          <div>
+            <div style={{ ...AppTypography.cormorantBold, fontSize: 22, color: AppColors.petalWhite }}>{milestone.title}</div>
+            <div className="clamp-3" style={{ ...AppTypography.bodySmall, marginTop: 6, color: withAlpha(AppColors.petalWhite, 0.72) }}>
+              {milestone.description}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.blushGold }}>
+              {milestone.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+            <span style={{ ...AppTypography.outfitMuted, fontSize: 11 }}>by {milestone.author}</span>
+          </div>
+        </div>
+      </button>
+
+      {count > 1 && hovered && (
+        <>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label={`Previous photo for ${milestone.title}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setImgIndex((i) => (i - 1 + count) % count);
+            }}
             style={{
               position: 'absolute',
-              right: 12,
-              bottom: 12,
+              left: 8,
+              top: 146,
+              transform: 'translateY(-50%)',
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: withAlpha(AppColors.inkDeep, 0.68),
+              border: `1px solid ${withAlpha(AppColors.moonlight, 0.24)}`,
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              padding: '4px 7px',
-              borderRadius: 999,
-              background: withAlpha(AppColors.inkDeep, 0.65),
+              justifyContent: 'center',
+              zIndex: 3,
             }}
           >
-            {milestone.imageUrls.map((_, i) => {
-              const active = i === imgIndex % count;
-              return (
-                <span
-                  key={i}
-                  style={{
-                    width: active ? 14 : 5,
-                    height: 5,
-                    borderRadius: 99,
-                    background: active ? AppColors.blushGold : withAlpha(AppColors.petalWhite, 0.45),
-                    transition: 'width 240ms ease',
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
+            <Icon name="chevron_left" size={16} color={AppColors.petalWhite} />
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label={`Next photo for ${milestone.title}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setImgIndex((i) => (i + 1) % count);
+            }}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: 146,
+              transform: 'translateY(-50%)',
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: withAlpha(AppColors.inkDeep, 0.68),
+              border: `1px solid ${withAlpha(AppColors.moonlight, 0.24)}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 3,
+            }}
+          >
+            <Icon name="chevron_right" size={16} color={AppColors.petalWhite} />
+          </button>
+        </>
+      )}
 
-      <div style={{ flex: 2, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'left', width: '100%' }}>
-        <div>
-          <div style={{ ...AppTypography.cormorantBold, fontSize: 22, color: AppColors.petalWhite }}>{milestone.title}</div>
-          <div className="clamp-3" style={{ ...AppTypography.bodySmall, marginTop: 6, color: withAlpha(AppColors.petalWhite, 0.72) }}>
-            {milestone.description}
-          </div>
+      {count > 1 && count <= 6 && (
+        <div
+          style={{
+            position: 'absolute',
+            right: 12,
+            top: 270,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '4px 7px',
+            borderRadius: 999,
+            background: withAlpha(AppColors.inkDeep, 0.65),
+            zIndex: 3,
+          }}
+        >
+          {milestone.imageUrls.map((_, i) => {
+            const active = i === activePhotoIdx;
+            return (
+              <button
+                key={i}
+                type="button"
+                className="bare-button"
+                aria-label={`Show photo ${i + 1} of ${count} for ${milestone.title}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImgIndex(i);
+                }}
+                style={{
+                  width: active ? 14 : 6,
+                  height: 6,
+                  borderRadius: 99,
+                  background: active ? AppColors.blushGold : withAlpha(AppColors.petalWhite, 0.45),
+                  transition: 'width 240ms ease, background 240ms ease',
+                }}
+              />
+            );
+          })}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ ...AppTypography.outfitBold, fontSize: 11, color: AppColors.blushGold }}>
-            {milestone.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-          </span>
-          <span style={{ ...AppTypography.outfitMuted, fontSize: 11 }}>by {milestone.author}</span>
-        </div>
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
