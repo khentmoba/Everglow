@@ -10,6 +10,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -19,13 +20,15 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import {
   buildReadCandidates,
+  isKhent,
   type BookItem,
   type BookSearchResult,
   type OurBooksItem,
 } from './bookTypes';
+import type { ReaderBookmark, ReaderHighlight, ReaderProgress } from './readerPrefs';
 
 const CATALOG_PROXY = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyCatalog';
 const BOOK_TEXT_PROXY = 'https://everglow-1c6db.web.app/api/proxyBookText';
@@ -242,7 +245,7 @@ export async function fetchBooksBySubject(subject: string, limitCount = 24, offs
 
 export async function searchBooksCatalog(
   queryText: string,
-  opts?: { filetype?: string; language?: string; isbn?: string; publisher?: string; offset?: number; limit?: number },
+  opts?: { filetype?: string; language?: string; isbn?: string; publisher?: string; offset?: number; limit?: number; sort?: 'relevant' | 'popular' | 'newest' },
 ): Promise<{ results: BookSearchResult[]; total: number }> {
   const q = queryText.trim();
   if (!q) return { results: [], total: 0 };
@@ -250,11 +253,13 @@ export async function searchBooksCatalog(
   const off = opts?.offset ?? 0;
   const lang = opts?.language;
   const gutLang = lang ? GUTENDEX_LANG[lang] : undefined;
+  const olSort = opts?.sort === 'newest' ? 'new' : opts?.sort === 'popular' ? 'rating' : undefined;
 
   const olParams: Record<string, string> = {
     q,
     fields: OL_FIELDS,
     limit: String(lim),
+    ...(olSort ? { sort: olSort } : {}),
     ...(off > 0 ? { offset: String(off) } : {}),
     ...(lang ? { language: lang } : {}),
     ...(opts?.isbn ? { isbn: opts.isbn } : {}),
@@ -278,7 +283,7 @@ export async function searchBooksCatalog(
     .filter((x) => x.title);
   const total = Number(ol?.numFound ?? olDocs.length) + gutDocs.length;
 
-  let merged = [...olDocs, ...gutDocs];
+  let merged = mergeResults([...olDocs, ...gutDocs]);
   if (opts?.filetype) {
     const format = opts.filetype.toLowerCase();
     merged = merged.filter((r) => Boolean(r.filetype) && r.filetype.toLowerCase() === format);
@@ -499,6 +504,52 @@ export const watchReadList = (u: string) => watchUserBookCol('read_list', u, dem
 export const watchBookFavorites = (u: string) => watchUserBookCol('book_favorites', u, demoFavorites);
 export const watchBookDownloads = (u: string) => watchUserBookCol('book_download_history', u, demoDownloads);
 
+export interface SyncedReaderState {
+  progress: ReaderProgress | null;
+  bookmarks: ReaderBookmark[];
+  highlights: ReaderHighlight[];
+}
+
+const EMPTY_READER_STATE: SyncedReaderState = { progress: null, bookmarks: [], highlights: [] };
+const READER_STATE_COL = 'reader_state';
+const readerStateId = (userName: string, workKey: string) => `${encodeURIComponent(userName)}__${encodeURIComponent(workKey)}`;
+
+function mapReaderState(data: Record<string, unknown> | undefined): SyncedReaderState {
+  if (!data) return EMPTY_READER_STATE;
+  return {
+    progress: (data.progress as ReaderProgress) ?? null,
+    bookmarks: Array.isArray(data.bookmarks) ? (data.bookmarks as ReaderBookmark[]) : [],
+    highlights: Array.isArray(data.highlights) ? (data.highlights as ReaderHighlight[]) : [],
+  };
+}
+
+/** Reading position and marks follow the couple across phone and tablet. */
+export function watchReaderState(userName: string, workKey: string): Source<SyncedReaderState> {
+  if (!userName || !workKey || AgentMode.demo) return just(EMPTY_READER_STATE);
+  return withFirestoreTimeout(
+    (l) =>
+      onSnapshot(
+        doc(db, READER_STATE_COL, readerStateId(userName, workKey)),
+        (snap) => l.data(mapReaderState(snap.data())),
+        (e) => l.error?.(e),
+      ),
+    { label: 'reader-state' },
+  );
+}
+
+export async function saveReaderState(userName: string, workKey: string, state: SyncedReaderState): Promise<void> {
+  if (!userName || !workKey || AgentMode.demo) return;
+  try {
+    await setDoc(
+      doc(db, READER_STATE_COL, readerStateId(userName, workKey)),
+      { ...state, userName, workKey, updatedAt: Date.now() },
+      { merge: true },
+    );
+  } catch (e) {
+    Logger.w(`saveReaderState failed: ${String(e)}`);
+  }
+}
+
 export async function saveToReadList(item: BookItem, status: string, userName: string): Promise<void> {
   if (!userName) return;
   if (AgentMode.demo) {
@@ -641,6 +692,7 @@ export function watchOurBooks(limitCount = 300): Source<OurBooksItem[]> {
             subjects: Array.isArray(data.subjects) ? data.subjects.map(String) : [],
             addedBy: String(data.addedBy ?? ''),
             addedAt: tsAdded?.toDate ? tsAdded.toDate() : new Date(),
+            sourceLabel: String(data.sourceLabel ?? ''),
             khentReadAt: tsK?.toDate ? tsK.toDate() : undefined,
             clairReadAt: tsC?.toDate ? tsC.toDate() : undefined,
           };
@@ -666,6 +718,7 @@ export async function addToOurBooks(item: BookItem, addedBy: string): Promise<vo
           subjects: item.subjects,
           addedBy,
           addedAt: new Date(),
+          sourceLabel: item.readSourceLabel,
         },
         ...demoOurBooks,
       ];
@@ -691,6 +744,7 @@ export async function addToOurBooks(item: BookItem, addedBy: string): Promise<vo
         subjects: item.subjects,
         addedBy,
         addedAt: serverTimestamp(),
+        sourceLabel: item.readSourceLabel,
       });
     }
   });
@@ -702,7 +756,7 @@ export async function setOurBookReadFlag(workKey: string, userName: string, read
       b.workKey === workKey
         ? {
             ...b,
-            ...(userName === 'khentsgdz'
+            ...(isKhent(userName)
               ? { khentReadAt: read ? new Date() : undefined }
               : { clairReadAt: read ? new Date() : undefined }),
           }
@@ -713,7 +767,7 @@ export async function setOurBookReadFlag(workKey: string, userName: string, read
   }
   const snap = await getDocs(query(collection(db, 'our_books'), where('workKey', '==', workKey), limit(1)));
   if (!snap.docs.length) return;
-  const field = userName === 'khentsgdz' ? 'khentReadAt' : 'clairReadAt';
+  const field = isKhent(userName) ? 'khentReadAt' : 'clairReadAt';
   await updateDoc(snap.docs[0].ref, { [field]: read ? serverTimestamp() : null });
 }
 

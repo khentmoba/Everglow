@@ -9,7 +9,7 @@ import { useSource } from '../../core/utils/liveSource';
 import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
-import { BookColors, ourBookToBookItem, searchResultToBookItem, type BookSearchResult, type OurBooksItem } from './bookTypes';
+import { BookColors, coupleLabel, isKhent, ourBookToBookItem, searchResultToBookItem, type BookSearchResult, type OurBooksItem } from './bookTypes';
 import { addToOurBooks, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
 import { BookCover } from './BookCover';
 
@@ -113,7 +113,7 @@ export function OurBooksPage() {
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <span style={{ width: 4, height: 4, borderRadius: 99, background: AppColors.deepRose }} />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: withAlpha(AppColors.roseQuartz, 0.6) }}>
-              {userName === 'khentsgdz' ? 'KHENT & CLAIR' : 'CLAIR & KHENT'}
+              {coupleLabel(userName)}
             </span>
             <span style={{ width: 4, height: 4, borderRadius: 99, background: AppColors.deepRose }} />
           </div>
@@ -217,7 +217,7 @@ export function OurBooksPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680, margin: '0 auto' }}>
             {shown.map((b) => {
-              const iRead = userName === 'khentsgdz' ? Boolean(b.khentReadAt) : Boolean(b.clairReadAt);
+              const iRead = isKhent(userName) ? Boolean(b.khentReadAt) : Boolean(b.clairReadAt);
               return (
                 <div
                   key={b.id || b.workKey}
@@ -243,7 +243,7 @@ export function OurBooksPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: AppColors.petalWhite }}>{b.title}</div>
                     <div style={{ fontSize: 11, color: AppColors.mutedPurple, marginTop: 3 }}>
-                      Added by {b.addedBy === 'khentsgdz' ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      Added by {isKhent(b.addedBy) ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <span
@@ -259,7 +259,7 @@ export function OurBooksPage() {
                           letterSpacing: 0.7,
                         }}
                       >
-                        OPEN LIBRARY
+                        {(b.sourceLabel || 'OPEN LIBRARY').toUpperCase()}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>

@@ -69,6 +69,7 @@ export interface OurBooksItem {
   subjects: string[];
   addedBy: string;
   addedAt: Date;
+  sourceLabel?: string;
   khentReadAt?: Date;
   clairReadAt?: Date;
 }
@@ -79,6 +80,11 @@ export interface BookCategory {
   icon: string;
   color: string;
 }
+
+export const KHENT_USER = 'khentsgdz';
+export const isKhent = (userName: string): boolean => userName === KHENT_USER;
+export const partnerName = (userName: string): string => (isKhent(userName) ? 'Clair' : 'Khent');
+export const coupleLabel = (userName: string): string => (isKhent(userName) ? 'KHENT & CLAIR' : 'CLAIR & KHENT');
 
 export const BOOK_CATEGORIES: BookCategory[] = [
   { name: 'Romance', query: 'romance', icon: 'favorite', color: '#E91E63' },
@@ -211,6 +217,6 @@ export function ourBookToBookItem(b: OurBooksItem): BookItem {
     userName: b.addedBy,
     addedAt: b.addedAt,
     readSourceUrl: '',
-    readSourceLabel: b.iaId ? 'Internet Archive' : b.workKey ? 'Open Library' : '',
+    readSourceLabel: b.sourceLabel || (b.iaId ? 'Internet Archive' : b.workKey ? 'Open Library' : ''),
   };
 }

@@ -32,9 +32,11 @@ import {
   recordBookDownload,
   removeFromOurBooks,
   resolveBookByWorkKey,
+  saveReaderState,
   saveToReadList,
   toggleBookFavorite,
   watchBookFavorites,
+  watchReaderState,
   watchOurBooks,
   watchReadList,
 } from './booksService';
@@ -46,6 +48,8 @@ import {
   loadProgress,
   loadSettings,
   removeHighlight,
+  replaceBookmarks,
+  replaceHighlights,
   saveHighlight,
   saveProgress,
   saveSettings,
@@ -66,8 +70,11 @@ export function BookDetailPage() {
   const workKeyParam = new URLSearchParams(location.search).get('workKey');
   const [result, setResult] = useState<BookSearchResult | null>(state?.result ?? null);
   const [resolving, setResolving] = useState(Boolean(workKeyParam) && !state?.result);
+  const [resolveError, setResolveError] = useState(false);
+  const [resolveRetryKey, setResolveRetryKey] = useState(0);
   const [similar, setSimilar] = useState<BookSearchResult[]>([]);
   const [addedToast, setAddedToast] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const userName = currentUser ?? '';
   const readlist = useSource(() => watchReadList(userName), [userName], []);
   const favorites = useSource(() => watchBookFavorites(userName), [userName], []);
@@ -76,15 +83,17 @@ export function BookDetailPage() {
   useEffect(() => {
     if (state?.result || !workKeyParam) return;
     let alive = true;
+    setResolveError(false);
     void resolveBookByWorkKey(workKeyParam).then((found) => {
       if (!alive) return;
       setResult(found);
       setResolving(false);
+      if (!found) setResolveError(true);
     });
     return () => {
       alive = false;
     };
-  }, [state?.result, workKeyParam]);
+  }, [state?.result, workKeyParam, resolveRetryKey]);
 
   useEffect(() => {
     if (!result) return;
@@ -105,11 +114,31 @@ export function BookDetailPage() {
   if (!result) {
     return (
       <div style={{ height: '100%', background: BookColors.black, color: BookColors.white, display: 'grid', placeItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: Fonts.display, fontSize: 22 }}>{resolving ? 'Opening this book…' : 'Pick a book from the shelf first'}</div>
-          <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ marginTop: 14, padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>
-            Back to Books
-          </button>
+        <div style={{ textAlign: 'center', padding: 24 }}>
+          {resolving ? (
+            <>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, borderTopColor: AppColors.roseQuartz, margin: '0 auto 14px', animation: 'spin 900ms linear infinite' }} />
+              <div style={{ fontFamily: Fonts.display, fontSize: 21 }}>Opening this book…</div>
+            </>
+          ) : (
+            <>
+              <Icon name={resolveError ? 'cloud_off' : 'menu_book'} size={34} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+              <div style={{ fontFamily: Fonts.display, fontSize: 21, marginTop: 12 }}>
+                {resolveError ? 'We couldn’t open that book' : 'Pick a book from the shelf first'}
+              </div>
+              <div style={{ fontSize: 13, color: BookColors.muted, marginTop: 6 }}>
+                {resolveError ? 'The catalogue may be offline. Try again or browse the shelves.' : 'Find a book in the library and open its page.'}
+              </div>
+              {resolveError && (
+                <button type="button" className="bare-button" onClick={() => setResolveRetryKey((k) => k + 1)} style={{ marginTop: 16, padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>
+                  Try again
+                </button>
+              )}
+              <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ marginTop: resolveError ? 8 : 16, padding: '10px 20px', borderRadius: 20, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.25)}`, color: BookColors.white, fontWeight: 700 }}>
+                Browse Books
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -162,6 +191,18 @@ export function BookDetailPage() {
           }}
         >
           Added to Our Books
+        </div>
+      )}
+      {confirmRemove && (
+        <div onClick={() => setConfirmRemove(false)} style={{ position: 'fixed', inset: 0, zIndex: 96, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div role="dialog" aria-modal="true" aria-label="Remove from Our Books" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, padding: 22, borderRadius: 20, background: AppColors.shimmerBase, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}>
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: AppColors.petalWhite }}>Remove from Our Books?</div>
+            <div style={{ fontSize: 13.5, color: AppColors.mutedPurple, marginTop: 8 }}>“{result.title}” will leave the shelf you share.</div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button type="button" className="bare-button" onClick={() => setConfirmRemove(false)} style={{ flex: 1, minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, color: AppColors.petalWhite, fontWeight: 700 }}>Keep it</button>
+              <button type="button" className="bare-button" onClick={() => { void removeFromOurBooks(ourBooksKey); setConfirmRemove(false); }} style={{ flex: 1, minHeight: 46, borderRadius: 14, background: AppColors.error, color: '#FFF', fontWeight: 700 }}>Remove</button>
+            </div>
+          </div>
         </div>
       )}
       <div style={{ position: 'relative', padding: '14px 20px 0' }}>
@@ -281,7 +322,7 @@ export function BookDetailPage() {
                 active={inOurBooks}
                 onClick={() => {
                   if (inOurBooks) {
-                    void removeFromOurBooks(ourBooksKey);
+                    setConfirmRemove(true);
                   } else {
                     void addToOurBooks(item, userName).then(() => {
                       setAddedToast(true);
@@ -461,11 +502,18 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const location = useLocation();
   const workKeyParam = new URLSearchParams(location.search).get('workKey');
   const [book, setBook] = useState<BookItem | null>((location.state as { book?: BookItem } | null)?.book ?? null);
+  const [readerResolveError, setReaderResolveError] = useState(false);
+  const [readerRetryKey, setReaderRetryKey] = useState(0);
+  const { currentUser } = useAuth();
+  const synced = useSource(
+    () => watchReaderState(currentUser ?? '', book?.workKey ?? ''),
+    [currentUser ?? '', book?.workKey ?? ''],
+    { progress: null, bookmarks: [], highlights: [] },
+  );
 
   const [settings, setSettings] = useState<ReaderSettings>(() => loadSettings());
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [chapterIdx, setChapterIdx] = useState(0);
-  const [tocOpen, setTocOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -480,6 +528,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [bookSearch, setBookSearch] = useState('');
   const [pendingJump, setPendingJump] = useState('');
 
@@ -488,16 +537,27 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
   const notePanelRef = useRef<HTMLDivElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
   const chapterRef = useRef(0);
   const scrollFracRef = useRef(0);
   const lastScrollSaveRef = useRef(0);
   const sleepTimerRef = useRef<number | null>(null);
+  const syncedOnceRef = useRef('');
 
   const patchSettings = (patch: Partial<ReaderSettings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
       saveSettings(next);
       return next;
+    });
+  };
+
+  const syncState = () => {
+    if (!book) return;
+    void saveReaderState(currentUser ?? '', book.workKey, {
+      progress: loadProgress(book.workKey),
+      bookmarks: loadBookmarks(book.workKey),
+      highlights: loadHighlights(book.workKey),
     });
   };
 
@@ -514,6 +574,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       iaId: book.iaId,
       readCandidates: buildReadCandidates(book),
     });
+    syncState();
   };
 
   const stopSpeech = () => {
@@ -544,13 +605,16 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   useEffect(() => {
     if (book || !workKeyParam) return;
     let alive = true;
+    setReaderResolveError(false);
     void resolveBookByWorkKey(workKeyParam).then((found) => {
-      if (alive && found) setBook(searchResultToBookItem(found));
+      if (!alive) return;
+      if (found) setBook(searchResultToBookItem(found));
+      else setReaderResolveError(true);
     });
     return () => {
       alive = false;
     };
-  }, [book, workKeyParam]);
+  }, [book, workKeyParam, readerRetryKey]);
 
   useEffect(() => {
     if (!book) return;
@@ -599,25 +663,45 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   useDialogFocus(settingsOpen, settingsPanelRef, () => setSettingsOpen(false), settingsTriggerRef);
   useDialogFocus(searchOpen, searchPanelRef, () => setSearchOpen(false));
   useDialogFocus(noteFor != null, notePanelRef, () => setNoteFor(null));
+  useDialogFocus(menuOpen, menuPanelRef, () => setMenuOpen(false));
 
   if (!book) {
     return (
-      <div style={{ height: '100%', background: BookColors.black, color: BookColors.white, display: 'grid', placeItems: 'center' }}>
-        <button type="button" className="bare-button" onClick={() => navigate('/books')} style={{ padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>
-          Back to Books
-        </button>
+      <div style={{ height: '100%', background: BookColors.black, color: BookColors.white, display: 'grid', placeItems: 'center', padding: 24 }}>
+        <div style={{ textAlign: 'center' }}>
+          {readerResolveError ? (
+            <>
+              <Icon name="cloud_off" size={34} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+              <div style={{ fontFamily: Fonts.display, fontSize: 21, marginTop: 12 }}>We couldn’t open that book</div>
+              <div style={{ fontSize: 13, color: BookColors.muted, marginTop: 6 }}>The catalogue may be offline right now.</div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 18 }}>
+                <button type="button" className="bare-button" onClick={() => setReaderRetryKey((k) => k + 1)} style={{ padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>Try again</button>
+                <button type="button" className="bare-button" onClick={() => navigate('/books')} style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${withAlpha(BookColors.rose, 0.3)}`, color: BookColors.white, fontWeight: 700 }}>Browse Books</button>
+              </div>
+            </>
+          ) : workKeyParam ? (
+            <>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, borderTopColor: AppColors.roseQuartz, margin: '0 auto 14px', animation: 'spin 900ms linear infinite' }} />
+              <div style={{ fontFamily: Fonts.display, fontSize: 21 }}>Opening this book…</div>
+            </>
+          ) : (
+            <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>Back to Books</button>
+          )}
+        </div>
       </div>
     );
   }
 
   const currentChapter = chapters[chapterIdx] ?? null;
   const theme = THEME_TOKENS[settings.theme];
+  const { width: readerWidth } = useViewport();
+  const measure = readerWidth >= 820 ? 840 : 680;
 
   const selectChapter = (nextIdx: number) => {
     if (nextIdx < 0 || nextIdx >= chapters.length) return;
     setChapterIdx(nextIdx);
     chapterRef.current = nextIdx;
-    setTocOpen(false);
+    setMenuOpen(false);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     scrollFracRef.current = 0;
     saveProgressNow(nextIdx, 0);
@@ -657,6 +741,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const toggleThisBookmark = () => {
     if (!book) return;
     setBookmarks(toggleBookmark(book.workKey, { chapter: chapterIdx, scroll: scrollFracRef.current, createdAt: Date.now() }));
+    syncState();
   };
 
   const captureSelection = () => {
@@ -668,6 +753,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     if (!book || !selectionText) return;
     const highlight: ReaderHighlight = { id: `${Date.now()}`, chapter: chapterIdx, text: selectionText, note, createdAt: Date.now() };
     setHighlights(saveHighlight(book.workKey, highlight));
+    syncState();
     setSelectionText('');
     setNoteFor(null);
     setNoteDraft('');
@@ -679,6 +765,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     const existing = highlights.find((h) => h.id === id);
     if (!existing) return;
     setHighlights(saveHighlight(book.workKey, { ...existing, note }));
+    syncState();
     setNoteFor(null);
     setNoteDraft('');
   };
@@ -686,6 +773,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const deleteHighlight = (id: string) => {
     if (!book) return;
     setHighlights(removeHighlight(book.workKey, id));
+    syncState();
   };
 
   useEffect(() => {
@@ -697,6 +785,29 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     });
     return () => window.cancelAnimationFrame(id);
   }, [pendingJump, chapterIdx]);
+
+  useEffect(() => {
+    if (!book || !synced.progress || syncedOnceRef.current === book.workKey) return;
+    const remote = synced.progress;
+    if (remote.workKey !== book.workKey) return;
+    syncedOnceRef.current = book.workKey;
+    const local = loadProgress(book.workKey);
+    if (local && local.updatedAt >= remote.updatedAt) return;
+    const idx = chapters.length ? Math.min(remote.chapter, chapters.length - 1) : remote.chapter;
+    setChapterIdx(idx);
+    chapterRef.current = idx;
+    setScrollPct(remote.scroll);
+    scrollFracRef.current = remote.scroll;
+    saveProgress({ ...remote, workKey: book.workKey });
+    if (synced.bookmarks.length) replaceBookmarks(book.workKey, synced.bookmarks);
+    if (synced.highlights.length) replaceHighlights(book.workKey, synced.highlights);
+    setBookmarks(loadBookmarks(book.workKey));
+    setHighlights(loadHighlights(book.workKey));
+    window.requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = remote.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  }, [synced, book, chapters.length]);
 
   const bookMatches = bookSearch.trim()
     ? chapters.flatMap((ch, i) => {
@@ -771,16 +882,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             </div>
           )}
         </div>
-        {chapters.length > 1 && (
-          <button type="button" className="bare-button" title="Chapters" aria-label="Chapters" onClick={() => setTocOpen((o) => !o)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-            <Icon name="format_list_bulleted" size={21} color={theme.fg} />
-          </button>
-        )}
-        <button type="button" className="bare-button" title="Search in book" aria-label="Search in book" onClick={() => setSearchOpen(true)} style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-          <Icon name="search" size={20} color={theme.fg} />
-        </button>
-        <button type="button" className="bare-button" title={bookmarked ? 'Remove bookmark' : 'Bookmark'} aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'} onClick={toggleThisBookmark} style={{ width: 40, height: 40, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-          <Icon name={bookmarked ? 'bookmark' : 'bookmark_border'} size={20} color={bookmarked ? AppColors.warmAmber : theme.fg} />
+        <button type="button" className="bare-button" title="Reading menu" aria-label="Reading menu" onClick={() => setMenuOpen(true)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="menu" size={21} color={theme.fg} />
         </button>
         <button
           type="button"
@@ -800,42 +903,32 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         <div style={{ height: '100%', width: `${overallPct}%`, background: AppColors.warmAmber, transition: 'width 240ms ease' }} />
       </div>
 
-      {tocOpen && chapters.length > 1 && (
-        <div style={{ maxHeight: 240, overflowY: 'auto', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, background: withAlpha(theme.fg, 0.04), padding: '8px 16px' }}>
-          {chapters.map((ch, i) => (
-            <button
-              key={`${ch.title}-${i}`}
-              type="button"
-              className="bare-button"
-              onClick={() => selectChapter(i)}
-              style={{
-                width: '100%', minHeight: 42, textAlign: 'left', padding: '8px', borderRadius: 10,
-                fontSize: 13, fontWeight: i === chapterIdx ? 700 : 500,
-                color: i === chapterIdx ? AppColors.deepRose : theme.fg,
-                background: i === chapterIdx ? withAlpha(AppColors.deepRose, 0.12) : 'transparent',
-              }}
-            >
-              {ch.title}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: `22px ${Math.round(settings.margin * 22) + 12}px 36px` }}>
         {loading ? (
-          <div style={{ maxWidth: 680, margin: '0 auto', paddingTop: 8 }} aria-label="Opening the pages">
+          <div style={{ maxWidth: measure, margin: '0 auto', paddingTop: 8 }} aria-label="Opening the pages">
             {[90, 100, 96, 98, 70, 100, 94, 88].map((w, i) => (
               <div key={i} style={{ height: 12, borderRadius: 6, background: withAlpha(theme.fg, 0.08), marginBottom: 14, width: `${w}%` }} />
             ))}
           </div>
         ) : currentChapter ? (
-          <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          <div style={{ maxWidth: measure, margin: '0 auto' }}>
             {chapters.length > 1 && (
               <h2 style={{ fontFamily: Fonts.display, fontSize: settings.fontSize + 6, fontWeight: 700, margin: '0 0 18px' }}>
                 {currentChapter.title}
               </h2>
             )}
-            <article aria-label={currentChapter.title} onMouseUp={captureSelection} onTouchEnd={captureSelection}>
+            <article
+              aria-label={currentChapter.title}
+              onMouseUp={captureSelection}
+              onTouchEnd={captureSelection}
+              onClick={(e) => {
+                if (!settings.pageTurn || chapters.length < 2 || selectionText) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const rel = (e.clientX - rect.left) / rect.width;
+                if (rel < 0.2) selectChapter(chapterIdx - 1);
+                else if (rel > 0.8) selectChapter(chapterIdx + 1);
+              }}
+            >
               {paragraphs.map((text, i) => {
                 const start = paragraphOffsets[i];
                 const active = speaking && followChar >= start && followChar < start + text.length;
@@ -952,6 +1045,54 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         </div>
       )}
 
+      {menuOpen && (
+        <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 92, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div
+            ref={menuPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reading menu"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 540, maxHeight: '82vh', overflowY: 'auto', outline: 'none', padding: '14px 20px 28px', borderRadius: '26px 26px 0 0', background: settings.theme === 'dark' ? AppColors.inkDeep : settings.theme === 'sepia' ? ReaderPaper.sepia : ReaderPaper.light, color: theme.fg }}
+          >
+            <div style={{ width: 38, height: 4, borderRadius: 2, background: withAlpha(theme.fg, 0.2), margin: '0 auto 14px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700 }}>Reading menu</div>
+              <button type="button" className="bare-button" aria-label="Close menu" onClick={() => setMenuOpen(false)} style={{ width: 44, height: 44, fontSize: 22, color: theme.fg }}>×</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+              <button type="button" className="bare-button" onClick={() => { setMenuOpen(false); setSearchOpen(true); }} style={{ flex: 1, minHeight: 48, borderRadius: 14, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.14)}`, color: theme.fg, fontSize: 12.5, fontWeight: 700 }}>
+                <Icon name="search" size={17} color={theme.fg} /> Search in book
+              </button>
+              <button type="button" className="bare-button" onClick={toggleThisBookmark} style={{ flex: 1, minHeight: 48, borderRadius: 14, background: bookmarked ? withAlpha(AppColors.warmAmber, 0.16) : withAlpha(theme.fg, 0.06), border: `1px solid ${bookmarked ? withAlpha(AppColors.warmAmber, 0.5) : withAlpha(theme.fg, 0.14)}`, color: theme.fg, fontSize: 12.5, fontWeight: 700 }}>
+                <Icon name={bookmarked ? 'bookmark' : 'bookmark_border'} size={17} color={bookmarked ? AppColors.warmAmber : theme.fg} /> {bookmarked ? 'Bookmarked' : 'Bookmark'}
+              </button>
+            </div>
+            {chapters.length > 1 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>CHAPTERS</div>
+                {chapters.map((ch, i) => (
+                  <button key={`${ch.title}-${i}`} type="button" className="bare-button" onClick={() => selectChapter(i)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, fontWeight: i === chapterIdx ? 700 : 500, color: i === chapterIdx ? AppColors.deepRose : theme.fg, background: i === chapterIdx ? withAlpha(AppColors.deepRose, 0.12) : 'transparent' }}>
+                    {ch.title}
+                  </button>
+                ))}
+              </div>
+            )}
+            {bookmarks.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>YOUR BOOKMARKS</div>
+                {bookmarks.map((b) => (
+                  <button key={b.createdAt} type="button" className="bare-button" onClick={() => selectChapter(b.chapter)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, color: theme.fg }}>
+                    <Icon name="bookmark" size={14} color={AppColors.warmAmber} /> Chapter {b.chapter + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {settingsOpen && (
         <div
           onClick={() => { setSettingsOpen(false); settingsTriggerRef.current?.focus(); }}
@@ -1003,6 +1144,15 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               ],
               settings.theme,
               (value) => patchSettings({ theme: value }),
+            )}
+            {segmented<'scroll' | 'tap'>(
+              'Turn pages',
+              [
+                { value: 'scroll', label: 'Scroll' },
+                { value: 'tap', label: 'Tap to turn' },
+              ],
+              settings.pageTurn ? 'tap' : 'scroll',
+              (value) => patchSettings({ pageTurn: value === 'tap' }),
             )}
             {segmented<number>(
               'Line spacing',

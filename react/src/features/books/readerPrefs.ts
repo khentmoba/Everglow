@@ -15,6 +15,7 @@ export interface ReaderSettings {
   ttsRate: number;
   brightness: number;
   margin: number;
+  pageTurn: boolean;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
@@ -25,6 +26,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   ttsRate: 1,
   brightness: 1,
   margin: 0.5,
+  pageTurn: false,
 };
 
 const SETTINGS_KEY = 'reader_settings';
@@ -52,6 +54,7 @@ export function loadSettings(): ReaderSettings {
     ttsRate: clamp(saved.ttsRate, 0.75, 2, DEFAULT_READER_SETTINGS.ttsRate),
     brightness: clamp(saved.brightness, 0.5, 1, DEFAULT_READER_SETTINGS.brightness),
     margin: clamp(saved.margin, 0, 1, DEFAULT_READER_SETTINGS.margin),
+    pageTurn: typeof saved.pageTurn === 'boolean' ? saved.pageTurn : false,
   };
 }
 
@@ -144,8 +147,16 @@ export function toggleBookmark(workKey: string, bookmark: ReaderBookmark): Reade
   return next;
 }
 
+export function replaceBookmarks(workKey: string, list: ReaderBookmark[]): void {
+  Prefs.set(BOOKMARK_PREFIX + workKey, list);
+}
+
 export function loadHighlights(workKey: string): ReaderHighlight[] {
   return workKey ? readList<ReaderHighlight>(HIGHLIGHT_PREFIX + workKey) : [];
+}
+
+export function replaceHighlights(workKey: string, list: ReaderHighlight[]): void {
+  Prefs.set(HIGHLIGHT_PREFIX + workKey, list);
 }
 
 export function saveHighlight(workKey: string, highlight: ReaderHighlight): ReaderHighlight[] {

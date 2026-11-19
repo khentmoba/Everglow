@@ -327,9 +327,10 @@ test('BookReaderPage splits chapters with TOC/TTS and direct-entry canPop back b
 
     await page.waitForSelector('text=CHAPTER I', { timeout: 10_000 });
     await page.waitForSelector('text=Next →', { timeout: 5_000 });
-    await page.locator('button[title="Chapters"]').click();
-    await page.waitForSelector('text=CHAPTER II', { timeout: 5_000 });
-    await page.getByText('CHAPTER II').first().click();
+    await page.locator('button[aria-label="Reading menu"]').click();
+    const chaptersMenu = page.getByRole('dialog', { name: 'Reading menu' });
+    await chaptersMenu.waitFor({ state: 'visible', timeout: 5_000 });
+    await chaptersMenu.getByText('CHAPTER II', { exact: true }).click();
     await page.waitForSelector('text=I am already far north of London', { timeout: 5_000 });
 
     // The reader reflows text into paragraphs set in the dedicated reading font.
@@ -345,10 +346,13 @@ test('BookReaderPage splits chapters with TOC/TTS and direct-entry canPop back b
     await page.keyboard.press('Escape');
     await page.waitForSelector('[role="dialog"][aria-label="Reading settings"]', { state: 'detached', timeout: 5_000 });
 
-    // Bookmarks and in-book search are part of the reader baseline.
-    await page.locator('button[aria-label="Bookmark"]').click();
-    await page.waitForSelector('button[aria-label="Remove bookmark"]', { timeout: 5_000 });
-    await page.locator('button[aria-label="Search in book"]').first().click();
+    // Bookmarks and in-book search live in the single Reading menu.
+    await page.locator('button[aria-label="Reading menu"]').click();
+    const readingMenu = page.getByRole('dialog', { name: 'Reading menu' });
+    await readingMenu.waitFor({ state: 'visible', timeout: 5_000 });
+    await readingMenu.getByRole('button', { name: /Bookmark/ }).first().click();
+    await readingMenu.getByRole('button', { name: /Bookmarked/ }).first().waitFor({ timeout: 5_000 });
+    await readingMenu.getByRole('button', { name: /Search in book/ }).first().click();
     await page.waitForSelector('[role="dialog"][aria-label="Search in book"]', { timeout: 5_000 });
     await page.locator('input[aria-label="Search in book"]').fill('north');
     await page.waitForSelector('text=I am already far north of London', { timeout: 5_000 });

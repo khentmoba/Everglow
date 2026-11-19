@@ -86,7 +86,7 @@ function SectionHead(props: { eyebrow: string; title: string; accent: string; on
 // _buildShimmerHome: still skeleton blocks (phones never animate them).
 function ShimmerHome() {
   const block = (h: number, r: number, w?: number) => (
-    <div style={{ height: h, width: w ?? '100%', borderRadius: r, background: AppColors.shimmerBase }} />
+    <div className="skeleton-pulse" style={{ height: h, width: w ?? '100%', borderRadius: r, background: AppColors.shimmerBase }} />
   );
   return (
     <div style={{ overflow: 'hidden', height: '100%' }}>
@@ -105,6 +105,8 @@ function ShimmerHome() {
 
 function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => void }) {
   const [boxRef, box] = useBoxSize<HTMLButtonElement>();
+  const { width } = useViewport();
+  const big = width >= 700;
     const blurb = pick.description ? pick.description : pick.subjects.slice(0, 3).join(' · ');
     return (
       <div style={{ padding: '22px 20px 0' }}>
@@ -127,14 +129,14 @@ function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => voi
             cursor: 'pointer',
           }}
         >
-          <BookCover imageUrl={pick.coverUrl} title={pick.title} author={pick.author} width={112} />
+          <BookCover imageUrl={pick.coverUrl} title={pick.title} author={pick.author} width={big ? 156 : 112} />
           <div style={{ width: 16, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ ...AppTypography.outfitBold, color: AppColors.warmAmber, fontSize: 10, lineHeight: lineHeight(10), letterSpacing: 1.6 }}>
               TOP PICK THIS WEEK
             </div>
             <div style={{ height: 6 }} />
-            <div className="clamp-3" style={{ ...AppTypography.cormorantBlack, fontSize: 22, lineHeight: lineHeight(22, 1.1), color: AppColors.petalWhite }}>
+            <div className="clamp-3" style={{ ...AppTypography.cormorantBlack, fontSize: big ? 30 : 22, lineHeight: lineHeight(big ? 30 : 22, 1.1), color: AppColors.petalWhite }}>
               {pick.title}
             </div>
             {pick.author && (
@@ -246,6 +248,7 @@ export function BooksPage() {
   const [loadingHome, setLoadingHome] = useState(true);
   const [homeError, setHomeError] = useState(false);
   const [homeRetryKey, setHomeRetryKey] = useState(0);
+  const [slowLoad, setSlowLoad] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
@@ -334,6 +337,7 @@ export function BooksPage() {
         isbn: appliedAdv.isbn || undefined,
         publisher: appliedAdv.publisher || undefined,
         limit: searchLimit,
+        sort: searchOrder,
       }).then((res) => {
         if (!alive) return;
         setSearchTotal(res.total);
@@ -393,7 +397,17 @@ export function BooksPage() {
   const spotlight = popular[0] ?? recent[0] ?? null;
   const showSkeleton = loadingHome && popular.length === 0 && recent.length === 0;
   const resumeList = listProgress().filter((p) => p.title !== '' && (p.chapter > 0 || p.scroll > 0)).slice(0, 3);
+  const isTablet = width >= 700;
   const cols = width >= 1024 ? 7 : width >= 600 ? 5 : 3;
+
+  useEffect(() => {
+    if (!showSkeleton) {
+      setSlowLoad(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSlowLoad(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [showSkeleton]);
 
   useEffect(() => {
     if (showSkeleton || tab !== 0) return;
@@ -469,9 +483,9 @@ export function BooksPage() {
           accent={accent}
           onSeeAll={() => navigate('/books/list', { state: { kind, title, initialResults: results } })}
         />
-        <Rail height={262} gap={14} padding="0 0 4px 20px">
+        <Rail height={isTablet ? 310 : 262} gap={14} padding="0 0 4px 20px">
           {results.map((r) => (
-            <BookCoverCard key={r.workKey || r.title} width={124} result={r} onClick={() => openDetails(r)} />
+            <BookCoverCard key={r.workKey || r.title} width={isTablet ? 150 : 124} result={r} onClick={() => openDetails(r)} />
           ))}
         </Rail>
       </div>
@@ -489,6 +503,11 @@ export function BooksPage() {
       {tab === 0 && showSkeleton && (
         <div style={{ position: 'absolute', inset: 0 }}>
           <ShimmerHome />
+          {slowLoad && (
+            <div style={{ position: 'absolute', bottom: 110, width: '100%', textAlign: 'center', color: AppColors.mutedPurple, fontSize: 12 }}>
+              Still loading… the catalogue can be slow sometimes.
+            </div>
+          )}
         </div>
       )}
 
@@ -507,6 +526,12 @@ export function BooksPage() {
               <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ minHeight: 40, padding: '0 14px', borderRadius: 12, background: withAlpha(AppColors.error, 0.2), color: AppColors.petalWhite, fontWeight: 700, fontSize: 12 }}>Try again</button>
             </div>
           )}
+          {!homeError && !loadingHome && popular.length === 0 && recent.length === 0 && (
+            <div style={{ margin: '14px 20px 0', padding: 14, borderRadius: 16, background: withAlpha(BookColors.card, 0.6), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.12)}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: AppColors.petalWhite }}>The shelves are quiet right now.</div>
+              <div style={{ fontSize: 12, color: AppColors.mutedPurple, marginTop: 4 }}>Search for a title, or check back in a little while.</div>
+            </div>
+          )}
           {resumeList.slice(0, 1).map((p) => (
             <ContinueReading key={p.workKey} progress={p} onOpen={() => navigate('/books/reader', { state: { book: progressToBookItem(p) } })} />
           ))}
@@ -519,9 +544,9 @@ export function BooksPage() {
                 accent={AppColors.softLavender}
                 onSeeAll={() => navigate('/books/list', { state: { kind: 'popular', title: 'Picked for you', initialResults: because } })}
               />
-              <Rail height={262} gap={14} padding="0 0 4px 20px">
+              <Rail height={isTablet ? 310 : 262} gap={14} padding="0 0 4px 20px">
                 {because.map((r) => (
-                  <BookCoverCard key={r.workKey || r.title} width={124} result={r} onClick={() => openDetails(r)} />
+                  <BookCoverCard key={r.workKey || r.title} width={isTablet ? 150 : 124} result={r} onClick={() => openDetails(r)} />
                 ))}
               </Rail>
             </div>
@@ -537,11 +562,11 @@ export function BooksPage() {
                   setTab(2);
                 }}
               />
-              <Rail height={246} gap={14} padding="0 0 4px 20px">
+              <Rail height={isTablet ? 296 : 246} gap={14} padding="0 0 4px 20px">
                 {readHistoryList.slice(0, 12).map((b) => (
                   <BookCoverCard
                     key={b.workKey}
-                    width={112}
+                    width={isTablet ? 140 : 112}
                     item={b}
                     statusBadge={bookReadDisplay(b.status)}
                     badgeColor={readBadgeColor(b.status)}
@@ -681,7 +706,7 @@ export function BooksPage() {
                 ['MOBI', 'tablet_mac'],
                 ['FB2', 'description'],
                 ['HTML', 'public'],
-              ] as const).map(([fmt, icon]) => {
+              ] as const).slice(0, 3).map(([fmt, icon]) => {
                 const active = searchFormat === fmt;
                 return (
                   <button
@@ -690,7 +715,7 @@ export function BooksPage() {
                     className="bare-button"
                     onClick={() => setSearchFormat(active ? '' : fmt)}
                     style={{
-                      height: 36,
+                      height: 40,
                       padding: '0 14px',
                       borderRadius: 18,
                       background: active ? withAlpha(BookColors.deepRose, 0.22) : withAlpha(BookColors.card, 0.8),
@@ -705,10 +730,13 @@ export function BooksPage() {
                   </button>
                 );
               })}
+              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 36, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.muted, fontSize: 12, fontWeight: 700 }}>
+                More formats
+              </button>
             </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginTop: 10 }}>
-              {['All', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese'].map((lang) => {
+              {['All', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese'].slice(0, 4).map((lang) => {
                 const active = searchLang === lang;
                 return (
                   <button
@@ -717,7 +745,7 @@ export function BooksPage() {
                     className="bare-button"
                     onClick={() => setSearchLang(lang)}
                     style={{
-                      height: 36,
+                      height: 40,
                       padding: '0 14px',
                       borderRadius: 18,
                       flexShrink: 0,
@@ -733,6 +761,9 @@ export function BooksPage() {
                   </button>
                 );
               })}
+              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 36, padding: '0 14px', borderRadius: 18, flexShrink: 0, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.muted, fontSize: 12, fontWeight: 700 }}>
+                More languages
+              </button>
             </div>
 
             {(() => {
@@ -756,7 +787,7 @@ export function BooksPage() {
                       className="bare-button"
                       aria-label={`Clear ${chip.label}`}
                       onClick={chip.clear}
-                      style={{ minHeight: 32, padding: '0 10px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', gap: 4, background: withAlpha(BookColors.deepRose, 0.16), border: `1px solid ${withAlpha(BookColors.deepRose, 0.4)}`, color: BookColors.white, fontSize: 11.5, fontWeight: 700 }}
+                      style={{ minHeight: 36, padding: '0 10px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', gap: 4, background: withAlpha(BookColors.deepRose, 0.16), border: `1px solid ${withAlpha(BookColors.deepRose, 0.4)}`, color: BookColors.white, fontSize: 11.5, fontWeight: 700 }}
                     >
                       {chip.label}
                       <Icon name="close" size={12} color={BookColors.rose} />
@@ -950,6 +981,22 @@ export function BooksPage() {
                       <input aria-label="Year to" value={advYearTo} onChange={(e) => setAdvYearTo(e.target.value)} placeholder="e.g. 1950" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(BookColors.rose, 0.16)}`, color: BookColors.white, fontSize: 13.5 }} />
                     </div>
                   </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: BookColors.muted, textTransform: 'uppercase', marginBottom: 6 }}>Format</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {['EPUB', 'PDF', 'TXT', 'MOBI', 'FB2', 'HTML'].map((fmt) => (
+                        <button key={fmt} type="button" className="bare-button" onClick={() => setSearchFormat(searchFormat === fmt ? '' : fmt)} style={{ minHeight: 40, padding: '0 14px', borderRadius: 14, background: searchFormat === fmt ? withAlpha(BookColors.deepRose, 0.22) : withAlpha(BookColors.card, 0.8), border: `1px solid ${searchFormat === fmt ? withAlpha(BookColors.deepRose, 0.6) : withAlpha(BookColors.rose, 0.12)}`, color: searchFormat === fmt ? BookColors.white : BookColors.muted, fontSize: 12, fontWeight: 700 }}>{fmt}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: BookColors.muted, textTransform: 'uppercase', marginBottom: 6 }}>Language</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {['All', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese'].map((lang) => (
+                        <button key={lang} type="button" className="bare-button" onClick={() => setSearchLang(lang)} style={{ minHeight: 40, padding: '0 14px', borderRadius: 14, background: searchLang === lang ? withAlpha(BookColors.amber, 0.16) : withAlpha(BookColors.card, 0.8), border: `1px solid ${searchLang === lang ? withAlpha(BookColors.amber, 0.7) : withAlpha(BookColors.rose, 0.12)}`, color: searchLang === lang ? BookColors.amber : BookColors.muted, fontSize: 12, fontWeight: 700 }}>{lang}</button>
+                      ))}
+                    </div>
+                  </div>
                   <button
                     type="button"
                     className="bare-button"
@@ -1014,6 +1061,26 @@ export function BooksPage() {
               >
                 {libraryList.length}
               </span>
+            </div>
+
+            <div style={{ margin: '14px 0', padding: 16, borderRadius: 18, background: withAlpha(BookColors.card, 0.7), border: `1px solid ${withAlpha(AppColors.warmAmber, 0.18)}` }}>
+              <div style={{ ...AppTypography.outfitBold, fontSize: 11, letterSpacing: 1.4, color: AppColors.warmAmber, marginBottom: 12 }}>YOUR READING</div>
+              <div style={{ display: 'flex', gap: 18 }}>
+                {([
+                  [readHistoryList.filter((b) => b.addedAt.getFullYear() === new Date().getFullYear()).length, 'read this year'],
+                  [toReadList.length, 'to read'],
+                  [favorites.length, 'loved'],
+                ] as const).map(([value, label]) => (
+                  <div key={label}>
+                    <div style={{ ...AppTypography.cormorantBlack, fontSize: 28, lineHeight: '28px', color: AppColors.petalWhite }}>{value}</div>
+                    <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.mutedPurple }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ height: 5, borderRadius: 3, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 14, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, (readHistoryList.length / 12) * 100)}%`, background: AppColors.warmAmber }} />
+              </div>
+              <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.mutedPurple, marginTop: 6 }}>A gentle goal of 12 books this year — no pressure.</div>
             </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '14px 0' }}>

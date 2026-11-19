@@ -172,6 +172,7 @@ export function BookCoverCard({
   height,
   statusBadge,
   badgeColor,
+  progress,
   onClick,
 }: {
   result?: BookSearchResult;
@@ -180,6 +181,7 @@ export function BookCoverCard({
   height?: number;
   statusBadge?: string;
   badgeColor?: string;
+  progress?: number;
   onClick: () => void;
 }) {
   const title = result?.title ?? item?.title ?? '';
@@ -194,7 +196,12 @@ export function BookCoverCard({
       style={{ width, height, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
     >
       <BookCover imageUrl={coverUrl} title={title} author={author} width={width} />
-      <div style={{ height: 10, flexShrink: 0 }} />
+      {progress != null && (
+        <div style={{ width, height: 3, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.14), marginTop: 6, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, Math.max(3, progress * 100))}%`, background: AppColors.warmAmber }} />
+        </div>
+      )}
+      <div style={{ height: progress != null ? 6 : 10, flexShrink: 0 }} />
       <div
         className="clamp-2"
         style={{
@@ -242,6 +249,11 @@ export function BookCoverCard({
           {author}
         </div>
       ) : null}
+      {statusBadge == null && (result?.year || result?.ratingCount) && (
+        <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.6), fontSize: 10.5, lineHeight: lineHeight(10.5), paddingTop: 2, width: '100%' }}>
+          {[result?.year, result?.ratingCount ? `${result.ratingCount >= 1000 ? `${(result.ratingCount / 1000).toFixed(0)}k` : result.ratingCount} readers` : ''].filter(Boolean).join(' · ')}
+        </div>
+      )}
     </button>
   );
 }
