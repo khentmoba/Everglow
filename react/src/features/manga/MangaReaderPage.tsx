@@ -157,7 +157,6 @@ export function MangaReaderView({
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [appendingNext, setAppendingNext] = useState(false);
-  const [prependingPrev, setPrependingPrev] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [server, setServer] = useState('');
   const [pageIdx, setPageIdx] = useState(Math.max(0, (params.initialPage ?? 1) - 1));
@@ -229,6 +228,13 @@ export function MangaReaderView({
   const workingCdnStepRef = useRef(0);
   const prefetchedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const prefetchedChapterRef = useRef<Map<string, string[]>>(new Map());
+  const segmentsRef = useRef<ChapterSegment[]>(segments);
+  segmentsRef.current = segments;
+  const explicitNavRef = useRef(false);
+  const navEpochRef = useRef(0);
+  const lastLoadKeyRef = useRef('');
+  const appendingNextRef = useRef(false);
+  const prependingPrevRef = useRef(false);
   const latestProgressRef = useRef({
     chapterId: params.chapterId,
     page: Math.max(1, params.initialPage ?? 1),
@@ -498,7 +504,7 @@ export function MangaReaderView({
   const navigateToChapter = useCallback(
     (targetId: string, options?: { startAtEnd?: boolean; targetPageIdx?: number; markPrevFinished?: boolean; warnGap?: boolean }) => {
       if (!targetId) return;
-      if (options?.markPrevFinished) markChapterFinished(chapterId);
+      if (options?.markPrevFinished && targetId !== chapterId) markChapterFinished(chapterId);
       if (options?.warnGap) {
         const fromChap = params.chapters.find((c) => c.id === chapterId);
         const toChap = params.chapters.find((c) => c.id === targetId);
@@ -507,24 +513,55 @@ export function MangaReaderView({
           flashToast(`Note: ${gap} missing chapter${gap === 1 ? '' : 's'} between Ch. ${fromChap?.num} & Ch. ${toChap?.num}`, true);
         }
       }
+      navEpochRef.current += 1;
+      explicitNavRef.current = true;
+      appendingNextRef.current = false;
+      prependingPrevRef.current = false;
+      setAppendingNext(false);
       setAutoScrolling(false);
-      setChapterId(targetId);
       setZoom(1);
       setPan({ x: 0, y: 0 });
       setWidePages(new Set());
       setFailedPageKeys([]);
       const startPage = options?.startAtEnd ? -1 : (options?.targetPageIdx ?? 0);
-      pendingResumeRef.current = { chapterId: targetId, pageIdx: startPage, offsetRatio: 0 };
+      const existing = segmentsRef.current.find((s) => s.chapter.id === targetId);
+      const resolvedStart =
+        existing != null
+          ? startPage === -1
+            ? Math.max(0, existing.pages.length - 1)
+            : Math.min(existing.pages.length - 1, Math.max(0, startPage))
+          : Math.max(0, startPage);
+      pendingResumeRef.current = {
+        chapterId: targetId,
+        pageIdx: existing != null ? resolvedStart : startPage,
+        offsetRatio: 0,
+      };
       userScrolledRef.current = false;
-      setPageIdx(Math.max(0, startPage));
+      setPageIdx(resolvedStart);
       setSpreadCursor(0);
-      if (scrollRef.current) {
-        programmaticScrollRef.current = true;
-        scrollRef.current.scrollTop = 0;
-        lastScrollTopRef.current = 0;
-        window.requestAnimationFrame(() => {
-          programmaticScrollRef.current = false;
-        });
+      activeKeyRef.current = `${targetId}:${resolvedStart}`;
+      if (existing) {
+        setSegments([existing]);
+        setLoading(false);
+        setLoadFailed(false);
+      } else {
+        setSegments([]);
+        setLoading(true);
+        setLoadFailed(false);
+      }
+      if (targetId === chapterId) {
+        if (scrollRef.current) {
+          programmaticScrollRef.current = true;
+          scrollRef.current.scrollTop = 0;
+          scrollRef.current.scrollLeft = 0;
+          lastScrollTopRef.current = 0;
+          window.requestAnimationFrame(() => {
+            programmaticScrollRef.current = false;
+          });
+        }
+        explicitNavRef.current = false;
+      } else {
+        setChapterId(targetId);
       }
     },
     [chapterId, markChapterFinished, params.chapters, flashToast],
@@ -534,6 +571,12 @@ export function MangaReaderView({
   useEffect(() => {
     let alive = true;
     window.clearTimeout(aspectSaveTimerRef.current);
+    const loadKey = `${params.slug}|${server}|${reloadNonce}`;
+    const forceReload = loadKey !== lastLoadKeyRef.current;
+    const isExplicitNav = explicitNavRef.current;
+    explicitNavRef.current = false;
+    lastLoadKeyRef.current = loadKey;
+
     const savedAspects = loadChapterAspects(params.slug, chapterId);
     const seededAspects: Record<number, number> = { ...savedAspects };
     const seededWide = new Set<number>();
@@ -543,7 +586,7 @@ export function MangaReaderView({
       if (ratio >= WIDE_ASPECT_THRESHOLD) seededWide.add(idx);
     }
 
-    const existing = segments.find((s) => s.chapter.id === chapterId);
+    const existing = segmentsRef.current.find((s) => s.chapter.id === chapterId);
     if (existing) {
       for (let idx = 0; idx < existing.pages.length; idx++) {
         const measured = aspectMapRef.current.get(`${chapterId}:${idx}`);
@@ -556,10 +599,43 @@ export function MangaReaderView({
     chapterAspectsRef.current = seededAspects;
     setWidePages(seededWide);
 
-    if (existing && reloadNonce === 0) {
+    if (existing && !forceReload) {
       setLoading(false);
       setLoadFailed(false);
+      if (isExplicitNav) {
+        const resume = pendingResumeRef.current;
+        const targetIdx =
+          resume?.pageIdx === -1
+            ? Math.max(0, existing.pages.length - 1)
+            : resume != null
+              ? Math.min(existing.pages.length - 1, Math.max(0, resume.pageIdx))
+              : 0;
+        if (resume) {
+          pendingResumeRef.current = { chapterId, pageIdx: targetIdx, offsetRatio: resume.offsetRatio };
+        }
+        activeKeyRef.current = `${chapterId}:${targetIdx}`;
+        setSegments([existing]);
+        setPageIdx(targetIdx);
+        if (targetIdx === 0 && scrollRef.current) {
+          programmaticScrollRef.current = true;
+          scrollRef.current.scrollTop = 0;
+          scrollRef.current.scrollLeft = 0;
+          lastScrollTopRef.current = 0;
+          window.requestAnimationFrame(() => {
+            programmaticScrollRef.current = false;
+          });
+        }
+        writeProgressNow(chapterId, targetIdx + 1, existing.pages.length, resume?.offsetRatio ?? 0, false);
+        flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(existing.chapter)}`);
+      }
       return;
+    }
+
+    if (forceReload) {
+      navEpochRef.current += 1;
+      appendingNextRef.current = false;
+      prependingPrevRef.current = false;
+      setAppendingNext(false);
     }
 
     setLoading(true);
@@ -584,6 +660,9 @@ export function MangaReaderView({
           : resume != null
             ? Math.min(urls.length - 1, Math.max(0, resume.pageIdx))
             : 0;
+      if (resume) {
+        pendingResumeRef.current = { chapterId, pageIdx: targetIdx, offsetRatio: resume.offsetRatio };
+      }
       activeKeyRef.current = `${chapterId}:${targetIdx}`;
       setPageIdx(targetIdx);
       writeProgressNow(chapterId, targetIdx + 1, urls.length, resume?.offsetRatio ?? 0, false);
@@ -681,17 +760,22 @@ export function MangaReaderView({
                 const segEl = segmentElMapRef.current.get(segments[k].chapter.id);
                 if (segEl) removedHeight += segEl.offsetHeight;
               }
+              const beforeTop = scrollRef.current?.scrollTop ?? 0;
               setSegments((prev) => prev.slice(dropCount));
               if (removedHeight > 0) {
                 window.requestAnimationFrame(() => {
                   if (!scrollRef.current) return;
-                  programmaticScrollRef.current = true;
-                  const adjusted = Math.max(0, scrollRef.current.scrollTop - removedHeight);
-                  scrollRef.current.scrollTop = adjusted;
-                  lastScrollTopRef.current = adjusted;
-                  window.requestAnimationFrame(() => {
-                    programmaticScrollRef.current = false;
-                  });
+                  const expectedTop = Math.max(0, beforeTop - removedHeight);
+                  if (Math.abs(scrollRef.current.scrollTop - expectedTop) > 4) {
+                    programmaticScrollRef.current = true;
+                    scrollRef.current.scrollTop = expectedTop;
+                    lastScrollTopRef.current = expectedTop;
+                    window.requestAnimationFrame(() => {
+                      programmaticScrollRef.current = false;
+                    });
+                  } else {
+                    lastScrollTopRef.current = scrollRef.current.scrollTop;
+                  }
                 });
               }
             }
@@ -855,31 +939,42 @@ export function MangaReaderView({
 
   // Seamless next-chapter append in webtoon & continuous horizontal strip modes
   const appendNextChapterSegment = useCallback(async () => {
-    if (appendingNext || (!isWebtoon && !isHorizontalStrip) || !settings.seamlessNextChapter || segments.length === 0) return;
-    const lastSeg = segments[segments.length - 1];
+    if (
+      appendingNextRef.current ||
+      (!isWebtoon && !isHorizontalStrip) ||
+      !settings.seamlessNextChapter ||
+      segmentsRef.current.length === 0
+    ) {
+      return;
+    }
+    const lastSeg = segmentsRef.current[segmentsRef.current.length - 1];
     const following = adjacentChapter(params.chapters, lastSeg.chapter.id, 'next', {
       skipRead: settings.skipReadChapters,
       readIds,
     });
-    if (!following || segments.some((s) => s.chapter.id === following.id)) return;
+    if (!following || segmentsRef.current.some((s) => s.chapter.id === following.id)) return;
+    const myEpoch = navEpochRef.current;
+    appendingNextRef.current = true;
     setAppendingNext(true);
     try {
       const nextPages = await loadChapterPages(following.id, server);
+      if (navEpochRef.current !== myEpoch) return;
       if (nextPages.length > 0) {
         setSegments((prev) =>
           prev.some((s) => s.chapter.id === following.id) ? prev : [...prev, { chapter: following, pages: nextPages }],
         );
       }
     } finally {
-      setAppendingNext(false);
+      if (navEpochRef.current === myEpoch) {
+        appendingNextRef.current = false;
+        setAppendingNext(false);
+      }
     }
   }, [
-    appendingNext,
     isWebtoon,
     isHorizontalStrip,
     settings.seamlessNextChapter,
     settings.skipReadChapters,
-    segments,
     params.chapters,
     readIds,
     loadChapterPages,
@@ -946,16 +1041,18 @@ export function MangaReaderView({
 
   // Seamless previous-chapter prepend when reaching the top in webtoon mode
   const prependPrevChapterSegment = useCallback(async () => {
-    if (prependingPrev || !isWebtoon || !settings.seamlessNextChapter || segments.length === 0) return;
-    const firstSeg = segments[0];
+    if (prependingPrevRef.current || !isWebtoon || !settings.seamlessNextChapter || segmentsRef.current.length === 0) return;
+    const firstSeg = segmentsRef.current[0];
     const preceding = adjacentChapter(params.chapters, firstSeg.chapter.id, 'prev', {
       skipRead: settings.skipReadChapters,
       readIds,
     });
-    if (!preceding || segments.some((s) => s.chapter.id === preceding.id)) return;
-    setPrependingPrev(true);
+    if (!preceding || segmentsRef.current.some((s) => s.chapter.id === preceding.id)) return;
+    const myEpoch = navEpochRef.current;
+    prependingPrevRef.current = true;
     try {
       const prevPages = await loadChapterPages(preceding.id, server);
+      if (navEpochRef.current !== myEpoch) return;
       if (prevPages.length > 0) {
         const beforeHeight = scrollRef.current?.scrollHeight ?? 0;
         const beforeTop = scrollRef.current?.scrollTop ?? 0;
@@ -969,7 +1066,7 @@ export function MangaReaderView({
         });
         window.requestAnimationFrame(() => {
           const el = scrollRef.current;
-          if (!el) return;
+          if (!el || navEpochRef.current !== myEpoch) return;
           const added = el.scrollHeight - beforeHeight;
           if (added > 0) {
             programmaticScrollRef.current = true;
@@ -982,29 +1079,38 @@ export function MangaReaderView({
         });
       }
     } finally {
-      setPrependingPrev(false);
+      if (navEpochRef.current === myEpoch) {
+        prependingPrevRef.current = false;
+      }
     }
   }, [
-    prependingPrev,
     isWebtoon,
     settings.seamlessNextChapter,
     settings.skipReadChapters,
-    segments,
     params.chapters,
     readIds,
     loadChapterPages,
     server,
+    chapterId,
   ]);
 
-  // rAF-throttled O(1) webtoon scroll handler (measures ONLY the single active page!)
+  // rAF-throttled O(1) webtoon & horizontal-strip scroll handler (measures ONLY the single active page!)
   const handleWebtoonScroll = useCallback(() => {
-    if (!isWebtoon || !scrollRef.current || segments.length === 0) return;
+    if ((!isWebtoon && !isHorizontalStrip) || !scrollRef.current || segments.length === 0) return;
     if (scrollRafRef.current != null) return;
 
     scrollRafRef.current = window.requestAnimationFrame(() => {
       scrollRafRef.current = null;
       const container = scrollRef.current;
       if (!container) return;
+
+      if (isHorizontalStrip) {
+        const remainingX = container.scrollWidth - (Math.abs(container.scrollLeft) + container.clientWidth);
+        if (remainingX < container.clientWidth * 1.4) {
+          void appendNextChapterSegment();
+        }
+        return;
+      }
 
       const curTop = container.scrollTop;
       const delta = curTop - lastScrollTopRef.current;
@@ -1049,6 +1155,7 @@ export function MangaReaderView({
     });
   }, [
     isWebtoon,
+    isHorizontalStrip,
     segments.length,
     autoScrolling,
     settings.scrollHideSensitivity,

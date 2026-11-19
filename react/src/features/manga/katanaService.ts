@@ -1,5 +1,7 @@
 import {
   collection,
+  deleteDoc,
+  deleteField,
   doc,
   getDoc,
   limit,
@@ -683,6 +685,49 @@ export async function saveKatanaReadingProgress(p: {
       ...(p.finished && !existing?.finishedAt ? { finishedAt: Timestamp.now(), status: 'completed' } : {}),
       ...(p.title ? { title: p.title } : {}),
       ...(p.coverUrl ? { coverUrl: p.coverUrl } : {}),
+    },
+    { merge: true },
+  );
+}
+
+export async function clearKatanaReadingProgress(slug: string, userName: string): Promise<void> {
+  if (!userName || !slug) return;
+  if (AgentMode.demo) {
+    const list = demoBookmarks.get(userName) ?? [];
+    const idx = list.findIndex((b) => b.slug === slug);
+    if (idx < 0) return;
+    const cur = list[idx];
+    const next = [...list];
+    if (cur.bookmarked) {
+      next[idx] = {
+        ...cur,
+        lastReadChapterId: '',
+        lastReadPage: 0,
+        lastReadChapterTitle: '',
+        readChapterIds: [],
+        finishedAt: undefined,
+      };
+    } else {
+      next.splice(idx, 1);
+    }
+    demoBookmarks.set(userName, next);
+    demoChanges.emit();
+    return;
+  }
+  const existing = await getKatanaBookmark(slug, userName);
+  const ref = doc(db, 'katana_bookmarks', `${userName}|${slug}`);
+  if (!existing?.bookmarked) {
+    await deleteDoc(ref);
+    return;
+  }
+  await setDoc(
+    ref,
+    {
+      lastReadChapterId: '',
+      lastReadPage: 0,
+      lastReadChapterTitle: '',
+      readChapterIds: [],
+      finishedAt: deleteField(),
     },
     { merge: true },
   );

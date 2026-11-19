@@ -288,3 +288,82 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     server.close();
   }
 });
+
+test('Webtoon Next chapter button advances even after seamless next-chapter append, and Currently Reading removal works', async (t) => {
+  const chrome = findChrome();
+  if (!chrome) {
+    t.skip('No Chromium/Chrome executable found');
+    return;
+  }
+  const { server, baseUrl } = await serveDist();
+  const browser = await chromium.launch({ executablePath: chrome, headless: true, args: ['--mute-audio', '--no-sandbox'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 412, height: 892 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    // 1. Open webtoon reader on Chapter 42
+    await page.goto(`${baseUrl}/manga/reader?agent=1&hud=0`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('img[alt="Page 1"]', { timeout: 10000 });
+    const liveStatus = page.locator('div[aria-live="polite"]').first();
+    assert.match(await liveStatus.textContent(), /Chapter 42/);
+
+    // Scroll near the bottom of Chapter 42 so seamless append loads Chapter 43 below it
+    await page.evaluate(() => {
+      const scroller = Array.from(document.querySelectorAll('div')).find(
+        (d) => d.scrollHeight > d.clientHeight + 500 && getComputedStyle(d).overflowY === 'auto',
+      );
+      if (scroller) scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight - 300;
+    });
+    await page.waitForFunction(() => document.querySelectorAll('[data-chapter-id="c43"]').length > 0, { timeout: 5000 });
+
+    // Show HUD if scroll hid it, then click Next chapter
+    await page.mouse.click(206, 446);
+    await page.waitForTimeout(350);
+    await page.locator('button[aria-label="Next chapter"]').click();
+    await page.waitForFunction(
+      () => /Chapter 43.*1 \/ 6/.test(document.querySelector('div[aria-live="polite"]')?.textContent ?? ''),
+      { timeout: 5000 },
+    );
+    // Confirm it stays on Chapter 43 and does not bounce back to Chapter 42
+    await page.waitForTimeout(300);
+    assert.match(await liveStatus.textContent(), /Chapter 43.*1 \/ 6/);
+
+    // Clicking Previous chapter returns to Chapter 42 cleanly, and scrolling seamlessly into Chapter 43 advances active chapter
+    await page.locator('button[aria-label="Previous chapter"]').click();
+    await page.waitForFunction(
+      () => /Chapter 42/.test(document.querySelector('div[aria-live="polite"]')?.textContent ?? ''),
+      { timeout: 5000 },
+    );
+    await page.evaluate(() => {
+      const scroller = Array.from(document.querySelectorAll('div')).find(
+        (d) => d.scrollHeight > d.clientHeight + 500 && getComputedStyle(d).overflowY === 'auto',
+      );
+      if (scroller) scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight - 200;
+    });
+    await page.waitForFunction(() => document.querySelectorAll('[data-chapter-id="c43"]').length > 0, { timeout: 5000 });
+    await page.evaluate(() => {
+      const target = document.querySelector('[data-chapter-id="c43"][data-page-idx="1"]');
+      if (target) target.scrollIntoView({ block: 'center' });
+    });
+    await page.waitForFunction(
+      () => /Chapter 43/.test(document.querySelector('div[aria-live="polite"]')?.textContent ?? ''),
+      { timeout: 5000 },
+    );
+
+    // 2. Mangacelestia Currently Reading removal removes the item immediately
+    await page.goto(`${baseUrl}/manga?agent=1&hud=0`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('text=Currently Reading', { timeout: 10000 });
+    await page.click('button:has-text("View all")');
+    await page.waitForSelector('text=Fictional Starlight Manga', { timeout: 5000 });
+    const removeBtn = page.locator('button[aria-label="Remove Fictional Starlight Manga from reading"]');
+    await removeBtn.waitFor({ timeout: 5000 });
+    await removeBtn.click();
+    await page.waitForSelector('text=Fictional Starlight Manga', { state: 'detached', timeout: 5000 });
+
+    assert.deepEqual(errors, [], `Expected zero page errors, got: ${errors.join('; ')}`);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
