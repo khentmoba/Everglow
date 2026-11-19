@@ -507,7 +507,7 @@ export function BooksPage() {
         <div
           ref={homeRef}
           onScroll={(e) => { booksView.scroll = e.currentTarget.scrollTop; }}
-          style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden' }}
+          style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', maxWidth: isTablet ? 1180 : undefined, margin: '0 auto' }}
         >
           {header}
           {homeSearch}
@@ -784,7 +784,7 @@ export function BooksPage() {
                       className="bare-button"
                       aria-label={`Clear ${chip.label}`}
                       onClick={chip.clear}
-                      style={{ minHeight: 36, padding: '0 10px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', gap: 4, background: withAlpha(BookColors.deepRose, 0.16), border: `1px solid ${withAlpha(BookColors.deepRose, 0.4)}`, color: BookColors.white, fontSize: 11.5, fontWeight: 700 }}
+                      style={{ minHeight: 44, padding: '0 12px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', gap: 4, background: withAlpha(BookColors.deepRose, 0.16), border: `1px solid ${withAlpha(BookColors.deepRose, 0.4)}`, color: BookColors.white, fontSize: 11.5, fontWeight: 700 }}
                     >
                       {chip.label}
                       <Icon name="close" size={12} color={BookColors.rose} />

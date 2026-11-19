@@ -23,6 +23,7 @@ export function OurBooksPage() {
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [addSearchError, setAddSearchError] = useState(false);
+  const [searchNowKey, setSearchNowKey] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
   const addPanelRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
@@ -62,7 +63,7 @@ export function OurBooksPage() {
       alive = false;
       window.clearTimeout(t);
     };
-  }, [addOpen, queryText]);
+  }, [addOpen, queryText, searchNowKey]);
 
   if (!isCoupleUser) {
     return (
@@ -75,14 +76,6 @@ export function OurBooksPage() {
   const toReadList = items.filter((b) => !b.khentReadAt && !b.clairReadAt);
   const readList = items.filter((b) => Boolean(b.khentReadAt || b.clairReadAt));
   const shown = tab === 0 ? toReadList : readList;
-
-  const runSearch = async () => {
-    if (!queryText.trim()) return;
-    setSearching(true);
-    const res = await searchBooksCatalog(queryText);
-    setResults(res.results.slice(0, 12));
-    setSearching(false);
-  };
 
   return (
     <div style={{ position: 'relative', height: '100%', background: BookColors.black, color: AppColors.petalWhite, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -202,6 +195,16 @@ export function OurBooksPage() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      <div style={{ position: 'relative', margin: '2px 20px 12px', padding: 14, borderRadius: 18, background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.deepRose, 0.28)}` }}>
+        <div style={{ fontFamily: Fonts.display, fontSize: 17, fontWeight: 700, color: AppColors.petalWhite }}>A little reading life</div>
+        <div style={{ fontSize: 12.5, color: withAlpha(AppColors.roseQuartz, 0.85), marginTop: 3 }}>
+          {readList.length} book{readList.length === 1 ? '' : 's'} read together · {toReadList.length} waiting on the shelf
+        </div>
+        <div style={{ height: 4, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 10, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, (readList.length / 12) * 100)}%`, background: AppColors.deepRose }} />
         </div>
       </div>
 
@@ -331,8 +334,8 @@ export function OurBooksPage() {
                         className="bare-button"
                         onClick={() => setPendingDelete(b)}
                         style={{
-                          width: 36,
-                          height: 36,
+                          width: 44,
+                          height: 44,
                           borderRadius: 10,
                           background: 'rgba(255,255,255,0.03)',
                           border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.14)}`,
@@ -371,11 +374,11 @@ export function OurBooksPage() {
                 aria-label="Search for a book"
                 value={queryText}
                 onChange={(e) => setQueryText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void runSearch()}
+                onKeyDown={(e) => e.key === 'Enter' && setSearchNowKey((k) => k + 1)}
                 placeholder="Search Open Library…"
                 style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, outline: 'none' }}
               />
-              <button type="button" className="bare-button" onClick={() => void runSearch()} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700 }}>
+              <button type="button" className="bare-button" onClick={() => setSearchNowKey((k) => k + 1)} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700 }}>
                 Search
               </button>
             </div>

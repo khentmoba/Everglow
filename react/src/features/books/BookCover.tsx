@@ -144,7 +144,7 @@ export function BookCover({
             decoding="async"
             onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 260ms ease' }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 260ms ease' }}
           />
         )}
         <div
@@ -250,7 +250,7 @@ export function BookCoverCard({
         </div>
       ) : null}
       {statusBadge == null && (result?.year || result?.ratingCount) && (
-        <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.6), fontSize: 10.5, lineHeight: lineHeight(10.5), paddingTop: 2, width: '100%' }}>
+        <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.6), fontSize: 11.5, lineHeight: lineHeight(11.5), paddingTop: 2, width: '100%' }}>
           {[result?.year, result?.ratingCount ? `${result.ratingCount >= 1000 ? `${(result.ratingCount / 1000).toFixed(0)}k` : result.ratingCount} readers` : ''].filter(Boolean).join(' · ')}
         </div>
       )}
