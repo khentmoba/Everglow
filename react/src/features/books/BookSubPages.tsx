@@ -1075,7 +1075,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   return (
     <div style={{ position: 'relative', height: '100%', background: theme.bg, color: theme.fg, display: 'flex', flexDirection: 'column' }}>
       {!chromeHidden && <>
-      <div style={{ padding: '8px 12px', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+      <div style={{ position: 'relative', zIndex: 4, padding: '8px 12px', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))', background: theme.bg, borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
         <button type="button" className="bare-button" aria-label="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
           <Icon name="arrow_back" size={22} color={theme.fg} />
         </button>
@@ -1149,7 +1149,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               aria-label={currentChapter.title}
               onMouseUp={captureSelection}
               onTouchEnd={captureSelection}
-              style={{ columnCount: settings.pageTurn && readerWidth >= 900 ? 2 : 1, columnGap: 40 }}
+              lang="en"
+              style={{ columnCount: settings.pageTurn && readerWidth >= 900 ? 2 : 1, columnGap: 40, hyphens: settings.align === 'justify' ? 'auto' : 'manual', WebkitHyphens: settings.align === 'justify' ? 'auto' : 'manual' }}
               onClick={(e) => {
                 if (selectionText) return;
                 const rect = e.currentTarget.getBoundingClientRect();

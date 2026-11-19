@@ -247,8 +247,8 @@ export function BookCoverCard({
           style={{
             ...AppTypography.outfitWhite,
             color: withAlpha(AppColors.roseQuartz, 0.82),
-            fontSize: 11,
-            lineHeight: lineHeight(11),
+            fontSize: 12,
+            lineHeight: lineHeight(12),
             paddingTop: 2,
             width: '100%',
           }}

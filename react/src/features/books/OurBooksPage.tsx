@@ -218,8 +218,8 @@ export function OurBooksPage() {
           <div style={{ height: '100%', width: `${Math.min(100, (readTogetherThisYear / goal) * 100)}%`, background: AppColors.deepRose }} />
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11.5, color: withAlpha(AppColors.roseQuartz, 0.82) }}>
-          <span>♥ {bothFinished} finished together</span>
-          <span>· {activeMonths} active months</span>
+          {bothFinished > 0 && <span>♥ {bothFinished} finished together</span>}
+          {activeMonths > 0 && <span>· {activeMonths} active {activeMonths === 1 ? 'month' : 'months'}</span>}
           {topGenre && <span>· a fondness for {topGenre.toLowerCase()}</span>}
         </div>
       </div>
@@ -290,7 +290,7 @@ export function OurBooksPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: AppColors.petalWhite }}>{b.title}</div>
                     <div style={{ fontSize: 11, color: AppColors.mutedPurple, marginTop: 3 }}>
-                      Added by {isKhent(b.addedBy) ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <span style={{ fontSize: 12.5 }}>Added by {isKhent(b.addedBy) ? 'Khent' : 'Clair'} · {b.addedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <span
@@ -411,7 +411,7 @@ export function OurBooksPage() {
                 onChange={(e) => setQueryText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setSearchNowKey((k) => k + 1)}
                 placeholder="Search Open Library…"
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, outline: 'none', fontSize: 16 }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, fontSize: 16, outlineOffset: 2 }}
               />
               <button type="button" className="bare-button" onClick={() => setSearchNowKey((k) => k + 1)} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700 }}>
                 Search

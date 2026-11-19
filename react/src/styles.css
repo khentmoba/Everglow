@@ -80,6 +80,7 @@ body {
   outline: none;
 }
 .bare-button:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; border-radius: 6px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; }
 .player-focusable:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
 

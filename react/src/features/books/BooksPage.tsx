@@ -235,6 +235,11 @@ export function BooksPage() {
   const rawSeg = searchParams.get('seg');
   const tabParam = rawTab != null ? Number(rawTab) : Number.NaN;
   const segmentParam = rawSeg != null ? Number(rawSeg) : Number.NaN;
+  useEffect(() => {
+    if (rawTab != null && Number(rawTab) >= 0 && Number(rawTab) <= 2) setTabState(Number(rawTab) as 0 | 1 | 2);
+    if (rawSeg != null && Number(rawSeg) >= 0 && Number(rawSeg) <= 3) setLibrarySegmentState(Number(rawSeg) as 0 | 1 | 2 | 3);
+  }, [rawTab, rawSeg]);
+
   const [tab, setTabState] = useState<0 | 1 | 2>(initialQuery ? 1 : tabParam >= 0 && tabParam <= 2 ? (tabParam as 0 | 1 | 2) : booksView.tab);
   const [librarySegment, setLibrarySegmentState] = useState<0 | 1 | 2 | 3>(segmentParam >= 0 && segmentParam <= 3 ? (segmentParam as 0 | 1 | 2 | 3) : booksView.segment);
   const setTab = (next: 0 | 1 | 2) => {
@@ -242,7 +247,7 @@ export function BooksPage() {
     setTabState(next);
     const params = new URLSearchParams(searchParams);
     params.set('tab', String(next));
-    setSearchParams(params, { replace: true });
+    setSearchParams(params);
   };
   const setLibrarySegment = (next: 0 | 1 | 2 | 3) => {
     booksView.segment = next;
@@ -250,7 +255,7 @@ export function BooksPage() {
     const params = new URLSearchParams(searchParams);
     params.set('tab', '2');
     params.set('seg', String(next));
-    setSearchParams(params, { replace: true });
+    setSearchParams(params);
   };
   const homeRef = useRef<HTMLDivElement>(null);
   const advPanelRef = useRef<HTMLDivElement>(null);
@@ -305,6 +310,11 @@ export function BooksPage() {
   });
 
   const userName = currentUser ?? '';
+  useEffect(() => {
+    booksView.tab = 0;
+    booksView.segment = 0;
+    booksView.scroll = 0;
+  }, [userName]);
   const readlist = useSource(() => watchReadList(userName), [userName], []);
   const favorites = useSource(() => watchBookFavorites(userName), [userName], []);
   const downloads = useSource(() => watchBookDownloads(userName), [userName], []);
@@ -696,7 +706,7 @@ export function BooksPage() {
                   Most Popular couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ minHeight: 44, padding: '0 8px', fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
                 </div>
               ) : (
-                <StaggeredEntrance>{feedRail('The most downloaded', 'Most downloaded', AppColors.warmAmber, popularRail, 'popular')}</StaggeredEntrance>
+                <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popularRail, 'popular')}</StaggeredEntrance>
               )}
               {recError && recent.length === 0 ? (
                 <div style={{ margin: '16px 20px 0', fontSize: 12.5, color: AppColors.roseQuartz }}>
@@ -744,7 +754,7 @@ export function BooksPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Title, author, ISBN..."
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: BookColors.white, fontSize: 16 }}
+                  style={{ flex: 1, background: 'transparent', border: 'none', color: BookColors.white, fontSize: 16, outlineOffset: 2 }}
                 />
                 {searchQuery && (
                   <button type="button" className="bare-button" onClick={() => setSearchQuery('')}>
@@ -877,7 +887,7 @@ export function BooksPage() {
                       setSearchFormat('');
                       setSearchLang('All');
                     }}
-                    style={{ minHeight: 32, padding: '0 10px', fontSize: 11.5, fontWeight: 700, color: BookColors.muted, textDecoration: 'underline' }}
+                    style={{ minHeight: 44, padding: '0 10px', fontSize: 12, fontWeight: 700, color: BookColors.muted, textDecoration: 'underline' }}
                   >
                     Clear all
                   </button>
