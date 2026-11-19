@@ -183,3 +183,67 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .emblem-breath, .emblem-spin, .title-shimmer, .heart-pulse, .heart-glow { animation: none; }
 }
+
+@keyframes manga-page-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes manga-page-slide-next { from { opacity: 0.4; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes manga-page-slide-prev { from { opacity: 0.4; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.manga-page-fade { animation: manga-page-fade 180ms ease-out both; }
+.manga-page-slide-next { animation: manga-page-slide-next 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.manga-page-slide-prev { animation: manga-page-slide-prev 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .manga-page-fade, .manga-page-slide-next, .manga-page-slide-prev { animation: none; }
+}
+
+.manga-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+.manga-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 133, 179, 0.24);
+}
+.manga-range::-moz-range-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 133, 179, 0.24);
+}
+.manga-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #FF2E7E;
+  border: 2px solid #FFF5F8;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+.manga-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FF2E7E;
+  border: 2px solid #FFF5F8;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+.manga-range--vertical {
+  width: 44px;
+  height: 100%;
+}
+.manga-range--vertical::-webkit-slider-runnable-track {
+  width: 6px;
+  height: 100%;
+}
+.manga-range--vertical::-webkit-slider-thumb {
+  margin-top: 0;
+  margin-left: -8px;
+}
+.manga-range:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
+}

@@ -182,6 +182,7 @@ export function MangaPage() {
   );
 
   const openChapter = (manga: KatanaManga, chapterId: string, initialPage = 1) => {
+    const bm = bookmarks.find((b) => b.slug === manga.slug);
     setReaderParams({
       slug: manga.slug,
       chapterId,
@@ -191,6 +192,7 @@ export function MangaPage() {
       initialPage,
       mangaStatus: manga.status,
       finalChapterId: manga.chapters[0]?.id ?? manga.latestChapter?.id,
+      readChapterIds: bm?.readChapterIds,
     });
   };
 
