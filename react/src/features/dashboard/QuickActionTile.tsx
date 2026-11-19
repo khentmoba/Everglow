@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { prefetchRoute } from '../../core/router/routeChunks';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { CssCurves, reduceAmbientMotion } from '../../core/theme/motion';
@@ -29,7 +30,12 @@ export function QuickActionTile({ action, badge = 0 }: { action: QuickAction; ba
       type="button"
       className="bare-button"
       aria-label={badge > 0 ? `${action.label}, ${badge} new` : action.label}
-      onMouseEnter={() => !reduceAmbient && setHovered(true)}
+      onMouseEnter={() => {
+        prefetchRoute(action.route);
+        if (!reduceAmbient) setHovered(true);
+      }}
+      onFocus={() => prefetchRoute(action.route)}
+      onTouchStart={() => prefetchRoute(action.route)}
       onMouseLeave={() => {
         setHovered(false);
         setPressed(false);

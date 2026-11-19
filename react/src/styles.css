@@ -1,25 +1,25 @@
 /* Fonts: the same files the Flutter app bundles (assets/google_fonts). */
-@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-Medium.ttf'); font-weight: 500; font-display: block; }
-@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-SemiBold.ttf'); font-weight: 600; font-display: block; }
-@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-Bold.ttf'); font-weight: 700; font-display: block; }
-@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-ExtraBold.ttf'); font-weight: 800; font-display: block; }
-@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-Black.ttf'); font-weight: 900; font-display: block; }
-@font-face { font-family: 'Cormorant Garamond'; src: url('/google_fonts/CormorantGaramond-Regular.ttf'); font-weight: 400; font-display: block; }
-@font-face { font-family: 'Cormorant Garamond'; src: url('/google_fonts/CormorantGaramond-SemiBold.ttf'); font-weight: 600; font-display: block; }
-@font-face { font-family: 'Cormorant Garamond'; src: url('/google_fonts/CormorantGaramond-Bold.ttf'); font-weight: 700; font-display: block; }
-@font-face { font-family: 'Caveat'; src: url('/google_fonts/Caveat-Regular.ttf'); font-weight: 400; font-display: block; }
-@font-face { font-family: 'Dancing Script'; src: url('/google_fonts/DancingScript-Bold.ttf'); font-weight: 700; font-display: block; }
-@font-face { font-family: 'Everglow Emoji'; src: url('/google_fonts/EverglowEmoji.ttf'); font-display: block; }
-@font-face { font-family: 'Everglow Symbols'; src: url('/google_fonts/EverglowSymbols.ttf'); font-display: block; }
+@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-Medium.ttf'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-SemiBold.ttf'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-Bold.ttf'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-ExtraBold.ttf'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Outfit'; src: url('/google_fonts/Outfit-Black.ttf'); font-weight: 900; font-display: swap; }
+@font-face { font-family: 'Cormorant Garamond'; src: url('/google_fonts/CormorantGaramond-Regular.ttf'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Cormorant Garamond'; src: url('/google_fonts/CormorantGaramond-SemiBold.ttf'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Cormorant Garamond'; src: url('/google_fonts/CormorantGaramond-Bold.ttf'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Caveat'; src: url('/google_fonts/Caveat-Regular.ttf'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Dancing Script'; src: url('/google_fonts/DancingScript-Bold.ttf'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Everglow Emoji'; src: url('/google_fonts/EverglowEmoji.ttf'); font-display: swap; }
+@font-face { font-family: 'Everglow Symbols'; src: url('/google_fonts/EverglowSymbols.ttf'); font-display: swap; }
 /* Flutter web falls back to Google's Noto Sans Symbols 2 for glyphs the app fonts lack (chess pieces). */
-@font-face { font-family: 'Noto Sans Symbols 2'; src: url('./assets/fonts/NotoSansSymbols2-Chess.woff2') format('woff2'); unicode-range: U+2654-265F; font-display: block; }
+@font-face { font-family: 'Noto Sans Symbols 2'; src: url('./assets/fonts/NotoSansSymbols2-Chess.woff2') format('woff2'); unicode-range: U+2654-265F; font-display: swap; }
 /* Flutter registers DM Sans under the name Roboto (Material's default face). */
-@font-face { font-family: 'Roboto'; src: url('/google_fonts/DMSans-Regular.ttf'); font-weight: 400; font-display: block; }
-@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Regular.ttf'); font-weight: 400; font-display: block; }
-@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Medium.ttf'); font-weight: 500; font-display: block; }
-@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-SemiBold.ttf'); font-weight: 600; font-display: block; }
-@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Bold.ttf'); font-weight: 700; font-display: block; }
-@font-face { font-family: 'Bebas Neue'; src: url('/google_fonts/BebasNeue-Regular.ttf'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'Roboto'; src: url('/google_fonts/DMSans-Regular.ttf'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Regular.ttf'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Medium.ttf'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-SemiBold.ttf'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'DM Sans'; src: url('/google_fonts/DMSans-Bold.ttf'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Bebas Neue'; src: url('/google_fonts/BebasNeue-Regular.ttf'); font-weight: 400; font-display: swap; }
 
 :root {
   color-scheme: dark;
@@ -156,3 +156,30 @@ body {
 @keyframes vinyl-spin { to { transform: rotate(360deg); } }
 .vinyl-spin { animation: vinyl-spin 4s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .vinyl-spin { animation: none; } }
+
+@keyframes emblem-breath {
+  0%, 100% { transform: scale(0.968); }
+  50% { transform: scale(1.032); }
+}
+@keyframes emblem-spin { to { transform: rotate(360deg); } }
+@keyframes title-shimmer {
+  0% { background-position: 130% 0; }
+  100% { background-position: -30% 0; }
+}
+@keyframes heart-pulse {
+  0% { transform: scale(1); }
+  22% { transform: scale(1.24); }
+  45%, 100% { transform: scale(1.22); }
+}
+@keyframes heart-glow {
+  0% { opacity: 1; }
+  45%, 100% { opacity: 0; }
+}
+.emblem-breath { animation: emblem-breath 6.8s ease-in-out infinite; will-change: transform; }
+.emblem-spin { animation: emblem-spin 14s linear infinite; will-change: transform; }
+.title-shimmer { background-size: 260% 100%; animation: title-shimmer 4.2s linear infinite; }
+.heart-pulse { animation: heart-pulse 2.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite; will-change: transform; }
+.heart-glow { animation: heart-glow 2.6s linear infinite; will-change: opacity; }
+@media (prefers-reduced-motion: reduce) {
+  .emblem-breath, .emblem-spin, .title-shimmer, .heart-pulse, .heart-glow { animation: none; }
+}

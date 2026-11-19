@@ -18,8 +18,15 @@ export function AnniversaryMetrics() {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    const tick = () => {
+      if (!document.hidden) setNow(new Date());
+    };
+    const id = window.setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, []);
 
   const counter = calculateAnniversary(ANNIVERSARY_DATE, now);

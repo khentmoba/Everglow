@@ -3,7 +3,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import type { FirebaseStorage } from 'firebase/storage';
 
 export const app = initializeApp({
   apiKey: 'AIzaSyBMk0z4e-k_SAYzaLypYKJn3euwfx0fW5c',
@@ -16,4 +16,16 @@ export const app = initializeApp({
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+
+let storagePromise: Promise<{ storage: FirebaseStorage; mod: typeof import('firebase/storage') }> | null = null;
+export function loadStorage() {
+  if (!storagePromise) {
+    storagePromise = import('firebase/storage')
+      .then((mod) => ({ storage: mod.getStorage(app), mod }))
+      .catch((e: unknown) => {
+        storagePromise = null;
+        throw e;
+      });
+  }
+  return storagePromise;
+}

@@ -1,86 +1,42 @@
 // Port of lib/features/dashboard/presentation/widgets/dashboard_motion.dart.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
-import { Curves, motionReduced, reduceAmbientMotion } from '../../core/theme/motion';
+import { motionReduced, reduceAmbientMotion } from '../../core/theme/motion';
 
 export function BreathingEmblem({ children }: { children: ReactNode }) {
   const { width, height } = useViewport();
   const reduceAmbient = reduceAmbientMotion(width, height);
-  const [breath, setBreath] = useState(0);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (reduceAmbient) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const cycle = ((now - start) % 6800) / 3400;
-      const b = cycle <= 1 ? cycle : 2 - cycle;
-      setBreath(b);
-
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const dpr = window.devicePixelRatio || 1;
-        const size = 132;
-        if (canvas.width !== size * dpr) {
-          canvas.width = size * dpr;
-          canvas.height = size * dpr;
-        }
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.clearRect(0, 0, size, size);
-          const cx = size / 2;
-          const cy = size / 2;
-          const radius = size / 2 - 4;
-          const rot = (((now - start) % 14000) / 14000) * Math.PI * 2;
-
-          ctx.strokeStyle = withAlpha(AppColors.blushGold, 0.22);
-          ctx.lineWidth = 1.1;
-          ctx.beginPath();
-          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(rot);
-          const sweep = ctx.createConicGradient(0, 0, 0);
-          sweep.addColorStop(0, 'rgba(0,0,0,0)');
-          sweep.addColorStop(0.18, AppColors.auroraRose);
-          sweep.addColorStop(0.42, AppColors.blushGold);
-          sweep.addColorStop(0.6, 'rgba(0,0,0,0)');
-          sweep.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.strokeStyle = sweep;
-          ctx.lineWidth = 1.7;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.arc(0, 0, radius, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-
-          const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-          grad.addColorStop(0, withAlpha(AppColors.deepRose, 0.07));
-          grad.addColorStop(1, withAlpha(AppColors.deepRose, 0));
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(cx, cy, radius * 0.88, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reduceAmbient]);
 
   if (reduceAmbient) return <>{children}</>;
 
-  const scale = 1 + 0.032 * (breath * 2 - 1);
   return (
     <div style={{ position: 'relative', width: 132, height: 132, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: 132, height: 132, pointerEvents: 'none' }} aria-hidden />
-      <div style={{ transform: `scale(${scale.toFixed(4)})` }}>{children}</div>
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 4,
+          borderRadius: '50%',
+          border: `1.1px solid ${withAlpha(AppColors.blushGold, 0.22)}`,
+          background: `radial-gradient(circle, ${withAlpha(AppColors.deepRose, 0.07)} 0%, ${withAlpha(AppColors.deepRose, 0)} 88%)`,
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        aria-hidden
+        className="emblem-spin"
+        style={{
+          position: 'absolute',
+          inset: 3,
+          borderRadius: '50%',
+          background: `conic-gradient(from 0deg, transparent 0%, ${AppColors.auroraRose} 18%, ${AppColors.blushGold} 42%, transparent 60%, transparent 100%)`,
+          WebkitMaskImage: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px))',
+          maskImage: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px))',
+          pointerEvents: 'none',
+        }}
+      />
+      <div className="emblem-breath">{children}</div>
     </div>
   );
 }
@@ -88,27 +44,13 @@ export function BreathingEmblem({ children }: { children: ReactNode }) {
 export function ShimmerTitle({ children }: { children: ReactNode }) {
   const { width, height } = useViewport();
   const reduceAmbient = reduceAmbientMotion(width, height);
-  const [offset, setOffset] = useState(-1);
-
-  useEffect(() => {
-    if (reduceAmbient) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = ((now - start) % 4200) / 4200;
-      setOffset(t * 2 - 1);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reduceAmbient]);
 
   if (reduceAmbient) return <>{children}</>;
-  const pct = 50 + offset * 80;
   return (
     <div
+      className="title-shimmer"
       style={{
-        backgroundImage: `linear-gradient(90deg, ${AppColors.petalWhite} ${pct - 50}%, ${AppColors.blushGold} ${pct}%, ${AppColors.petalWhite} ${pct + 50}%)`,
+        backgroundImage: `linear-gradient(90deg, ${AppColors.petalWhite} 25%, ${AppColors.blushGold} 50%, ${AppColors.petalWhite} 75%)`,
         WebkitBackgroundClip: 'text',
         backgroundClip: 'text',
         color: 'transparent',
@@ -122,38 +64,24 @@ export function ShimmerTitle({ children }: { children: ReactNode }) {
 export function PulseHeart({ children }: { children: ReactNode }) {
   const { width, height } = useViewport();
   const reduceAmbient = reduceAmbientMotion(width, height);
-  const [p, setP] = useState(0);
-
-  useEffect(() => {
-    if (reduceAmbient) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      setP(((now - start) % 2600) / 2600);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reduceAmbient]);
 
   if (reduceAmbient) return <>{children}</>;
 
-  const beat = p < 0.45 ? Curves.easeOutBack(p / 0.45) : 1;
-  const glow = p < 0.45 ? (1 - p / 0.45) * 0.45 : 0;
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
+        className="heart-glow"
         style={{
           position: 'absolute',
           width: 15,
           height: 15,
           borderRadius: '50%',
-          boxShadow: `0 0 9.7px 2px ${withAlpha(AppColors.auroraRose, glow)}`,
+          boxShadow: `0 0 9.7px 2px ${withAlpha(AppColors.auroraRose, 0.45)}`,
           pointerEvents: 'none',
         }}
         aria-hidden
       />
-      <div style={{ transform: `scale(${(1 + 0.22 * beat).toFixed(4)})` }}>{children}</div>
+      <div className="heart-pulse">{children}</div>
     </div>
   );
 }
@@ -210,46 +138,65 @@ const BANDS = [
   { baseY: 0.8, amp: 0.08, wave: 0.7, speed: 0.2, drift: 0.04, width: 0.13, alpha: 0.05, color: AppColors.auroraGold },
 ];
 
-export function DashboardAmbience({ scrollTop }: { scrollTop: number }) {
+export function DashboardAmbience({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null> }) {
   const { width, height } = useViewport();
   const reduced = motionReduced();
   const reduceAmbient = reduceAmbientMotion(width, height);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (reduced || reduceAmbient || scrollTop > 850) return;
+    if (reduced || reduceAmbient) return;
     let raf = 0;
+    let scrollSettleTimer = 0;
+    let pausedByScroll = (scrollRef.current?.scrollTop ?? 0) > 850;
+    let activelyScrolling = false;
     const start = performance.now();
     let lastDraw = 0;
-    const tick = (now: number) => {
-      raf = requestAnimationFrame(tick);
-      if (now - lastDraw < 33) return;
+    let cachedW = 0;
+    let bandGrads: CanvasGradient[] = [];
+
+    const draw = (now: number) => {
+      if (pausedByScroll || activelyScrolling || document.hidden) {
+        raf = 0;
+        return;
+      }
+      raf = requestAnimationFrame(draw);
+      if (now - lastDraw < 42) return;
       lastDraw = now;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       if (w <= 0 || h <= 0) return;
-      const dpr = window.devicePixelRatio || 1;
-      if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-        canvas.width = Math.round(w * dpr);
-        canvas.height = Math.round(h * dpr);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const pw = Math.round(w * dpr);
+      const ph = Math.round(h * dpr);
+      if (canvas.width !== pw || canvas.height !== ph) {
+        canvas.width = pw;
+        canvas.height = ph;
+        cachedW = 0;
       }
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+      if (cachedW !== w) {
+        cachedW = w;
+        bandGrads = BANDS.map((band) => {
+          const grad = ctx.createLinearGradient(0, 0, w, 0);
+          grad.addColorStop(0, withAlpha(band.color, 0));
+          grad.addColorStop(0.5, withAlpha(band.color, band.alpha));
+          grad.addColorStop(1, withAlpha(band.color, 0));
+          return grad;
+        });
+      }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
       const t = ((now - start) % 24000) / 24000;
 
-      for (const band of BANDS) {
-        const sw = band.width * h;
-        const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, withAlpha(band.color, 0));
-        grad.addColorStop(0.5, withAlpha(band.color, band.alpha));
-        grad.addColorStop(1, withAlpha(band.color, 0));
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = sw;
+      for (let bi = 0; bi < BANDS.length; bi++) {
+        const band = BANDS[bi];
+        ctx.strokeStyle = bandGrads[bi];
+        ctx.lineWidth = band.width * h;
         ctx.lineCap = 'round';
         ctx.beginPath();
         const step = w / 28;
@@ -326,9 +273,37 @@ export function DashboardAmbience({ scrollTop }: { scrollTop: number }) {
         }
       }
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reduced, reduceAmbient, scrollTop]);
+
+    const ensureRunning = () => {
+      if (!raf && !pausedByScroll && !activelyScrolling && !document.hidden) {
+        raf = requestAnimationFrame(draw);
+      }
+    };
+
+    const onScroll = () => {
+      const top = scrollRef.current?.scrollTop ?? 0;
+      pausedByScroll = top > 850;
+      activelyScrolling = true;
+      window.clearTimeout(scrollSettleTimer);
+      scrollSettleTimer = window.setTimeout(() => {
+        activelyScrolling = false;
+        ensureRunning();
+      }, 140);
+    };
+
+    const onVis = () => ensureRunning();
+    const scroller = scrollRef.current;
+    scroller?.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('visibilitychange', onVis);
+    ensureRunning();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(scrollSettleTimer);
+      scroller?.removeEventListener('scroll', onScroll);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [reduced, reduceAmbient, scrollRef]);
 
   if (reduced || reduceAmbient) return null;
   return (

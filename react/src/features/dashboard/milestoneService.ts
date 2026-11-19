@@ -9,10 +9,9 @@ import {
   type QuerySnapshot,
   type Timestamp,
 } from 'firebase/firestore';
-import { getDownloadURL, ref } from 'firebase/storage';
 import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type MilestoneCategory, type MilestoneFixture } from '../../core/agent/fixtures';
-import { db, storage } from '../../core/services/firebase';
+import { db, loadStorage } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 
@@ -54,7 +53,9 @@ export function resolveMilestoneImageUrl(path: string): Promise<string | null> {
   }
   const cached = resolvedStorageUrlCache.get(normalized);
   if (cached) return cached;
-  const pending = getDownloadURL(ref(storage, normalized)).catch((e: unknown) => {
+  const pending = loadStorage()
+    .then(({ storage, mod }) => mod.getDownloadURL(mod.ref(storage, normalized)))
+    .catch((e: unknown) => {
     Logger.e(`Milestone photo could not load (${normalized})`, e);
     resolvedStorageUrlCache.delete(normalized);
     return null;

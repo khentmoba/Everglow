@@ -213,11 +213,35 @@ function webShellPlugin(): Plugin {
         `${JSON.stringify({ build, core, parts })}\n`,
         'utf8',
       );
-      const precache = [
+      const indexHtml = existsSync(join(distRoot, 'index.html'))
+        ? readFileSync(join(distRoot, 'index.html'), 'utf8')
+        : '';
+      const htmlAssets = [
+        ...indexHtml.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/g),
+      ].map((m) => m[1]);
+      // Precache the entry shell + Dashboard chunk (and its direct imports) so
+      // offline reload of /dashboard works immediately after SW activation.
+      const precacheSet = new Set<string>([
         ...(mainEntry ? [`/assets/${mainEntry}`] : []),
         ...(mainCss ? [`/assets/${mainCss}`] : []),
-      ];
-      writeFileSync(join(distRoot, 'sw.js'), buildServiceWorkerSource(build, precache), 'utf8');
+        ...htmlAssets,
+      ]);
+      const dashChunks = assetFiles.filter((n) => /^(?:DashboardPage|DashboardLowerZones)-.*\.js$/.test(n));
+      if (dashChunks.length > 0) {
+        const queue = [...dashChunks];
+        const visited = new Set<string>();
+        while (queue.length > 0) {
+          const name = queue.shift()!;
+          if (visited.has(name) || name === mainEntry) continue;
+          visited.add(name);
+          precacheSet.add(`/assets/${name}`);
+          const src = readFileSync(join(assetsDir, name), 'utf8');
+          for (const m of src.matchAll(/(?:from|import)\s*\(?\s*["']\.\/([^"']+\.js)["']/g)) {
+            if (existsSync(join(assetsDir, m[1]))) queue.push(m[1]);
+          }
+        }
+      }
+      writeFileSync(join(distRoot, 'sw.js'), buildServiceWorkerSource(build, [...precacheSet]), 'utf8');
     },
   };
 }
@@ -227,6 +251,28 @@ function webShellPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), webShellPlugin()],
   publicDir: '../assets',
+  build: {
+    rollupOptions: {
+      output: {
+        experimentalMinChunkSize: 12_000,
+        manualChunks(id) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/') || id.includes('node_modules/scheduler') || id.includes('node_modules/react-router')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/firebase/messaging') || id.includes('node_modules/@firebase/messaging')) {
+            return 'firebase-messaging';
+          }
+          if (id.includes('node_modules/firebase/storage') || id.includes('node_modules/@firebase/storage')) {
+            return 'firebase-storage';
+          }
+          if (id.includes('node_modules/firebase/') || id.includes('node_modules/@firebase/')) {
+            return 'firebase-core';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   server: { open: false },
   preview: { open: false },
 });

@@ -1,7 +1,8 @@
 // Port of lib/features/dashboard/presentation/screens/dashboard_screen.dart
 // and dashboard_screen_sections.dart.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AgentMode } from '../../core/agent/agentMode';
+import { scheduleIdleMediaPrefetch } from '../../core/router/routeChunks';
 import { useRememberedScroll } from '../../core/router/scrollMemory';
 import { useAuth } from '../../core/services/auth';
 import { presenceService } from '../../core/services/presence';
@@ -16,32 +17,29 @@ import { EverglowBackground, type RadialGlow } from '../../shared/widgets/Evergl
 import { EverglowSectionHeader } from '../../shared/widgets/EverglowSectionHeader';
 import { Icon } from '../../shared/widgets/Icon';
 import { DailyBloom } from '../daily_bloom/DailyBloom';
-import { RandomizerCard } from '../date_randomizer/RandomizerCard';
 import { guardianController } from '../guardian/guardianController';
 import { guardianService } from '../guardian/guardianService';
 import { moodController } from '../heartbeat/moodService';
-import { ArtistShowdownCard, JukeboxWidget, MusicStatsSection } from '../jukebox/JukeboxCards';
-import { StarlightJarWidget } from '../starlight_jar/StarlightJarWidget';
-import { WatchPartyCard } from '../watch_party/WatchPartyCard';
 import { XpProgressSection } from '../xp/XpProgressSection';
 import { AnniversaryMetrics } from './AnniversaryMetrics';
-import { CalendarPreview } from './CalendarPreview';
 import { DashboardJumpBar } from './DashboardJumpBar';
 import { DashboardLoadVeil, DashboardLoadVeilControl } from './DashboardLoadVeil';
 import { BreathingEmblem, DashboardAmbience, PulseHeart, ShimmerTitle } from './DashboardMotion';
 import { DashboardOverlays, kTopActionsReserve } from './DashboardOverlays';
 import { DashboardPair, DashboardZoneHeader } from './DashboardZoneHeader';
-import { GalleryPreview } from './GalleryPreview';
-import { KeepsakesCluster } from './KeepsakesCluster';
 import { LetterboxView } from './LetterboxView';
 import { isNoteUnlocked, letterboxService } from './letterboxService';
-import { AnimePreview, BooksPreview, CinemaPreview, CurrentlyWatchingPreview, MangaPreview } from './MediaShelves';
 import { OnThisDayCard } from './OnThisDayCard';
-import { AcademyPortalCard, PlayZonePortalCard } from './PortalCards';
 import { QuickActionTile, type QuickAction } from './QuickActionTile';
-import { TimelineView } from './TimelineView';
 import { TonightCard } from './TonightCard';
 import { UpcomingCountdowns } from './UpcomingCountdowns';
+
+const loadLowerZones = () => import('./DashboardLowerZones');
+const DashboardLowerZones = lazy(() =>
+  loadLowerZones()
+    .then((m) => ({ default: m.DashboardLowerZones }))
+    .catch(() => ({ default: () => <></> })),
+);
 
 const DASHBOARD_GLOWS: RadialGlow[] = [
   { color: AppColors.deepRose, alignment: [-0.7, -0.85], size: 0.9, opacity: 0.14 },
@@ -70,10 +68,28 @@ export function DashboardPage() {
   const auth = useAuth();
   const { width } = useViewport();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
   const [showLoadVeil, setShowLoadVeil] = useState(() => DashboardLoadVeilControl.consumePasscodeLoaderRequest());
+  const [showLowerZones, setShowLowerZones] = useState(false);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const pendingJumpRef = useRef<string | null>(null);
   useRememberedScroll('dashboard', scrollRef, auth.isReady);
+
+  const registerZone = useCallback((id: string, el: HTMLDivElement | null) => {
+    zoneRefs.current[id] = el;
+    if (el && pendingJumpRef.current === id) {
+      pendingJumpRef.current = null;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!auth.isReady || showLowerZones) return;
+    const raf = window.requestAnimationFrame(() => {
+      void loadLowerZones();
+      startTransition(() => setShowLowerZones(true));
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [auth.isReady, showLowerZones]);
 
   const dismissLoadVeil = useCallback(() => setShowLoadVeil(false), []);
 
@@ -85,6 +101,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (!auth.isReady) return;
+    scheduleIdleMediaPrefetch();
     const t = window.setTimeout(() => void guardianService.initialize(), 600);
     const user = auth.currentUser;
     if (user) {
@@ -131,18 +148,23 @@ export function DashboardPage() {
 
   const jumpTo = (id: string) => {
     const el = zoneRefs.current[id];
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (el) {
+      pendingJumpRef.current = null;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    pendingJumpRef.current = id;
+    if (!showLowerZones) setShowLowerZones(true);
   };
 
   return (
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       <EverglowBackground baseColor={AppColors.inkDeep} glows={DASHBOARD_GLOWS} />
-      <DashboardAmbience scrollTop={scrollTop} />
+      <DashboardAmbience scrollRef={scrollRef} />
 
       <div
         ref={scrollRef}
         className="no-scrollbar"
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         style={{ position: 'relative', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}
       >
         <div style={{ margin: '0 auto', width: '100%', maxWidth: contentMaxWidth }}>
@@ -160,7 +182,7 @@ export function DashboardPage() {
           <div style={{ padding: '24px 20px 0' }}>
             <DashboardJumpBar onJump={jumpTo} />
           </div>
-          <div ref={(el) => { zoneRefs.current['zone-today'] = el; }} />
+          <div ref={(el) => registerZone('zone-today', el)} />
           <DashboardZoneHeader
             title="Alive today"
             subtitle="memories, dates & letters waiting for you"
@@ -177,68 +199,11 @@ export function DashboardPage() {
           <div style={{ height: 8 }} />
           <DailyBloom />
 
-          <div ref={(el) => { zoneRefs.current['zone-together'] = el; }} />
-          <DashboardZoneHeader
-            title="Just us"
-            subtitle="gratitude, words & the long story of us"
-            icon="favorite"
-            hue={AppColors.auroraRose}
-          />
-          {width < AppBreakpoint.mobile ? (
-            <>
-              <StarlightJarWidget embedded />
-              <div style={{ height: 16 }} />
-              <TimelineView />
-            </>
-          ) : (
-            <DashboardPair left={<StarlightJarWidget embedded />} right={<TimelineView />} />
+          {showLowerZones && (
+            <Suspense fallback={<div style={{ height: 1200 }} />}>
+              <DashboardLowerZones width={width} registerZone={registerZone} />
+            </Suspense>
           )}
-
-          <div ref={(el) => { zoneRefs.current['zone-world'] = el; }} />
-          <DashboardZoneHeader
-            title="Places & keepsakes"
-            subtitle="photos, plans & little universes you built"
-            icon="public"
-            hue={AppColors.auroraTeal}
-          />
-          <DashboardPair left={<GalleryPreview />} right={<CalendarPreview />} />
-          <div style={{ height: 12 }} />
-          <KeepsakesCluster />
-
-          <div ref={(el) => { zoneRefs.current['zone-play'] = el; }} />
-          <DashboardZoneHeader
-            title="Sound & screen"
-            subtitle="jukebox, watch party, shelves & games"
-            icon="videogame_asset"
-            hue={AppColors.softLavender}
-          />
-          <div style={{ padding: '0 16px' }}>
-            <div style={{ maxWidth: 640, margin: '0 auto' }}>
-              <JukeboxWidget />
-            </div>
-          </div>
-          <div style={{ height: 16 }} />
-          <div style={{ padding: '0 16px' }}>
-            <MusicStatsSection />
-          </div>
-          <div style={{ height: 16 }} />
-          <div style={{ padding: '0 16px' }}>
-            <ArtistShowdownCard />
-          </div>
-          <div style={{ height: 16 }} />
-          <RandomizerCard />
-          <div style={{ height: 16 }} />
-          <DashboardPair left={<CurrentlyWatchingPreview />} right={<WatchPartyCard />} />
-          <div style={{ height: 12 }} />
-          <CinemaPreview />
-          <div style={{ height: 12 }} />
-          <AnimePreview />
-          <div style={{ height: 12 }} />
-          <BooksPreview />
-          <div style={{ height: 12 }} />
-          <MangaPreview />
-          <div style={{ height: 12 }} />
-          <DashboardPair left={<AcademyPortalCard />} right={<PlayZonePortalCard />} />
 
           <div style={{ height: 110 }} />
         </div>
