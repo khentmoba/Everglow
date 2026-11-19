@@ -2,7 +2,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
-import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { Align, linear, lineHeight } from '../../core/theme/paint';
@@ -34,11 +33,13 @@ import {
 import {
   catalogFailedRecently,
   fetchBooksBySubject,
+  saveCoupleGoal,
   fetchPopularBooks,
   fetchRecentBooks,
   searchBooksCatalog,
   watchAllReaderProgress,
   watchBookDownloads,
+  watchCoupleGoal,
   watchBookFavorites,
   watchReadList,
 } from './booksService';
@@ -262,14 +263,10 @@ export function BooksPage() {
   const [recError, setRecError] = useState(false);
   const [homeRetryKey, setHomeRetryKey] = useState(0);
   const [slowLoad, setSlowLoad] = useState(false);
-  const [goal, setGoalState] = useState(() => {
-    const saved = Prefs.get('books_goal');
-    return typeof saved === 'number' && saved > 0 ? saved : 12;
-  });
+  const goal = useSource(() => watchCoupleGoal(), [], 12);
   const setGoal = (next: number) => {
     const value = Math.max(1, Math.min(52, next));
-    setGoalState(value);
-    Prefs.set('books_goal', value);
+    void saveCoupleGoal(value);
   };
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
@@ -426,7 +423,7 @@ export function BooksPage() {
         setSearchError(list.length === 0 && catalogFailedRecently());
         setSearching(false);
       });
-    }, 500);
+    }, 250);
     return () => {
       alive = false;
       window.clearTimeout(t);
@@ -600,24 +597,6 @@ export function BooksPage() {
               <div style={{ fontSize: 12, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 4 }}>Search for a title, or check back in a little while.</div>
             </div>
           )}
-          <div>
-            <SectionHead eyebrow="Browse" title="Shelves" accent={AppColors.warmAmber} onSeeAll={() => navigate('/books/categories')} />
-            <Rail height={44} gap={8} padding="0 0 0 20px">
-              {BOOK_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.query}
-                  type="button"
-                  className="bare-button"
-                  onClick={() => navigate(`/books/category?subject=${encodeURIComponent(cat.query)}`, { state: { category: cat } })}
-                  style={{ flexShrink: 0, padding: '0 16px', borderRadius: 22, background: withAlpha(cat.color, 0.12), border: `1px solid ${withAlpha(cat.color, 0.3)}`, display: 'flex', alignItems: 'center' }}
-                >
-                  <Icon name={cat.icon} size={17} color={cat.color} />
-                  <div style={{ width: 8 }} />
-                  <span style={{ ...AppTypography.outfitBold, color: AppColors.petalWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), whiteSpace: 'nowrap' }}>{cat.name}</span>
-                </button>
-              ))}
-            </Rail>
-          </div>
           {showSkeleton && (
             <div>
               <ShimmerHome />
@@ -641,7 +620,7 @@ export function BooksPage() {
             <div>
               <SectionHead
                 eyebrow={readHistoryList.length > 0 ? `Because you read ${readHistoryList[0]?.subjects[0] ?? 'books'}` : 'A good place to start'}
-                title={readHistoryList.length > 0 ? 'Because you read…' : 'Popular with readers'}
+                title={readHistoryList.length > 0 ? 'Because you read…' : 'Fresh finds'}
                 accent={AppColors.softLavender}
                 onSeeAll={() => navigate('/books/list?kind=recent&title=Fresh%20picks', { state: { title: 'Fresh picks', initialResults: becauseRail.length ? becauseRail : recentRail } })}
               />
@@ -652,6 +631,24 @@ export function BooksPage() {
               </Rail>
             </div>
           )}
+          <div>
+            <SectionHead eyebrow="Browse" title="Shelves" accent={AppColors.warmAmber} onSeeAll={() => navigate('/books/categories')} />
+            <Rail height={44} gap={8} padding="0 0 0 20px">
+              {BOOK_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.query}
+                  type="button"
+                  className="bare-button"
+                  onClick={() => navigate(`/books/category?subject=${encodeURIComponent(cat.query)}`, { state: { category: cat } })}
+                  style={{ flexShrink: 0, padding: '0 16px', borderRadius: 22, background: withAlpha(cat.color, 0.12), border: `1px solid ${withAlpha(cat.color, 0.3)}`, display: 'flex', alignItems: 'center' }}
+                >
+                  <Icon name={cat.icon} size={17} color={cat.color} />
+                  <div style={{ width: 8 }} />
+                  <span style={{ ...AppTypography.outfitBold, color: AppColors.petalWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), whiteSpace: 'nowrap' }}>{cat.name}</span>
+                </button>
+              ))}
+            </Rail>
+          </div>
           {readHistoryList.length > 0 && (
             <div>
               <SectionHead
@@ -685,14 +682,14 @@ export function BooksPage() {
                   Most Popular couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
                 </div>
               ) : (
-                <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popularRail, 'popular')}</StaggeredEntrance>
+                <StaggeredEntrance>{feedRail('The most downloaded', 'Most downloaded', AppColors.warmAmber, popularRail, 'popular')}</StaggeredEntrance>
               )}
               {recError && recent.length === 0 ? (
                 <div style={{ margin: '16px 20px 0', fontSize: 12.5, color: AppColors.roseQuartz }}>
                   Recently Added couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
                 </div>
               ) : (
-                feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recentRail, 'recent')
+                feedRail('Fresh in the catalog', 'New arrivals', AppColors.deepRose, recentRail, 'recent')
               )}
             </>
           )}
@@ -1231,6 +1228,9 @@ export function BooksPage() {
                         ? 'Tap the heart on a book to keep your favorites here.'
                         : 'Downloaded files appear here.'}
                 </div>
+                <button type="button" className="bare-button" onClick={() => setTab(1)} style={{ marginTop: 18, minHeight: 44, padding: '0 20px', borderRadius: 14, background: BookColors.deepRose, color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+                  Browse books
+                </button>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '18px 14px' }}>

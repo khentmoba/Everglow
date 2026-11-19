@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
-import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { radial } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
-import { useSourceState } from '../../core/utils/liveSource';
+import { useSource, useSourceState } from '../../core/utils/liveSource';
 import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
 import { BookColors, coupleLabel, isKhent, ourBookToBookItem, searchResultToBookItem, type BookSearchResult, type OurBooksItem } from './bookTypes';
-import { addToOurBooks, catalogFailedRecently, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchOurBooks } from './booksService';
+import { addToOurBooks, catalogFailedRecently, removeFromOurBooks, searchBooksCatalog, setOurBookReadFlag, watchCoupleGoal, watchOurBooks } from './booksService';
 import { BookCover } from './BookCover';
 
 export function OurBooksPage() {
@@ -27,10 +26,7 @@ export function OurBooksPage() {
   const [searchNowKey, setSearchNowKey] = useState(0);
   const [shelfRetry, setShelfRetry] = useState(0);
   const [readOverrides, setReadOverrides] = useState<Record<string, boolean>>({});
-  const [goal] = useState(() => {
-    const saved = Prefs.get('books_goal');
-    return typeof saved === 'number' && saved > 0 ? saved : 12;
-  });
+  const goal = useSource(() => watchCoupleGoal(), [], 12);
   const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
   const addPanelRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
@@ -84,6 +80,11 @@ export function OurBooksPage() {
   const toReadList = items.filter((b) => !b.khentReadAt && !b.clairReadAt);
   const readList = items.filter((b) => Boolean(b.khentReadAt || b.clairReadAt));
   const readTogetherThisYear = readList.filter((b) => (b.khentReadAt ?? b.clairReadAt)?.getFullYear() === new Date().getFullYear()).length;
+  const bothFinished = readList.filter((b) => b.khentReadAt && b.clairReadAt).length;
+  const activeMonths = new Set(readList.map((b) => (b.khentReadAt ?? b.clairReadAt)!.getMonth())).size;
+  const genreCounts = new Map<string, number>();
+  for (const b of readList) for (const s of b.subjects.slice(0, 2)) genreCounts.set(s, (genreCounts.get(s) ?? 0) + 1);
+  const topGenre = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const shown = tab === 0 ? toReadList : readList;
 
   return (
@@ -215,6 +216,11 @@ export function OurBooksPage() {
         </div>
         <div style={{ height: 4, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 10, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${Math.min(100, (readTogetherThisYear / goal) * 100)}%`, background: AppColors.deepRose }} />
+        </div>
+        <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap', fontSize: 11.5, color: withAlpha(AppColors.roseQuartz, 0.82) }}>
+          <span>♥ {bothFinished} finished together</span>
+          <span>· {activeMonths} active months</span>
+          {topGenre && <span>· a fondness for {topGenre.toLowerCase()}</span>}
         </div>
       </div>
 

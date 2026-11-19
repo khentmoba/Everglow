@@ -15,6 +15,7 @@ import {
   updateDoc,
   where,
   type DocumentData,
+  type DocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
@@ -85,7 +86,11 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const langs = Array.isArray(d.language) ? d.language.map(String) : [];
   return {
     title,
-    author: authors[0] ?? '',
+    author: (() => {
+      const raw = authors[0] ?? '';
+      const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      return parts.length === 2 ? `${parts[1]} ${parts[0]}` : raw;
+    })(),
     coverUrl,
     year,
     language: langs[0] ?? '',
@@ -592,6 +597,30 @@ export function watchReaderState(userName: string, workKey: string): Source<Sync
       ),
     { label: 'reader-state' },
   );
+}
+
+/** A single goal shared by both partners, stored for the couple rather than per device. */
+export function watchCoupleGoal(): Source<number> {
+  if (AgentMode.demo) return just(12);
+  return withFirestoreTimeout(
+    snapshots<DocumentSnapshot, number>(
+      (next, err) => onSnapshot(doc(db, 'couple_prefs', 'main'), next, err),
+      (s) => {
+        const value = Number(s.data()?.goal ?? 12);
+        return Number.isFinite(value) && value > 0 ? value : 12;
+      },
+    ),
+    { label: 'couple-goal' },
+  );
+}
+
+export async function saveCoupleGoal(goal: number): Promise<void> {
+  if (AgentMode.demo) return;
+  try {
+    await setDoc(doc(db, 'couple_prefs', 'main'), { goal }, { merge: true });
+  } catch (e) {
+    Logger.w(`saveCoupleGoal failed: ${String(e)}`);
+  }
 }
 
 /** All recent reading states for the couple, newest first — feeds Home's Continue Reading. */

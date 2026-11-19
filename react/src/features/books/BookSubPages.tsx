@@ -79,6 +79,9 @@ export function BookDetailPage() {
   const [shareToast, setShareToast] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const confirmRemoveRef = useRef<HTMLDivElement>(null);
+
+  useDialogFocus(confirmRemove, confirmRemoveRef, () => setConfirmRemove(false));
   const userName = currentUser ?? '';
   const readlist = useSource(() => watchReadList(userName), [userName], []);
   const favorites = useSource(() => watchBookFavorites(userName), [userName], []);
@@ -208,7 +211,7 @@ export function BookDetailPage() {
       )}
       {confirmRemove && (
         <div onClick={() => setConfirmRemove(false)} style={{ position: 'fixed', inset: 0, zIndex: 96, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 24 }}>
-          <div role="dialog" aria-modal="true" aria-label="Remove from Our Books" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, padding: 22, borderRadius: 20, background: AppColors.shimmerBase, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}>
+          <div ref={confirmRemoveRef} role="dialog" aria-modal="true" aria-label="Remove from Our Books" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, padding: 22, borderRadius: 20, background: AppColors.shimmerBase, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.18)}` }}>
             <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, color: AppColors.petalWhite }}>Remove from Our Books?</div>
             <div style={{ fontSize: 13.5, color: AppColors.mutedPurple, marginTop: 8 }}>“{result.title}” will leave the shelf you share.</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
@@ -221,6 +224,8 @@ export function BookDetailPage() {
       <div style={{ position: 'relative', padding: '14px 20px 0', paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))' }}>
         <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
 
+        <div style={{ display: width >= 900 ? 'grid' : 'block', gridTemplateColumns: width >= 900 ? '300px minmax(0, 1fr)' : undefined, gap: 32, maxWidth: 1180, margin: '0 auto' }}>
+        <div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
           <BookCover width={168} imageUrl={result.coverUrl} title={result.title} author={result.author} radius={10} eager />
           <h1 style={{ fontFamily: Fonts.display, fontSize: 28, fontWeight: 900, lineHeight: 1.1, margin: '22px 0 0' }}>{result.title}</h1>
@@ -369,8 +374,10 @@ export function BookDetailPage() {
           <DetailActionCircle icon="ios_share" label="Share" onClick={copyShare} />
         </div>
 
+        </div>
+        <div>
         {result.description && (
-          <div style={{ marginTop: 22 }}>
+          <div style={{ marginTop: 22, maxWidth: '66ch' }}>
             <p className={descExpanded ? '' : 'clamp-3'} style={{ fontSize: 14, lineHeight: 1.65, color: withAlpha(BookColors.white, 0.85), margin: 0 }}>
               {result.description}
             </p>
@@ -426,6 +433,8 @@ export function BookDetailPage() {
             </div>
           </div>
         )}
+        </div>
+        </div>
       </div>
     </div>
   );
@@ -830,7 +839,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const wordsLeft = paragraphs.slice(settings.pageTurn ? safePageIdx * perPage : Math.floor(scrollPct * paragraphs.length)).reduce((n, p) => n + p.split(/\s+/).length, 0);
   const minutesLeft = Math.max(1, Math.round(wordsLeft / 200));
   const theme = THEME_TOKENS[settings.theme];
-  const measure = readerWidth >= 1100 ? 880 : 660;
+  const measure = '66ch';
 
   const selectChapter = (nextIdx: number) => {
     if (nextIdx < 0 || nextIdx >= chapters.length) return;
@@ -1069,7 +1078,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: `22px ${Math.round(settings.margin * 22) + 12}px 36px` }}>
         {loading ? (
-          <div style={{ maxWidth: measure, margin: '0 auto', paddingTop: 8 }} aria-label="Opening the pages">
+          <div style={{ maxWidth: settings.pageTurn && readerWidth >= 900 ? '90ch' : measure, margin: '0 auto', paddingTop: 8 }} aria-label="Opening the pages">
             {[90, 100, 96, 98, 70, 100, 94, 88].map((w, i) => (
               <div key={i} style={{ height: 12, borderRadius: 6, background: withAlpha(theme.fg, 0.18), marginBottom: 14, width: `${w}%` }} />
             ))}
@@ -1084,7 +1093,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             )}
           </div>
         ) : currentChapter ? (
-          <div style={{ maxWidth: measure, margin: '0 auto' }}>
+          <div style={{ maxWidth: settings.pageTurn && readerWidth >= 900 ? '90ch' : measure, margin: '0 auto' }}>
             {chapters.length > 1 && (
               <h2 style={{ fontFamily: Fonts.display, fontSize: settings.fontSize + 6, fontWeight: 700, margin: '0 0 18px' }}>
                 {currentChapter.title}
@@ -1094,6 +1103,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               aria-label={currentChapter.title}
               onMouseUp={captureSelection}
               onTouchEnd={captureSelection}
+              style={{ columnCount: settings.pageTurn && readerWidth >= 900 ? 2 : 1, columnGap: 40 }}
               onClick={(e) => {
                 if (selectionText) return;
                 const rect = e.currentTarget.getBoundingClientRect();
