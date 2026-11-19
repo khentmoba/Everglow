@@ -532,7 +532,7 @@ export function BooksPage() {
       </div>
       {isCoupleUser && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ ...AppTypography.outfitBold, fontSize: width >= 700 ? 12.5 : 11, color: AppColors.roseQuartz, maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Our Books</span>
+          <span style={{ ...AppTypography.outfitBold, fontSize: width >= 700 ? 12.5 : 11, color: AppColors.roseQuartz, maxWidth: width >= 700 ? undefined : 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Our Books</span>
           <ShelfIconButton icon="favorite" label="Open Our Books" tooltip="Our Books" onClick={() => navigate('/our-books')} />
         </div>
       )}
