@@ -34,11 +34,12 @@ import type { ReaderBookmark, ReaderHighlight, ReaderProgress } from './readerPr
 
 const CATALOG_PROXY = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyCatalog';
 const BOOK_TEXT_PROXY = 'https://everglow-1c6db.web.app/api/proxyBookText';
-const OL_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn,language';
+const OL_FIELDS = 'key,title,author_name,cover_i,cover_edition_key,first_publish_year,ia,subject,publisher,isbn,language,ratings_average,ratings_count';
 
 let lastCatalogFailure = 0;
 /** True when a catalogue call failed recently, so an empty result can show a retry instead of "no results". */
 export const catalogFailedRecently = (withinMs = 20000): boolean => Date.now() - lastCatalogFailure < withinMs;
+export const catalogFailureAt = (): number => lastCatalogFailure;
 
 async function catalogGet(source: 'openlibrary' | 'gutendex' | 'archive', path: string, params?: Record<string, string>): Promise<Record<string, unknown> | null> {
   const user = auth.currentUser;
@@ -84,7 +85,11 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   const pubs = Array.isArray(d.publisher) ? d.publisher.map(String) : [];
   const isbns = Array.isArray(d.isbn) ? d.isbn.map(String) : [];
   const langs = Array.isArray(d.language) ? d.language.map(String) : [];
+  const ratingAvg = Number(d.ratings_average ?? 0);
+  const ratingsCount = Number(d.ratings_count ?? 0);
   return {
+    rating: ratingAvg > 0 ? ratingAvg : undefined,
+    ratingsCount: ratingsCount > 0 ? ratingsCount : undefined,
     title,
     author: (() => {
       const raw = authors[0] ?? '';
@@ -197,6 +202,8 @@ function mergeResults(results: BookSearchResult[]): BookSearchResult[] {
       filetype: a.filetype || r.filetype,
       sizeMb: a.sizeMb ?? r.sizeMb,
       ratingCount: a.ratingCount ?? r.ratingCount,
+      rating: a.rating ?? r.rating,
+      ratingsCount: a.ratingsCount ?? r.ratingsCount,
       language: a.language || r.language,
       year: a.year || r.year,
       sourceLabel: a.sourceLabel || r.sourceLabel,

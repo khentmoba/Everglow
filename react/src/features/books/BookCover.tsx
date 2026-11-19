@@ -256,9 +256,9 @@ export function BookCoverCard({
           {author}
         </div>
       ) : null}
-      {statusBadge == null && (result?.year || result?.ratingCount) && (
-        <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.6), fontSize: 11.5, lineHeight: lineHeight(11.5), paddingTop: 2, width: '100%' }}>
-          {[result?.year, result?.ratingCount ? `${result.ratingCount >= 1000 ? `${(result.ratingCount / 1000).toFixed(0)}k` : result.ratingCount} downloads` : ''].filter(Boolean).join(' · ')}
+      {statusBadge == null && (result?.year || result?.rating || result?.ratingCount) && (
+        <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.85), fontSize: 12, lineHeight: lineHeight(12), paddingTop: 2, width: '100%' }}>
+          {[result?.year, result?.rating ? `★ ${result.rating.toFixed(1)}` : '', result?.ratingCount ? `${result.ratingCount >= 1000 ? `${(result.ratingCount / 1000).toFixed(0)}k` : result.ratingCount} downloads` : ''].filter(Boolean).join(' · ')}
         </div>
       )}
     </button>

@@ -56,6 +56,7 @@ import {
   saveProgress,
   saveSettings,
   toggleBookmark,
+  type ReaderBookmark,
   type ReaderFont,
   type ReaderHighlight,
   type ReaderSettings,
@@ -240,9 +241,11 @@ export function BookDetailPage() {
             </button>
           )}
           {metaLine && <div style={{ fontSize: 12, color: BookColors.muted, marginTop: 8 }}>{metaLine}</div>}
-          {result.ratingCount ? (
-            <div style={{ fontSize: 12, fontWeight: 700, color: BookColors.amber, marginTop: 8 }}>{result.ratingCount} downloads</div>
-          ) : null}
+          {(result.rating || result.ratingCount) && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: BookColors.amber, marginTop: 8 }}>
+              {result.rating ? `★ ${result.rating.toFixed(1)} · ` : ''}{result.ratingCount ? `${result.ratingCount.toLocaleString()} downloads` : `${result.ratingsCount?.toLocaleString() ?? ''} ratings`}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 22 }}>
@@ -315,6 +318,11 @@ export function BookDetailPage() {
               }}
             >
               <Icon name="download" size={18} color={BookColors.white} /> Download {downloads[0][0].toUpperCase()}
+            </button>
+          )}
+          {hasReadable && (
+            <button type="button" className="bare-button" onClick={() => navigate(`/books/reader?workKey=${encodeURIComponent(item.workKey)}&sample=1`, { state: { book: item, sample: true } })} style={{ minHeight: 44, borderRadius: 14, border: `1px solid ${withAlpha(BookColors.rose, 0.3)}`, color: BookColors.white, fontWeight: 700, fontSize: 13 }}>
+              Read a sample
             </button>
           )}
           {!hasReadable && downloads.length === 0 && (
@@ -576,6 +584,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const location = useLocation();
   const workKeyParam = new URLSearchParams(location.search).get('workKey');
   const [book, setBook] = useState<BookItem | null>((location.state as { book?: BookItem } | null)?.book ?? null);
+  const sample = new URLSearchParams(location.search).get('sample') === '1' || Boolean((location.state as { sample?: boolean } | null)?.sample);
   const [readerResolveError, setReaderResolveError] = useState(false);
   const [readerRetryKey, setReaderRetryKey] = useState(0);
   const { currentUser } = useAuth();
@@ -598,6 +607,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [voiceUri, setVoiceUri] = useState(() => loadSettings().voiceUri ?? '');
   const [highlightColor, setHighlightColor] = useState<string>(AppColors.warmAmber);
   const [sleepAtChapterEnd, setSleepAtChapterEnd] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [scrollPct, setScrollPct] = useState(0);
   const [bookmarks, setBookmarks] = useState<ReturnType<typeof loadBookmarks>>([]);
   const [highlights, setHighlights] = useState<ReturnType<typeof loadHighlights>>([]);
@@ -745,7 +755,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       window.clearTimeout(slowTimer);
       if (!alive) return;
       if (res.text) {
-        const list = splitBookChapters(res.text, book.title);
+        const sourceText = sample ? `${res.text.split('\n\n').slice(0, 4).join('\n\n')}\n\n*** END OF SAMPLE ***` : res.text;
+        const list = splitBookChapters(sourceText, book.title);
         const initial = saved && saved.chapter < list.length ? saved.chapter : 0;
         setChapters(list);
         setChapterIdx(initial);
@@ -853,6 +864,16 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     if (speaking && chapters[nextIdx]) startSpeech(toParagraphs(chapters[nextIdx].body).join('\n'), settings.ttsRate);
   };
 
+  const jumpToBookmark = (b: ReaderBookmark) => {
+    selectChapter(b.chapter);
+    window.requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const target = b.paragraphIndex != null ? (el.querySelectorAll('article p')[b.paragraphIndex] as HTMLElement | undefined) : undefined;
+      el.scrollTop = target ? Math.max(0, target.offsetTop - 12) : b.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  };
+
   const toggleSpeech = () => {
     if (!speaking) {
       if (currentChapter) startSpeech(speechText, settings.ttsRate);
@@ -884,7 +905,13 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
   const toggleThisBookmark = () => {
     if (!book) return;
-    setBookmarks(toggleBookmark(book.workKey, { chapter: chapterIdx, scroll: scrollFracRef.current, createdAt: Date.now() }));
+    setBookmarks(toggleBookmark(book.workKey, {
+      chapter: chapterIdx,
+      scroll: scrollFracRef.current,
+      paragraphIndex: currentParagraphIndex(),
+      excerpt: paragraphs[currentParagraphIndex()]?.slice(0, 90),
+      createdAt: Date.now(),
+    }));
     syncState();
   };
 
@@ -976,6 +1003,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       })
     : [];
 
+  const focusIndex = currentParagraphIndex();
   let runningOffset = 0;
   const paragraphOffsets = paragraphs.map((text) => {
     const start = runningOffset;
@@ -1134,11 +1162,12 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                     style={{
                       fontFamily, fontSize: settings.fontSize, lineHeight: settings.lineHeight, textAlign: settings.align,
                       whiteSpace: text.includes('\n') ? 'pre-line' : 'normal',
+                      opacity: focusMode && (speaking ? !active : offsetIdx !== focusIndex) ? 0.3 : 1,
                       margin: `0 0 ${Math.round(settings.fontSize * 0.9)}px`,
                       padding: active ? '2px 6px' : '2px 0',
                       borderRadius: 6,
                       background: active ? withAlpha(AppColors.warmAmber, settings.theme === 'dark' ? 0.16 : 0.28) : 'transparent',
-                      transition: 'background 180ms ease',
+                      transition: 'opacity 240ms ease, background 180ms ease',
                     }}
                   >
                     {renderHighlighted(text, highlights.filter((h) => h.chapter === chapterIdx), AppColors.warmAmber, (h) => { setNoteFor(h.id); setNoteDraft(h.note); })}
@@ -1149,7 +1178,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
             {settings.pageTurn && pageCount > 1 && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 24 }}>
                 <button type="button" className="bare-button" disabled={safePageIdx === 0} onClick={() => setPageIdx(Math.max(0, safePageIdx - 1))} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, color: theme.fg, opacity: safePageIdx === 0 ? 0.35 : 1, fontWeight: 700, fontSize: 13 }}>← Page</button>
-                <span style={{ fontSize: 12, color: withAlpha(theme.fg, 0.7) }}>{safePageIdx + 1} / {pageCount}</span>
+                <span style={{ fontSize: 12, color: withAlpha(theme.fg, 0.8) }}>{Math.round(chapterProgress * 100)}% of chapter · {overallPct}% of book</span>
                 <button type="button" className="bare-button" disabled={safePageIdx >= pageCount - 1} onClick={() => setPageIdx(Math.min(pageCount - 1, safePageIdx + 1))} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, color: theme.fg, opacity: safePageIdx >= pageCount - 1 ? 0.35 : 1, fontWeight: 700, fontSize: 13 }}>Page →</button>
               </div>
             )}
@@ -1315,8 +1344,10 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>YOUR BOOKMARKS</div>
                 {bookmarks.map((b) => (
-                  <button key={b.createdAt} type="button" className="bare-button" onClick={() => selectChapter(b.chapter)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, color: theme.fg }}>
+                  <button key={b.createdAt} type="button" className="bare-button" onClick={() => jumpToBookmark(b)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, color: theme.fg }}>
                     <Icon name="bookmark" size={14} color={AppColors.warmAmber} /> Chapter {b.chapter + 1}
+                    {b.excerpt && <div className="clamp-2" style={{ fontSize: 11.5, opacity: 0.8, marginTop: 2 }}>“{b.excerpt}…”</div>}
+                    <div style={{ fontSize: 10.5, opacity: 0.65, marginTop: 2 }}>{new Date(b.createdAt).toLocaleDateString()}</div>
                   </button>
                 ))}
               </div>
@@ -1368,6 +1399,15 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               ],
               settings.font,
               (value) => patchSettings({ font: value }),
+            )}
+            {segmented<'off' | 'on'>(
+              'Line Guide',
+              [
+                { value: 'off', label: 'Off' },
+                { value: 'on', label: 'Focus one paragraph' },
+              ],
+              focusMode ? 'on' : 'off',
+              (value) => setFocusMode(value === 'on'),
             )}
             {segmented<'left' | 'justify'>(
               'Alignment',

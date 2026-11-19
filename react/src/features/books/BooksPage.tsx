@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { Align, linear, lineHeight } from '../../core/theme/paint';
@@ -31,7 +32,7 @@ import {
   type BookSearchResult,
 } from './bookTypes';
 import {
-  catalogFailedRecently,
+  catalogFailureAt,
   fetchBooksBySubject,
   saveCoupleGoal,
   fetchPopularBooks,
@@ -253,6 +254,10 @@ export function BooksPage() {
   const advPanelRef = useRef<HTMLDivElement>(null);
   const advTriggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    const saved = Prefs.get('recent_book_searches');
+    return Array.isArray(saved) ? (saved as string[]).slice(0, 6) : [];
+  });
 
   const [popular, setPopular] = useState<BookSearchResult[]>([]);
   const [recent, setRecent] = useState<BookSearchResult[]>([]);
@@ -363,6 +368,11 @@ export function BooksPage() {
 
   useEffect(() => {
     const q = searchQuery.trim();
+    if (q) {
+      const nextRecent = [q, ...recentSearches.filter((s) => s.toLowerCase() !== q.toLowerCase())].slice(0, 6);
+      setRecentSearches(nextRecent);
+      Prefs.set('recent_book_searches', nextRecent);
+    }
     if (!q) {
       setSearchResults([]);
       setSearching(false);
@@ -372,6 +382,7 @@ export function BooksPage() {
     let alive = true;
     setSearching(true);
     setSearchError(false);
+    const failureAt = catalogFailureAt();
     const t = window.setTimeout(() => {
       searchBooksCatalog(q, {
         filetype: searchFormat || undefined,
@@ -384,7 +395,6 @@ export function BooksPage() {
         sort: searchOrder,
       }).then((res) => {
         if (!alive) return;
-        setSearchTotal(res.total);
         let list = res.results;
         const yFrom = Number.parseInt(appliedAdv.yearFrom, 10);
         if (Number.isFinite(yFrom)) {
@@ -420,7 +430,9 @@ export function BooksPage() {
           list = [...list].sort((a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0));
         }
         setSearchResults(list);
-        setSearchError(list.length === 0 && catalogFailedRecently());
+        const advancedFilter = Boolean(appliedAdv.title || appliedAdv.author || appliedAdv.yearFrom || appliedAdv.yearTo || appliedAdv.exact);
+        setSearchTotal(advancedFilter ? list.length : res.total);
+        setSearchError(list.length === 0 && catalogFailureAt() > failureAt);
         setSearching(false);
       });
     }, 250);
@@ -822,7 +834,7 @@ export function BooksPage() {
               })}
               <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <Icon name="tune" size={14} color={BookColors.deepRose} /> Filters
-                {(searchLang !== 'All' || appliedAdv.title || appliedAdv.author || appliedAdv.publisher || appliedAdv.isbn || appliedAdv.yearFrom || appliedAdv.yearTo || appliedAdv.exact || (searchFormat && searchFormat !== 'EPUB' && searchFormat !== 'PDF')) && (
+                {(searchLang !== 'All' || appliedAdv.title || appliedAdv.author || appliedAdv.publisher || appliedAdv.isbn || appliedAdv.yearFrom || appliedAdv.yearTo || appliedAdv.exact || Boolean(searchFormat)) && (
                   <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: BookColors.deepRose, color: '#FFF', fontSize: 10, display: 'grid', placeItems: 'center' }}>on</span>
                 )}
               </button>
@@ -918,6 +930,20 @@ export function BooksPage() {
                     </div>
                     <div style={{ fontSize: 13, color: BookColors.muted, marginTop: 6 }}>
                       Search any book, author, or subject across the full database.
+                    </div>
+                    {recentSearches.length > 0 && (
+                      <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                        <div style={{ width: '100%', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: AppColors.warmAmber }}>RECENT SEARCHES</div>
+                        {recentSearches.map((s) => (
+                          <button key={s} type="button" className="bare-button" onClick={() => setSearchQuery(s)} style={{ minHeight: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.14)}`, color: BookColors.white, fontSize: 12.5, fontWeight: 700 }}>{s}</button>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                      <div style={{ width: '100%', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: AppColors.warmAmber }}>OR TRY A SHELF</div>
+                      {BOOK_CATEGORIES.slice(0, 6).map((cat) => (
+                        <button key={cat.query} type="button" className="bare-button" onClick={() => setSearchQuery(cat.name)} style={{ minHeight: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(cat.color, 0.12), border: `1px solid ${withAlpha(cat.color, 0.3)}`, color: AppColors.petalWhite, fontSize: 12.5, fontWeight: 700 }}>{cat.name}</button>
+                      ))}
                     </div>
                   </div>
                 )

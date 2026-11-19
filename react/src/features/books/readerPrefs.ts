@@ -132,6 +132,8 @@ export function listProgress(): ReaderProgress[] {
 export interface ReaderBookmark {
   chapter: number;
   scroll: number;
+  paragraphIndex?: number;
+  excerpt?: string;
   createdAt: number;
 }
 
@@ -158,8 +160,8 @@ export function loadBookmarks(workKey: string): ReaderBookmark[] {
 
 export function toggleBookmark(workKey: string, bookmark: ReaderBookmark): ReaderBookmark[] {
   const list = loadBookmarks(workKey);
-  const next = list.some((b) => b.chapter === bookmark.chapter)
-    ? list.filter((b) => b.chapter !== bookmark.chapter)
+  const next = list.some((b) => b.chapter === bookmark.chapter && (b.paragraphIndex ?? -1) === (bookmark.paragraphIndex ?? -1))
+    ? list.filter((b) => !(b.chapter === bookmark.chapter && (b.paragraphIndex ?? -1) === (bookmark.paragraphIndex ?? -1)))
     : [bookmark, ...list];
   Prefs.set(BOOKMARK_PREFIX + workKey, next);
   return next;

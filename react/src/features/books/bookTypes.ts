@@ -44,6 +44,8 @@ export interface BookSearchResult {
   filetype: string;
   sizeMb?: number;
   ratingCount?: number;
+  rating?: number;
+  ratingsCount?: number;
   description: string;
   subjects: string[];
   isbn: string;
