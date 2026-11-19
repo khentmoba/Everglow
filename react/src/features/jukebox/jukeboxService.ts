@@ -18,7 +18,13 @@ import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
-import { mergeRecentTracks, musicStatusTrackKey, normTrackText, pickPreferredMusicStatus } from './jukeboxPure';
+import {
+  mergeRecentTracks,
+  musicStatusTrackKey,
+  normTrackText,
+  pickPreferredMusicStatus,
+  shouldSyncPartnerStatus,
+} from './jukeboxPure';
 
 export const LASTFM_USER_KHENT = 'khentsgdz';
 export const LASTFM_USER_CLAIR = 'clairjassen';
@@ -287,7 +293,7 @@ async function challengeFor(verifier: string): Promise<string> {
 }
 
 /** Starts the Spotify PKCE sign-in (spotify_auth_service.dart linkSpotify). */
-export async function linkSpotify(): Promise<void> {
+export async function linkSpotify(options?: { forceDialog?: boolean }): Promise<void> {
   const clientId = (import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined) ?? '';
   if (clientId === '') {
     Logger.w('SpotifyAuth: VITE_SPOTIFY_CLIENT_ID missing');
@@ -303,7 +309,7 @@ export async function linkSpotify(): Promise<void> {
     scope: SPOTIFY_SCOPES.join(' '),
     code_challenge_method: 'S256',
     code_challenge: challenge,
-    show_dialog: 'false',
+    show_dialog: options?.forceDialog ? 'true' : 'false',
   });
   const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
   const opened = window.open(url, '_blank', 'noopener');
@@ -497,36 +503,59 @@ function musicStatusToMap(status: MusicStatus): Record<string, unknown> {
 
 const lastSyncedTrackKeys: Record<string, string> = {};
 
-export async function syncMusicStatusPoll(currentUsername: string | null): Promise<boolean> {
+export async function syncMusicStatusPoll(
+  currentUsername: string | null,
+  existingStatuses?: Record<string, MusicStatus>,
+): Promise<boolean> {
   if (AgentMode.isActive.value && AgentMode.useDemoData.value) return false;
   if (currentUsername !== LASTFM_USER_KHENT && currentUsername !== LASTFM_USER_CLAIR) return false;
   const token = await getIdToken();
   if (!token) return false;
 
-  const [rec, spotify] = await Promise.all([
+  const partnerUsername = currentUsername === LASTFM_USER_KHENT ? LASTFM_USER_CLAIR : LASTFM_USER_KHENT;
+
+  const [rec, partnerRec, spotify] = await Promise.all([
     fetchLastfmJson({ method: 'user.getrecenttracks', user: currentUsername, limit: '1' }),
-    fetchSpotifyPlayback(false, currentUsername),
+    fetchLastfmJson({ method: 'user.getrecenttracks', user: partnerUsername, limit: '1' }),
+    fetchSpotifyPlayback(true, currentUsername),
   ]);
 
   const raw = asArray<Record<string, unknown>>((rec?.recenttracks as Record<string, unknown> | undefined)?.track);
   const lastfmFirst = raw.length > 0 ? parseRecentTrackJson(raw[0], currentUsername) : null;
+  const spotifyLatest = spotify?.current ?? spotify?.recentTracks[0] ?? null;
   const status = pickPreferredMusicStatus(
     lastfmFirst && lastfmFirst.trackName ? lastfmFirst : null,
-    spotify?.current ?? null,
+    spotifyLatest,
   );
-  if (!status) return false;
 
-  const key = musicStatusTrackKey(status);
-  if (lastSyncedTrackKeys[currentUsername] !== key) {
-    try {
-      await setDoc(doc(db, 'music_status', currentUsername), musicStatusToMap(status), { merge: true });
-      lastSyncedTrackKeys[currentUsername] = key;
-    } catch (e) {
-      Logger.w(`Jukebox: failed to sync music_status for ${currentUsername}: ${String(e)}`);
+  if (status) {
+    const key = musicStatusTrackKey(status);
+    if (lastSyncedTrackKeys[currentUsername] !== key) {
+      try {
+        await setDoc(doc(db, 'music_status', currentUsername), musicStatusToMap(status), { merge: true });
+        lastSyncedTrackKeys[currentUsername] = key;
+      } catch (e) {
+        Logger.w(`Jukebox: failed to sync music_status for ${currentUsername}: ${String(e)}`);
+      }
     }
   }
 
-  return status.isPlaying;
+  const partnerRaw = asArray<Record<string, unknown>>((partnerRec?.recenttracks as Record<string, unknown> | undefined)?.track);
+  const partnerLastfm = partnerRaw.length > 0 ? parseRecentTrackJson(partnerRaw[0], partnerUsername) : null;
+  const existingPartner = existingStatuses?.[partnerUsername];
+  if (existingPartner !== undefined && partnerLastfm && shouldSyncPartnerStatus(existingPartner, partnerLastfm)) {
+    const partnerKey = musicStatusTrackKey(partnerLastfm);
+    if (lastSyncedTrackKeys[partnerUsername] !== partnerKey) {
+      try {
+        await setDoc(doc(db, 'music_status', partnerUsername), musicStatusToMap(partnerLastfm), { merge: true });
+        lastSyncedTrackKeys[partnerUsername] = partnerKey;
+      } catch (e) {
+        Logger.w(`Jukebox: failed to sync music_status for ${partnerUsername}: ${String(e)}`);
+      }
+    }
+  }
+
+  return Boolean(status?.isPlaying || partnerLastfm?.isPlaying);
 }
 
 export async function fetchMusicStats(currentUsername?: string): Promise<MusicStatsData> {

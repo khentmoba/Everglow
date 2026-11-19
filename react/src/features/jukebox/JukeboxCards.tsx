@@ -67,12 +67,16 @@ export function JukeboxWidget({ showHeader = true }: { showHeader?: boolean } = 
   const auth = useAuth();
   const { width } = useViewport();
   const statuses = useSource<Record<string, MusicStatus>>(() => musicStatusSource(), [auth.uid], {});
+  const statusesLoaded = Object.keys(statuses).length > 0;
+  const statusesRef = useRef(statuses);
+  statusesRef.current = statuses;
   const khentStatus = statuses[LASTFM_USER_KHENT] ?? emptyMusicStatus(LASTFM_USER_KHENT);
   const clairStatus = statuses[LASTFM_USER_CLAIR] ?? emptyMusicStatus(LASTFM_USER_CLAIR);
   const eitherLive = khentStatus.isPlaying || clairStatus.isPlaying;
   const isMobile = width - 32 < 620;
 
   useEffect(() => {
+    if (!statusesLoaded) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let inFlight = false;
@@ -92,7 +96,7 @@ export function JukeboxWidget({ showHeader = true }: { showHeader?: boolean } = 
       lastRunAt = Date.now();
       let live = false;
       try {
-        live = await syncMusicStatusPoll(auth.currentUser);
+        live = await syncMusicStatusPoll(auth.currentUser, statusesRef.current);
       } finally {
         inFlight = false;
       }
@@ -113,7 +117,7 @@ export function JukeboxWidget({ showHeader = true }: { showHeader?: boolean } = 
       if (timer != null) clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [auth.uid, auth.currentUser]);
+  }, [auth.uid, auth.currentUser, statusesLoaded]);
 
   return (
     // In Flutter the gradient Container has no child, so inside the Stack it is
@@ -1256,7 +1260,7 @@ function MusicStatsBlock({
             type="button"
             className="bare-button"
             onClick={() =>
-              void linkSpotify().catch((e: unknown) =>
+              void linkSpotify({ forceDialog: true }).catch((e: unknown) =>
                 showSnackBar(String(e instanceof Error ? e.message : e).replace(/^Exception: /, '')),
               )
             }
