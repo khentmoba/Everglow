@@ -19,10 +19,9 @@ import {
   type QueryDocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type MemoryPhotoFixture } from '../../core/agent/fixtures';
-import { auth, db, storage } from '../../core/services/firebase';
+import { auth, db, loadStorage } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Changes, just, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 
@@ -156,7 +155,8 @@ async function deleteStorageViaFunction(imageUrl: string): Promise<void> {
 
 async function deleteStorageObject(imageUrl: string): Promise<void> {
   try {
-    await deleteObject(ref(storage, imageUrl));
+    const { storage, mod } = await loadStorage();
+    await mod.deleteObject(mod.ref(storage, imageUrl));
   } catch (e) {
     if (isObjectNotFound(e)) return;
     await deleteStorageViaFunction(imageUrl);
@@ -305,8 +305,9 @@ class GalleryService {
     let sent = 0;
     const report = (inFlight: number) => opts.onProgress?.(Math.min(1, Math.max(0, (sent + inFlight) / total)));
     const put = async (path: string, blob: Blob) => {
-      const fileRef = ref(storage, path);
-      const task = uploadBytesResumable(fileRef, blob, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' });
+      const { storage, mod } = await loadStorage();
+      const fileRef = mod.ref(storage, path);
+      const task = mod.uploadBytesResumable(fileRef, blob, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' });
       const stop = task.on(
         'state_changed',
         (snap) => report(snap.bytesTransferred),
@@ -317,7 +318,7 @@ class GalleryService {
       } finally {
         stop();
       }
-      const url = await getDownloadURL(fileRef);
+      const url = await mod.getDownloadURL(fileRef);
       uploaded.push(url);
       sent += blob.size;
       report(0);

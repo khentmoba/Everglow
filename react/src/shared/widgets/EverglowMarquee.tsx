@@ -21,7 +21,7 @@ export function EverglowMarquee({
   const firstSetRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const [touchPaused, setTouchPaused] = useState(false);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
   const [repeatCount, setRepeatCount] = useState(2);
   const [interSetGap, setInterSetGap] = useState(itemSpacing);
   const offsetRef = useRef(0);

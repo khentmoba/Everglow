@@ -1,63 +1,116 @@
-// Port of lib/core/router/app_router.dart. Each feature adds its routes here
-// as it moves over; everything else shows the placeholder.
-import { useEffect } from 'react';
-import { createBrowserRouter, Outlet, redirect, RouterProvider, useLocation, type LoaderFunctionArgs } from 'react-router';
-import { AgentHudOverlay } from './core/agent/AgentHud';
+// Port of lib/core/router/app_router.dart. Each route loads on demand via React.lazy.
+import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { createBrowserRouter, Outlet, redirect, RouterProvider, useLocation, useNavigate, type LoaderFunctionArgs } from 'react-router';
 import { AgentMode } from './core/agent/agentMode';
-import { ErrorPage } from './core/router/ErrorPage';
+import { LazyPages } from './core/router/routeChunks';
 import { agentJumpLocation, cinemaOnlyRedirect } from './core/router/routeHelpers';
 import { RouteMemory } from './core/router/routeMemory';
-import { AcademyHubPage } from './features/academy/AcademyHubPage';
-import { GameBoardPage } from './features/academy/GameBoardPage';
-import { PodiumPage } from './features/academy/PodiumPage';
-import { SoloStudyPage } from './features/academy/SoloStudyPage';
-import { MemoryTriviaPage } from './features/ai/MemoryTriviaPage';
-import { MemoryBookPage } from './features/ai/MemoryBookPage';
-import { MotchiMinisPage } from './features/ai/MotchiMinisPage';
-import { MotchiPage } from './features/ai/MotchiPage';
-import { MotchiPreferencesPage } from './features/ai/MotchiPreferencesPage';
-import { MotchiTodayPage } from './features/ai/MotchiTodayPage';
-import { StudyPage } from './features/ai/StudyPage';
 import { authService } from './core/services/auth';
-import { AnimePage } from './features/anime/AnimePage';
-import { BookCategoriesPage, BookDetailPage, BookListPage, BookReaderPage } from './features/books/BookSubPages';
-import { BooksPage } from './features/books/BooksPage';
-import { OurBooksPage } from './features/books/OurBooksPage';
-import { BucketListPage } from './features/bucket_list/BucketListPage';
-import { MoneyPage } from './features/money/MoneyPage';
-import { SubsPage } from './features/subs/SubsPage';
-import { CanvasPage } from './features/canvas/CanvasPage';
-import { TripDetailPage } from './features/trips/TripDetailPage';
-import { TripListPage } from './features/trips/TripListPage';
-import { JukeboxPage } from './features/jukebox/JukeboxPage';
-import { SpotifyCallbackPage } from './features/jukebox/SpotifyCallbackPage';
-import { PlayZoneHubPage } from './features/play_zone/PlayZoneHubPage';
-import { ChessPage } from './features/play_zone/chess/ChessPage';
-import { ScribblePage } from './features/play_zone/ScribblePage';
-import { TableTennisPage } from './features/play_zone/table_tennis/TableTennisPage';
-import { TTLobbyPage } from './features/play_zone/table_tennis/TTLobbyPage';
-import { CalendarPage } from './features/calendar/CalendarPage';
-import { CinemaPage } from './features/cinema/CinemaPage';
-import { VideoPlayerPage } from './features/cinema/VideoPlayerPage';
-import { GardenPage } from './features/daily_bloom/GardenPage';
-import { DashboardPage } from './features/dashboard/DashboardPage';
+import { notificationService } from './core/services/notifications';
+import { useValue } from './core/system/store';
+import { AppColors } from './core/theme/colors';
 import { WelcomeGiftGate } from './features/entry/WelcomeGiftGate';
-import { DesktopAppPage } from './features/dashboard/DesktopAppPage';
-import { LetterboxArchivePage } from './features/dashboard/LetterboxArchivePage';
-import { GatewayPage } from './features/entry/GatewayPage';
-import { GalleryPage } from './features/gallery/GalleryPage';
-import { JournalPage } from './features/journal/JournalPage';
-import { MangaPage } from './features/manga/MangaPage';
-import { MangaReaderPage } from './features/manga/MangaReaderPage';
-import { SanctuaryPage } from './features/chat/SanctuaryPage';
-import { StarlightPage } from './features/starlight_jar/StarlightPage';
-import { TonightPage } from './features/tonight/TonightPage';
-import { WatchPartyPage } from './features/watch_party/WatchPartyPage';
 import { AppUpdatePrompt } from './shared/widgets/AppUpdatePrompt';
 import { DialogHost } from './shared/widgets/Dialogs';
 import { showSnackBar, SnackBarHost } from './shared/widgets/SnackBar';
-import { notificationService } from './core/services/notifications';
-import { useNavigate } from 'react-router';
+
+class RouteErrorBoundary extends Component<
+  { resetKey: string; onGoHome: () => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps: { resetKey: string }) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div
+        role="alert"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: AppColors.inkDeep,
+          color: AppColors.petalWhite,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          padding: 24,
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 700 }}>Could not open this page</div>
+        <div style={{ fontSize: 13.5, opacity: 0.78, maxWidth: 320 }}>
+          Check your connection and try again, or head back to your home screen.
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 12,
+              background: AppColors.deepRose,
+              color: AppColors.petalWhite,
+              fontWeight: 600,
+            }}
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => {
+              this.setState({ hasError: false });
+              this.props.onGoHome();
+            }}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 12,
+              border: `1px solid ${AppColors.roseQuartz}`,
+              color: AppColors.petalWhite,
+              fontWeight: 600,
+            }}
+          >
+            Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
+const LazyAgentHudOverlay = lazy(() =>
+  import('./core/agent/AgentHud')
+    .then((m) => ({ default: m.AgentHudOverlay }))
+    .catch(() => ({ default: () => null })),
+);
+
+function AgentHudSlot() {
+  const active = useValue(AgentMode.isActive);
+  const show = useValue(AgentMode.showHud);
+  if (!active || !show) return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyAgentHudOverlay />
+    </Suspense>
+  );
+}
+
+function RouteFallback() {
+  return <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep }} aria-busy="true" />;
+}
 
 /** The redirect rules from the Flutter router, run before each page. */
 function guard({ request }: LoaderFunctionArgs) {
@@ -125,16 +178,32 @@ function RootLayout() {
         action: n.route ? { label: 'View', onPressed: () => navigate(n.route!) } : undefined,
       });
     });
+    let timer: number | undefined;
     if (!AgentMode.demo) {
-      void notificationService.initialize();
+      timer = window.setTimeout(() => {
+        void notificationService.initialize();
+      }, 1500);
     }
-    return () => notificationService.setForegroundHandler(null);
+    return () => {
+      if (timer != null) window.clearTimeout(timer);
+      notificationService.setForegroundHandler(null);
+    };
   }, [navigate]);
   return (
     <>
-      <Outlet />
+      <RouteErrorBoundary
+        resetKey={location.pathname}
+        onGoHome={() => {
+          if (location.pathname === '/dashboard') window.location.reload();
+          else navigate('/dashboard');
+        }}
+      >
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
+      </RouteErrorBoundary>
       <AppUpdatePrompt />
-      <AgentHudOverlay />
+      <AgentHudSlot />
       <DialogHost />
       <SnackBarHost />
       <WelcomeGiftGate />
@@ -146,56 +215,56 @@ const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
-      { path: '/', loader: guard, element: <GatewayPage /> },
-      { path: '/dashboard', loader: guard, element: <DashboardPage /> },
-      { path: '/letterbox', loader: guard, element: <LetterboxArchivePage /> },
-      { path: '/desktop-app', loader: guard, element: <DesktopAppPage /> },
-      { path: '/cinema', loader: guard, element: <CinemaPage /> },
-      { path: '/cinema/video/:id', loader: guard, element: <VideoPlayerPage /> },
-      { path: '/watch-party', loader: guard, element: <WatchPartyPage /> },
-      { path: '/anime', loader: guard, element: <AnimePage /> },
-      { path: '/manga', loader: guard, element: <MangaPage /> },
-      { path: '/manga/reader', loader: guard, element: <MangaReaderPage /> },
-      { path: '/books', loader: guard, element: <BooksPage /> },
-      { path: '/books/reader', loader: guard, element: <BookReaderPage /> },
-      { path: '/books/listen', loader: guard, element: <BookReaderPage startListening /> },
-      { path: '/books/detail', loader: guard, element: <BookDetailPage /> },
-      { path: '/books/list', loader: guard, element: <BookListPage /> },
-      { path: '/books/category', loader: guard, element: <BookListPage /> },
-      { path: '/books/categories', loader: guard, element: <BookCategoriesPage /> },
-      { path: '/our-books', loader: guard, element: <OurBooksPage /> },
-      { path: '/sanctuary', loader: guard, element: <SanctuaryPage /> },
-      { path: '/gallery', loader: guard, element: <GalleryPage /> },
-      { path: '/journal', loader: guard, element: <JournalPage /> },
-      { path: '/tonight', loader: guard, element: <TonightPage /> },
-      { path: '/calendar', loader: guard, element: <CalendarPage /> },
-      { path: '/garden', loader: guard, element: <GardenPage /> },
-      { path: '/starlight', loader: guard, element: <StarlightPage /> },
-      { path: '/bucket-list', loader: guard, element: <BucketListPage /> },
-      { path: '/money', loader: guard, element: <MoneyPage /> },
-      { path: '/subs', loader: guard, element: <SubsPage /> },
-      { path: '/canvas', loader: guard, element: <CanvasPage /> },
-      { path: '/trips', loader: guard, element: <TripListPage /> },
-      { path: '/trips/:id', loader: guard, element: <TripDetailPage /> },
-      { path: '/jukebox', loader: guard, element: <JukeboxPage /> },
-      { path: '/spotify/callback', loader: guard, element: <SpotifyCallbackPage /> },
-      { path: '/academy', loader: guard, element: <AcademyHubPage /> },
-      { path: '/academy/solo', loader: guard, element: <SoloStudyPage /> },
-      { path: '/academy/match', loader: guard, element: <GameBoardPage /> },
-      { path: '/academy/podium', loader: guard, element: <PodiumPage /> },
-      { path: '/motchi', loader: guard, element: <MotchiPage /> },
-      { path: '/motchi-preferences', loader: guard, element: <MotchiPreferencesPage /> },
-      { path: '/motchi-minis', loader: guard, element: <MotchiMinisPage /> },
-      { path: '/motchi-today', loader: guard, element: <MotchiTodayPage /> },
-      { path: '/motchi-trivia', loader: guard, element: <MemoryTriviaPage /> },
-      { path: '/motchi-memory', loader: guard, element: <MemoryBookPage /> },
-      { path: '/study', loader: guard, element: <StudyPage /> },
-      { path: '/play-zone', loader: guard, element: <PlayZoneHubPage /> },
-      { path: '/play-zone/tt', loader: guard, element: <TableTennisPage /> },
-      { path: '/play-zone/tt/lobby', loader: guard, element: <TTLobbyPage /> },
-      { path: '/play-zone/scribble', loader: guard, element: <ScribblePage /> },
-      { path: '/play-zone/chess', loader: guard, element: <ChessPage /> },
-      { path: '*', loader: guard, element: <ErrorPage /> },
+      { path: '/', loader: guard, element: <LazyPages.GatewayPage /> },
+      { path: '/dashboard', loader: guard, element: <LazyPages.DashboardPage /> },
+      { path: '/letterbox', loader: guard, element: <LazyPages.LetterboxArchivePage /> },
+      { path: '/desktop-app', loader: guard, element: <LazyPages.DesktopAppPage /> },
+      { path: '/cinema', loader: guard, element: <LazyPages.CinemaPage /> },
+      { path: '/cinema/video/:id', loader: guard, element: <LazyPages.VideoPlayerPage /> },
+      { path: '/watch-party', loader: guard, element: <LazyPages.WatchPartyPage /> },
+      { path: '/anime', loader: guard, element: <LazyPages.AnimePage /> },
+      { path: '/manga', loader: guard, element: <LazyPages.MangaPage /> },
+      { path: '/manga/reader', loader: guard, element: <LazyPages.MangaReaderPage /> },
+      { path: '/books', loader: guard, element: <LazyPages.BooksPage /> },
+      { path: '/books/reader', loader: guard, element: <LazyPages.BookReaderPage /> },
+      { path: '/books/listen', loader: guard, element: <LazyPages.BookReaderPage startListening /> },
+      { path: '/books/detail', loader: guard, element: <LazyPages.BookDetailPage /> },
+      { path: '/books/list', loader: guard, element: <LazyPages.BookListPage /> },
+      { path: '/books/category', loader: guard, element: <LazyPages.BookListPage /> },
+      { path: '/books/categories', loader: guard, element: <LazyPages.BookCategoriesPage /> },
+      { path: '/our-books', loader: guard, element: <LazyPages.OurBooksPage /> },
+      { path: '/sanctuary', loader: guard, element: <LazyPages.SanctuaryPage /> },
+      { path: '/gallery', loader: guard, element: <LazyPages.GalleryPage /> },
+      { path: '/journal', loader: guard, element: <LazyPages.JournalPage /> },
+      { path: '/tonight', loader: guard, element: <LazyPages.TonightPage /> },
+      { path: '/calendar', loader: guard, element: <LazyPages.CalendarPage /> },
+      { path: '/garden', loader: guard, element: <LazyPages.GardenPage /> },
+      { path: '/starlight', loader: guard, element: <LazyPages.StarlightPage /> },
+      { path: '/bucket-list', loader: guard, element: <LazyPages.BucketListPage /> },
+      { path: '/money', loader: guard, element: <LazyPages.MoneyPage /> },
+      { path: '/subs', loader: guard, element: <LazyPages.SubsPage /> },
+      { path: '/canvas', loader: guard, element: <LazyPages.CanvasPage /> },
+      { path: '/trips', loader: guard, element: <LazyPages.TripListPage /> },
+      { path: '/trips/:id', loader: guard, element: <LazyPages.TripDetailPage /> },
+      { path: '/jukebox', loader: guard, element: <LazyPages.JukeboxPage /> },
+      { path: '/spotify/callback', loader: guard, element: <LazyPages.SpotifyCallbackPage /> },
+      { path: '/academy', loader: guard, element: <LazyPages.AcademyHubPage /> },
+      { path: '/academy/solo', loader: guard, element: <LazyPages.SoloStudyPage /> },
+      { path: '/academy/match', loader: guard, element: <LazyPages.GameBoardPage /> },
+      { path: '/academy/podium', loader: guard, element: <LazyPages.PodiumPage /> },
+      { path: '/motchi', loader: guard, element: <LazyPages.MotchiPage /> },
+      { path: '/motchi-preferences', loader: guard, element: <LazyPages.MotchiPreferencesPage /> },
+      { path: '/motchi-minis', loader: guard, element: <LazyPages.MotchiMinisPage /> },
+      { path: '/motchi-today', loader: guard, element: <LazyPages.MotchiTodayPage /> },
+      { path: '/motchi-trivia', loader: guard, element: <LazyPages.MemoryTriviaPage /> },
+      { path: '/motchi-memory', loader: guard, element: <LazyPages.MemoryBookPage /> },
+      { path: '/study', loader: guard, element: <LazyPages.StudyPage /> },
+      { path: '/play-zone', loader: guard, element: <LazyPages.PlayZoneHubPage /> },
+      { path: '/play-zone/tt', loader: guard, element: <LazyPages.TableTennisPage /> },
+      { path: '/play-zone/tt/lobby', loader: guard, element: <LazyPages.TTLobbyPage /> },
+      { path: '/play-zone/scribble', loader: guard, element: <LazyPages.ScribblePage /> },
+      { path: '/play-zone/chess', loader: guard, element: <LazyPages.ChessPage /> },
+      { path: '*', loader: guard, element: <LazyPages.ErrorPage /> },
     ],
   },
 ]);

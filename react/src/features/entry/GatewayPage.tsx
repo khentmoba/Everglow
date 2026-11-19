@@ -16,7 +16,6 @@ import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
-import { migrateWatchListOwnership } from '../cinema/tmdbService';
 import { DashboardLoadVeilControl } from '../dashboard/DashboardLoadVeil';
 import { AnimatedDoor, archPath, doorScale } from './AnimatedDoor';
 import { GatewayNotifier, type GatewayState } from './gatewayState';
@@ -63,7 +62,9 @@ export function GatewayPage() {
       const authTask = authService.ensureAuthenticated();
       void authTask
         .then(() => {
-          void migrateWatchListOwnership().catch((e) => Logger.e('Watchlist migration background error', e));
+          void import('../cinema/tmdbService')
+            .then((m) => m.migrateWatchListOwnership())
+            .catch((e) => Logger.e('Watchlist migration background error', e));
         })
         .catch((e) => {
           Logger.e('Error during passcode login', e);

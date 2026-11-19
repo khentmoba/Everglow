@@ -208,7 +208,7 @@ export function ShelfCard({
       }}
     >
       {src ? (
-        <img src={src} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img src={src} alt={title} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={a.icon} size={28} color={withAlpha(a.color, 0.45)} />

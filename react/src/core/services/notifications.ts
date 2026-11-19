@@ -1,6 +1,6 @@
 // Port of lib/core/services/notification_service.dart.
 import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { deleteToken, getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging';
+import type { Messaging } from 'firebase/messaging';
 import { AgentMode } from '../agent/agentMode';
 import { Logger } from '../system/logger';
 import { Prefs } from '../system/prefs';
@@ -52,6 +52,7 @@ async function sha256Hex(text: string): Promise<string> {
 
 class NotificationService {
   private messaging: Messaging | null = null;
+  private messagingMod: typeof import('firebase/messaging') | null = null;
   private activeIdentity: PushIdentity | null = null;
   private registeredIdentity: PushIdentity | null = null;
   private registeredToken: string | null = null;
@@ -65,13 +66,15 @@ class NotificationService {
     this.onForeground = fn;
   }
 
-  private async ensureMessaging(): Promise<Messaging | null> {
-    if (this.messaging) return this.messaging;
+  private async ensureMessaging(): Promise<{ msg: Messaging; mod: typeof import('firebase/messaging') } | null> {
+    if (this.messaging && this.messagingMod) return { msg: this.messaging, mod: this.messagingMod };
     if (AgentMode.demo) return null;
     try {
-      if (!(await isSupported())) return null;
-      this.messaging = getMessaging(app);
-      return this.messaging;
+      const mod = await import('firebase/messaging');
+      if (!(await mod.isSupported())) return null;
+      this.messagingMod = mod;
+      this.messaging = mod.getMessaging(app);
+      return { msg: this.messaging, mod };
     } catch (e) {
       Logger.e('FCM init skipped', e);
       return null;
@@ -79,12 +82,13 @@ class NotificationService {
   }
 
   async initialize(): Promise<void> {
-    const msg = await this.ensureMessaging();
-    if (!msg) return;
+    const resolved = await this.ensureMessaging();
+    if (!resolved) return;
+    const { msg, mod } = resolved;
     if (!this.listenersStarted) {
       this.listenersStarted = true;
       try {
-        onMessage(msg, (payload) => {
+        mod.onMessage(msg, (payload) => {
           if (!this.hasActiveCoupleSession) return;
           const title = payload.notification?.title ?? '';
           const body = payload.notification?.body ?? '';
@@ -156,15 +160,16 @@ class NotificationService {
   }
 
   private async getFcmToken(): Promise<string | null> {
-    const msg = await this.ensureMessaging();
-    if (!msg) return null;
+    const resolved = await this.ensureMessaging();
+    if (!resolved) return null;
+    const { msg, mod } = resolved;
     const vapidKey = (import.meta.env.VITE_FCM_VAPID_KEY as string | undefined) || DEFAULT_VAPID_KEY;
     const swReg =
       'serviceWorker' in navigator
         ? await navigator.serviceWorker.ready.catch(() => undefined)
         : undefined;
     try {
-      const token = await getToken(msg, {
+      const token = await mod.getToken(msg, {
         vapidKey,
         ...(swReg ? { serviceWorkerRegistration: swReg } : {}),
       });
@@ -269,8 +274,8 @@ class NotificationService {
       const token = id ? (this.registeredToken ?? Prefs.getString(TOKEN_STORAGE_KEY)) : null;
       if (id && token) {
         await this.removeToken(id.username, token);
-        const msg = await this.ensureMessaging();
-        if (msg) await deleteToken(msg).catch(() => {});
+        const resolved = await this.ensureMessaging();
+        if (resolved) await resolved.mod.deleteToken(resolved.msg).catch(() => {});
         Prefs.remove(TOKEN_STORAGE_KEY);
       }
       this.registeredIdentity = null;

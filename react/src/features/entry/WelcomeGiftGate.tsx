@@ -1,10 +1,32 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useAuth } from '../../core/services/auth';
 import { Logger } from '../../core/system/logger';
 import { AppColors } from '../../core/theme/colors';
 import { EverglowButton } from '../../shared/widgets/EverglowButton';
-import { CanvasHtmlView } from '../ai/CanvasPreviewSheet';
 import { completeGift, giftRecipient, pendingGiftHtml } from './welcomeGiftService';
+
+function GiftLoadFallback({
+  onContentFinishedChanged,
+}: {
+  html: string;
+  title: string;
+  onContentFinishedChanged?: (finished: boolean) => void;
+}) {
+  useEffect(() => {
+    onContentFinishedChanged?.(true);
+  }, [onContentFinishedChanged]);
+  return (
+    <div style={{ padding: 24, textAlign: 'center', color: AppColors.roseDepths }}>
+      Could not load your gift right now. You can continue to Everglow and check again later.
+    </div>
+  );
+}
+
+const CanvasHtmlView = lazy(() =>
+  import('../ai/CanvasPreviewSheet')
+    .then((m) => ({ default: m.CanvasHtmlView }))
+    .catch(() => ({ default: GiftLoadFallback })),
+);
 
 /** Covers the app with Clair's gift until she taps Continue after its last page. */
 export function WelcomeGiftGate() {
@@ -61,7 +83,9 @@ export function WelcomeGiftGate() {
       }}
     >
       <div style={{ flex: 1, minHeight: 0 }}>
-        <CanvasHtmlView html={gift.html} title="A gift for you" onContentFinishedChanged={setFinished} />
+        <Suspense fallback={null}>
+          <CanvasHtmlView html={gift.html} title="A gift for you" onContentFinishedChanged={setFinished} />
+        </Suspense>
       </div>
       {finished && (
         <div

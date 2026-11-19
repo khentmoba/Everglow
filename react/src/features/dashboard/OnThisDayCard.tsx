@@ -11,7 +11,6 @@ import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import { chatService } from '../chat/chatService';
 import { TmdbImages } from '../cinema/cinemaTypes';
-import { getWatchListFromThisDay, isWatchedItem } from '../cinema/tmdbService';
 import { displayGalleryUrl, getPhotosFromThisDay } from '../gallery/galleryService';
 import { FeatureSection, SectionChevron } from './FeatureSection';
 
@@ -31,11 +30,13 @@ const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T) =>
 /** `OnThisDayService.getAllMemories`: gallery, watch list and chat from today's date in past years, newest first. */
 async function getAllMemories(): Promise<OnThisDayMemory[]> {
   try {
-    const [photos, items, messages] = await Promise.all([
+    const [tmdb, photos, messages] = await Promise.all([
+      import('../cinema/tmdbService').catch(() => null),
       getPhotosFromThisDay(),
-      getWatchListFromThisDay(),
       chatService.getMessagesFromThisDay(),
     ]);
+    const items = tmdb ? await tmdb.getWatchListFromThisDay() : [];
+    const isWatchedItem = tmdb?.isWatchedItem ?? (() => false);
     const all: OnThisDayMemory[] = [
       ...photos.map((p) => ({
         source: 'gallery' as const,
