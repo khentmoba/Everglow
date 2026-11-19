@@ -83,6 +83,7 @@ export function OurBooksPage() {
 
   const toReadList = items.filter((b) => !b.khentReadAt && !b.clairReadAt);
   const readList = items.filter((b) => Boolean(b.khentReadAt || b.clairReadAt));
+  const readTogetherThisYear = readList.filter((b) => (b.khentReadAt ?? b.clairReadAt)?.getFullYear() === new Date().getFullYear()).length;
   const shown = tab === 0 ? toReadList : readList;
 
   return (
@@ -99,7 +100,7 @@ export function OurBooksPage() {
         }}
       />
 
-      <div style={{ position: 'relative', padding: '12px 20px 6px', display: 'flex', alignItems: 'center' }}>
+      <div style={{ position: 'relative', padding: '12px 20px 6px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center' }}>
         <button
           type="button"
           className="bare-button"
@@ -168,6 +169,7 @@ export function OurBooksPage() {
                 key={label}
                 type="button"
                 className="bare-button"
+                aria-pressed={active}
                 onClick={() => setTab(idx)}
                 style={{
                   flex: 1,
@@ -209,10 +211,10 @@ export function OurBooksPage() {
       <div style={{ position: 'relative', margin: '2px 20px 12px', padding: 14, borderRadius: 18, background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.deepRose, 0.28)}` }}>
         <div style={{ fontFamily: Fonts.display, fontSize: 17, fontWeight: 700, color: AppColors.petalWhite }}>A little reading life</div>
         <div style={{ fontSize: 12.5, color: withAlpha(AppColors.roseQuartz, 0.85), marginTop: 3 }}>
-          {readList.length} book{readList.length === 1 ? '' : 's'} read together · {toReadList.length} waiting on the shelf
+          {readTogetherThisYear} book{readTogetherThisYear === 1 ? '' : 's'} read together this year · {toReadList.length} waiting on the shelf
         </div>
         <div style={{ height: 4, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 10, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${Math.min(100, (readList.length / goal) * 100)}%`, background: AppColors.deepRose }} />
+          <div style={{ height: '100%', width: `${Math.min(100, (readTogetherThisYear / goal) * 100)}%`, background: AppColors.deepRose }} />
         </div>
       </div>
 
@@ -403,7 +405,7 @@ export function OurBooksPage() {
                 onChange={(e) => setQueryText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setSearchNowKey((k) => k + 1)}
                 placeholder="Search Open Library…"
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, outline: 'none' }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: BookColors.black, border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.2)}`, color: AppColors.petalWhite, outline: 'none', fontSize: 16 }}
               />
               <button type="button" className="bare-button" onClick={() => setSearchNowKey((k) => k + 1)} style={{ padding: '10px 16px', borderRadius: 12, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700 }}>
                 Search

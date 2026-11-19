@@ -104,11 +104,11 @@ export function BookDetailPage() {
     let alive = true;
     void fetchBookDetails(result).then((enriched) => {
       if (alive) setResult(enriched);
-    });
+    }).catch(() => { /* keep the un-enriched result */ });
     const subj = result.subjects[0] || 'fiction';
     void fetchBooksBySubject(subj, 12).then((list) => {
       if (alive) setSimilar(list.filter((b) => b.workKey !== result.workKey).slice(0, 10));
-    });
+    }).catch(() => { /* no similar books available offline */ });
     return () => {
       alive = false;
     };
@@ -218,7 +218,7 @@ export function BookDetailPage() {
           </div>
         </div>
       )}
-      <div style={{ position: 'relative', padding: '14px 20px 0' }}>
+      <div style={{ position: 'relative', padding: '14px 20px 0', paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))' }}>
         <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} />
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
@@ -468,7 +468,7 @@ function stripGutenbergBoilerplate(raw: string): string {
 
 function splitBookChapters(raw: string, fallbackTitle: string): BookChapter[] {
   const cleaned = stripGutenbergBoilerplate(raw).replace(/\r\n/g, '\n');
-  const explicitRe = /^(?:CHAPTER|Chapter|PART|Part|BOOK|Book|PROLOGUE|EPILOGUE|Act|ACT)\s+(?:[IVXLCDM]+|\d+|[A-Za-z]+)(?:[.: \t]+[^\n]*)?$/gm;
+  const explicitRe = /^[ \t]*(?:(?:CHAPTER|Chapter|CHAPTRE|Ch\.|PART|Part|BOOK|Book|PROLOGUE|Prologue|EPILOGUE|Epilogue|PREFACE|Preface|INTRODUCTION|Introduction|ACT|Act|SCENE|Scene)[ \t]+(?:[IVXLCDM]+|\d+|[A-Za-z]+)|(?:[IVXLCDM]+|\d+)[.)][ \t]+[A-Z])[^\n]*$/gm;
   const matches = [...cleaned.matchAll(explicitRe)];
   if (matches.length >= 2) {
     const out: BookChapter[] = [];
@@ -514,33 +514,52 @@ const THEME_TOKENS: Record<ReaderTheme, { bg: string; fg: string }> = {
 function toParagraphs(body: string): string[] {
   return body
     .split(/\n\s*\n/)
-    .map((part) => part.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim())
+    .map((part) => {
+      const lines = part.split('\n').map((l) => l.trimEnd()).filter((l) => l.trim());
+      // Verse, letters and plays keep their short lines; prose is reflowed.
+      if (lines.length >= 3 && lines.every((l) => l.length < 48)) return lines.join('\n');
+      return lines.join(' ').replace(/\s+/g, ' ').trim();
+    })
     .filter(Boolean);
 }
 
 function renderHighlighted(text: string, marks: ReaderHighlight[], accent: string, onPick: (h: ReaderHighlight) => void): ReactNode {
-  const found = marks
-    .map((h) => ({ h, idx: text.indexOf(h.text) }))
-    .filter((x) => x.idx >= 0)
-    .sort((a, b) => a.idx - b.idx);
-  if (found.length === 0) return text;
-  const first = found[0];
-  return (
-    <>
-      {text.slice(0, first.idx)}
+  const ranges = marks
+    .map((h) => ({ h, start: text.indexOf(h.text) }))
+    .filter((r) => r.start >= 0)
+    .map((r) => ({ ...r, end: r.start + r.h.text.length }))
+    .sort((a, b) => a.start - b.start);
+  if (ranges.length === 0) return text;
+  const merged: { start: number; end: number; hs: ReaderHighlight[] }[] = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r.start < last.end) {
+      last.end = Math.max(last.end, r.end);
+      last.hs.push(r.h);
+    } else merged.push({ start: r.start, end: r.end, hs: [r.h] });
+  }
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  merged.forEach((m, i) => {
+    if (m.start > cursor) out.push(text.slice(cursor, m.start));
+    const first = m.hs[0];
+    out.push(
       <mark
+        key={i}
         tabIndex={0}
         role="button"
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick(first.h); }}
-        onClick={() => onPick(first.h)}
-        style={{ background: withAlpha(first.h.color ?? accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
-        title={first.h.note || 'Highlight — tap to add a note'}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick(first); }}
+        onClick={() => onPick(first)}
+        style={{ background: withAlpha(first.color ?? accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
+        title={first.note || 'Highlight — tap to add a note'}
       >
-        {first.h.text}
-      </mark>
-      {renderHighlighted(text.slice(first.idx + first.h.text.length), marks, accent, onPick)}
-    </>
-  );
+        {text.slice(m.start, m.end)}
+      </mark>,
+    );
+    cursor = m.end;
+  });
+  if (cursor < text.length) out.push(text.slice(cursor));
+  return <>{out}</>;
 }
 
 export function BookReaderPage({ startListening = false }: { startListening?: boolean }) {
@@ -971,6 +990,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               key={String(o.value)}
               type="button"
               className="bare-button"
+              aria-pressed={o.value === active}
               onClick={() => onPick(o.value)}
               style={{
                 padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: theme.fg,
@@ -1000,7 +1020,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   return (
     <div style={{ position: 'relative', height: '100%', background: theme.bg, color: theme.fg, display: 'flex', flexDirection: 'column' }}>
       {!chromeHidden && <>
-      <div style={{ padding: '8px 12px', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+      <div style={{ padding: '8px 12px', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
         <button type="button" className="bare-button" aria-label="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
           <Icon name="arrow_back" size={22} color={theme.fg} />
         </button>
@@ -1032,7 +1052,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
         </button>
       </div>
       <div role="progressbar" aria-valuenow={overallPct} aria-valuemin={0} aria-valuemax={100} style={{ height: 3, background: withAlpha(theme.fg, 0.1) }} aria-label={`${overallPct}% read`}>
-        <div style={{ height: '100%', width: `${overallPct}%`, background: AppColors.warmAmber, transition: 'width 240ms ease' }} />
+        <div style={{ height: '100%', width: `${overallPct}%`, background: AppColors.warmAmber }} />
       </div>
       <div style={{ padding: '4px 16px 2px', textAlign: 'right', fontSize: 10.5, color: withAlpha(theme.fg, 0.6) }}>
         About {minutesLeft} min left in this chapter
@@ -1103,6 +1123,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                     className={settings.pageTurn ? 'page-slide' : undefined}
                     style={{
                       fontFamily, fontSize: settings.fontSize, lineHeight: settings.lineHeight, textAlign: settings.align,
+                      whiteSpace: text.includes('\n') ? 'pre-line' : 'normal',
                       margin: `0 0 ${Math.round(settings.fontSize * 0.9)}px`,
                       padding: active ? '2px 6px' : '2px 0',
                       borderRadius: 6,
@@ -1693,7 +1714,7 @@ export function BookCategoriesPage() {
                 key={cat.query}
                 type="button"
                 className="bare-button"
-                onClick={() => navigate('/books/category', { state: { category: cat } })}
+                onClick={() => navigate(`/books/category?subject=${encodeURIComponent(cat.query)}`, { state: { category: cat } })}
                 style={{
                   aspectRatio: '1.15',
                   borderRadius: 20,

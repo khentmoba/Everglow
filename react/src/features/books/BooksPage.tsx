@@ -258,6 +258,8 @@ export function BooksPage() {
   const [because, setBecause] = useState<BookSearchResult[]>([]);
   const [loadingHome, setLoadingHome] = useState(true);
   const [homeError, setHomeError] = useState(false);
+  const [popError, setPopError] = useState(false);
+  const [recError, setRecError] = useState(false);
   const [homeRetryKey, setHomeRetryKey] = useState(0);
   const [slowLoad, setSlowLoad] = useState(false);
   const [goal, setGoalState] = useState(() => {
@@ -305,17 +307,32 @@ export function BooksPage() {
 
   const toReadList = readlist.filter((b) => b.status === 'to-read');
   const readHistoryList = readlist.filter((b) => isBookRead(b.status));
+  const readThisYear = readHistoryList.filter((b) => b.addedAt.getFullYear() === new Date().getFullYear()).length;
 
   useEffect(() => {
     let alive = true;
     setLoadingHome(true);
-    setHomeError(false);
-    void Promise.all([fetchPopularBooks(12), fetchRecentBooks(12)])
+    setPopError(false);
+    setRecError(false);
+    let popFailed = false;
+    let recFailed = false;
+    void Promise.all([
+      fetchPopularBooks(12).catch(() => {
+        popFailed = true;
+        if (alive) setPopError(true);
+        return [] as BookSearchResult[];
+      }),
+      fetchRecentBooks(12).catch(() => {
+        recFailed = true;
+        if (alive) setRecError(true);
+        return [] as BookSearchResult[];
+      }),
+    ])
       .then(([pop, rec]) => {
         if (!alive) return;
         setPopular(pop);
         setRecent(rec);
-        setHomeError((pop.length === 0 || rec.length === 0) && catalogFailedRecently());
+        setHomeError(popFailed && recFailed);
       })
       .finally(() => alive && setLoadingHome(false));
     return () => {
@@ -429,6 +446,15 @@ export function BooksPage() {
   };
 
   const spotlight = popular[0] ?? recent[0] ?? null;
+  const seenKeys = new Set(spotlight ? [spotlight.workKey] : [] as string[]);
+  const dedupe = (list: BookSearchResult[]) => list.filter((r) => {
+    if (seenKeys.has(r.workKey)) return false;
+    seenKeys.add(r.workKey);
+    return true;
+  });
+  const becauseRail = dedupe(because);
+  const popularRail = dedupe(popular);
+  const recentRail = dedupe(recent);
   const showSkeleton = loadingHome && popular.length === 0 && recent.length === 0;
   const remoteProgress = useSource(() => watchAllReaderProgress(20), [userName], [] as ReaderProgress[]);
   const progressMap = new Map<string, ReaderProgress>();
@@ -464,7 +490,7 @@ export function BooksPage() {
     librarySegment === 0 ? toReadList : librarySegment === 1 ? readHistoryList : librarySegment === 2 ? favorites : downloads;
 
   const header = (
-    <div style={{ padding: '14px 20px 0', display: 'flex', alignItems: 'center' }}>
+    <div style={{ padding: '14px 20px 0', paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center' }}>
       {isCinemaOnlyUser ? (
         <>
           <MediaSectionMenuButton currentRoute="/books" />
@@ -611,16 +637,16 @@ export function BooksPage() {
               />
             </StaggeredEntrance>
           )}
-          {!showSkeleton && (because.length > 0 || (readHistoryList.length === 0 && popular.length > 0)) && (
+          {!showSkeleton && (becauseRail.length > 0 || (readHistoryList.length === 0 && recentRail.length > 0)) && (
             <div>
               <SectionHead
-                eyebrow={readHistoryList.length > 0 ? 'Picked for you' : 'A good place to start'}
+                eyebrow={readHistoryList.length > 0 ? `Because you read ${readHistoryList[0]?.subjects[0] ?? 'books'}` : 'A good place to start'}
                 title={readHistoryList.length > 0 ? 'Because you read…' : 'Popular with readers'}
                 accent={AppColors.softLavender}
-                onSeeAll={() => navigate('/books/list?kind=recent&title=Fresh%20picks', { state: { title: 'Fresh picks', initialResults: because.length ? because : recent } })}
+                onSeeAll={() => navigate('/books/list?kind=recent&title=Fresh%20picks', { state: { title: 'Fresh picks', initialResults: becauseRail.length ? becauseRail : recentRail } })}
               />
               <Rail height={isTablet ? 310 : 262} gap={14} padding="0 0 4px 20px">
-                {(because.length ? because : recent.slice(0, 8)).map((r) => (
+                {(becauseRail.length ? becauseRail : recentRail.slice(0, 8)).map((r) => (
                   <BookCoverCard key={r.workKey || r.title} width={isTablet ? 150 : 124} result={r} onClick={() => openDetails(r)} />
                 ))}
               </Rail>
@@ -654,8 +680,20 @@ export function BooksPage() {
           )}
           {!showSkeleton && (
             <>
-              <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popular, 'popular')}</StaggeredEntrance>
-              {feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recent, 'recent')}
+              {popError && popular.length === 0 ? (
+                <div style={{ margin: '16px 20px 0', fontSize: 12.5, color: AppColors.roseQuartz }}>
+                  Most Popular couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
+                </div>
+              ) : (
+                <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popularRail, 'popular')}</StaggeredEntrance>
+              )}
+              {recError && recent.length === 0 ? (
+                <div style={{ margin: '16px 20px 0', fontSize: 12.5, color: AppColors.roseQuartz }}>
+                  Recently Added couldn’t load. <button type="button" className="bare-button" onClick={() => setHomeRetryKey((k) => k + 1)} style={{ fontWeight: 700, textDecoration: 'underline' }}>Try again</button>
+                </div>
+              ) : (
+                feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recentRail, 'recent')
+              )}
             </>
           )}
           <div style={{ position: 'sticky', bottom: 0, height: 72, marginTop: -72, background: `linear-gradient(to bottom, transparent, ${cBlack})`, pointerEvents: 'none', zIndex: 2 }} />
@@ -767,6 +805,7 @@ export function BooksPage() {
                     key={fmt}
                     type="button"
                     className="bare-button"
+                    aria-pressed={active}
                     onClick={() => setSearchFormat(active ? '' : fmt)}
                     style={{
                       height: 44,
@@ -1104,7 +1143,7 @@ export function BooksPage() {
               <div style={{ ...AppTypography.outfitBold, fontSize: 11, letterSpacing: 1.4, color: AppColors.warmAmber, marginBottom: 12 }}>YOUR READING</div>
               <div style={{ display: 'flex', gap: 18 }}>
                 {([
-                  [readHistoryList.length, 'books read'],
+                  [readThisYear, 'books read this year'],
                   [toReadList.length, 'to read'],
                   [favorites.length, 'loved'],
                 ] as const).map(([value, label]) => (
@@ -1115,7 +1154,7 @@ export function BooksPage() {
                 ))}
               </div>
               <div style={{ height: 5, borderRadius: 3, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 14, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, (readHistoryList.length / goal) * 100)}%`, background: AppColors.warmAmber }} />
+                <div style={{ height: '100%', width: `${Math.min(100, (readThisYear / goal) * 100)}%`, background: AppColors.warmAmber }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                 <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), flex: 1 }}>
@@ -1139,6 +1178,7 @@ export function BooksPage() {
                     key={label}
                     type="button"
                     className="bare-button"
+                    aria-pressed={active}
                     onClick={() => setLibrarySegment(idx as 0 | 1 | 2 | 3)}
                     style={{
                       height: 44,
