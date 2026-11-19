@@ -79,7 +79,7 @@ body {
   display: block;
   outline: none;
 }
-.bare-button:focus-visible { outline: none; }
+.bare-button:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; border-radius: 6px; }
 .player-focusable:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
 

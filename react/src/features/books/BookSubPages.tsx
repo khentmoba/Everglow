@@ -74,6 +74,8 @@ export function BookDetailPage() {
   const [resolveRetryKey, setResolveRetryKey] = useState(0);
   const [similar, setSimilar] = useState<BookSearchResult[]>([]);
   const [addedToast, setAddedToast] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const userName = currentUser ?? '';
   const readlist = useSource(() => watchReadList(userName), [userName], []);
@@ -154,12 +156,12 @@ export function BookDetailPage() {
   const downloads = Object.entries(result.downloadUrls ?? {});
   const detailRows: [string, string][] = [
     ['Category', result.categories[0] || result.subjects.slice(0, 2).join(' · ')],
-    ['Type', 'Book'],
+    ['Reading', hasReadable ? 'Available in app' : 'External edition'],
     ['Language', result.language],
     ['File', (result.filetype || (hasReadable ? 'EPUB' : '')).toUpperCase()],
     ['Source', result.sourceLabel],
     ['Year', result.year],
-    ['Gutenberg ID', result.gutenbergId > 0 ? String(result.gutenbergId) : ''],
+    ['Source ID', result.gutenbergId > 0 ? String(result.gutenbergId) : ''],
   ].filter(([, v]) => Boolean(v)) as [string, string][];
 
   const copyShare = () => {
@@ -168,7 +170,10 @@ export function BookDetailPage() {
       : result.iaId
         ? `https://archive.org/details/${result.iaId}`
         : `https://openlibrary.org${item.workKey}`;
-    void navigator.clipboard?.writeText(`${url}\n${item.title}`);
+    void navigator.clipboard?.writeText(`${url}\n${item.title}`).then(() => {
+      setShareToast(true);
+      window.setTimeout(() => setShareToast(false), 2200);
+    });
   };
 
   return (
@@ -191,6 +196,11 @@ export function BookDetailPage() {
           }}
         >
           Added to Our Books
+        </div>
+      )}
+      {shareToast && (
+        <div role="status" aria-live="polite" style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 5, padding: '10px 18px', borderRadius: 22, background: withAlpha(AppColors.deepRose, 0.9), color: '#FFF', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          Link copied
         </div>
       )}
       {confirmRemove && (
@@ -299,6 +309,15 @@ export function BookDetailPage() {
               <Icon name="download" size={18} color={BookColors.white} /> Download {downloads[0][0].toUpperCase()}
             </button>
           )}
+          {!hasReadable && downloads.length === 0 && (
+            <div style={{ padding: 16, borderRadius: 16, background: withAlpha(BookColors.card, 0.6), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, textAlign: 'center' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: BookColors.white }}>Not readable in the app yet</div>
+              <div style={{ fontSize: 12, color: BookColors.muted, marginTop: 4 }}>This edition has no free text or download we can open.</div>
+              <button type="button" className="bare-button" onClick={() => navigate('/books', { state: { query: item.title } })} style={{ marginTop: 12, minHeight: 42, padding: '0 18px', borderRadius: 14, background: withAlpha(BookColors.deepRose, 0.22), border: `1px solid ${withAlpha(BookColors.rose, 0.35)}`, color: BookColors.white, fontWeight: 700, fontSize: 12.5 }}>
+                Find another edition
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', marginTop: 22 }}>
@@ -337,9 +356,16 @@ export function BookDetailPage() {
         </div>
 
         {result.description && (
-          <p style={{ marginTop: 22, fontSize: 14, lineHeight: 1.65, color: withAlpha(BookColors.white, 0.85) }}>
-            {result.description}
-          </p>
+          <div style={{ marginTop: 22 }}>
+            <p className={descExpanded ? '' : 'clamp-3'} style={{ fontSize: 14, lineHeight: 1.65, color: withAlpha(BookColors.white, 0.85), margin: 0 }}>
+              {result.description}
+            </p>
+            {result.description.length > 180 && (
+              <button type="button" className="bare-button" onClick={() => setDescExpanded((v) => !v)} style={{ marginTop: 6, fontSize: 12.5, fontWeight: 700, color: BookColors.rose }}>
+                {descExpanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
         )}
 
         {(detailRows.length > 0 || result.subjects.length > 0) && (
@@ -529,6 +555,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const [noteDraft, setNoteDraft] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(false);
   const [bookSearch, setBookSearch] = useState('');
   const [pendingJump, setPendingJump] = useState('');
 
@@ -543,6 +570,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const lastScrollSaveRef = useRef(0);
   const sleepTimerRef = useRef<number | null>(null);
   const syncedOnceRef = useRef('');
+  const remoteSaveRef = useRef<number | null>(null);
 
   const patchSettings = (patch: Partial<ReaderSettings>) => {
     setSettings((prev) => {
@@ -554,11 +582,16 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
   const syncState = () => {
     if (!book) return;
-    void saveReaderState(currentUser ?? '', book.workKey, {
-      progress: loadProgress(book.workKey),
-      bookmarks: loadBookmarks(book.workKey),
-      highlights: loadHighlights(book.workKey),
-    });
+    const user = currentUser ?? '';
+    const key = book.workKey;
+    if (remoteSaveRef.current != null) window.clearTimeout(remoteSaveRef.current);
+    remoteSaveRef.current = window.setTimeout(() => {
+      void saveReaderState(user, key, {
+        progress: loadProgress(key),
+        bookmarks: loadBookmarks(key),
+        highlights: loadHighlights(key),
+      });
+    }, 1200);
   };
 
   const saveProgressNow = (chapter: number, scroll: number) => {
@@ -644,7 +677,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
           scrollFracRef.current = saved.scroll;
         });
         if (startListening && WebTts.isSupported && list[initial]) {
-          startSpeech(list[initial].body, loadSettings().ttsRate);
+          startSpeech(toParagraphs(list[initial].body).join('\n'), loadSettings().ttsRate);
         }
       } else {
         setError(res.error ?? 'Could not load book text.');
@@ -693,6 +726,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   }
 
   const currentChapter = chapters[chapterIdx] ?? null;
+  const paragraphs = currentChapter ? toParagraphs(currentChapter.body) : [];
+  const speechText = paragraphs.join('\n');
   const theme = THEME_TOKENS[settings.theme];
   const { width: readerWidth } = useViewport();
   const measure = readerWidth >= 820 ? 840 : 680;
@@ -705,12 +740,12 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     scrollFracRef.current = 0;
     saveProgressNow(nextIdx, 0);
-    if (speaking && chapters[nextIdx]) startSpeech(chapters[nextIdx].body, settings.ttsRate);
+    if (speaking && chapters[nextIdx]) startSpeech(toParagraphs(chapters[nextIdx].body).join('\n'), settings.ttsRate);
   };
 
   const toggleSpeech = () => {
     if (!speaking) {
-      if (currentChapter) startSpeech(currentChapter.body, settings.ttsRate);
+      if (currentChapter) startSpeech(speechText, settings.ttsRate);
       return;
     }
     if (paused) {
@@ -816,7 +851,6 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       })
     : [];
 
-  const paragraphs = currentChapter ? toParagraphs(currentChapter.body) : [];
   let runningOffset = 0;
   const paragraphOffsets = paragraphs.map((text) => {
     const start = runningOffset;
@@ -868,6 +902,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
 
   return (
     <div style={{ position: 'relative', height: '100%', background: theme.bg, color: theme.fg, display: 'flex', flexDirection: 'column' }}>
+      {!chromeHidden && <>
       <div style={{ padding: '8px 12px', borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
         <button type="button" className="bare-button" aria-label="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
           <Icon name="arrow_back" size={22} color={theme.fg} />
@@ -902,6 +937,10 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       <div style={{ height: 3, background: withAlpha(theme.fg, 0.1) }} aria-label={`${overallPct}% read`}>
         <div style={{ height: '100%', width: `${overallPct}%`, background: AppColors.warmAmber, transition: 'width 240ms ease' }} />
       </div>
+      </>}
+      {chromeHidden && (
+        <button type="button" className="bare-button" aria-label="Show reading controls" onClick={() => setChromeHidden(false)} style={{ position: 'absolute', top: 10, right: 12, zIndex: 4, width: 40, height: 40, borderRadius: 20, background: withAlpha(theme.fg, 0.08), border: `1px solid ${withAlpha(theme.fg, 0.14)}`, color: theme.fg, fontSize: 18 }}>⋯</button>
+      )}
 
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: `22px ${Math.round(settings.margin * 22) + 12}px 36px` }}>
         {loading ? (
@@ -922,11 +961,14 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               onMouseUp={captureSelection}
               onTouchEnd={captureSelection}
               onClick={(e) => {
-                if (!settings.pageTurn || chapters.length < 2 || selectionText) return;
+                if (selectionText) return;
                 const rect = e.currentTarget.getBoundingClientRect();
                 const rel = (e.clientX - rect.left) / rect.width;
-                if (rel < 0.2) selectChapter(chapterIdx - 1);
-                else if (rel > 0.8) selectChapter(chapterIdx + 1);
+                if (settings.pageTurn && chapters.length > 1) {
+                  if (rel < 0.2) { selectChapter(chapterIdx - 1); return; }
+                  if (rel > 0.8) { selectChapter(chapterIdx + 1); return; }
+                }
+                if (rel >= 0.2 && rel <= 0.8) setChromeHidden((v) => !v);
               }}
             >
               {paragraphs.map((text, i) => {
@@ -976,6 +1018,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
           <iframe
             src={`https://archive.org/embed/${book.iaId}`}
             title={book.title}
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             allowFullScreen
             style={{ width: '100%', height: '82vh', border: 'none', borderRadius: 12 }}
           />
@@ -1149,7 +1192,7 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               'Turn pages',
               [
                 { value: 'scroll', label: 'Scroll' },
-                { value: 'tap', label: 'Tap to turn' },
+                { value: 'tap', label: 'Tap edges for chapter' },
               ],
               settings.pageTurn ? 'tap' : 'scroll',
               (value) => patchSettings({ pageTurn: value === 'tap' }),
@@ -1262,6 +1305,12 @@ export function BookListPage() {
     setListError(false);
     setOffset(0);
     setHasMore(true);
+    if (state.initialResults?.length) {
+      setResults(state.initialResults);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
     void fetchPage(0)
       .then((res) => {
         if (!alive) return;
@@ -1279,7 +1328,7 @@ export function BookListPage() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.kind, state.category, listRetryKey]);
+  }, [state.kind, state.category, state.initialResults, listRetryKey]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;

@@ -224,7 +224,7 @@ export function BookCoverCard({
             className="ellipsis"
             style={{
               ...AppTypography.outfitWhite,
-              color: AppColors.mutedPurple,
+              color: withAlpha(AppColors.roseQuartz, 0.82),
               fontSize: 10.5,
               lineHeight: lineHeight(10.5),
               flex: 1,
@@ -239,7 +239,7 @@ export function BookCoverCard({
           className="ellipsis"
           style={{
             ...AppTypography.outfitWhite,
-            color: AppColors.mutedPurple,
+            color: withAlpha(AppColors.roseQuartz, 0.82),
             fontSize: 11,
             lineHeight: lineHeight(11),
             paddingTop: 2,

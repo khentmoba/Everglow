@@ -143,6 +143,18 @@ function mapGutendexBook(b: Record<string, unknown>): BookSearchResult {
   };
 }
 
+function demoBooks(limitCount: number): BookSearchResult[] {
+  const docs = [
+    { key: '/works/demo0', title: 'Frankenstein', author_name: ['Mary Shelley'], first_publish_year: 1818, ia: ['pg84'], subject: ['Gothic'] },
+    { key: '/works/demo1', title: 'The Night Garden', author_name: ['A. Lane'], first_publish_year: 2019, ia: ['demo1'], subject: ['Fantasy', 'Adventure'] },
+    { key: '/works/demo2', title: 'Letters to Tomorrow', author_name: ['M. Rivera'], first_publish_year: 2021, ia: ['demo2'], subject: ['Romance', 'Literary Fiction'] },
+    { key: '/works/demo3', title: 'The Quiet Observatory', author_name: ['S. Okafor'], first_publish_year: 2020, ia: ['demo3'], subject: ['Science Fiction'] },
+    { key: '/works/demo4', title: 'A Map of Small Things', author_name: ['J. Bell'], first_publish_year: 2018, ia: ['demo4'], subject: ['Memoir'] },
+    { key: '/works/demo5', title: 'Winter Light', author_name: ['K. Adeyemi'], first_publish_year: 2022, ia: ['demo5'], subject: ['Mystery'] },
+  ];
+  return docs.slice(0, limitCount).map((d) => mapOlDoc(d));
+}
+
 // book_catalog_service.dart `_dedupeKey`.
 function dedupeKey(r: BookSearchResult): string {
   const t = r.title.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -191,6 +203,7 @@ function olDocs(data: Record<string, unknown> | null): BookSearchResult[] {
 // BookCatalogService.mostPopular: Open Library "best" + Gutenberg's most
 // downloaded, merged, then most downloaded first.
 export async function fetchPopularBooks(limitCount = 12, offset = 0): Promise<BookSearchResult[]> {
+  if (AgentMode.demo) return demoBooks(limitCount + offset).slice(offset);
   const [ol, gut] = await Promise.all([
     catalogGet('openlibrary', 'search.json', { subject: 'best', fields: OL_FIELDS, limit: String(Math.min(limitCount + offset, 100)), sort: 'trending' }),
     catalogGet('gutendex', 'books', { sort: 'popular' }),
@@ -206,6 +219,7 @@ export async function fetchPopularBooks(limitCount = 12, offset = 0): Promise<Bo
 // OpenLibraryService.fetchRecent: trending works first published in the last
 // six years, with covers; falls back to trending fiction.
 export async function fetchRecentBooks(limitCount = 12, offset = 0): Promise<BookSearchResult[]> {
+  if (AgentMode.demo) return demoBooks(limitCount + offset).slice(offset);
   const nowYear = new Date().getFullYear();
   const usable = (r: BookSearchResult) => r.coverUrl !== '' && r.workKey.endsWith('W');
   const data = await catalogGet('openlibrary', 'search.json', {
@@ -245,10 +259,14 @@ export async function fetchBooksBySubject(subject: string, limitCount = 24, offs
 
 export async function searchBooksCatalog(
   queryText: string,
-  opts?: { filetype?: string; language?: string; isbn?: string; publisher?: string; offset?: number; limit?: number; sort?: 'relevant' | 'popular' | 'newest' },
+  opts?: { filetype?: string; language?: string; title?: string; author?: string; isbn?: string; publisher?: string; offset?: number; limit?: number; sort?: 'relevant' | 'popular' | 'newest' },
 ): Promise<{ results: BookSearchResult[]; total: number }> {
   const q = queryText.trim();
   if (!q) return { results: [], total: 0 };
+  if (AgentMode.demo) {
+    const list = demoBooks(30).filter((r) => r.title.toLowerCase().includes(q.toLowerCase()) || r.author.toLowerCase().includes(q.toLowerCase()));
+    return { results: list, total: list.length };
+  }
   const lim = opts?.limit ?? 30;
   const off = opts?.offset ?? 0;
   const lang = opts?.language;
@@ -262,6 +280,8 @@ export async function searchBooksCatalog(
     ...(olSort ? { sort: olSort } : {}),
     ...(off > 0 ? { offset: String(off) } : {}),
     ...(lang ? { language: lang } : {}),
+    ...(opts?.title ? { title: opts.title } : {}),
+    ...(opts?.author ? { author: opts.author } : {}),
     ...(opts?.isbn ? { isbn: opts.isbn } : {}),
     ...(opts?.publisher ? { publisher: opts.publisher } : {}),
   };

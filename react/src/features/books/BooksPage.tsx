@@ -62,11 +62,11 @@ function readBadgeColor(status: string): string {
 function Rail({ height, gap, padding, children }: { height: number; gap: number; padding: string; children: ReactNode[] }) {
   return (
     <ScrollEdgeFade fadeColor={cBlack}>
-      <div className="no-scrollbar" style={{ height, display: 'flex', alignItems: 'stretch', overflowX: 'auto', overflowY: 'hidden', padding, boxSizing: 'border-box' }}>
+      <div className="no-scrollbar" style={{ height, display: 'flex', alignItems: 'stretch', overflowX: 'auto', overflowY: 'hidden', padding, boxSizing: 'border-box', scrollSnapType: 'x mandatory' }}>
         {children.map((child, i) => (
           <Fragment key={i}>
             {i > 0 && <div style={{ width: gap, flexShrink: 0 }} />}
-            {child}
+            <div style={{ scrollSnapAlign: 'start', display: 'flex' }}>{child}</div>
           </Fragment>
         ))}
         <div style={{ width: 20, flexShrink: 0 }} />
@@ -133,7 +133,7 @@ function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => voi
           <div style={{ width: 16, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ ...AppTypography.outfitBold, color: AppColors.warmAmber, fontSize: 10, lineHeight: lineHeight(10), letterSpacing: 1.6 }}>
-              TOP PICK THIS WEEK
+              POPULAR PICK
             </div>
             <div style={{ height: 6 }} />
             <div className="clamp-3" style={{ ...AppTypography.cormorantBlack, fontSize: big ? 30 : 22, lineHeight: lineHeight(big ? 30 : 22, 1.1), color: AppColors.petalWhite }}>
@@ -153,7 +153,7 @@ function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => voi
             {blurb && (
               <>
                 <div style={{ height: 8 }} />
-                <div className="clamp-2" style={{ ...AppTypography.outfitWhite, color: AppColors.mutedPurple, fontSize: 11.5, lineHeight: lineHeight(11.5, 1.4) }}>
+                <div className="clamp-2" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.82), fontSize: 11.5, lineHeight: lineHeight(11.5, 1.4) }}>
                   {blurb}
                 </div>
               </>
@@ -199,7 +199,7 @@ function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => voi
             <div style={{ height: 4, borderRadius: 2, background: withAlpha(AppColors.petalWhite, 0.12), overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.max(4, pct)}%`, background: AppColors.warmAmber }} />
             </div>
-            <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.mutedPurple, marginTop: 6 }}>
+            <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 6 }}>
               Chapter {progress.chapter + 1} · {pct}% through · Tap to resume
             </div>
           </div>
@@ -334,6 +334,8 @@ export function BooksPage() {
       searchBooksCatalog(q, {
         filetype: searchFormat || undefined,
         language: searchLang !== 'All' ? LANG_CODES[searchLang] : undefined,
+        title: appliedAdv.title || undefined,
+        author: appliedAdv.author || undefined,
         isbn: appliedAdv.isbn || undefined,
         publisher: appliedAdv.publisher || undefined,
         limit: searchLimit,
@@ -396,7 +398,8 @@ export function BooksPage() {
 
   const spotlight = popular[0] ?? recent[0] ?? null;
   const showSkeleton = loadingHome && popular.length === 0 && recent.length === 0;
-  const resumeList = listProgress().filter((p) => p.title !== '' && (p.chapter > 0 || p.scroll > 0)).slice(0, 3);
+  const progressMap = new Map(listProgress().map((p) => [p.workKey, p]));
+  const resumeList = [...progressMap.values()].filter((p) => p.title !== '' && (p.chapter > 0 || p.scroll > 0)).slice(0, 3);
   const isTablet = width >= 700;
   const cols = width >= 1024 ? 7 : width >= 600 ? 5 : 3;
 
@@ -437,7 +440,7 @@ export function BooksPage() {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ ...AppTypography.cormorantBlack, fontSize: 32, lineHeight: '32px', color: AppColors.petalWhite }}>Books</div>
         <div style={{ height: 4 }} />
-        <div style={{ ...AppTypography.outfitWhite, fontSize: 12, lineHeight: lineHeight(12), color: AppColors.mutedPurple }}>
+        <div style={{ ...AppTypography.outfitWhite, fontSize: 12, lineHeight: lineHeight(12), color: withAlpha(AppColors.roseQuartz, 0.82) }}>
           Free classics and new finds
         </div>
       </div>
@@ -467,7 +470,7 @@ export function BooksPage() {
       >
         <Icon name="search" size={20} color={withAlpha(AppColors.roseQuartz, 0.8)} />
         <div style={{ width: 10, flexShrink: 0 }} />
-        <span style={{ ...AppTypography.outfitWhite, fontSize: 14, lineHeight: lineHeight(14), color: AppColors.mutedPurple }}>
+        <span style={{ ...AppTypography.outfitWhite, fontSize: 14, lineHeight: lineHeight(14), color: withAlpha(AppColors.roseQuartz, 0.82) }}>
           Search titles, authors, subjects
         </span>
       </button>
@@ -500,18 +503,7 @@ export function BooksPage() {
         ]}
       />
 
-      {tab === 0 && showSkeleton && (
-        <div style={{ position: 'absolute', inset: 0 }}>
-          <ShimmerHome />
-          {slowLoad && (
-            <div style={{ position: 'absolute', bottom: 110, width: '100%', textAlign: 'center', color: AppColors.mutedPurple, fontSize: 12 }}>
-              Still loading… the catalogue can be slow sometimes.
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === 0 && !showSkeleton && (
+      {tab === 0 && (
         <div
           ref={homeRef}
           onScroll={(e) => { booksView.scroll = e.currentTarget.scrollTop; }}
@@ -529,23 +521,51 @@ export function BooksPage() {
           {!homeError && !loadingHome && popular.length === 0 && recent.length === 0 && (
             <div style={{ margin: '14px 20px 0', padding: 14, borderRadius: 16, background: withAlpha(BookColors.card, 0.6), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.12)}` }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: AppColors.petalWhite }}>The shelves are quiet right now.</div>
-              <div style={{ fontSize: 12, color: AppColors.mutedPurple, marginTop: 4 }}>Search for a title, or check back in a little while.</div>
+              <div style={{ fontSize: 12, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 4 }}>Search for a title, or check back in a little while.</div>
             </div>
           )}
           {resumeList.slice(0, 1).map((p) => (
             <ContinueReading key={p.workKey} progress={p} onOpen={() => navigate('/books/reader', { state: { book: progressToBookItem(p) } })} />
           ))}
-          {spotlight && <StaggeredEntrance><Spotlight pick={spotlight} onOpen={() => openDetails(spotlight)} /></StaggeredEntrance>}
-          {because.length > 0 && (
+          <div>
+            <SectionHead eyebrow="Browse" title="Shelves" accent={AppColors.warmAmber} onSeeAll={() => navigate('/books/categories')} />
+            <Rail height={44} gap={8} padding="0 0 0 20px">
+              {BOOK_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.query}
+                  type="button"
+                  className="bare-button"
+                  onClick={() => navigate('/books/category', { state: { category: cat } })}
+                  style={{ flexShrink: 0, padding: '0 16px', borderRadius: 22, background: withAlpha(cat.color, 0.12), border: `1px solid ${withAlpha(cat.color, 0.3)}`, display: 'flex', alignItems: 'center' }}
+                >
+                  <Icon name={cat.icon} size={17} color={cat.color} />
+                  <div style={{ width: 8 }} />
+                  <span style={{ ...AppTypography.outfitBold, color: AppColors.petalWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), whiteSpace: 'nowrap' }}>{cat.name}</span>
+                </button>
+              ))}
+            </Rail>
+          </div>
+          {showSkeleton && (
+            <div>
+              <ShimmerHome />
+              {slowLoad && (
+                <div style={{ padding: '4px 20px 12px', textAlign: 'center', color: AppColors.roseQuartz, fontSize: 12 }}>
+                  Still loading… the catalogue can be slow. Your shelves and saved books are right here.
+                </div>
+              )}
+            </div>
+          )}
+          {!showSkeleton && spotlight && <StaggeredEntrance><Spotlight pick={spotlight} onOpen={() => openDetails(spotlight)} /></StaggeredEntrance>}
+          {!showSkeleton && (because.length > 0 || (readHistoryList.length === 0 && popular.length > 0)) && (
             <div>
               <SectionHead
-                eyebrow="Picked for you"
-                title="Because you read…"
+                eyebrow={readHistoryList.length > 0 ? 'Picked for you' : 'A good place to start'}
+                title={readHistoryList.length > 0 ? 'Because you read…' : 'Popular with readers'}
                 accent={AppColors.softLavender}
-                onSeeAll={() => navigate('/books/list', { state: { kind: 'popular', title: 'Picked for you', initialResults: because } })}
+                onSeeAll={() => navigate('/books/list', { state: { title: 'Picked for you', initialResults: because.length ? because : popular } })}
               />
               <Rail height={isTablet ? 310 : 262} gap={14} padding="0 0 4px 20px">
-                {because.map((r) => (
+                {(because.length ? because : popular.slice(0, 8)).map((r) => (
                   <BookCoverCard key={r.workKey || r.title} width={isTablet ? 150 : 124} result={r} onClick={() => openDetails(r)} />
                 ))}
               </Rail>
@@ -570,42 +590,19 @@ export function BooksPage() {
                     item={b}
                     statusBadge={bookReadDisplay(b.status)}
                     badgeColor={readBadgeColor(b.status)}
+                    progress={progressMap.get(b.workKey)?.scroll}
                     onClick={() => navigate('/books/reader', { state: { book: b } })}
                   />
                 ))}
               </Rail>
             </div>
           )}
-          <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popular, 'popular')}</StaggeredEntrance>
-          {feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recent, 'recent')}
-          <div>
-            <SectionHead eyebrow="Browse" title="Shelves" accent={AppColors.warmAmber} onSeeAll={() => navigate('/books/categories')} />
-            <Rail height={44} gap={8} padding="0 0 0 20px">
-              {BOOK_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.query}
-                  type="button"
-                  className="bare-button"
-                  onClick={() => navigate('/books/category', { state: { category: cat } })}
-                  style={{
-                    flexShrink: 0,
-                    padding: '0 16px',
-                    borderRadius: 22,
-                    background: withAlpha(cat.color, 0.12),
-                    border: `1px solid ${withAlpha(cat.color, 0.3)}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Icon name={cat.icon} size={17} color={cat.color} />
-                  <div style={{ width: 8 }} />
-                  <span style={{ ...AppTypography.outfitBold, color: AppColors.petalWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), whiteSpace: 'nowrap' }}>
-                    {cat.name}
-                  </span>
-                </button>
-              ))}
-            </Rail>
-          </div>
+          {!showSkeleton && (
+            <>
+              <StaggeredEntrance>{feedRail('Trending this week', 'Most Popular', AppColors.warmAmber, popular, 'popular')}</StaggeredEntrance>
+              {feedRail('Fresh in the catalog', 'Recently Added', AppColors.deepRose, recent, 'recent')}
+            </>
+          )}
           <div style={{ height: 100 }} />
         </div>
       )}
@@ -1015,8 +1012,8 @@ export function BooksPage() {
                     type="button"
                     className="bare-button"
                     onClick={() => {
-                      const parts = [advTitle, advAuthor, advPublisher, advIsbn].map((x) => x.trim()).filter(Boolean);
-                      if (parts.length) setSearchQuery(parts.join(' '));
+                      const primary = [advTitle, advAuthor, advPublisher, advIsbn].map((x) => x.trim()).filter(Boolean)[0];
+                      if (primary) setSearchQuery(primary);
                       setAppliedAdv({
                         title: advTitle.trim(),
                         author: advAuthor.trim(),
@@ -1067,20 +1064,20 @@ export function BooksPage() {
               <div style={{ ...AppTypography.outfitBold, fontSize: 11, letterSpacing: 1.4, color: AppColors.warmAmber, marginBottom: 12 }}>YOUR READING</div>
               <div style={{ display: 'flex', gap: 18 }}>
                 {([
-                  [readHistoryList.filter((b) => b.addedAt.getFullYear() === new Date().getFullYear()).length, 'read this year'],
+                  [readHistoryList.length, 'books read'],
                   [toReadList.length, 'to read'],
                   [favorites.length, 'loved'],
                 ] as const).map(([value, label]) => (
                   <div key={label}>
                     <div style={{ ...AppTypography.cormorantBlack, fontSize: 28, lineHeight: '28px', color: AppColors.petalWhite }}>{value}</div>
-                    <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.mutedPurple }}>{label}</div>
+                    <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82) }}>{label}</div>
                   </div>
                 ))}
               </div>
               <div style={{ height: 5, borderRadius: 3, background: withAlpha(AppColors.petalWhite, 0.1), marginTop: 14, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${Math.min(100, (readHistoryList.length / 12) * 100)}%`, background: AppColors.warmAmber }} />
               </div>
-              <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.mutedPurple, marginTop: 6 }}>A gentle goal of 12 books this year — no pressure.</div>
+              <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 6 }}>A gentle goal of 12 books this year — no pressure.</div>
             </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '14px 0' }}>
@@ -1157,6 +1154,7 @@ export function BooksPage() {
                     width={Math.floor((width - 40 - (cols - 1) * 14) / cols)}
                     item={b}
                     statusBadge={librarySegment === 1 ? bookReadDisplay(b.status) : undefined}
+                    progress={progressMap.get(b.workKey)?.scroll}
                     onClick={() => openItemDetails(b)}
                   />
                 ))}

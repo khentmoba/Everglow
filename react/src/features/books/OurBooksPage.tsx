@@ -22,6 +22,7 @@ export function OurBooksPage() {
   const [queryText, setQueryText] = useState('');
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [addSearchError, setAddSearchError] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OurBooksItem | null>(null);
   const addPanelRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
@@ -38,16 +39,24 @@ export function OurBooksPage() {
     if (!addOpen || !q) {
       setResults([]);
       setSearching(false);
+      setAddSearchError(false);
       return;
     }
     let alive = true;
     setSearching(true);
+    setAddSearchError(false);
     const t = window.setTimeout(() => {
-      void searchBooksCatalog(q, { limit: 30 }).then((res) => {
-        if (!alive) return;
-        setResults(res.results.slice(0, 30));
-        setSearching(false);
-      });
+      void searchBooksCatalog(q, { limit: 30 })
+        .then((res) => {
+          if (!alive) return;
+          setResults(res.results.slice(0, 30));
+          setSearching(false);
+        })
+        .catch(() => {
+          if (!alive) return;
+          setAddSearchError(true);
+          setSearching(false);
+        });
     }, 450);
     return () => {
       alive = false;
@@ -391,8 +400,13 @@ export function OurBooksPage() {
                   <Icon name="add" size={18} color={AppColors.roseQuartz} />
                 </button>
               ))}
-              {!searching && results.length === 0 && (
-                <div style={{ padding: '20px 4px', textAlign: 'center', fontSize: 12.5, color: AppColors.mutedPurple }}>
+              {!searching && addSearchError && (
+                <div style={{ padding: '20px 4px', textAlign: 'center', fontSize: 12.5, color: AppColors.error }}>
+                  Couldn’t reach the catalogue. Try again in a moment.
+                </div>
+              )}
+              {!searching && !addSearchError && results.length === 0 && (
+                <div style={{ padding: '20px 4px', textAlign: 'center', fontSize: 12.5, color: AppColors.roseQuartz }}>
                   {queryText.trim() ? 'No books found. Try another title or author.' : 'Type a title or author to find a book.'}
                 </div>
               )}
