@@ -241,6 +241,7 @@ export function MangaReaderView({
     prefetchedImagesRef.current.clear();
     prefetchedChapterRef.current.clear();
     aspectMapRef.current.clear();
+    setFailedPageKeys([]);
     setPageBookmarks(loadPageBookmarks(params.slug));
   }, [params.slug]);
 
@@ -442,6 +443,9 @@ export function MangaReaderView({
     [writeProgressNow],
   );
 
+  const flushProgressRef = useRef(writeProgressNow);
+  flushProgressRef.current = writeProgressNow;
+
   // Flush progress & timers on unmount
   useEffect(() => {
     return () => {
@@ -455,10 +459,10 @@ export function MangaReaderView({
       if (scrollRafRef.current != null) window.cancelAnimationFrame(scrollRafRef.current);
       const latest = latestProgressRef.current;
       if (latest.total > 0) {
-        writeProgressNow(latest.chapterId, latest.page, latest.total, latest.offsetRatio);
+        flushProgressRef.current(latest.chapterId, latest.page, latest.total, latest.offsetRatio);
       }
     };
-  }, [writeProgressNow]);
+  }, []);
 
   const loadChapterPages = useCallback(
     async (targetChapterId: string, targetServer: string): Promise<string[]> => {
@@ -508,6 +512,7 @@ export function MangaReaderView({
       setZoom(1);
       setPan({ x: 0, y: 0 });
       setWidePages(new Set());
+      setFailedPageKeys([]);
       const startPage = options?.startAtEnd ? -1 : (options?.targetPageIdx ?? 0);
       pendingResumeRef.current = { chapterId: targetId, pageIdx: startPage, offsetRatio: 0 };
       userScrolledRef.current = false;
@@ -528,15 +533,9 @@ export function MangaReaderView({
   // Load active chapter & seed persisted aspect ratios before first paint
   useEffect(() => {
     let alive = true;
-    const existing = segments.find((s) => s.chapter.id === chapterId);
-    if (existing && reloadNonce === 0) {
-      setLoading(false);
-      setLoadFailed(false);
-      return;
-    }
-
+    window.clearTimeout(aspectSaveTimerRef.current);
     const savedAspects = loadChapterAspects(params.slug, chapterId);
-    chapterAspectsRef.current = { ...savedAspects };
+    const seededAspects: Record<number, number> = { ...savedAspects };
     const seededWide = new Set<number>();
     for (const [idxStr, ratio] of Object.entries(savedAspects)) {
       const idx = Number(idxStr);
@@ -544,10 +543,28 @@ export function MangaReaderView({
       if (ratio >= WIDE_ASPECT_THRESHOLD) seededWide.add(idx);
     }
 
+    const existing = segments.find((s) => s.chapter.id === chapterId);
+    if (existing) {
+      for (let idx = 0; idx < existing.pages.length; idx++) {
+        const measured = aspectMapRef.current.get(`${chapterId}:${idx}`);
+        if (measured != null) {
+          seededAspects[idx] = measured;
+          if (measured >= WIDE_ASPECT_THRESHOLD) seededWide.add(idx);
+        }
+      }
+    }
+    chapterAspectsRef.current = seededAspects;
+    setWidePages(seededWide);
+
+    if (existing && reloadNonce === 0) {
+      setLoading(false);
+      setLoadFailed(false);
+      return;
+    }
+
     setLoading(true);
     setLoadFailed(false);
     setSegments([]);
-    setWidePages(seededWide);
 
     void loadChapterPages(chapterId, server).then((urls) => {
       if (!alive) return;
@@ -588,6 +605,8 @@ export function MangaReaderView({
       const lineOffset = offsetRatio > 0 ? el.offsetHeight * offsetRatio - container.clientHeight * 0.35 : 0;
       const targetTop = Math.max(0, Math.round(el.offsetTop + lineOffset));
       programmaticScrollRef.current = true;
+      scrollDownAccumRef.current = 0;
+      scrollUpAccumRef.current = 0;
       container.scrollTo({ top: targetTop, behavior });
       lastScrollTopRef.current = targetTop;
       window.clearTimeout(programmaticScrollTimerRef.current);
@@ -595,7 +614,7 @@ export function MangaReaderView({
         () => {
           programmaticScrollRef.current = false;
         },
-        behavior === 'smooth' ? 550 : 60,
+        behavior === 'smooth' ? 550 : 180,
       );
       return true;
     },
@@ -991,19 +1010,19 @@ export function MangaReaderView({
       const delta = curTop - lastScrollTopRef.current;
       lastScrollTopRef.current = curTop;
 
-      if (!programmaticScrollRef.current && !autoScrolling) {
+      if (!programmaticScrollRef.current && !autoScrolling && activeSheet === 'none' && pageAction == null) {
         const threshold = SCROLL_HIDE_THRESHOLD[settings.scrollHideSensitivity];
         if (delta > 0) {
           scrollDownAccumRef.current += delta;
           scrollUpAccumRef.current = 0;
-          if (settings.hideChromeOnScroll && showUi && scrollDownAccumRef.current >= threshold && activeSheet === 'none') {
+          if (settings.hideChromeOnScroll && showUi && scrollDownAccumRef.current >= threshold) {
             setShowUi(false);
             scrollDownAccumRef.current = 0;
           }
         } else if (delta < 0) {
           scrollUpAccumRef.current += -delta;
           scrollDownAccumRef.current = 0;
-          if (settings.showChromeOnScrollUp && !showUi && scrollUpAccumRef.current >= Math.max(44, threshold) && activeSheet === 'none') {
+          if (settings.showChromeOnScrollUp && !showUi && scrollUpAccumRef.current >= Math.max(44, threshold)) {
             setShowUi(true);
             scrollUpAccumRef.current = 0;
           }
@@ -1037,6 +1056,7 @@ export function MangaReaderView({
     settings.showChromeOnScrollUp,
     showUi,
     activeSheet,
+    pageAction,
     chapterId,
     pageIdx,
     pages.length,
@@ -2273,6 +2293,7 @@ export function MangaReaderView({
       {/* Tap-zone guide overlay (accurately reflects Standard, Edge, Kindle & L-Shaped layouts) */}
       {showZoneGuide && (
         <div
+          aria-hidden="true"
           onClick={() => showTapHint && setShowTapHint(false)}
           style={{
             position: 'fixed',

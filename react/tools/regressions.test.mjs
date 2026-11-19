@@ -235,16 +235,14 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
       null,
       { timeout: 10_000 },
     );
-    await page.getByRole('button', { name: 'Webtoon', exact: true }).click();
+    await page.getByRole('button', { name: /Reading mode:/ }).click();
     await page.waitForSelector('text=1 / 3', { timeout: 5_000 });
-    await page.getByRole('button', { name: 'Next Page', exact: true }).click();
+    await page.keyboard.press('ArrowLeft');
     await page.waitForSelector('text=2 / 3', { timeout: 5_000 });
     await page.waitForTimeout(450);
-    await page.locator('button:has-text("arrow_back")').last().click();
+    await page.getByRole('button', { name: 'Close reader' }).click();
     await page.waitForSelector('text=Offline storage used', { timeout: 5_000 });
     await page.locator('button:has-text("Chapter"), button:has-text("Ch.")').first().click();
-    await page.waitForSelector('button:has-text("Webtoon")', { timeout: 5_000 });
-    await page.getByRole('button', { name: 'Webtoon', exact: true }).click();
     await page.waitForSelector('text=2 / 3', { timeout: 5_000 });
 
     assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);

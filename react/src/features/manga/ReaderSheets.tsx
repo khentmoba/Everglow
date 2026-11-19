@@ -21,6 +21,9 @@ import {
 } from './readerSettings';
 
 function useDialogFocusTrap(containerRef: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -36,7 +39,7 @@ function useDialogFocusTrap(containerRef: React.RefObject<HTMLDivElement | null>
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        closeRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -57,7 +60,7 @@ function useDialogFocusTrap(containerRef: React.RefObject<HTMLDivElement | null>
       window.removeEventListener('keydown', onKeyDown, true);
       prevFocused?.focus?.();
     };
-  }, [containerRef, onClose]);
+  }, [containerRef]);
 }
 
 function SheetHeader({ title, subtitle, onClose }: { title: string; subtitle?: string; onClose: () => void }) {
@@ -1537,12 +1540,19 @@ export function PageActionSheet({
   const sheetRef = useRef<HTMLDivElement>(null);
   useDialogFocusTrap(sheetRef, onClose);
 
+  const isLocalOrInline = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
+  const isShareableUrl = !isLocalOrInline && Boolean(imageUrl);
+
   const handleSave = async () => {
     const baseName = `${mangaTitle.replace(/[^a-z0-9]+/gi, '_')}_${chapterLabel.replace(/[^a-z0-9]+/gi, '_')}_p${pageNumber}`;
-    const fetchUrl =
-      imageUrl.startsWith('data:') || imageUrl.startsWith('blob:') || imageUrl.startsWith('/')
-        ? imageUrl
-        : proxyKatanaImageUrl(imageUrl);
+    const isSameOriginOrLocal = isLocalOrInline || imageUrl.startsWith('/');
+    const fetchUrl = isSameOriginOrLocal ? imageUrl : proxyKatanaImageUrl(imageUrl);
+    const canFetch = isSameOriginOrLocal || fetchUrl.includes('proxyMangaKatana');
+    if (!canFetch) {
+      window.open(fetchUrl, '_blank', 'noopener,noreferrer');
+      onClose();
+      return;
+    }
     try {
       const res = await fetch(fetchUrl);
       if (!res.ok) throw new Error('fetch failed');
@@ -1568,12 +1578,15 @@ export function PageActionSheet({
       setStatusMsg('Saved image');
       window.setTimeout(onClose, 500);
     } catch {
-      window.open(fetchUrl, '_blank', 'noopener,noreferrer');
+      if (isShareableUrl) {
+        window.open(fetchUrl, '_blank', 'noopener,noreferrer');
+      }
       onClose();
     }
   };
 
   const handleShare = async () => {
+    if (!isShareableUrl) return;
     try {
       if (navigator.share) {
         await navigator.share({ title: `${mangaTitle} — ${chapterLabel} (Page ${pageNumber})`, url: imageUrl });
@@ -1602,11 +1615,15 @@ export function PageActionSheet({
       label: 'Save Page Image',
       onClick: handleSave,
     },
-    {
-      icon: 'share',
-      label: 'Share Page',
-      onClick: handleShare,
-    },
+    ...(isShareableUrl
+      ? [
+          {
+            icon: 'share',
+            label: 'Share Page',
+            onClick: handleShare,
+          },
+        ]
+      : []),
     {
       icon: 'refresh',
       label: `Reload Page ${pageNumber}`,
@@ -1615,27 +1632,31 @@ export function PageActionSheet({
         onClose();
       },
     },
-    {
-      icon: 'content_copy',
-      label: 'Copy Image Link',
-      onClick: async () => {
-        try {
-          await navigator.clipboard?.writeText(imageUrl);
-          setStatusMsg('Copied image link');
-          window.setTimeout(onClose, 450);
-        } catch {
-          onClose();
-        }
-      },
-    },
-    {
-      icon: 'open_in_new',
-      label: 'Open Image in New Tab',
-      onClick: () => {
-        window.open(imageUrl, '_blank', 'noopener,noreferrer');
-        onClose();
-      },
-    },
+    ...(isShareableUrl
+      ? [
+          {
+            icon: 'content_copy',
+            label: 'Copy Image Link',
+            onClick: async () => {
+              try {
+                await navigator.clipboard?.writeText(imageUrl);
+                setStatusMsg('Copied image link');
+                window.setTimeout(onClose, 450);
+              } catch {
+                onClose();
+              }
+            },
+          },
+          {
+            icon: 'open_in_new',
+            label: 'Open Image in New Tab',
+            onClick: () => {
+              window.open(imageUrl, '_blank', 'noopener,noreferrer');
+              onClose();
+            },
+          },
+        ]
+      : []),
     {
       icon: 'dns',
       label: 'Switch Source Server',
