@@ -26,6 +26,7 @@ import {
   bookItemToSearchResult,
   bookReadDisplay,
   isBookRead,
+  searchResultToBookItem,
   type BookItem,
   type BookSearchResult,
 } from './bookTypes';
@@ -103,13 +104,21 @@ function ShimmerHome() {
   );
 }
 
-function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => void }) {
+function Spotlight({ pick, onOpen, onDetails }: { pick: BookSearchResult; onOpen: () => void; onDetails: () => void }) {
   const [boxRef, box] = useBoxSize<HTMLButtonElement>();
   const { width } = useViewport();
   const big = width >= 700;
-    const blurb = pick.description ? pick.description : pick.subjects.slice(0, 3).join(' · ');
-    return (
-      <div style={{ padding: '22px 20px 0' }}>
+  const blurb = pick.description ? pick.description : pick.subjects.slice(0, 3).join(' · ');
+  const cta = (
+    <div style={{ display: 'inline-flex', alignItems: 'center', padding: '9px 16px', borderRadius: 20, background: AppColors.petalWhite }}>
+      <Icon name="auto_stories" size={16} color={cBlack} />
+      <div style={{ width: 6 }} />
+      <span style={{ ...AppTypography.outfitBold, color: cBlack, fontSize: 12.5, lineHeight: lineHeight(12.5) }}>Open book</span>
+    </div>
+  );
+  return (
+    <div style={{ padding: '22px 20px 0' }}>
+      <div style={{ position: 'relative' }}>
         <button
           type="button"
           className="bare-button"
@@ -117,58 +126,55 @@ function Spotlight({ pick, onOpen }: { pick: BookSearchResult; onOpen: () => voi
           onClick={onOpen}
           ref={boxRef}
           style={{
-            width: '100%', textAlign: 'left', padding: 16,
-            borderRadius: 22,
+            width: '100%', textAlign: 'left', padding: 16, borderRadius: 22,
             background: linear(
               [withAlpha(AppColors.warmAmber, 0.16), withAlpha(AppColors.velvet, 0.85), withAlpha(cBlack, 0.9)],
               { begin: Align.topLeft, end: Align.bottomRight, size: box },
             ),
             border: `1px solid ${withAlpha(AppColors.warmAmber, 0.18)}`,
-            display: 'flex',
-            alignItems: 'center',
-            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', cursor: 'pointer',
           }}
         >
-          <BookCover imageUrl={pick.coverUrl} title={pick.title} author={pick.author} width={big ? 156 : 112} />
+          <BookCover imageUrl={pick.coverUrl} title={pick.title} author={pick.author} width={big ? 168 : 112} />
           <div style={{ width: 16, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ ...AppTypography.outfitBold, color: AppColors.warmAmber, fontSize: 10, lineHeight: lineHeight(10), letterSpacing: 1.6 }}>
-              POPULAR PICK
-            </div>
+            <div style={{ ...AppTypography.outfitBold, color: AppColors.warmAmber, fontSize: 10, lineHeight: lineHeight(10), letterSpacing: 1.6 }}>POPULAR PICK</div>
             <div style={{ height: 6 }} />
-            <div className="clamp-3" style={{ ...AppTypography.cormorantBlack, fontSize: big ? 30 : 22, lineHeight: lineHeight(big ? 30 : 22, 1.1), color: AppColors.petalWhite }}>
-              {pick.title}
-            </div>
+            <div className="clamp-3" style={{ ...AppTypography.cormorantBlack, fontSize: big ? 32 : 22, lineHeight: lineHeight(big ? 32 : 22, 1.1), color: AppColors.petalWhite }}>{pick.title}</div>
             {pick.author && (
               <>
                 <div style={{ height: 4 }} />
-                <div
-                  className="ellipsis"
-                  style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.85), fontSize: 12.5, lineHeight: lineHeight(12.5) }}
-                >
-                  {pick.author}
-                </div>
+                <div className="ellipsis" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.85), fontSize: 12.5, lineHeight: lineHeight(12.5) }}>{pick.author}</div>
               </>
             )}
-            {blurb && (
+            {!big && blurb && (
               <>
                 <div style={{ height: 8 }} />
-                <div className="clamp-2" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.82), fontSize: 11.5, lineHeight: lineHeight(11.5, 1.4) }}>
-                  {blurb}
-                </div>
+                <div className="clamp-2" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.82), fontSize: 11.5, lineHeight: lineHeight(11.5, 1.4) }}>{blurb}</div>
               </>
             )}
-            <div style={{ height: 12 }} />
-            <div style={{ display: 'inline-flex', alignItems: 'center', padding: '9px 16px', borderRadius: 20, background: AppColors.petalWhite }}>
-              <Icon name="auto_stories" size={16} color={cBlack} />
-              <div style={{ width: 6 }} />
-              <span style={{ ...AppTypography.outfitBold, color: cBlack, fontSize: 12.5, lineHeight: lineHeight(12.5) }}>Open book</span>
-            </div>
+            {!big && <div style={{ height: 12 }} />}
+            {!big && cta}
           </div>
+          {big && (
+            <div style={{ width: '38%', flexShrink: 0, alignSelf: 'stretch', paddingLeft: 22, marginLeft: 8, borderLeft: `1px solid ${withAlpha(AppColors.petalWhite, 0.14)}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              {blurb && (
+                <div className="clamp-3" style={{ ...AppTypography.outfitWhite, color: withAlpha(AppColors.roseQuartz, 0.85), fontSize: 13, lineHeight: lineHeight(13, 1.5) }}>
+                  {blurb}
+                </div>
+              )}
+              <div style={{ height: 16 }} />
+              {cta}
+            </div>
+          )}
+        </button>
+        <button type="button" className="bare-button" aria-label={`Details for ${pick.title}`} title="More details" onClick={onDetails} style={{ position: 'absolute', top: 10, right: 10, width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', background: withAlpha(AppColors.petalWhite, 0.1), border: `1px solid ${withAlpha(AppColors.petalWhite, 0.2)}`, color: AppColors.petalWhite }}>
+          <Icon name="info" size={19} color={AppColors.petalWhite} />
         </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   /** A quiet, one-tap way back into the book Clair was reading. */
   function ContinueReading({ progress, onOpen }: { progress: ReaderProgress; onOpen: () => void }) {
@@ -445,7 +451,10 @@ export function BooksPage() {
         </div>
       </div>
       {isCoupleUser && (
-        <ShelfIconButton icon="favorite" label="Open Our Books" tooltip="Our Books" onClick={() => navigate('/our-books')} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {width >= 700 && <span style={{ ...AppTypography.outfitBold, fontSize: 12.5, color: AppColors.roseQuartz }}>Our Books</span>}
+          <ShelfIconButton icon="favorite" label="Open Our Books" tooltip="Our Books" onClick={() => navigate('/our-books')} />
+        </div>
       )}
     </div>
   );
@@ -511,6 +520,9 @@ export function BooksPage() {
         >
           {header}
           {homeSearch}
+          {resumeList.slice(0, 3).map((p) => (
+            <ContinueReading key={p.workKey} progress={p} onOpen={() => navigate('/books/reader', { state: { book: progressToBookItem(p) } })} />
+          ))}
           {homeError && (
             <div style={{ margin: '14px 20px 0', padding: 14, borderRadius: 16, background: withAlpha(AppColors.error, 0.1), border: `1px solid ${withAlpha(AppColors.error, 0.35)}`, display: 'flex', alignItems: 'center', gap: 12 }}>
               <Icon name="cloud_off" size={20} color={AppColors.error} />
@@ -524,9 +536,6 @@ export function BooksPage() {
               <div style={{ fontSize: 12, color: withAlpha(AppColors.roseQuartz, 0.82), marginTop: 4 }}>Search for a title, or check back in a little while.</div>
             </div>
           )}
-          {resumeList.slice(0, 1).map((p) => (
-            <ContinueReading key={p.workKey} progress={p} onOpen={() => navigate('/books/reader', { state: { book: progressToBookItem(p) } })} />
-          ))}
           <div>
             <SectionHead eyebrow="Browse" title="Shelves" accent={AppColors.warmAmber} onSeeAll={() => navigate('/books/categories')} />
             <Rail height={44} gap={8} padding="0 0 0 20px">
@@ -555,7 +564,15 @@ export function BooksPage() {
               )}
             </div>
           )}
-          {!showSkeleton && spotlight && <StaggeredEntrance><Spotlight pick={spotlight} onOpen={() => openDetails(spotlight)} /></StaggeredEntrance>}
+          {!showSkeleton && spotlight && (
+            <StaggeredEntrance>
+              <Spotlight
+                pick={spotlight}
+                onOpen={() => navigate('/books/reader', { state: { book: searchResultToBookItem(spotlight) } })}
+                onDetails={() => openDetails(spotlight)}
+              />
+            </StaggeredEntrance>
+          )}
           {!showSkeleton && (because.length > 0 || (readHistoryList.length === 0 && popular.length > 0)) && (
             <div>
               <SectionHead
@@ -611,7 +628,7 @@ export function BooksPage() {
         {tab === 1 && (
           <div style={{ padding: '14px 20px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => setTab(0)} />
+              <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={44} onClick={() => setTab(0)} />
               <div>
                 <div style={{ fontFamily: Fonts.display, fontWeight: 800, fontSize: 28, lineHeight: 1.05, color: BookColors.white }}>Search</div>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.8, color: BookColors.muted, marginTop: 2 }}>FIND YOUR NEXT OBSESSION</div>
@@ -703,7 +720,7 @@ export function BooksPage() {
                 ['MOBI', 'tablet_mac'],
                 ['FB2', 'description'],
                 ['HTML', 'public'],
-              ] as const).slice(0, 3).map(([fmt, icon]) => {
+              ] as const).slice(0, 2).map(([fmt, icon]) => {
                 const active = searchFormat === fmt;
                 return (
                   <button
@@ -712,7 +729,7 @@ export function BooksPage() {
                     className="bare-button"
                     onClick={() => setSearchFormat(active ? '' : fmt)}
                     style={{
-                      height: 40,
+                      height: 44,
                       padding: '0 14px',
                       borderRadius: 18,
                       background: active ? withAlpha(BookColors.deepRose, 0.22) : withAlpha(BookColors.card, 0.8),
@@ -727,39 +744,11 @@ export function BooksPage() {
                   </button>
                 );
               })}
-              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 36, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.muted, fontSize: 12, fontWeight: 700 }}>
-                More formats
-              </button>
-            </div>
-
-            <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginTop: 10 }}>
-              {['All', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese'].slice(0, 4).map((lang) => {
-                const active = searchLang === lang;
-                return (
-                  <button
-                    key={lang}
-                    type="button"
-                    className="bare-button"
-                    onClick={() => setSearchLang(lang)}
-                    style={{
-                      height: 40,
-                      padding: '0 14px',
-                      borderRadius: 18,
-                      flexShrink: 0,
-                      background: active ? withAlpha(BookColors.amber, 0.16) : withAlpha(BookColors.card, 0.8),
-                      border: `1px solid ${active ? withAlpha(BookColors.amber, 0.7) : withAlpha(BookColors.rose, 0.12)}`,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <Icon name="public" size={14} color={active ? BookColors.amber : BookColors.muted} />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? BookColors.amber : BookColors.muted }}>{lang}</span>
-                  </button>
-                );
-              })}
-              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 36, padding: '0 14px', borderRadius: 18, flexShrink: 0, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.muted, fontSize: 12, fontWeight: 700 }}>
-                More languages
+              <button type="button" className="bare-button" onClick={() => setAdvOpen(true)} style={{ height: 44, padding: '0 14px', borderRadius: 18, background: withAlpha(BookColors.card, 0.8), border: `1px solid ${withAlpha(BookColors.rose, 0.12)}`, color: BookColors.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="tune" size={14} color={BookColors.deepRose} /> Filters
+                {(searchLang !== 'All' || appliedAdv.title || appliedAdv.author || appliedAdv.publisher || appliedAdv.isbn || appliedAdv.yearFrom || appliedAdv.yearTo || appliedAdv.exact || (searchFormat && searchFormat !== 'EPUB' && searchFormat !== 'PDF')) && (
+                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: BookColors.deepRose, color: '#FFF', fontSize: 10, display: 'grid', placeItems: 'center' }}>on</span>
+                )}
               </button>
             </div>
 
@@ -808,7 +797,17 @@ export function BooksPage() {
 
             <div style={{ marginTop: 18 }}>
               {searching ? (
-                <div style={{ padding: 48, textAlign: 'center', color: BookColors.muted }}>Searching Open Library &amp; Gutenberg…</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 16, background: withAlpha(BookColors.card, 0.5) }}>
+                      <div className="skeleton-pulse" style={{ width: 58, height: 87, borderRadius: 8, background: AppColors.shimmerBase, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div className="skeleton-pulse" style={{ height: 12, borderRadius: 5, background: AppColors.shimmerBase, width: '75%' }} />
+                        <div className="skeleton-pulse" style={{ height: 10, borderRadius: 5, background: AppColors.shimmerBase, width: '50%', marginTop: 8 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : searchResults.length === 0 ? (
                 searchQuery.trim() ? (
                   searchError ? (
@@ -882,6 +881,7 @@ export function BooksPage() {
                             </span>
                           )}
                           {r.sourceLabel && <span>{r.sourceLabel}</span>}
+                          {r.ratingCount ? <span style={{ color: AppColors.warmAmber, fontWeight: 700 }}>★ {r.ratingCount >= 1000 ? `${(r.ratingCount / 1000).toFixed(0)}k` : r.ratingCount}</span> : null}
                         </div>
                       </div>
                       <Icon name="chevron_right" size={18} color={BookColors.muted} />
@@ -1039,7 +1039,7 @@ export function BooksPage() {
           <div style={{ padding: '14px 20px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={40} onClick={() => setTab(0)} />
+                <ShelfIconButton icon="arrow_back_ios_new" label="Back" size={44} onClick={() => setTab(0)} />
                 <div>
                   <h1 style={{ fontFamily: Fonts.display, fontWeight: 900, fontSize: 28, lineHeight: 1.05, margin: 0 }}>Library</h1>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.8, color: BookColors.muted, marginTop: 2 }}>YOUR SHELVES</div>
@@ -1095,7 +1095,7 @@ export function BooksPage() {
                     className="bare-button"
                     onClick={() => setLibrarySegment(idx as 0 | 1 | 2 | 3)}
                     style={{
-                      height: 40,
+                      height: 44,
                       padding: '0 14px',
                       borderRadius: 20,
                       background: active ? withAlpha(BookColors.deepRose, 0.2) : withAlpha(BookColors.card, 0.6),

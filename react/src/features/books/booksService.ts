@@ -447,7 +447,7 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
   } catch (e) {
     Logger.w(`proxyBookText failed: ${String(e)}`);
   }
-  return { text: '', usedUrl: '', error: `Tried ${candidates.length} source(s); none responded with readable text.` };
+  return { text: '', usedUrl: '', error: 'We couldn’t load the text right now.' };
 }
 
 // ---------- User Book Library & Our Books (Firestore + Agent Mode) ----------
@@ -465,7 +465,7 @@ let demoOurBooks: OurBooksItem[] = [
     iaId: '',
     title: 'A fictional reading adventure',
     author: '',
-    coverUrl: '/images/demo/poster-1.jpg',
+    coverUrl: '',
     year: '',
     subjects: [],
     addedBy: 'khentsgdz',

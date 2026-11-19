@@ -1305,7 +1305,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
               settings.margin > 0,
               settings.margin < 1,
             )}
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, color: AppColors.warmAmber, marginBottom: 10, marginTop: 4 }}>LISTENING &amp; MARKS</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, color: AppColors.warmAmber, marginBottom: 6, marginTop: 4 }}>LISTENING &amp; MARKS</div>
+            <div style={{ fontSize: 11.5, color: withAlpha(theme.fg, 0.65), marginBottom: 12 }}>Listen uses your device's voice to read the text aloud — no audiobook download needed.</div>
             {segmented<number>(
               'Narration speed',
               TTS_RATES.map((r) => ({ value: r as number, label: `${r}x` })),
@@ -1497,7 +1498,15 @@ export function BookListPage() {
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 20px 40px' }}>
           {loading && results.length === 0 ? (
-            <div style={{ padding: 48, textAlign: 'center', color: BookColors.muted }}>Loading…</div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '18px 14px' }}>
+              {Array.from({ length: 9 }, (_, i) => (
+                <div key={i}>
+                  <div className="skeleton-pulse" style={{ width: '100%', aspectRatio: '2 / 3', borderRadius: 10, background: AppColors.shimmerBase }} />
+                  <div className="skeleton-pulse" style={{ height: 11, borderRadius: 5, background: AppColors.shimmerBase, marginTop: 10, width: '85%' }} />
+                  <div className="skeleton-pulse" style={{ height: 9, borderRadius: 5, background: AppColors.shimmerBase, marginTop: 6, width: '60%' }} />
+                </div>
+              ))}
+            </div>
           ) : results.length === 0 ? (
             <div style={{ padding: '72px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <div style={{ width: 68, height: 68, borderRadius: '50%', background: withAlpha(AppColors.deepRose, 0.12), border: `1px solid ${withAlpha(AppColors.roseQuartz, 0.15)}`, display: 'grid', placeItems: 'center' }}>
