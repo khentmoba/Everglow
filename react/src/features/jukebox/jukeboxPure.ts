@@ -4,6 +4,22 @@ export function normTrackText(s: string): string {
   return s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 
+export function musicStatusToMap(status: MusicStatus): Record<string, unknown> {
+  return {
+    username: status.username,
+    trackName: status.trackName,
+    artistName: status.artistName,
+    albumName: status.albumName,
+    imageUrl: status.imageUrl,
+    isPlaying: status.isPlaying,
+    spotifyUrl: status.spotifyUrl,
+    timestamp: status.timestamp ? status.timestamp.toISOString() : null,
+    spotifyTrackId: status.spotifyTrackId ?? null,
+    spotifyEmbedUrl: status.spotifyEmbedUrl ?? null,
+    previewUrl: status.previewUrl ?? null,
+  };
+}
+
 export function musicStatusTrackKey(status: MusicStatus): string {
   const stamp =
     status.timestamp != null && !Number.isNaN(status.timestamp.getTime())
