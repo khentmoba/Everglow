@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   mergeRecentTracks,
+  musicStatusToMap,
   musicStatusTrackKey,
   pickPreferredMusicStatus,
   shouldSyncPartnerStatus,
@@ -138,4 +139,29 @@ test('dedupeMilestones collapses duplicate archive docs and keeps richer photo l
   assert.equal(deduped[0].id, 'doc2');
   assert.equal(deduped[0].imageUrls.length, 4);
   assert.equal(deduped[1].id, 'doc4');
+});
+
+test('musicStatusToMap clears stale Spotify IDs when Last.fm overwrites a Spotify doc', () => {
+  const existingSpotifyDoc = musicStatusToMap(
+    track({
+      trackName: 'Old Spotify Song',
+      spotifyTrackId: 'oldTrack123',
+      spotifyEmbedUrl: 'https://open.spotify.com/embed/track/oldTrack123',
+      previewUrl: 'https://p.scdn.co/mp3-preview/old',
+    }),
+  );
+  assert.equal(existingSpotifyDoc.spotifyTrackId, 'oldTrack123');
+  assert.equal(existingSpotifyDoc.spotifyEmbedUrl, 'https://open.spotify.com/embed/track/oldTrack123');
+  assert.equal(existingSpotifyDoc.previewUrl, 'https://p.scdn.co/mp3-preview/old');
+
+  const lastfmUpdate = musicStatusToMap(
+    track({
+      trackName: 'New Last.fm Song',
+    }),
+  );
+  const merged = { ...existingSpotifyDoc, ...lastfmUpdate };
+  assert.equal(merged.trackName, 'New Last.fm Song');
+  assert.equal(merged.spotifyTrackId, null);
+  assert.equal(merged.spotifyEmbedUrl, null);
+  assert.equal(merged.previewUrl, null);
 });

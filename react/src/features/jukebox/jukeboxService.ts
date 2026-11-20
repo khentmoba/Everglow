@@ -20,6 +20,7 @@ import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/u
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 import {
   mergeRecentTracks,
+  musicStatusToMap,
   musicStatusTrackKey,
   normTrackText,
   pickPreferredMusicStatus,
@@ -483,22 +484,6 @@ export async function fetchSpotifyPlayback(
     Logger.w(`Spotify playback fetch failed: ${String(e)}`);
     return null;
   }
-}
-
-function musicStatusToMap(status: MusicStatus): Record<string, unknown> {
-  return {
-    username: status.username,
-    trackName: status.trackName,
-    artistName: status.artistName,
-    albumName: status.albumName,
-    imageUrl: status.imageUrl,
-    isPlaying: status.isPlaying,
-    spotifyUrl: status.spotifyUrl,
-    timestamp: status.timestamp ? status.timestamp.toISOString() : null,
-    ...(status.spotifyTrackId != null ? { spotifyTrackId: status.spotifyTrackId } : {}),
-    ...(status.spotifyEmbedUrl != null ? { spotifyEmbedUrl: status.spotifyEmbedUrl } : {}),
-    ...(status.previewUrl != null ? { previewUrl: status.previewUrl } : {}),
-  };
 }
 
 const lastSyncedTrackKeys: Record<string, string> = {};
