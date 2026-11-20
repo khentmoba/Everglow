@@ -21,6 +21,7 @@ import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { cinemaPreferences } from './cinemaPreferences';
 import { NetflixColors, resumeSecondsOf, type MediaItem } from './cinemaTypes';
+import { checkMovieStreamDuration, formatMinutesShort } from './movieDurationGuard';
 import {
   buildVideoSourceUrl,
   decodeMessage,
@@ -39,7 +40,7 @@ import {
   type NextEpisode,
   type VideoSourceConfig,
 } from './playerServices';
-import { getSavedProgress, heartbeatProgress, isWatchedItem, updateProgress } from './tmdbService';
+import { fetchMediaDetails, getSavedProgress, heartbeatProgress, isWatchedItem, updateProgress } from './tmdbService';
 import {
   CinematicLoader,
   CompactViewingPreferences,
@@ -174,6 +175,9 @@ class PlayerController {
   private memoryRevision = 0;
   positionSeconds = 0;
   durationSeconds = 0;
+  expectedRuntimeMinutes: number | null = null;
+  durationWarning: { actualMinutes: number; expectedMinutes: number; providerId: string } | null = null;
+  private durationWarningDismissed = false;
 
   nextEpisode: NextEpisode | null = null;
   upNextVisible = false;
@@ -200,13 +204,14 @@ class PlayerController {
   playerHost: HTMLDivElement | null = null;
   private video: HTMLVideoElement | null = null;
   private isOfflinePlayback = false;
-  private exitButton: HTMLButtonElement | null = null;
+  private exitButton: HTMLDivElement | null = null;
   private exitFadeTimer: number | null = null;
   private exitWakeListener: (() => void) | null = null;
   private bodyOverflowPrev: string | null = null;
   private externalTmdbId: number | undefined;
   private unsubscribers: Array<() => void> = [];
   onShowEpisodesSheet?: () => void;
+  onShowProviderSheet?: () => void;
 
   get offlinePlayback() {
     return this.isOfflinePlayback;
@@ -218,6 +223,7 @@ class PlayerController {
 
   setHostHidden(hidden: boolean) {
     if (this.hostHidden === hidden) return;
+    if (this.exitButton) this.exitButton.style.display = hidden ? 'none' : 'flex';
     this.setState(() => (this.hostHidden = hidden));
   }
 
@@ -324,6 +330,7 @@ class PlayerController {
     this.unsubscribers.push(() => document.removeEventListener('visibilitychange', onHide));
 
     void this.resolveNext();
+    void this.resolveExpectedRuntime();
     if (!this.isOfflinePlayback) {
       if (this.p.isAnime) void this.bootstrapAnime();
       else this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
@@ -549,6 +556,9 @@ class PlayerController {
     ++this.restoreRevision;
     this.resolvedStartSeconds = this.positionSeconds;
     this.cancelUpNext();
+    this.durationSeconds = 0;
+    this.durationWarning = null;
+    this.durationWarningDismissed = false;
     const next = this.selectableProviders.find((p) => !this.failedProviderIds.has(p.id));
     if (next) {
       this.setState(() => {
@@ -571,6 +581,9 @@ class PlayerController {
     this.resolvedStartSeconds = this.positionSeconds;
     this.cancelUpNext();
     this.failedProviderIds.clear();
+    this.durationSeconds = 0;
+    this.durationWarning = null;
+    this.durationWarningDismissed = false;
     this.setState(() => {
       this.selectedProvider = provider;
       this.isLoading = true;
@@ -581,6 +594,76 @@ class PlayerController {
     this.iframe.src = this.buildPlayerUrl(provider);
     this.persistPlayerMemory();
     this.syncExitButton();
+  }
+
+  get nextAlternativeProvider(): VideoSourceConfig | null {
+    return (
+      this.selectableProviders.find(
+        (p) => p.id !== this.selectedProvider.id && !this.failedProviderIds.has(p.id),
+      ) ??
+      this.selectableProviders.find((p) => p.id !== this.selectedProvider.id) ??
+      null
+    );
+  }
+
+  dismissDurationWarning = () => {
+    this.setState(() => {
+      this.durationWarning = null;
+      this.durationWarningDismissed = true;
+    });
+  };
+
+  private async resolveExpectedRuntime() {
+    if (this.p.mediaType !== 'movie' || this.p.isAnime || this.p.tmdbId <= 0) return;
+    try {
+      const details = await fetchMediaDetails(this.p.tmdbId, 'movie');
+      if (!this.mounted) return;
+      const rt = details?.runtime;
+      if (typeof rt === 'number' && Number.isFinite(rt) && rt > 0) {
+        this.expectedRuntimeMinutes = rt;
+        if (this.durationSeconds > 0) this.handleMovieDuration(this.durationSeconds);
+      }
+    } catch (e) {
+      Logger.e('Cinema: runtime lookup failed', e);
+    }
+  }
+
+  private handleMovieDuration(durationSeconds: number): boolean {
+    if (!this.mounted || this.isOfflinePlayback || this.p.mediaType !== 'movie' || this.p.isAnime) return false;
+    const check = checkMovieStreamDuration(durationSeconds, this.expectedRuntimeMinutes);
+    if (check.kind === 'ok') {
+      if (this.durationWarning) this.setState(() => (this.durationWarning = null));
+      return false;
+    }
+    if (check.kind === 'decoy') {
+      const hasFallback = this.selectableProviders.some(
+        (p) => p.id !== this.selectedProvider.id && !this.failedProviderIds.has(p.id),
+      );
+      if (hasFallback) {
+        const prev = this.selectedProvider.name;
+        Logger.e(
+          `[VideoPlayerScreen] ${prev} returned a short clip (${check.actualMinutes}m vs expected ${check.expectedMinutes}m); failing over`,
+        );
+        showSnackBar(`${prev} returned a short clip — trying next server`, { duration: 3000 });
+        if (this.selectedProvider.id === 'everglow-shell') this.failedProviderIds.add('flux-cinesrc');
+        this.onIframeLoadError();
+        return true;
+      }
+    }
+    if (
+      !this.durationWarningDismissed &&
+      (this.durationWarning?.providerId !== this.selectedProvider.id ||
+        this.durationWarning?.actualMinutes !== check.actualMinutes)
+    ) {
+      this.setState(() => {
+        this.durationWarning = {
+          actualMinutes: check.actualMinutes,
+          expectedMinutes: check.expectedMinutes,
+          providerId: this.selectedProvider.id,
+        };
+      });
+    }
+    return false;
   }
 
   // --- episodes ---
@@ -724,6 +807,7 @@ class PlayerController {
 
   private onPlaybackTick(position: number, duration: number) {
     if (!this.mounted) return;
+    if (duration > 0 && this.handleMovieDuration(duration)) return;
     if (position !== this.positionSeconds || duration !== this.durationSeconds) {
       this.setState(() => {
         this.positionSeconds = position;
@@ -1018,7 +1102,11 @@ class PlayerController {
       }
       if (map?.type === 'cinesrc:loadedmetadata' && trustsCinesrcProgressEvent(id, origin)) {
         const d = map.duration;
-        if (typeof d === 'number' && Number.isFinite(d) && d > 0) this.clearContentCheck();
+        if (typeof d === 'number' && Number.isFinite(d) && d > 0) {
+          this.durationSeconds = Math.round(d);
+          if (this.handleMovieDuration(this.durationSeconds)) return;
+          this.clearContentCheck();
+        }
         return;
       }
       if (map?.type === 'cinesrc:timeupdate') {
@@ -1161,16 +1249,19 @@ class PlayerController {
 
   private showExitButton() {
     if (this.exitButton) return;
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = 'Exit theater';
-    b.setAttribute('aria-label', 'Exit theater');
-    Object.assign(b.style, {
+    const bar = document.createElement('div');
+    Object.assign(bar.style, {
       position: 'fixed',
       top: 'calc(10px + env(safe-area-inset-top, 0px))',
       left: '50%',
       transform: 'translateX(-50%)',
       zIndex: '10000',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      transition: 'opacity 0.25s ease',
+    });
+    const pillStyle = {
       padding: '8px 14px',
       background: this.p.isAnime ? 'rgba(20, 14, 28, 0.88)' : 'rgba(12, 12, 14, 0.88)',
       border: '1px solid rgba(255, 255, 255, 0.28)',
@@ -1182,11 +1273,26 @@ class PlayerController {
       fontWeight: '700',
       fontFamily: 'system-ui, sans-serif',
       userSelect: 'none',
-      transition: 'opacity 0.25s ease',
-    });
+      whiteSpace: 'nowrap',
+    };
+    if (!this.isOfflinePlayback) {
+      const sv = document.createElement('button');
+      sv.type = 'button';
+      sv.textContent = 'Switch server';
+      sv.setAttribute('aria-label', 'Switch server');
+      Object.assign(sv.style, pillStyle);
+      sv.addEventListener('click', () => this.onShowProviderSheet?.());
+      bar.appendChild(sv);
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Exit theater';
+    b.setAttribute('aria-label', 'Exit theater');
+    Object.assign(b.style, pillStyle);
     b.addEventListener('click', () => this.toggleFullScreen());
-    document.body.appendChild(b);
-    this.exitButton = b;
+    bar.appendChild(b);
+    document.body.appendChild(bar);
+    this.exitButton = bar;
 
     const wakeExitButton = () => {
       const btn = this.exitButton;
@@ -1333,7 +1439,11 @@ function VideoPlayerScreen(props: PlayerProps) {
   c.onShowEpisodesSheet = showEpisodesSheet;
 
   const showProviderSheet = () => {
+    if (!c.mounted) return;
+    if (document.fullscreenElement != null) void document.exitFullscreen().catch(() => undefined);
+    const wasFullscreen = c.isFullscreen;
     c.setIframePointerEvents(false);
+    if (wasFullscreen) c.setHostHidden(true);
     void showModalBottomSheet<VideoSourceConfig>((close) => (
       <ProviderSheet
         providers={c.selectableProviders}
@@ -1346,10 +1456,13 @@ function VideoPlayerScreen(props: PlayerProps) {
         onPick={(p) => close(p)}
       />
     )).then((provider) => {
+      if (!c.mounted) return;
       c.setIframePointerEvents(true);
+      if (wasFullscreen) c.setHostHidden(false);
       if (provider) c.selectProvider(provider);
     });
   };
+  c.onShowProviderSheet = showProviderSheet;
 
   const metaBadge = (icon: string, label: string) => (
     <div
@@ -1427,7 +1540,20 @@ function VideoPlayerScreen(props: PlayerProps) {
           >
             {title}
           </div>
-          <div style={{ width: 12, flexShrink: 0 }} />
+          <div style={{ width: compact ? 8 : 12, flexShrink: 0 }} />
+          {!c.offlinePlayback && (
+            <>
+              <Tooltip message="Switch server">
+                <PlayerPillButton
+                  icon="swap_horiz"
+                  label={compact ? 'Servers' : `Servers · ${c.selectedProvider.shortName}`}
+                  compact={compact}
+                  onTap={showProviderSheet}
+                />
+              </Tooltip>
+              <div style={{ width: compact ? 6 : 8, flexShrink: 0 }} />
+            </>
+          )}
           <Tooltip message="Download">
             {compact ? (
               <PlayerIconButton icon="download" compact onTap={showDownloadSheet} />
@@ -1435,7 +1561,7 @@ function VideoPlayerScreen(props: PlayerProps) {
               <PlayerPillButton icon="download" label="Download" onTap={showDownloadSheet} />
             )}
           </Tooltip>
-          <div style={{ width: 8, flexShrink: 0 }} />
+          <div style={{ width: compact ? 6 : 8, flexShrink: 0 }} />
           <Tooltip message="Theater mode">
             <PlayerIconButton icon="fullscreen" compact={compact} onTap={c.toggleFullScreen} />
           </Tooltip>
@@ -1455,7 +1581,7 @@ function VideoPlayerScreen(props: PlayerProps) {
             />
           </div>
         ) : (
-          <div style={{ height: maxPlayerHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ height: full ? height : c.playerAreaHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div
               style={{
                 position: 'relative',
@@ -1516,7 +1642,62 @@ function VideoPlayerScreen(props: PlayerProps) {
               onEpisodeChanged={c.onEpisodeChanged}
             />
           )}
-          <CompactViewingPreferences />
+          {isTv && <CompactViewingPreferences />}
+          {c.durationWarning && (
+            <div style={{ padding: '12px 20px 0' }}>
+              <div
+                role="status"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: AppRadius.x2,
+                  background: withAlpha(accent, 0.14),
+                  border: `1px solid ${withAlpha(accent, 0.45)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Icon name="warning_amber" size={18} color={accent} />
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                  <div style={{ ...AppTypography.outfitHeading, color: '#fff', fontSize: 12, lineHeight: lineHeight(12) }}>
+                    This stream is {formatMinutesShort(c.durationWarning.actualMinutes)} (expected ~
+                    {formatMinutesShort(c.durationWarning.expectedMinutes)}) — it may be the wrong movie.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="bare-button player-focusable"
+                  onClick={() => {
+                    const alt = c.nextAlternativeProvider;
+                    if (alt) c.selectProvider(alt);
+                    else showProviderSheet();
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: AppRadius.full,
+                    background: accent,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    ...AppTypography.outfitBold,
+                    fontSize: 11,
+                    lineHeight: lineHeight(11),
+                  }}
+                >
+                  {c.nextAlternativeProvider ? `Try ${c.nextAlternativeProvider.name}` : 'Switch server'}
+                </button>
+                <button
+                  type="button"
+                  className="bare-button player-focusable"
+                  aria-label="Dismiss stream warning"
+                  onClick={c.dismissDurationWarning}
+                  style={{ display: 'flex', padding: 4, cursor: 'pointer', color: secondary }}
+                >
+                  <Icon name="close" size={16} color={secondary} />
+                </button>
+              </div>
+            </div>
+          )}
           <div style={{ padding: '16px 20px 0' }}>
             <div
               role="button"
@@ -1632,7 +1813,7 @@ function ProviderSheet({
           <div
             style={{ ...AppTypography.outfitMuted, color: 'rgba(255,255,255,0.54)', fontSize: 12, lineHeight: lineHeight(12) }}
           >
-            Select a streaming provider
+            Wrong movie or won't play? Try another server
           </div>
           <div style={{ height: 16 }} />
           <div style={{ alignSelf: 'stretch', padding: '0 16px' }}>
