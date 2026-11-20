@@ -9,6 +9,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { isEditableTarget, resolveEverglowPlayerKey } from '../src/shared/widgets/everglowPlayerKeys.ts';
+import { checkMovieStreamDuration, formatMinutesShort } from '../src/features/cinema/movieDurationGuard.ts';
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const TYPES = {
@@ -279,6 +280,154 @@ test('OfflineVideoHud mounts over cached offline video and drives playback, sett
     await unlockBtn.waitFor({ state: 'visible', timeout: 5_000 });
     await unlockBtn.click();
     await page.locator('button[aria-label="Settings"]').waitFor({ state: 'visible', timeout: 5_000 });
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('Cinema movie player keeps server switcher reachable on phone portrait, landscape, and theater mode', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+
+    await page.route('https://everglow-1c6db.web.app/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body></body></html>' });
+    });
+    await page.route('https://everglow-stream.khentplaysmoba.workers.dev/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body></body></html>' });
+    });
+
+    await page.goto(`${baseUrl}/cinema/video/4348?type=movie&title=Pride%20%26%20Prejudice&agent=1&hud=0`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+
+    const layout = await page.evaluate(() => {
+      const iframe = document.querySelector('iframe');
+      const provCard = [...document.querySelectorAll('[role="button"]')].find((el) =>
+        el.textContent?.includes('Provider:'),
+      );
+      const topServers = [...document.querySelectorAll('button')].find(
+        (b) => b.textContent?.includes('Servers'),
+      );
+      const bodyText = document.body.innerText;
+      return {
+        iframeRect: iframe?.getBoundingClientRect().toJSON() ?? null,
+        provRect: provCard?.getBoundingClientRect().toJSON() ?? null,
+        topServersRect: topServers?.getBoundingClientRect().toJSON() ?? null,
+        hasHideSpoilers: bodyText.includes('Hide spoilers'),
+        hasAutoplayNext: bodyText.includes('Autoplay next episode'),
+      };
+    });
+
+    assert.ok(layout.iframeRect, 'movie iframe should mount');
+    assert.ok(layout.iframeRect.top <= 64, `portrait player should sit directly under header, got top=${layout.iframeRect.top}`);
+    assert.ok(layout.provRect && layout.provRect.bottom < 420, `provider card should sit immediately below video, got ${JSON.stringify(layout.provRect)}`);
+    assert.ok(layout.topServersRect && layout.topServersRect.width > 0, 'top bar Servers button should be visible on phone portrait');
+    assert.equal(layout.hasHideSpoilers, false, 'movie page should not show TV-only Hide spoilers chip');
+    assert.equal(layout.hasAutoplayNext, false, 'movie page should not show TV-only Autoplay next episode chip');
+
+    // Landscape phone: top-bar Servers button stays visible above the fold and opens Switch Provider.
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.waitForTimeout(100);
+    const landscapeServers = page.getByRole('button', { name: /Servers/ }).first();
+    await landscapeServers.waitFor({ state: 'visible', timeout: 5_000 });
+    const box = await landscapeServers.boundingBox();
+    assert.ok(box && box.y >= 0 && box.y + box.height <= 60, `landscape top-bar Servers button should be in header, got ${JSON.stringify(box)}`);
+    await landscapeServers.click();
+    await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('text=Switch Provider', { state: 'detached', timeout: 5_000 });
+
+    // Theater mode exposes Switch server alongside Exit theater and switches to Everglow.
+    await page.locator('button').filter({ has: page.locator('span:text-is("fullscreen")') }).click();
+    const switchInTheater = page.locator('button[aria-label="Switch server"]');
+    await switchInTheater.waitFor({ state: 'visible', timeout: 5_000 });
+    await switchInTheater.click();
+    await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
+    await page.getByText('No ads — Everglow player').click();
+    await page.waitForFunction(
+      () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),
+      null,
+      { timeout: 5_000 },
+    );
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('checkMovieStreamDuration detects decoy clips and wrong-movie runtime mismatches without false positives', () => {
+  // Pride & Prejudice (2005) = 129m; CineSrc 2003 mismatch = 6198s (103m); Everglow = 7689s (128m).
+  assert.deepEqual(checkMovieStreamDuration(7689, 129), { kind: 'ok' });
+  assert.deepEqual(checkMovieStreamDuration(6198, 129), { kind: 'mismatch', actualMinutes: 103, expectedMinutes: 129 });
+  // Trailer / decoy under 15 minutes for a feature film.
+  assert.deepEqual(checkMovieStreamDuration(180, 129), { kind: 'decoy', actualMinutes: 3, expectedMinutes: 129 });
+  // PAL 4% speedup (115m vs 120m) and short films (<45m) stay ok.
+  assert.deepEqual(checkMovieStreamDuration(115 * 60, 120), { kind: 'ok' });
+  assert.deepEqual(checkMovieStreamDuration(10 * 60, 25), { kind: 'ok' });
+  assert.equal(formatMinutesShort(103), '1h 43m');
+  assert.equal(formatMinutesShort(42), '42m');
+});
+
+test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-fails over on short decoy clips', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+
+    let shellDuration = 4200;
+    await page.route('https://everglow-1c6db.web.app/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: `<!doctype html><html><body><script>
+          window.parent.postMessage({ type: 'cinesrc:loadedmetadata', duration: ${shellDuration} }, '*');
+        </script></body></html>`,
+      });
+    });
+    await page.route('https://everglow-stream.khentplaysmoba.workers.dev/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body></body></html>' });
+    });
+
+    // 1. Mismatch (70m vs 104m agent runtime): shows warning banner with 1-tap Try Everglow button.
+    await page.goto(`${baseUrl}/cinema/video/900000?type=movie&title=Moonlit%20Cinema&agent=1&hud=0`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForSelector('text=may be the wrong movie', { timeout: 10_000 });
+    await page.getByRole('button', { name: 'Try Everglow' }).click();
+    await page.waitForFunction(
+      () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),
+      null,
+      { timeout: 5_000 },
+    );
+    assert.equal(await page.locator('text=may be the wrong movie').count(), 0);
+
+    // 2. Short decoy clip (3m vs 104m): auto-fails over from Celestia to Everglow.
+    shellDuration = 180;
+    await page.goto(`${baseUrl}/cinema/video/900001?type=movie&title=The%20Lantern%20Trail&agent=1&hud=0`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForFunction(
+      () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),
+      null,
+      { timeout: 10_000 },
+    );
 
     assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
     await context.close();
