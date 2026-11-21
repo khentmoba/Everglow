@@ -40,12 +40,7 @@ export function IncomingWatchPartyBanner() {
       role="region"
       aria-label="Incoming Watch Party invitation"
       style={{
-        position: 'fixed',
-        top: 'calc(env(safe-area-inset-top, 0px) + 14px)',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1300,
-        width: 'min(92vw, 420px)',
+        width: 'min(100%, 420px)',
         padding: '10px 12px',
         borderRadius: 16,
         background: withAlpha(AppColors.plum, 0.96),
@@ -54,6 +49,7 @@ export function IncomingWatchPartyBanner() {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
+        pointerEvents: 'auto',
       }}
     >
       <div

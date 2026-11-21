@@ -20,8 +20,12 @@ export function routeFromNotification(data: Record<string, string> | undefined):
     case 'special_day':
     case 'special_day_upcoming':
     case 'mood_checkin':
-    case 'watch_party_invite':
       return '/dashboard';
+    case 'watch_party_invite': {
+      const roomId = data?.roomId?.trim();
+      if (roomId) return `/watch-party?room=${encodeURIComponent(roomId)}`;
+      return '/watch-party';
+    }
     case 'starlight_drop':
       return '/starlight';
     case 'watchlist_update':

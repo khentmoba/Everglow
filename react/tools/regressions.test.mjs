@@ -509,3 +509,41 @@ test('Stale Flutter session stays on Gateway instead of broken Cinema, and Cinem
     server.close();
   }
 });
+
+test('Mobile polish: Dashboard Quick Access 8+More, Cinema tab URL/Back sync, and zoomable viewport', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/dashboard?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Quick Access', { timeout: 10_000 });
+
+    const viewportContent = await page.locator('meta[name="viewport"]').getAttribute('content');
+    assert.ok(viewportContent && !/user-scalable\s*=\s*no/i.test(viewportContent) && !/maximum-scale\s*=\s*1(\.0)?/i.test(viewportContent),
+      `viewport should allow mobile zoom, got: ${viewportContent}`);
+
+    await page.waitForSelector('button[aria-label="Cinema"]', { timeout: 5_000 });
+    assert.equal(await page.locator('button[aria-label="Desktop App"]').count(), 0);
+    await page.getByRole('button', { name: /More spaces \(7\)/ }).click();
+    await page.waitForSelector('button[aria-label="Desktop App"]', { timeout: 5_000 });
+    await page.getByRole('button', { name: 'Show less' }).click();
+    assert.equal(await page.locator('button[aria-label="Desktop App"]').count(), 0);
+
+    await page.goto(`${baseUrl}/cinema?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('button:has-text("Search")', { timeout: 10_000 });
+    await page.locator('button:has-text("Search")').first().click();
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('tab') === '1', null, { timeout: 5_000 });
+    await page.goBack();
+    await page.waitForFunction(() => location.pathname === '/cinema' && !new URL(location.href).searchParams.has('tab'), null, { timeout: 5_000 });
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

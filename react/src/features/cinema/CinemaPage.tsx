@@ -1,7 +1,6 @@
 // Port of lib/features/cinema/presentation/screens/cinema_screen.dart and tabs/*.dart.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { AgentMode } from '../../core/agent/agentMode';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppBreakpoint } from '../../core/theme/layout';
@@ -62,19 +61,17 @@ const DISCOVERY_SHELVES: DiscoveryShelf[] = [
 export function CinemaPage() {
   const auth = useAuth();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setSearchParams] = useSearchParams();
   const { width, height } = useViewport();
 
-  const initialBrowse = params.get('browse');
-  const initialTab = initialBrowse ? 2 : Math.max(0, Math.min(5, Number(params.get('tab') ?? 0) || 0));
+  const selectedBrowseId = params.get('browse');
+  const currentTab = selectedBrowseId ? 2 : Math.max(0, Math.min(5, Number(params.get('tab') ?? 0) || 0));
 
-  const [currentTab, setCurrentTab] = useState(initialTab);
-  const [selectedBrowseId, setSelectedBrowseId] = useState<string | null>(initialBrowse);
-  const [browseSeed, setBrowseSeed] = useState(initialBrowse ? 1 : 0);
+  const [browseSeed, setBrowseSeed] = useState(selectedBrowseId ? 1 : 0);
   const [scrolled, setScrolled] = useState(false);
 
   const userName = auth.currentUser ?? '';
-  const isCoupleUser = auth.isCoupleUser && !AgentMode.isActive.value ? true : auth.isCoupleUser;
+  const isCoupleUser = auth.isCoupleUser;
   const isCinemaOnlyUser = auth.isCinemaOnlyUser;
   const isDesktop = width >= AppBreakpoint.tablet;
 
@@ -166,7 +163,7 @@ export function CinemaPage() {
 
   // Home rails load the first time Home is shown (initState / `_switchTab(0)`),
   // or not at all while the cache is under ten minutes old.
-  const checkFreshness = useRef(initialTab === 0);
+  const checkFreshness = useRef(currentTab === 0);
   useEffect(() => {
     if (currentTab !== 0 || homeRequest.current !== 0) return;
     const fresh = checkFreshness.current && CinemaHomeCache.isFresh(10 * 60 * 1000);
@@ -175,13 +172,25 @@ export function CinemaPage() {
     else void loadHome();
   }, [currentTab, loadHome]);
 
-  const handleNavSelect = (tab: number, browseOptionId?: string) => {
-    if (browseOptionId) {
-      setSelectedBrowseId(browseOptionId);
-      setBrowseSeed((n) => n + 1);
-    }
-    setCurrentTab(tab);
-  };
+  const handleNavSelect = useCallback(
+    (tab: number, browseOptionId?: string) => {
+      const clamped = Math.max(0, Math.min(5, tab));
+      if (browseOptionId) setBrowseSeed((n) => n + 1);
+      const next = new URLSearchParams(params);
+      if (browseOptionId) {
+        next.set('browse', browseOptionId);
+        next.delete('tab');
+      } else {
+        next.delete('browse');
+        if (clamped === 0) next.delete('tab');
+        else next.set('tab', String(clamped));
+      }
+      if (next.toString() !== params.toString()) {
+        setSearchParams(next);
+      }
+    },
+    [params, setSearchParams],
+  );
 
   const launchPlayer = (item: MediaItem, season?: number, episode?: number, opts?: { restart?: boolean }) => {
     const resume = opts?.restart ? 0 : resumeSecondsOf(item);
@@ -328,7 +337,7 @@ export function CinemaPage() {
             onRestart={(item) => launchPlayer(item, undefined, undefined, { restart: true })}
             onToggleList={(item, add) => void setListMembership(item, userName, add)}
             isInList={(item) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(item) && w.status.toLowerCase() === 'to-watch')}
-            onExploreBrowse={() => setCurrentTab(2)}
+            onExploreBrowse={() => handleNavSelect(2)}
           />
         )}
         {currentTab === 1 && (
@@ -336,7 +345,7 @@ export function CinemaPage() {
         )}
         {currentTab === 2 && (
           <CinemaBrowseTab
-            key={`browse-${browseSeed}`}
+            key={`browse-${selectedBrowseId ?? 'none'}-${browseSeed}`}
             width={width}
             initialOptionId={selectedBrowseId}
             onMediaTap={setDrawerItem}
@@ -348,7 +357,7 @@ export function CinemaPage() {
             watchlist={watchlist}
             onMediaTap={setDrawerItem}
             onRemoveProgress={(item) => void clearWatchProgress(item, userName)}
-            onSwitchTab={setCurrentTab}
+            onSwitchTab={handleNavSelect}
           />
         )}
         {currentTab === 4 && (
@@ -357,10 +366,10 @@ export function CinemaPage() {
             width={width}
             watchlist={watchlist}
             onMediaTap={setDrawerItem}
-            onSwitchTab={setCurrentTab}
+            onSwitchTab={handleNavSelect}
           />
         )}
-        {currentTab === 5 && <CinemaDownloadsTab width={width} onBrowseCinema={() => setCurrentTab(0)} />}
+        {currentTab === 5 && <CinemaDownloadsTab width={width} onBrowseCinema={() => handleNavSelect(0)} />}
         <div style={{ height: 100 }} />
       </div>
 
@@ -483,7 +492,7 @@ function HomeTab({
               borderRadius: 8,
               background: NetflixColors.surfaceElevated,
               ...AppTypography.outfitBold,
-              color: '#FFFFFF',
+              color: NetflixColors.textPrimary,
             }}
           >
             Try again
