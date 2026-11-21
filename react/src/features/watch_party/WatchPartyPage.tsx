@@ -1,9 +1,8 @@
 // Port of lib/features/watch_party/presentation/screens/watch_party_lobby_screen.dart
 // and watch_party_screen_web.dart.
-import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { useAuth } from '../../core/services/auth';
+import { displayNameFor, useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
@@ -13,6 +12,21 @@ import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { TmdbImages } from '../cinema/cinemaTypes';
+import { MediaSectionMenuButton } from '../cinema/NetflixUi';
+import {
+  checkCommunityRoomMembership,
+  communityRoomChatStream,
+  communityRoomsStream,
+  communityRoomStream,
+  createCommunityWatchPartyRoom,
+  deleteCommunityWatchPartyRoom,
+  isCommunityRoomUnlocked,
+  sendCommunityRoomChatMessage,
+  unlockCommunityWatchPartyRoom,
+  updateCommunityRoomMedia,
+  updateCommunityWatchPartyRoom,
+  type CommunityWatchPartyRoom,
+} from './communityWatchPartyService';
 import { HlsServerPlayer } from './HlsServerPlayer';
 import { showEpisodePicker, showWatchPartyMediaPicker } from './WatchPartyPickerSheets';
 import {
@@ -26,16 +40,15 @@ import {
   sendRoomChatMessage,
   updateRoomMedia,
   updateWatchPartyRoom,
+  type WatchPartyChatMessage,
   type WatchPartyRoom,
 } from './watchPartyService';
 import {
   BUILTIN_WATCH_PARTY_SERVERS,
   cinesrcCommand,
   isUserSeek,
-  loadWatchPartyServers,
   parseCinesrcEvent,
   WatchPartyClock,
-  type WatchPartyServer,
 } from './watchPartySync';
 
 function resolvePoster(path: string): string {
@@ -51,13 +64,18 @@ export function WatchPartyPage() {
   const [params] = useSearchParams();
   const myUid = auth.uid ?? '';
   const activeRoomId = params.get('room');
+  const scope = params.get('scope') === 'hub' ? 'hub' : 'private';
+  const [hubTab, setHubTab] = useState<'hub' | 'couple'>('hub');
 
   if (activeRoomId) {
     return (
       <WatchPartyRoomView
+        key={`${scope}:${activeRoomId}`}
         roomId={activeRoomId}
+        scope={scope}
         myUid={myUid}
-        myName={auth.currentUser ?? 'Khent'}
+        myName={auth.currentUser ?? 'member'}
+        isCoupleUser={auth.isCoupleUser}
         onExit={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/watch-party', { replace: true }))}
       />
     );
@@ -65,12 +83,73 @@ export function WatchPartyPage() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
-      <EverglowFeatureHeader
-        title="Watch Together"
-        subtitle="pick a room, press play"
-        icon="live_tv"
-        hue={AppColors.auroraRose}
-      />
+      <header
+        style={{
+          padding: '12px 16px',
+          paddingTop: 'calc(12px + env(safe-area-inset-top))',
+          background: withAlpha(AppColors.inkDeep, 0.96),
+          borderBottom: `1px solid ${Derived.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexShrink: 0,
+        }}
+      >
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Back"
+          onClick={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(auth.isCoupleUser ? '/dashboard' : '/cinema'))}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: '50%',
+            background: withAlpha(AppColors.petalWhite, 0.07),
+            border: `1px solid ${Derived.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="arrow_back" size={20} color={AppColors.petalWhite} />
+        </button>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="live_tv" size={18} color={AppColors.auroraRose} />
+            <span style={{ ...AppTypography.outfitHeading, fontSize: 17, color: AppColors.petalWhite }}>
+              Watch Party
+            </span>
+          </div>
+          <div style={{ ...AppTypography.outfitWhite, fontSize: 12, color: Derived.textMuted }}>
+            Cinema &amp; Anime · Synced on Everglow Server
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Open Global Chat"
+          onClick={() => navigate('/global-chat')}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 999,
+            background: withAlpha(AppColors.petalWhite, 0.07),
+            border: `1px solid ${Derived.border}`,
+            color: AppColors.petalWhite,
+            ...AppTypography.outfitBold,
+            fontSize: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <Icon name="forum" size={15} color={AppColors.blushGold} />
+          <span>Chat</span>
+        </button>
+
+        <MediaSectionMenuButton currentRoute="/watch-party" />
+      </header>
 
       <div
         className="no-scrollbar"
@@ -79,11 +158,552 @@ export function WatchPartyPage() {
           overflowY: 'auto',
           padding: `${AppSpacing.lg}px ${AppSpacing.xl}px ${AppSpacing.x3}px`,
           width: '100%',
+          maxWidth: 780,
+          margin: '0 auto',
+          boxSizing: 'border-box',
         }}
       >
-        <WatchPartyLobby />
+        {auth.isCoupleUser && (
+          <div
+            role="tablist"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 6,
+              padding: 4,
+              borderRadius: AppRadius.sm,
+              background: withAlpha(AppColors.shimmerBase, 0.72),
+              border: `1px solid ${Derived.border}`,
+              marginBottom: AppSpacing.md,
+            }}
+          >
+            {(
+              [
+                ['hub', 'Watch Party Hub'],
+                ['couple', 'Just Us Rooms'],
+              ] as const
+            ).map(([id, label]) => {
+              const active = hubTab === id;
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={active}
+                  type="button"
+                  className="bare-button"
+                  onClick={() => setHubTab(id)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    background: active ? withAlpha(AppColors.deepRose, 0.28) : 'transparent',
+                    border: `1px solid ${active ? withAlpha(AppColors.blushGold, 0.45) : 'transparent'}`,
+                    color: active ? AppColors.petalWhite : Derived.textMuted,
+                    ...AppTypography.outfitBold,
+                    fontSize: 12.5,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {auth.isCoupleUser && hubTab === 'couple' ? <WatchPartyLobby /> : <CommunityWatchPartyHub />}
       </div>
     </div>
+  );
+}
+
+export function CommunityWatchPartyHub() {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const myUid = auth.uid ?? '';
+  const myUsername = auth.currentUser ?? '';
+  const rooms = useSource(() => communityRoomsStream(), [], []);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [roomName, setRoomName] = useState('');
+  const [roomPassword, setRoomPassword] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [joiningRoom, setJoiningRoom] = useState<CommunityWatchPartyRoom | null>(null);
+  const [joinPassword, setJoinPassword] = useState('');
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const openHubRoom = (roomId: string) => {
+    navigate(`/watch-party?room=${encodeURIComponent(roomId)}&scope=hub`);
+  };
+
+  const handleCreate = async () => {
+    if (!myUid || !myUsername || creating) return;
+    setCreating(true);
+    try {
+      const created = await createCommunityWatchPartyRoom({
+        hostUid: myUid,
+        hostName: myUsername,
+        name: roomName,
+        password: roomPassword,
+      });
+      setCreateOpen(false);
+      setRoomName('');
+      setRoomPassword('');
+      openHubRoom(created.id);
+    } catch {
+      showSnackBar('Could not create Watch Party room. Try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleJoinClick = async (room: CommunityWatchPartyRoom) => {
+    const canBypass =
+      !room.hasPassword ||
+      room.hostUid === myUid ||
+      auth.isCoupleUser ||
+      isCommunityRoomUnlocked(room.id) ||
+      (await checkCommunityRoomMembership(room.id, myUid));
+    if (!canBypass) {
+      setJoiningRoom(room);
+      setJoinPassword('');
+      setJoinError(null);
+      return;
+    }
+    if (!isRoomLive(room) && room.hostUid === myUid) {
+      await updateCommunityWatchPartyRoom(room.id, { active: true, state: 'paused', updatedBy: myUid }).catch(() => {});
+    }
+    openHubRoom(room.id);
+  };
+
+  const handleVerifyPassword = async () => {
+    if (!joiningRoom) return;
+    const res = await unlockCommunityWatchPartyRoom(joiningRoom.id, joinPassword);
+    if (!res.ok) {
+      setJoinError(res.error || 'Incorrect room password.');
+      return;
+    }
+    const targetId = joiningRoom.id;
+    setJoiningRoom(null);
+    setJoinPassword('');
+    setJoinError(null);
+    openHubRoom(targetId);
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+        <div
+          style={{
+            marginBottom: AppSpacing.md,
+            padding: '10px 14px',
+            borderRadius: AppRadius.sm,
+            background: withAlpha(AppColors.blushGold, 0.08),
+            border: `1px solid ${withAlpha(AppColors.blushGold, 0.24)}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <Icon name="verified_user" size={18} color={AppColors.blushGold} />
+          <div style={{ fontSize: 12.5, color: Derived.textMedium, lineHeight: 1.4 }}>
+            Host a Cinema or Anime watch party, optionally add a password, or join any open room. All rooms run locked on{' '}
+            <strong style={{ color: AppColors.petalWhite }}>Everglow Server</strong> for reliable sync.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Host a watch party room"
+          onClick={() => setCreateOpen(true)}
+          style={{
+            padding: '14px 16px',
+            background: linear([AppColors.deepRose, AppColors.rosePressed]),
+            borderRadius: AppRadius.md,
+            boxShadow: boxShadow([{ offset: [0, 6], blur: 16, color: withAlpha(AppColors.deepRose, 0.35) }]),
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <Icon name="add_circle_outline" size={22} color={AppColors.petalWhite} />
+          <span style={{ flex: 1, textAlign: 'left', ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
+            Host a Watch Party
+          </span>
+          <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.78) }}>
+            Optional password
+          </span>
+        </button>
+
+        <div style={{ height: AppSpacing.md }} />
+
+        {rooms.length === 0 ? (
+          <div
+            style={{
+              padding: 28,
+              borderRadius: AppRadius.md,
+              background: Derived.surfaceGlass,
+              border: `1px solid ${Derived.border}`,
+              textAlign: 'center',
+            }}
+          >
+            <Icon name="meeting_room" variant="outlined" size={32} color={AppColors.roseQuartz} />
+            <div style={{ height: 8 }} />
+            <div style={{ ...AppTypography.outfitHeading, fontSize: 15 }}>No watch parties yet</div>
+            <div style={{ height: 4 }} />
+            <div style={{ ...AppTypography.outfitMedium, fontSize: 12.5, color: Derived.textMuted }}>
+              Host a room for Cinema movies, series, or Anime. Leave the password blank for an open room.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 12 }}>
+            {rooms.map((room) => {
+              const live = isRoomLive(room);
+              const hosting = room.hostUid === myUid;
+              const canDelete = hosting || auth.isCoupleUser;
+              const accent = live ? AppColors.success : AppColors.mutedPurple;
+              const subtitle =
+                !room.tmdbId && !room.title
+                  ? 'Picking a Cinema or Anime title…'
+                  : room.mediaType === 'tv' || room.isAnime
+                    ? `${room.title} · ${room.isAnime ? `Ep ${room.episode ?? 1}` : `S${room.season ?? 1} E${room.episode ?? 1}`}`
+                    : room.title;
+              const poster = resolvePoster(room.posterPath);
+
+              return (
+                <div
+                  key={room.id}
+                  style={{
+                    padding: 10,
+                    background: Derived.surfaceGlass,
+                    borderRadius: AppRadius.md,
+                    border: `1px solid ${live ? withAlpha(AppColors.deepRose, 0.55) : Derived.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="bare-button"
+                    onClick={() => void handleJoinClick(room)}
+                    style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}
+                  >
+                    <div
+                      style={{
+                        width: 52,
+                        height: 72,
+                        borderRadius: AppRadius.sm,
+                        overflow: 'hidden',
+                        background: AppColors.shimmerBase,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {poster ? (
+                        <img
+                          src={poster}
+                          alt={room.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        <Icon name="movie_filter" size={24} color={AppColors.mutedPurple} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            ...AppTypography.outfitHeading,
+                            color: AppColors.petalWhite,
+                            fontSize: 15,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {room.name}
+                        </span>
+                        <span
+                          style={{
+                            padding: '2px 6px',
+                            borderRadius: 6,
+                            background: withAlpha(accent, 0.16),
+                            ...AppTypography.outfitWhite,
+                            color: accent,
+                            fontSize: 8.5,
+                            fontWeight: 800,
+                            letterSpacing: '1px',
+                          }}
+                        >
+                          {live ? 'LIVE' : 'IDLE'}
+                        </span>
+                        <span
+                          style={{
+                            padding: '2px 6px',
+                            borderRadius: 6,
+                            background: room.hasPassword
+                              ? withAlpha(AppColors.blushGold, 0.16)
+                              : withAlpha(AppColors.petalWhite, 0.08),
+                            color: room.hasPassword ? AppColors.blushGold : Derived.textMedium,
+                            fontSize: 9.5,
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                          }}
+                        >
+                          <Icon
+                            name={room.hasPassword ? 'lock' : 'lock_open'}
+                            size={11}
+                            color={room.hasPassword ? AppColors.blushGold : Derived.textMedium}
+                          />
+                          <span>{room.hasPassword ? 'Password' : 'Open'}</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 4 }} />
+                      <div
+                        style={{
+                          ...AppTypography.outfitWhite,
+                          color: Derived.textMedium,
+                          fontSize: 12,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {subtitle}
+                      </div>
+                      <div style={{ height: 5 }} />
+                      <div style={{ ...AppTypography.outfitWhite, color: Derived.textMuted, fontSize: 11 }}>
+                        {hosting ? 'Hosted by you' : `Hosted by ${displayNameFor(room.hostName)}`} · Everglow Server
+                      </div>
+                    </div>
+                    <Icon
+                      name={room.hasPassword && !hosting ? 'lock' : 'play_arrow'}
+                      size={22}
+                      color={live ? AppColors.roseQuartz : Derived.textMuted}
+                    />
+                  </button>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label={`Delete ${room.name}`}
+                      onClick={() => void deleteCommunityWatchPartyRoom(room.id)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: withAlpha(AppColors.petalWhite, 0.06),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name="delete_outline" size={16} color={Derived.textMuted} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {createOpen && (
+        <div
+          onClick={() => setCreateOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: withAlpha(AppColors.inkDeep, 0.76),
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 390,
+              padding: 20,
+              borderRadius: 20,
+              background: AppColors.inkDeep,
+              border: `1px solid ${Derived.border}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>Host Watch Party</div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: Derived.textMedium }}>Room Name</span>
+              <input
+                autoFocus
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                placeholder="e.g. Friday Anime Night"
+                maxLength={80}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  background: AppColors.shimmerBase,
+                  border: `1px solid ${Derived.border}`,
+                  color: AppColors.petalWhite,
+                  outline: 'none',
+                  ...AppTypography.outfitMedium,
+                }}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: Derived.textMedium }}>
+                Room Password (optional)
+              </span>
+              <input
+                type="password"
+                value={roomPassword}
+                onChange={(e) => setRoomPassword(e.target.value)}
+                placeholder="Leave blank for anyone to join"
+                maxLength={64}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleCreate();
+                }}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  background: AppColors.shimmerBase,
+                  border: `1px solid ${Derived.border}`,
+                  color: AppColors.petalWhite,
+                  outline: 'none',
+                  ...AppTypography.outfitMedium,
+                }}
+              />
+            </label>
+            <div style={{ fontSize: 11.5, color: Derived.textMuted }}>
+              You can pick any Cinema movie/series or Anime inside the room. Sync is locked to Everglow Server.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => setCreateOpen(false)}
+                style={{ padding: '8px 14px', color: Derived.textMuted }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="bare-button"
+                disabled={creating}
+                onClick={() => void handleCreate()}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 999,
+                  background: AppColors.deepRose,
+                  color: AppColors.petalWhite,
+                  ...AppTypography.outfitBold,
+                  opacity: creating ? 0.6 : 1,
+                }}
+              >
+                {creating ? 'Creating…' : 'Host Room'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {joiningRoom && (
+        <div
+          onClick={() => setJoiningRoom(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: withAlpha(AppColors.inkDeep, 0.76),
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 380,
+              padding: 20,
+              borderRadius: 20,
+              background: AppColors.inkDeep,
+              border: `1px solid ${Derived.border}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 21 }}>Enter Room Password</div>
+            <div style={{ fontSize: 12.5, color: Derived.textMuted }}>
+              <strong>{joiningRoom.name}</strong> requires a password to join.
+            </div>
+            <input
+              autoFocus
+              type="password"
+              value={joinPassword}
+              onChange={(e) => {
+                setJoinPassword(e.target.value);
+                if (joinError) setJoinError(null);
+              }}
+              placeholder="Room password"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleVerifyPassword();
+              }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 12,
+                background: AppColors.shimmerBase,
+                border: `1px solid ${joinError ? AppColors.error : Derived.border}`,
+                color: AppColors.petalWhite,
+                outline: 'none',
+                ...AppTypography.outfitMedium,
+              }}
+            />
+            {joinError && (
+              <div role="alert" style={{ fontSize: 12, color: AppColors.error }}>
+                {joinError}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => setJoiningRoom(null)}
+                style={{ padding: '8px 14px', color: Derived.textMuted }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => void handleVerifyPassword()}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 999,
+                  background: AppColors.deepRose,
+                  color: AppColors.petalWhite,
+                  ...AppTypography.outfitBold,
+                }}
+              >
+                Join Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -397,29 +1017,76 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
 
 function WatchPartyRoomView({
   roomId,
+  scope,
   myUid,
   myName,
+  isCoupleUser,
   onExit,
 }: {
   roomId: string;
+  scope: 'hub' | 'private';
   myUid: string;
   myName: string;
+  isCoupleUser: boolean;
   onExit: () => void;
 }) {
+  const isHub = scope === 'hub';
   const { width } = useViewport();
-  const room = useSource(() => roomStream(roomId), [roomId], null);
-  const messages = useSource(() => roomChatStream(roomId), [roomId], []);
+  const room = useSource<WatchPartyRoom | CommunityWatchPartyRoom | null>(
+    () => (isHub ? communityRoomStream(roomId) : roomStream(roomId)),
+    [roomId, isHub],
+    null,
+  );
+  const [unlocked, setUnlocked] = useState(() => !isHub || isCoupleUser || isCommunityRoomUnlocked(roomId));
+  const [gatePassword, setGatePassword] = useState('');
+  const [gateError, setGateError] = useState<string | null>(null);
+  const [gateBusy, setGateBusy] = useState(false);
+
+  const communityRoomForGate = isHub ? (room as CommunityWatchPartyRoom | null) : null;
+  const canReadChat =
+    !isHub ||
+    Boolean(
+      communityRoomForGate &&
+        (!communityRoomForGate.hasPassword ||
+          communityRoomForGate.hostUid === myUid ||
+          isCoupleUser ||
+          unlocked),
+    );
+
+  useEffect(() => {
+    if (!isHub || !communityRoomForGate?.hasPassword || unlocked || communityRoomForGate.hostUid === myUid || isCoupleUser) {
+      return;
+    }
+    let cancelled = false;
+    void checkCommunityRoomMembership(roomId, myUid).then((isMember) => {
+      if (!cancelled && isMember) setUnlocked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isHub, roomId, myUid, isCoupleUser, unlocked, communityRoomForGate?.hasPassword, communityRoomForGate?.hostUid]);
+
+  const messages = useSource<WatchPartyChatMessage[]>(
+    () => (canReadChat ? (isHub ? communityRoomChatStream(roomId) : roomChatStream(roomId)) : null),
+    [roomId, isHub, canReadChat],
+    [],
+  );
   const clock = useMemo(() => new WatchPartyClock(), []);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [serverOpen, setServerOpen] = useState(false);
-  const [servers, setServers] = useState<WatchPartyServer[]>(BUILTIN_WATCH_PARTY_SERVERS);
   const [msgText, setMsgText] = useState('');
   const [displaySeconds, setDisplaySeconds] = useState(0);
 
-  useEffect(() => {
-    void loadWatchPartyServers().then(setServers);
-  }, []);
+  const patchRoom = (patch: Record<string, unknown>) =>
+    isHub ? updateCommunityWatchPartyRoom(roomId, patch) : updateWatchPartyRoom(roomId, patch);
+
+  const swapMedia = (picked: Parameters<typeof updateRoomMedia>[1]) =>
+    isHub ? updateCommunityRoomMedia(roomId, picked, myUid) : updateRoomMedia(roomId, picked, myUid);
+
+  const sendChat = (text: string) =>
+    isHub
+      ? sendCommunityRoomChatMessage(roomId, myUid, myName, text)
+      : sendRoomChatMessage(roomId, myUid, myName, text);
 
   useEffect(() => {
     if (!room) return;
@@ -434,7 +1101,7 @@ function WatchPartyRoomView({
   useEffect(() => {
     if (!room || room.hostUid !== myUid) return;
     const onUnload = () => {
-      void updateWatchPartyRoom(room.id, { state: 'paused', updatedBy: myUid }).catch(() => {});
+      void patchRoom({ state: 'paused', updatedBy: myUid }).catch(() => {});
     };
     window.addEventListener('pagehide', onUnload);
     window.addEventListener('beforeunload', onUnload);
@@ -442,7 +1109,7 @@ function WatchPartyRoomView({
       window.removeEventListener('pagehide', onUnload);
       window.removeEventListener('beforeunload', onUnload);
     };
-  }, [room?.id, room?.hostUid, myUid]);
+  }, [room?.id, room?.hostUid, myUid, isHub]);
 
   // CineSrc postMessage bridge for embed playback sync.
   useEffect(() => {
@@ -451,20 +1118,20 @@ function WatchPartyRoomView({
       const ev = parseCinesrcEvent(e.data);
       if (!ev) return;
       if (ev.name === 'play' && room.state !== 'playing') {
-        void updateWatchPartyRoom(room.id, {
+        void patchRoom({
           state: 'playing',
           currentTime: ev.currentTime ?? clock.expectedPosition(room),
           updatedBy: myUid,
         });
       } else if (ev.name === 'pause' && room.state === 'playing') {
-        void updateWatchPartyRoom(room.id, {
+        void patchRoom({
           state: 'paused',
           currentTime: ev.currentTime ?? clock.expectedPosition(room),
           updatedBy: myUid,
         });
       } else if ((ev.name === 'seeked' || ev.name === 'timeupdate') && ev.currentTime != null) {
         if (isUserSeek(clock.expectedPosition(room), ev.currentTime, 2.5)) {
-          void updateWatchPartyRoom(room.id, {
+          void patchRoom({
             currentTime: ev.currentTime,
             updatedBy: myUid,
           });
@@ -473,7 +1140,7 @@ function WatchPartyRoomView({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [room, myUid, clock]);
+  }, [room, myUid, clock, isHub]);
 
   // Push remote play/pause/seek state into the CineSrc embed iframe.
   useEffect(() => {
@@ -506,9 +1173,112 @@ function WatchPartyRoomView({
     );
   }
 
+  const communityRoom = isHub ? (room as CommunityWatchPartyRoom) : null;
+  const needsPasswordGate = Boolean(
+    communityRoom && communityRoom.hasPassword && communityRoom.hostUid !== myUid && !isCoupleUser && !unlocked,
+  );
+
+  if (needsPasswordGate && communityRoom) {
+    const submitGate = async () => {
+      if (gateBusy) return;
+      setGateBusy(true);
+      setGateError(null);
+      try {
+        const res = await unlockCommunityWatchPartyRoom(communityRoom.id, gatePassword);
+        if (!res.ok) {
+          setGateError(res.error || 'Incorrect room password.');
+          return;
+        }
+        setUnlocked(true);
+        setGateError(null);
+      } finally {
+        setGateBusy(false);
+      }
+    };
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: AppColors.inkDeep,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20,
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 380,
+            padding: 22,
+            borderRadius: 20,
+            background: Derived.surfaceGlass,
+            border: `1px solid ${Derived.border}`,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>{communityRoom.name}</div>
+          <div style={{ fontSize: 12.5, color: Derived.textMuted }}>
+            Hosted by <strong>{displayNameFor(communityRoom.hostName)}</strong>. Enter the room password to join.
+          </div>
+          <input
+            autoFocus
+            type="password"
+            value={gatePassword}
+            onChange={(e) => {
+              setGatePassword(e.target.value);
+              if (gateError) setGateError(null);
+            }}
+            placeholder="Room password"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void submitGate();
+            }}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 12,
+              background: AppColors.shimmerBase,
+              border: `1px solid ${gateError ? AppColors.error : Derived.border}`,
+              color: AppColors.petalWhite,
+              outline: 'none',
+              ...AppTypography.outfitMedium,
+            }}
+          />
+          {gateError && (
+            <div role="alert" style={{ fontSize: 12, color: AppColors.error }}>
+              {gateError}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button type="button" className="bare-button" onClick={onExit} style={{ padding: '8px 14px', color: Derived.textMuted }}>
+              Back
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => void submitGate()}
+              style={{
+                padding: '8px 18px',
+                borderRadius: 999,
+                background: AppColors.deepRose,
+                color: AppColors.petalWhite,
+                ...AppTypography.outfitBold,
+              }}
+            >
+              Enter Room
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const compact = width < 700;
   const hasMedia = room.tmdbId > 0 || room.title.length > 0;
   const isHlsMode = room.serverType === 'hls';
+  const everglowEmbed = BUILTIN_WATCH_PARTY_SERVERS.find((s) => s.type === 'embed');
   const embedSrc = hasMedia
     ? room.isAnime
       ? `https://everglow-1c6db.web.app/embed.html?source=megaplay&malId=${room.malId ?? room.tmdbId}&ep=${room.episode ?? 1}`
@@ -516,7 +1286,7 @@ function WatchPartyRoomView({
     : '';
 
   const togglePlay = () =>
-    void updateWatchPartyRoom(room.id, {
+    void patchRoom({
       state: room.state === 'playing' ? 'paused' : 'playing',
       currentTime: clock.expectedPosition(room),
       updatedBy: myUid,
@@ -528,7 +1298,7 @@ function WatchPartyRoomView({
       initialCategory: room.isAnime ? 'anime' : 'cinema',
     });
     if (!picked) return;
-    await updateRoomMedia(room.id, picked, myUid);
+    await swapMedia(picked);
     showSnackBar(`Switched to ${picked.title}`);
   };
 
@@ -540,7 +1310,7 @@ function WatchPartyRoomView({
       maxEpisodes: room.episodeCount,
     });
     if (!picked) return;
-    await updateWatchPartyRoom(room.id, {
+    await patchRoom({
       season: picked.season,
       episode: picked.episode,
       currentTime: 0,
@@ -548,17 +1318,6 @@ function WatchPartyRoomView({
       updatedBy: myUid,
     });
     showSnackBar(room.isAnime ? `Episode ${picked.episode}` : `S${picked.season} E${picked.episode}`);
-  };
-
-  const selectServer = async (srv: WatchPartyServer) => {
-    setServerOpen(false);
-    await updateWatchPartyRoom(room.id, {
-      serverType: srv.type,
-      serverName: srv.name,
-      serverHost: srv.host,
-      updatedBy: myUid,
-    });
-    showSnackBar(`Server: ${srv.name}`);
   };
 
   return (
@@ -631,27 +1390,24 @@ function WatchPartyRoomView({
             {!compact && <span>Episodes</span>}
           </button>
         )}
-        <button
-          type="button"
-          className="bare-button"
-          aria-label="Switch server"
-          onClick={() => setServerOpen(true)}
+        <div
+          title="Watch Party playback is locked to Everglow Server for reliable sync"
           style={{
             padding: '7px 10px',
             borderRadius: 999,
-            background: withAlpha(AppColors.petalWhite, 0.07),
-            border: `1px solid ${withAlpha(AppColors.petalWhite, 0.16)}`,
+            background: withAlpha(AppColors.blushGold, 0.12),
+            border: `1px solid ${withAlpha(AppColors.blushGold, 0.35)}`,
             display: 'inline-flex',
             alignItems: 'center',
             gap: 5,
-            color: AppColors.petalWhite,
+            color: AppColors.blushGold,
             ...AppTypography.outfitHeading,
             fontSize: 11.5,
           }}
         >
-          <Icon name="dns" size={15} color={AppColors.roseQuartz} />
-          {!compact && <span>{room.serverName || 'Server'}</span>}
-        </button>
+          <Icon name="lock" size={14} color={AppColors.blushGold} />
+          {!compact && <span>Everglow Server</span>}
+        </div>
         <button
           type="button"
           className="bare-button"
@@ -717,7 +1473,7 @@ function WatchPartyRoomView({
                 <div style={{ ...AppTypography.cormorantBoldWhite, fontSize: 20 }}>Nothing playing yet</div>
                 <div style={{ height: 4 }} />
                 <div style={{ ...AppTypography.outfitWhite, color: Derived.textMuted, fontSize: 12 }}>
-                  Pick a movie, series, or anime for both of you.
+                  Pick a Cinema movie, series, or Anime to watch together on Everglow Server.
                 </div>
                 <div style={{ height: 16 }} />
                 <button
@@ -756,16 +1512,17 @@ function WatchPartyRoomView({
                   <HlsServerPlayer
                     room={room}
                     clock={clock}
-                    onUserPlay={(sec) =>
-                      void updateWatchPartyRoom(room.id, { state: 'playing', currentTime: sec, updatedBy: myUid })
+                    onUserPlay={(sec) => void patchRoom({ state: 'playing', currentTime: sec, updatedBy: myUid })}
+                    onUserPause={(sec) => void patchRoom({ state: 'paused', currentTime: sec, updatedBy: myUid })}
+                    onUserSeek={(sec) => void patchRoom({ currentTime: sec, updatedBy: myUid })}
+                    onFallbackToEmbed={() =>
+                      void patchRoom({
+                        serverType: everglowEmbed?.type ?? 'embed',
+                        serverName: 'Everglow Server',
+                        serverHost: 'everglow',
+                        updatedBy: myUid,
+                      })
                     }
-                    onUserPause={(sec) =>
-                      void updateWatchPartyRoom(room.id, { state: 'paused', currentTime: sec, updatedBy: myUid })
-                    }
-                    onUserSeek={(sec) =>
-                      void updateWatchPartyRoom(room.id, { currentTime: sec, updatedBy: myUid })
-                    }
-                    onFallbackToEmbed={() => void selectServer(BUILTIN_WATCH_PARTY_SERVERS[1])}
                   />
                 ) : (
                   <iframe
@@ -814,14 +1571,14 @@ function WatchPartyRoomView({
                     {room.state === 'playing' ? 'Synced Playback: Playing' : 'Synced Playback: Paused'}
                   </div>
                   <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: Derived.textMuted }}>
-                    {`${formatPartyTime(displaySeconds)} • ${room.serverName || 'Embed'} • Updated by ${room.updatedBy === myUid ? 'you' : 'partner'}`}
+                    {`${formatPartyTime(displaySeconds)} • Everglow Server • Updated by ${room.updatedBy === myUid ? 'you' : isHub ? 'room member' : 'partner'}`}
                   </div>
                 </div>
                 <button
                   type="button"
                   className="bare-button"
                   onClick={() =>
-                    void updateWatchPartyRoom(room.id, {
+                    void patchRoom({
                       currentTime: Math.max(0, clock.expectedPosition(room) - 15),
                       updatedBy: myUid,
                     })
@@ -840,7 +1597,7 @@ function WatchPartyRoomView({
                   type="button"
                   className="bare-button"
                   onClick={() =>
-                    void updateWatchPartyRoom(room.id, {
+                    void patchRoom({
                       currentTime: Math.max(0, clock.expectedPosition(room) + 15),
                       updatedBy: myUid,
                     })
@@ -893,7 +1650,7 @@ function WatchPartyRoomView({
             >
               {messages.map((m) => (
                 <div key={m.id} style={{ alignSelf: m.senderUid === myUid ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
-                  <div style={{ fontSize: 10, color: Derived.textMuted, marginBottom: 2 }}>{m.senderName}</div>
+                  <div style={{ fontSize: 10, color: Derived.textMuted, marginBottom: 2 }}>{displayNameFor(m.senderName)}</div>
                   <div
                     style={{
                       padding: '8px 12px',
@@ -915,7 +1672,7 @@ function WatchPartyRoomView({
                 placeholder="Say something…"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && msgText.trim()) {
-                    void sendRoomChatMessage(room.id, myUid, myName, msgText);
+                    void sendChat(msgText);
                     setMsgText('');
                   }
                 }}
@@ -935,7 +1692,7 @@ function WatchPartyRoomView({
                 className="bare-button"
                 onClick={() => {
                   if (msgText.trim()) {
-                    void sendRoomChatMessage(room.id, myUid, myName, msgText);
+                    void sendChat(msgText);
                     setMsgText('');
                   }
                 }}
@@ -955,73 +1712,6 @@ function WatchPartyRoomView({
           </aside>
         )}
       </div>
-
-      {serverOpen && (
-        <div
-          onClick={() => setServerOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: withAlpha(AppColors.inkDeep, 0.78),
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: 400,
-              borderRadius: 20,
-              background: AppColors.inkDeep,
-              border: `1px solid ${Derived.border}`,
-              padding: 16,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>Watch Party Server</span>
-              <button type="button" className="bare-button" onClick={() => setServerOpen(false)}>
-                <Icon name="close" size={20} color={AppColors.petalWhite} />
-              </button>
-            </div>
-            {servers.map((srv) => {
-              const selected = (room.serverName || 'Everglow Embed (CineSrc)') === srv.name || room.serverHost === srv.host;
-              return (
-                <button
-                  key={srv.id}
-                  type="button"
-                  className="bare-button"
-                  onClick={() => void selectServer(srv)}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 12,
-                    background: selected ? withAlpha(AppColors.deepRose, 0.22) : AppColors.shimmerBase,
-                    border: `1px solid ${selected ? AppColors.roseQuartz : Derived.border}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div>
-                    <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: AppColors.petalWhite }}>{srv.name}</div>
-                    <div style={{ fontSize: 11, color: Derived.textMuted }}>
-                      {srv.type === 'hls' ? 'Direct synced HLS stream with subtitles' : 'Embedded CineSrc sync bridge'}
-                    </div>
-                  </div>
-                  {selected && <Icon name="check_circle" size={18} color={AppColors.blushGold} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

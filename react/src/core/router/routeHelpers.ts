@@ -3,7 +3,7 @@
 export function cinemaOnlyRedirect(loc: string): string | null {
   const path = new URL(loc, 'http://x').pathname;
   if (path === '/') return null;
-  for (const section of ['/cinema', '/anime', '/manga', '/books']) {
+  for (const section of ['/cinema', '/anime', '/manga', '/books', '/watch-party', '/global-chat']) {
     if (path === section || path.startsWith(`${section}/`)) return null;
   }
   return '/cinema';

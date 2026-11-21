@@ -22,6 +22,7 @@ export const AgentMode = {
     arcade: '/play-zone', academy: '/academy', 'trip-kit': '/trips', tripkit: '/trips',
     canvas: '/canvas', 'bucket-list': '/bucket-list', bucketlist: '/bucket-list', money: '/money',
     jukebox: '/jukebox', music: '/jukebox', 'watch-party': '/watch-party', watchparty: '/watch-party',
+    'global-chat': '/global-chat', gc: '/global-chat', globalchat: '/global-chat',
   } as Record<string, string>,
 
   isActive: new ValueNotifier(false),

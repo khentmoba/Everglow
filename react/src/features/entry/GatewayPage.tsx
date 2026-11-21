@@ -17,6 +17,7 @@ import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { DashboardLoadVeilControl } from '../dashboard/DashboardLoadVeil';
+import { AccountAuthPanel } from './AccountAuthPanel';
 import { AnimatedDoor, archPath, doorScale } from './AnimatedDoor';
 import { GatewayNotifier, type GatewayState } from './gatewayState';
 import { PasscodeInput } from './PasscodeInput';
@@ -165,7 +166,17 @@ export function GatewayPage() {
       />
       <MainContent isRevealing={isRevealing} />
       {state !== 'complete' && (
-        <GatewayOverlay notifier={notifier} state={state} onAgentLogin={agentLogin} onAgentJump={agentJump} />
+        <GatewayOverlay
+          notifier={notifier}
+          state={state}
+          onAgentLogin={agentLogin}
+          onAgentJump={agentJump}
+          onAccountSuccess={() => {
+            if (hasNavigated.current) return;
+            hasNavigated.current = true;
+            navigate(postLoginTarget(true, '/cinema'));
+          }}
+        />
       )}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         <PetalShower isVisible={!isRevealing} />
@@ -179,14 +190,17 @@ function GatewayOverlay({
   state,
   onAgentLogin,
   onAgentJump,
+  onAccountSuccess,
 }: {
   notifier: GatewayNotifier;
   state: GatewayState;
   onAgentLogin: (profile: string) => void;
   onAgentJump: (route: string) => void;
+  onAccountSuccess: (username: string) => void;
 }) {
   const viewport = useViewport();
   const isTv = useValue(TvMode.isTvMode);
+  const [authMode, setAuthMode] = useState<'door' | 'account'>('door');
   const isRevealing = state === 'revealingSite' || state === 'complete';
   const zoom = useAnimatedValue(isRevealing ? 1 : 0, orZero(1100), Curves.easeInQuint);
   const showKeypad = state === 'initialLoad' || state === 'awaitingInput' || state === 'evaluating' || state === 'error';
@@ -194,54 +208,102 @@ function GatewayOverlay({
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: state === 'revealingSite' ? 'none' : undefined }}>
-      <DoorMask zoom={zoom} scale={doorScale(viewport)} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <AnimatedDoor
-          isUnlocked={state === 'unlocking' || state === 'revealingSite' || state === 'complete'}
-          isError={state === 'error'}
-          isRevealing={isRevealing}
-          onEntranceComplete={() => {
-            if (notifier.currentState === 'initialLoad') notifier.updateState('awaitingInput');
-          }}
-          keypad={
-            <div
-              style={{
-                opacity: showKeypad ? 1 : 0,
-                transition: `opacity ${orZero(500)}ms linear`,
-                pointerEvents: showKeypad ? undefined : 'none',
-              }}
-            >
+      {authMode === 'door' && <DoorMask zoom={zoom} scale={doorScale(viewport)} />}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          padding: '56px 16px 72px',
+          overflowY: 'auto',
+        }}
+      >
+        {authMode === 'account' ? (
+          <AccountAuthPanel onSuccess={onAccountSuccess} onBackToDoor={() => setAuthMode('door')} />
+        ) : (
+          <AnimatedDoor
+            isUnlocked={state === 'unlocking' || state === 'revealingSite' || state === 'complete'}
+            isError={state === 'error'}
+            isRevealing={isRevealing}
+            onEntranceComplete={() => {
+              if (notifier.currentState === 'initialLoad') notifier.updateState('awaitingInput');
+            }}
+            keypad={
               <div
                 style={{
-                  transform: `scale(${isTv ? 1.02 : 0.8})`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
+                  opacity: showKeypad ? 1 : 0,
+                  transition: `opacity ${orZero(500)}ms linear`,
+                  pointerEvents: showKeypad ? undefined : 'none',
                 }}
               >
-                <PasscodeInput
-                  input={notifier.currentInput}
-                  isError={state === 'error'}
-                  isVerifying={state === 'evaluating'}
-                  failureReason={notifier.lastFailureReason}
-                  onDigitPressed={notifier.appendDigit}
-                  onBackspace={notifier.backspace}
-                  onClear={notifier.clearInput}
-                />
-                <OfflineRememberHint />
+                <div
+                  style={{
+                    transform: `scale(${isTv ? 1.02 : 0.8})`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <PasscodeInput
+                    input={notifier.currentInput}
+                    isError={state === 'error'}
+                    isVerifying={state === 'evaluating'}
+                    failureReason={notifier.lastFailureReason}
+                    onDigitPressed={notifier.appendDigit}
+                    onBackspace={notifier.backspace}
+                    onClear={notifier.clearInput}
+                  />
+                  <OfflineRememberHint />
+                </div>
               </div>
-            </div>
-          }
-        />
+            }
+          />
+        )}
       </div>
       <div
         style={{
           position: 'absolute',
           top: 'calc(16px + env(safe-area-inset-top))',
+          left: 'calc(16px + env(safe-area-inset-left))',
           right: 'calc(16px + env(safe-area-inset-right))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          pointerEvents: 'none',
         }}
       >
-        <TvModeToggle />
+        <div style={{ pointerEvents: 'auto' }}>
+          {showKeypad && authMode === 'door' && (
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => setAuthMode('account')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 13px',
+                borderRadius: 20,
+                background: withAlpha(AppColors.velvet, 0.78),
+                border: `1px solid ${withAlpha(AppColors.blushGold, 0.45)}`,
+                color: AppColors.petalWhite,
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <Icon name="person" size={16} color={AppColors.blushGold} />
+              <span>Account Sign In</span>
+            </button>
+          )}
+        </div>
+        <div style={{ pointerEvents: 'auto' }}>
+          <TvModeToggle />
+        </div>
       </div>
       {showDevBar && (
         <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>

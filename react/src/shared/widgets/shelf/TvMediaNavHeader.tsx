@@ -10,6 +10,9 @@ const MEDIA_SECTIONS = [
   { route: '/cinema', label: 'Cinema', icon: 'movie', accent: AppColors.auroraGold },
   { route: '/anime', label: 'Anime', icon: 'animation', accent: AppColors.auroraRose },
   { route: '/manga', label: 'MangaCelestia', icon: 'auto_stories', accent: AppColors.roseQuartz },
+  { route: '/books', label: 'Books', icon: 'menu_book', accent: AppColors.blushGold },
+  { route: '/watch-party', label: 'Watch Party', icon: 'live_tv', accent: AppColors.auroraRose },
+  { route: '/global-chat', label: 'Global Chat', icon: 'forum', accent: AppColors.blushGold },
 ] as const;
 
 export function TvMediaNavHeader({

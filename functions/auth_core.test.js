@@ -14,6 +14,10 @@ test('only server-signed app profiles are trusted', () => {
   }
   assert.equal(trustedProfileUsername({ uid: 'demo', username: 'stranger',
     firebase: { sign_in_provider: 'custom' } }), null);
+  assert.equal(trustedProfileUsername({ uid: 'demo', username: 'mika_chan', accountType: 'member',
+    firebase: { sign_in_provider: 'custom' } }), 'mika_chan');
+  assert.equal(trustedProfileUsername({ uid: 'demo', username: 'admin', accountType: 'member',
+    firebase: { sign_in_provider: 'custom' } }), null);
   assert.equal(trustedProfileUsername(null), null);
 });
 

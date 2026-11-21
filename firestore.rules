@@ -50,7 +50,17 @@ service cloud.firestore {
       return isAuthenticated() &&
         request.auth.token.firebase.sign_in_provider == 'custom' &&
         'username' in request.auth.token &&
-        request.auth.token.username in ['breyan', 'octagram'];
+        (
+          request.auth.token.username in ['breyan', 'octagram'] ||
+          (
+            'accountType' in request.auth.token &&
+            request.auth.token.accountType == 'member' &&
+            request.auth.token.username is string &&
+            request.auth.token.username.size() >= 3 &&
+            request.auth.token.username.size() <= 24 &&
+            !(request.auth.token.username in ['khentsgdz', 'clairjassen'])
+          )
+        );
     }
 
     function isCinemaProfile() {
@@ -87,6 +97,51 @@ service cloud.firestore {
           data.mediaType in ['movie', 'tv'] &&
           data.state in ['playing', 'paused', 'buffering'] &&
           data.active is bool;
+    }
+
+    function isCommunityRoomMember(roomId) {
+      return isAppUser() &&
+          exists(/databases/$(database)/documents/community_watch_rooms/$(roomId)/members/$(request.auth.uid));
+    }
+
+    function canAccessCommunityRoom(roomId, roomData) {
+      return isCouple() ||
+          roomData.hostUid == request.auth.uid ||
+          roomData.hasPassword != true ||
+          isCommunityRoomMember(roomId);
+    }
+
+    function canAccessCommunityRoomById(roomId) {
+      return isCouple() ||
+          isCommunityRoomMember(roomId) ||
+          get(/databases/$(database)/documents/community_watch_rooms/$(roomId)).data.hostUid == request.auth.uid ||
+          get(/databases/$(database)/documents/community_watch_rooms/$(roomId)).data.hasPassword != true;
+    }
+
+    function isValidCommunityRoomShape(data) {
+      return data.keys().hasAll([
+            'name',
+            'hostUid',
+            'hostName',
+            'mediaType',
+            'serverHost',
+            'hasPassword',
+            'state',
+            'updatedAt',
+            'updatedBy',
+            'active',
+          ]) &&
+          data.name is string &&
+          data.name.size() > 0 &&
+          data.name.size() <= 80 &&
+          data.hostUid is string &&
+          data.hostName is string &&
+          data.mediaType in ['movie', 'tv'] &&
+          data.serverHost == 'everglow' &&
+          data.hasPassword is bool &&
+          data.state in ['playing', 'paused', 'buffering'] &&
+          data.active is bool &&
+          data.keys().size() <= 40;
     }
 
     function isValidVoiceRoomShape(data) {
@@ -557,6 +612,81 @@ service cloud.firestore {
         allow delete: if isCouple() && docId == username();
       }
     }
+    match /global_chat_messages/{messageId} {
+      allow read: if isAppUser();
+      allow create: if isAppUser() &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderName == username() &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 2000 &&
+        request.resource.data.keys().size() <= 12;
+      allow update: if false;
+      allow delete: if isCouple() ||
+        (isAppUser() && resource.data.senderUid == request.auth.uid);
+    }
+
+    match /community_watch_rooms/{roomId} {
+      allow read: if isAppUser();
+      allow create: if false;
+      allow update: if isAppUser() &&
+        isValidCommunityRoomShape(request.resource.data) &&
+        request.resource.data.hostUid == resource.data.hostUid &&
+        request.resource.data.hostName == resource.data.hostName &&
+        request.resource.data.hasPassword == resource.data.hasPassword &&
+        request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null) &&
+        (
+          isCouple() ||
+          resource.data.hostUid == request.auth.uid ||
+          (
+            canAccessCommunityRoom(roomId, resource.data) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'mediaType',
+              'tmdbId',
+              'malId',
+              'isAnime',
+              'season',
+              'episode',
+              'episodeCount',
+              'title',
+              'posterPath',
+              'serverType',
+              'serverName',
+              'serverHost',
+              'captionsOn',
+              'proxyEnabled',
+              'state',
+              'currentTime',
+              'positionAt',
+              'updatedAt',
+              'updatedBy',
+            ])
+          )
+        );
+      allow delete: if isCouple() ||
+        (isAppUser() && resource.data.hostUid == request.auth.uid);
+
+      match /members/{memberUid} {
+        allow read: if isAppUser() && (memberUid == request.auth.uid || isCouple());
+        allow write: if false;
+      }
+
+      match /messages/{messageId} {
+        allow read: if isAppUser() && canAccessCommunityRoomById(roomId);
+        allow create: if isAppUser() &&
+          canAccessCommunityRoomById(roomId) &&
+          request.resource.data.senderUid == request.auth.uid &&
+          request.resource.data.senderName == username() &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          request.resource.data.text.size() <= 2000 &&
+          request.resource.data.keys().size() <= 12;
+        allow update: if false;
+        allow delete: if isCouple() ||
+          (isAppUser() && resource.data.senderUid == request.auth.uid);
+      }
+    }
+
     match /config/{docId} {
       allow read: if isRegistered();
     }
@@ -566,6 +696,8 @@ service cloud.firestore {
     }
 
     // Server-only collections
+    match /member_accounts/{accountId} { allow read, write: if false; }
+    match /community_watch_room_secrets/{roomId} { allow read, write: if false; }
     match /watch_stream_keys/{uid} { allow read, write: if false; }
     match /auth_attempts/{attemptId} { allow read, write: if false; }
     match /api_usage/{uid} { allow read, write: if false; }

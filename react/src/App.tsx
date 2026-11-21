@@ -313,6 +313,7 @@ const router = createBrowserRouter([
       { path: '/cinema', loader: guard, element: <LazyPages.CinemaPage /> },
       { path: '/cinema/video/:id', loader: guard, element: <LazyPages.VideoPlayerPage /> },
       { path: '/watch-party', loader: guard, element: <LazyPages.WatchPartyPage /> },
+      { path: '/global-chat', loader: guard, element: <LazyPages.GlobalChatPage /> },
       { path: '/anime', loader: guard, element: <LazyPages.AnimePage /> },
       { path: '/manga', loader: guard, element: <LazyPages.MangaPage /> },
       { path: '/manga/reader', loader: guard, element: <LazyPages.MangaReaderPage /> },

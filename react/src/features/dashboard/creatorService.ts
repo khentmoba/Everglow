@@ -42,6 +42,51 @@ export interface TonightFeature {
   active: boolean;
 }
 
+export interface MemberAccount {
+  id: string;
+  username: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+}
+
+let demoAccounts: MemberAccount[] = [
+  {
+    id: 'mika_chan',
+    username: 'mika_chan',
+    status: 'pending',
+    createdAt: new Date(Date.now() - 18 * 60_000).toISOString(),
+    approvedAt: null,
+    approvedBy: null,
+  },
+  {
+    id: 'sora99',
+    username: 'sora99',
+    status: 'pending',
+    createdAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
+    approvedAt: null,
+    approvedBy: null,
+  },
+  {
+    id: 'kenji',
+    username: 'kenji',
+    status: 'approved',
+    createdAt: new Date(Date.now() - 3 * 86400_000).toISOString(),
+    approvedAt: new Date(Date.now() - 2 * 86400_000).toISOString(),
+    approvedBy: 'khentsgdz',
+  },
+];
+
+function manageAccountsUrls(): string[] {
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+  return [
+    ...(isLocal ? [] : ['/api/manageAccounts']),
+    'https://us-central1-everglow-1c6db.cloudfunctions.net/manageAccounts',
+  ];
+}
+
 const DEMO_WHISPERS: GuardianWhisper[] = [
   { id: 'w1', content: 'You are doing amazing today, my love', category: 'whisper', createdAt: new Date() },
   { id: 'w2', content: 'Check the Letterbox… something secret is waiting', category: 'whisper', createdAt: new Date() },
@@ -345,5 +390,88 @@ export const creatorService = {
   clearLocalCaches(): void {
     Prefs.remove('letterbox_notes_cache_v1');
     Prefs.remove('cinema_home_cache_v1');
+  },
+
+  async listMemberAccounts(): Promise<MemberAccount[]> {
+    if (AgentMode.demo) {
+      return [...demoAccounts];
+    }
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Sign in required');
+    let lastError = 'Could not load accounts';
+    for (const url of manageAccountsUrls()) {
+      try {
+        const resp = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!resp.ok) {
+          const data = (await resp.json().catch(() => ({}))) as { error?: string };
+          lastError = data.error || `HTTP ${resp.status}`;
+          if (resp.status === 401 || resp.status === 403) throw new Error(lastError);
+          continue;
+        }
+        const data = (await resp.json()) as { accounts?: MemberAccount[] };
+        return Array.isArray(data.accounts) ? data.accounts : [];
+      } catch (e) {
+        if (e instanceof Error && /required|access/i.test(e.message)) throw e;
+        Logger.e(`CreatorService: listMemberAccounts ${url} failed`, e);
+        lastError = e instanceof Error ? e.message : String(e);
+      }
+    }
+    throw new Error(lastError);
+  },
+
+  async updateMemberAccount(
+    username: string,
+    action: 'approve' | 'reject' | 'revoke' | 'delete',
+  ): Promise<void> {
+    if (AgentMode.demo) {
+      const key = username.toLowerCase();
+      if (action === 'delete') {
+        demoAccounts = demoAccounts.filter((a) => a.id !== key);
+      } else {
+        const nextStatus: MemberAccount['status'] =
+          action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'pending';
+        demoAccounts = demoAccounts.map((a) =>
+          a.id === key
+            ? {
+                ...a,
+                status: nextStatus,
+                approvedAt: action === 'approve' ? new Date().toISOString() : a.approvedAt,
+                approvedBy: action === 'approve' ? 'khentsgdz' : a.approvedBy,
+              }
+            : a,
+        );
+      }
+      return;
+    }
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Sign in required');
+    let lastError = 'Could not update account';
+    for (const url of manageAccountsUrls()) {
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ action, username }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (resp.ok) return;
+        const data = (await resp.json().catch(() => ({}))) as { error?: string };
+        lastError = data.error || `HTTP ${resp.status}`;
+        if (resp.status === 400 || resp.status === 401 || resp.status === 403 || resp.status === 404) {
+          throw new Error(lastError);
+        }
+      } catch (e) {
+        if (e instanceof Error && !/fetch|network|abort/i.test(e.message)) throw e;
+        Logger.e(`CreatorService: updateMemberAccount ${url} failed`, e);
+        lastError = e instanceof Error ? e.message : String(e);
+      }
+    }
+    throw new Error(lastError);
   },
 };

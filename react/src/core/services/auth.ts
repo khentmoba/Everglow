@@ -33,6 +33,35 @@ import { notificationService } from './notifications';
 
 export class PasscodeConnectionError extends Error {}
 
+export class AccountAuthError extends Error {
+  readonly code: 'invalid' | 'pending' | 'rejected' | 'conflict' | 'rate_limited' | 'connection';
+  constructor(
+    message: string,
+    code: 'invalid' | 'pending' | 'rejected' | 'conflict' | 'rate_limited' | 'connection' = 'invalid',
+  ) {
+    super(message);
+    this.code = code;
+  }
+}
+
+export function displayNameFor(username: string | null | undefined): string {
+  if (!username) return 'Guest';
+  if (username === 'khentsgdz') return 'Khent';
+  if (username === 'clairjassen') return 'Clair';
+  return username;
+}
+
+function functionUrls(endpoint: string): string[] {
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+  const isProdOrigin = window.location.origin === 'https://everglow-1c6db.web.app';
+  return [
+    ...(isLocal ? [] : [`/api/${endpoint}`]),
+    `https://us-central1-everglow-1c6db.cloudfunctions.net/${endpoint}`,
+    ...(isProdOrigin ? [] : [`https://everglow-1c6db.web.app/api/${endpoint}`]),
+  ];
+}
+
 type OfflineVerifier = { v?: number; username: string; salt: string; digest: string };
 
 const COUPLE = new Set(['khentsgdz', 'clairjassen']);
@@ -113,7 +142,11 @@ class AuthService {
   }
 
   get isCinemaOnlyUser(): boolean {
-    return this.currentUser === 'breyan' || this.currentUser === 'octagram';
+    return this.currentUser != null && !COUPLE.has(this.currentUser);
+  }
+
+  get displayName(): string {
+    return displayNameFor(this.currentUser);
   }
 
   get isAnonymousSession(): boolean {
@@ -199,7 +232,7 @@ class AuthService {
     this.isOfflineMode = true;
     this.isSessionLoaded = true;
     this.lastAuthError = null;
-    if (profile === 'breyan' || profile === 'octagram') {
+    if (!COUPLE.has(profile)) {
       this.partnerUid = null;
       this.partnerNameResolved = null;
     } else {
@@ -218,14 +251,7 @@ class AuthService {
 
   /** Returns the username, null for a wrong code, or throws when unreachable. */
   async verifyCouplePasscode(passcode: string): Promise<string | null> {
-    const host = window.location.hostname;
-    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
-    const isProdOrigin = window.location.origin === 'https://everglow-1c6db.web.app';
-    const urls = [
-      ...(isLocal ? [] : ['/api/verifyPasscode']),
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/verifyPasscode',
-      ...(isProdOrigin ? [] : ['https://everglow-1c6db.web.app/api/verifyPasscode']),
-    ];
+    const urls = functionUrls('verifyPasscode');
     let lastError: unknown = null;
     for (const url of urls) {
       try {
@@ -274,6 +300,128 @@ class AuthService {
       }
     }
     throw new PasscodeConnectionError(String(lastError));
+  }
+
+  async registerAccount(
+    username: string,
+    password: string,
+    confirmPassword: string,
+  ): Promise<{ status: 'pending'; username: string }> {
+    const cleanUser = username.trim();
+    if (!/^[a-zA-Z0-9_-]{3,24}$/.test(cleanUser)) {
+      throw new AccountAuthError(
+        'Username must be 3–24 characters using letters, numbers, hyphens, or underscores.',
+        'invalid',
+      );
+    }
+    if (password.length < 6) {
+      throw new AccountAuthError('Password must be at least 6 characters.', 'invalid');
+    }
+    if (password !== confirmPassword) {
+      throw new AccountAuthError('Passwords do not match.', 'invalid');
+    }
+
+    const urls = functionUrls('registerAccount');
+    let lastError: unknown = null;
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUser, password, confirmPassword }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        const data = (await resp.json().catch(() => ({}))) as {
+          status?: string;
+          username?: string;
+          error?: string;
+        };
+        if (resp.status === 201 || resp.status === 200) {
+          return { status: 'pending', username: data.username || cleanUser };
+        }
+        if (resp.status === 409) {
+          throw new AccountAuthError(data.error || 'Username is already taken.', 'conflict');
+        }
+        if (resp.status === 429) {
+          throw new AccountAuthError(data.error || 'Too many attempts — try again shortly.', 'rate_limited');
+        }
+        if (resp.status === 400) {
+          throw new AccountAuthError(data.error || 'Please check your username and password.', 'invalid');
+        }
+        lastError = `HTTP ${resp.status}`;
+      } catch (e) {
+        if (e instanceof AccountAuthError) throw e;
+        lastError = e;
+        Logger.e(`registerAccount ${url} failed`, e);
+      }
+    }
+    throw new AccountAuthError(
+      lastError ? 'Could not reach the server. Check your connection and try again.' : 'Could not create account.',
+      'connection',
+    );
+  }
+
+  async loginWithAccount(username: string, password: string): Promise<string> {
+    const cleanUser = username.trim();
+    if (!cleanUser || !password) {
+      throw new AccountAuthError('Enter your username and password.', 'invalid');
+    }
+
+    const urls = functionUrls('loginAccount');
+    let lastError: unknown = null;
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUser, password }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        const data = (await resp.json().catch(() => ({}))) as {
+          token?: string;
+          username?: string;
+          status?: string;
+          error?: string;
+        };
+        if (resp.status === 403) {
+          const code = data.status === 'pending' ? 'pending' : 'rejected';
+          throw new AccountAuthError(
+            data.error ||
+              (code === 'pending'
+                ? 'Your account is pending approval. Ask Khent to approve it.'
+                : 'This account is not approved to sign in.'),
+            code,
+          );
+        }
+        if (resp.status === 401 || resp.status === 400) {
+          throw new AccountAuthError(data.error || 'Invalid username or password.', 'invalid');
+        }
+        if (resp.status === 429) {
+          throw new AccountAuthError(data.error || 'Too many attempts — try again later.', 'rate_limited');
+        }
+        if (resp.status !== 200 || !data.token || !data.username) {
+          lastError = `HTTP ${resp.status}`;
+          continue;
+        }
+        await signInWithCustomToken(auth, data.token);
+        this.currentUser = data.username;
+        this.isAgentSession = false;
+        await this.saveSession(data.username, null);
+        await this.syncUserDoc();
+        this.lastAuthError = null;
+        this.isOfflineMode = false;
+        this.notify();
+        return data.username;
+      } catch (e) {
+        if (e instanceof AccountAuthError) throw e;
+        lastError = e;
+        Logger.e(`loginWithAccount ${url} failed`, e);
+      }
+    }
+    throw new AccountAuthError(
+      lastError ? 'Could not reach the server. Check your connection and try again.' : 'Sign in failed.',
+      'connection',
+    );
   }
 
   async tryOfflineRememberedLogin(passcode: string): Promise<string | null> {
