@@ -5,7 +5,7 @@ const { streamMediaBody } = require('./stream_media_body');
 const { escHtml, hlsPlayerHtml } = require('./hls_player');
 
 const common = require('./common.js');
-const { getAdmin, getDb, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = common;
+const { applyCors, getAdmin, getDb, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = common;
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -654,9 +654,7 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, req) {
 }
 
 const proxyAnime = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -666,16 +664,13 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
     return;
   }
 
-  if (enforceRateLimit(req, res, { endpoint: 'proxyAnime', limit: 60, windowMs: 60000 })) return;
-  const token = req.get('Authorization') || req.query.token;
-  if (token) {
-    const authed = await verifyToken(req);
-    if (!authed) {
-      res.status(401).send(failHtml('Unauthorized', 'Invalid or expired auth token.'));
-      return;
-    }
+  const authed = await verifyToken(req);
+  if (!authed) {
+    res.status(401).send(failHtml('Unauthorized', 'Authentication required.'));
+    return;
   }
-  const cacheControl = token ? 'private, no-store' : 'public, max-age=300';
+  if (enforceRateLimit(req, res, { endpoint: 'proxyAnime', limit: 60, windowMs: 60000, uid: authed.uid || '' })) return;
+  const cacheControl = 'private, no-store';
 
   const params = validateAnimeParams(req.query || {});
   if (params.error) {
@@ -757,8 +752,7 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
 });
 
 const proxyMegavidHls = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  applyCors(req, res, 'GET, HEAD, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
   res.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
   if (req.method === 'OPTIONS') {
@@ -769,15 +763,12 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'GET only' });
     return;
   }
-  if (enforceRateLimit(req, res, { endpoint: 'proxyMegavidHls', limit: 240, windowMs: 60000 })) return;
-  const token = req.get('Authorization') || req.query.token;
-  if (token) {
-    const authed = await verifyToken(req);
-    if (!authed) {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
+  const authed = await verifyToken(req);
+  if (!authed) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMegavidHls', limit: 240, windowMs: 60000, uid: authed.uid || '' })) return;
 
   const targetUrl = req.query.u;
   if (typeof targetUrl !== 'string' || !targetUrl) {
@@ -821,6 +812,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       upstreamCt.includes('mpegurl') ||
       upstreamCt.includes('x-mpegurl') ||
       parsed.pathname.toLowerCase().includes('.m3u8');
+    let consumed = null;
     if (looksLikePlaylist) {
       const text = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
       if (text && text.includes('#EXTM3U')) {
@@ -839,6 +831,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
         res.status(200).send(rewritten);
         return;
       }
+      consumed = text;
     }
     const ct =
       upstream.headers.get('content-type') || 'application/octet-stream';
@@ -849,12 +842,16 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     const contentRange = upstream.headers.get('content-range');
     if (contentRange) res.set('Content-Range', contentRange);
     const contentLength = upstream.headers.get('content-length');
-    if (contentLength) res.set('Content-Length', contentLength);
+    if (contentLength && consumed === null) res.set('Content-Length', contentLength);
     if (req.method === 'HEAD') {
       res.status(upstream.status === 206 ? 206 : 200).send('');
       return;
     }
     const status = upstream.status === 206 ? 206 : 200;
+    if (consumed !== null) {
+      res.status(status).send(consumed);
+      return;
+    }
     if (upstream.body && typeof upstream.body.getReader === 'function') {
       res.status(status);
       await streamMediaBody(upstream.body, res);

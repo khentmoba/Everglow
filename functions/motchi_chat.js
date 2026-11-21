@@ -263,7 +263,6 @@ async function handleProxyAI(req, res) {
     res.set('Content-Type', 'text/event-stream');
     res.set('Cache-Control', 'no-cache');
     res.set('Connection', 'keep-alive');
-    res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Expose-Headers', '*');
     res.set('X-Content-Type-Options', 'nosniff');
     if (res.socket) res.socket.setNoDelay(true);

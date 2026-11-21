@@ -482,7 +482,8 @@ service cloud.firestore {
       allow read: if isRegistered();
     }
     match /spotify_tokens/{userId} {
-      allow read, write: if ownerOf(userId);
+      allow read, delete: if isCouple() && ownerOf(userId);
+      allow create, update: if false;
     }
 
     // Server-only collections

@@ -19,24 +19,42 @@ import {
 } from './anime.js';
 import { yumeHeaders } from './yumezone.js';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
-  'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
-};
+const ALLOWED_ORIGINS = new Set([
+  'https://everglow-1c6db.web.app',
+  'https://everglow-1c6db.firebaseapp.com',
+]);
 
-function htmlResponse(body, status) {
+function corsHeaders(request) {
+  const origin = request?.headers?.get('origin') || '';
+  let selfOrigin = '';
+  try {
+    selfOrigin = request?.url ? new URL(request.url).origin : '';
+  } catch (_) {}
+  const isLocal = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  const allowOrigin =
+    origin && (ALLOWED_ORIGINS.has(origin) || origin === selfOrigin || isLocal)
+      ? origin
+      : 'https://everglow-1c6db.web.app';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
+    'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+  };
+}
+
+function htmlResponse(body, status, request) {
   return new Response(body, {
     status,
-    headers: { ...CORS, 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { ...corsHeaders(request), 'Content-Type': 'text/html; charset=utf-8' },
   });
 }
 
-function jsonResponse(body, status) {
+function jsonResponse(body, status, request) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(request), 'Content-Type': 'application/json' },
   });
 }
 
@@ -45,11 +63,12 @@ function proxyBase(request) {
 }
 
 async function handleProxyAnime(request, env) {
+  const cors = corsHeaders(request);
   if (request.method === 'OPTIONS') {
-    return new Response('', { status: 204, headers: CORS });
+    return new Response('', { status: 204, headers: cors });
   }
   if (request.method !== 'GET') {
-    return htmlResponse(failHtml('Method not allowed', 'GET only.'), 405);
+    return htmlResponse(failHtml('Method not allowed', 'GET only.'), 405, request);
   }
 
   const query = Object.fromEntries(new URL(request.url).searchParams);
@@ -58,8 +77,8 @@ async function handleProxyAnime(request, env) {
   const notify = String(query.source || '').toLowerCase() === 'cinema';
   if (params.error) {
     return wantsJson
-      ? jsonResponse({ error: params.error }, 400)
-      : htmlResponse(failHtml('Bad request', params.error, { notify }), 400);
+      ? jsonResponse({ error: params.error }, 400, request)
+      : htmlResponse(failHtml('Bad request', params.error, { notify }), 400, request);
   }
 
   const base = proxyBase(request);
@@ -67,8 +86,8 @@ async function handleProxyAnime(request, env) {
   const sendFail = (msg) => {
     console.warn(`[proxyAnime] ${params.source}: ${msg}`);
     return wantsJson
-      ? jsonResponse({ error: msg }, 502)
-      : htmlResponse(failHtml('Episode unavailable', msg, { notify }), 502);
+      ? jsonResponse({ error: msg }, 502, request)
+      : htmlResponse(failHtml('Episode unavailable', msg, { notify }), 502, request);
   };
 
   try {
@@ -141,7 +160,7 @@ async function handleProxyAnime(request, env) {
         {
           status: 200,
           headers: {
-            ...CORS,
+            ...cors,
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': 'no-store',
           },
@@ -163,7 +182,7 @@ async function handleProxyAnime(request, env) {
     return new Response(page, {
       status: 200,
       headers: {
-        ...CORS,
+        ...cors,
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': query.token ? 'private, no-store' : 'public, max-age=300',
       },
@@ -175,16 +194,17 @@ async function handleProxyAnime(request, env) {
 }
 
 async function handleProxyHls(request, env, _ctx) {
+  const cors = corsHeaders(request);
   if (request.method === 'OPTIONS') {
-    return new Response('', { status: 204, headers: CORS });
+    return new Response('', { status: 204, headers: cors });
   }
   if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return jsonResponse({ error: 'GET only' }, 405);
+    return jsonResponse({ error: 'GET only' }, 405, request);
   }
 
   const url = new URL(request.url);
   const sealed = await scopedTarget(url.searchParams, env.CDN_STAMP_KEY || null);
-  if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400);
+  if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400, request);
   const target = sealed.target;
   const provider = sealed.provider;
 
@@ -290,7 +310,7 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
       const response = new Response(rewritten, {
         status: 200,
         headers: {
-          ...CORS,
+          ...cors,
           'Content-Type': 'application/vnd.apple.mpegurl',
           'Cache-Control': 'public, max-age=30',
         },
@@ -308,7 +328,7 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     const text = consumed !== null ? consumed : await upstream.text();
     const cleaned = stripAdCues(text);
     const vttHeaders = {
-      ...CORS,
+      ...cors,
       'Content-Type': 'text/vtt; charset=utf-8',
       'Cache-Control': 'public, max-age=3600',
     };
@@ -318,7 +338,7 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     return new Response(cleaned, { status: 200, headers: vttHeaders });
   }
 
-  const outHeaders = { ...CORS };
+  const outHeaders = { ...cors };
   outHeaders['Content-Type'] = upstream.headers.get('content-type') || 'application/octet-stream';
   outHeaders['Cache-Control'] = 'public, max-age=3600';
   for (const h of ['accept-ranges', 'content-range', 'content-length']) {
@@ -342,8 +362,8 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === '/proxyAnime') return handleProxyAnime(request, env);
     if (pathname === '/proxyMegavidHls') return handleProxyHls(request, env, ctx);
-    if (pathname === '/health') return new Response('ok', { headers: CORS });
-    return new Response('Not found', { status: 404, headers: CORS });
+    if (pathname === '/health') return new Response('ok', { headers: corsHeaders(request) });
+    return new Response('Not found', { status: 404, headers: corsHeaders(request) });
   },
 };
 

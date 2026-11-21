@@ -4,6 +4,8 @@ const { applyCors, cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername,
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core.js');
 const { streamMediaBody } = require('./stream_media_body');
 
+const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|heic|heif|avif)(?:;|$)/i;
+
 const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
 
@@ -45,14 +47,19 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
       return;
     }
     const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
+      (upstream.headers.get('content-type') || '').trim() || 'image/jpeg';
+    if (!RASTER_IMAGE_RE.test(contentType)) {
+      if (upstream.body && typeof upstream.body.cancel === 'function') {
+        await upstream.body.cancel().catch(() => {});
+      }
+      res.status(415).json({ error: 'Upstream did not return a supported image' });
+      return;
+    }
     res.set('Content-Type', contentType);
-    const thumbWidth = Array.isArray(req.query.w)
-      ? req.query.w[0]
-      : req.query.w;
-    const thumbPx = typeof thumbWidth === 'string' ? parseInt(thumbWidth, 10) : NaN;
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     const isThumbFile = targetUrl.includes('_thumb.jpg');
-    if ((Number.isFinite(thumbPx) && thumbPx > 0 && thumbPx <= 1600) || isThumbFile) {
+    if (isThumbFile) {
       res.set('Cache-Control', 'private, max-age=31536000, immutable');
     } else {
       res.set('Cache-Control', 'private, max-age=3600');

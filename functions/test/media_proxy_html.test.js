@@ -33,7 +33,12 @@ test('scanlation images stream without buffering the whole response', async (t) 
   assert.equal(response.writableFinished, true);
 });
 
-test('proxyFetchHtml rejects lookalike suffix bypass hosts', async () => {
+test('proxyFetchHtml rejects lookalike suffix bypass hosts', async (t) => {
+  t.mock.method(common, 'requireAuth', async () => ({
+    uid: 'u1',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
   const send = async (url) => {
     const res = {
       code: 200,
@@ -43,7 +48,10 @@ test('proxyFetchHtml rejects lookalike suffix bypass hosts', async () => {
       json(b) { this.body = b; },
       send(b) { this.body = b; },
     };
-    await html.proxyFetchHtml({ method: 'GET', headers: {}, get: () => '', ip: '8.8.8.8', query: { url } }, res);
+    await html.proxyFetchHtml(
+      { method: 'GET', headers: { authorization: 'Bearer ok' }, get: (k) => (k === 'Authorization' ? 'Bearer ok' : ''), ip: '8.8.8.8', query: { url } },
+      res,
+    );
     return res;
   };
   assert.equal((await send('https://evileverglow-1c6db.web.app/')).code, 400);
@@ -63,6 +71,11 @@ test('only active HTML scraping and watch stream proxies are exported', () => {
 });
 
 test('proxyFetchHtml returns text/plain with sandbox CSP and readLimitedText enforces byte cap', async (t) => {
+  t.mock.method(common, 'requireAuth', async () => ({
+    uid: 'u1',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
   t.mock.method(common, 'fetchPublicUrl', async () => ({
     ok: true,
     status: 200,
@@ -83,7 +96,13 @@ test('proxyFetchHtml returns text/plain with sandbox CSP and readLimitedText enf
     send(b) { this.body = b; },
   };
   await html.proxyFetchHtml(
-    { method: 'GET', headers: { origin: 'https://everglow-1c6db.web.app' }, get: () => '', ip: '8.8.8.8', query: { url: 'https://mangakatana.com/test' } },
+    {
+      method: 'GET',
+      headers: { origin: 'https://everglow-1c6db.web.app', authorization: 'Bearer ok' },
+      get: (k) => (k === 'Authorization' ? 'Bearer ok' : ''),
+      ip: '8.8.8.8',
+      query: { url: 'https://mangakatana.com/test' },
+    },
     res,
   );
   assert.equal(res.code, 200);
@@ -98,4 +117,25 @@ test('proxyFetchHtml returns text/plain with sandbox CSP and readLimitedText enf
     },
   });
   await assert.rejects(() => common.readLimitedText(oversized, 512), /size limit/i);
+});
+
+test('proxyScanlation rejects non-raster HTML/SVG content types', async (t) => {
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+    body: new ReadableStream({ start(c) { c.enqueue(Buffer.from('<script>alert(1)</script>')); c.close(); } }),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    json(b) { this.body = b; },
+  };
+  await html.proxyScanlation(
+    { method: 'GET', headers: {}, get: () => '', ip: '8.8.8.8', query: { url: 'https://demo.blogspot.com/xss.html' } },
+    res,
+  );
+  assert.equal(res.code, 415);
 });

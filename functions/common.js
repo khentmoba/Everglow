@@ -1,8 +1,13 @@
 'use strict';
 
 const net = require('net');
+const http = require('node:http');
+const https = require('node:https');
 const dns = require('dns').promises;
 const { trustedProfileUsername } = require('./auth_core.js');
+
+const _httpAgent = new http.Agent({ keepAlive: true, maxSockets: 32 });
+const _httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32 });
 
 const APP_VERSION = '6.3.0+1';
 
@@ -96,11 +101,11 @@ async function fetchPublicUrl(target, { headers, signal }) {
     if (!records.length || records.some(({ address }) => isPrivateIp(address))) {
       throw new Error('Host not allowed');
     }
-    const transport = require(url.protocol === 'https:' ? 'node:https' : 'node:http');
+    const transport = url.protocol === 'https:' ? https : http;
     const incoming = await new Promise((resolve, reject) => {
       const request = transport.get(url, {
         headers: reqHeaders, signal,
-        agent: false,
+        agent: url.protocol === 'https:' ? _httpsAgent : _httpAgent,
         lookup: (_host, options, callback) => {
           callback(null, options.all ? [records[0]] : records[0].address, records[0].family);
         },
@@ -238,8 +243,18 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
 
 function clientIp(req) {
   const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
-  const hops = fwd.split(',').map((hop) => hop.trim());
-  const client = hops.length >= 2 ? hops.at(-2) : req.ip;
+  const hops = fwd.split(',').map((hop) => hop.trim()).filter(Boolean);
+  const fwdHost = String(req.get('X-Forwarded-Host') || req.headers['x-forwarded-host'] || '').toLowerCase();
+  const host = String(req.get('Host') || req.headers.host || '').toLowerCase();
+  const viaHosting =
+    fwdHost === 'everglow-1c6db.web.app' ||
+    fwdHost === 'everglow-1c6db.firebaseapp.com';
+  const directCloudFn =
+    !viaHosting &&
+    (host.endsWith('.cloudfunctions.net') || host.endsWith('.a.run.app'));
+  const client = directCloudFn
+    ? (hops.at(-1) || req.ip)
+    : (hops.length >= 2 ? hops.at(-2) : req.ip);
   if (net.isIP(client || '')) return client;
   return net.isIP(req.ip || '') ? req.ip : 'unknown';
 }

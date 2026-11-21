@@ -3,6 +3,7 @@
 // `setState` bump, the same shape as the Flutter State class.
 import { useEffect, useReducer, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../../core/services/auth';
+import { auth as firebaseAuth } from '../../core/services/firebase';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -389,7 +390,12 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       const ctrl = new AbortController();
       const timer = window.setTimeout(() => ctrl.abort(), ms);
       try {
-        const resp = await fetch(u, { signal: ctrl.signal });
+        const headers: Record<string, string> = {};
+        if (u.startsWith(PROBE_PROXY_URL)) {
+          const token = await firebaseAuth.currentUser?.getIdToken().catch(() => null);
+          if (token) headers.Authorization = `Bearer ${token}`;
+        }
+        const resp = await fetch(u, { signal: ctrl.signal, headers });
         if (resp.status !== 200) return 'no playable stream sources';
         return await resp.text();
       } finally {

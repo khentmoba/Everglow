@@ -1,9 +1,11 @@
 'use strict';
 
 const common = require('./common.js');
-const { applyCors, cappedHttps, enforceRateLimit, getAdmin } = common;
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
 const { resolveKatanaServerCookie } = require('./media_proxy_core.js');
 const { streamMediaBody } = require('./stream_media_body');
+
+const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|avif|bmp|x-icon|vnd\.microsoft\.icon)(?:;|$)/i;
 
 const proxyScanlation = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -97,9 +99,18 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
+    const rawContentType = (upstream.headers.get('content-type') || '').trim();
+    const contentType = rawContentType || 'image/jpeg';
+    if (!RASTER_IMAGE_RE.test(contentType)) {
+      if (upstream.body && typeof upstream.body.cancel === 'function') {
+        await upstream.body.cancel().catch(() => {});
+      }
+      res.status(415).json({ error: 'Upstream did not return a supported image' });
+      return;
+    }
     res.set('Content-Type', contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', 'public, max-age=600');
     await streamMediaBody(upstream.body, res);
   } catch (e) {
@@ -124,17 +135,9 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  if (enforceRateLimit(req, res, { endpoint: 'proxyFetchHtml', limit: 60, windowMs: 60000 })) return;
-  const header = req.get('Authorization') || req.headers.authorization || '';
-  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch (e) {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+  const decoded = await common.requireAuth(req, res);
+  if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyFetchHtml', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
 
 
 
@@ -158,7 +161,6 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
 
   const allowedExactHosts = new Set([
     'everglow-1c6db.web.app',
-    'us-central1-everglow-1c6db.cloudfunctions.net',
   ]);
   const allowedSuffixes = [
     '.mangakakalot.com',
