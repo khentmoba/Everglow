@@ -40,6 +40,7 @@ let heartbeatTimer = 0;
 let currentUid: string | null = null;
 let currentUsername: string | null = null;
 let activeSessionId: string | null = null;
+let sessionGen = 0;
 let doodlingUid: string | null = null;
 let doodleIdleTimer = 0;
 
@@ -51,7 +52,7 @@ function clearTimers() {
   doodlingUid = null;
 }
 
-async function createSession(uid: string, username: string): Promise<void> {
+async function createSession(uid: string, username: string, gen: number): Promise<void> {
   try {
     const ref = await addDoc(collection(db, 'presence_sessions'), {
       uid,
@@ -63,10 +64,23 @@ async function createSession(uid: string, username: string): Promise<void> {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    if (gen !== sessionGen) {
+      await setDoc(
+        doc(db, 'presence_sessions', ref.id),
+        {
+          endedAt: serverTimestamp(),
+          isActive: false,
+          lastSeenAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ).catch((err) => Logger.e('PresenceService stale session close failed', err));
+      return;
+    }
     activeSessionId = ref.id;
   } catch (e) {
     Logger.e('PresenceService _createSession failed', e);
-    activeSessionId = null;
+    if (gen === sessionGen) activeSessionId = null;
   }
 }
 
@@ -137,11 +151,13 @@ export const presenceService = {
       void closeSession();
     }
     clearTimers();
+    sessionGen += 1;
+    const gen = sessionGen;
     currentUid = uid;
     currentUsername = username;
 
     void presenceService.setOnline(uid, username);
-    if (activeSessionId == null) void createSession(uid, username);
+    if (activeSessionId == null) void createSession(uid, username, gen);
     else void touchSession();
 
     heartbeatTimer = window.setInterval(() => {
@@ -153,6 +169,7 @@ export const presenceService = {
 
   async stopHeartbeat(): Promise<void> {
     const uid = currentUid;
+    sessionGen += 1;
     clearTimers();
     currentUid = null;
     currentUsername = null;

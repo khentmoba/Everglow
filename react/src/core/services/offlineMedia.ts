@@ -126,7 +126,7 @@ const cacheKey = (key: string, isManga: boolean) =>
 async function saveBlob(key: string, bytes: Blob, isManga: boolean, mimeType: string): Promise<boolean> {
   try {
     const cache = await caches.open(isManga ? MANGA_CACHE : MEDIA_CACHE);
-    const body = new Blob([bytes], { type: mimeType });
+    const body = bytes.type === mimeType ? bytes : new Blob([bytes], { type: mimeType });
     await cache.put(
       cacheKey(key, isManga),
       new Response(body, {
@@ -139,6 +139,48 @@ async function saveBlob(key: string, bytes: Blob, isManga: boolean, mimeType: st
   } catch (e) {
     Logger.e(`OfflineMediaStorage: could not save ${isManga ? 'manga page' : 'media blob'} ${key}`, e);
     return false;
+  }
+}
+
+async function saveStreamToCache(
+  key: string,
+  res: Response,
+  mimeType: string,
+  onProgress?: (loadedBytes: number, totalBytes: number) => void,
+): Promise<{ ok: boolean; bytes: number }> {
+  try {
+    const cache = await caches.open(MEDIA_CACHE);
+    const contentLength = Number(res.headers.get('content-length')) || 0;
+    if (!res.body || typeof TransformStream === 'undefined') {
+      const blob = await res.blob();
+      if (blob.size <= 0) return { ok: false, bytes: 0 };
+      const ok = await saveBlob(key, blob, false, mimeType);
+      return { ok, bytes: blob.size };
+    }
+    let loaded = 0;
+    let lastReportAt = 0;
+    const counter = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        loaded += chunk.byteLength;
+        controller.enqueue(chunk);
+        const now = Date.now();
+        if (onProgress && now - lastReportAt >= 400) {
+          lastReportAt = now;
+          onProgress(loaded, contentLength);
+        }
+      },
+    });
+    const stream = res.body.pipeThrough(counter);
+    const headers: Record<string, string> = { 'Content-Type': mimeType };
+    if (contentLength > 0) headers['Content-Length'] = String(contentLength);
+    await cache.put(
+      cacheKey(key, false),
+      new Response(stream, { status: 200, statusText: 'OK', headers }),
+    );
+    return { ok: loaded > 0, bytes: loaded };
+  } catch (e) {
+    Logger.e(`OfflineMediaStorage: could not stream media ${key}`, e);
+    return { ok: false, bytes: 0 };
   }
 }
 
@@ -174,6 +216,12 @@ async function clearStorage(): Promise<void> {
   } catch (e) {
     Logger.e('OfflineMediaStorage: could not clear caches', e);
   }
+}
+
+function revokeObjectUrl(url: string | null | undefined): void {
+  if (!url || !objectUrls.has(url)) return;
+  URL.revokeObjectURL(url);
+  objectUrls.delete(url);
 }
 
 async function deleteItemBlobs(item: OfflineMediaItem) {
@@ -333,12 +381,21 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     if (url.startsWith('http')) {
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(10 * 60 * 1000) });
-        const blob = res.ok ? await res.blob() : null;
-        if (blob && blob.size > 0) {
-          await saveBlob(args.id, blob, false, 'video/mp4');
-          this.put({ ...initial, status: 'completed', progress: 1, downloadedBytes: blob.size, totalBytes: blob.size });
-          this.save();
-          return;
+        if (res.ok) {
+          const { ok, bytes } = await saveStreamToCache(args.id, res, 'video/mp4', (loaded, total) => {
+            const denom = total > 0 ? total : Math.max(estimated, loaded);
+            this.put({
+              ...initial,
+              progress: Math.min(0.99, Math.max(0.05, loaded / denom)),
+              downloadedBytes: loaded,
+              totalBytes: denom,
+            });
+          });
+          if (ok && bytes > 0) {
+            this.put({ ...initial, status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes });
+            this.save();
+            return;
+          }
         }
       } catch (e) {
         Logger.e(`Offline download failed for ${args.id}`, e);
@@ -501,6 +558,14 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     const item = this.value[itemId];
     if (item && pageNumber > 0 && pageNumber <= item.pageUrls.length) return item.pageUrls[pageNumber - 1];
     return null;
+  }
+
+  revokeBlobUrl(url: string | null | undefined) {
+    revokeObjectUrl(url);
+  }
+
+  revokeBlobUrls(urls: Iterable<string>) {
+    for (const url of urls) revokeObjectUrl(url);
   }
 }
 

@@ -184,12 +184,16 @@ export function useSource<T>(make: () => Source<T> | null, key: unknown[], initi
 export function useSourceState<T>(make: () => Source<T> | null, key: unknown[], initial: T): { value: T; loading: boolean; error: unknown | null } {
   const [state, setState] = useState<{ value: T; loading: boolean; error: unknown | null }>({ value: initial, loading: true, error: null });
   useEffect(() => {
-    setState((s) => ({ ...s, loading: true, error: null }));
     const source = make();
-    if (!source) return;
+    if (!source) {
+      setState({ value: initial, loading: false, error: null });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: null }));
     return source({
       data: (value) => setState({ value, loading: false, error: null }),
       error: (error) => setState((s) => ({ ...s, loading: false, error })),
+      done: () => setState((s) => (s.loading ? { ...s, loading: false } : s)),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, key);

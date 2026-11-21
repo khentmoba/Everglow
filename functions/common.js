@@ -1,8 +1,13 @@
 'use strict';
 
 const net = require('net');
+const http = require('node:http');
+const https = require('node:https');
 const dns = require('dns').promises;
 const { trustedProfileUsername } = require('./auth_core.js');
+
+const _httpAgent = new http.Agent({ keepAlive: true, maxSockets: 32 });
+const _httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32 });
 
 const APP_VERSION = '6.3.0+1';
 
@@ -80,6 +85,7 @@ async function isPublicDnsHost(hostname) {
 
 async function fetchPublicUrl(target, { headers, signal }) {
   const { Readable } = require('node:stream');
+  const reqHeaders = headers ? { ...headers } : {};
   let url = new URL(target);
   for (let hop = 0; hop <= 5; hop++) {
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
@@ -95,11 +101,11 @@ async function fetchPublicUrl(target, { headers, signal }) {
     if (!records.length || records.some(({ address }) => isPrivateIp(address))) {
       throw new Error('Host not allowed');
     }
-    const transport = require(url.protocol === 'https:' ? 'node:https' : 'node:http');
+    const transport = url.protocol === 'https:' ? https : http;
     const incoming = await new Promise((resolve, reject) => {
       const request = transport.get(url, {
-        headers, signal,
-        agent: false,
+        headers: reqHeaders, signal,
+        agent: url.protocol === 'https:' ? _httpsAgent : _httpAgent,
         lookup: (_host, options, callback) => {
           callback(null, options.all ? [records[0]] : records[0].address, records[0].family);
         },
@@ -110,7 +116,14 @@ async function fetchPublicUrl(target, { headers, signal }) {
       incoming.destroy();
       if (!incoming.headers.location || hop === 5) throw new Error('Invalid or excessive redirects');
       const nextUrl = new URL(incoming.headers.location, url);
-      if (nextUrl.origin !== url.origin && headers?.Referer) delete headers.Referer;
+      if (nextUrl.origin !== url.origin) {
+        for (const key of Object.keys(reqHeaders)) {
+          const lower = key.toLowerCase();
+          if (lower === 'referer' || lower === 'cookie' || lower === 'authorization') {
+            delete reqHeaders[key];
+          }
+        }
+      }
       url = nextUrl;
       continue;
     }
@@ -122,6 +135,36 @@ async function fetchPublicUrl(target, { headers, signal }) {
       body: Readable.toWeb(incoming),
     };
   }
+}
+
+async function readLimitedText(body, maxBytes = 4 * 1024 * 1024) {
+  if (!body) return '';
+  if (typeof body.getReader !== 'function') {
+    const text = await new Response(body).text();
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+      throw new Error('Upstream response exceeded size limit');
+    }
+    return text;
+  }
+  const reader = body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        throw new Error('Upstream response exceeded size limit');
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+  }
+  return Buffer.concat(chunks, total).toString('utf8');
 }
 
 function isAllowedBookTextUrl(url) {
@@ -200,8 +243,18 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
 
 function clientIp(req) {
   const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
-  const hops = fwd.split(',').map((hop) => hop.trim());
-  const client = hops.length >= 2 ? hops.at(-2) : req.ip;
+  const hops = fwd.split(',').map((hop) => hop.trim()).filter(Boolean);
+  const fwdHost = String(req.get('X-Forwarded-Host') || req.headers['x-forwarded-host'] || '').toLowerCase();
+  const host = String(req.get('Host') || req.headers.host || '').toLowerCase();
+  const viaHosting =
+    fwdHost === 'everglow-1c6db.web.app' ||
+    fwdHost === 'everglow-1c6db.firebaseapp.com';
+  const directCloudFn =
+    !viaHosting &&
+    (host.endsWith('.cloudfunctions.net') || host.endsWith('.a.run.app'));
+  const client = directCloudFn
+    ? (hops.at(-1) || req.ip)
+    : (hops.length >= 2 ? hops.at(-2) : req.ip);
   if (net.isIP(client || '')) return client;
   return net.isIP(req.ip || '') ? req.ip : 'unknown';
 }
@@ -321,6 +374,7 @@ module.exports = {
   isPrivateIp,
   isPublicDnsHost,
   fetchPublicUrl,
+  readLimitedText,
   isAllowedBookTextUrl,
   _getExternalCache,
   _setExternalCache,

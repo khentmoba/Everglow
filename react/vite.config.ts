@@ -4,11 +4,12 @@ import {
   existsSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { extname, join, resolve } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -93,6 +94,16 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+  if (url.pathname.endsWith("/proxyGalleryImage")) {
+    event.respondWith(
+      caches.open(OFFLINE_PHOTOS).then(async (cache) => {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        return fetch(req);
+      })
+    );
+    return;
+  }
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
   if (path.startsWith("/api/") || path === "/version.json" || path === "/sw.js" || path === "/firebase-messaging-sw.js") {
@@ -132,8 +143,8 @@ self.addEventListener("fetch", (event) => {
 });
 
 try {
-  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
-  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+  importScripts("/assets/firebase-app-compat.js");
+  importScripts("/assets/firebase-messaging-compat.js");
   firebase.initializeApp({
     apiKey: "AIzaSyBMk0z4e-k_SAYzaLypYKJn3euwfx0fW5c",
     authDomain: "everglow-1c6db.firebaseapp.com",
@@ -178,20 +189,37 @@ function webShellPlugin(): Plugin {
     name: 'everglow-web-shell',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const path = decodeURIComponent((req.url ?? '').split('?')[0]);
+        let path: string;
+        try {
+          path = decodeURIComponent((req.url ?? '').split('?')[0]);
+        } catch {
+          res.statusCode = 400;
+          res.end('Bad Request');
+          return;
+        }
+        if (/(^|\/)env\.txt$/i.test(path) || /(^|\/)\.env(\.|$)/i.test(path)) {
+          res.statusCode = 404;
+          res.end('Not Found');
+          return;
+        }
         const allowed =
           WEB_FOLDERS.some((f) => path.startsWith(`/${f}/`)) ||
           path.startsWith('/icons/') ||
           PWA_FILES.some((f) => path === `/${f}`);
         if (!allowed) return next();
-        const file = join(webRoot, path);
-        if (!file.startsWith(webRoot) || !existsSync(file) || !statSync(file).isFile()) return next();
+        const file = resolve(webRoot, `.${path}`);
+        if (!file.startsWith(webRoot + sep) || !existsSync(file) || !statSync(file).isFile()) return next();
         res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
         createReadStream(file).pipe(res);
       });
     },
     closeBundle() {
       const distRoot = resolve(__dirname, 'dist');
+      for (const entry of existsSync(distRoot) ? readdirSync(distRoot) : []) {
+        if (/^env\.txt$/i.test(entry) || /^\.env(\.|$)/i.test(entry)) {
+          rmSync(join(distRoot, entry), { force: true });
+        }
+      }
       for (const f of WEB_FOLDERS) {
         const src = join(webRoot, f);
         if (existsSync(src)) cpSync(src, join(distRoot, f), { recursive: true });
@@ -223,11 +251,18 @@ function webShellPlugin(): Plugin {
       const htmlAssets = [
         ...indexHtml.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/g),
       ].map((m) => m[1]);
+      const firebaseCompatFiles = ['firebase-app-compat.js', 'firebase-messaging-compat.js'];
+      const firebasePkgDir = resolve(__dirname, 'node_modules/firebase');
+      for (const f of firebaseCompatFiles) {
+        const src = join(firebasePkgDir, f);
+        if (existsSync(src)) cpSync(src, join(assetsDir, f));
+      }
       // Precache the entry shell + Dashboard chunk (and its direct imports) so
       // offline reload of /dashboard works immediately after SW activation.
       const precacheSet = new Set<string>([
         ...(mainEntry ? [`/assets/${mainEntry}`] : []),
         ...(mainCss ? [`/assets/${mainCss}`] : []),
+        ...firebaseCompatFiles.filter((f) => existsSync(join(assetsDir, f))).map((f) => `/assets/${f}`),
         ...htmlAssets,
       ]);
       const dashChunks = assetFiles.filter((n) => /^(?:DashboardPage|DashboardLowerZones)-.*\.js$/.test(n));

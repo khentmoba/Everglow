@@ -268,6 +268,7 @@ export async function disconnectSpotify(): Promise<void> {
 }
 
 const SPOTIFY_VERIFIER_KEY = 'spotify_code_verifier';
+const SPOTIFY_STATE_KEY = 'spotify_oauth_state';
 const SPOTIFY_SCOPES = [
   'streaming',
   'user-read-email',
@@ -301,8 +302,10 @@ export async function linkSpotify(options?: { forceDialog?: boolean }): Promise<
     throw new Error('Spotify not configured (missing client ID)');
   }
   const verifier = generateVerifier();
+  const state = generateVerifier();
   const challenge = await challengeFor(verifier);
   Prefs.set(SPOTIFY_VERIFIER_KEY, verifier);
+  Prefs.set(SPOTIFY_STATE_KEY, state);
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
@@ -310,6 +313,7 @@ export async function linkSpotify(options?: { forceDialog?: boolean }): Promise<
     scope: SPOTIFY_SCOPES.join(' '),
     code_challenge_method: 'S256',
     code_challenge: challenge,
+    state,
     show_dialog: options?.forceDialog ? 'true' : 'false',
   });
   const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
@@ -322,15 +326,25 @@ export async function linkSpotify(options?: { forceDialog?: boolean }): Promise<
 }
 
 /** Trades the returned code for tokens through the spotifyExchange helper. */
-export async function handleSpotifyCallback(code: string): Promise<boolean> {
+export async function handleSpotifyCallback(code: string, state?: string | null): Promise<boolean> {
   try {
+    const expectedState = Prefs.getString(SPOTIFY_STATE_KEY);
+    Prefs.remove(SPOTIFY_STATE_KEY);
+    if (!expectedState || !state || state !== expectedState) {
+      Logger.w('SpotifyAuth: state mismatch or missing');
+      return false;
+    }
     const verifier = Prefs.getString(SPOTIFY_VERIFIER_KEY);
+    if (!verifier) {
+      Logger.w('SpotifyAuth: missing PKCE verifier');
+      return false;
+    }
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Not authenticated');
     const body = JSON.stringify({
       code,
       redirectUri: spotifyRedirectUri(),
-      ...(verifier != null ? { codeVerifier: verifier } : {}),
+      codeVerifier: verifier,
     });
     const post = (url: string) =>
       fetch(url, {

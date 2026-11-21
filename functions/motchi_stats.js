@@ -1,12 +1,10 @@
 'use strict';
 
-const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
+const { applyCors, getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
 const { journeyMetrics } = require('./motchi_agent.js');
 
 const motchiStats = cappedHttps(5, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);

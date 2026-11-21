@@ -92,9 +92,12 @@ test('hlsPlayerHtml escapes titles and includes subs', () => {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
     title: '<b>Hi</b>',
+    token: '</script><script>alert(1)</script>',
     tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
   });
   assert.ok(!html.includes('<b>Hi</b>'));
+  assert.ok(!html.includes('</script><script>alert(1)'));
+  assert.ok(html.includes('\\u003c/script\\u003e'));
   assert.ok(html.includes('https://x/y.m3u8'));
   assert.ok(html.includes('en.vtt'));
 });

@@ -1,13 +1,13 @@
 'use strict';
 
-const { Readable } = require('node:stream');
 const { applyCors, cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core.js');
+const { streamMediaBody } = require('./stream_media_body');
+
+const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|heic|heif|avif)(?:;|$)/i;
 
 const proxyGalleryImage = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -47,39 +47,36 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
       return;
     }
     const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
+      (upstream.headers.get('content-type') || '').trim() || 'image/jpeg';
+    if (!RASTER_IMAGE_RE.test(contentType)) {
+      if (upstream.body && typeof upstream.body.cancel === 'function') {
+        await upstream.body.cancel().catch(() => {});
+      }
+      res.status(415).json({ error: 'Upstream did not return a supported image' });
+      return;
+    }
     res.set('Content-Type', contentType);
-    const thumbWidth = Array.isArray(req.query.w)
-      ? req.query.w[0]
-      : req.query.w;
-    const thumbPx = typeof thumbWidth === 'string' ? parseInt(thumbWidth, 10) : NaN;
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     const isThumbFile = targetUrl.includes('_thumb.jpg');
-    if ((Number.isFinite(thumbPx) && thumbPx > 0 && thumbPx <= 1600) || isThumbFile) {
+    if (isThumbFile) {
       res.set('Cache-Control', 'private, max-age=31536000, immutable');
     } else {
       res.set('Cache-Control', 'private, max-age=3600');
     }
     res.status(200);
     if (upstream.body != null) {
-      await new Promise((resolve) => {
-        let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
-        try {
-          const nodeStream = Readable.fromWeb(upstream.body);
-          nodeStream.on('error', () => { try { res.end(); } catch (_) {} finish(); });
-          res.on('close', finish);
-          nodeStream.pipe(res);
-        } catch (_) {
-          try { res.end(); } catch (_) {}
-          finish();
-        }
-      });
+      await streamMediaBody(upstream.body, res);
     } else {
       const buffer = Buffer.from(await upstream.arrayBuffer());
       res.send(buffer);
     }
   } catch (e) {
     console.warn(`proxyGalleryImage failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
@@ -97,19 +94,9 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     return;
   }
 
-  const idToken = req.headers.authorization?.replace('Bearer ', '');
-  if (!idToken) {
-    res.status(401).json({ error: 'Auth required' });
-    return;
-  }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
   const admin = getAdmin();
-  let decoded;
-  try {
-    decoded = await admin.auth().verifyIdToken(idToken);
-  } catch (e) {
-    res.status(401).json({ error: 'Invalid or expired auth token' });
-    return;
-  }
   if (await getVerifiedUsername(decoded) !== 'khentsgdz') {
     res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
     return;
@@ -134,7 +121,7 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
       const d = doc.data();
       if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
         try {
-          const path = decodeURIComponent(d.imageUrl.split('/o/')[1]?.split('?')[0] || '');
+          const path = resolveGalleryDeletePath(d.imageUrl);
           if (path) await bucket.file(path).delete();
         } catch (_) { }
       }

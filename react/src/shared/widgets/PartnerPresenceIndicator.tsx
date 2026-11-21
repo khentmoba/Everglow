@@ -56,8 +56,31 @@ export function PartnerPresenceIndicator({
   const partnerName = auth.partnerName;
 
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
+    let id = 0;
+    const sync = () => setNow(Date.now());
+    const start = () => {
+      if (id || document.hidden) return;
+      id = window.setInterval(sync, 30_000);
+    };
+    const stop = () => {
+      if (!id) return;
+      clearInterval(id);
+      id = 0;
+    };
+    const onVis = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        sync();
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const presence = useSource<PresenceData>(

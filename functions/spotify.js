@@ -1,6 +1,16 @@
 'use strict';
 
-const { applyCors, getAdmin, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
+const { applyCors, getAdmin, getVerifiedUsername, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
+
+const COUPLE_USERS = new Set(['khentsgdz', 'clairjassen']);
+async function requireCoupleUser(decoded, res) {
+  const username = await getVerifiedUsername(decoded);
+  if (!COUPLE_USERS.has(username)) {
+    res.status(403).json({ error: 'Spotify is only available to couple accounts' });
+    return false;
+  }
+  return true;
+}
 
 
 function _getSpotifyCreds() {
@@ -26,10 +36,25 @@ async function _getSpotifyAppToken() {
   return data.access_token;
 }
 
+const ALLOWED_SPOTIFY_REDIRECT_ORIGINS = new Set([
+  'https://everglow-1c6db.web.app',
+  'https://everglow-1c6db.firebaseapp.com',
+]);
+
+function isAllowedSpotifyRedirectUri(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return false;
+  try {
+    const u = new URL(raw);
+    if (u.pathname !== '/spotify/callback' || u.search || u.hash) return false;
+    if (ALLOWED_SPOTIFY_REDIRECT_ORIGINS.has(u.origin)) return true;
+    return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(u.origin);
+  } catch {
+    return false;
+  }
+}
+
 const proxySpotifySearch = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'Only GET' }); return; }
   const decoded = await requireAuth(req, res);
@@ -106,18 +131,23 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (!(await requireCoupleUser(decoded, res))) return;
   if (enforceRateLimit(req, res, { endpoint: 'spotifyExchange', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
   const { code, redirectUri, codeVerifier } = req.body || {};
   if (!code || !redirectUri) { res.status(400).json({ error: 'code and redirectUri required' }); return; }
-  const { id, secret } = _getSpotifyCreds();
+  if (!isAllowedSpotifyRedirectUri(redirectUri)) { res.status(400).json({ error: 'Invalid redirectUri' }); return; }
+  if (!codeVerifier || typeof codeVerifier !== 'string') { res.status(400).json({ error: 'codeVerifier required' }); return; }
+  const { id } = _getSpotifyCreds();
   if (!id) { res.status(503).json({ error: 'Spotify not configured' }); return; }
   try {
-    const params = new URLSearchParams({ grant_type: 'authorization_code', code: String(code), redirect_uri: String(redirectUri) });
-    if (codeVerifier) params.set('code_verifier', String(codeVerifier));
-    else if (secret) params.set('client_secret', secret);
-    params.set('client_id', id);
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: String(code),
+      redirect_uri: String(redirectUri),
+      code_verifier: String(codeVerifier),
+      client_id: id,
+    });
     const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-    if (secret && !codeVerifier) headers['Authorization'] = 'Basic ' + Buffer.from(id + ':' + secret).toString('base64');
     const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers, body: params.toString(), signal: AbortSignal.timeout(10000) });
     const text = await r.text();
     if (!r.ok) { console.warn('[spotifyExchange]', r.status, text); res.status(r.status).json({ error: text }); return; }
@@ -153,6 +183,7 @@ const spotifyRefresh = cappedHttps(10, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (!(await requireCoupleUser(decoded, res))) return;
   if (enforceRateLimit(req, res, { endpoint: 'spotifyRefresh', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
   const { id, secret } = _getSpotifyCreds();
   if (!id) { res.status(503).json({ error: 'Spotify not configured' }); return; }
@@ -221,6 +252,7 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (!(await requireCoupleUser(decoded, res))) return;
   if (enforceRateLimit(req, res, { endpoint: 'spotifyCurrentlyPlaying', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
   const includeRecent = req.query.includeRecent === '1' || req.query.includeRecent === 'true';
   try {

@@ -135,8 +135,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .player-pulse-ring { animation: player-pulse-ring 1600ms cubic-bezier(.25,.1,.25,1) -560ms infinite; }
 @keyframes player-loader-ring { from { transform: scale(.8); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
 .player-loader-ring { animation: player-loader-ring 2200ms linear -1100ms infinite; }
-@keyframes player-loader-bar { from { left: 0; } to { left: 88px; } }
-.player-loader-bar { animation: player-loader-bar 2200ms linear -1100ms infinite; }
+@keyframes player-loader-bar { from { transform: translateX(0); } to { transform: translateX(88px); } }
+.player-loader-bar { animation: player-loader-bar 2200ms linear -1100ms infinite; will-change: transform; }
 
 @keyframes stats-shimmer {
   0% { transform: translateX(-120%); }
@@ -188,6 +188,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .emblem-breath { animation: emblem-breath 6.8s ease-in-out infinite; will-change: transform; }
 .emblem-spin { animation: emblem-spin 14s linear infinite; will-change: transform; }
 .title-shimmer { background-size: 260% 100%; animation: title-shimmer 4.2s linear infinite; }
+@media (max-width: 768px) {
+  .title-shimmer { animation: none; }
+}
 .heart-pulse { animation: heart-pulse 2.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite; will-change: transform; }
 .heart-glow { animation: heart-glow 2.6s linear infinite; will-change: opacity; }
 @media (prefers-reduced-motion: reduce) {

@@ -15,6 +15,8 @@
     "ignore": [
       "firebase.json",
       "**/.*",
+      "**/env.txt",
+      "**/*.env*",
       "**/node_modules/**",
       "**/*.symbols",
       "**/*.map",
@@ -49,10 +51,19 @@
           },
           {
             "key": "Content-Security-Policy",
-            "value": "base-uri 'self'; object-src 'none'; frame-ancestors 'self'"
+            "value": "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests"
           }
         ],
         "source": "**"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ],
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|ico|map|json)"
       },
       {
         "headers": [
@@ -89,15 +100,6 @@
           }
         ],
         "source": "**/*.@(wasm|ttf|otf|woff|woff2|glb|gltf|bin|data|mp3)"
-      },
-      {
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=0, must-revalidate"
-          }
-        ],
-        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|ico|map|json)"
       },
       {
         "headers": [

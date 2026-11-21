@@ -46,10 +46,12 @@ export function TrailerPlayer({
   const latest = useRef({ muted, playing, autoplay, loop, onLoaded });
   latest.current = { muted, playing, autoplay, loop, onLoaded };
 
+  const YT_ORIGIN = 'https://www.youtube.com';
+
   const post = (func: string, args?: string | number) => {
     try {
       const a = typeof args === 'string' ? `"${args}"` : args != null ? `${args}` : '""';
-      iframeRef.current?.contentWindow?.postMessage(`{"event":"command","func":"${func}","args":${a}}`, '*');
+      iframeRef.current?.contentWindow?.postMessage(`{"event":"command","func":"${func}","args":${a}}`, YT_ORIGIN);
     } catch {
       /* the frame may be gone */
     }
@@ -71,7 +73,7 @@ export function TrailerPlayer({
       latest.current.onLoaded?.();
     };
     const onMessage = (e: MessageEvent) => {
-      if (notified || e.source !== iframe.contentWindow || typeof e.data !== 'string') return;
+      if (notified || e.origin !== YT_ORIGIN || e.source !== iframe.contentWindow || typeof e.data !== 'string') return;
       if (!e.data.includes('playerState')) return;
       try {
         const decoded = JSON.parse(e.data) as { info?: { playerState?: number } };
@@ -86,7 +88,7 @@ export function TrailerPlayer({
     const onLoad = () => {
       loaded.current = true;
       try {
-        iframe.contentWindow?.postMessage('{"event":"listening"}', '*');
+        iframe.contentWindow?.postMessage('{"event":"listening"}', YT_ORIGIN);
       } catch (err) {
         Logger.d(`TrailerPlayer: failed to subscribe to YT events: ${err}`);
       }

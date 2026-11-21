@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
   limitToLast,
   onSnapshot,
   orderBy,
@@ -100,8 +101,13 @@ export async function sendTemporaryChatMessage(roomId: string, text: string, sen
 
 export async function clearTemporaryChat(roomId: string): Promise<void> {
   if (!roomId) return;
-  const snap = await withGetTimeout(getDocs(collection(db, COLLECTION, roomId, 'messages')), 'temporary chat clear scan');
-  const batch = writeBatch(db);
-  for (const d of snap.docs) batch.delete(d.ref);
-  await batch.commit();
+  const messagesCol = collection(db, COLLECTION, roomId, 'messages');
+  while (true) {
+    const snap = await withGetTimeout(getDocs(query(messagesCol, limit(450))), 'temporary chat clear scan');
+    if (snap.empty) break;
+    const batch = writeBatch(db);
+    for (const d of snap.docs) batch.delete(d.ref);
+    await batch.commit();
+    if (snap.docs.length < 450) break;
+  }
 }

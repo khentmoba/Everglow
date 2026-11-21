@@ -1,6 +1,6 @@
 // The Dashboard's media shelves: Watching Now, Cinema Vault, Anime Realm, Our Books, and Mangacelestia.
 // Each shelf shows one shared row; a small initial on every cover says whose shelf it is on.
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -107,15 +107,39 @@ function ShelfRow({
   );
 }
 
-function useWatchLists() {
+type WatchListsValue = {
+  me: string;
+  partner: string;
+  mine: WatchMediaItem[];
+  theirs: WatchMediaItem[];
+};
+
+const WatchListsContext = createContext<WatchListsValue | null>(null);
+
+const DASHBOARD_WATCHLIST_LIMIT = 60;
+
+export function WatchListsProvider({ children }: { children: ReactNode }) {
   const { me, partner } = useCouple();
-  const mine = useSource(() => watchUserWatchList(me), [me], []);
-  const theirs = useSource(() => watchUserWatchList(partner), [partner], []);
+  const mine = useSource(() => watchUserWatchList(me, DASHBOARD_WATCHLIST_LIMIT), [me], []);
+  const theirs = useSource(() => watchUserWatchList(partner, DASHBOARD_WATCHLIST_LIMIT), [partner], []);
+  return (
+    <WatchListsContext.Provider value={{ me, partner, mine, theirs }}>
+      {children}
+    </WatchListsContext.Provider>
+  );
+}
+
+function useWatchLists() {
+  const shared = useContext(WatchListsContext);
+  const { me, partner } = useCouple();
+  const ownMine = useSource(() => (shared ? null : watchUserWatchList(me, DASHBOARD_WATCHLIST_LIMIT)), [shared ? null : me], []);
+  const ownTheirs = useSource(() => (shared ? null : watchUserWatchList(partner, DASHBOARD_WATCHLIST_LIMIT)), [shared ? null : partner], []);
+  const data = shared ?? { me, partner, mine: ownMine, theirs: ownTheirs };
   return (keep: (m: WatchMediaItem) => boolean) =>
     mergeByOwner(
       [
-        { user: me, items: mine.filter(keep) },
-        { user: partner, items: theirs.filter(keep) },
+        { user: data.me, items: data.mine.filter(keep) },
+        { user: data.partner, items: data.theirs.filter(keep) },
       ],
       watchKey,
     );

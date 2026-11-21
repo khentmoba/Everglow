@@ -23,6 +23,7 @@ import { useSyncExternalStore } from 'react';
 import { AgentMode } from '../agent/agentMode';
 import { RouteMemory } from '../router/routeMemory';
 import { Logger } from '../system/logger';
+import { presenceService } from './presence';
 import { Prefs } from '../system/prefs';
 import { withGetTimeout } from '../utils/liveSource';
 import { initializeProgress } from '../../features/xp/xpService';
@@ -32,13 +33,27 @@ import { notificationService } from './notifications';
 
 export class PasscodeConnectionError extends Error {}
 
-type OfflineVerifier = { username: string; salt: string; digest: string };
+type OfflineVerifier = { v?: number; username: string; salt: string; digest: string };
 
 const COUPLE = new Set(['khentsgdz', 'clairjassen']);
+const PBKDF2_ITERATIONS = 310_000;
 
 async function sha256Hex(text: string): Promise<string> {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function pbkdf2Hex(username: string, salt: string, passcode: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(`${username}:${passcode}`), 'PBKDF2', false, [
+    'deriveBits',
+  ]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    key,
+    256,
+  );
+  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function base64Url(bytes: Uint8Array): string {
@@ -237,7 +252,13 @@ class AuthService {
     if (!remembered || !COUPLE.has(remembered) || !/^\d{4}$/.test(passcode) || v?.username !== remembered) {
       return null;
     }
-    if (!v.salt || (await sha256Hex(`${remembered}:${v.salt}:${passcode}`)) !== v.digest) return null;
+    if (!v.salt) return null;
+    if (v.v === 2) {
+      if ((await pbkdf2Hex(remembered, v.salt, passcode)) !== v.digest) return null;
+    } else {
+      if ((await sha256Hex(`${remembered}:${v.salt}:${passcode}`)) !== v.digest) return null;
+      await this.saveSession(remembered, passcode);
+    }
     this.isOfflineMode = true;
     this.lastAuthError = null;
     Logger.i(`[AuthService] offline remembered login for ${remembered}`);
@@ -254,7 +275,7 @@ class AuthService {
       return;
     }
     const salt = base64Url(crypto.getRandomValues(new Uint8Array(32)));
-    this.offlineVerifier = { username: name, salt, digest: await sha256Hex(`${name}:${salt}:${passcode}`) };
+    this.offlineVerifier = { v: 2, username: name, salt, digest: await pbkdf2Hex(name, salt, passcode) };
     Prefs.set('offline_passcode_verifier', JSON.stringify(this.offlineVerifier));
   }
 
@@ -375,6 +396,11 @@ class AuthService {
     this.isAgentSession = false;
     this.lastAuthError = null;
     try {
+      await presenceService.stopHeartbeat();
+    } catch (e) {
+      Logger.w(`Presence logout cleanup warning: ${String(e)}`);
+    }
+    try {
       await notificationService.unregisterForLogout();
     } catch (e) {
       Logger.w(`FCM logout cleanup warning: ${String(e)}`);
@@ -385,6 +411,8 @@ class AuthService {
       Logger.w(`signOut warning: ${String(e)}`);
     }
     RouteMemory.clear();
+    Prefs.remove('spotify_code_verifier');
+    Prefs.remove('spotify_oauth_state');
     this.currentUser = null;
     this.user = null;
     this.partnerUid = null;

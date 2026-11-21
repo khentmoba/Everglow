@@ -1,6 +1,6 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, fetchPublicUrl, isAllowedBookTextUrl, requireAuth } = require('./common.js');
+const { applyCors, cappedHttps, enforceRateLimit, fetchPublicUrl, isAllowedBookTextUrl, requireAuth } = require('./common.js');
 
 const MAX_URLS = 10;
 const MAX_TEXT_BYTES = 5 * 1024 * 1024;
@@ -26,9 +26,7 @@ async function readStreamCapped(body, maxBytes) {
 }
 
 const proxyBookText = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -97,9 +95,7 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
 });
 
 const proxyBookFile = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
   res.set('Access-Control-Expose-Headers', 'X-Book-Source');
 
   if (req.method === 'OPTIONS') {

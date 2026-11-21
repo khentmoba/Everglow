@@ -8,7 +8,14 @@ import { CalendarPreview } from './CalendarPreview';
 import { DashboardPair, DashboardZoneHeader } from './DashboardZoneHeader';
 import { GalleryPreview } from './GalleryPreview';
 import { KeepsakesCluster } from './KeepsakesCluster';
-import { AnimePreview, BooksPreview, CinemaPreview, CurrentlyWatchingPreview, MangaPreview } from './MediaShelves';
+import {
+  AnimePreview,
+  BooksPreview,
+  CinemaPreview,
+  CurrentlyWatchingPreview,
+  MangaPreview,
+  WatchListsProvider,
+} from './MediaShelves';
 import { AcademyPortalCard, PlayZonePortalCard } from './PortalCards';
 import { TimelineView } from './TimelineView';
 
@@ -72,11 +79,13 @@ export function DashboardLowerZones({
       <div style={{ height: 16 }} />
       <RandomizerCard />
       <div style={{ height: 16 }} />
-      <DashboardPair left={<CurrentlyWatchingPreview />} right={<WatchPartyCard />} />
-      <div style={{ height: 12 }} />
-      <CinemaPreview />
-      <div style={{ height: 12 }} />
-      <AnimePreview />
+      <WatchListsProvider>
+        <DashboardPair left={<CurrentlyWatchingPreview />} right={<WatchPartyCard />} />
+        <div style={{ height: 12 }} />
+        <CinemaPreview />
+        <div style={{ height: 12 }} />
+        <AnimePreview />
+      </WatchListsProvider>
       <div style={{ height: 12 }} />
       <BooksPreview />
       <div style={{ height: 12 }} />

@@ -12,6 +12,7 @@ export function SpotifyCallbackPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const code = params.get('code');
+  const state = params.get('state');
   const error = params.get('error');
   const [status, setStatus] = useState('Connecting to Spotify...');
   const [done, setDone] = useState(false);
@@ -22,7 +23,7 @@ export function SpotifyCallbackPage() {
     void (async () => {
       if (error != null) return setStatus(`Spotify auth failed: ${error}`);
       if (!code) return setStatus('No code returned');
-      const ok = await handleSpotifyCallback(code);
+      const ok = await handleSpotifyCallback(code, state);
       if (!alive) return;
       setStatus(ok ? 'Spotify linked! ✓' : 'Link failed — try again');
       setDone(ok);
@@ -32,7 +33,7 @@ export function SpotifyCallbackPage() {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [code, error, navigate]);
+  }, [code, state, error, navigate]);
 
   return (
     <div

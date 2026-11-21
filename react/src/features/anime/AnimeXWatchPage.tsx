@@ -3,6 +3,7 @@
 // `setState` bump, the same shape as the Flutter State class.
 import { useEffect, useReducer, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../../core/services/auth';
+import { auth as firebaseAuth } from '../../core/services/firebase';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -278,12 +279,22 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       offlineItem = offlineMedia.getItem(OfflineIds.animeEpisodeId(item.tmdbId, st.playerEpisode));
     if (offlineItem && offlineItem.status === 'completed') {
       const url = await offlineMedia.getPlayableUrl(offlineItem);
-      if (st.mounted && url) {
+      if (!st.mounted) {
+        offlineMedia.revokeBlobUrl(url);
+        return;
+      }
+      if (url) {
+        const prev = st.offlineBlobUrl;
         setState(() => (st.offlineBlobUrl = url));
+        if (prev && prev !== url) offlineMedia.revokeBlobUrl(prev);
         return;
       }
     }
-    if (st.offlineBlobUrl) setState(() => (st.offlineBlobUrl = undefined));
+    if (st.offlineBlobUrl) {
+      const prev = st.offlineBlobUrl;
+      setState(() => (st.offlineBlobUrl = undefined));
+      offlineMedia.revokeBlobUrl(prev);
+    }
   };
 
   const fetchSkips = async () => {
@@ -379,7 +390,12 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       const ctrl = new AbortController();
       const timer = window.setTimeout(() => ctrl.abort(), ms);
       try {
-        const resp = await fetch(u, { signal: ctrl.signal });
+        const headers: Record<string, string> = {};
+        if (u.startsWith(PROBE_PROXY_URL)) {
+          const token = await firebaseAuth.currentUser?.getIdToken().catch(() => null);
+          if (token) headers.Authorization = `Bearer ${token}`;
+        }
+        const resp = await fetch(u, { signal: ctrl.signal, headers });
         if (resp.status !== 200) return 'no playable stream sources';
         return await resp.text();
       } finally {
@@ -767,6 +783,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       latest.current.cancelThrottle();
       if (st.ready) latest.current.saveWatchProgress();
       st.mounted = false;
+      offlineMedia.revokeBlobUrl(st.offlineBlobUrl);
+      st.offlineBlobUrl = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

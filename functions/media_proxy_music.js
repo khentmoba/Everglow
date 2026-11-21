@@ -1,6 +1,7 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const common = require('./common.js');
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin } = common;
 const { streamMediaBody } = require('./stream_media_body');
 
 const LASTFM_IMAGE_HOSTS = new Set([
@@ -23,9 +24,7 @@ function isAllowedLastfmImageUrl(targetUrl) {
 }
 
 const proxyLastfmImage = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -60,7 +59,7 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
@@ -71,9 +70,15 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
-    res.set('Content-Type', contentType);
+    const rawCt = (upstream.headers.get('content-type') || 'image/jpeg').split(';')[0].trim().toLowerCase();
+    if (!/^image\/(jpeg|jpg|png|webp|gif|avif|bmp|x-icon|vnd\.microsoft\.icon)$/.test(rawCt)) {
+      await upstream.body?.cancel();
+      res.status(415).json({ error: 'Upstream did not return a raster image' });
+      return;
+    }
+    res.set('Content-Type', rawCt);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
     await streamMediaBody(upstream.body, res);
   } catch (e) {

@@ -258,11 +258,11 @@ async function handleProxyAI(req, res) {
   let stopKeepalive = () => {};
   let stopHeartbeat = () => {};
 
+  try {
   if (isStreaming) {
     res.set('Content-Type', 'text/event-stream');
     res.set('Cache-Control', 'no-cache');
     res.set('Connection', 'keep-alive');
-    res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Expose-Headers', '*');
     res.set('X-Content-Type-Options', 'nosniff');
     if (res.socket) res.socket.setNoDelay(true);
@@ -329,7 +329,11 @@ async function handleProxyAI(req, res) {
   const disconnect = new AbortController();
   const workSignal = AbortSignal.any([disconnect.signal, AbortSignal.timeout(budget.durationMs)]);
   toolCtx.signal = workSignal;
-  res.once?.('close', () => { if (!res.writableFinished) disconnect.abort(); });
+  res.once?.('close', () => {
+    stopKeepalive();
+    stopHeartbeat();
+    if (!res.writableFinished) disconnect.abort();
+  });
   const _tCtx0 = Date.now();
   const retrievalQuery = (isBareYes(lastUserMessage) || /\b(it|that|this|those|these|first|second|third|last one)\b/i.test(lastUserMessage)) && prevUserText
     ? `${prevUserText}\n${lastUserMessage}` : lastUserMessage;
@@ -676,6 +680,7 @@ ${HTML_GAME_GUIDE}
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
       stopKeepalive(); stopHeartbeat();
+      if (!res.writableEnded) res.end();
       return;
     }
     res.json({ reply: 'Motchi is resting right now - try again in a bit!' });
@@ -1532,6 +1537,13 @@ ${HTML_GAME_GUIDE}
       serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
     }
     if (canSaveMemories && checkText) checkHallucinations(checkText).catch(() => {});
+  }
+  } finally {
+    stopKeepalive();
+    stopHeartbeat();
+    if (isStreaming && !res.writableEnded) {
+      try { res.end(); } catch (_) {}
+    }
   }
 }
 
