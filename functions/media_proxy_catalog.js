@@ -1,6 +1,7 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin, _getExternalCache, _setExternalCache } = require('./common.js');
+const common = require('./common.js');
+const { cappedHttps, enforceRateLimit, getAdmin, _getExternalCache, _setExternalCache } = common;
 
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -28,11 +29,18 @@ function resolveCatalogUpstream(baseKey, pathParam) {
   const qIndex = pathParam.indexOf('?');
   const rawPath = qIndex === -1 ? pathParam : pathParam.slice(0, qIndex);
   const rawQuery = qIndex === -1 ? '' : pathParam.slice(qIndex + 1);
+  if (/^[a-z][a-z0-9+.-]*:/i.test(rawPath) || rawPath.includes('\\') || rawPath.startsWith('//')) {
+    throw new Error('Invalid path');
+  }
   const safePath = rawPath.replace(/^\/+/, '').replace(/\.\.+/g, '');
   if (safePath.length === 0 || safePath.length > 200) {
     throw new Error('Invalid path');
   }
-  const targetUrl = new URL(safePath, upstreamBase);
+  const baseUrl = new URL(upstreamBase);
+  const targetUrl = new URL(safePath, baseUrl);
+  if (targetUrl.origin !== baseUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
+    throw new Error('Invalid path');
+  }
   if (rawQuery) targetUrl.search = rawQuery;
   if (targetUrl.search.length > 300) throw new Error('Invalid path');
   return targetUrl;
@@ -87,15 +95,14 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl.toString(), {
       headers: {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(20000),
     });
-    const body = await upstream.text();
+    const body = await new Response(upstream.body).text();
     const contentType = upstream.headers.get('content-type') || 'application/json';
     if (!noStore && upstream.status === 200) {
       _setExternalCache(cacheKey, { status: 200, contentType, body });

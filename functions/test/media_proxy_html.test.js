@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { Writable } = require('node:stream');
+const common = require('../common.js');
 const html = require('../media_proxy_html.js');
 const video = require('../media_proxy_video.js');
 const index = require('../index.js');
@@ -14,8 +15,9 @@ test('scanlation images stream without buffering the whole response', async (t) 
   response.set = () => response;
   response.status = () => response;
   response.json = () => assert.fail('must not try JSON after streaming');
-  t.mock.method(global, 'fetch', async () => ({
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
     ok: true,
+    status: 200,
     headers: new Headers({ 'content-type': 'image/jpeg' }),
     body: new ReadableStream({ start(controller) {
       controller.enqueue(Buffer.from('first'));
@@ -29,6 +31,23 @@ test('scanlation images stream without buffering the whole response', async (t) 
   }, response);
   assert.equal(Buffer.concat(chunks).toString(), 'firstsecond');
   assert.equal(response.writableFinished, true);
+});
+
+test('proxyFetchHtml rejects lookalike suffix bypass hosts', async () => {
+  const send = async (url) => {
+    const res = {
+      code: 200,
+      headers: {},
+      set(k, v) { this.headers[k] = v; return this; },
+      status(n) { this.code = n; return this; },
+      json(b) { this.body = b; },
+      send(b) { this.body = b; },
+    };
+    await html.proxyFetchHtml({ method: 'GET', headers: {}, get: () => '', ip: '8.8.8.8', query: { url } }, res);
+    return res;
+  };
+  assert.equal((await send('https://evileverglow-1c6db.web.app/')).code, 400);
+  assert.equal((await send('https://verglow-1c6db.web.app/')).code, 400);
 });
 
 test('only active HTML scraping and watch stream proxies are exported', () => {

@@ -668,8 +668,13 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
   if (enforceRateLimit(req, res, { endpoint: 'proxyAnime', limit: 60, windowMs: 60000 })) return;
   const token = req.get('Authorization') || req.query.token;
   if (token) {
-    await verifyToken(req);
+    const authed = await verifyToken(req);
+    if (!authed) {
+      res.status(401).send(failHtml('Unauthorized', 'Invalid or expired auth token.'));
+      return;
+    }
   }
+  const cacheControl = token ? 'private, no-store' : 'public, max-age=300';
 
   const params = validateAnimeParams(req.query || {});
   if (params.error) {
@@ -687,7 +692,7 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
     try {
       const out = await resolveMegavid(anilistId, malId, ep, audio, req);
       res.set('Content-Type', 'text/html; charset=utf-8');
-      res.set('Cache-Control', 'public, max-age=300');
+      res.set('Cache-Control', cacheControl);
       res.status(200).send(out.playerHtml);
       return;
     } catch (e) {
@@ -700,7 +705,7 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
     try {
       const out = await resolveMegaPlay(anilistId, malId, ep, audio, req);
       res.set('Content-Type', 'text/html; charset=utf-8');
-      res.set('Cache-Control', 'public, max-age=300');
+      res.set('Cache-Control', cacheControl);
       res.status(200).send(out.playerHtml);
       return;
     } catch (e) {
@@ -741,7 +746,7 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
       `?u=${encodeURIComponent(out.m3u8)}` +
       `&token=${encodeURIComponent(String(req.query.token || ''))}`;
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.set('Cache-Control', 'public, max-age=300');
+    res.set('Cache-Control', cacheControl);
     res
       .status(200)
       .send(hlsPlayerHtml({ src: seg, title: titles[0], tracks: [], ep }));
@@ -766,9 +771,11 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
   if (enforceRateLimit(req, res, { endpoint: 'proxyMegavidHls', limit: 240, windowMs: 60000 })) return;
   const token = req.get('Authorization') || req.query.token;
   if (token) {
-    try {
-      await verifyToken(req);
-    } catch (_) {}
+    const authed = await verifyToken(req);
+    if (!authed) {
+      res.status(401).json({ error: 'Invalid or expired auth token' });
+      return;
+    }
   }
 
   const targetUrl = req.query.u;

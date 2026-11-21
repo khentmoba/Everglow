@@ -234,6 +234,7 @@ export function MangaReaderView({
   const explicitNavRef = useRef(false);
   const navEpochRef = useRef(0);
   const lastLoadKeyRef = useRef('');
+  const offlineBlobUrlsRef = useRef<Set<string>>(new Set());
   const appendingNextRef = useRef(false);
   const prependingPrevRef = useRef(false);
   const latestProgressRef = useRef({
@@ -245,11 +246,16 @@ export function MangaReaderView({
 
   // Clear bounded caches & reload bookmarks on series change
   useEffect(() => {
+    const blobs = offlineBlobUrlsRef.current;
     prefetchedImagesRef.current.clear();
     prefetchedChapterRef.current.clear();
     aspectMapRef.current.clear();
     setFailedPageKeys([]);
     setPageBookmarks(loadPageBookmarks(params.slug));
+    return () => {
+      offlineMedia.revokeBlobUrls(blobs);
+      blobs.clear();
+    };
   }, [params.slug]);
 
   const chapterById = useCallback(
@@ -486,6 +492,7 @@ export function MangaReaderView({
         const resolved = await Promise.all(
           offlineItem.pageUrls.map(async (raw, i) => {
             const blobUrl = await offlineMedia.getMangaPageUrl(offlineItem.id, i + 1);
+            if (blobUrl && blobUrl.startsWith('blob:')) offlineBlobUrlsRef.current.add(blobUrl);
             return normalizeAssetUrl(blobUrl ?? raw);
           }),
         );

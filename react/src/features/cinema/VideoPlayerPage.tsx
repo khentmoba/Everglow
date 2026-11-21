@@ -353,7 +353,9 @@ class PlayerController {
     offlineMedia.flushPlaybackPosition();
     if (this.video) {
       this.video.pause();
+      const prevSrc = this.video.src;
       this.video.removeAttribute('src');
+      offlineMedia.revokeBlobUrl(prevSrc);
       this.video = null;
     }
     this.iframe.src = 'about:blank';
@@ -475,9 +477,14 @@ class PlayerController {
     }
     const video = this.video;
     void offlineMedia.getPlayableUrl(item).then((url) => {
-      if (!this.mounted || this.video !== video) return;
+      if (!this.mounted || this.video !== video) {
+        offlineMedia.revokeBlobUrl(url);
+        return;
+      }
       if (url) {
+        const prevSrc = video.src;
         video.src = url;
+        if (prevSrc && prevSrc !== url) offlineMedia.revokeBlobUrl(prevSrc);
         const start = this.resolvedStartSeconds ?? item.lastPositionSeconds ?? 0;
         if (start > 0) video.currentTime = start;
         void video.play().catch(() => undefined);

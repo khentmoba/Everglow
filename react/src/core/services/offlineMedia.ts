@@ -176,6 +176,12 @@ async function clearStorage(): Promise<void> {
   }
 }
 
+function revokeObjectUrl(url: string | null | undefined): void {
+  if (!url || !objectUrls.has(url)) return;
+  URL.revokeObjectURL(url);
+  objectUrls.delete(url);
+}
+
 async function deleteItemBlobs(item: OfflineMediaItem) {
   if (item.blobKey) await deleteBlob(item.blobKey, item.type === 'manga');
   if (item.type === 'manga') {
@@ -501,6 +507,14 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     const item = this.value[itemId];
     if (item && pageNumber > 0 && pageNumber <= item.pageUrls.length) return item.pageUrls[pageNumber - 1];
     return null;
+  }
+
+  revokeBlobUrl(url: string | null | undefined) {
+    revokeObjectUrl(url);
+  }
+
+  revokeBlobUrls(urls: Iterable<string>) {
+    for (const url of urls) revokeObjectUrl(url);
   }
 }
 

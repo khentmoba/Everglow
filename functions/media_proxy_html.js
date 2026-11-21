@@ -1,6 +1,7 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const common = require('./common.js');
+const { cappedHttps, enforceRateLimit, getAdmin } = common;
 const { resolveKatanaServerCookie } = require('./media_proxy_core.js');
 const { streamMediaBody } = require('./stream_media_body');
 
@@ -74,15 +75,16 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
     '.wp.com',
     '.wordpress.com',
   ];
-  const hostAllowed = allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
+  const hostAllowed = allowedSuffixes.some(
+    (s) => parsed.hostname === s.slice(1) || parsed.hostname.endsWith(s),
+  );
   if (parsed.protocol !== 'https:' || !hostAllowed) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: {
         'Accept': 'image/*,*/*;q=0.8',
         'Referer': parsed.origin + '/',
@@ -156,6 +158,10 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     return;
   }
 
+  const allowedExactHosts = new Set([
+    'everglow-1c6db.web.app',
+    'us-central1-everglow-1c6db.cloudfunctions.net',
+  ]);
   const allowedSuffixes = [
     '.mangakakalot.com',
     '.mangakatana.com',
@@ -171,8 +177,6 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     '.vidcore.org',
     '.rivestream.us',
     '.fmov.my',
-    'everglow-1c6db.web.app',
-    'us-central1-everglow-1c6db.cloudfunctions.net',
     '.asurascans.com',
     '.asuracomic.net',
     '.reaperscans.com',
@@ -184,9 +188,11 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     '.void-scans.com',
     '.rizzcomic.com',
   ];
-  const hostAllowed = allowedSuffixes.some(
-    (s) => parsed.hostname === s.slice(1) || parsed.hostname.endsWith(s),
-  );
+  const hostAllowed =
+    allowedExactHosts.has(parsed.hostname) ||
+    allowedSuffixes.some(
+      (s) => parsed.hostname === s.slice(1) || parsed.hostname.endsWith(s),
+    );
   if (parsed.protocol !== 'https:' || !hostAllowed) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
@@ -201,8 +207,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     let body = '';
     let status = 502;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const upstream = await fetch(targetUrl, {
-        method: 'GET',
+      const upstream = await common.fetchPublicUrl(targetUrl, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -212,7 +217,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
         },
         signal: AbortSignal.timeout(20000),
       });
-      body = await upstream.text();
+      body = await new Response(upstream.body).text();
       status = upstream.status;
       if (status !== 200 || body.length > 0) break;
       await new Promise((r) => setTimeout(r, 350));

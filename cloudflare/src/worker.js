@@ -165,7 +165,7 @@ async function handleProxyAnime(request, env) {
       headers: {
         ...CORS,
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=300',
+        'Cache-Control': query.token ? 'private, no-store' : 'public, max-age=300',
       },
     });
   } catch (e) {

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
+const common = require('./common.js');
 const { proxyCatalog, resolveCatalogUpstream } = require('./media_proxy_catalog.js');
 const indexExports = require('./index.js');
 
@@ -117,14 +118,35 @@ test('index re-exports proxyCatalog', () => {
   assert.equal(typeof indexExports.proxyCatalog, 'function');
 });
 
+test('proxyCatalog rejects absolute and scheme-relative SSRF paths', () => {
+  assert.throws(
+    () => resolveCatalogUpstream('openlibrary', 'http://169.254.169.254/computeMetadata/v1/'),
+    /Invalid path/,
+  );
+  assert.throws(
+    () => resolveCatalogUpstream('openlibrary', 'https://evil.example/secret'),
+    /Invalid path/,
+  );
+  assert.throws(
+    () => resolveCatalogUpstream('jikan', '//evil.example/anime'),
+    /Invalid path/,
+  );
+  assert.throws(
+    () => resolveCatalogUpstream('jikan', '\\\\evil.example\\anime'),
+    /Invalid path/,
+  );
+});
+
 test('proxyCatalog caches 200 responses in memory and skips opentdb', async (t) => {
   let hits = 0;
-  t.mock.method(global, 'fetch', async () => {
+  t.mock.method(common, 'fetchPublicUrl', async () => {
     hits++;
-    return new Response(JSON.stringify({ ok: hits }), {
+    return {
+      ok: true,
       status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ ok: hits })).body,
+    };
   });
   const call = async (base, path) => {
     const res = {

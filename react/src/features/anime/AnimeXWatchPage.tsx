@@ -278,12 +278,22 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       offlineItem = offlineMedia.getItem(OfflineIds.animeEpisodeId(item.tmdbId, st.playerEpisode));
     if (offlineItem && offlineItem.status === 'completed') {
       const url = await offlineMedia.getPlayableUrl(offlineItem);
-      if (st.mounted && url) {
+      if (!st.mounted) {
+        offlineMedia.revokeBlobUrl(url);
+        return;
+      }
+      if (url) {
+        const prev = st.offlineBlobUrl;
         setState(() => (st.offlineBlobUrl = url));
+        if (prev && prev !== url) offlineMedia.revokeBlobUrl(prev);
         return;
       }
     }
-    if (st.offlineBlobUrl) setState(() => (st.offlineBlobUrl = undefined));
+    if (st.offlineBlobUrl) {
+      const prev = st.offlineBlobUrl;
+      setState(() => (st.offlineBlobUrl = undefined));
+      offlineMedia.revokeBlobUrl(prev);
+    }
   };
 
   const fetchSkips = async () => {
@@ -767,6 +777,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       latest.current.cancelThrottle();
       if (st.ready) latest.current.saveWatchProgress();
       st.mounted = false;
+      offlineMedia.revokeBlobUrl(st.offlineBlobUrl);
+      st.offlineBlobUrl = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

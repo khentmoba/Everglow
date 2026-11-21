@@ -8,6 +8,16 @@ function escHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function safeScriptJson(val) {
+  const serialized = JSON.stringify(val);
+  return (serialized === undefined ? 'undefined' : serialized)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 const SEEK_ARC = {
   rew: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   ff: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
@@ -576,10 +586,10 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
       : '') +
     '<button type="button" onclick="location.reload()">Retry</button></div></div>\n' +
     '<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>\n' +
-    '<script>(function(){var src=' + JSON.stringify(src) + ';var v=' +
+    '<script>(function(){var src=' + safeScriptJson(src) + ';var v=' +
     'document.getElementById("v");' +
-    'var servers=' + JSON.stringify(serverList) + ';' +
-    'var currentServer=' + JSON.stringify(currentServer) + ';' +
+    'var servers=' + safeScriptJson(serverList) + ';' +
+    'var currentServer=' + safeScriptJson(currentServer) + ';' +
     'var btnSv=document.getElementById("btn-sv");' +
     'var svMenu=document.getElementById("sv-menu");' +
     'var boot=document.getElementById("boot");' +
@@ -1319,7 +1329,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(pvHls){try{pvHls.destroy();}catch(e){}pvHls=null;}' +
     'try{' +
     (token
-      ? 'pvHls=new Hls({startLevel:0,capLevelToPlayerSize:true,maxBufferLength:2,maxMaxBufferLength:3,backBufferLength:0,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});'
+      ? 'pvHls=new Hls({startLevel:0,capLevelToPlayerSize:true,maxBufferLength:2,maxMaxBufferLength:3,backBufferLength:0,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + safeScriptJson(String(token)) + ');}catch(e){}}});'
       : 'pvHls=new Hls({startLevel:0,capLevelToPlayerSize:true,maxBufferLength:2,maxMaxBufferLength:3,backBufferLength:0});') +
     'pvHls.on(Hls.Events.ERROR,function(ev,data){if(data&&data.fatal){pvFailed=true;try{pvHls.destroy();}catch(e){}pvHls=null;pvReady=false;if(scrubPrev&&scrubPrev.classList)scrubPrev.classList.remove("loading");}});' +
     'pvHls.attachMedia(pv);pvHls.loadSource(activeSrc);' +
@@ -1548,7 +1558,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var fatal=0;' +
     'makeHls=function(){' +
     (token
-      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});'
+      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + safeScriptJson(String(token)) + ');}catch(e){}}});'
       : 'var h=new Hls({maxBufferLength:30});') +
     'hlsInst=h;hlsDead=false;fatal=0;audioTracks=[];' +
     'h.on(Hls.Events.ERROR,function(ev,data){' +
