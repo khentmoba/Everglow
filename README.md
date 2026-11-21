@@ -16,18 +16,18 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v6.3.0** — The Speed & Serenity Update: Sub-second loading without fake caches, in-house HLS anime player, Cinema offline downloads, Books overhaul, text copying, mobile polish
-> [View full changelog →](https://github.com/khentmoba/Everglow/blob/main/CHANGELOG.md) · [Release page →](https://github.com/khentmoba/Everglow/releases/tag/v6.3.0)
+> **v6.4.0** — The Cozy Together Update: a faster app on phone and tablet, a Netflix-style player, member accounts with chat and watch parties, and gentler pages across Everglow
+> [View full changelog →](https://github.com/khentmoba/Everglow/blob/main/CHANGELOG.md) · [Release page →](https://github.com/khentmoba/Everglow/releases/tag/v6.4.0)
 
-**v6.3.0 — The Speed & Serenity Update:**
+**v6.4.0 — The Cozy Together Update:**
 
-1. **Pure Speed & Sub-Second Loading** — Concurrent bootstrap, lightweight memory footprint, and instant Last.fm artist showdowns.
-2. **In-House Anime HLS Streaming** — Buffer-free server proxying with dynamic CDN rotation handling, built-in seeking, progress saving, and multi-genre filters.
-3. **Cinema Offline Downloads** — High-quality torrent index resolution and download drawer for offline watch parties.
-4. **Our Books Overhaul** — Serene typography, responsive shelf grids, and direct read, listen, and EPUB download actions.
-5. **Mobile & Web Polish** — Select and copy text from any dialog or sheet, locked PWA viewport zoom, and zero Home Screen insets jank.
+1. **A Faster, Calmer Everglow** — Media pages open without a loading flash, the Dashboard stops idle redraws, and the whole app was rebuilt in React for phone and tablet.
+2. **Movie Nights, Our Way** — Netflix-style seek preview, our own player shell with a server picker, caption language that survives a server switch, and cleaner streams.
+3. **Anime, Manga & Books** — All eleven anime streams in one picker, a kinder Celestia reader, and a calm Books shelf with download history and listen-along text.
+4. **Us, Together** — Approved member accounts, a global chat, a watch-party hub, shared Dashboard shelves, and Clair's welcome gift back on first visit.
+5. **Little Joys** — Warmer headers, handwritten labels, a greeting by name and time of day, unread-letter badges, Jukebox live status, and a monthly spend bar.
 
-_Previous releases: [v6.2.0](https://github.com/khentmoba/Everglow/releases/tag/v6.2.0) · [v6.1.0](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) · [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) · [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.1.0](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v6.3.0](https://github.com/khentmoba/Everglow/releases/tag/v6.3.0) · [v6.2.0](https://github.com/khentmoba/Everglow/releases/tag/v6.2.0) · [v6.1.0](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) · [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) · [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.1.0](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -208,6 +208,7 @@ Every push to `main` deploys to **[everglow-1c6db.web.app](https://everglow-1c6d
 
 The full release-by-release history lives in [`CHANGELOG.md`](./CHANGELOG.md) and the [releases page](https://github.com/khentmoba/Everglow/releases):
 
+- [**v6.4.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.4.0) — The Cozy Together Update: Faster app on phone and tablet, Netflix-style player, member accounts with chat and watch parties, gentler pages across Everglow
 - [**v6.3.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.3.0) — The Speed & Serenity Update: Sub-second loading without fake caches, in-house HLS anime player, Cinema offline downloads, Books overhaul, text copying, mobile polish
 - [**v6.2.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.2.0) — The Together & Wonder Update: Watch Together & Netflix Cinema, MangaCelestia, Anime overhauls, Motchi voice input, Creator Studio, phone polish
 - [**v6.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) — The Glow-Up Update: Journal, 50+ Motchi tools, Cinema polish, XP rewards, phone performance
