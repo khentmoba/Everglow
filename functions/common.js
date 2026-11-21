@@ -9,7 +9,7 @@ const { trustedProfileUsername } = require('./auth_core.js');
 const _httpAgent = new http.Agent({ keepAlive: true, maxSockets: 32 });
 const _httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32 });
 
-const APP_VERSION = '6.3.0+1';
+const APP_VERSION = '6.4.0+1';
 
 let _admin;
 function getAdmin() {

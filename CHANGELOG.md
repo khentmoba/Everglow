@@ -5,6 +5,35 @@ Every Everglow release, newest first. Each version also has a page at
 
 Releases are manual and curated — see "Releases" in `AGENTS.md`.
 
+## [6.4.0] - 2026-11-22 - The Cozy Together Update
+
+A fresher Everglow for our everyday: a quicker app on phones and tablets, a movie player that feels like Netflix, our own accounts and chat, and gentle new corners across the pages we use most.
+
+### A Faster, Calmer Everglow
+
+- **Open in a heartbeat** — media sections open without a download wait or loading flash, and the Dashboard stops redrawing when it is just sitting there.
+- **Smooth on phones** — less scroll and route-switch jank on the busiest screens, and a cold launch recovers instead of freezing if a startup script fails.
+- **The whole app, rebuilt in React** — every screen was brought over one by one so it feels the same on phone and tablet.
+
+### Movie Nights, Our Way
+
+- **Netflix-style player** — motion on every control and a seek preview to find the exact moment.
+- **Everglow Player** — our own player shell with a server picker; your caption language stays put when a server changes.
+- **Cleaner streams** — dead sources are dropped, stuck streams fail over quietly, and subtitle advert cues are stripped out.
+
+### Anime, Manga & Books
+
+- **One anime shelf** — all eleven streams in the picker, with server switching and smoother playback.
+- **A kinder Celestia reader** — smoother chapters, finishing a read counts from anywhere, and Next chapter no longer bounces back.
+- **Our Books** — a calm reading shelf, download history, Gutenberg chapters with a table of contents, and listen-along text.
+
+### Us, Together
+
+- **Member accounts** — approved members get their own place in Everglow, with a global chat and a watch-party hub.
+- **Shared shelves** — the Dashboard shows who is where, with manga chapters and a Finished reading row.
+- **Welcome gift** — Clair's one-time gift is back on first visit.
+- **Little joys** — warmer headers, handwritten labels, a greeting by name and time of day, unread-letter badges, Jukebox live status, and a simple "how much of the month is spent" bar.
+
 ## [6.3.0] - 2026-11-05 - The Speed & Serenity Update
 
 A massive leap in pure speed and cozy media nights: true sub-second loading without fake caches, in-house ad-free HLS anime streaming with smooth seeking, high-quality Cinema offline downloads, an elegant new Books experience, and effortless text copying across the site.
