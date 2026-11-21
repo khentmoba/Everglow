@@ -2589,7 +2589,9 @@ test('mobile settings falls back to Auto quality on native HLS and desktop setti
   assert.ok(html.includes('#binge{padding:0 12px;bottom:92px}'));
   assert.ok(html.includes('Intro: Off') && html.includes('Intro: Auto'), 'plain Intro label in settings');
   assert.ok(html.includes('binge-left'), 'compact subtitle clearance');
-  assert.ok(hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Ep 1', kind: 'anime' }).includes('id="tap-opts"'), 'anime pre-play exposes quick selectors');
+  const animeHtml = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Ep 1', kind: 'anime' });
+  assert.ok(!animeHtml.includes('id="tap-opts"') && !animeHtml.includes('id="tapw"'), 'pre-play splash overlay removed');
+  assert.ok(animeHtml.includes('id="btn-sv"') && animeHtml.includes('id="btn-sub"') && animeHtml.includes('id="btn-dub"'), 'anime HUD exposes quick selectors');
 
   els['btn-more'].dispatch('click');
   assert.ok(findMenuBtn(els['more-menu'], '\u2715'), 'desktop/tablet settings has close button');
