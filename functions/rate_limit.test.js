@@ -95,6 +95,19 @@ test('clientIp uses Google appended client/LB suffix, not a spoofable prefix', (
     },
   };
   assert.equal(clientIp(directReq), '203.0.113.9');
+
+  const spoofedHostReq = {
+    ip: '1.2.3.4',
+    headers: {
+      host: 'us-central1-everglow-1c6db.cloudfunctions.net',
+      'x-forwarded-host': 'everglow-1c6db.web.app',
+      'x-forwarded-for': '198.51.100.99, 203.0.113.9',
+    },
+    get(name) {
+      return this.headers[String(name).toLowerCase()] || '';
+    },
+  };
+  assert.equal(clientIp(spoofedHostReq), '203.0.113.9');
 });
 
 test('rotating forged forwarded prefixes cannot reset the rate-limit bucket', () => {

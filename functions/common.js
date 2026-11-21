@@ -244,14 +244,9 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
 function clientIp(req) {
   const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
   const hops = fwd.split(',').map((hop) => hop.trim()).filter(Boolean);
-  const fwdHost = String(req.get('X-Forwarded-Host') || req.headers['x-forwarded-host'] || '').toLowerCase();
   const host = String(req.get('Host') || req.headers.host || '').toLowerCase();
-  const viaHosting =
-    fwdHost === 'everglow-1c6db.web.app' ||
-    fwdHost === 'everglow-1c6db.firebaseapp.com';
   const directCloudFn =
-    !viaHosting &&
-    (host.endsWith('.cloudfunctions.net') || host.endsWith('.a.run.app'));
+    host.endsWith('.cloudfunctions.net') || host.endsWith('.a.run.app');
   const client = directCloudFn
     ? (hops.at(-1) || req.ip)
     : (hops.length >= 2 ? hops.at(-2) : req.ip);

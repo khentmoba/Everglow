@@ -219,7 +219,7 @@ async function handleProxyAnime(request, env) {
       title,
       kind: isCinema ? 'cinema' : 'anime',
       hasEpisodes: isCinema && params.mediaType === 'tv',
-      token: query.token || '',
+      token: '',
       ep: out.ep,
       audio: params.audio,
       servers: Array.isArray(out.servers) ? out.servers : [],
