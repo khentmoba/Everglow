@@ -469,3 +469,43 @@ test('Restored Flutter features: Creator Studio, Jukebox insights, TV nav, Slow-
     server.close();
   }
 });
+
+test('Stale Flutter session stays on Gateway instead of broken Cinema, and Cinema exit button respects safe-area inset', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    await context.addInitScript(() => {
+      localStorage.setItem('flutter.current_user_name', JSON.stringify('khentsgdz'));
+      localStorage.setItem('flutter.route_memory:last_location', JSON.stringify('/cinema'));
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=TV Mode', { timeout: 10_000 });
+    assert.equal(new URL(page.url()).pathname, '/', 'stale localStorage session must stay on Gateway');
+    assert.ok(!(await page.locator('text=The catalogue could not load.').isVisible().catch(() => false)));
+
+    await page.goto(`${baseUrl}/cinema`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=TV Mode', { timeout: 10_000 });
+    const bounced = new URL(page.url());
+    assert.equal(bounced.pathname, '/', 'direct /cinema visit without Firebase session must redirect to Gateway');
+    assert.equal(bounced.searchParams.get('from'), '/cinema');
+
+    await page.goto(`${baseUrl}/cinema?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    const backBtn = page.locator('button[aria-label="Dashboard"]');
+    await backBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    const parentStyle = await backBtn.evaluate((el) => el.parentElement?.getAttribute('style') ?? '');
+    assert.ok(parentStyle.includes('safe-area-inset-top'), `expected safe-area-inset-top on Cinema mobile back button, got: ${parentStyle}`);
+    await backBtn.click();
+    await page.waitForURL('**/dashboard*', { timeout: 10_000 });
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

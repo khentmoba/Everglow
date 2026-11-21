@@ -180,6 +180,7 @@ async function tmdbJson(pathWithQuery: string): Promise<Record<string, unknown> 
   if (AgentMode.demo) {
     return agentTmdbResponse(url);
   }
+  await auth.authStateReady();
   const user = auth.currentUser;
   if (!user) return null;
   try {
