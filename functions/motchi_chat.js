@@ -911,7 +911,21 @@ ${HTML_GAME_GUIDE}
           }
           if (attempt < 2) {
             const waitMs = lastWas429 ? 12000 * (attempt + 1) : 1000 * (attempt + 1);
-            await new Promise((r) => setTimeout(r, waitMs));
+            await new Promise((resolve, reject) => {
+              if (workSignal.aborted) {
+                reject(workSignal.reason || new Error('Aborted'));
+                return;
+              }
+              const onAbort = () => {
+                clearTimeout(timer);
+                reject(workSignal.reason || new Error('Aborted'));
+              };
+              const timer = setTimeout(() => {
+                workSignal.removeEventListener('abort', onAbort);
+                resolve();
+              }, waitMs);
+              workSignal.addEventListener('abort', onAbort, { once: true });
+            });
           }
         }
 

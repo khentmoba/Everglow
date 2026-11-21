@@ -45,6 +45,11 @@ class LetterboxService {
         // ignore corrupt cache
       }
     }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('everglow:logout', () => {
+        this.cachedNotes = [];
+      });
+    }
   }
 
   private saveCache(notes: HiddenNote[]) {

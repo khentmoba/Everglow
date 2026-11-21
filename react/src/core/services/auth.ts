@@ -414,6 +414,15 @@ class AuthService {
     RouteMemory.clear();
     Prefs.remove('spotify_code_verifier');
     Prefs.remove('spotify_oauth_state');
+    Prefs.remove('letterbox_notes_cache_v1');
+    Prefs.remove('journal_preview_cache_v1');
+    Prefs.remove('journal_pending_id');
+    for (const draftKey of Prefs.keysWithPrefix('draft:')) {
+      Prefs.remove(draftKey);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('everglow:logout'));
+    }
     this.currentUser = null;
     this.user = null;
     this.partnerUid = null;

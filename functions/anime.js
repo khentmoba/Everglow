@@ -679,6 +679,10 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
   }
   const { source, anilistId, malId, ep, audio } = params;
 
+  res.set(
+    'Content-Security-Policy',
+    "frame-ancestors 'self' https://everglow-1c6db.web.app https://everglow-1c6db.firebaseapp.com",
+  );
   const sendFail = (msg) => {
     console.warn(`[proxyAnime] ${source} ep=${ep}: ${msg}`);
     res.status(502).send(failHtml('Episode unavailable', msg));

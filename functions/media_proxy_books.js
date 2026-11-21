@@ -62,6 +62,8 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
       const response = await fetchPublicUrl(url, {
         headers: { 'Accept': 'text/plain' },
         signal: controller.signal,
+        httpsOnly: true,
+        isAllowedUrl: (u) => isAllowedBookTextUrl(u.toString()),
       });
       const contentType = response.headers.get('content-type') || '';
       const isPlainText = contentType.toLowerCase().includes('text/plain');
@@ -133,6 +135,8 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
       const response = await fetchPublicUrl(url, {
         headers: { 'Accept': 'application/epub+zip, application/octet-stream, */*' },
         signal: controller.signal,
+        httpsOnly: true,
+        isAllowedUrl: (u) => isAllowedBookTextUrl(u.toString()),
       });
       if (!response.ok) {
         await response.body?.cancel().catch(() => {});

@@ -61,6 +61,28 @@ test('fetchPublicUrl validates redirect destination before requesting it', async
   assert.equal(requests, 1);
 });
 
+test('fetchPublicUrl enforces httpsOnly and isAllowedUrl on redirect hops', async (t) => {
+  t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }]);
+  mockGet(https, (_url, _options, callback) => {
+    callback(response(302, { location: 'http://allowed.test/downgrade' }, ''));
+  });
+  await assert.rejects(
+    fetchPublicUrl('https://allowed.test/start', { httpsOnly: true }),
+    /Only credential-free https urls/,
+  );
+
+  mockGet(https, (_url, _options, callback) => {
+    callback(response(302, { location: 'https://evil.test/steal' }, ''));
+  });
+  await assert.rejects(
+    fetchPublicUrl('https://allowed.test/start', {
+      httpsOnly: true,
+      isAllowedUrl: (u) => u.hostname === 'allowed.test',
+    }),
+    /Host not allowed/,
+  );
+});
+
 test('fetchPublicUrl pins a public DNS result and streams successful responses', async (t) => {
   let lookups = 0;
   t.mock.method(dns, 'lookup', async () => {

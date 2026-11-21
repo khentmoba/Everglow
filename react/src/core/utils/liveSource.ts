@@ -173,7 +173,10 @@ export function useSource<T>(make: () => Source<T> | null, key: unknown[], initi
   const [value, setValue] = useState<T>(initial);
   useEffect(() => {
     const source = make();
-    if (!source) return;
+    if (!source) {
+      setValue(initial);
+      return;
+    }
     return source({ data: setValue });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, key);

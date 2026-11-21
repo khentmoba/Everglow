@@ -75,10 +75,10 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
     '.wp.com',
     '.wordpress.com',
   ];
-  const hostAllowed = allowedSuffixes.some(
-    (s) => parsed.hostname === s.slice(1) || parsed.hostname.endsWith(s),
-  );
-  if (parsed.protocol !== 'https:' || !hostAllowed) {
+  const isAllowedScanlationUrl = (u) =>
+    u.protocol === 'https:' &&
+    allowedSuffixes.some((s) => u.hostname === s.slice(1) || u.hostname.endsWith(s));
+  if (!isAllowedScanlationUrl(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -90,6 +90,8 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
         'Referer': parsed.origin + '/',
       },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: isAllowedScanlationUrl,
     });
     if (!upstream.ok) {
       await upstream.body?.cancel().catch(() => {});
@@ -187,12 +189,11 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     '.void-scans.com',
     '.rizzcomic.com',
   ];
-  const hostAllowed =
-    allowedExactHosts.has(parsed.hostname) ||
-    allowedSuffixes.some(
-      (s) => parsed.hostname === s.slice(1) || parsed.hostname.endsWith(s),
-    );
-  if (parsed.protocol !== 'https:' || !hostAllowed) {
+  const isAllowedHtmlUrl = (u) =>
+    u.protocol === 'https:' &&
+    (allowedExactHosts.has(u.hostname) ||
+      allowedSuffixes.some((s) => u.hostname === s.slice(1) || u.hostname.endsWith(s)));
+  if (!isAllowedHtmlUrl(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -215,6 +216,8 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
           ...(serverCookie ? { Cookie: serverCookie } : {}),
         },
         signal: AbortSignal.timeout(20000),
+        httpsOnly: true,
+        isAllowedUrl: isAllowedHtmlUrl,
       });
       body = await common.readLimitedText(upstream.body, 4 * 1024 * 1024);
       status = upstream.status;
