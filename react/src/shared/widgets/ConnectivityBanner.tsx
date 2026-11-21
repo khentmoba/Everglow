@@ -21,12 +21,7 @@ export function ConnectivityBanner() {
       role="status"
       aria-live="polite"
       style={{
-        position: 'fixed',
-        top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1350,
-        maxWidth: 'min(92vw, 440px)',
+        maxWidth: '100%',
         padding: '8px 14px',
         borderRadius: 999,
         background: isOnline ? withAlpha(AppColors.plum, 0.94) : withAlpha(AppColors.inkDeep, 0.96),

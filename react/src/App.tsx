@@ -276,8 +276,24 @@ function RootLayout() {
         </Suspense>
       </RouteErrorBoundary>
       <AppUpdatePrompt />
-      <ConnectivityBanner />
-      <IncomingWatchPartyBanner />
+      <div
+        style={{
+          position: 'fixed',
+          top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1350,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+          width: 'min(92vw, 440px)',
+          pointerEvents: 'none',
+        }}
+      >
+        <ConnectivityBanner />
+        <IncomingWatchPartyBanner />
+      </div>
       <AgentHudSlot />
       <DialogHost />
       <SnackBarHost />

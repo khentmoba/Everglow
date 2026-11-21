@@ -1,0 +1,1129 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { useAuth } from '../../core/services/auth';
+import { Prefs } from '../../core/system/prefs';
+import { useViewport } from '../../core/system/viewport';
+import { WebTts } from '../../core/system/webTts';
+import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
+import { Fonts } from '../../core/theme/typography';
+import { useSource } from '../../core/utils/liveSource';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
+import { Icon } from '../../shared/widgets/Icon';
+import { canPop } from '../../shared/widgets/MaterialFields';
+import {
+  BookColors,
+  buildReadCandidates,
+  isKhent,
+  searchResultToBookItem,
+  type BookItem,
+} from './bookTypes';
+import {
+  fetchBookText,
+  resolveBookByWorkKey,
+  saveReaderState,
+  watchReaderState,
+} from './booksService';
+import {
+  DEFAULT_READER_SETTINGS,
+  loadBookmarks,
+  loadHighlights,
+  loadProgress,
+  loadSettings,
+  removeHighlight,
+  replaceBookmarks,
+  replaceHighlights,
+  saveHighlight,
+  saveProgress,
+  saveSettings,
+  toggleBookmark,
+  type ReaderBookmark,
+  type ReaderFont,
+  type ReaderHighlight,
+  type ReaderSettings,
+  type ReaderTheme,
+} from './readerPrefs';
+
+
+type BookChapter = { title: string; body: string };
+
+function stripGutenbergBoilerplate(raw: string): string {
+  const startMatch = /\*\*\*\s*START OF (?:THE|THIS)?\s*PROJECT[^\n]*\n?/i.exec(raw);
+  const endMatch = /\*\*\*\s*END OF (?:THE|THIS)?\s*PROJECT/i.exec(raw);
+  if (!startMatch || !endMatch || endMatch.index <= startMatch.index) return raw;
+  return raw.slice(startMatch.index + startMatch[0].length, endMatch.index);
+}
+
+function splitBookChapters(raw: string, fallbackTitle: string): BookChapter[] {
+  const cleaned = stripGutenbergBoilerplate(raw).replace(/\r\n/g, '\n');
+  const explicitRe = /^[ \t]*(?:(?:CHAPTER|Chapter|CHAPTRE|Ch\.|PART|Part|BOOK|Book|PROLOGUE|Prologue|EPILOGUE|Epilogue|PREFACE|Preface|INTRODUCTION|Introduction|ACT|Act|SCENE|Scene)[ \t]+(?:[IVXLCDM]+|\d+|[A-Za-z]+)|(?:[IVXLCDM]+|\d+)[.)][ \t]+[A-Z])[^\n]*$/gm;
+  const matches = [...cleaned.matchAll(explicitRe)];
+  if (matches.length >= 2) {
+    const out: BookChapter[] = [];
+    for (let i = 0; i < matches.length; i++) {
+      const start = matches[i].index ?? 0;
+      const end = i + 1 < matches.length ? (matches[i + 1].index ?? cleaned.length) : cleaned.length;
+      const slice = cleaned.slice(start, end);
+      const nl = slice.indexOf('\n');
+      const title = (nl >= 0 ? slice.slice(0, nl) : slice).trim();
+      const body = (nl >= 0 ? slice.slice(nl + 1) : '').trim();
+      if (body) out.push({ title, body });
+    }
+    if (out.length >= 2) return out;
+  }
+  const starParts = cleaned.split(/^\s*\*{3,}\s*$/m).map((s) => s.trim()).filter(Boolean);
+  if (starParts.length >= 2) {
+    return starParts.map((body, idx) => {
+      const firstLine = body.split('\n').find((l) => l.trim() !== '')?.trim() ?? `Section ${idx + 1}`;
+      return { title: firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine, body };
+    });
+  }
+  return [{ title: fallbackTitle, body: cleaned.trim() }];
+}
+
+const TTS_RATES = [0.85, 1, 1.25, 1.5, 1.75, 2] as const;
+
+const HIGHLIGHT_COLORS = [AppColors.warmAmber, AppColors.auroraRose, AppColors.auroraTeal, AppColors.auroraLilac, AppColors.success];
+
+const FONT_FAMILIES: Record<ReaderFont, string> = {
+  classic: Fonts.display,
+  modern: Fonts.reading,
+  soft: Fonts.body,
+  dyslexic: "'Trebuchet MS', 'Comic Sans MS', 'Outfit', sans-serif",
+};
+
+const THEME_TOKENS: Record<ReaderTheme, { bg: string; fg: string }> = {
+  dark: { bg: ReaderPaper.dark, fg: ReaderPaper.darkText },
+  sepia: { bg: ReaderPaper.sepia, fg: ReaderPaper.sepiaText },
+  light: { bg: ReaderPaper.light, fg: ReaderPaper.lightText },
+};
+
+/** Reflow Gutenberg's hard-wrapped lines into paragraphs that can be read. */
+function toParagraphs(body: string): string[] {
+  return body
+    .split(/\n\s*\n/)
+    .map((part) => {
+      const lines = part.split('\n').map((l) => l.trimEnd()).filter((l) => l.trim());
+      // Verse, letters and plays keep their short lines; prose is reflowed.
+      if (lines.length >= 3 && lines.every((l) => l.length < 48)) return lines.join('\n');
+      return lines.join(' ').replace(/\s+/g, ' ').trim();
+    })
+    .filter(Boolean);
+}
+
+function renderHighlighted(text: string, marks: ReaderHighlight[], accent: string, onPick: (h: ReaderHighlight) => void): ReactNode {
+  const ranges = marks
+    .map((h) => ({ h, start: text.indexOf(h.text) }))
+    .filter((r) => r.start >= 0)
+    .map((r) => ({ ...r, end: r.start + r.h.text.length }))
+    .sort((a, b) => a.start - b.start);
+  if (ranges.length === 0) return text;
+  const merged: { start: number; end: number; hs: ReaderHighlight[] }[] = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r.start < last.end) {
+      last.end = Math.max(last.end, r.end);
+      last.hs.push(r.h);
+    } else merged.push({ start: r.start, end: r.end, hs: [r.h] });
+  }
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  merged.forEach((m, i) => {
+    if (m.start > cursor) out.push(text.slice(cursor, m.start));
+    const first = m.hs[0];
+    out.push(
+      <mark
+        key={i}
+        tabIndex={0}
+        role="button"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick(first); }}
+        onClick={() => onPick(first)}
+        style={{ background: withAlpha(first.color ?? accent, 0.32), color: 'inherit', borderRadius: 3, padding: '0 2px', cursor: 'pointer' }}
+        title={first.note || 'Highlight — tap to add a note'}
+      >
+        {text.slice(m.start, m.end)}
+      </mark>,
+    );
+    cursor = m.end;
+  });
+  if (cursor < text.length) out.push(text.slice(cursor));
+  return <>{out}</>;
+}
+
+export function BookReaderPage({ startListening = false }: { startListening?: boolean }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const workKeyParam = new URLSearchParams(location.search).get('workKey');
+  const [book, setBook] = useState<BookItem | null>((location.state as { book?: BookItem } | null)?.book ?? null);
+  const sample = new URLSearchParams(location.search).get('sample') === '1' || Boolean((location.state as { sample?: boolean } | null)?.sample);
+  const [readerResolveError, setReaderResolveError] = useState(false);
+  const [readerRetryKey, setReaderRetryKey] = useState(0);
+  const { currentUser } = useAuth();
+  const synced = useSource(
+    () => watchReaderState(currentUser ?? '', book?.workKey ?? ''),
+    [currentUser ?? '', book?.workKey ?? ''],
+    { progress: null, bookmarks: [], highlights: [] },
+  );
+
+  const [settings, setSettings] = useState<ReaderSettings>(() => loadSettings());
+  const [chapters, setChapters] = useState<BookChapter[]>([]);
+  const [chapterIdx, setChapterIdx] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [followChar, setFollowChar] = useState(-1);
+  const [sleepMinutes, setSleepMinutes] = useState(0);
+  const [voiceUri, setVoiceUri] = useState(() => loadSettings().voiceUri ?? '');
+  const [highlightColor, setHighlightColor] = useState<string>(AppColors.warmAmber);
+  const [sleepAtChapterEnd, setSleepAtChapterEnd] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [scrollPct, setScrollPct] = useState(0);
+  const [bookmarks, setBookmarks] = useState<ReturnType<typeof loadBookmarks>>([]);
+  const [highlights, setHighlights] = useState<ReturnType<typeof loadHighlights>>([]);
+  const [selectionText, setSelectionText] = useState('');
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+  const [slowReader, setSlowReader] = useState(false);
+  const [webEdition, setWebEdition] = useState(false);
+  const [pageIdx, setPageIdx] = useState(0);
+  const [bookSearch, setBookSearch] = useState('');
+  const [pendingJump, setPendingJump] = useState('');
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
+  const notePanelRef = useRef<HTMLDivElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
+  const activeChapterRef = useRef<HTMLButtonElement>(null);
+  const chapterRef = useRef(0);
+  const scrollFracRef = useRef(0);
+  const lastScrollSaveRef = useRef(0);
+  const sleepTimerRef = useRef<number | null>(null);
+  const syncedOnceRef = useRef('');
+  const remoteSaveRef = useRef<number | null>(null);
+
+  const patchSettings = (patch: Partial<ReaderSettings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      saveSettings(next);
+      return next;
+    });
+  };
+
+  const currentParagraphIndex = () => {
+    const el = scrollRef.current;
+    if (!el) return 0;
+    const nodes = Array.from(el.querySelectorAll('article p')) as HTMLElement[];
+    if (nodes.length === 0) return 0;
+    const top = el.scrollTop + 60;
+    let idx = 0;
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].offsetTop <= top) idx = i;
+      else break;
+    }
+    return idx;
+  };
+
+  const syncState = () => {
+    if (!book) return;
+    const user = currentUser ?? '';
+    const key = book.workKey;
+    if (remoteSaveRef.current != null) window.clearTimeout(remoteSaveRef.current);
+    remoteSaveRef.current = window.setTimeout(() => {
+      void saveReaderState(user, key, {
+        progress: loadProgress(key),
+        bookmarks: loadBookmarks(key),
+        highlights: loadHighlights(key),
+      });
+    }, 1200);
+  };
+
+  const saveProgressNow = (chapter: number, scroll: number) => {
+    if (!book) return;
+    saveProgress({
+      workKey: book.workKey,
+      chapter,
+      scroll,
+      paragraphIndex: currentParagraphIndex(),
+      charOffset: 0,
+      readerName: isKhent(currentUser ?? '') ? 'Khent' : 'Clair',
+      updatedAt: Date.now(),
+      title: book.title,
+      author: book.author,
+      coverUrl: book.coverUrl,
+      iaId: book.iaId,
+      readCandidates: buildReadCandidates(book),
+    });
+    syncState();
+  };
+
+  const stopSpeech = () => {
+    WebTts.stop();
+    if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
+    sleepTimerRef.current = null;
+    setSleepMinutes(0);
+    setSpeaking(false);
+    setPaused(false);
+    setFollowChar(-1);
+  };
+
+  const startSpeech = (body: string, rate: number) => {
+    if (!WebTts.isSupported || body.trim() === '') return;
+    WebTts.speak(body, {
+      rate,
+      onBoundary: (index) => setFollowChar(index),
+      onComplete: () => {
+        if (sleepAtChapterEnd) {
+          WebTts.stop();
+          setSleepAtChapterEnd(false);
+        }
+        setSpeaking(false);
+        setPaused(false);
+        setFollowChar(-1);
+      },
+    });
+    setSpeaking(true);
+    setPaused(false);
+  };
+
+  useEffect(() => {
+    if (book || !workKeyParam) return;
+    let alive = true;
+    setReaderResolveError(false);
+    void resolveBookByWorkKey(workKeyParam).then((found) => {
+      if (!alive) return;
+      if (found) setBook(searchResultToBookItem(found));
+      else setReaderResolveError(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [book, workKeyParam, readerRetryKey]);
+
+  useEffect(() => {
+    if (!book) return;
+    let alive = true;
+    const saved = loadProgress(book.workKey);
+    const candidates = buildReadCandidates(book);
+    if (candidates.length === 0) {
+      setLoading(false);
+      setError(book.iaId ? null : 'No plain-text source available for this book.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setWebEdition(false);
+    setSlowReader(false);
+    const slowTimer = window.setTimeout(() => alive && setSlowReader(true), 4000);
+    fetchBookText(candidates).then((res) => {
+      window.clearTimeout(slowTimer);
+      if (!alive) return;
+      const cachedText = Prefs.getString(`book_text_work::${book.workKey}`) ?? '';
+      const rawText = res.text || cachedText;
+      if (rawText) {
+        if (res.text) Prefs.set(`book_text_work::${book.workKey}`, res.text);
+        const sourceText = sample ? `${rawText.split('\n\n').slice(0, 4).join('\n\n')}\n\n*** END OF SAMPLE ***` : rawText;
+        const list = splitBookChapters(sourceText, book.title);
+        const initial = saved && saved.chapter < list.length ? saved.chapter : 0;
+        setChapters(list);
+        setChapterIdx(initial);
+        setPageIdx(0);
+        chapterRef.current = initial;
+        setBookmarks(loadBookmarks(book.workKey));
+        setHighlights(loadHighlights(book.workKey));
+        window.requestAnimationFrame(() => {
+          if (!alive || !saved || !scrollRef.current) return;
+          const el = scrollRef.current;
+          if (saved.paragraphIndex != null && saved.paragraphIndex >= 0) {
+            const target = el.querySelectorAll('article p')[saved.paragraphIndex] as HTMLElement | undefined;
+            if (target) {
+              el.scrollTop = Math.max(0, target.offsetTop - 12);
+              scrollFracRef.current = saved.scroll;
+              return;
+            }
+          }
+          if (saved.scroll > 0) {
+            el.scrollTop = saved.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+            scrollFracRef.current = saved.scroll;
+          }
+        });
+        if (startListening && WebTts.isSupported && list[initial]) {
+          startSpeech(toParagraphs(list[initial].body).join('\n'), loadSettings().ttsRate);
+        }
+      } else {
+        setError(res.error ?? 'Could not load book text.');
+      }
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+      window.clearTimeout(slowTimer);
+      WebTts.stop();
+      if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
+      saveProgressNow(chapterRef.current, scrollFracRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, startListening, retryKey]);
+
+  useEffect(() => {
+    if (voiceUri) WebTts.setVoice(voiceUri);
+  }, [voiceUri]);
+
+  useDialogFocus(settingsOpen, settingsPanelRef, () => setSettingsOpen(false), settingsTriggerRef);
+  useDialogFocus(searchOpen, searchPanelRef, () => setSearchOpen(false));
+  useDialogFocus(noteFor != null, notePanelRef, () => setNoteFor(null));
+  useDialogFocus(menuOpen, menuPanelRef, () => setMenuOpen(false));
+  useEffect(() => {
+    if (menuOpen) window.requestAnimationFrame(() => activeChapterRef.current?.scrollIntoView({ block: 'center' }));
+  }, [menuOpen]);
+
+  if (!book) {
+    return (
+      <div style={{ height: '100%', background: BookColors.black, color: BookColors.white, display: 'grid', placeItems: 'center', padding: 24 }}>
+        <div style={{ textAlign: 'center' }}>
+          {readerResolveError ? (
+            <>
+              <Icon name="cloud_off" size={34} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+              <div style={{ fontFamily: Fonts.display, fontSize: 21, marginTop: 12 }}>We couldn’t open that book</div>
+              <div style={{ fontSize: 13, color: BookColors.muted, marginTop: 6 }}>The catalogue may be offline right now.</div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 18 }}>
+                <button type="button" className="bare-button" onClick={() => setReaderRetryKey((k) => k + 1)} style={{ padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>Try again</button>
+                <button type="button" className="bare-button" onClick={() => navigate('/books')} style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${withAlpha(BookColors.rose, 0.3)}`, color: BookColors.white, fontWeight: 700 }}>Browse Books</button>
+              </div>
+            </>
+          ) : workKeyParam ? (
+            <>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${withAlpha(AppColors.roseQuartz, 0.25)}`, borderTopColor: AppColors.roseQuartz, margin: '0 auto 14px', animation: 'spin 900ms linear infinite' }} />
+              <div style={{ fontFamily: Fonts.display, fontSize: 21 }}>Opening this book…</div>
+            </>
+          ) : (
+            <button type="button" className="bare-button" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ padding: '10px 20px', borderRadius: 20, background: BookColors.deepRose, color: '#FFF', fontWeight: 700 }}>Back to Books</button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const currentChapter = chapters[chapterIdx] ?? null;
+  const paragraphs = currentChapter ? toParagraphs(currentChapter.body) : [];
+  const speechText = paragraphs.join('\n');
+  const { width: readerWidth, height: readerHeight } = useViewport();
+  const perPage = Math.max(3, Math.min(14, Math.floor(readerHeight / (settings.fontSize * settings.lineHeight * 2.1))));
+  const pageCount = Math.max(1, Math.ceil(paragraphs.length / perPage));
+  const safePageIdx = Math.min(pageIdx, pageCount - 1);
+  const visibleParagraphs = settings.pageTurn ? paragraphs.slice(safePageIdx * perPage, (safePageIdx + 1) * perPage) : paragraphs;
+  const chapterProgress = settings.pageTurn ? (safePageIdx + 1) / pageCount : scrollPct;
+  const overallPct = chapters.length > 0 ? Math.round(((chapterIdx + chapterProgress) / chapters.length) * 100) : 0;
+  const wordsLeft = paragraphs.slice(settings.pageTurn ? safePageIdx * perPage : Math.floor(scrollPct * paragraphs.length)).reduce((n, p) => n + p.split(/\s+/).length, 0);
+  const minutesLeft = Math.max(1, Math.round(wordsLeft / 200));
+  const theme = THEME_TOKENS[settings.theme];
+  const measure = '66ch';
+
+  const selectChapter = (nextIdx: number) => {
+    if (nextIdx < 0 || nextIdx >= chapters.length) return;
+    setChapterIdx(nextIdx);
+    chapterRef.current = nextIdx;
+    setPageIdx(0);
+    setMenuOpen(false);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    scrollFracRef.current = 0;
+    saveProgressNow(nextIdx, 0);
+    if (speaking && chapters[nextIdx]) startSpeech(toParagraphs(chapters[nextIdx].body).join('\n'), settings.ttsRate);
+  };
+
+  const jumpToBookmark = (b: ReaderBookmark) => {
+    selectChapter(b.chapter);
+    window.requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const target = b.paragraphIndex != null ? (el.querySelectorAll('article p')[b.paragraphIndex] as HTMLElement | undefined) : undefined;
+      el.scrollTop = target ? Math.max(0, target.offsetTop - 12) : b.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  };
+
+  const toggleSpeech = () => {
+    if (!speaking) {
+      if (currentChapter) startSpeech(speechText, settings.ttsRate);
+      return;
+    }
+    if (paused) {
+      WebTts.resume();
+      setPaused(false);
+    } else {
+      WebTts.pause();
+      setPaused(true);
+    }
+  };
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    scrollFracRef.current = max > 0 ? Math.min(1, el.scrollTop / max) : 0;
+    setScrollPct(scrollFracRef.current);
+    const now = Date.now();
+    if (now - lastScrollSaveRef.current > 700) {
+      lastScrollSaveRef.current = now;
+      saveProgressNow(chapterRef.current, scrollFracRef.current);
+    }
+  };
+
+  const bookmarked = bookmarks.some((b) => b.chapter === chapterIdx);
+
+  const toggleThisBookmark = () => {
+    if (!book) return;
+    setBookmarks(toggleBookmark(book.workKey, {
+      chapter: chapterIdx,
+      scroll: scrollFracRef.current,
+      paragraphIndex: currentParagraphIndex(),
+      excerpt: paragraphs[currentParagraphIndex()]?.slice(0, 90),
+      createdAt: Date.now(),
+    }));
+    syncState();
+  };
+
+  const captureSelection = () => {
+    const text = window.getSelection()?.toString().replace(/\s+/g, ' ').trim() ?? '';
+    if (text.length > 1 && text.length < 500) setSelectionText(text);
+  };
+
+  const addHighlight = (note: string) => {
+    if (!book || !selectionText) return;
+    const highlight: ReaderHighlight = { id: `${Date.now()}`, chapter: chapterIdx, text: selectionText, note, color: highlightColor, createdAt: Date.now() };
+    setHighlights(saveHighlight(book.workKey, highlight));
+    syncState();
+    setSelectionText('');
+    setNoteFor(null);
+    setNoteDraft('');
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const updateNote = (id: string, note: string) => {
+    if (!book) return;
+    const existing = highlights.find((h) => h.id === id);
+    if (!existing) return;
+    setHighlights(saveHighlight(book.workKey, { ...existing, note }));
+    syncState();
+    setNoteFor(null);
+    setNoteDraft('');
+  };
+
+  const deleteHighlight = (id: string) => {
+    if (!book) return;
+    setHighlights(removeHighlight(book.workKey, id));
+    syncState();
+  };
+
+  useEffect(() => {
+    if (!pendingJump) return;
+    const id = window.requestAnimationFrame(() => {
+      const el = Array.from(scrollRef.current?.querySelectorAll('article p') ?? []).find((p) => p.textContent?.includes(pendingJump));
+      el?.scrollIntoView({ block: 'center' });
+      setPendingJump('');
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [pendingJump, chapterIdx]);
+
+  useEffect(() => {
+    if (!book || !synced.progress || syncedOnceRef.current === book.workKey) return;
+    const remote = synced.progress;
+    if (remote.workKey !== book.workKey) return;
+    syncedOnceRef.current = book.workKey;
+    const local = loadProgress(book.workKey);
+    if (local && local.updatedAt >= remote.updatedAt) return;
+    const idx = chapters.length ? Math.min(remote.chapter, chapters.length - 1) : remote.chapter;
+    setChapterIdx(idx);
+    chapterRef.current = idx;
+    setScrollPct(remote.scroll);
+    scrollFracRef.current = remote.scroll;
+    saveProgress({ ...remote, workKey: book.workKey });
+    if (synced.bookmarks.length) replaceBookmarks(book.workKey, synced.bookmarks);
+    if (synced.highlights.length) replaceHighlights(book.workKey, synced.highlights);
+    setBookmarks(loadBookmarks(book.workKey));
+    setHighlights(loadHighlights(book.workKey));
+    window.requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      if (remote.paragraphIndex != null) {
+        const target = el.querySelectorAll('article p')[remote.paragraphIndex] as HTMLElement | undefined;
+        if (target) {
+          el.scrollTop = Math.max(0, target.offsetTop - 12);
+          return;
+        }
+      }
+      el.scrollTop = remote.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  }, [synced, book, chapters.length]);
+
+  const bookMatches = bookSearch.trim()
+    ? chapters.flatMap((ch, i) => {
+        const needle = bookSearch.trim().toLowerCase();
+        const found: { chapter: number; title: string; snippet: string; at: number }[] = [];
+        let from = 0;
+        while (found.length < 3) {
+          const at = ch.body.toLowerCase().indexOf(needle, from);
+          if (at < 0) break;
+          found.push({ chapter: i, title: ch.title, snippet: ch.body.slice(Math.max(0, at - 50), at + 120), at });
+          from = at + needle.length;
+        }
+        return found;
+      })
+    : [];
+
+  const focusIndex = currentParagraphIndex();
+  let runningOffset = 0;
+  const paragraphOffsets = paragraphs.map((text) => {
+    const start = runningOffset;
+    runningOffset += text.length + 1;
+    return start;
+  });
+  const fontFamily = FONT_FAMILIES[settings.font];
+
+  function segmented<T extends string | number>(
+    label: string,
+    options: { value: T; label: string }[],
+    active: T,
+    onPick: (value: T) => void,
+  ) {
+    return (
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.1, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>{label}</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {options.map((o) => (
+            <button
+              key={String(o.value)}
+              type="button"
+              className="bare-button"
+              aria-pressed={o.value === active}
+              onClick={() => onPick(o.value)}
+              style={{
+                padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: theme.fg,
+                background: o.value === active ? withAlpha(AppColors.deepRose, 0.3) : withAlpha(theme.fg, 0.06),
+                border: `1px solid ${o.value === active ? withAlpha(AppColors.deepRose, 0.75) : withAlpha(theme.fg, 0.14)}`,
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function stepper(label: string, display: string, onMinus: () => void, onPlus: () => void, canMinus: boolean, canPlus: boolean) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: theme.fg }}>{label}</div>
+        <button type="button" className="bare-button" aria-label={`Decrease ${label}`} disabled={!canMinus} onClick={onMinus} style={{ width: 44, height: 44, borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 20, opacity: canMinus ? 1 : 0.35 }}>−</button>
+        <div style={{ minWidth: 52, textAlign: 'center', fontSize: 13, fontWeight: 700, color: withAlpha(theme.fg, 0.8) }}>{display}</div>
+        <button type="button" className="bare-button" aria-label={`Increase ${label}`} disabled={!canPlus} onClick={onPlus} style={{ width: 44, height: 44, borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 20, opacity: canPlus ? 1 : 0.35 }}>+</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative', height: '100%', background: theme.bg, color: theme.fg, display: 'flex', flexDirection: 'column' }}>
+      {!chromeHidden && <>
+      <div style={{ position: 'relative', zIndex: 4, padding: '8px 12px', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))', background: theme.bg, borderBottom: `1px solid ${withAlpha(theme.fg, 0.12)}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <button type="button" className="bare-button" aria-label="Back" onClick={() => (canPop() ? navigate(-1) : navigate('/books'))} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="arrow_back" size={22} color={theme.fg} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: 17, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {book.title}
+          </div>
+          {chapters.length > 1 && currentChapter && (
+            <div style={{ fontSize: 11, opacity: 0.65, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {currentChapter.title} ({chapterIdx + 1}/{chapters.length}) · {overallPct}%
+            </div>
+          )}
+        </div>
+        <button type="button" className="bare-button" title="Reading menu" aria-label="Reading menu" onClick={() => setMenuOpen(true)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="menu" size={21} color={theme.fg} />
+        </button>
+        <button
+          type="button"
+          className="bare-button"
+          title={speaking ? (paused ? 'Resume' : 'Pause') : 'Listen'}
+          aria-label={speaking ? (paused ? 'Resume' : 'Pause') : 'Listen'}
+          onClick={toggleSpeech}
+          style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}
+        >
+          <Icon name={speaking ? (paused ? 'play_arrow' : 'pause') : 'headphones'} size={21} color={speaking ? AppColors.deepRose : theme.fg} />
+        </button>
+        <button ref={settingsTriggerRef} type="button" className="bare-button" title="Reading settings" aria-label="Reading settings" onClick={() => setSettingsOpen(true)} style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <Icon name="text_fields" size={21} color={theme.fg} />
+        </button>
+      </div>
+      <div role="progressbar" aria-valuenow={overallPct} aria-valuemin={0} aria-valuemax={100} style={{ height: 3, background: withAlpha(theme.fg, 0.1) }} aria-label={`${overallPct}% read`}>
+        <div style={{ height: '100%', width: `${overallPct}%`, background: AppColors.warmAmber }} />
+      </div>
+      <div style={{ padding: '4px 16px 2px', textAlign: 'right', fontSize: 10.5, color: withAlpha(theme.fg, 0.6) }}>
+        About {minutesLeft} min left in this chapter
+      </div>
+      </>}
+      {chromeHidden && (
+        <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 4, display: 'flex', gap: 4, padding: 5, borderRadius: 26, background: withAlpha(settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia, 0.94), border: `1px solid ${withAlpha(theme.fg, 0.18)}` }}>
+          <button type="button" className="bare-button" aria-label="Show reading controls" onClick={() => setChromeHidden(false)} style={{ width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', color: theme.fg }}><Icon name="arrow_drop_up" size={22} color={theme.fg} /></button>
+          <button type="button" className="bare-button" aria-label="Reading menu" onClick={() => setMenuOpen(true)} style={{ width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', color: theme.fg }}><Icon name="menu" size={20} color={theme.fg} /></button>
+          <button type="button" className="bare-button" aria-label={speaking ? 'Pause' : 'Listen'} onClick={toggleSpeech} style={{ width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', color: theme.fg }}><Icon name={speaking ? 'pause' : 'headphones'} size={20} color={speaking ? AppColors.deepRose : theme.fg} /></button>
+          <button type="button" className="bare-button" aria-label="Reading settings" onClick={() => setSettingsOpen(true)} style={{ width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', color: theme.fg }}><Icon name="text_fields" size={20} color={theme.fg} /></button>
+        </div>
+      )}
+
+      <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: `22px ${Math.round(settings.margin * 22) + 12}px 36px` }}>
+        {loading ? (
+          <div style={{ maxWidth: settings.pageTurn && readerWidth >= 900 ? '90ch' : measure, margin: '0 auto', paddingTop: 8 }} aria-label="Opening the pages">
+            {[90, 100, 96, 98, 70, 100, 94, 88].map((w, i) => (
+              <div key={i} style={{ height: 12, borderRadius: 6, background: withAlpha(theme.fg, 0.18), marginBottom: 14, width: `${w}%` }} />
+            ))}
+            {slowReader && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <div style={{ fontSize: 12.5, color: withAlpha(theme.fg, 0.7) }}>Still opening the pages… the text source can be slow.</div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10 }}>
+                  <button type="button" className="bare-button" onClick={() => setRetryKey((k) => k + 1)} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.25)}`, color: theme.fg, fontWeight: 700, fontSize: 12.5 }}>Try again</button>
+                  {book.iaId && <button type="button" className="bare-button" onClick={() => { setWebEdition(true); setLoading(false); }} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.25)}`, color: theme.fg, fontWeight: 700, fontSize: 12.5 }}>Open web edition</button>}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : currentChapter ? (
+          <div style={{ maxWidth: settings.pageTurn && readerWidth >= 900 ? '90ch' : measure, margin: '0 auto' }}>
+            {chapters.length > 1 && (
+              <h2 style={{ fontFamily: Fonts.display, fontSize: settings.fontSize + 6, fontWeight: 700, margin: '0 0 18px' }}>
+                {currentChapter.title}
+              </h2>
+            )}
+            <article
+              aria-label={currentChapter.title}
+              onMouseUp={captureSelection}
+              onTouchEnd={captureSelection}
+              lang="en"
+              style={{ columnCount: settings.pageTurn && readerWidth >= 900 ? 2 : 1, columnGap: 40, hyphens: settings.align === 'justify' ? 'auto' : 'manual', WebkitHyphens: settings.align === 'justify' ? 'auto' : 'manual' }}
+              onClick={(e) => {
+                if (selectionText) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const rel = (e.clientX - rect.left) / rect.width;
+                if (settings.pageTurn) {
+                  if (rel < 0.2) {
+                    if (safePageIdx > 0) setPageIdx(safePageIdx - 1);
+                    else if (chapters.length > 1) selectChapter(chapterIdx - 1);
+                    return;
+                  }
+                  if (rel > 0.8) {
+                    if (safePageIdx < pageCount - 1) setPageIdx(safePageIdx + 1);
+                    else if (chapters.length > 1) selectChapter(chapterIdx + 1);
+                    return;
+                  }
+                }
+                if (rel >= 0.2 && rel <= 0.8) setChromeHidden((v) => !v);
+              }}
+            >
+              {visibleParagraphs.map((text, i) => {
+                const offsetIdx = settings.pageTurn ? safePageIdx * perPage + i : i;
+                const start = paragraphOffsets[offsetIdx] ?? 0;
+                const active = speaking && followChar >= start && followChar < start + text.length;
+                return (
+                  <p
+                    key={offsetIdx}
+                    className={settings.pageTurn ? 'page-slide' : undefined}
+                    style={{
+                      fontFamily, fontSize: settings.fontSize, lineHeight: settings.lineHeight, textAlign: settings.align,
+                      whiteSpace: text.includes('\n') ? 'pre-line' : 'normal',
+                      opacity: focusMode && (speaking ? !active : offsetIdx !== focusIndex) ? 0.3 : 1,
+                      margin: `0 0 ${Math.round(settings.fontSize * 0.9)}px`,
+                      padding: active ? '2px 6px' : '2px 0',
+                      borderRadius: 6,
+                      background: active ? withAlpha(AppColors.warmAmber, settings.theme === 'dark' ? 0.16 : 0.28) : 'transparent',
+                      transition: 'opacity 240ms ease, background 180ms ease',
+                    }}
+                  >
+                    {renderHighlighted(text, highlights.filter((h) => h.chapter === chapterIdx), AppColors.warmAmber, (h) => { setNoteFor(h.id); setNoteDraft(h.note); })}
+                  </p>
+                );
+              })}
+            </article>
+            {settings.pageTurn && pageCount > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 24 }}>
+                <button type="button" className="bare-button" disabled={safePageIdx === 0} onClick={() => setPageIdx(Math.max(0, safePageIdx - 1))} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, color: theme.fg, opacity: safePageIdx === 0 ? 0.35 : 1, fontWeight: 700, fontSize: 13 }}>← Page</button>
+                <span style={{ fontSize: 12, color: withAlpha(theme.fg, 0.8) }}>{Math.round(chapterProgress * 100)}% of chapter · {overallPct}% of book</span>
+                <button type="button" className="bare-button" disabled={safePageIdx >= pageCount - 1} onClick={() => setPageIdx(Math.min(pageCount - 1, safePageIdx + 1))} style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, color: theme.fg, opacity: safePageIdx >= pageCount - 1 ? 0.35 : 1, fontWeight: 700, fontSize: 13 }}>Page →</button>
+              </div>
+            )}
+            {chapters.length > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, paddingTop: 16, borderTop: `1px solid ${withAlpha(theme.fg, 0.12)}` }}>
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={chapterIdx === 0}
+                  onClick={() => selectChapter(chapterIdx - 1)}
+                  style={{ minHeight: 44, padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, opacity: chapterIdx === 0 ? 0.35 : 1, fontSize: 13, color: theme.fg }}
+                >
+                  ← Previous
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={chapterIdx >= chapters.length - 1}
+                  onClick={() => selectChapter(chapterIdx + 1)}
+                  style={{ minHeight: 44, padding: '8px 14px', borderRadius: 10, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, opacity: chapterIdx >= chapters.length - 1 ? 0.35 : 1, fontSize: 13, color: theme.fg }}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+        ) : book.iaId && webEdition ? (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: withAlpha(theme.fg, 0.75) }}>
+              <Icon name="public" size={16} color={AppColors.warmAmber} /> Web edition from archive.org
+              <button type="button" className="bare-button" onClick={() => setWebEdition(false)} style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: AppColors.warmAmber }}>Back to reader</button>
+            </div>
+            <iframe
+              src={`https://archive.org/embed/${book.iaId}`}
+              title={book.title}
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+              allowFullScreen
+              style={{ width: '100%', height: '78vh', border: 'none', borderRadius: 12 }}
+            />
+          </div>
+        ) : (
+          <div style={{ padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <Icon name="cloud_off" size={36} color={withAlpha(AppColors.roseQuartz, 0.8)} />
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700, marginTop: 12 }}>Couldn’t open the pages</div>
+            <div style={{ fontSize: 13, color: withAlpha(theme.fg, 0.7), marginTop: 6, maxWidth: 340 }}>
+              {error || 'No readable text found.'} Check your connection and try again.
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 18 }}>
+              <button type="button" className="bare-button" onClick={() => setRetryKey((k) => k + 1)} style={{ minHeight: 44, padding: '0 18px', borderRadius: 14, background: AppColors.deepRose, color: '#FFF', fontWeight: 700, fontSize: 13 }}>Try again</button>
+              {book.iaId && (
+                <button type="button" className="bare-button" onClick={() => setWebEdition(true)} style={{ minHeight: 44, padding: '0 18px', borderRadius: 14, border: `1px solid ${withAlpha(theme.fg, 0.25)}`, color: theme.fg, fontWeight: 700, fontSize: 13 }}>Open web edition</button>
+              )}
+              <button type="button" className="bare-button" onClick={() => navigate('/books')} style={{ minHeight: 44, padding: '0 18px', borderRadius: 14, border: `1px solid ${withAlpha(theme.fg, 0.25)}`, color: theme.fg, fontWeight: 700, fontSize: 13 }}>Browse Books</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {settings.brightness < 1 && (
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', background: `rgba(0,0,0,${1 - settings.brightness})` }} />
+      )}
+
+      {selectionText && !noteFor && !settingsOpen && !searchOpen && (
+        <div
+          style={{
+            position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 60,
+            maxWidth: 'calc(100vw - 24px)', width: 'max-content', flexWrap: 'wrap', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', gap: 6, padding: 8, borderRadius: 18,
+            background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia,
+            border: `1px solid ${withAlpha(theme.fg, 0.2)}`, boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 5, padding: '0 4px' }}>
+            {HIGHLIGHT_COLORS.map((c, ci) => (
+              <button
+                key={c}
+                type="button"
+                className="bare-button"
+                aria-label={`Highlight color ${['Amber', 'Rose', 'Teal', 'Lilac', 'Green'][ci] ?? ci}`}
+                aria-pressed={highlightColor === c}
+                onClick={() => setHighlightColor(c)}
+                style={{ width: 44, height: 44, borderRadius: 22, background: withAlpha(c, 0.7), border: highlightColor === c ? `3px solid ${theme.fg}` : '3px solid transparent' }}
+              />
+            ))}
+          </div>
+          <button type="button" className="bare-button" onClick={() => addHighlight('')} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Highlight</button>
+          <button type="button" className="bare-button" onClick={() => { setNoteFor('new'); setNoteDraft(''); }} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Note</button>
+          <button type="button" className="bare-button" onClick={() => { startSpeech(selectionText, settings.ttsRate); setSelectionText(''); }} style={{ padding: '8px 12px', borderRadius: 12, color: theme.fg, fontSize: 12, fontWeight: 700 }}>Read from here</button>
+          <button type="button" className="bare-button" aria-label="Dismiss" onClick={() => setSelectionText('')} style={{ width: 36, height: 36, color: theme.fg, fontSize: 18 }}>×</button>
+        </div>
+      )}
+
+      {noteFor && (
+        <div onClick={() => setNoteFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,0.7)', display: 'grid', placeItems: 'center', padding: 20 }}>
+          <div ref={notePanelRef} role="dialog" aria-modal="true" aria-label="Add a note" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, padding: 20, borderRadius: 20, background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia, color: theme.fg }}>
+            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 700 }}>Add a note</div>
+            <div style={{ fontSize: 12, color: withAlpha(theme.fg, 0.6), margin: '6px 0 12px' }}>{selectionText.slice(0, 140) || highlights.find((h) => h.id === noteFor)?.text.slice(0, 140)}</div>
+            <textarea aria-label="Note" value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder="What stood out to you?" style={{ width: '100%', boxSizing: 'border-box', minHeight: 110, padding: 12, borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 16, fontFamily: Fonts.body }} />
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button type="button" className="bare-button" onClick={() => setNoteFor(null)} style={{ flex: 1, minHeight: 44, borderRadius: 12, border: `1px solid ${withAlpha(theme.fg, 0.2)}`, color: theme.fg, fontWeight: 700 }}>Cancel</button>
+              <button type="button" className="bare-button" onClick={() => (noteFor === 'new' ? addHighlight(noteDraft) : updateNote(noteFor, noteDraft))} style={{ flex: 1, minHeight: 44, borderRadius: 12, background: AppColors.deepRose, color: '#FFF', fontWeight: 700 }}>Save note</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {searchOpen && (
+        <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 94, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8vh 16px 16px' }}>
+          <div ref={searchPanelRef} role="dialog" aria-modal="true" aria-label="Search in book" tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '82vh', overflowY: 'auto', padding: 20, borderRadius: 20, background: settings.theme === 'dark' ? AppColors.inkDeep : ReaderPaper.sepia, color: theme.fg }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontFamily: Fonts.display, fontSize: 24, fontWeight: 700 }}>Search in this book</div>
+              <button type="button" className="bare-button" aria-label="Close search" onClick={() => setSearchOpen(false)} style={{ width: 40, height: 40, fontSize: 22, color: theme.fg }}>×</button>
+            </div>
+            <input aria-label="Search in book" value={bookSearch} onChange={(e) => setBookSearch(e.target.value)} placeholder="A word or phrase…" style={{ width: '100%', boxSizing: 'border-box', marginTop: 12, padding: '12px 14px', borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 15 }} />
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {bookMatches.map((m) => (
+                <button key={m.chapter} type="button" className="bare-button" onClick={() => { setSearchOpen(false); selectChapter(m.chapter); setPendingJump(bookSearch.trim()); }} style={{ textAlign: 'left', padding: 12, borderRadius: 12, background: withAlpha(theme.fg, 0.05), border: `1px solid ${withAlpha(theme.fg, 0.12)}`, color: theme.fg }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: AppColors.warmAmber }}>{m.title}</div>
+                  <div className="clamp-2" style={{ fontSize: 12.5, marginTop: 4, opacity: 0.8 }}>…{m.snippet}…</div>
+                </button>
+              ))}
+              {!bookSearch.trim() && <div style={{ fontSize: 12.5, opacity: 0.65 }}>Type a word or phrase to find it anywhere in the book.</div>}
+              {bookSearch.trim() && bookMatches.length === 0 && <div style={{ fontSize: 12.5, opacity: 0.65 }}>No matches in this book.</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {menuOpen && (
+        <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 92, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div
+            ref={menuPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reading menu"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 540, maxHeight: '82vh', overflowY: 'auto', outline: 'none', padding: '14px 20px 28px', borderRadius: '26px 26px 0 0', background: settings.theme === 'dark' ? AppColors.inkDeep : settings.theme === 'sepia' ? ReaderPaper.sepia : ReaderPaper.light, color: theme.fg }}
+          >
+            <div style={{ width: 38, height: 4, borderRadius: 2, background: withAlpha(theme.fg, 0.2), margin: '0 auto 14px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700 }}>Reading menu</div>
+              <button type="button" className="bare-button" aria-label="Close menu" onClick={() => setMenuOpen(false)} style={{ width: 44, height: 44, fontSize: 22, color: theme.fg }}>×</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+              <button type="button" className="bare-button" onClick={() => { setMenuOpen(false); setSearchOpen(true); }} style={{ flex: 1, minHeight: 48, borderRadius: 14, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.14)}`, color: theme.fg, fontSize: 12.5, fontWeight: 700 }}>
+                <Icon name="search" size={17} color={theme.fg} /> Search in book
+              </button>
+              <button type="button" className="bare-button" onClick={toggleThisBookmark} style={{ flex: 1, minHeight: 48, borderRadius: 14, background: bookmarked ? withAlpha(AppColors.warmAmber, 0.16) : withAlpha(theme.fg, 0.06), border: `1px solid ${bookmarked ? withAlpha(AppColors.warmAmber, 0.5) : withAlpha(theme.fg, 0.14)}`, color: theme.fg, fontSize: 12.5, fontWeight: 700 }}>
+                <Icon name={bookmarked ? 'bookmark' : 'bookmark_border'} size={17} color={bookmarked ? AppColors.warmAmber : theme.fg} /> {bookmarked ? 'Bookmarked' : 'Bookmark'}
+              </button>
+            </div>
+            {chapters.length > 1 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>CHAPTERS</div>
+                {chapters.map((ch, i) => (
+                  <button key={`${ch.title}-${i}`} ref={i === chapterIdx ? activeChapterRef : undefined} type="button" className="bare-button" onClick={() => selectChapter(i)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, fontWeight: i === chapterIdx ? 700 : 500, color: i === chapterIdx ? AppColors.deepRose : theme.fg, background: i === chapterIdx ? withAlpha(AppColors.deepRose, 0.12) : 'transparent' }}>
+                    {ch.title}
+                  </button>
+                ))}
+              </div>
+            )}
+            {bookmarks.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>YOUR BOOKMARKS</div>
+                {bookmarks.map((b) => (
+                  <button key={b.createdAt} type="button" className="bare-button" onClick={() => jumpToBookmark(b)} style={{ width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 10px', borderRadius: 10, fontSize: 13, color: theme.fg }}>
+                    <Icon name="bookmark" size={14} color={AppColors.warmAmber} /> Chapter {b.chapter + 1}
+                    {b.excerpt && <div className="clamp-2" style={{ fontSize: 11.5, opacity: 0.8, marginTop: 2 }}>“{b.excerpt}…”</div>}
+                    <div style={{ fontSize: 10.5, opacity: 0.65, marginTop: 2 }}>{new Date(b.createdAt).toLocaleDateString()}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div
+          onClick={() => { setSettingsOpen(false); settingsTriggerRef.current?.focus(); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+        >
+          <div
+            ref={settingsPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reading settings"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 540, maxHeight: '85vh', overflowY: 'auto', outline: 'none',
+              background: settings.theme === 'dark' ? AppColors.inkDeep : settings.theme === 'sepia' ? ReaderPaper.sepia : ReaderPaper.light,
+              color: theme.fg, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: '14px 20px 30px',
+            }}
+          >
+            <div style={{ width: 38, height: 4, borderRadius: 2, background: withAlpha(theme.fg, 0.2), margin: '0 auto 14px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ fontFamily: Fonts.display, fontSize: 26, fontWeight: 700 }}>Reading settings</div>
+              <button type="button" className="bare-button" onClick={() => setSettingsOpen(false)} style={{ minWidth: 44, minHeight: 44, fontSize: 22, color: theme.fg }} aria-label="Close settings">×</button>
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, color: AppColors.warmAmber, marginBottom: 10 }}>PAGE &amp; TYPE</div>
+            {stepper(
+              'Text size',
+              `${settings.fontSize}px`,
+              () => patchSettings({ fontSize: Math.max(14, settings.fontSize - 1) }),
+              () => patchSettings({ fontSize: Math.min(28, settings.fontSize + 1) }),
+              settings.fontSize > 14,
+              settings.fontSize < 28,
+            )}
+            {segmented<ReaderFont>(
+              'Typeface',
+              [
+                { value: 'classic', label: 'Classic' },
+                { value: 'modern', label: 'Modern' },
+                { value: 'soft', label: 'Soft' },
+                { value: 'dyslexic', label: 'Easy read' },
+              ],
+              settings.font,
+              (value) => patchSettings({ font: value }),
+            )}
+            {segmented<'off' | 'on'>(
+              'Line Guide',
+              [
+                { value: 'off', label: 'Off' },
+                { value: 'on', label: 'Focus one paragraph' },
+              ],
+              focusMode ? 'on' : 'off',
+              (value) => setFocusMode(value === 'on'),
+            )}
+            {segmented<'left' | 'justify'>(
+              'Alignment',
+              [
+                { value: 'left', label: 'Ragged right' },
+                { value: 'justify', label: 'Justified' },
+              ],
+              settings.align,
+              (value) => patchSettings({ align: value }),
+            )}
+            {segmented<ReaderTheme>(
+              'Page',
+              [
+                { value: 'dark', label: 'Night' },
+                { value: 'sepia', label: 'Sepia' },
+                { value: 'light', label: 'Day' },
+              ],
+              settings.theme,
+              (value) => patchSettings({ theme: value }),
+            )}
+            {segmented<'scroll' | 'tap'>(
+              'Turn pages',
+              [
+                { value: 'scroll', label: 'Scroll' },
+                { value: 'tap', label: 'Pages' },
+              ],
+              settings.pageTurn ? 'tap' : 'scroll',
+              (value) => patchSettings({ pageTurn: value === 'tap' }),
+            )}
+            {segmented<number>(
+              'Line spacing',
+              [
+                { value: 1.45, label: 'Tight' },
+                { value: 1.7, label: 'Comfy' },
+                { value: 2, label: 'Airy' },
+              ],
+              settings.lineHeight,
+              (value) => patchSettings({ lineHeight: value }),
+            )}
+            {stepper(
+              'Brightness',
+              `${Math.round(settings.brightness * 100)}%`,
+              () => patchSettings({ brightness: Math.max(0.5, Math.round((settings.brightness - 0.1) * 10) / 10) }),
+              () => patchSettings({ brightness: Math.min(1, Math.round((settings.brightness + 0.1) * 10) / 10) }),
+              settings.brightness > 0.5,
+              settings.brightness < 1,
+            )}
+            {stepper(
+              'Margins',
+              settings.margin === 0 ? 'Narrow' : settings.margin === 0.5 ? 'Comfy' : 'Wide',
+              () => patchSettings({ margin: Math.max(0, settings.margin - 0.5) }),
+              () => patchSettings({ margin: Math.min(1, settings.margin + 0.5) }),
+              settings.margin > 0,
+              settings.margin < 1,
+            )}
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, color: AppColors.warmAmber, marginBottom: 6, marginTop: 4 }}>LISTENING &amp; MARKS</div>
+            <div style={{ fontSize: 11.5, color: withAlpha(theme.fg, 0.65), marginBottom: 12 }}>Listen uses your device's voice to read the text aloud — no audiobook download needed.</div>
+            {WebTts.voices.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: withAlpha(theme.fg, 0.55), marginBottom: 6 }}>VOICE</div>
+                <select
+                  aria-label="Narration voice"
+                  value={voiceUri}
+                  onChange={(e) => { setVoiceUri(e.target.value); WebTts.setVoice(e.target.value); patchSettings({ voiceUri: e.target.value }); }}
+                  style={{ width: '100%', minHeight: 44, borderRadius: 12, background: withAlpha(theme.fg, 0.06), border: `1px solid ${withAlpha(theme.fg, 0.18)}`, color: theme.fg, fontSize: 13 }}
+                >
+                  <option value="">Device default</option>
+                  {WebTts.voices.map((v) => <option key={v.uri} value={v.uri}>{v.name} ({v.lang})</option>)}
+                </select>
+              </div>
+            )}
+            {segmented<number>(
+              'Narration speed',
+              TTS_RATES.map((r) => ({ value: r as number, label: `${r}x` })),
+              settings.ttsRate,
+              (value) => { patchSettings({ ttsRate: value }); WebTts.setRate(value); },
+            )}
+            {segmented<number>(
+              'Sleep timer',
+              [
+                { value: 0, label: 'Off' },
+                { value: -1, label: 'End of chapter' },
+                { value: 5, label: '5 min' },
+                { value: 15, label: '15 min' },
+                { value: 30, label: '30 min' },
+              ],
+              sleepMinutes,
+              (value) => {
+                setSleepMinutes(value);
+                setSleepAtChapterEnd(value === -1);
+                if (sleepTimerRef.current != null) window.clearTimeout(sleepTimerRef.current);
+                sleepTimerRef.current = value > 0 ? window.setTimeout(stopSpeech, value * 60_000) : null;
+              },
+            )}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.1, color: withAlpha(theme.fg, 0.55), marginBottom: 8 }}>
+                YOUR MARKS · {bookmarks.length} bookmark{bookmarks.length === 1 ? '' : 's'} · {highlights.length} highlight{highlights.length === 1 ? '' : 's'}
+              </div>
+              {highlights.length === 0 && bookmarks.length === 0 && (
+                <div style={{ fontSize: 12.5, opacity: 0.65 }}>Select text in the book to highlight it or add a note. Tap the ribbon to bookmark a page.</div>
+              )}
+              {highlights.slice(0, 10).map((h) => (
+                <div key={h.id} style={{ padding: '10px 0', borderBottom: `1px solid ${withAlpha(theme.fg, 0.1)}` }}>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>“{h.text.slice(0, 110)}{h.text.length > 110 ? '…' : ''}”</div>
+                  {h.note && <div style={{ fontSize: 11.5, opacity: 0.7, marginTop: 4 }}>{h.note}</div>}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <button type="button" className="bare-button" onClick={() => { setNoteFor(h.id); setNoteDraft(h.note); setSettingsOpen(false); }} style={{ fontSize: 11.5, fontWeight: 700, color: AppColors.warmAmber }}>Edit note</button>
+                    <button type="button" className="bare-button" onClick={() => deleteHighlight(h.id)} style={{ fontSize: 11.5, fontWeight: 700, color: AppColors.error }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {highlights.length > 0 && (
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => {
+                  const text = `# ${book?.title ?? 'Highlights'}\n\n` + highlights.map((h) => `## Chapter ${h.chapter + 1}\n\n> ${h.text}${h.note ? `\n\n**Note:** ${h.note}` : ''}`).join('\n\n');
+                  const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'everglow-highlights.md';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                style={{ width: '100%', minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, fontSize: 13, fontWeight: 700, color: theme.fg, marginBottom: 10 }}
+              >
+                Export highlights
+              </button>
+            )}
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => { patchSettings({ ...DEFAULT_READER_SETTINGS }); setSleepMinutes(0); }}
+              style={{ width: '100%', minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, fontSize: 13, fontWeight: 700, color: theme.fg }}
+            >
+              Reset to defaults
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

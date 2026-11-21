@@ -192,7 +192,7 @@ const NOTIF_ROUTES = {
   special_day: "/dashboard",
   special_day_upcoming: "/dashboard",
   mood_checkin: "/dashboard",
-  watch_party_invite: "/dashboard",
+  watch_party_invite: "/watch-party",
   starlight_drop: "/starlight",
   watchlist_update: "/cinema",
   motchi_note: "/motchi",
@@ -204,7 +204,9 @@ const NOTIF_ROUTES = {
 self.addEventListener("notificationclick", function(event) {
   event.notification.close();
   const data = (event.notification && event.notification.data) || {};
-  const targetPath = NOTIF_ROUTES[data.type] || "/";
+  const basePath = NOTIF_ROUTES[data.type] || "/";
+  const roomId = data.type === "watch_party_invite" && typeof data.roomId === "string" ? data.roomId.trim() : "";
+  const targetPath = roomId ? \`\${basePath}?room=\${encodeURIComponent(roomId)}\` : basePath;
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clientList) {
       for (const client of clientList) {

@@ -4,7 +4,7 @@ import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useSta
 import { scheduleIdleMediaPrefetch } from '../../core/router/routeChunks';
 import { useRememberedScroll } from '../../core/router/scrollMemory';
 import { useAuth } from '../../core/services/auth';
-import { useOnline, useViewport } from '../../core/system/viewport';
+import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint, AppSpacing, responsive } from '../../core/theme/layout';
 import { Align, letterSpacing, lineHeight, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
@@ -45,18 +45,22 @@ const DASHBOARD_GLOWS: RadialGlow[] = [
   { color: AppColors.auroraGold, alignment: [0.1, 0.45], size: 0.6, opacity: 0.05 },
 ];
 
-const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'Gallery', icon: 'photo_library', route: '/gallery', hue: AppColors.roseQuartz, caption: 'Memories' },
+const PRIMARY_QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Cinema', icon: 'movie', route: '/cinema', hue: AppColors.cinemaRed, caption: 'Movies & TV' },
   { label: 'Sanctuary', icon: 'chat_bubble', route: '/sanctuary', hue: AppColors.auroraRose, caption: 'Chat' },
-  { label: 'Canvas', icon: 'brush', route: '/canvas', hue: AppColors.softLavender, caption: 'Draw' },
+  { label: 'Gallery', icon: 'photo_library', route: '/gallery', hue: AppColors.roseQuartz, caption: 'Memories' },
   { label: 'Motchi', icon: 'auto_awesome', route: '/motchi', hue: AppColors.auroraGold, caption: 'AI companion' },
+  { label: 'Letterbox', icon: 'mail_outline', route: '/letterbox', hue: AppColors.blushGold, caption: 'Letters' },
   { label: 'Calendar', icon: 'calendar_month', route: '/calendar', hue: AppColors.warmAmber, caption: 'Dates' },
-  { label: 'Starlight', icon: 'auto_awesome_mosaic', route: '/starlight', hue: AppColors.auroraLilac, caption: 'Gratitude' },
   { label: 'Tonight', icon: 'nightlife', route: '/tonight', hue: AppColors.auroraRose, caption: 'What to do' },
   { label: 'Journal', icon: 'menu_book', route: '/journal', hue: AppColors.softLavender, caption: 'Diary' },
+];
+
+const MORE_QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Canvas', icon: 'brush', route: '/canvas', hue: AppColors.softLavender, caption: 'Draw' },
+  { label: 'Starlight', icon: 'auto_awesome_mosaic', route: '/starlight', hue: AppColors.auroraLilac, caption: 'Gratitude' },
   { label: 'Bucket List', icon: 'card_travel', route: '/bucket-list', hue: AppColors.auroraTeal, caption: 'Dreams' },
   { label: 'Trip Kit', icon: 'luggage', route: '/trips', hue: AppColors.warmAmber, caption: 'Lakad' },
-  { label: 'Letterbox', icon: 'mail_outline', route: '/letterbox', hue: AppColors.blushGold, caption: 'Letters' },
   { label: 'Money', icon: 'savings', route: '/money', hue: AppColors.auroraGold, caption: 'Wallet' },
   { label: 'Subs', icon: 'subscriptions', route: '/subs', hue: AppColors.warmAmber, caption: 'Tracker' },
   { label: 'Desktop App', icon: 'desktop_windows', route: '/desktop-app', hue: AppColors.blushGold, caption: 'Updates' },
@@ -147,7 +151,6 @@ export function DashboardPage() {
         style={{ position: 'relative', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}
       >
         <div style={{ margin: '0 auto', width: '100%', maxWidth: contentMaxWidth }}>
-          <OfflineBanner />
           <div style={{ padding: `${kTopActionsReserve}px ${AppSpacing.pageH(width)}px 24px` }}>
             <DashboardHeader width={width} />
           </div>
@@ -314,9 +317,11 @@ function DashboardHeader({ width }: { width: number }) {
 
 function QuickActionsSection({ width }: { width: number }) {
   const bp = AppBreakpoint.of(width);
-  const columns = bp === 'mobile' ? 4 : 7;
+  const columns = bp === 'mobile' ? 4 : 8;
+  const [showMore, setShowMore] = useState(false);
   const letters = useSource(() => letterboxService.notesPreview(10), [], letterboxService.cachedNotes);
   const unreadLetters = letters.filter((n) => isNoteUnlocked(n) && !n.isRead).length;
+  const visibleActions = showMore ? [...PRIMARY_QUICK_ACTIONS, ...MORE_QUICK_ACTIONS] : PRIMARY_QUICK_ACTIONS;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
       <EverglowSectionHeader label="Quick Access" icon="grid_view" hue={AppColors.blushGold} />
@@ -329,35 +334,32 @@ function QuickActionsSection({ width }: { width: number }) {
           rowGap: 14,
         }}
       >
-        {QUICK_ACTIONS.map((action) => (
+        {visibleActions.map((action) => (
           <QuickActionTile key={action.route} action={action} badge={action.route === '/letterbox' ? unreadLetters : 0} />
         ))}
       </div>
-    </div>
-  );
-}
-
-function OfflineBanner() {
-  const auth = useAuth();
-  const online = useOnline();
-  if (!auth.isOfflineMode || online) return null;
-  return (
-    <div style={{ padding: '8px 24px 0' }}>
-      <div
-        style={{
-          padding: '10px 14px',
-          background: withAlpha(AppColors.auroraGold, 0.08),
-          borderRadius: 14,
-          border: `1px solid ${withAlpha(AppColors.auroraGold, 0.3)}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        <Icon name="cloud_off" size={18} color={AppColors.auroraGold} />
-        <span style={{ ...AppTypography.bodySmall, color: withAlpha(AppColors.petalWhite, 0.92), fontSize: 12, lineHeight: 1.3 }}>
-          You&rsquo;re offline &mdash; showing your saved copy. New things will sync when you&rsquo;re back online.
-        </span>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+        <button
+          type="button"
+          className="bare-button"
+          aria-expanded={showMore}
+          onClick={() => setShowMore((open) => !open)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '7px 14px',
+            borderRadius: 999,
+            background: withAlpha(AppColors.moonlight, 0.06),
+            ...insetBorder(withAlpha(AppColors.blushGold, 0.24), 1),
+            ...AppTypography.outfitMedium,
+            fontSize: 12,
+            color: withAlpha(AppColors.petalWhite, 0.86),
+          }}
+        >
+          <span>{showMore ? 'Show less' : `More spaces (${MORE_QUICK_ACTIONS.length})`}</span>
+          <Icon name={showMore ? 'expand_less' : 'expand_more'} size={16} color={AppColors.blushGold} />
+        </button>
       </div>
     </div>
   );

@@ -126,7 +126,7 @@ test('notification routing covers all Flutter notification types', () => {
     special_day: '/dashboard',
     special_day_upcoming: '/dashboard',
     mood_checkin: '/dashboard',
-    watch_party_invite: '/dashboard',
+    watch_party_invite: '/watch-party',
     starlight_drop: '/starlight',
     watchlist_update: '/cinema',
     motchi_note: '/motchi',
@@ -138,4 +138,7 @@ test('notification routing covers all Flutter notification types', () => {
     assert.ok(src.includes(`case '${type}'`), `missing notification type ${type}`);
     assert.ok(src.includes(`return '${route}'`), `missing notification route ${route}`);
   }
+  const swSrc = readFileSync(new URL('../dist/sw.js', import.meta.url), 'utf8');
+  assert.ok(swSrc.includes('watch_party_invite: "/watch-party"'), 'sw.js should route watch_party_invite to /watch-party');
+  assert.ok(swSrc.includes('?room='), 'sw.js should deep-link watch_party_invite roomId when present');
 });
