@@ -17,6 +17,7 @@ const {
 } = require('./motchi_memory.js');
 const {
   getAdmin,
+  applyCors,
   requireAuth,
   enforceRateLimit,
   checkDailyCap,
@@ -142,11 +143,7 @@ function endsWithDanglingColon(text) {
 
 async function handleProxyAI(req, res) {
   const requestStartedAt = Date.now();
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
   res.set('Access-Control-Expose-Headers', '*');
 
   if (req.method === 'OPTIONS') {

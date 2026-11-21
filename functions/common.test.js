@@ -7,7 +7,7 @@ const { Readable } = require('node:stream');
 const dns = require('node:dns').promises;
 const https = require('node:https');
 const adminCompat = require('./admin_compat.js');
-const { isPrivateIp, fetchPublicUrl, requireAuth } = require('./common.js');
+const { isPrivateIp, fetchPublicUrl, requireAuth, allowedCorsOrigin } = require('./common.js');
 
 function response(statusCode, headers = {}, body = 'ok') {
   const stream = Readable.from([Buffer.from(body)]);
@@ -96,4 +96,14 @@ test('requireAuth rejects anonymous and unapproved accounts, accepting signed pr
   assert.deepEqual(await requireAuth(req('custom'), resMock()), {
     uid: 'u1', username: 'breyan', firebase: { sign_in_provider: 'custom' },
   });
+});
+
+test('allowedCorsOrigin permits Everglow and localhost origins and rejects strangers', () => {
+  const mk = (origin) => ({ get: (h) => (h.toLowerCase() === 'origin' ? origin : ''), headers: {} });
+  assert.equal(allowedCorsOrigin(mk('https://everglow-1c6db.web.app')), 'https://everglow-1c6db.web.app');
+  assert.equal(allowedCorsOrigin(mk('https://everglow-1c6db.firebaseapp.com')), 'https://everglow-1c6db.firebaseapp.com');
+  assert.equal(allowedCorsOrigin(mk('http://localhost:5173')), 'http://localhost:5173');
+  assert.equal(allowedCorsOrigin(mk('http://127.0.0.1:4173')), 'http://127.0.0.1:4173');
+  assert.equal(allowedCorsOrigin(mk('https://evil.example')), 'https://everglow-1c6db.web.app');
+  assert.equal(allowedCorsOrigin(mk('')), 'https://everglow-1c6db.web.app');
 });

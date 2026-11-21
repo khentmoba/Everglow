@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { resolveCatalogUpstream } = require('./media_proxy_catalog.js');
+const { proxyCatalog, resolveCatalogUpstream } = require('./media_proxy_catalog.js');
 const indexExports = require('./index.js');
 
 test('proxyCatalog allow-list rejects unknown base', () => {
@@ -115,4 +115,36 @@ test('proxyCatalog builds torrentio download-copy URL server-side', () => {
 
 test('index re-exports proxyCatalog', () => {
   assert.equal(typeof indexExports.proxyCatalog, 'function');
+});
+
+test('proxyCatalog caches 200 responses in memory and skips opentdb', async (t) => {
+  let hits = 0;
+  t.mock.method(global, 'fetch', async () => {
+    hits++;
+    return new Response(JSON.stringify({ ok: hits }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  const call = async (base, path) => {
+    const res = {
+      code: 200,
+      headers: {},
+      set(k, v) { this.headers[k] = v; return this; },
+      status(n) { this.code = n; return this; },
+      send(b) { this.body = b; },
+      json(b) { this.body = b; },
+    };
+    await proxyCatalog({ method: 'GET', query: { base, path }, headers: {}, get: () => '', ip: '203.0.113.9' }, res);
+    return res;
+  };
+  const first = await call('jikan', 'anime?q=frieren-cache-test');
+  const second = await call('jikan', 'anime?q=frieren-cache-test');
+  assert.equal(first.headers['X-Cache'], 'MISS');
+  assert.equal(second.headers['X-Cache'], 'HIT');
+  assert.equal(hits, 1);
+
+  await call('opentdb', 'api.php?amount=5');
+  await call('opentdb', 'api.php?amount=5');
+  assert.equal(hits, 3);
 });

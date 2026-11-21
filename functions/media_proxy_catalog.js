@@ -1,6 +1,8 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const { cappedHttps, enforceRateLimit, getAdmin, _getExternalCache, _setExternalCache } = require('./common.js');
+
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const _catalogBases = {
   openlibrary: 'https://openlibrary.org/',
@@ -70,6 +72,20 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     return;
   }
 
+  const noStore = _catalogNoStoreBases.has(String(req.query.base || '').toLowerCase());
+  const cacheKey = `catalog:proxy:${targetUrl.toString()}`;
+  if (!noStore) {
+    const cached = _getExternalCache(cacheKey, CATALOG_CACHE_TTL_MS);
+    if (cached) {
+      res.status(cached.status);
+      res.set('Content-Type', cached.contentType);
+      res.set('Cache-Control', 'public, max-age=300');
+      res.set('X-Cache', 'HIT');
+      res.send(cached.body);
+      return;
+    }
+  }
+
   try {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
@@ -80,13 +96,14 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
       signal: AbortSignal.timeout(20000),
     });
     const body = await upstream.text();
+    const contentType = upstream.headers.get('content-type') || 'application/json';
+    if (!noStore && upstream.status === 200) {
+      _setExternalCache(cacheKey, { status: 200, contentType, body });
+    }
     res.status(upstream.status);
-    res.set(
-      'Content-Type',
-      upstream.headers.get('content-type') || 'application/json',
-    );
-    const _noStore = _catalogNoStoreBases.has(String(req.query.base || '').toLowerCase());
-    res.set('Cache-Control', _noStore ? 'private, no-store' : 'public, max-age=300');
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', noStore ? 'private, no-store' : 'public, max-age=300');
+    res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
     console.warn(`proxyCatalog failed (${targetUrl}):`, e.message);

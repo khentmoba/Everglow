@@ -27,6 +27,7 @@ async function journey(stream, { interrupt = false, recall = false, enableThinki
   let response;
   const modules = {
     './common.js': {
+      applyCors: () => {},
       requireAuth: async () => ({ uid: 'demo-user' }),
       getVerifiedUsername: async () => 'clairjassen',
       enforceRateLimit: () => false,

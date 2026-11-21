@@ -1,6 +1,6 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const { cappedHttps, enforceRateLimit, getAdmin, requireAuth } = require('./common.js');
 const { streamMediaBody } = require('./stream_media_body');
 
 const proxyMangaImage = cappedHttps(30, async (req, res) => {
@@ -271,17 +271,9 @@ const proxyComick = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  if (enforceRateLimit(req, res, { endpoint: 'proxyComick', limit: 240, windowMs: 60000 })) return;
-  const header = req.get('Authorization') || req.headers.authorization || '';
-  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch (e) {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyComick', limit: 240, windowMs: 60000, uid: decoded.uid })) return;
 
 
 
@@ -339,17 +331,9 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  if (enforceRateLimit(req, res, { endpoint: 'proxyMangaDex', limit: 240, windowMs: 60000 })) return;
-  const header = req.get('Authorization') || req.headers.authorization || '';
-  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch (e) {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMangaDex', limit: 240, windowMs: 60000, uid: decoded.uid })) return;
 
 
 

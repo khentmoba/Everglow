@@ -278,6 +278,26 @@ async function checkDailyCap(uid, endpoint, dailyLimit) {
   }
 }
 
+function allowedCorsOrigin(req) {
+  const origin = String(req?.get?.('Origin') || req?.headers?.origin || '').trim();
+  if (!origin) return 'https://everglow-1c6db.web.app';
+  if (
+    origin === 'https://everglow-1c6db.web.app' ||
+    origin === 'https://everglow-1c6db.firebaseapp.com' ||
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+  ) {
+    return origin;
+  }
+  return 'https://everglow-1c6db.web.app';
+}
+
+function applyCors(req, res, methods, headers = 'Content-Type, Authorization') {
+  res.set('Access-Control-Allow-Origin', allowedCorsOrigin(req));
+  res.set('Vary', 'Origin');
+  res.set('Access-Control-Allow-Methods', methods);
+  res.set('Access-Control-Allow-Headers', headers);
+}
+
 function cappedHttps(maxInstances, handler, opts = {}) {
   const functions = require('firebase-functions/v1');
   return functions.runWith({ maxInstances, ...opts }).https.onRequest(handler);
@@ -288,6 +308,8 @@ module.exports = {
   getAdmin,
   getDb,
   cappedHttps,
+  allowedCorsOrigin,
+  applyCors,
   requireAuth,
   rateLimitHit,
   enforceRateLimit,

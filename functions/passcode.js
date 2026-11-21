@@ -2,7 +2,7 @@
 
 const crypto = require('node:crypto');
 
-const { getAdmin, clientIp, cappedHttps } = require('./common.js');
+const { getAdmin, clientIp, cappedHttps, applyCors } = require('./common.js');
 const { isValidPasscodeFormat } = require('./auth_core.js');
 
 const _pcAttempts = new Map();
@@ -91,7 +91,7 @@ function profileForPasscode(code, env = process.env) {
 }
 
 const verifyPasscode = cappedHttps(10, async(req,res)=>{
-  res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Methods','POST, OPTIONS');res.set('Access-Control-Allow-Headers','Content-Type');
+  applyCors(req, res, 'POST, OPTIONS', 'Content-Type');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
   if(req.method!=='POST'){res.status(405).json({error:'POST only'});return;}
   const ip = clientIp(req);
