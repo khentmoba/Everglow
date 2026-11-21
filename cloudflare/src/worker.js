@@ -231,6 +231,8 @@ async function handleProxyAnime(request, env) {
         ...cors,
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'private, no-store',
+        'Content-Security-Policy':
+          "frame-ancestors 'self' https://everglow-1c6db.web.app https://everglow-1c6db.firebaseapp.com http://localhost:* http://127.0.0.1:*",
       },
     });
   } catch (e) {

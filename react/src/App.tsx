@@ -180,12 +180,16 @@ function RootLayout() {
       });
     });
     let timer: number | undefined;
-    if (!AgentMode.demo) {
+    const maybeInit = () => {
+      if (AgentMode.demo || !authService.isReady || !authService.isCoupleUser || timer != null) return;
       timer = window.setTimeout(() => {
         void notificationService.initialize();
       }, 1500);
-    }
+    };
+    maybeInit();
+    const unsubAuth = authService.subscribe(maybeInit);
     return () => {
+      unsubAuth();
       if (timer != null) window.clearTimeout(timer);
       notificationService.setForegroundHandler(null);
     };

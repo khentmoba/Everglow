@@ -3,12 +3,15 @@
 const {
   applyCors,
   cappedHttps,
+  getVerifiedUsername,
   requireAuth,
   enforceRateLimit,
   _getExternalCache,
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
+
+const COUPLE_USERS = new Set(['khentsgdz', 'clairjassen']);
 const {
   buildLastfmUpstream,
   buildTmdbUpstream,
@@ -98,6 +101,11 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
 
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  const username = await getVerifiedUsername(decoded);
+  if (!COUPLE_USERS.has(username)) {
+    res.status(403).json({ error: 'Last.fm is only available to couple accounts' });
+    return;
+  }
   if (enforceRateLimit(req, res, { endpoint: 'proxyLastfm', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
 
   const apiKey = (process.env.LASTFM_API_KEY || '').trim();

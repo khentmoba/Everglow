@@ -226,6 +226,28 @@ function loadSdk(): Promise<void> {
   });
 }
 
+async function refreshAccessToken(): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user) return null;
+  try {
+    const idToken = await user.getIdToken();
+    const resp = await fetch('/api/spotifyRefresh', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (resp.ok) {
+      const data = (await resp.json()) as { access_token?: unknown };
+      if (typeof data.access_token === 'string' && data.access_token) {
+        return data.access_token;
+      }
+    }
+  } catch (e) {
+    Logger.w(`Spotify token refresh failed: ${String(e)}`);
+  }
+  return storedAccessToken();
+}
+
 function armTokenRefresh() {
   if (tokenRefreshTimer != null) window.clearInterval(tokenRefreshTimer);
   tokenRefreshTimer = window.setInterval(
@@ -239,7 +261,7 @@ function armTokenRefresh() {
         return;
       }
       if (!connected) return;
-      const fresh = await storedAccessToken();
+      const fresh = await refreshAccessToken();
       if (fresh) currentToken = fresh;
     },
     50 * 60 * 1000,
@@ -285,21 +307,31 @@ export async function playInEverglow(trackId: string): Promise<void> {
   await initSpotifyPlayer();
   for (let i = 0; i < 20 && deviceId == null; i++) await new Promise((r) => setTimeout(r, 300));
   if (deviceId == null) return;
-  const token = await storedAccessToken();
+  const token = currentToken || (await refreshAccessToken());
   if (!token) return;
+  currentToken = token;
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   try {
-    await fetch('https://api.spotify.com/v1/me/player', {
+    const transferResp = await fetch('https://api.spotify.com/v1/me/player', {
       method: 'PUT',
       headers,
       body: JSON.stringify({ device_ids: [deviceId], play: false }),
+      signal: AbortSignal.timeout(10_000),
     });
+    if (!transferResp.ok) {
+      Logger.w(`Spotify transfer failed: HTTP ${transferResp.status}`);
+      return;
+    }
     await new Promise((r) => setTimeout(r, 400));
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+    const playResp = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
       method: 'PUT',
       headers,
       body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+      signal: AbortSignal.timeout(10_000),
     });
+    if (!playResp.ok) {
+      Logger.w(`Spotify play failed: HTTP ${playResp.status}`);
+    }
   } catch (e) {
     Logger.w(`Spotify play failed: ${String(e)}`);
   }

@@ -132,8 +132,9 @@
 
   function readParams() {
     var q = new URLSearchParams(window.location.search);
+    var rawId = (q.get('tmdbId') || '').trim();
     return {
-      tmdbId: (q.get('tmdbId') || '').trim(),
+      tmdbId: /^\d+$/.test(rawId) ? rawId : '',
       type: q.get('type') === 'tv' ? 'tv' : 'movie',
       s: parseInt(q.get('s') || '1', 10) || 1,
       e: parseInt(q.get('e') || '1', 10) || 1,
@@ -200,7 +201,7 @@
 
   function loadPos(pos) {
     queuePos = pos;
-    if (pos >= queue.length) {
+    if (!p.tmdbId || pos >= queue.length) {
       failAll();
       return;
     }

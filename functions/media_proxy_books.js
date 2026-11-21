@@ -42,7 +42,8 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
   if (!decoded) return;
   if (enforceRateLimit(req, res, { endpoint: 'proxyBookText', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
 
-  const { urls } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { urls } = body;
   if (!Array.isArray(urls) || urls.length === 0) {
     res.status(400).json({ error: 'Provide a non-empty urls array' });
     return;
@@ -112,7 +113,8 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
   if (!decoded) return;
   if (enforceRateLimit(req, res, { endpoint: 'proxyBookFile', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
 
-  const { urls } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { urls } = body;
   if (!Array.isArray(urls) || urls.length === 0) {
     res.status(400).json({ error: 'Provide a non-empty urls array' });
     return;

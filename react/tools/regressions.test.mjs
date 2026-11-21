@@ -155,7 +155,10 @@ test('Welcome gift covers the app for Clair until Continue, and only for Clair',
     await page.goto(`${baseUrl}/dashboard?agent=clair&gift=1`, { waitUntil: 'domcontentloaded' });
     await gift.waitFor({ state: 'visible', timeout: 10_000 });
     assert.equal(await proceed.count(), 0, 'Continue stays hidden until the letter ends');
-    await page.frameLocator('iframe[title="A gift for you"]').getByRole('button', { name: 'Read on' }).click();
+    const readOn = page.frameLocator('iframe[title="A gift for you"]').getByRole('button', { name: 'Read on' });
+    await readOn.waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForTimeout(300);
+    await readOn.click();
     await proceed.click();
     await gift.waitFor({ state: 'detached', timeout: 5_000 });
 

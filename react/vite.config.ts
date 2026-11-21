@@ -177,14 +177,37 @@ try {
   // Push unavailable when offline or CDN unreachable.
 }
 
+const NOTIF_ROUTES = {
+  chat_message: "/sanctuary",
+  mood_update: "/dashboard",
+  milestone: "/dashboard",
+  special_day: "/dashboard",
+  special_day_upcoming: "/dashboard",
+  mood_checkin: "/dashboard",
+  watch_party_invite: "/dashboard",
+  starlight_drop: "/starlight",
+  watchlist_update: "/cinema",
+  motchi_note: "/motchi",
+  daily_digest: "/motchi-today",
+  night_recap: "/motchi-today",
+  gallery_photo: "/gallery",
+};
+
 self.addEventListener("notificationclick", function(event) {
   event.notification.close();
+  const data = (event.notification && event.notification.data) || {};
+  const targetPath = NOTIF_ROUTES[data.type] || "/";
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clientList) {
       for (const client of clientList) {
-        if ("focus" in client) return client.focus();
+        if ("focus" in client) {
+          if (targetPath !== "/" && "navigate" in client) {
+            return client.navigate(targetPath).then(() => client.focus()).catch(() => client.focus());
+          }
+          return client.focus();
+        }
       }
-      return clients.openWindow("/");
+      return clients.openWindow(targetPath);
     })
   );
 });

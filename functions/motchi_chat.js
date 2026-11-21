@@ -167,10 +167,11 @@ async function handleProxyAI(req, res) {
   const _tAuthMs = Date.now() - _tAuth0;
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
   const {
     messages, context, systemPrompt: customSystemPrompt, feature,
     caller: clientCaller, enableThinking, canvas, sessionId, temporary,
-  } = req.body;
+  } = body;
   const turnTools = [];
   const steps = [];
   const availableMemories = [];

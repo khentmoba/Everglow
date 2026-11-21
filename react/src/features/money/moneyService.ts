@@ -141,6 +141,7 @@ class MoneyService {
   watchMonth(month: Date): Source<MoneyEntry[]> {
     if (AgentMode.demo) return just(demoMoney(month));
     const subscribe: Source<MoneyEntry[]> = (l) => {
+      const MAX_MONTH_LIMIT = 1600;
       let limit = 200;
       let unsub = () => {};
       const listen = () => {
@@ -154,8 +155,8 @@ class MoneyService {
         unsub = onSnapshot(
           q,
           (snap) => {
-            if (snap.docs.length === limit) {
-              limit *= 2;
+            if (snap.docs.length === limit && limit < MAX_MONTH_LIMIT) {
+              limit = Math.min(limit * 2, MAX_MONTH_LIMIT);
               unsub();
               listen();
               return;
