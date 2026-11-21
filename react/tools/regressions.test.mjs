@@ -159,6 +159,8 @@ test('Welcome gift covers the app for Clair until Continue, and only for Clair',
     await readOn.waitFor({ state: 'visible', timeout: 10_000 });
     await page.waitForTimeout(300);
     await readOn.click();
+    await proceed.waitFor({ state: 'visible', timeout: 5_000 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     await proceed.click();
     await gift.waitFor({ state: 'detached', timeout: 5_000 });
 
