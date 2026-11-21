@@ -1,3 +1,4 @@
+import { NetworkQualityService } from '../../core/network/networkQuality';
 import { AppColors } from '../../core/theme/colors';
 
 export const NetflixColors = {
@@ -71,10 +72,12 @@ export const TmdbImages = {
   cardFor(raw: string): string {
     const t = raw.trim();
     if (!t) return '';
+    const size = NetworkQualityService.preferredTmdbCardSize();
+    const base = `https://image.tmdb.org/t/p/${size}`;
     if (t.startsWith('http') || t.startsWith('/')) {
-      return t.replace('/t/p/w500/', '/t/p/w342/');
+      return t.replace(/\/t\/p\/w(?:500|342)\//, `/t/p/${size}/`);
     }
-    return `${this.posterCard}${t.startsWith('/') ? '' : '/'}${t}`;
+    return `${base}${t.startsWith('/') ? '' : '/'}${t}`;
   },
   /** Flutter TmdbImages._resolve: rebases TMDB URLs and raw paths onto `base`. */
   resolve(path: string | null | undefined, base: string): string {
@@ -87,18 +90,24 @@ export const TmdbImages = {
     return `${base}${t.startsWith('/') ? t : `/${t}`}`;
   },
   posterFor(path?: string | null): string {
-    return this.resolve(path, this.poster);
+    const size = NetworkQualityService.preferredTmdbPosterSize();
+    return this.resolve(path, `https://image.tmdb.org/t/p/${size}`);
   },
   stillFor(path?: string | null): string {
     return this.resolve(path, 'https://image.tmdb.org/t/p/w300');
   },
   backdropOf(path?: string | null, large = false): string {
-    return this.resolve(path, large ? this.backdropHero : this.backdrop);
+    const size = NetworkQualityService.preferredTmdbBackdropSize(large);
+    return this.resolve(path, `https://image.tmdb.org/t/p/${size}`);
   },
   backdropFor(raw: string): string {
     const t = raw.trim();
     if (!t) return '';
-    if (t.startsWith('http') || t.startsWith('/')) return t;
-    return `${this.backdrop}${t.startsWith('/') ? '' : '/'}${t}`;
+    const size = NetworkQualityService.preferredTmdbBackdropSize(false);
+    const base = `https://image.tmdb.org/t/p/${size}`;
+    if (t.startsWith('http') || t.startsWith('/')) {
+      return t.replace(/\/t\/p\/w(?:1280|780)\//, `/t/p/${size}/`);
+    }
+    return `${base}${t.startsWith('/') ? '' : '/'}${t}`;
   },
 };

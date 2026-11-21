@@ -1,6 +1,8 @@
 // Port of lib/shared/utils/catalog_proxy_client.dart: keyless public catalogs
 // (ani.zip, torrentio, Jikan, ...) go through our proxyCatalog helper, with the
 // login token when signed in.
+import { ConnectivityService } from '../../core/network/connectivity';
+import { NetworkQualityService } from '../../core/network/networkQuality';
 import { auth } from '../../core/services/firebase';
 
 export const CATALOG_PROXY_BASE = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyCatalog';
@@ -10,6 +12,9 @@ export async function catalogProxyGet(
   path: string,
   opts: { query?: Record<string, string>; timeoutMs?: number } = {},
 ): Promise<Response> {
+  if (!ConnectivityService.isOnline) {
+    throw new Error('Offline');
+  }
   const q = opts.query && Object.keys(opts.query).length ? `?${new URLSearchParams(opts.query).toString()}` : '';
   const url = `${CATALOG_PROXY_BASE}?${new URLSearchParams({ base, path: `${path}${q}` }).toString()}`;
   let token: string | undefined;
@@ -20,7 +25,8 @@ export async function catalogProxyGet(
   }
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(url, { headers, signal: AbortSignal.timeout(opts.timeoutMs ?? 12000) });
+  const timeout = NetworkQualityService.timeoutMs(opts.timeoutMs ?? 12000);
+  return fetch(url, { headers, signal: AbortSignal.timeout(timeout) });
 }
 
 /** AniZipService.fetchMappings / fetchMappingsByAnilist. */

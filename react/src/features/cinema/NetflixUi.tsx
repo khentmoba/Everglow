@@ -8,6 +8,7 @@ import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import { NetflixColors, TmdbImages, type MediaItem } from './cinemaTypes';
+import { showNetflixTouchPreview } from './NetflixTouchPreview';
 import { fetchMediaDetails } from './tmdbService';
 
 export interface NetflixNavLink {
@@ -354,6 +355,7 @@ export function NetflixPosterCard({
   item,
   onTap,
   onPlay,
+  onRestart,
   onToggleList,
   isInList,
   progress,
@@ -365,6 +367,7 @@ export function NetflixPosterCard({
   item: MediaItem;
   onTap: () => void;
   onPlay?: (item: MediaItem) => void;
+  onRestart?: (item: MediaItem) => void;
   onToggleList?: (item: MediaItem, add: boolean) => void;
   isInList?: (item: MediaItem) => boolean;
   progress?: number | null;
@@ -382,6 +385,9 @@ export function NetflixPosterCard({
   const cardRef = useRef<HTMLButtonElement>(null);
   const showTimerRef = useRef<number | undefined>(undefined);
   const hideTimerRef = useRef<number | undefined>(undefined);
+  const touchTimerRef = useRef<number | undefined>(undefined);
+  const touchOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressedRef = useRef(false);
   const posterUrl = TmdbImages.cardFor(item.posterPath);
   const cardWidth = compact ? undefined : rank != null ? 118 : isDesktop ? 172 : 124;
 
@@ -403,8 +409,42 @@ export function NetflixPosterCard({
     return () => {
       window.clearTimeout(showTimerRef.current);
       window.clearTimeout(hideTimerRef.current);
+      window.clearTimeout(touchTimerRef.current);
     };
   }, []);
+
+  const clearLongPress = () => {
+    window.clearTimeout(touchTimerRef.current);
+    touchOriginRef.current = null;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+    const t = e.touches[0];
+    if (!t) return;
+    longPressedRef.current = false;
+    touchOriginRef.current = { x: t.clientX, y: t.clientY };
+    window.clearTimeout(touchTimerRef.current);
+    touchTimerRef.current = window.setTimeout(() => {
+      longPressedRef.current = true;
+      void showNetflixTouchPreview({
+        item,
+        inList: isInList?.(item) ?? false,
+        onTap,
+        onPlay: onPlay ? () => onPlay(item) : undefined,
+        onRestart: onRestart ? () => onRestart(item) : undefined,
+        onToggleList: onToggleList ? (add) => onToggleList(item, add) : undefined,
+      });
+    }, 480);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
+    const origin = touchOriginRef.current;
+    const t = e.touches[0];
+    if (!origin || !t) return;
+    if (Math.hypot(t.clientX - origin.x, t.clientY - origin.y) > 10) {
+      clearLongPress();
+    }
+  };
 
   const handleEnter = () => {
     window.clearTimeout(hideTimerRef.current);
@@ -439,7 +479,15 @@ export function NetflixPosterCard({
       aria-label={`Details for ${item.title}`}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={clearLongPress}
+      onTouchCancel={clearLongPress}
       onClick={() => {
+        if (longPressedRef.current) {
+          longPressedRef.current = false;
+          return;
+        }
         closePreview();
         onTap();
       }}
@@ -614,6 +662,7 @@ export function NetflixRow({
   ranked = false,
   onTapItem,
   onPlayItem,
+  onRestartItem,
   onToggleListItem,
   isInList,
   isDesktop = false,
@@ -623,6 +672,7 @@ export function NetflixRow({
   ranked?: boolean;
   onTapItem: (item: MediaItem) => void;
   onPlayItem?: (item: MediaItem) => void;
+  onRestartItem?: (item: MediaItem) => void;
   onToggleListItem?: (item: MediaItem, add: boolean) => void;
   isInList?: (item: MediaItem) => boolean;
   isDesktop?: boolean;
@@ -672,6 +722,7 @@ export function NetflixRow({
                 height={rowHeight}
                 onTap={() => onTapItem(item)}
                 onPlay={onPlayItem}
+                onRestart={onRestartItem}
                 onToggleList={onToggleListItem}
                 isInList={isInList}
               />

@@ -34,6 +34,7 @@ import { AnimeXMobileBottomNav, AnimeXTopHeader } from './AnimeUi';
 import { showAnimexTrailer } from './AnimeXPlayerFrame';
 import { AnimeXMotchiFloatingTrigger, AnimeXMotchiSidebar } from './AnimeXMotchi';
 import { AnimeXWatchPage } from './AnimeXWatchPage';
+import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import type { AIMessage } from '../ai/motchiDomain';
 
 export function AnimePage() {
@@ -244,6 +245,7 @@ export function AnimePage() {
         color: AnimeXTokens.textPrimary,
       }}
     >
+      <TvMediaNavHeader currentRoute="/anime" />
       <AnimeXTopHeader
         page={page}
         hasDetail={hasDetail}
