@@ -630,19 +630,27 @@ export async function saveCoupleGoal(goal: number): Promise<void> {
   }
 }
 
-/** All recent reading states for the couple, newest first — feeds Home's Continue Reading. */
-export function watchAllReaderProgress(limitCount = 20): Source<ReaderProgress[]> {
+/** Recent reading states, newest first — feeds Home's Continue Reading. */
+export function watchAllReaderProgress(limitCount = 20, userName?: string): Source<ReaderProgress[]> {
   if (AgentMode.demo) return just([]);
+  const q = userName
+    ? query(collection(db, READER_STATE_COL), where('userName', '==', userName), limit(500))
+    : query(collection(db, READER_STATE_COL), orderBy('updatedAt', 'desc'), limit(limitCount));
   return withFirestoreTimeout(
     snapshots<QuerySnapshot<DocumentData>, ReaderProgress[]>(
-      (next, err) => onSnapshot(query(collection(db, READER_STATE_COL), orderBy('updatedAt', 'desc'), limit(limitCount)), next, err),
+      (next, err) => onSnapshot(q, next, err),
       (s) =>
         s.docs
-          .map((d) => (d.data().progress as ReaderProgress | undefined))
+          .map((d) => ({
+            updatedAt: Number(d.data().updatedAt ?? 0),
+            progress: d.data().progress as ReaderProgress | undefined,
+          }))
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .map((x) => x.progress)
           .filter((p): p is ReaderProgress => Boolean(p?.title && p?.workKey))
           .slice(0, limitCount),
     ),
-    { label: 'all-reader-state' },
+    { label: userName ? `reader-state-${userName}` : 'all-reader-state' },
   );
 }
 

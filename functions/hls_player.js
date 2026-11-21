@@ -29,10 +29,9 @@ const FLASH_ICONS = {
   ff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + SEEK_ARC.ff + '</svg><b>10</b>',
 };
 
-function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, current, hasEpisodes, poster }) {
+function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, current, hasEpisodes }) {
   const isCinema = kind === 'cinema';
   const showEps = !isCinema || !!hasEpisodes;
-  const posterUrl = /^https:\/\//i.test(String(poster || '').trim()) ? String(poster).trim() : '';
   const serverList = (Array.isArray(servers) ? servers : [])
     .filter((s) => s && s.id && s.url)
     .map((s) => ({ id: String(s.id), label: String(s.label || s.id), url: String(s.url) }));
@@ -100,14 +99,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '#sub-txt.bg-box{background:rgba(0,0,0,.92);padding:4px 12px;text-shadow:none}' +
     '.ov{position:fixed;inset:0;display:flex;align-items:center;' +
     'justify-content:center;background:rgba(8,6,14,.74);backdrop-filter:blur(4px);z-index:8}' +
-    '#tapw{flex-direction:column;gap:14px;padding:24px;text-align:center;overflow:hidden;' +
-    'background:radial-gradient(circle at 50% 45%,var(--acc-soft) 0%,var(--bg-base) 72%)}' +
-    '#tap-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.24;filter:blur(7px) saturate(1.1);pointer-events:none;z-index:0}' +
-    '#tapw>*:not(#tap-art){position:relative;z-index:1}' +
-    '#tap-opts{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}' +
-    '#tap-title{font-size:clamp(16px,2.2vw,24px);font-weight:800;color:#fff;max-width:min(520px,86vw);' +
-    'text-shadow:0 2px 14px rgba(0,0,0,.8)}' +
-    '#tap-sub{font-size:12px;font-weight:600;color:rgba(255,255,255,.68);letter-spacing:.03em;text-transform:uppercase}' +
     '.ov[hidden]{display:none!important}[hidden]{display:none!important}' +
     '.eg-wave{display:inline-flex;font-family:"Bebas Neue",Impact,sans-serif;' +
     'font-size:clamp(34px,6vw,50px);letter-spacing:.1em;line-height:1}' +
@@ -120,10 +111,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.wc:nth-child(7){animation-delay:.54s}.wc:nth-child(8){animation-delay:.63s}' +
     '@keyframes egw{0%,100%{transform:translateY(0);opacity:.72}' +
     '45%{transform:translateY(-9px);opacity:1}}' +
-    '#tap{cursor:pointer;border:0;border-radius:999px;padding:13px 28px;' +
-    'font-size:15px;font-weight:700;color:#fff;background:var(--acc);' +
-    'box-shadow:0 8px 24px var(--acc-glow);transition:transform .16s ease,filter .16s ease}' +
-    '#tap:hover{filter:brightness(1.1);transform:scale(1.03)}' +
     '#dead{flex-direction:column;text-align:center;color:#f8f8f8;padding:0 28px}' +
     '.dead-acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px}' +
     '#dead button{cursor:pointer;border:1px solid var(--acc-ring);' +
@@ -135,8 +122,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'transparent 54%,rgba(14,7,18,.58) 76%,var(--bg-hud-bot) 100%);' +
     'z-index:5;transition:opacity .3s cubic-bezier(.22,1,.36,1);pointer-events:none}' +
     '.h-top,.h-bot{pointer-events:auto}' +
-    'body.idle #hud,body.preplay #hud,body.preplay #binge{opacity:0;pointer-events:none}' +
-    'body.idle .h-top,body.idle .h-bot,body.preplay .h-top,body.preplay .h-bot{pointer-events:none}' +
+    'body.idle #hud{opacity:0;pointer-events:none}' +
+    'body.idle .h-top,body.idle .h-bot{pointer-events:none}' +
     'body.idle{cursor:none}' +
     '.h-top,.h-bot{transition:transform .34s cubic-bezier(.22,1,.36,1)}' +
     'body.idle .h-top{transform:translateY(-14px)}body.idle .h-bot{transform:translateY(14px)}' +
@@ -158,7 +145,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.h-bot{padding:0 26px 16px;display:flex;flex-direction:column;gap:10px}' +
     '.bar-row{display:flex;align-items:center;gap:14px}' +
     '#c-transport{position:fixed;top:46%;left:50%;transform:translate(-50%,-50%);display:none;align-items:center;gap:24px;z-index:6;pointer-events:auto}' +
-    'body.idle #c-transport,body.preplay #c-transport,body.buffering #c-transport,body.locked #c-transport{opacity:0;pointer-events:none}' +
+    'body.idle #c-transport,body.buffering #c-transport,body.locked #c-transport{opacity:0;pointer-events:none}' +
     '.c-sec{width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:rgba(12,8,16,.54);backdrop-filter:blur(8px);' +
     'color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .16s ease,background .15s ease}' +
     '.c-sec:active{transform:scale(.88)}.c-sec svg{width:22px;height:22px}' +
@@ -272,7 +259,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.ib:hover{opacity:1;color:var(--acc-hi);background:var(--acc-hover);transform:scale(1.14)}' +
     '.ib:active{transform:scale(.86)}' +
     '.ib.on{color:var(--acc-hi)}' +
-    '.ib:focus-visible,.chip:focus-visible,.sd-b:focus-visible,.qi:focus-visible,.b-act:focus-visible,.b-main:focus-visible,.b-x:focus-visible,#tap:focus-visible,#dead button:focus-visible,#time-lbl:focus-visible,#unlock-btn:focus-visible,.menu-x:focus-visible{outline:2px solid var(--acc-hi);outline-offset:2px}' +
+    '.ib:focus-visible,.chip:focus-visible,.sd-b:focus-visible,.qi:focus-visible,.b-act:focus-visible,.b-main:focus-visible,.b-x:focus-visible,#dead button:focus-visible,#time-lbl:focus-visible,#unlock-btn:focus-visible,.menu-x:focus-visible{outline:2px solid var(--acc-hi);outline-offset:2px}' +
     '@media (hover:hover) and (pointer:fine) and (min-width:641px) and (min-height:431px){#btn-lock{display:none}}' +
     '@media (hover:hover) and (pointer:fine){body.is-paused #c-transport{display:flex;pointer-events:none}' +
     'body.is-paused #c-transport .c-sec{display:none}body.is-paused #cplay{width:56px;height:56px;opacity:.9;pointer-events:auto}}' +
@@ -340,8 +327,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '.chip:active{transform:scale(.92)}' +
     '.chip:hover{background:var(--acc-soft);border-color:var(--acc-hi)}' +
     '.chip.on{border-color:var(--acc-hi);background:var(--acc-soft)}' +
-    '#btn-sv::after,#tap-sv::after{content:" \\25be";opacity:.75;font-size:10px}' +
-    '#btn-sv[data-sv]:not([data-sv=""])::after,#tap-sv[data-sv]:not([data-sv=""])::after{content:" \\00b7\\00a0" attr(data-sv) " \\25be";opacity:.88;font-size:10.5px}' +
+    '#btn-sv::after{content:" \\25be";opacity:.75;font-size:10px}' +
+    '#btn-sv[data-sv]:not([data-sv=""])::after{content:" \\00b7\\00a0" attr(data-sv) " \\25be";opacity:.88;font-size:10.5px}' +
     '#keys-menu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 24px));' +
     'background:var(--bg-menu);backdrop-filter:blur(18px);border:1px solid var(--acc-ring);border-radius:14px;' +
     'padding:10px 12px 12px;z-index:13;box-shadow:0 18px 42px rgba(0,0,0,.84)}' +
@@ -555,25 +542,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
         '<span class="wc g">G</span><span class="wc g">L</span><span class="wc g">O</span><span class="wc g">W</span>' +
         '</div>') +
     '</div>\n' +
-    '<div class="ov" id="tapw" hidden>' +
-    '<img id="tap-art" alt=""' + (posterUrl ? ' src="' + escHtml(posterUrl) + '"' : ' hidden') + '>' +
-    '<div id="tap-sub">' + (isCinema ? 'Cinema Stream' : 'Ready to Watch') + '</div>' +
-    '<div id="tap-title">' + displayTitle + '</div>' +
-    '<button id="tap">&#9654; <span>Tap to play</span></button>' +
-    ((serverList.length > 1 || !isCinema)
-      ? '<div id="tap-opts">' +
-        (serverList.length > 1
-          ? '<button type="button" class="chip" id="tap-sv">Servers</button>'
-          : '') +
-        (isCinema
-          ? ''
-          : '<div class="sd-box" role="group" aria-label="Audio language">' +
-            '<button type="button" class="sd-b' + (isDub ? '' : ' on') + '" id="tap-sub-b">SUB</button>' +
-            '<button type="button" class="sd-b' + (isDub ? ' on' : '') + '" id="tap-dub-b">DUB</button>' +
-            '</div>') +
-        '</div>'
-      : '') +
-    '</div>\n' +
     '<div class="ov" id="dead" hidden>' +
     '<p style="font-size:15px;margin:0 0 6px">This stream stalled.</p>' +
     '<p style="font-size:12px;color:#d5adb9;margin:0">' +
@@ -593,9 +561,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var btnSv=document.getElementById("btn-sv");' +
     'var svMenu=document.getElementById("sv-menu");' +
     'var boot=document.getElementById("boot");' +
-    'var tapw=document.getElementById("tapw");' +
-    'var tapArt=document.getElementById("tap-art");' +
-    'var tap=document.getElementById("tap");' +
     'var dead=document.getElementById("dead");' +
     'var hudTitle=document.getElementById("hud-title");var hudEp=document.getElementById("hud-ep");' +
     'var scrubWrap=document.getElementById("scrub-wrap");' +
@@ -624,7 +589,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var cRewLbl=document.getElementById("c-rew-lbl");' +
     'var cFfLbl=document.getElementById("c-ff-lbl");' +
     'var statsCard=document.getElementById("stats-card");' +
-    'var tapTitle=document.getElementById("tap-title");' +
     'var btnVol=document.getElementById("btn-vol");' +
     'var volW=document.getElementById("vol-w");' +
     'var volX=document.getElementById("vol-x");' +
@@ -939,8 +903,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(nextTokVal!==nextToken||nextKindVal!==nextKind){nextDismissed=false;}' +
     'nextToken=nextTokVal;nextKind=nextKindVal;' +
     'if(d.title)setHudTitle(d.title);' +
-    'if(d.title&&tapTitle){tapTitle.textContent=String(d.title);}' +
-    'if(tapArt&&typeof d.poster==="string"&&/^https:\\/\\//i.test(d.poster)){tapArt.src=d.poster;tapArt.hidden=false;}' +
     'if(typeof d.autoSkip==="boolean"){prefs.autoSkip=d.autoSkip;savePrefs();}' +
     'if(typeof d.autoNext==="boolean"){prefs.autoSkipEd=d.autoNext;savePrefs();}' +
     'if(typeof d.theater==="boolean"){inTheater=d.theater;if(typeof syncFsUi==="function")syncFsUi();}' +
@@ -967,10 +929,15 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'setBuffering(false);progress(true);});' +
     'v.addEventListener("ended",function(){progress(true);});' +
     'function hideBoot(){boot.style.display="none";}' +
-    'function showTap(){hideBoot();tapw.hidden=false;if(document.body&&document.body.classList)document.body.classList.add("preplay");}' +
-    'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
+    'var awaitingPlay=false;' +
+    'function showPausedReady(){hideBoot();awaitingPlay=true;' +
+    'if(playP)playP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
+    'if(cplayP)cplayP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
+    'if(document.body&&document.body.classList){document.body.classList.add("is-paused");}' +
+    'if(typeof wakeHud==="function")wakeHud();}' +
+    'function tryPlay(){var p;try{p=v.play();}catch(e){showPausedReady();return;}' +
     'if(p&&p.catch){p.catch(function(err){' +
-    'if(err&&(err.name==="AbortError"||err.code===20))return;showTap();});}}' +
+    'if(err&&(err.name==="AbortError"||err.code===20))return;showPausedReady();});}}' +
     'function showUnlockHint(){if(!unlockW)return;unlockW.hidden=false;placeSubs();' +
     'if(typeof clearTimeout==="function"&&unlockHideT)clearTimeout(unlockHideT);' +
     'if(typeof setTimeout==="function"){unlockHideT=setTimeout(function(){if(screenLocked&&unlockW){unlockW.hidden=true;placeSubs();}},2400);}}' +
@@ -979,21 +946,19 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(screenLocked){closeMenus();showUnlockHint();}else{if(unlockW)unlockW.hidden=true;placeSubs();wakeHud();}}' +
     'if(btnLock)btnLock.addEventListener("click",function(){setLocked(true);});' +
     'if(unlockBtn)unlockBtn.addEventListener("click",function(){setLocked(false);});' +
-    'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
-    'if(document.body&&document.body.classList)document.body.classList.remove("preplay");' +
+    'function giveUp(){hideBoot();awaitingPlay=false;dead.hidden=false;' +
     'if(pickSeq>0){if(svMenu){buildSvMenu();svMenu.hidden=false;}' +
     'if(!(window.innerWidth&&window.innerWidth<=600))dead.style.paddingRight="190px";return;}' +
     'post("animex-content-error");}' +
     'if(deadSv)deadSv.addEventListener("click",function(){if(svMenu){buildSvMenu();svMenu.hidden=false;}' +
     'if(dead&&!(window.innerWidth&&window.innerWidth<=600))dead.style.paddingRight="190px";});' +
-    'tap.addEventListener("click",function(){tapw.hidden=true;if(document.body&&document.body.classList)document.body.classList.remove("preplay");tryPlay();});' +
     'var started=false;' +
     'var stallT=null;' +
     'function clearStall(){if(typeof clearTimeout==="function"&&stallT){clearTimeout(stallT);stallT=null;}}' +
     'function armStall(){clearStall();if(typeof setTimeout==="function"){' +
     'stallT=setTimeout(function(){stallT=null;if(!v.paused&&!v.ended)giveUp();},15000);}}' +
-    'v.addEventListener("playing",function(){started=true;clearStall();hideBoot();tapw.hidden=true;' +
-    'if(document.body&&document.body.classList){document.body.classList.remove("preplay");document.body.classList.remove("is-paused");}' +
+    'v.addEventListener("playing",function(){started=true;awaitingPlay=false;clearStall();hideBoot();' +
+    'if(document.body&&document.body.classList){document.body.classList.remove("is-paused");}' +
     'setBuffering(false);' +
     'if(dead){dead.hidden=true;dead.style.paddingRight="";}' +
     'if(picking){picking=false;if(svMenu)svMenu.hidden=true;}' +
@@ -1003,7 +968,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'v.addEventListener("pause",clearStall);v.addEventListener("ended",clearStall);' +
     'v.addEventListener("waiting",function(){' +
     'if(!v.paused&&!v.ended)armStall();' +
-    'if(!started){if(dead.hidden&&tapw.hidden)boot.style.display="flex";return;}' +
+    'if(!started){if(dead.hidden&&!awaitingPlay)boot.style.display="flex";return;}' +
     'setBuffering(true);});' +
     'if(btnPlay)btnPlay.addEventListener("click",function(){togglePlay();kick(btnPlay,"pop");});' +
     'if(cplay)cplay.addEventListener("click",function(){togglePlay();kick(cplay,"pop");wakeHud();});' +
@@ -1023,10 +988,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'if(btnNextX)btnNextX.addEventListener("click",function(e){if(e&&e.stopPropagation)e.stopPropagation();if(e&&e.preventDefault)e.preventDefault();nextDismissed=true;updateNextBtn();});' +
     'if(btnSub)btnSub.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"sub"});});' +
     'if(btnDub)btnDub.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"dub"});});' +
-    'var tapSv=document.getElementById("tap-sv"),tapSubB=document.getElementById("tap-sub-b"),tapDubB=document.getElementById("tap-dub-b");' +
-    'if(tapSv&&svMenu)tapSv.addEventListener("click",function(){openOnlyMenu(svMenu,tapSv,buildSvMenu);});' +
-    'if(tapSubB)tapSubB.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"sub"});});' +
-    'if(tapDubB)tapDubB.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"dub"});});' +
     'if(btnEps)btnEps.addEventListener("click",function(){post({type:"animex-action",action:"episodes"});});' +
     'function anyMenuOpen(){return (ccMenu&&!ccMenu.hidden)||(qMenu&&!qMenu.hidden)||(spMenu&&!spMenu.hidden)||(moreMenu&&!moreMenu.hidden)||(svMenu&&!svMenu.hidden)||(keysMenu&&!keysMenu.hidden);}' +
     'function syncAria(){var pairs=[[btnCc,ccMenu],[btnQ,qMenu],[btnSpeed,spMenu],[btnMore,moreMenu],[btnSv,svMenu]];' +
@@ -1080,8 +1041,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'buildCcMenu();syncCues();}' +
     'function syncSvHint(){var cur=null;for(var i=0;i<servers.length;i++){if(servers[i]&&servers[i].id===currentServer){cur=servers[i];break;}}' +
     'var hint=cur&&cur.label?("Server: "+cur.label):"Switch server";' +
-    'if(btnSv&&btnSv.setAttribute){btnSv.setAttribute("title",hint);btnSv.setAttribute("aria-label",hint);if(cur&&cur.label)btnSv.setAttribute("data-sv",cur.label);else if(btnSv.removeAttribute)btnSv.removeAttribute("data-sv");}' +
-    'var tsv=document.getElementById("tap-sv");if(tsv&&tsv.setAttribute){tsv.setAttribute("title",hint);if(cur&&cur.label)tsv.setAttribute("data-sv",cur.label);else if(tsv.removeAttribute)tsv.removeAttribute("data-sv");}}' +
+    'if(btnSv&&btnSv.setAttribute){btnSv.setAttribute("title",hint);btnSv.setAttribute("aria-label",hint);if(cur&&cur.label)btnSv.setAttribute("data-sv",cur.label);else if(btnSv.removeAttribute)btnSv.removeAttribute("data-sv");}}' +
     'function buildSvMenu(){if(!svMenu)return;svMenu.innerHTML="";syncSvHint();' +
     'for(var i=0;i<servers.length;i++){(function(s){' +
     'svMenu.appendChild(ccBtn(s.label,s.id===currentServer,function(){pickServer(s);}));})(servers[i]);}' +
@@ -1427,7 +1387,6 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var finePointer=false;' +
     'try{finePointer=!!(window.matchMedia&&' +
     'window.matchMedia("(hover:hover) and (pointer:fine)").matches);}catch(e){}' +
-    'if(tap&&tap.querySelector){var tapLbl=tap.querySelector("span");if(tapLbl)tapLbl.textContent=finePointer?"Click to play":"Tap to play";}' +
     'var lastTap={t:0,x:0},tapTimer=null,seekChainUntil=0,seekChainSide=0,seekChainTotal=0;' +
     'function toggleHud(){if(!document.body||!document.body.classList)return;' +
     'if(document.body.classList.contains("idle")){wakeHud();return;}' +

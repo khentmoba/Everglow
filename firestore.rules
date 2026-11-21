@@ -343,18 +343,88 @@ service cloud.firestore {
     match /budget_limits/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /our_cinema/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /our_books/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
-    match /read_list/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
-    match /reader_state/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
+    match /read_list/{docId} {
+      allow read: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+      allow create: if (isCouple() ||
+        (isCinemaProfile() && request.resource.data.userName == username())) &&
+        request.resource.data.keys().size() <= 600;
+      allow update: if (isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username() &&
+         request.resource.data.userName == resource.data.userName)) &&
+        request.resource.data.keys().size() <= 600;
+      allow delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+    }
+    match /reader_state/{docId} {
+      allow get: if isCouple() ||
+        (isCinemaProfile() && (resource == null
+          ? docId.matches('^' + username() + '__.*')
+          : resource.data.userName == username()));
+      allow list: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+      allow create: if (isCouple() ||
+        (isCinemaProfile() && docId.matches('^' + username() + '__.*') &&
+         request.resource.data.userName == username())) &&
+        request.resource.data.keys().size() <= 600;
+      allow update: if (isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username() &&
+         request.resource.data.userName == resource.data.userName)) &&
+        request.resource.data.keys().size() <= 600;
+      allow delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+    }
     match /couple_prefs/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 60; allow update: if isCouple() && request.resource.data.keys().size() <= 60; }
-    match /book_favorites/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
-    match /book_download_history/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
+    match /book_favorites/{docId} {
+      allow read: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+      allow create: if (isCouple() ||
+        (isCinemaProfile() && request.resource.data.userName == username())) &&
+        request.resource.data.keys().size() <= 600;
+      allow update: if (isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username() &&
+         request.resource.data.userName == resource.data.userName)) &&
+        request.resource.data.keys().size() <= 600;
+      allow delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+    }
+    match /book_download_history/{docId} {
+      allow read: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+      allow create: if (isCouple() ||
+        (isCinemaProfile() && request.resource.data.userName == username())) &&
+        request.resource.data.keys().size() <= 600;
+      allow update: if (isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username() &&
+         request.resource.data.userName == resource.data.userName)) &&
+        request.resource.data.keys().size() <= 600;
+      allow delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+    }
     match /date_ideas/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /guardian_messages/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /canvas_strokes/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /live_canvas/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /manga_library/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /manga_library/{docId}/bookmarks/{bookmarkId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 60; allow update: if isCouple() && request.resource.data.keys().size() <= 60; allow delete: if isCouple(); }
-    match /katana_bookmarks/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
+    match /katana_bookmarks/{docId} {
+      allow get: if isCouple() ||
+        (isCinemaProfile() && (resource == null
+          ? docId.matches('^' + username() + '\\|.*')
+          : resource.data.userName == username()));
+      allow list: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+      allow create: if (isCouple() ||
+        (isCinemaProfile() && docId.matches('^' + username() + '\\|.*') &&
+         request.resource.data.userName == username())) &&
+        request.resource.data.keys().size() <= 600;
+      allow update: if (isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username() &&
+         request.resource.data.userName == resource.data.userName)) &&
+        request.resource.data.keys().size() <= 600;
+      allow delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+    }
     match /ai_memories/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }
     match /ai_memories/{docId}/facts/{factId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 60; allow update: if isCouple() && request.resource.data.keys().size() <= 60; allow delete: if isCouple(); }
     match /ai_memories/{docId}/sessions/{sessionId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.keys().size() <= 600; allow update: if isCouple() && request.resource.data.keys().size() <= 600; allow delete: if isCouple(); }

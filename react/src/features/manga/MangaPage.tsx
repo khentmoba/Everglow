@@ -275,7 +275,7 @@ export function MangaPage() {
           <MangaHome
             width={width}
             data={homeData!}
-            currentlyReading={isCoupleUser ? currentlyReading : []}
+            currentlyReading={currentlyReading}
             type={typeFilter}
             typeItems={typeItems}
             typeLoading={typeLoading}
@@ -411,7 +411,7 @@ export function MangaPage() {
                                 filled={false}
                                 onClick={() => void setKatanaBookmark(detail, userName, !isBookmarked)}
                               />
-                              {isCoupleUser && hasReadingProgress && (
+                              {hasReadingProgress && (
                                 <KatanaButton
                                   label="Remove from Reading"
                                   icon="close"

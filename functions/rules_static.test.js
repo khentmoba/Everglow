@@ -167,14 +167,32 @@ test('motchi_sessions is couple read-only, client write denied', () => {
   );
 });
 
-test('book library collections are couple-only', () => {
-  for (const name of ['book_favorites', 'book_download_history']) {
+test('personal book and manga library collections are owner-scoped for cinema profiles', () => {
+  const blockFor = (name) => {
+    const start = rules.indexOf(`match /${name}/{docId} {`);
+    assert.ok(start !== -1, `missing match block for ${name}`);
+    const next = rules.indexOf('\n    match /', start + 1);
+    return next === -1 ? rules.slice(start) : rules.slice(start, next);
+  };
+  for (const name of ['read_list', 'book_favorites', 'book_download_history']) {
     assert.match(
-      rules,
-      new RegExp(
-        `match \\/${name}\\/\\{docId\\} \\{[\\s\\S]*?allow read: if isCouple\\(\\);`,
-      ),
-      `${name} must be couple-only`,
+      blockFor(name),
+      /allow read: if isCouple\(\) \|\|[\s\S]*?isCinemaProfile\(\) && resource\.data\.userName == username\(\)/,
+      `${name} must scope cinema profile reads to own userName`,
     );
   }
+  for (const [name, sep] of [['reader_state', '__'], ['katana_bookmarks', '\\\\|']]) {
+    assert.match(
+      blockFor(name),
+      new RegExp(
+        `allow list: if isCouple\\(\\) \\|\\|[\\s\\S]*?isCinemaProfile\\(\\) && resource\\.data\\.userName == username\\(\\)[\\s\\S]*?allow create: if \\(isCouple\\(\\) \\|\\|[\\s\\S]*?isCinemaProfile\\(\\) && docId\\.matches\\('\\^' \\+ username\\(\\) \\+ '${sep}\\.\\*'\\) &&[\\s\\S]*?request\\.resource\\.data\\.userName == username\\(\\)\\)`,
+      ),
+      `${name} must scope cinema profile lists and creates to own docId prefix and userName`,
+    );
+  }
+  assert.match(
+    blockFor('our_books'),
+    /allow read: if isCouple\(\);/,
+    'our_books must remain couple-only',
+  );
 });

@@ -157,9 +157,9 @@ function playerScriptContext(calls, { search = '', native = false, hls = true } 
   const els = {
     v: element(),
     boot: element(),
-    tapw: element(),
-    tap: element(),
     dead: element(),
+    'play-p': { attrs: {}, setAttribute(k, val) { this.attrs[k] = val; } },
+    'cplay-p': { attrs: {}, setAttribute(k, val) { this.attrs[k] = val; } },
     'btn-skip': element(),
     'btn-next': element(),
     'hud-title': element(),
@@ -196,14 +196,26 @@ function playerScriptContext(calls, { search = '', native = false, hls = true } 
   if (native) window.EverglowPlayer = {
     postMessage: (data) => calls.nativeMessages.push(data),
   };
+  const bodyClasses = new Set();
   const context = {
     window,
     Hls,
     URLSearchParams,
     Date: { now: () => calls.now },
-    document: { getElementById: (id) => els[id] || null },
+    document: {
+      body: {
+        classList: {
+          add: (c) => bodyClasses.add(c),
+          remove: (c) => bodyClasses.delete(c),
+          toggle: (c, force) => (force === undefined ? (bodyClasses.has(c) ? bodyClasses.delete(c) : bodyClasses.add(c)) : (force ? bodyClasses.add(c) : bodyClasses.delete(c))),
+          contains: (c) => bodyClasses.has(c),
+        },
+      },
+      getElementById: (id) => els[id] || null,
+    },
   };
   context.elements = els;
+  context.bodyClasses = bodyClasses;
   return context;
 }
 
@@ -221,6 +233,30 @@ test('hlsPlayerHtml inline script actually runs and starts the stream', () => {
   assert.deepEqual(calls.loadSource, ['https://x/y.m3u8']);
   assert.equal(calls.attachMedia.length, 1);
   assert.ok(calls.handlers.manifestParsed, 'manifest handler registered');
+  assert.ok(!html.includes('id="tapw"'), 'pre-play splash overlay removed');
+  assert.ok(!html.includes('Ready to Watch'), 'Ready to Watch copy removed');
+  assert.ok(!html.includes('Tap to play'), 'Tap to play copy removed');
+});
+
+test('autoplay rejection reveals paused player HUD instead of a tap splash', async () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'JoJo · Episode 25',
+    tracks: [],
+  });
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  const calls = { loadSource: [], attachMedia: [], handlers: {} };
+  const context = playerScriptContext(calls);
+  const err = Object.assign(new Error('Autoplay blocked'), { name: 'NotAllowedError' });
+  context.elements.v.play = () => Promise.reject(err);
+  vm.createContext(context);
+  new vm.Script(code, { filename: 'player.js' }).runInContext(context);
+  calls.handlers.manifestParsed();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(context.elements.boot.style.display, 'none');
+  assert.ok(context.bodyClasses.has('is-paused'));
+  assert.equal(context.elements['play-p'].attrs.d, 'M5 3.5l12 6.5-12 6.5V3.5z');
+  assert.equal(context.elements['cplay-p'].attrs.d, 'M5 3.5l12 6.5-12 6.5V3.5z');
 });
 
 function runPlayer(options = {}) {
