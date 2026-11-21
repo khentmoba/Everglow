@@ -1,11 +1,9 @@
 // Port of lib/features/dashboard/presentation/screens/dashboard_screen.dart
 // and dashboard_screen_sections.dart.
 import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { AgentMode } from '../../core/agent/agentMode';
 import { scheduleIdleMediaPrefetch } from '../../core/router/routeChunks';
 import { useRememberedScroll } from '../../core/router/scrollMemory';
 import { useAuth } from '../../core/services/auth';
-import { presenceService } from '../../core/services/presence';
 import { useOnline, useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint, AppSpacing, responsive } from '../../core/theme/layout';
@@ -70,6 +68,7 @@ export function DashboardPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLoadVeil, setShowLoadVeil] = useState(() => DashboardLoadVeilControl.consumePasscodeLoaderRequest());
   const [showLowerZones, setShowLowerZones] = useState(false);
+  const [requestedZone, setRequestedZone] = useState<string | null>(null);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pendingJumpRef = useRef<string | null>(null);
   useRememberedScroll('dashboard', scrollRef, auth.isReady);
@@ -112,27 +111,6 @@ export function DashboardPage() {
     return () => clearTimeout(t);
   }, [auth.isReady, auth.currentUser]);
 
-  useEffect(() => {
-    if (!auth.isReady || !auth.isCoupleUser || AgentMode.demo || !auth.uid || !auth.currentUser) return;
-    const uid = auth.uid;
-    const username = auth.currentUser;
-    if (!document.hidden) presenceService.startHeartbeat(uid, username);
-    const onVis = () => {
-      if (document.hidden) void presenceService.setOffline(uid);
-      else presenceService.startHeartbeat(uid, username);
-    };
-    const onLeave = () => void presenceService.stopHeartbeat();
-    document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('pagehide', onLeave);
-    window.addEventListener('beforeunload', onLeave);
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('pagehide', onLeave);
-      window.removeEventListener('beforeunload', onLeave);
-      void presenceService.stopHeartbeat();
-    };
-  }, [auth.isReady, auth.isCoupleUser, auth.uid, auth.currentUser]);
-
   if (!auth.isReady) {
     return (
       <div style={{ position: 'fixed', inset: 0 }}>
@@ -147,6 +125,7 @@ export function DashboardPage() {
   const contentMaxWidth = responsive(width, { mobile: 600, tablet: 820, desktop: 980 });
 
   const jumpTo = (id: string) => {
+    setRequestedZone(id);
     const el = zoneRefs.current[id];
     if (el) {
       pendingJumpRef.current = null;
@@ -201,7 +180,12 @@ export function DashboardPage() {
 
           {showLowerZones && (
             <Suspense fallback={<div style={{ height: 1200 }} />}>
-              <DashboardLowerZones width={width} registerZone={registerZone} />
+              <DashboardLowerZones
+                width={width}
+                registerZone={registerZone}
+                scrollRoot={scrollRef}
+                requestedZone={requestedZone}
+              />
             </Suspense>
           )}
 

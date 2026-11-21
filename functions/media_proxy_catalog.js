@@ -103,6 +103,10 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: (u) =>
+        u.protocol === 'https:' &&
+        (u.hostname === targetUrl.hostname || u.hostname.endsWith(`.${targetUrl.hostname}`)),
     });
     const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
     const rawCt = (upstream.headers.get('content-type') || 'application/json').split(';')[0].trim().toLowerCase();

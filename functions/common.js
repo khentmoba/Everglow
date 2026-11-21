@@ -83,16 +83,26 @@ async function isPublicDnsHost(hostname) {
   }
 }
 
-async function fetchPublicUrl(target, { headers, signal }) {
+async function fetchPublicUrl(target, { headers, signal, httpsOnly = false, isAllowedUrl } = {}) {
   const { Readable } = require('node:stream');
   const reqHeaders = headers ? { ...headers } : {};
   let url = new URL(target);
   for (let hop = 0; hop <= 5; hop++) {
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-      throw new Error('Only credential-free http(s) urls are allowed');
+    const allowedProtocol = httpsOnly
+      ? url.protocol === 'https:'
+      : ['http:', 'https:'].includes(url.protocol);
+    if (!allowedProtocol || url.username || url.password) {
+      throw new Error(
+        httpsOnly
+          ? 'Only credential-free https urls are allowed'
+          : 'Only credential-free http(s) urls are allowed',
+      );
     }
     if (url.hostname === '' || url.port && !/^\d+$/.test(url.port)) {
       throw new Error('Invalid URL');
+    }
+    if (typeof isAllowedUrl === 'function' && !isAllowedUrl(url)) {
+      throw new Error('Host not allowed');
     }
     const hostname = url.hostname.replace(/^\[|\]$/g, '');
     const records = net.isIP(hostname)
@@ -244,14 +254,9 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
 function clientIp(req) {
   const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
   const hops = fwd.split(',').map((hop) => hop.trim()).filter(Boolean);
-  const fwdHost = String(req.get('X-Forwarded-Host') || req.headers['x-forwarded-host'] || '').toLowerCase();
   const host = String(req.get('Host') || req.headers.host || '').toLowerCase();
-  const viaHosting =
-    fwdHost === 'everglow-1c6db.web.app' ||
-    fwdHost === 'everglow-1c6db.firebaseapp.com';
   const directCloudFn =
-    !viaHosting &&
-    (host.endsWith('.cloudfunctions.net') || host.endsWith('.a.run.app'));
+    host.endsWith('.cloudfunctions.net') || host.endsWith('.a.run.app');
   const client = directCloudFn
     ? (hops.at(-1) || req.ip)
     : (hops.length >= 2 ? hops.at(-2) : req.ip);

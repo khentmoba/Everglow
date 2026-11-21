@@ -219,7 +219,7 @@ async function handleProxyAnime(request, env) {
       title,
       kind: isCinema ? 'cinema' : 'anime',
       hasEpisodes: isCinema && params.mediaType === 'tv',
-      token: query.token || '',
+      token: '',
       ep: out.ep,
       audio: params.audio,
       servers: Array.isArray(out.servers) ? out.servers : [],
@@ -230,7 +230,9 @@ async function handleProxyAnime(request, env) {
       headers: {
         ...cors,
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': query.token ? 'private, no-store' : 'public, max-age=300',
+        'Cache-Control': 'private, no-store',
+        'Content-Security-Policy':
+          "frame-ancestors 'self' https://everglow-1c6db.web.app https://everglow-1c6db.firebaseapp.com http://localhost:* http://127.0.0.1:*",
       },
     });
   } catch (e) {
@@ -290,14 +292,14 @@ function isBlockedRedirectHost(hostname) {
     if (a === 100 && b >= 64 && b <= 127) return true;
   }
   if (h.includes(':')) {
-    if (h === '::1' || h === '::' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('::ffff:')) {
+    if (h === '::1' || h === '::' || /^fe[89ab][0-9a-f]:/i.test(h) || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('::ffff:')) {
       return true;
     }
   }
   return false;
 }
 
-async function fetchPublicHls(initialTarget, initialHeaders, signal) {
+async function fetchPublicHls(initialTarget, initialHeaders, signal, method = 'GET') {
   let current = new URL(initialTarget);
   const reqHeaders = { ...initialHeaders };
   for (let hop = 0; hop <= 5; hop++) {
@@ -305,12 +307,14 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
       throw new Error('Redirect host not allowed');
     }
     const resp = await fetch(current.toString(), {
+      method,
       headers: reqHeaders,
       redirect: 'manual',
       signal,
     });
     if ([301, 302, 303, 307, 308].includes(resp.status)) {
       const loc = resp.headers.get('location');
+      await resp.body?.cancel().catch(() => {});
       if (!loc || hop === 5) throw new Error('Invalid or excessive redirects');
       const next = new URL(loc, current);
       if (next.origin !== current.origin) {
@@ -331,12 +335,18 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
 
   let upstream;
   try {
-    upstream = await fetchPublicHls(target, headers, AbortSignal.timeout(25_000));
+    upstream = await fetchPublicHls(
+      target,
+      headers,
+      AbortSignal.timeout(25_000),
+      request.method === 'HEAD' ? 'HEAD' : 'GET',
+    );
   } catch (e) {
     console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
     return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502, request);
   }
   if (!upstream.ok && upstream.status !== 206) {
+    await upstream.body?.cancel().catch(() => {});
     return jsonResponse({ error: `Upstream ${upstream.status}` }, upstream.status, request);
   }
 
@@ -378,6 +388,19 @@ const DISALLOWED_MEDIA_CT_RE =
 
   let consumed = null;
   if (looksLikePlaylist) {
+    if (request.method === 'HEAD') {
+      await upstream.body?.cancel().catch(() => {});
+      return new Response(null, {
+        status: 200,
+        headers: {
+          ...cors,
+          'Content-Type': 'application/vnd.apple.mpegurl',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+          'Cache-Control': 'public, max-age=30',
+        },
+      });
+    }
     let text;
     try {
       text = await readLimitedText(upstream, 2 * 1024 * 1024);
@@ -410,13 +433,6 @@ const DISALLOWED_MEDIA_CT_RE =
     upstreamCt.includes('application/x-subrip') ||
     parsed.pathname.toLowerCase().endsWith('.vtt');
   if (looksLikeVtt) {
-    let text;
-    try {
-      text = consumed !== null ? consumed : await readLimitedText(upstream, 4 * 1024 * 1024);
-    } catch (e) {
-      return jsonResponse({ error: e.message || 'Subtitle too large' }, 502, request);
-    }
-    const cleaned = stripAdCues(text);
     const vttHeaders = {
       ...cors,
       'Content-Type': 'text/vtt; charset=utf-8',
@@ -425,8 +441,16 @@ const DISALLOWED_MEDIA_CT_RE =
       'Cache-Control': 'public, max-age=3600',
     };
     if (request.method === 'HEAD') {
+      await upstream.body?.cancel().catch(() => {});
       return new Response(null, { status: 200, headers: vttHeaders });
     }
+    let text;
+    try {
+      text = consumed !== null ? consumed : await readLimitedText(upstream, 4 * 1024 * 1024);
+    } catch (e) {
+      return jsonResponse({ error: e.message || 'Subtitle too large' }, 502, request);
+    }
+    const cleaned = stripAdCues(text);
     return new Response(cleaned, { status: 200, headers: vttHeaders });
   }
 
@@ -447,6 +471,7 @@ const DISALLOWED_MEDIA_CT_RE =
   if (consumed !== null) delete outHeaders['Content-Length'];
 
   if (request.method === 'HEAD') {
+    await upstream.body?.cancel().catch(() => {});
     return new Response(null, { status: upstream.status === 206 ? 206 : 200, headers: outHeaders });
   }
 

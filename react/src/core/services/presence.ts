@@ -161,7 +161,7 @@ export const presenceService = {
     else void touchSession();
 
     heartbeatTimer = window.setInterval(() => {
-      if (!currentUid) return;
+      if (!currentUid || (typeof document !== 'undefined' && document.hidden)) return;
       void presenceService.setOnline(currentUid, currentUsername ?? '');
       void touchSession();
     }, HEARTBEAT_INTERVAL_MS);

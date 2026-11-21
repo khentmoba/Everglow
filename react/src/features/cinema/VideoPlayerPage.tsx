@@ -1316,8 +1316,8 @@ class PlayerController {
     };
 
     this.exitWakeListener = wakeExitButton;
-    window.addEventListener('mousemove', wakeExitButton);
-    window.addEventListener('touchstart', wakeExitButton);
+    window.addEventListener('mousemove', wakeExitButton, { passive: true });
+    window.addEventListener('touchstart', wakeExitButton, { passive: true });
     window.addEventListener('keydown', wakeExitButton);
     wakeExitButton();
   }

@@ -10,8 +10,20 @@ function _pcHit(ip) {
   const now = Date.now();
   const recent = (_pcAttempts.get(ip) || []).filter((time) => now - time < 60000);
   recent.push(now);
+  _pcAttempts.delete(ip);
   _pcAttempts.set(ip, recent);
-  if (_pcAttempts.size > 400) _pcAttempts.clear();
+  if (_pcAttempts.size > 400) {
+    for (const [k, times] of _pcAttempts) {
+      if (times.length === 0 || now - times[times.length - 1] >= 60000) {
+        _pcAttempts.delete(k);
+      }
+    }
+    while (_pcAttempts.size > 400) {
+      const oldestKey = _pcAttempts.keys().next().value;
+      if (oldestKey === undefined) break;
+      _pcAttempts.delete(oldestKey);
+    }
+  }
   return recent.length > 8;
 }
 const _PC_WINDOW_MS = 10 * 60 * 1000;

@@ -217,6 +217,11 @@ class JournalService {
 
   constructor() {
     this.loadPreviewCache();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('everglow:logout', () => {
+        this.cachedPreviewList = [];
+      });
+    }
   }
 
   get cachedPreview() {

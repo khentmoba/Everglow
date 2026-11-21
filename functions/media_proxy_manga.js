@@ -66,10 +66,11 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
     'uploads.mangadex.org',
   ]);
   const allowedSuffixes = ['.mangadex.network', '.mangadex.org'];
-  const hostAllowed =
-    allowedHosts.has(parsed.hostname) ||
-    allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
-  if (parsed.protocol !== 'https:' || !hostAllowed) {
+  const isAllowedMangaDex = (u) => {
+    const h = u.hostname.toLowerCase();
+    return allowedHosts.has(h) || allowedSuffixes.some((s) => h.endsWith(s));
+  };
+  if (parsed.protocol !== 'https:' || !isAllowedMangaDex(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -78,8 +79,11 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
     const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: isAllowedMangaDex,
     });
     if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
       res
         .status(upstream.status)
         .json({ error: `Upstream returned ${upstream.status}` });
@@ -154,8 +158,11 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
     '.mangakakalot.com',
     '.mkklcdnv6temp.com',
   ];
-  const hostAllowed = allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
-  if (parsed.protocol !== 'https:' || !hostAllowed) {
+  const isAllowedKakalot = (u) => {
+    const h = u.hostname.toLowerCase();
+    return allowedSuffixes.some((s) => h.endsWith(s));
+  };
+  if (parsed.protocol !== 'https:' || !isAllowedKakalot(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -164,8 +171,11 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
     const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakakalot.com/' },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: isAllowedKakalot,
     });
     if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
       res
         .status(upstream.status)
         .json({ error: `Upstream returned ${upstream.status}` });
@@ -242,10 +252,11 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
     '.mkklcdnv6temp.com',
     '.catmanga.org',
   ];
-  const hostAllowed =
-    parsed.hostname === 'mangakatana.com' ||
-    allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
-  if (parsed.protocol !== 'https:' || !hostAllowed) {
+  const isAllowedKatana = (u) => {
+    const h = u.hostname.toLowerCase();
+    return h === 'mangakatana.com' || allowedSuffixes.some((s) => h.endsWith(s));
+  };
+  if (parsed.protocol !== 'https:' || !isAllowedKatana(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -254,8 +265,11 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
     const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakatana.com/' },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: isAllowedKatana,
     });
     if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
       res
         .status(upstream.status)
         .json({ error: `Upstream returned ${upstream.status}` });
@@ -324,6 +338,8 @@ const proxyComick = cappedHttps(30, async (req, res) => {
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.comick.dev',
     });
     const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
     res.status(upstream.status);
@@ -380,6 +396,8 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.mangadex.org',
     });
     const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
     res.status(upstream.status);

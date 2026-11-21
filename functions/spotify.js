@@ -59,6 +59,7 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Only GET' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (!(await requireCoupleUser(decoded, res))) return;
   if (enforceRateLimit(req, res, { endpoint: 'proxySpotifySearch', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
   const q = String(req.query.query || '').trim();
   const artist = String(req.query.artist || '').trim();

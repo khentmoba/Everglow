@@ -42,7 +42,8 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
   if (!decoded) return;
   if (enforceRateLimit(req, res, { endpoint: 'proxyBookText', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
 
-  const { urls } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { urls } = body;
   if (!Array.isArray(urls) || urls.length === 0) {
     res.status(400).json({ error: 'Provide a non-empty urls array' });
     return;
@@ -61,6 +62,8 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
       const response = await fetchPublicUrl(url, {
         headers: { 'Accept': 'text/plain' },
         signal: controller.signal,
+        httpsOnly: true,
+        isAllowedUrl: (u) => isAllowedBookTextUrl(u.toString()),
       });
       const contentType = response.headers.get('content-type') || '';
       const isPlainText = contentType.toLowerCase().includes('text/plain');
@@ -112,7 +115,8 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
   if (!decoded) return;
   if (enforceRateLimit(req, res, { endpoint: 'proxyBookFile', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
 
-  const { urls } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { urls } = body;
   if (!Array.isArray(urls) || urls.length === 0) {
     res.status(400).json({ error: 'Provide a non-empty urls array' });
     return;
@@ -131,6 +135,8 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
       const response = await fetchPublicUrl(url, {
         headers: { 'Accept': 'application/epub+zip, application/octet-stream, */*' },
         signal: controller.signal,
+        httpsOnly: true,
+        isAllowedUrl: (u) => isAllowedBookTextUrl(u.toString()),
       });
       if (!response.ok) {
         await response.body?.cancel().catch(() => {});

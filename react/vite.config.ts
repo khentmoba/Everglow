@@ -67,16 +67,24 @@ const OFFLINE_MEDIA = "everglow-offline-media-v1";
 const OFFLINE_MANGA = "everglow-offline-manga-v1";
 const PRESERVED = new Set([SHELL, OFFLINE_PHOTOS, OFFLINE_MEDIA, OFFLINE_MANGA]);
 const PRECACHE = ${precacheList};
+const isCorePrecache = (url) =>
+  url === "/index.html" ||
+  (url.startsWith("/assets/") &&
+    (url.endsWith(".js") || url.endsWith(".css")) &&
+    (url.startsWith("/assets/index-") ||
+      url.startsWith("/assets/react-vendor-") ||
+      url.startsWith("/assets/firebase-core-")));
 const NO_STORE = new Set(["/", "/index.html", "/version.json", "/sw.js", "/firebase-messaging-sw.js", "/manifest.json", "/manifest_screen.json"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SHELL).then(async (cache) => {
-      await Promise.allSettled(PRECACHE.map((url) => cache.add(url)));
-      if (await cache.match("/index.html")) {
-        await self.skipWaiting();
-      }
-    }).catch(() => {})
+      const core = PRECACHE.filter(isCorePrecache);
+      const extra = PRECACHE.filter((url) => !isCorePrecache(url));
+      await Promise.all(core.map((url) => cache.add(url)));
+      await Promise.allSettled(extra.map((url) => cache.add(url)));
+      await self.skipWaiting();
+    })
   );
 });
 
@@ -117,7 +125,14 @@ self.addEventListener("fetch", (event) => {
         if (hit) return hit;
         try {
           const res = await fetch(req);
-          if (res && res.ok) await cache.put(req, res.clone());
+          const ct = (res.headers.get("content-type") || "").toLowerCase();
+          if (res && res.ok && !ct.includes("text/html")) {
+            await cache.put(req, res.clone());
+            return res;
+          }
+          if (ct.includes("text/html")) {
+            return Response.error();
+          }
           return res;
         } catch {
           return hit || Response.error();
@@ -170,14 +185,37 @@ try {
   // Push unavailable when offline or CDN unreachable.
 }
 
+const NOTIF_ROUTES = {
+  chat_message: "/sanctuary",
+  mood_update: "/dashboard",
+  milestone: "/dashboard",
+  special_day: "/dashboard",
+  special_day_upcoming: "/dashboard",
+  mood_checkin: "/dashboard",
+  watch_party_invite: "/dashboard",
+  starlight_drop: "/starlight",
+  watchlist_update: "/cinema",
+  motchi_note: "/motchi",
+  daily_digest: "/motchi-today",
+  night_recap: "/motchi-today",
+  gallery_photo: "/gallery",
+};
+
 self.addEventListener("notificationclick", function(event) {
   event.notification.close();
+  const data = (event.notification && event.notification.data) || {};
+  const targetPath = NOTIF_ROUTES[data.type] || "/";
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clientList) {
       for (const client of clientList) {
-        if ("focus" in client) return client.focus();
+        if ("focus" in client) {
+          if (targetPath !== "/" && "navigate" in client) {
+            return client.navigate(targetPath).then(() => client.focus()).catch(() => client.focus());
+          }
+          return client.focus();
+        }
       }
-      return clients.openWindow("/");
+      return clients.openWindow(targetPath);
     })
   );
 });
@@ -257,8 +295,9 @@ function webShellPlugin(): Plugin {
         const src = join(firebasePkgDir, f);
         if (existsSync(src)) cpSync(src, join(assetsDir, f));
       }
-      // Precache the entry shell + Dashboard chunk (and its direct imports) so
-      // offline reload of /dashboard works immediately after SW activation.
+      // Precache the entry shell + Dashboard chunks and their static imports
+      // (excluding dynamic import(...) of unrelated lazy route chunks) so
+      // offline reload of /dashboard works without downloading the whole app.
       const precacheSet = new Set<string>([
         ...(mainEntry ? [`/assets/${mainEntry}`] : []),
         ...(mainCss ? [`/assets/${mainCss}`] : []),
@@ -275,7 +314,7 @@ function webShellPlugin(): Plugin {
           visited.add(name);
           precacheSet.add(`/assets/${name}`);
           const src = readFileSync(join(assetsDir, name), 'utf8');
-          for (const m of src.matchAll(/(?:from|import)\s*\(?\s*["']\.\/([^"']+\.js)["']/g)) {
+          for (const m of src.matchAll(/\bfrom\s*["']\.\/([^"']+\.js)["']/g)) {
             if (existsSync(join(assetsDir, m[1]))) queue.push(m[1]);
           }
         }

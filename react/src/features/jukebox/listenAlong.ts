@@ -179,13 +179,20 @@ export async function fetchTrackAlbum(artist: string, track: string): Promise<st
 
 // ---- SpotifyPlayerService (web) ----
 
-async function storedAccessToken(): Promise<string | null> {
+const TOKEN_REFRESH_BUFFER_MS = 60_000;
+
+async function storedAccessToken(): Promise<{ token: string; expiresAt: number } | null> {
   const uid = auth.currentUser?.uid;
   if (!uid) return null;
   try {
     const snap = await getDoc(doc(db, 'spotify_tokens', uid));
-    const t = snap.data()?.access_token;
-    return typeof t === 'string' ? t : null;
+    const data = snap.data();
+    const t = data?.access_token;
+    const rawExpires = data?.expires_at;
+    const expiresAt = typeof rawExpires === 'number' ? rawExpires : 0;
+    if (typeof t !== 'string' || !t) return null;
+    if (expiresAt <= Date.now() + TOKEN_REFRESH_BUFFER_MS) return null;
+    return { token: t, expiresAt };
   } catch (e) {
     Logger.e('Spotify stored token read failed', e);
     return null;
@@ -208,22 +215,103 @@ let deviceId: string | null = null;
 let connected = false;
 let initialization: Promise<void> | null = null;
 let currentToken = '';
+let currentTokenExpiresAt = 0;
 let tokenRefreshTimer: number | null = null;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    if (tokenRefreshTimer != null) {
+      window.clearInterval(tokenRefreshTimer);
+      tokenRefreshTimer = null;
+    }
+    const w = window as SpotifyWindow & { _everglowSpotifyPlayer?: SpotifyPlayer & { disconnect?: () => void } };
+    try {
+      w._everglowSpotifyPlayer?.disconnect?.();
+    } catch {
+      // ignore disconnect errors during logout
+    }
+    delete w._everglowSpotifyPlayer;
+    deviceId = null;
+    connected = false;
+    initialization = null;
+    currentToken = '';
+    currentTokenExpiresAt = 0;
+  });
+}
 
 function loadSdk(): Promise<void> {
   const w = window as SpotifyWindow;
   if (w.Spotify?.Player) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    w.onSpotifyWebPlaybackSDKReady = () => resolve();
+    let settled = false;
+    const cleanup = () => {
+      window.clearTimeout(pollTimer);
+      window.clearTimeout(failTimer);
+    };
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+    w.onSpotifyWebPlaybackSDKReady = done;
     if (!document.querySelector('script[data-spotify-sdk]')) {
       const script = document.createElement('script');
       script.src = 'https://sdk.scdn.co/spotify-player.js';
       script.setAttribute('data-spotify-sdk', '1');
       document.head.appendChild(script);
     }
-    setTimeout(() => w.Spotify?.Player && resolve(), 900);
-    setTimeout(() => reject(new Error('Spotify SDK failed to load')), 12000);
+    const pollTimer = window.setTimeout(() => {
+      if (w.Spotify?.Player) done();
+    }, 900);
+    const failTimer = window.setTimeout(() => fail(new Error('Spotify SDK failed to load')), 12000);
   });
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user) return null;
+  try {
+    const idToken = await user.getIdToken();
+    const resp = await fetch('/api/spotifyRefresh', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (resp.ok) {
+      const data = (await resp.json()) as { access_token?: unknown; expires_in?: unknown };
+      if (typeof data.access_token === 'string' && data.access_token) {
+        const expiresInMs = typeof data.expires_in === 'number' && data.expires_in > 0 ? data.expires_in * 1000 : 3600_000;
+        currentToken = data.access_token;
+        currentTokenExpiresAt = Date.now() + expiresInMs;
+        return currentToken;
+      }
+    }
+  } catch (e) {
+    Logger.w(`Spotify token refresh failed: ${String(e)}`);
+  }
+  return null;
+}
+
+async function getFreshAccessToken(forceRefresh = false): Promise<string | null> {
+  if (!forceRefresh && currentToken && currentTokenExpiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS) {
+    return currentToken;
+  }
+  if (!forceRefresh) {
+    const stored = await storedAccessToken();
+    if (stored) {
+      currentToken = stored.token;
+      currentTokenExpiresAt = stored.expiresAt;
+      return currentToken;
+    }
+  }
+  return refreshAccessToken();
 }
 
 function armTokenRefresh() {
@@ -236,11 +324,12 @@ function armTokenRefresh() {
           tokenRefreshTimer = null;
         }
         connected = false;
+        currentToken = '';
+        currentTokenExpiresAt = 0;
         return;
       }
       if (!connected) return;
-      const fresh = await storedAccessToken();
-      if (fresh) currentToken = fresh;
+      await refreshAccessToken();
     },
     50 * 60 * 1000,
   );
@@ -253,16 +342,23 @@ async function initPlayer(): Promise<void> {
     Logger.e('Spotify SDK initialization failed', e);
     return;
   }
-  const token = await storedAccessToken();
+  const token = await getFreshAccessToken();
   if (!token) return;
-  currentToken = token;
   const w = window as SpotifyWindow & { _everglowSpotifyPlayer?: SpotifyPlayer };
   if (w._everglowSpotifyPlayer) {
     if (deviceId != null) connected = true;
     armTokenRefresh();
     return;
   }
-  const player = new w.Spotify!.Player({ name: 'Everglow Jukebox', getOAuthToken: (cb) => cb(currentToken), volume: 0.8 });
+  const player = new w.Spotify!.Player({
+    name: 'Everglow Jukebox',
+    getOAuthToken: (cb) => {
+      void getFreshAccessToken().then((fresh) => {
+        if (fresh) cb(fresh);
+      });
+    },
+    volume: 0.8,
+  });
   w._everglowSpotifyPlayer = player;
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
@@ -280,26 +376,44 @@ function initSpotifyPlayer(): Promise<void> {
   return (initialization ??= initPlayer().finally(() => (initialization = null)));
 }
 
+async function spotifyPutWithRetry(url: string, body: Record<string, unknown>, initialToken: string): Promise<Response> {
+  const send = (token: string) =>
+    fetch(url, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    });
+  const resp = await send(initialToken);
+  if (resp.status !== 401) return resp;
+  const fresh = await getFreshAccessToken(true);
+  if (!fresh) return resp;
+  return send(fresh);
+}
+
 /** Plays the track on this tab's Spotify device, moving playback here first. */
 export async function playInEverglow(trackId: string): Promise<void> {
   await initSpotifyPlayer();
   for (let i = 0; i < 20 && deviceId == null; i++) await new Promise((r) => setTimeout(r, 300));
   if (deviceId == null) return;
-  const token = await storedAccessToken();
+  const token = await getFreshAccessToken();
   if (!token) return;
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   try {
-    await fetch('https://api.spotify.com/v1/me/player', {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({ device_ids: [deviceId], play: false }),
-    });
+    const transferResp = await spotifyPutWithRetry('https://api.spotify.com/v1/me/player', { device_ids: [deviceId], play: false }, token);
+    if (!transferResp.ok) {
+      Logger.w(`Spotify transfer failed: HTTP ${transferResp.status}`);
+      return;
+    }
     await new Promise((r) => setTimeout(r, 400));
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
-    });
+    const playToken = (await getFreshAccessToken()) ?? token;
+    const playResp = await spotifyPutWithRetry(
+      `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`,
+      { uris: [`spotify:track:${trackId}`] },
+      playToken,
+    );
+    if (!playResp.ok) {
+      Logger.w(`Spotify play failed: HTTP ${playResp.status}`);
+    }
   } catch (e) {
     Logger.w(`Spotify play failed: ${String(e)}`);
   }

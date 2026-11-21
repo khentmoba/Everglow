@@ -154,6 +154,25 @@ export function DashboardAmbience({ scrollRef }: { scrollRef: RefObject<HTMLDivE
     let lastDraw = 0;
     let cachedW = 0;
     let bandGrads: CanvasGradient[] = [];
+    const sparkleSprites = SPARKLES.map((s) => {
+      const sprite = document.createElement('canvas');
+      const size = 64;
+      const half = size / 2;
+      sprite.width = size;
+      sprite.height = size;
+      const sctx = sprite.getContext('2d');
+      if (sctx) {
+        const g = sctx.createRadialGradient(half, half, 0, half, half, half);
+        g.addColorStop(0, withAlpha(s.color, s.peak));
+        g.addColorStop(0.4, withAlpha(s.color, s.peak * 0.35));
+        g.addColorStop(1, withAlpha(s.color, 0));
+        sctx.fillStyle = g;
+        sctx.beginPath();
+        sctx.arc(half, half, half / 1.6, 0, Math.PI * 2);
+        sctx.fill();
+      }
+      return sprite;
+    });
 
     const draw = (now: number) => {
       if (pausedByScroll || activelyScrolling || document.hidden) {
@@ -215,7 +234,8 @@ export function DashboardAmbience({ scrollRef }: { scrollRef: RefObject<HTMLDivE
       }
 
       const scale = Math.max(0.6, Math.min(1.6, Math.min(w, h) / 900));
-      for (const s of SPARKLES) {
+      for (let si = 0; si < SPARKLES.length; si++) {
+        const s = SPARKLES[si];
         const p = frac(t * s.speed + s.phase);
         const y = h * (1 - p) - 40;
         const x = s.baseX * w + Math.sin(t * Math.PI * 2 * s.swayFreq + s.phase * 7) * s.swayAmp * w;
@@ -224,14 +244,8 @@ export function DashboardAmbience({ scrollRef }: { scrollRef: RefObject<HTMLDivE
         const k = twinkle * fade;
         if (k <= 0.02) continue;
         const r = s.radius * scale * k;
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r * 1.6);
-        g.addColorStop(0, withAlpha(s.color, s.peak));
-        g.addColorStop(0.4, withAlpha(s.color, s.peak * 0.35));
-        g.addColorStop(1, withAlpha(s.color, 0));
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
+        const halfDraw = r * 1.6;
+        ctx.drawImage(sparkleSprites[si], x - halfDraw, y - halfDraw, halfDraw * 2, halfDraw * 2);
       }
 
       const maxTrails = w < 600 ? 1 : 3;

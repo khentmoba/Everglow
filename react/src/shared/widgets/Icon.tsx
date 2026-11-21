@@ -2,7 +2,6 @@
 // Material Icons font Flutter bundles.
 import 'material-icons/iconfont/round.css';
 import 'material-icons/iconfont/outlined.css';
-import 'material-icons/iconfont/filled.css';
 
 export type IconStyle = 'round' | 'outlined' | 'filled';
 
@@ -24,7 +23,7 @@ export function Icon({
     name = name.slice(0, -'_outlined'.length);
     variant = 'outlined';
   }
-  const cls = variant === 'filled' ? 'material-icons' : `material-icons-${variant}`;
+  const cls = variant === 'outlined' ? 'material-icons-outlined' : 'material-icons-round';
   return (
     <span
       className={cls}

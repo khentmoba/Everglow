@@ -247,10 +247,11 @@ async function streamSse(body: string, timeoutMs: number, signal: AbortControlle
     signal.abort();
     fail(new TimeoutError('AI request timed out'));
   }, timeoutMs);
-  signal.signal.addEventListener('abort', () => {
+  const onAbort = () => {
     pending.length = 0;
     fail(new Error('Reply stopped'));
-  });
+  };
+  signal.signal.addEventListener('abort', onAbort, { once: true });
   try {
     const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
@@ -269,15 +270,21 @@ async function streamSse(body: string, timeoutMs: number, signal: AbortControlle
       }
       throw new Error(message);
     }
-    const reader = response.body!.getReader();
+    if (!response.body) throw new Error('Empty AI stream');
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    for (;;) {
-      const chunk = await reader.read();
-      if (chunk.value) processText(decoder.decode(chunk.value, { stream: true }));
-      if (chunk.done) break;
+    try {
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.value) processText(decoder.decode(chunk.value, { stream: true }));
+        if (chunk.done) break;
+      }
+      processText(decoder.decode());
+      finish();
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
-    processText(decoder.decode());
-    finish();
   } catch (e) {
     fail(e);
   }
@@ -285,6 +292,7 @@ async function streamSse(body: string, timeoutMs: number, signal: AbortControlle
     return await done;
   } finally {
     clearTimeout(timer);
+    signal.signal.removeEventListener('abort', onAbort);
   }
 }
 

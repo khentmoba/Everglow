@@ -82,7 +82,7 @@ export function WelcomeGiftGate() {
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', zIndex: 0, overflow: 'hidden' }}>
         <Suspense fallback={null}>
           <CanvasHtmlView html={gift.html} title="A gift for you" onContentFinishedChanged={setFinished} />
         </Suspense>
@@ -90,6 +90,9 @@ export function WelcomeGiftGate() {
       {finished && (
         <div
           style={{
+            position: 'relative',
+            zIndex: 1,
+            background: AppColors.petalWhite,
             width: '100%',
             maxWidth: 480,
             margin: '0 auto',

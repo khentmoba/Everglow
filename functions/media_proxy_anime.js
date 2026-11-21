@@ -56,8 +56,9 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
     '.crunchyroll.com',
     '.funimation.com',
   ];
-  const hostAllowed = allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
-  if (parsed.protocol !== 'https:' || !hostAllowed) {
+  const isAllowedAnimeImage = (u) =>
+    allowedSuffixes.some((s) => u.hostname.toLowerCase().endsWith(s));
+  if (parsed.protocol !== 'https:' || !isAllowedAnimeImage(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -66,8 +67,11 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
     const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: isAllowedAnimeImage,
     });
     if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
       res
         .status(upstream.status)
         .json({ error: `Upstream returned ${upstream.status}` });

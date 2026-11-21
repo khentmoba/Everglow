@@ -28,7 +28,7 @@ import { Prefs } from '../system/prefs';
 import { withGetTimeout } from '../utils/liveSource';
 import { initializeProgress } from '../../features/xp/xpService';
 import { letterboxService } from '../../features/dashboard/letterboxService';
-import { auth, db } from './firebase';
+import { auth, clearFirestoreCache, db } from './firebase';
 import { notificationService } from './notifications';
 
 export class PasscodeConnectionError extends Error {}
@@ -253,12 +253,30 @@ class AuthService {
       return null;
     }
     if (!v.salt) return null;
+    const recordFailure = () => {
+      const fails = (Number(Prefs.get('offline_passcode_fails') ?? '0') || 0) + 1;
+      if (fails >= 5) {
+        this.offlineVerifier = null;
+        Prefs.remove('offline_passcode_verifier');
+        Prefs.remove('offline_passcode_fails');
+        Logger.w('[AuthService] offline verifier wiped after 5 failed attempts');
+      } else {
+        Prefs.set('offline_passcode_fails', String(fails));
+      }
+    };
     if (v.v === 2) {
-      if ((await pbkdf2Hex(remembered, v.salt, passcode)) !== v.digest) return null;
+      if ((await pbkdf2Hex(remembered, v.salt, passcode)) !== v.digest) {
+        recordFailure();
+        return null;
+      }
     } else {
-      if ((await sha256Hex(`${remembered}:${v.salt}:${passcode}`)) !== v.digest) return null;
+      if ((await sha256Hex(`${remembered}:${v.salt}:${passcode}`)) !== v.digest) {
+        recordFailure();
+        return null;
+      }
       await this.saveSession(remembered, passcode);
     }
+    Prefs.remove('offline_passcode_fails');
     this.isOfflineMode = true;
     this.lastAuthError = null;
     Logger.i(`[AuthService] offline remembered login for ${remembered}`);
@@ -269,6 +287,7 @@ class AuthService {
   private async saveSession(name: string | null, passcode: string | null) {
     if (name) Prefs.set('current_user_name', name);
     else Prefs.remove('current_user_name');
+    Prefs.remove('offline_passcode_fails');
     if (!name || !passcode) {
       this.offlineVerifier = null;
       Prefs.remove('offline_passcode_verifier');
@@ -393,6 +412,7 @@ class AuthService {
   }
 
   async logout() {
+    const wasAgent = this.isAgentSession;
     this.isAgentSession = false;
     this.lastAuthError = null;
     try {
@@ -413,6 +433,15 @@ class AuthService {
     RouteMemory.clear();
     Prefs.remove('spotify_code_verifier');
     Prefs.remove('spotify_oauth_state');
+    Prefs.remove('letterbox_notes_cache_v1');
+    Prefs.remove('journal_preview_cache_v1');
+    Prefs.remove('journal_pending_id');
+    for (const draftKey of Prefs.keysWithPrefix('draft:')) {
+      Prefs.remove(draftKey);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('everglow:logout'));
+    }
     this.currentUser = null;
     this.user = null;
     this.partnerUid = null;
@@ -422,7 +451,13 @@ class AuthService {
     await this.saveSession(null, null);
     AgentMode.clearPersistedState();
     await OfflinePhotos.clear();
+    if (!wasAgent) {
+      await clearFirestoreCache();
+    }
     this.notify();
+    if (!wasAgent && typeof window !== 'undefined') {
+      window.location.replace('/');
+    }
   }
 }
 

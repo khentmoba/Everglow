@@ -79,6 +79,7 @@ test('Dashboard: Living Archive images, Jukebox artwork, carousels, and scroll r
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`${baseUrl}/dashboard?agent=1&lowend=1`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Jump to Together' }).click();
     await page.waitForSelector('text=LIVING ARCHIVE', { timeout: 10_000 });
 
     // Living Archive renders real milestone images with non-zero naturalWidth and sliding inner photo tracks.
@@ -100,6 +101,7 @@ test('Dashboard: Living Archive images, Jukebox artwork, carousels, and scroll r
     await page.waitForSelector('script[data-everglow-model-viewer], model-viewer', { state: 'attached', timeout: 5_000 });
 
     // Jukebox Top 10, Recently Heard, and Artist Showdown render album artwork.
+    await page.getByRole('button', { name: 'Jump to Play' }).click();
     await page.waitForSelector("text=Khent's Top 10", { timeout: 10_000 });
     await page.waitForSelector('text=Demo Track One', { timeout: 10_000 });
     await page.waitForSelector('text=Demo Ballad One', { timeout: 10_000 });

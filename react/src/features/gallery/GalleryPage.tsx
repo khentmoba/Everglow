@@ -139,15 +139,25 @@ export function GalleryPage() {
       setSearching(false);
       return;
     }
+    let cancelled = false;
     setSearching(true);
     const id = window.setTimeout(() => {
       void galleryService
         .searchPhotos(q, photos)
-        .then((res) => setSearchResults(res))
-        .catch(() => setSearchResults([]))
-        .finally(() => setSearching(false));
+        .then((res) => {
+          if (!cancelled) setSearchResults(res);
+        })
+        .catch(() => {
+          if (!cancelled) setSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
     }, 300);
-    return () => clearTimeout(id);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [searchQuery, photos]);
 
   useEffect(() => {

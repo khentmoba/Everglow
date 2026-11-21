@@ -130,21 +130,33 @@ export function CinemaPage() {
     if (request !== homeRequest.current) return;
     setIsLoadingHome(false);
 
-    await Promise.all(
-      DISCOVERY_SHELVES.map((shelf) =>
-        loadRow(
-          shelf.title,
-          discoverMedia({
-            mediaType: shelf.type,
-            sortBy: shelf.genre == null ? 'vote_average.desc' : 'popularity.desc',
-            withGenres: shelf.genre == null ? undefined : [shelf.genre],
-            withOriginalLanguage: shelf.language,
-            voteCountGte: shelf.genre == null ? 1000 : 100,
-          }).then((r) => r.results),
-          (items) => setDiscoveryRows((rows) => ({ ...rows, [shelf.title]: items })),
+    const BATCH_SIZE = 4;
+    for (let i = 0; i < DISCOVERY_SHELVES.length; i += BATCH_SIZE) {
+      if (request !== homeRequest.current) return;
+      const slice = DISCOVERY_SHELVES.slice(i, i + BATCH_SIZE);
+      const batchUpdates: Record<string, MediaItem[]> = {};
+      await Promise.all(
+        slice.map((shelf) =>
+          loadRow(
+            shelf.title,
+            discoverMedia({
+              mediaType: shelf.type,
+              sortBy: shelf.genre == null ? 'vote_average.desc' : 'popularity.desc',
+              withGenres: shelf.genre == null ? undefined : [shelf.genre],
+              withOriginalLanguage: shelf.language,
+              voteCountGte: shelf.genre == null ? 1000 : 100,
+            }).then((r) => r.results),
+            (items) => {
+              batchUpdates[shelf.title] = items;
+            },
+          ),
         ),
-      ),
-    );
+      );
+      if (request !== homeRequest.current) return;
+      if (Object.keys(batchUpdates).length > 0) {
+        setDiscoveryRows((rows) => ({ ...rows, ...batchUpdates }));
+      }
+    }
     if (request !== homeRequest.current) return;
     CinemaHomeCache.save(live);
   }, []);

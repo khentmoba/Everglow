@@ -7,6 +7,7 @@ import { agentJumpLocation, cinemaOnlyRedirect, sanitizeInternalPath } from './c
 import { RouteMemory } from './core/router/routeMemory';
 import { authService } from './core/services/auth';
 import { notificationService } from './core/services/notifications';
+import { presenceService } from './core/services/presence';
 import { useValue } from './core/system/store';
 import { AppColors } from './core/theme/colors';
 import { WelcomeGiftGate } from './features/entry/WelcomeGiftGate';
@@ -180,23 +181,71 @@ function RootLayout() {
       });
     });
     let timer: number | undefined;
-    if (!AgentMode.demo) {
+    const maybeInit = () => {
+      if (AgentMode.demo || !authService.isReady || !authService.isCoupleUser || timer != null) return;
       timer = window.setTimeout(() => {
         void notificationService.initialize();
       }, 1500);
-    }
+    };
+    maybeInit();
+    const unsubAuth = authService.subscribe(maybeInit);
     return () => {
+      unsubAuth();
       if (timer != null) window.clearTimeout(timer);
       notificationService.setForegroundHandler(null);
     };
   }, [navigate]);
+  useEffect(() => {
+    let activeUid: string | null = null;
+    let activeUsername: string | null = null;
+
+    const sync = () => {
+      if (AgentMode.demo || !authService.isReady || !authService.isCoupleUser || !authService.uid || !authService.currentUser) {
+        if (activeUid) {
+          activeUid = null;
+          activeUsername = null;
+          void presenceService.stopHeartbeat();
+        }
+        return;
+      }
+      const uid = authService.uid;
+      const username = authService.currentUser;
+      if (uid === activeUid && username === activeUsername) return;
+      activeUid = uid;
+      activeUsername = username;
+      if (!document.hidden) presenceService.startHeartbeat(uid, username);
+    };
+
+    const onVis = () => {
+      if (!activeUid || !activeUsername) return;
+      if (document.hidden) void presenceService.setOffline(activeUid);
+      else presenceService.startHeartbeat(activeUid, activeUsername);
+    };
+    const onLeave = () => {
+      if (activeUid) void presenceService.stopHeartbeat();
+    };
+
+    sync();
+    const unsubAuth = authService.subscribe(sync);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', onLeave);
+    window.addEventListener('beforeunload', onLeave);
+    return () => {
+      unsubAuth();
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onLeave);
+      window.removeEventListener('beforeunload', onLeave);
+      if (activeUid) void presenceService.stopHeartbeat();
+    };
+  }, []);
   return (
     <>
       <RouteErrorBoundary
         resetKey={location.pathname}
         onGoHome={() => {
-          if (location.pathname === '/dashboard') window.location.reload();
-          else navigate('/dashboard');
+          const home = authService.isCinemaOnlyUser ? '/cinema' : '/dashboard';
+          if (location.pathname === home) window.location.reload();
+          else navigate(home);
         }}
       >
         <Suspense fallback={<RouteFallback />}>

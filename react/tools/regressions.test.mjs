@@ -88,6 +88,7 @@ test('Dashboard RandomizerCard toggles AI mode, spins roulette, and renders Cele
     page.on('pageerror', (e) => errors.push(e.message));
 
     await page.goto(`${baseUrl}/dashboard?agent=1`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Jump to Play' }).click();
     await page.waitForSelector('text=Digital Roulette', { timeout: 10_000 });
     await collapseHud(page);
 
@@ -154,14 +155,19 @@ test('Welcome gift covers the app for Clair until Continue, and only for Clair',
     await page.goto(`${baseUrl}/dashboard?agent=clair&gift=1`, { waitUntil: 'domcontentloaded' });
     await gift.waitFor({ state: 'visible', timeout: 10_000 });
     assert.equal(await proceed.count(), 0, 'Continue stays hidden until the letter ends');
-    await page.frameLocator('iframe[title="A gift for you"]').getByRole('button', { name: 'Read on' }).click();
+    const readOn = page.frameLocator('iframe[title="A gift for you"]').getByRole('button', { name: 'Read on' });
+    await readOn.waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForTimeout(300);
+    await readOn.click();
+    await proceed.waitFor({ state: 'visible', timeout: 5_000 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     await proceed.click();
     await gift.waitFor({ state: 'detached', timeout: 5_000 });
 
     for (const route of ['/dashboard?agent=clair', '/dashboard?agent=khent&gift=1']) {
       const other = await context.newPage();
       await other.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
-      await other.waitForSelector('text=Digital Roulette', { timeout: 10_000 });
+      await other.waitForSelector('text=Quick Access', { timeout: 10_000 });
       await other.waitForTimeout(500);
       assert.equal(await other.getByRole('dialog', { name: 'A gift for you' }).count(), 0, `${route} must not show the gift`);
       await other.close();
@@ -406,6 +412,7 @@ test('Dashboard Mangacelestia shelf shows each reader’s chapter and a Finished
     page.on('pageerror', (e) => errors.push(e.message));
 
     await page.goto(`${baseUrl}/dashboard?agent=1`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Jump to Play' }).click();
     await page.waitForSelector('text=where each of us is reading', { timeout: 10_000 });
     await page.waitForSelector('text=Khent ch 42 · Clair ch 12', { state: 'attached', timeout: 5_000 });
     await page.waitForSelector('text=finished reading', { state: 'attached', timeout: 5_000 });

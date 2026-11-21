@@ -945,60 +945,79 @@ export function MusicStatsSection() {
         .then((res) => {
           if (!alive) return;
           setData(res);
-          void enrichTrackListArtwork(
-            res.topTracks,
-            undefined,
-            (idx, imageUrl, albumName) =>
-              setData((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      topTracks: prev.topTracks.map((t, i) =>
-                        i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
-                      ),
-                    }
-                  : prev,
-              ),
-            () => alive,
-          );
-          void enrichTrackListArtwork(
-            res.clairTopTracks,
-            undefined,
-            (idx, imageUrl, albumName) =>
-              setData((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      clairTopTracks: prev.clairTopTracks.map((t, i) =>
-                        i === idx ? { ...t, imageUrl, albumName: albumName ?? t.albumName } : t,
-                      ),
-                    }
-                  : prev,
-              ),
-            () => alive,
-          );
-          void enrichTrackListArtwork(
-            res.recentTracks,
-            undefined,
-            (idx, imageUrl) =>
-              setData((prev) =>
-                prev
-                  ? { ...prev, recentTracks: prev.recentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
-                  : prev,
-              ),
-            () => alive,
-          );
-          void enrichTrackListArtwork(
-            res.clairRecentTracks,
-            undefined,
-            (idx, imageUrl) =>
-              setData((prev) =>
-                prev
-                  ? { ...prev, clairRecentTracks: prev.clairRecentTracks.map((t, i) => (i === idx ? { ...t, imageUrl } : t)) }
-                  : prev,
-              ),
-            () => alive,
-          );
+          const topUpdates = new Map<number, { imageUrl: string; albumName?: string | null }>();
+          const clairTopUpdates = new Map<number, { imageUrl: string; albumName?: string | null }>();
+          const recentUpdates = new Map<number, string>();
+          const clairRecentUpdates = new Map<number, string>();
+
+          void Promise.allSettled([
+            enrichTrackListArtwork(
+              res.topTracks,
+              undefined,
+              (idx, imageUrl, albumName) => {
+                topUpdates.set(idx, { imageUrl, albumName });
+              },
+              () => alive,
+            ),
+            enrichTrackListArtwork(
+              res.clairTopTracks,
+              undefined,
+              (idx, imageUrl, albumName) => {
+                clairTopUpdates.set(idx, { imageUrl, albumName });
+              },
+              () => alive,
+            ),
+            enrichTrackListArtwork(
+              res.recentTracks,
+              undefined,
+              (idx, imageUrl) => {
+                recentUpdates.set(idx, imageUrl);
+              },
+              () => alive,
+            ),
+            enrichTrackListArtwork(
+              res.clairRecentTracks,
+              undefined,
+              (idx, imageUrl) => {
+                clairRecentUpdates.set(idx, imageUrl);
+              },
+              () => alive,
+            ),
+          ]).then(() => {
+            if (!alive) return;
+            if (!topUpdates.size && !clairTopUpdates.size && !recentUpdates.size && !clairRecentUpdates.size) return;
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    topTracks: topUpdates.size
+                      ? prev.topTracks.map((t, i) => {
+                          const u = topUpdates.get(i);
+                          return u ? { ...t, imageUrl: u.imageUrl, albumName: u.albumName ?? t.albumName } : t;
+                        })
+                      : prev.topTracks,
+                    clairTopTracks: clairTopUpdates.size
+                      ? prev.clairTopTracks.map((t, i) => {
+                          const u = clairTopUpdates.get(i);
+                          return u ? { ...t, imageUrl: u.imageUrl, albumName: u.albumName ?? t.albumName } : t;
+                        })
+                      : prev.clairTopTracks,
+                    recentTracks: recentUpdates.size
+                      ? prev.recentTracks.map((t, i) => {
+                          const imageUrl = recentUpdates.get(i);
+                          return imageUrl ? { ...t, imageUrl } : t;
+                        })
+                      : prev.recentTracks,
+                    clairRecentTracks: clairRecentUpdates.size
+                      ? prev.clairRecentTracks.map((t, i) => {
+                          const imageUrl = clairRecentUpdates.get(i);
+                          return imageUrl ? { ...t, imageUrl } : t;
+                        })
+                      : prev.clairRecentTracks,
+                  }
+                : prev,
+            );
+          });
         })
         .finally(() => {
           inFlight = false;

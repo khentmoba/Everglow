@@ -24,7 +24,7 @@ export async function fetchToday(now = new Date()): Promise<TodaySnapshot> {
   }
   try {
     const [moods, activity, cinema, stars, memories] = await Promise.all([
-      getDocs(query(collection(db, 'moods'), where('date', '==', isoDay(now)))),
+      getDocs(query(collection(db, 'moods'), where('date', '==', isoDay(now)), limit(10))),
       getDocs(query(collection(db, 'recent_activity'), orderBy('timestamp', 'desc'), limit(5))),
       getDocs(query(collection(db, 'our_cinema'), limit(5))),
       getDocs(query(collection(db, 'starlight_jar'), orderBy('timestamp', 'desc'), limit(3))),

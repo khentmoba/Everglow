@@ -58,53 +58,68 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
     if (access.referer) headers.Referer = access.referer;
     const range = req.get('Range');
     if (range && /^bytes=\d*-\d*$/.test(range)) headers.Range = range;
-    const upstream = await fetchPublicUrl(targetUrl, { headers, signal: AbortSignal.timeout(30000) });
-    if (!upstream.ok) {
-      await upstream.body?.cancel();
-      res.status(upstream.status).json({ error: `Upstream returned ${upstream.status}` }); return;
-    }
-    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-    const baseCt = contentType.split(';')[0].trim().toLowerCase();
-    const finalUrl = upstream.url || targetUrl;
-    if (/mpegurl/i.test(contentType) || new URL(finalUrl).pathname.toLowerCase().endsWith('.m3u8')) {
-      const reader = upstream.body.getReader();
-      const chunks = [];
-      let size = 0;
+    const controller = new AbortController();
+    const ttfbTimer = setTimeout(() => controller.abort(new Error('Upstream timeout')), 30000);
+    const onClientClose = () => {
+      if (!res.writableEnded) controller.abort(new Error('Client disconnected'));
+    };
+    if (typeof res.on === 'function') res.on('close', onClientClose);
+    try {
+      let upstream;
       try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          size += value.length;
-          if (size > 1024 * 1024) throw new Error('Playlist exceeds 1 MB');
-          chunks.push(Buffer.from(value));
-        }
-      } finally { await reader.cancel(); }
-      res.set('Content-Type', 'application/vnd.apple.mpegurl');
+        upstream = await fetchPublicUrl(targetUrl, { headers, signal: controller.signal });
+      } finally {
+        clearTimeout(ttfbTimer);
+      }
+      if (!upstream.ok) {
+        await upstream.body?.cancel().catch(() => {});
+        res.status(upstream.status).json({ error: `Upstream returned ${upstream.status}` }); return;
+      }
+      const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+      const baseCt = contentType.split(';')[0].trim().toLowerCase();
+      const finalUrl = upstream.url || targetUrl;
+      if (/mpegurl/i.test(contentType) || new URL(finalUrl).pathname.toLowerCase().endsWith('.m3u8')) {
+        const reader = upstream.body.getReader();
+        const chunks = [];
+        let size = 0;
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            size += value.length;
+            if (size > 1024 * 1024) throw new Error('Playlist exceeds 1 MB');
+            chunks.push(Buffer.from(value));
+          }
+        } finally { await reader.cancel(); }
+        res.set('Content-Type', 'application/vnd.apple.mpegurl');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+        res.status(200).send(rewritePlaylist(Buffer.concat(chunks).toString('utf8'), finalUrl, access));
+        return;
+      }
+      if (
+        baseCt === 'text/html' ||
+        baseCt === 'application/xhtml+xml' ||
+        baseCt === 'image/svg+xml' ||
+        baseCt === 'text/javascript' ||
+        baseCt === 'application/javascript'
+      ) {
+        await upstream.body?.cancel().catch(() => {});
+        res.status(415).json({ error: 'Unsupported media content type' });
+        return;
+      }
+      res.set('Content-Type', baseCt || 'application/octet-stream');
       res.set('X-Content-Type-Options', 'nosniff');
       res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-      res.status(200).send(rewritePlaylist(Buffer.concat(chunks).toString('utf8'), finalUrl, access));
-      return;
+      for (const name of ['Content-Range', 'Accept-Ranges', 'Content-Length']) {
+        const value = upstream.headers.get(name);
+        if (value) res.set(name, value);
+      }
+      res.status(upstream.status);
+      await streamMediaBody(upstream.body, res);
+    } finally {
+      if (typeof res.off === 'function') res.off('close', onClientClose);
     }
-    if (
-      baseCt === 'text/html' ||
-      baseCt === 'application/xhtml+xml' ||
-      baseCt === 'image/svg+xml' ||
-      baseCt === 'text/javascript' ||
-      baseCt === 'application/javascript'
-    ) {
-      await upstream.body?.cancel();
-      res.status(415).json({ error: 'Unsupported media content type' });
-      return;
-    }
-    res.set('Content-Type', baseCt || 'application/octet-stream');
-    res.set('X-Content-Type-Options', 'nosniff');
-    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-    for (const name of ['Content-Range', 'Accept-Ranges', 'Content-Length']) {
-      const value = upstream.headers.get(name);
-      if (value) res.set(name, value);
-    }
-    res.status(upstream.status);
-    await streamMediaBody(upstream.body, res);
   } catch (e) {
     console.warn('proxyWatchStream failed:', e.message);
     if (res.headersSent || res.destroyed) {

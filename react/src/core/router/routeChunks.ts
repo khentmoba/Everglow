@@ -20,7 +20,16 @@ function lazyNamed<T extends Record<string, unknown>, K extends keyof T>(
 ) {
   return lazy(() =>
     loader()
-      .then((m) => ({ default: m[exportName] as ComponentType<any> }))
+      .then((m) => {
+        if (typeof window !== 'undefined') {
+          try {
+            window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+          } catch {
+            // sessionStorage unavailable
+          }
+        }
+        return { default: m[exportName] as ComponentType<any> };
+      })
       .catch((err: unknown) => {
         if (typeof window !== 'undefined' && isChunkLoadError(err)) {
           const target = `${window.location.pathname}${window.location.search}`;

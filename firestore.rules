@@ -191,7 +191,7 @@ service cloud.firestore {
         request.auth.uid == userId &&
         (hasCoupleIdentity() || hasCinemaIdentity()) &&
         request.resource.data.username == request.auth.token.username;
-      allow read: if isRegistered();
+      allow read: if isCouple() || ownerOf(userId);
       allow update: if ownerOf(userId) &&
         resource.data.username == request.resource.data.username && request.resource.data.keys().hasOnly(['username', 'partnerUsername', 'updatedAt', 'createdAt']);
       allow delete: if ownerOf(userId);

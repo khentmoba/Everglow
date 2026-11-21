@@ -652,7 +652,7 @@ const catalogIdOf = (item: MediaItem) => (item.tmdbId > 0 ? item.tmdbId : (item.
 
 async function findCatalogDoc(item: MediaItem, userName: string) {
   const id = catalogIdOf(item);
-  const snap = await getDocs(query(collection(db, 'watch_list'), where('tmdbId', '==', id), where('userName', '==', userName)));
+  const snap = await getDocs(query(collection(db, 'watch_list'), where('tmdbId', '==', id), where('userName', '==', userName), limit(20)));
   const mt = (v: unknown) => (String(v ?? 'movie').trim().toLowerCase() === 'tv' ? 'tv' : 'movie');
   return snap.docs.find((d) => {
     const data = d.data();
@@ -782,7 +782,7 @@ const sameCatalogDoc = (data: Record<string, unknown>, id: number, source: strin
 
 async function catalogDocFor(id: number, userName: string, source: string, mediaType: string) {
   const snap = await withGetTimeout(
-    getDocs(query(collection(db, 'watch_list'), where('tmdbId', '==', id), where('userName', '==', userName))),
+    getDocs(query(collection(db, 'watch_list'), where('tmdbId', '==', id), where('userName', '==', userName), limit(20))),
     'watch progress lookup',
   );
   return snap.docs.find((d) => sameCatalogDoc(d.data(), id, source, mediaType));

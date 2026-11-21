@@ -192,11 +192,14 @@ async function handleGenerateStudySet(req, res) {
     return;
   }
 
+  const isCouple = caller === 'khentsgdz' || caller === 'clairjassen';
   const messages = [
     {
       role: 'system',
       content:
-        'You are Motchi 🍡, a warm white cat writing cozy quiz questions for Khent and Clair. ' +
+        (isCouple
+          ? 'You are Motchi 🍡, a warm white cat writing cozy quiz questions for Khent and Clair. '
+          : 'You are a helpful study assistant writing clear, accurate quiz questions. ') +
         'Be kind, simple, and encouraging. Never include markdown, prefix letters, or numbering inside fields.',
     },
     { role: 'user', content: buildStudyPrompt({ category, count, topic }) },
