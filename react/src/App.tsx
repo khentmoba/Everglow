@@ -11,7 +11,9 @@ import { presenceService } from './core/services/presence';
 import { useValue } from './core/system/store';
 import { AppColors } from './core/theme/colors';
 import { WelcomeGiftGate } from './features/entry/WelcomeGiftGate';
+import { IncomingWatchPartyBanner } from './features/watch_party/IncomingWatchPartyBanner';
 import { AppUpdatePrompt } from './shared/widgets/AppUpdatePrompt';
+import { ConnectivityBanner } from './shared/widgets/ConnectivityBanner';
 import { DialogHost } from './shared/widgets/Dialogs';
 import { showSnackBar, SnackBarHost } from './shared/widgets/SnackBar';
 
@@ -253,6 +255,8 @@ function RootLayout() {
         </Suspense>
       </RouteErrorBoundary>
       <AppUpdatePrompt />
+      <ConnectivityBanner />
+      <IncomingWatchPartyBanner />
       <AgentHudSlot />
       <DialogHost />
       <SnackBarHost />

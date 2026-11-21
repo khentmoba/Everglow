@@ -14,6 +14,8 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
+import { ConnectivityService } from '../../core/network/connectivity';
+import { fetchFallbackChapterPages } from './mangaFallbackProviders';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
@@ -469,7 +471,7 @@ export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | nul
 }
 
 export async function fetchKatanaChapterPages(slug: string, chapterId: string, preferredServer = ''): Promise<string[]> {
-  if (!slug || !chapterId) return [];
+  if (!slug || !chapterId || !ConnectivityService.isOnline) return [];
   const servers = [preferredServer, ...['', '?sv=mk', '?sv=3'].filter((s) => s !== preferredServer)];
   for (const server of servers) {
     const cookie = server === '?sv=mk' ? 's_r=sv2' : server === '?sv=3' ? 's_r=sv3' : '';
@@ -485,7 +487,9 @@ export async function fetchKatanaChapterPages(slug: string, chapterId: string, p
       if (pages.length) return pages;
     }
   }
-  return [];
+  // Multi-source fallback (MangaDex -> ComicK -> Bato -> Scanlation) when MangaKatana fails.
+  const fallback = await fetchFallbackChapterPages(slug, chapterId);
+  return fallback.pages;
 }
 
 const demoProgress = (

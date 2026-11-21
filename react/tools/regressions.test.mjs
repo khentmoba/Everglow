@@ -425,3 +425,47 @@ test('Dashboard Mangacelestia shelf shows each reader’s chapter and a Finished
     server.close();
   }
 });
+
+test('Restored Flutter features: Creator Studio, Jukebox insights, TV nav, Slow-network banner, Watch Party controls', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/dashboard?agent=1&hud=0&network=slow`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Slow connection', { timeout: 10_000 });
+    await page.locator('button[aria-label="Open creator tools"]').click();
+    await page.waitForSelector('text=Creator Studio', { timeout: 5_000 });
+    for (const tabName of ['Memories', 'Surprises', 'System', 'Letters']) {
+      await page.getByRole('tab', { name: tabName }).click();
+    }
+    await page.locator('button[aria-label="Close Creator Studio"]').click();
+
+    await page.goto(`${baseUrl}/jukebox?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=On This Day in Your Music', { timeout: 10_000 });
+    await page.waitForSelector('text=Loved Tracks', { timeout: 5_000 });
+    await page.getByRole('button', { name: 'Feb 14' }).click();
+    await page.waitForSelector('text=Anniversary Soundtrack', { timeout: 5_000 });
+
+    await page.goto(`${baseUrl}/cinema?agent=1&hud=0&tv=1`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('nav[aria-label="TV Media Navigation"]', { timeout: 10_000 });
+    await page.waitForSelector('text=MangaCelestia', { timeout: 5_000 });
+
+    await page.goto(`${baseUrl}/watch-party?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Create a room', { timeout: 10_000 });
+    const firstRoom = page.locator('button:has-text("LIVE"), button:has-text("IDLE")').first();
+    if (await firstRoom.isVisible().catch(() => false)) {
+      await firstRoom.click();
+      await page.waitForSelector('button[aria-label="Switch server"]', { timeout: 8_000 });
+    }
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

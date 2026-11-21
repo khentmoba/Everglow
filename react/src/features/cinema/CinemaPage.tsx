@@ -9,6 +9,7 @@ import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { Icon } from '../../shared/widgets/Icon';
+import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import { Logger } from '../../core/system/logger';
 import { CinemaHomeCache } from './cinemaHomeCache';
 import { CinemaSearchTab } from './CinemaSearchTab';
@@ -17,6 +18,7 @@ import { CinemaDownloadsTab } from './CinemaDownloadsTab';
 import { CinemaLibraryTab } from './CinemaLibraryTab';
 import { CinemaWatchTogetherTab } from '../watch_party/CinemaWatchTogetherTab';
 import { CinemaEpisodeDrawer } from './CinemaEpisodeDrawer';
+import { showCinemaPlaybackSheet } from './CinemaPlaybackSheet';
 import { NetflixColors, TOP_TEN_COUNTRY_LABEL, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
 import {
   MediaSectionMenuButton,
@@ -34,6 +36,7 @@ import {
   fetchTrending,
   fetchTrendingByCountry,
   fetchUpcoming,
+  saveToWatchList,
   setListMembership,
   watchCinemaWatchlist,
 } from './tmdbService';
@@ -180,8 +183,8 @@ export function CinemaPage() {
     setCurrentTab(tab);
   };
 
-  const launchPlayer = (item: MediaItem, season?: number, episode?: number) => {
-    const resume = resumeSecondsOf(item);
+  const launchPlayer = (item: MediaItem, season?: number, episode?: number, opts?: { restart?: boolean }) => {
+    const resume = opts?.restart ? 0 : resumeSecondsOf(item);
     const qs = new URLSearchParams({
       type: item.mediaType,
       title: item.title,
@@ -193,6 +196,16 @@ export function CinemaPage() {
     }
     if (resume != null && resume > 0) qs.set('start', String(resume));
     navigate(`/cinema/video/${item.tmdbId}?${qs.toString()}`);
+  };
+
+  const handleContinueTap = async (item: MediaItem) => {
+    const action = await showCinemaPlaybackSheet(item);
+    if (!action) return;
+    if (action === 'resume') launchPlayer(item);
+    else if (action === 'restart') launchPlayer(item, undefined, undefined, { restart: true });
+    else if (action === 'episodes') setDrawerItem(item);
+    else if (action === 'finished') void saveToWatchList(item, userName, 'watched');
+    else if (action === 'remove') void clearWatchProgress(item, userName);
   };
 
   // `_showMediaDetails`: the drawer opens with the saved status and progress.
@@ -229,6 +242,7 @@ export function CinemaPage() {
         overflow: 'hidden',
       }}
     >
+      <TvMediaNavHeader currentRoute="/cinema" onLogout={() => void handleLogout()} />
       {isDesktop && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20 }}>
           <NetflixCinemaTopBar
@@ -295,7 +309,9 @@ export function CinemaPage() {
             savedList={savedList}
             onRefresh={loadHome}
             onTapItem={setDrawerItem}
+            onTapContinue={(item) => void handleContinueTap(item)}
             onPlay={(item) => launchPlayer(item)}
+            onRestart={(item) => launchPlayer(item, undefined, undefined, { restart: true })}
             onToggleList={(item, add) => void setListMembership(item, userName, add)}
             isInList={(item) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(item) && w.status.toLowerCase() === 'to-watch')}
             onExploreBrowse={() => setCurrentTab(2)}
@@ -372,7 +388,9 @@ function HomeTab({
   savedList,
   onRefresh,
   onTapItem,
+  onTapContinue,
   onPlay,
+  onRestart,
   onToggleList,
   isInList,
   onExploreBrowse,
@@ -389,14 +407,23 @@ function HomeTab({
   savedList: MediaItem[];
   onRefresh: () => void;
   onTapItem: (m: MediaItem) => void;
+  onTapContinue: (m: MediaItem) => void;
   onPlay: (m: MediaItem) => void;
+  onRestart: (m: MediaItem) => void;
   onToggleList: (m: MediaItem, add: boolean) => void;
   isInList: (m: MediaItem) => boolean;
   onExploreBrowse: () => void;
 }) {
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
-  const rowProps = { isDesktop, onTapItem, onPlayItem: onPlay, onToggleListItem: onToggleList, isInList };
+  const rowProps = {
+    isDesktop,
+    onTapItem,
+    onPlayItem: onPlay,
+    onRestartItem: onRestart,
+    onToggleListItem: onToggleList,
+    isInList,
+  };
 
   return (
     <div>
@@ -423,7 +450,7 @@ function HomeTab({
       )}
 
       {watchingList.length > 0 && (
-        <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} {...rowProps} />
+        <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} {...rowProps} onTapItem={onTapContinue} />
       )}
       {savedList.length > 0 && (
         <NetflixRow title="Your picks" items={savedList.slice(0, 10)} {...rowProps} />

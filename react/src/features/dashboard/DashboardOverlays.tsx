@@ -1,6 +1,6 @@
 // Port of lib/features/dashboard/presentation/widgets/dashboard_overlays.dart
 // and dashboard_actions.dart.
-import { useState, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useValue } from '../../core/system/store';
@@ -15,6 +15,8 @@ import { MoodPicker } from '../heartbeat/MoodPicker';
 import { moodController } from '../heartbeat/moodService';
 import { PartnerStatusIndicator } from '../heartbeat/PartnerStatusIndicator';
 
+const LazyCreatorModal = lazy(() => import('./CreatorModal').then((m) => ({ default: m.CreatorModal })));
+
 export const kTopActionsInset = 24;
 export const kTopActionsSize = 54;
 export const kTopActionsGap = 14;
@@ -26,6 +28,7 @@ export function DashboardOverlays() {
   const auth = useAuth();
   const navigate = useNavigate();
   const isMoodPromptVisible = useValue(guardianController.isMoodPromptVisible);
+  const [creatorOpen, setCreatorOpen] = useState(false);
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -57,9 +60,17 @@ export function DashboardOverlays() {
       {/* Top-left: Creator tools for Khent */}
       {auth.currentUser === 'khentsgdz' && (
         <div style={{ position: 'absolute', top: kTopActionsInset, left: 24, pointerEvents: 'auto' }}>
-          <FloatingAction tooltip="Open creator tools" onTap={() => navigate('/motchi')}>
+          <FloatingAction tooltip="Open creator tools" onTap={() => setCreatorOpen(true)}>
             <Icon name="favorite" size={26} color={AppColors.roseQuartz} />
           </FloatingAction>
+        </div>
+      )}
+
+      {creatorOpen && (
+        <div style={{ pointerEvents: 'auto' }}>
+          <Suspense fallback={null}>
+            <LazyCreatorModal onClose={() => setCreatorOpen(false)} />
+          </Suspense>
         </div>
       )}
 

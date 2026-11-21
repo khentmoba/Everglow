@@ -37,6 +37,7 @@ import {
 } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
 import { clearResumeAnchor } from './readerSettings';
+import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 
 export function MangaPage() {
   const { width } = useViewport();
@@ -250,6 +251,7 @@ export function MangaPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: KatanaColors.background, color: KatanaColors.text }}>
+      <TvMediaNavHeader currentRoute="/manga" />
       <KatanaHeader
         active={tab}
         width={width}

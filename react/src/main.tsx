@@ -2,10 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AgentMode } from './core/agent/agentMode';
+import { ConnectivityService } from './core/network/connectivity';
+import { NetworkQualityService } from './core/network/networkQuality';
 import { prefetchRoute } from './core/router/routeChunks';
 import './styles.css';
 
 AgentMode.init();
+ConnectivityService.init();
+NetworkQualityService.init();
 
 const params = new URLSearchParams(window.location.search);
 if (params.get('screencheck') === '1') {
@@ -19,7 +23,9 @@ const initialRoute =
   agentTarget && agentTarget.toLowerCase().trim() in AgentMode.routeAliases
     ? AgentMode.routeAliases[agentTarget.toLowerCase().trim()]
     : window.location.pathname;
-prefetchRoute(initialRoute);
+if (!NetworkQualityService.shouldSkipPrefetch()) {
+  prefetchRoute(initialRoute);
+}
 
 // Flutter disables the browser's right-click menu on web.
 window.addEventListener('contextmenu', (e) => e.preventDefault());

@@ -3,6 +3,7 @@ import { AppColors } from '../../core/theme/colors';
 import { AppBreakpoint } from '../../core/theme/layout';
 import { RandomizerCard } from '../date_randomizer/RandomizerCard';
 import { ArtistShowdownCard, JukeboxWidget, MusicStatsSection } from '../jukebox/JukeboxCards';
+import { LovedTracksCard, OnThisDayMusicCard } from '../jukebox/JukeboxInsightsCards';
 import { StarlightJarWidget } from '../starlight_jar/StarlightJarWidget';
 import { WatchPartyCard } from '../watch_party/WatchPartyCard';
 import { CalendarPreview } from './CalendarPreview';
@@ -157,6 +158,10 @@ export function DashboardLowerZones({
         <div style={{ height: 16 }} />
         <div style={{ padding: '0 16px' }}>
           <ArtistShowdownCard />
+          <div style={{ height: 16 }} />
+          <OnThisDayMusicCard />
+          <div style={{ height: 16 }} />
+          <LovedTracksCard />
         </div>
         <div style={{ height: 16 }} />
         <RandomizerCard />

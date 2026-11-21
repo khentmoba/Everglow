@@ -1,7 +1,7 @@
 // Port of lib/features/watch_party/presentation/screens/watch_party_lobby_screen.dart
 // and watch_party_screen_web.dart.
 import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
@@ -12,8 +12,9 @@ import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
-import { TmdbImages, type MediaItem } from '../cinema/cinemaTypes';
-import { searchMulti } from '../cinema/tmdbService';
+import { TmdbImages } from '../cinema/cinemaTypes';
+import { HlsServerPlayer } from './HlsServerPlayer';
+import { showEpisodePicker, showWatchPartyMediaPicker } from './WatchPartyPickerSheets';
 import {
   createWatchPartyRoom,
   deleteWatchPartyRoom,
@@ -23,9 +24,19 @@ import {
   roomStream,
   roomsStream,
   sendRoomChatMessage,
+  updateRoomMedia,
   updateWatchPartyRoom,
   type WatchPartyRoom,
 } from './watchPartyService';
+import {
+  BUILTIN_WATCH_PARTY_SERVERS,
+  cinesrcCommand,
+  isUserSeek,
+  loadWatchPartyServers,
+  parseCinesrcEvent,
+  WatchPartyClock,
+  type WatchPartyServer,
+} from './watchPartySync';
 
 function resolvePoster(path: string): string {
   if (!path) return '';
@@ -398,23 +409,85 @@ function WatchPartyRoomView({
   const { width } = useViewport();
   const room = useSource(() => roomStream(roomId), [roomId], null);
   const messages = useSource(() => roomChatStream(roomId), [roomId], []);
+  const clock = useMemo(() => new WatchPartyClock(), []);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [serverOpen, setServerOpen] = useState(false);
+  const [servers, setServers] = useState<WatchPartyServer[]>(BUILTIN_WATCH_PARTY_SERVERS);
   const [msgText, setMsgText] = useState('');
-  const [searchQ, setSearchQ] = useState('');
-  const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
+  const [displaySeconds, setDisplaySeconds] = useState(0);
 
   useEffect(() => {
-    const q = searchQ.trim();
-    if (!q) {
-      setSearchResults([]);
-      return;
+    void loadWatchPartyServers().then(setServers);
+  }, []);
+
+  useEffect(() => {
+    if (!room) return;
+    clock.observe(room.positionAt ?? room.updatedAt);
+    setDisplaySeconds(clock.expectedPosition(room));
+    if (room.state !== 'playing') return;
+    const id = window.setInterval(() => setDisplaySeconds(clock.expectedPosition(room)), 1000);
+    return () => window.clearInterval(id);
+  }, [room, clock]);
+
+  // Tab-close cleanup: pause room if host leaves the browser tab.
+  useEffect(() => {
+    if (!room || room.hostUid !== myUid) return;
+    const onUnload = () => {
+      void updateWatchPartyRoom(room.id, { state: 'paused', updatedBy: myUid }).catch(() => {});
+    };
+    window.addEventListener('pagehide', onUnload);
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      window.removeEventListener('pagehide', onUnload);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, [room?.id, room?.hostUid, myUid]);
+
+  // CineSrc postMessage bridge for embed playback sync.
+  useEffect(() => {
+    if (!room || room.serverType === 'hls') return;
+    const onMessage = (e: MessageEvent) => {
+      const ev = parseCinesrcEvent(e.data);
+      if (!ev) return;
+      if (ev.name === 'play' && room.state !== 'playing') {
+        void updateWatchPartyRoom(room.id, {
+          state: 'playing',
+          currentTime: ev.currentTime ?? clock.expectedPosition(room),
+          updatedBy: myUid,
+        });
+      } else if (ev.name === 'pause' && room.state === 'playing') {
+        void updateWatchPartyRoom(room.id, {
+          state: 'paused',
+          currentTime: ev.currentTime ?? clock.expectedPosition(room),
+          updatedBy: myUid,
+        });
+      } else if ((ev.name === 'seeked' || ev.name === 'timeupdate') && ev.currentTime != null) {
+        if (isUserSeek(clock.expectedPosition(room), ev.currentTime, 2.5)) {
+          void updateWatchPartyRoom(room.id, {
+            currentTime: ev.currentTime,
+            updatedBy: myUid,
+          });
+        }
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [room, myUid, clock]);
+
+  // Push remote play/pause/seek state into the CineSrc embed iframe.
+  useEffect(() => {
+    if (!room || room.serverType === 'hls') return;
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    const expected = clock.expectedPosition(room);
+    try {
+      win.postMessage(cinesrcCommand('seek', [expected]), '*');
+      win.postMessage(cinesrcCommand(room.state === 'playing' ? 'play' : 'pause'), '*');
+    } catch {
+      // Cross-origin frame not ready yet.
     }
-    const t = window.setTimeout(() => {
-      void searchMulti(q).then((r) => setSearchResults(r.results));
-    }, 300);
-    return () => clearTimeout(t);
-  }, [searchQ]);
+  }, [room?.state, room?.currentTime, room?.serverType, clock]);
 
   if (!room) {
     return (
@@ -435,6 +508,7 @@ function WatchPartyRoomView({
 
   const compact = width < 700;
   const hasMedia = room.tmdbId > 0 || room.title.length > 0;
+  const isHlsMode = room.serverType === 'hls';
   const embedSrc = hasMedia
     ? room.isAnime
       ? `https://everglow-1c6db.web.app/embed.html?source=megaplay&malId=${room.malId ?? room.tmdbId}&ep=${room.episode ?? 1}`
@@ -444,23 +518,47 @@ function WatchPartyRoomView({
   const togglePlay = () =>
     void updateWatchPartyRoom(room.id, {
       state: room.state === 'playing' ? 'paused' : 'playing',
+      currentTime: clock.expectedPosition(room),
       updatedBy: myUid,
     });
 
-  const pickMedia = (m: MediaItem) => {
-    void updateWatchPartyRoom(room.id, {
-      tmdbId: m.tmdbId,
-      mediaType: m.mediaType === 'tv' ? 'tv' : 'movie',
-      title: m.title,
-      posterPath: m.posterPath,
-      isAnime: m.isAnime,
-      season: m.mediaType === 'tv' ? 1 : undefined,
-      episode: m.mediaType === 'tv' ? 1 : undefined,
+  const openMediaPicker = async () => {
+    const picked = await showWatchPartyMediaPicker({
+      currentTitle: room.title,
+      initialCategory: room.isAnime ? 'anime' : 'cinema',
+    });
+    if (!picked) return;
+    await updateRoomMedia(room.id, picked, myUid);
+    showSnackBar(`Switched to ${picked.title}`);
+  };
+
+  const openEpisodePicker = async () => {
+    if (!hasMedia || (room.mediaType !== 'tv' && !room.isAnime)) return;
+    const picked = await showEpisodePicker({
+      title: room.title,
+      isAnime: room.isAnime,
+      maxEpisodes: room.episodeCount,
+    });
+    if (!picked) return;
+    await updateWatchPartyRoom(room.id, {
+      season: picked.season,
+      episode: picked.episode,
       currentTime: 0,
       state: 'paused',
       updatedBy: myUid,
     });
-    setPickerOpen(false);
+    showSnackBar(room.isAnime ? `Episode ${picked.episode}` : `S${picked.season} E${picked.episode}`);
+  };
+
+  const selectServer = async (srv: WatchPartyServer) => {
+    setServerOpen(false);
+    await updateWatchPartyRoom(room.id, {
+      serverType: srv.type,
+      serverName: srv.name,
+      serverHost: srv.host,
+      updatedBy: myUid,
+    });
+    showSnackBar(`Server: ${srv.name}`);
   };
 
   return (
@@ -503,13 +601,61 @@ function WatchPartyRoomView({
               textOverflow: 'ellipsis',
             }}
           >
-            {hasMedia ? room.title : 'Pick a title'}
+            {hasMedia
+              ? room.mediaType === 'tv' || room.isAnime
+                ? `${room.title} · ${room.isAnime ? `Ep ${room.episode ?? 1}` : `S${room.season ?? 1} E${room.episode ?? 1}`}`
+                : room.title
+              : 'Pick a title'}
           </div>
         </div>
+        {hasMedia && (room.mediaType === 'tv' || room.isAnime) && (
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Pick episode"
+            onClick={() => void openEpisodePicker()}
+            style={{
+              padding: '7px 10px',
+              borderRadius: 999,
+              background: withAlpha(AppColors.petalWhite, 0.07),
+              border: `1px solid ${withAlpha(AppColors.petalWhite, 0.16)}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              color: AppColors.petalWhite,
+              ...AppTypography.outfitHeading,
+              fontSize: 11.5,
+            }}
+          >
+            <Icon name="format_list_numbered" size={15} color={AppColors.blushGold} />
+            {!compact && <span>Episodes</span>}
+          </button>
+        )}
         <button
           type="button"
           className="bare-button"
-          onClick={() => setPickerOpen(true)}
+          aria-label="Switch server"
+          onClick={() => setServerOpen(true)}
+          style={{
+            padding: '7px 10px',
+            borderRadius: 999,
+            background: withAlpha(AppColors.petalWhite, 0.07),
+            border: `1px solid ${withAlpha(AppColors.petalWhite, 0.16)}`,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            color: AppColors.petalWhite,
+            ...AppTypography.outfitHeading,
+            fontSize: 11.5,
+          }}
+        >
+          <Icon name="dns" size={15} color={AppColors.roseQuartz} />
+          {!compact && <span>{room.serverName || 'Server'}</span>}
+        </button>
+        <button
+          type="button"
+          className="bare-button"
+          onClick={() => void openMediaPicker()}
           style={{
             padding: '7px 12px',
             borderRadius: 999,
@@ -577,7 +723,7 @@ function WatchPartyRoomView({
                 <button
                   type="button"
                   className="bare-button"
-                  onClick={() => setPickerOpen(true)}
+                  onClick={() => void openMediaPicker()}
                   style={{
                     padding: '12px 20px',
                     borderRadius: 999,
@@ -606,15 +752,33 @@ function WatchPartyRoomView({
                   border: `1px solid ${Derived.border}`,
                 }}
               >
-                <iframe
-                  key={embedSrc}
-                  src={embedSrc}
-                  title={room.title}
-                  allowFullScreen
-                  allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                />
+                {isHlsMode ? (
+                  <HlsServerPlayer
+                    room={room}
+                    clock={clock}
+                    onUserPlay={(sec) =>
+                      void updateWatchPartyRoom(room.id, { state: 'playing', currentTime: sec, updatedBy: myUid })
+                    }
+                    onUserPause={(sec) =>
+                      void updateWatchPartyRoom(room.id, { state: 'paused', currentTime: sec, updatedBy: myUid })
+                    }
+                    onUserSeek={(sec) =>
+                      void updateWatchPartyRoom(room.id, { currentTime: sec, updatedBy: myUid })
+                    }
+                    onFallbackToEmbed={() => void selectServer(BUILTIN_WATCH_PARTY_SERVERS[1])}
+                  />
+                ) : (
+                  <iframe
+                    ref={iframeRef}
+                    key={embedSrc}
+                    src={embedSrc}
+                    title={room.title}
+                    allowFullScreen
+                    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                  />
+                )}
               </div>
               <div
                 style={{
@@ -625,7 +789,8 @@ function WatchPartyRoomView({
                   border: `1px solid ${Derived.border}`,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 12,
+                  gap: 10,
+                  flexWrap: 'wrap',
                 }}
               >
                 <button
@@ -644,12 +809,12 @@ function WatchPartyRoomView({
                 >
                   <Icon name={room.state === 'playing' ? 'pause' : 'play_arrow'} size={22} color="#FFFFFF" />
                 </button>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
                   <div style={{ ...AppTypography.outfitBold, fontSize: 13, color: AppColors.petalWhite }}>
                     {room.state === 'playing' ? 'Synced Playback: Playing' : 'Synced Playback: Paused'}
                   </div>
                   <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: Derived.textMuted }}>
-                    {`${formatPartyTime(room.currentTime)} • Updated by ${room.updatedBy === myUid ? 'you' : 'partner'}`}
+                    {`${formatPartyTime(displaySeconds)} • ${room.serverName || 'Embed'} • Updated by ${room.updatedBy === myUid ? 'you' : 'partner'}`}
                   </div>
                 </div>
                 <button
@@ -657,7 +822,26 @@ function WatchPartyRoomView({
                   className="bare-button"
                   onClick={() =>
                     void updateWatchPartyRoom(room.id, {
-                      currentTime: Math.max(0, room.currentTime + 15),
+                      currentTime: Math.max(0, clock.expectedPosition(room) - 15),
+                      updatedBy: myUid,
+                    })
+                  }
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    background: AppColors.shimmerBase,
+                    color: AppColors.petalWhite,
+                    fontSize: 11.5,
+                  }}
+                >
+                  -15s
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={() =>
+                    void updateWatchPartyRoom(room.id, {
+                      currentTime: Math.max(0, clock.expectedPosition(room) + 15),
                       updatedBy: myUid,
                     })
                   }
@@ -772,9 +956,9 @@ function WatchPartyRoomView({
         )}
       </div>
 
-      {pickerOpen && (
+      {serverOpen && (
         <div
-          onClick={() => setPickerOpen(false)}
+          onClick={() => setServerOpen(false)}
           style={{
             position: 'fixed',
             inset: 0,
@@ -790,62 +974,51 @@ function WatchPartyRoomView({
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
-              maxWidth: 460,
-              maxHeight: '80vh',
+              maxWidth: 400,
               borderRadius: 20,
               background: AppColors.inkDeep,
               border: `1px solid ${Derived.border}`,
               padding: 16,
               display: 'flex',
               flexDirection: 'column',
-              gap: 12,
+              gap: 10,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>Choose a Title</span>
-              <button type="button" className="bare-button" onClick={() => setPickerOpen(false)}>
+              <span style={{ ...AppTypography.cormorantBoldWhite, fontSize: 22 }}>Watch Party Server</span>
+              <button type="button" className="bare-button" onClick={() => setServerOpen(false)}>
                 <Icon name="close" size={20} color={AppColors.petalWhite} />
               </button>
             </div>
-            <input
-              autoFocus
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              placeholder="Search movies or series…"
-              style={{
-                padding: '10px 12px',
-                borderRadius: 12,
-                background: AppColors.shimmerBase,
-                border: `1px solid ${Derived.border}`,
-                color: AppColors.petalWhite,
-                outline: 'none',
-              }}
-            />
-            <div
-              className="no-scrollbar"
-              style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}
-            >
-              {searchResults.map((m) => (
+            {servers.map((srv) => {
+              const selected = (room.serverName || 'Everglow Embed (CineSrc)') === srv.name || room.serverHost === srv.host;
+              return (
                 <button
-                  key={`${m.mediaType}:${m.tmdbId}`}
+                  key={srv.id}
                   type="button"
                   className="bare-button"
-                  onClick={() => pickMedia(m)}
+                  onClick={() => void selectServer(srv)}
                   style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    background: AppColors.shimmerBase,
-                    textAlign: 'left',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: selected ? withAlpha(AppColors.deepRose, 0.22) : AppColors.shimmerBase,
+                    border: `1px solid ${selected ? AppColors.roseQuartz : Derived.border}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    textAlign: 'left',
                   }}
                 >
-                  <span style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: AppColors.petalWhite }}>{m.title}</span>
-                  <span style={{ fontSize: 11, color: Derived.textMuted }}>{m.mediaType.toUpperCase()}</span>
+                  <div>
+                    <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: AppColors.petalWhite }}>{srv.name}</div>
+                    <div style={{ fontSize: 11, color: Derived.textMuted }}>
+                      {srv.type === 'hls' ? 'Direct synced HLS stream with subtitles' : 'Embedded CineSrc sync bridge'}
+                    </div>
+                  </div>
+                  {selected && <Icon name="check_circle" size={18} color={AppColors.blushGold} />}
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       )}

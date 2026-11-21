@@ -930,3 +930,108 @@ export async function searchLastfmArtists(queryStr: string): Promise<ArtistSugge
     }))
     .filter((a) => a.name.length > 0);
 }
+
+export interface LovedTrack {
+  name: string;
+  artist: string;
+  imageUrl: string;
+  lovedAt?: Date;
+  url?: string;
+}
+
+export interface OnThisDayMusicData {
+  khentOnThisDay: MusicStatus[];
+  clairOnThisDay: MusicStatus[];
+  khentAnniversary: MusicStatus[];
+  clairAnniversary: MusicStatus[];
+}
+
+export async function fetchLovedTracks(user: string, limit = 12): Promise<LovedTrack[]> {
+  if (AgentMode.demo) {
+    const isKhent = user === LASTFM_USER_KHENT;
+    return isKhent
+      ? [
+          { name: 'Pink + White', artist: 'Frank Ocean', imageUrl: '/images/demo/poster-3.jpg', lovedAt: new Date(2026, 1, 14) },
+          { name: 'Lover', artist: 'Taylor Swift', imageUrl: '/images/demo/poster-1.jpg', lovedAt: new Date(2026, 0, 20) },
+          { name: 'About You', artist: 'The 1975', imageUrl: '/images/demo/poster-2.jpg', lovedAt: new Date(2025, 11, 5) },
+        ]
+      : [
+          { name: 'Glue Song', artist: 'beabadoobee', imageUrl: '/images/demo/poster-4.jpg', lovedAt: new Date(2026, 1, 14) },
+          { name: 'From The Start', artist: 'Laufey', imageUrl: '/images/demo/poster-2.jpg', lovedAt: new Date(2026, 1, 2) },
+          { name: 'Soft Spot', artist: 'keshi', imageUrl: '/images/demo/poster-1.jpg', lovedAt: new Date(2025, 10, 18) },
+        ];
+  }
+  const data = await fetchLastfmJson({
+    method: 'user.getlovedtracks',
+    user,
+    limit: String(limit),
+  });
+  const raw = asArray<Record<string, unknown>>(
+    (data?.lovedtracks as Record<string, unknown> | undefined)?.track,
+  );
+  return raw
+    .map((t): LovedTrack => {
+      const artistObj = t.artist as Record<string, unknown> | string | undefined;
+      const artist = typeof artistObj === 'string' ? artistObj : String(artistObj?.name ?? '');
+      const dateObj = t.date as Record<string, unknown> | undefined;
+      const uts = Number(dateObj?.uts ?? 0);
+      return {
+        name: String(t.name ?? ''),
+        artist,
+        imageUrl: pickLastfmImageUrl(t.image) ?? '',
+        lovedAt: uts > 0 ? new Date(uts * 1000) : undefined,
+        url: typeof t.url === 'string' ? t.url : undefined,
+      };
+    })
+    .filter((t) => t.name.length > 0);
+}
+
+async function fetchWindowTracks(user: string, startSec: number, endSec: number, limit = 6): Promise<MusicStatus[]> {
+  const data = await fetchLastfmJson({
+    method: 'user.getrecenttracks',
+    user,
+    from: String(startSec),
+    to: String(endSec),
+    limit: String(limit),
+  });
+  const raw = asArray<Record<string, unknown>>(
+    (data?.recenttracks as Record<string, unknown> | undefined)?.track,
+  );
+  return raw.map((t) => parseRecentTrackJson(t, user)).filter((t) => t.trackName.length > 0);
+}
+
+export async function fetchOnThisDayMusic(): Promise<OnThisDayMusicData> {
+  if (AgentMode.demo) {
+    const lastYear = new Date();
+    lastYear.setFullYear(lastYear.getFullYear() - 1);
+    const annDate = new Date(lastYear.getFullYear(), 1, 14, 20, 0);
+    return {
+      khentOnThisDay: [
+        { username: LASTFM_USER_KHENT, trackName: 'Sparks', artistName: 'Coldplay', albumName: 'Parachutes', imageUrl: '/images/demo/poster-3.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: lastYear },
+      ],
+      clairOnThisDay: [
+        { username: LASTFM_USER_CLAIR, trackName: 'Valentine', artistName: 'Laufey', albumName: 'Everything I Know About Love', imageUrl: '/images/demo/poster-1.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: lastYear },
+      ],
+      khentAnniversary: [
+        { username: LASTFM_USER_KHENT, trackName: 'Lover', artistName: 'Taylor Swift', albumName: 'Lover', imageUrl: '/images/demo/poster-2.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: annDate },
+      ],
+      clairAnniversary: [
+        { username: LASTFM_USER_CLAIR, trackName: 'Glue Song', artistName: 'beabadoobee', albumName: 'Glue Song', imageUrl: '/images/demo/poster-4.jpg', isPlaying: false, spotifyUrl: 'https://open.spotify.com', timestamp: annDate },
+      ],
+    };
+  }
+  const now = new Date();
+  const lastYearStart = Math.floor(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), 0, 0, 0).getTime() / 1000);
+  const lastYearEnd = lastYearStart + 86400;
+  const annYear = now.getMonth() > 1 || (now.getMonth() === 1 && now.getDate() >= 14) ? now.getFullYear() : now.getFullYear() - 1;
+  const annStart = Math.floor(new Date(annYear, 1, 14, 0, 0, 0).getTime() / 1000);
+  const annEnd = annStart + 86400;
+
+  const [khentOnThisDay, clairOnThisDay, khentAnniversary, clairAnniversary] = await Promise.all([
+    fetchWindowTracks(LASTFM_USER_KHENT, lastYearStart, lastYearEnd, 4),
+    fetchWindowTracks(LASTFM_USER_CLAIR, lastYearStart, lastYearEnd, 4),
+    fetchWindowTracks(LASTFM_USER_KHENT, annStart, annEnd, 4),
+    fetchWindowTracks(LASTFM_USER_CLAIR, annStart, annEnd, 4),
+  ]);
+  return { khentOnThisDay, clairOnThisDay, khentAnniversary, clairAnniversary };
+}
