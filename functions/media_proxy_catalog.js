@@ -87,6 +87,8 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     if (cached) {
       res.status(cached.status);
       res.set('Content-Type', cached.contentType);
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
       res.set('Cache-Control', 'public, max-age=300');
       res.set('X-Cache', 'HIT');
       res.send(cached.body);
@@ -103,13 +105,18 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
       signal: AbortSignal.timeout(20000),
     });
     const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
-    const contentType = upstream.headers.get('content-type') || 'application/json';
+    const rawCt = (upstream.headers.get('content-type') || 'application/json').split(';')[0].trim().toLowerCase();
+    const contentType =
+      rawCt === 'application/json' || rawCt === 'text/plain'
+        ? `${rawCt}; charset=utf-8`
+        : 'text/plain; charset=utf-8';
     if (!noStore && upstream.status === 200 && Buffer.byteLength(body, 'utf8') <= CATALOG_MAX_CACHE_BYTES) {
       _setExternalCache(cacheKey, { status: 200, contentType, body });
     }
     res.status(upstream.status);
     res.set('Content-Type', contentType);
     res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', noStore ? 'private, no-store' : 'public, max-age=300');
     res.set('X-Cache', 'MISS');
     res.send(body);

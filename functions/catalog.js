@@ -1,6 +1,7 @@
 'use strict';
 
 const {
+  applyCors,
   cappedHttps,
   requireAuth,
   enforceRateLimit,
@@ -38,10 +39,8 @@ function lastfmCacheTtlMs(method, period) {
 }
 
 const proxyTmdb = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.set('Vary', 'Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
+  res.set('Vary', 'Origin, Authorization');
   res.set('Cache-Control', 'private, max-age=0, s-maxage=300');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
@@ -90,10 +89,8 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
 });
 
 const proxyLastfm = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.set('Vary', 'Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
+  res.set('Vary', 'Origin, Authorization');
   res.set('Cache-Control', 'private, no-store');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }

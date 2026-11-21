@@ -2,11 +2,41 @@ import { lazy, type ComponentType } from 'react';
 
 type ModuleLoader<T> = () => Promise<T>;
 
+const CHUNK_RELOAD_KEY = 'everglow:chunk-reload';
+
+function isChunkLoadError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
+    /Loading chunk [\w-]+ failed/i.test(msg)
+  );
+}
+
 function lazyNamed<T extends Record<string, unknown>, K extends keyof T>(
   loader: ModuleLoader<T>,
   exportName: K,
 ) {
-  return lazy(() => loader().then((m) => ({ default: m[exportName] as ComponentType<any> })));
+  return lazy(() =>
+    loader()
+      .then((m) => ({ default: m[exportName] as ComponentType<any> }))
+      .catch((err: unknown) => {
+        if (typeof window !== 'undefined' && isChunkLoadError(err)) {
+          const target = `${window.location.pathname}${window.location.search}`;
+          try {
+            if (window.sessionStorage.getItem(CHUNK_RELOAD_KEY) !== target) {
+              window.sessionStorage.setItem(CHUNK_RELOAD_KEY, target);
+              window.location.reload();
+              return new Promise<never>(() => {});
+            }
+          } catch {
+            // sessionStorage unavailable
+          }
+        }
+        throw err;
+      }),
+  );
 }
 
 export const routeLoaders = {

@@ -197,7 +197,7 @@ function webShellPlugin(): Plugin {
           res.end('Bad Request');
           return;
         }
-        if (path === '/env.txt' || /(^|\/)\.env(\.|$)/i.test(path)) {
+        if (/(^|\/)env\.txt$/i.test(path) || /(^|\/)\.env(\.|$)/i.test(path)) {
           res.statusCode = 404;
           res.end('Not Found');
           return;
@@ -215,7 +215,11 @@ function webShellPlugin(): Plugin {
     },
     closeBundle() {
       const distRoot = resolve(__dirname, 'dist');
-      rmSync(join(distRoot, 'env.txt'), { force: true });
+      for (const entry of existsSync(distRoot) ? readdirSync(distRoot) : []) {
+        if (/^env\.txt$/i.test(entry) || /^\.env(\.|$)/i.test(entry)) {
+          rmSync(join(distRoot, entry), { force: true });
+        }
+      }
       for (const f of WEB_FOLDERS) {
         const src = join(webRoot, f);
         if (existsSync(src)) cpSync(src, join(distRoot, f), { recursive: true });

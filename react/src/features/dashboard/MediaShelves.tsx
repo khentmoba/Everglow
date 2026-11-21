@@ -116,10 +116,12 @@ type WatchListsValue = {
 
 const WatchListsContext = createContext<WatchListsValue | null>(null);
 
+const DASHBOARD_WATCHLIST_LIMIT = 60;
+
 export function WatchListsProvider({ children }: { children: ReactNode }) {
   const { me, partner } = useCouple();
-  const mine = useSource(() => watchUserWatchList(me), [me], []);
-  const theirs = useSource(() => watchUserWatchList(partner), [partner], []);
+  const mine = useSource(() => watchUserWatchList(me, DASHBOARD_WATCHLIST_LIMIT), [me], []);
+  const theirs = useSource(() => watchUserWatchList(partner, DASHBOARD_WATCHLIST_LIMIT), [partner], []);
   return (
     <WatchListsContext.Provider value={{ me, partner, mine, theirs }}>
       {children}
@@ -130,8 +132,8 @@ export function WatchListsProvider({ children }: { children: ReactNode }) {
 function useWatchLists() {
   const shared = useContext(WatchListsContext);
   const { me, partner } = useCouple();
-  const ownMine = useSource(() => (shared ? null : watchUserWatchList(me)), [shared ? null : me], []);
-  const ownTheirs = useSource(() => (shared ? null : watchUserWatchList(partner)), [shared ? null : partner], []);
+  const ownMine = useSource(() => (shared ? null : watchUserWatchList(me, DASHBOARD_WATCHLIST_LIMIT)), [shared ? null : me], []);
+  const ownTheirs = useSource(() => (shared ? null : watchUserWatchList(partner, DASHBOARD_WATCHLIST_LIMIT)), [shared ? null : partner], []);
   const data = shared ?? { me, partner, mine: ownMine, theirs: ownTheirs };
   return (keep: (m: WatchMediaItem) => boolean) =>
     mergeByOwner(

@@ -208,11 +208,17 @@ async function sealCipher(key) {
   return cipher;
 }
 
+const SEAL_TTL_MS = 6 * 60 * 60 * 1000;
+
 async function sealTarget(key, payload) {
   const cipher = await sealCipher(key);
   if (!cipher) return '';
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const body = enc.encode(JSON.stringify(payload));
+  const wrapped = {
+    ...payload,
+    exp: typeof payload?.exp === 'number' ? payload.exp : Date.now() + SEAL_TTL_MS,
+  };
+  const body = enc.encode(JSON.stringify(wrapped));
   const ct = new Uint8Array(
     await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv, additionalData: enc.encode(SEAL_AAD) },
@@ -243,7 +249,9 @@ async function openSeal(key, token) {
       raw.subarray(12),
     );
     const obj = JSON.parse(dec.decode(plain));
-    return obj && typeof obj === 'object' ? obj : null;
+    if (!obj || typeof obj !== 'object') return null;
+    if (typeof obj.exp !== 'number' || Date.now() > obj.exp) return null;
+    return obj;
   } catch {
     return null;
   }

@@ -24,15 +24,49 @@ const ALLOWED_ORIGINS = new Set([
   'https://everglow-1c6db.firebaseapp.com',
 ]);
 
+const WORKER_RATE_BUCKETS = new Map();
+
+function isAllowedOriginUrl(raw, selfOrigin) {
+  if (!raw) return false;
+  try {
+    const origin = new URL(raw).origin;
+    if (ALLOWED_ORIGINS.has(origin) || (selfOrigin && origin === selfOrigin)) return true;
+    return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  } catch {
+    return false;
+  }
+}
+
+function checkWorkerRateLimit(request, bucket, limit, windowMs = 60_000) {
+  const ip =
+    request?.headers?.get('cf-connecting-ip') ||
+    request?.headers?.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    'unknown';
+  const now = Date.now();
+  const key = `${bucket}:${ip}`;
+  let entry = WORKER_RATE_BUCKETS.get(key);
+  if (!entry || now >= entry.resetAt) {
+    if (WORKER_RATE_BUCKETS.size > 2000) {
+      for (const [k, v] of WORKER_RATE_BUCKETS) {
+        if (now >= v.resetAt) WORKER_RATE_BUCKETS.delete(k);
+      }
+    }
+    entry = { count: 1, resetAt: now + windowMs };
+    WORKER_RATE_BUCKETS.set(key, entry);
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > limit;
+}
+
 function corsHeaders(request) {
   const origin = request?.headers?.get('origin') || '';
   let selfOrigin = '';
   try {
     selfOrigin = request?.url ? new URL(request.url).origin : '';
   } catch (_) {}
-  const isLocal = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
   const allowOrigin =
-    origin && (ALLOWED_ORIGINS.has(origin) || origin === selfOrigin || isLocal)
+    origin && isAllowedOriginUrl(origin, selfOrigin)
       ? origin
       : 'https://everglow-1c6db.web.app';
   return {
@@ -69,6 +103,18 @@ async function handleProxyAnime(request, env) {
   }
   if (request.method !== 'GET') {
     return htmlResponse(failHtml('Method not allowed', 'GET only.'), 405, request);
+  }
+  const selfOrigin = new URL(request.url).origin;
+  const reqOrigin = request.headers.get('origin');
+  const reqReferer = request.headers.get('referer');
+  if (
+    (reqOrigin && !isAllowedOriginUrl(reqOrigin, selfOrigin)) ||
+    (reqReferer && !isAllowedOriginUrl(reqReferer, selfOrigin))
+  ) {
+    return jsonResponse({ error: 'Forbidden origin' }, 403, request);
+  }
+  if (checkWorkerRateLimit(request, 'proxyAnime', 60)) {
+    return jsonResponse({ error: 'Too many requests' }, 429, request);
   }
 
   const query = Object.fromEntries(new URL(request.url).searchParams);
@@ -201,6 +247,9 @@ async function handleProxyHls(request, env, _ctx) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return jsonResponse({ error: 'GET only' }, 405, request);
   }
+  if (checkWorkerRateLimit(request, 'proxyHls', 600)) {
+    return jsonResponse({ error: 'Too many requests' }, 429, request);
+  }
 
   const url = new URL(request.url);
   const sealed = await scopedTarget(url.searchParams, env.CDN_STAMP_KEY || null);
@@ -212,10 +261,10 @@ async function handleProxyHls(request, env, _ctx) {
   try {
     parsed = new URL(target);
   } catch {
-    return jsonResponse({ error: 'Invalid url' }, 400);
+    return jsonResponse({ error: 'Invalid url' }, 400, request);
   }
   if (parsed.protocol !== 'https:') {
-    return jsonResponse({ error: 'Host not allowed' }, 400);
+    return jsonResponse({ error: 'Host not allowed' }, 400, request);
   }
 
   const megaplay =
@@ -285,10 +334,10 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     upstream = await fetchPublicHls(target, headers, AbortSignal.timeout(25_000));
   } catch (e) {
     console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
-    return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502);
+    return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502, request);
   }
   if (!upstream.ok && upstream.status !== 206) {
-    return jsonResponse({ error: `Upstream ${upstream.status}` }, upstream.status);
+    return jsonResponse({ error: `Upstream ${upstream.status}` }, upstream.status, request);
   }
 
   const upstreamCt = (upstream.headers.get('content-type') || '').toLowerCase();

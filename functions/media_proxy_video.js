@@ -65,6 +65,7 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
       res.status(upstream.status).json({ error: `Upstream returned ${upstream.status}` }); return;
     }
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    const baseCt = contentType.split(';')[0].trim().toLowerCase();
     const finalUrl = upstream.url || targetUrl;
     if (/mpegurl/i.test(contentType) || new URL(finalUrl).pathname.toLowerCase().endsWith('.m3u8')) {
       const reader = upstream.body.getReader();
@@ -80,10 +81,25 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
         }
       } finally { await reader.cancel(); }
       res.set('Content-Type', 'application/vnd.apple.mpegurl');
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
       res.status(200).send(rewritePlaylist(Buffer.concat(chunks).toString('utf8'), finalUrl, access));
       return;
     }
-    res.set('Content-Type', contentType);
+    if (
+      baseCt === 'text/html' ||
+      baseCt === 'application/xhtml+xml' ||
+      baseCt === 'image/svg+xml' ||
+      baseCt === 'text/javascript' ||
+      baseCt === 'application/javascript'
+    ) {
+      await upstream.body?.cancel();
+      res.status(415).json({ error: 'Unsupported media content type' });
+      return;
+    }
+    res.set('Content-Type', baseCt || 'application/octet-stream');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     for (const name of ['Content-Range', 'Accept-Ranges', 'Content-Length']) {
       const value = upstream.headers.get(name);
       if (value) res.set(name, value);

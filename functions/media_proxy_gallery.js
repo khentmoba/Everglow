@@ -131,7 +131,7 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
       const d = doc.data();
       if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
         try {
-          const path = decodeURIComponent(d.imageUrl.split('/o/')[1]?.split('?')[0] || '');
+          const path = resolveGalleryDeletePath(d.imageUrl);
           if (path) await bucket.file(path).delete();
         } catch (_) { }
       }

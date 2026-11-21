@@ -1,8 +1,23 @@
 'use strict';
 
 const common = require('./common.js');
-const { cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
 const { streamMediaBody } = require('./stream_media_body');
+
+const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|avif|bmp|x-icon|vnd\.microsoft\.icon)$/;
+const SANDBOX_CSP = "default-src 'none'; sandbox";
+
+function safeRasterContentType(raw) {
+  const base = String(raw || 'image/jpeg').split(';')[0].trim().toLowerCase();
+  return RASTER_IMAGE_RE.test(base) ? base : null;
+}
+
+function safeJsonContentType(raw) {
+  const base = String(raw || 'application/json').split(';')[0].trim().toLowerCase();
+  return base === 'application/json' || base === 'text/plain'
+    ? `${base}; charset=utf-8`
+    : 'text/plain; charset=utf-8';
+}
 
 const proxyMangaImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -72,9 +87,15 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
+    const contentType = safeRasterContentType(upstream.headers.get('content-type'));
+    if (!contentType) {
+      await upstream.body?.cancel();
+      res.status(415).json({ error: 'Upstream did not return a raster image' });
+      return;
+    }
     res.set('Content-Type', contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=600');
     await streamMediaBody(upstream.body, res);
   } catch (e) {
@@ -154,9 +175,15 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
+    const contentType = safeRasterContentType(upstream.headers.get('content-type'));
+    if (!contentType) {
+      await upstream.body?.cancel();
+      res.status(415).json({ error: 'Upstream did not return a raster image' });
+      return;
+    }
     res.set('Content-Type', contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=600');
     await streamMediaBody(upstream.body, res);
   } catch (e) {
@@ -240,9 +267,15 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType =
-      upstream.headers.get('content-type') || 'image/jpeg';
+    const contentType = safeRasterContentType(upstream.headers.get('content-type'));
+    if (!contentType) {
+      await upstream.body?.cancel();
+      res.status(415).json({ error: 'Upstream did not return a raster image' });
+      return;
+    }
     res.set('Content-Type', contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=600');
     await streamMediaBody(upstream.body, res);
   } catch (e) {
@@ -256,9 +289,7 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
 });
 
 const proxyComick = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -302,10 +333,9 @@ const proxyComick = cappedHttps(30, async (req, res) => {
     });
     const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
     res.status(upstream.status);
-    res.set(
-      'Content-Type',
-      upstream.headers.get('content-type') || 'application/json',
-    );
+    res.set('Content-Type', safeJsonContentType(upstream.headers.get('content-type')));
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=60');
     res.send(body);
   } catch (e) {
@@ -315,9 +345,7 @@ const proxyComick = cappedHttps(30, async (req, res) => {
 });
 
 const proxyMangaDex = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -361,10 +389,9 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
     });
     const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
     res.status(upstream.status);
-    res.set(
-      'Content-Type',
-      upstream.headers.get('content-type') || 'application/json',
-    );
+    res.set('Content-Type', safeJsonContentType(upstream.headers.get('content-type')));
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=60');
     res.send(body);
   } catch (e) {

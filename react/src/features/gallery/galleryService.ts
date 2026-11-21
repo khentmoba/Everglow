@@ -33,11 +33,10 @@ export type MemoryPhoto = MemoryPhotoFixture & {
 
 const COLLECTION = 'gallery';
 
-export function displayGalleryUrl(url: string, thumb = false): string {
+export function displayGalleryUrl(url: string, _thumb = false): string {
   if (!url) return '';
   if (url.includes('firebasestorage.googleapis.com')) {
-    const proxied = `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${encodeURIComponent(url)}`;
-    return thumb ? `${proxied}&w=440` : proxied;
+    return `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${encodeURIComponent(url)}`;
   }
   if (url.startsWith('http') || url.startsWith('/')) return url;
   if (url.startsWith('assets/')) return `/${url.slice('assets/'.length)}`;
