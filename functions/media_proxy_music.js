@@ -1,6 +1,7 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const common = require('./common.js');
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin } = common;
 const { streamMediaBody } = require('./stream_media_body');
 
 const LASTFM_IMAGE_HOSTS = new Set([
@@ -23,9 +24,7 @@ function isAllowedLastfmImageUrl(targetUrl) {
 }
 
 const proxyLastfmImage = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -60,7 +59,7 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),

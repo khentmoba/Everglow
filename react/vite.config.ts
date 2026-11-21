@@ -143,8 +143,8 @@ self.addEventListener("fetch", (event) => {
 });
 
 try {
-  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
-  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+  importScripts("/assets/firebase-app-compat.js");
+  importScripts("/assets/firebase-messaging-compat.js");
   firebase.initializeApp({
     apiKey: "AIzaSyBMk0z4e-k_SAYzaLypYKJn3euwfx0fW5c",
     authDomain: "everglow-1c6db.firebaseapp.com",
@@ -251,11 +251,18 @@ function webShellPlugin(): Plugin {
       const htmlAssets = [
         ...indexHtml.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/g),
       ].map((m) => m[1]);
+      const firebaseCompatFiles = ['firebase-app-compat.js', 'firebase-messaging-compat.js'];
+      const firebasePkgDir = resolve(__dirname, 'node_modules/firebase');
+      for (const f of firebaseCompatFiles) {
+        const src = join(firebasePkgDir, f);
+        if (existsSync(src)) cpSync(src, join(assetsDir, f));
+      }
       // Precache the entry shell + Dashboard chunk (and its direct imports) so
       // offline reload of /dashboard works immediately after SW activation.
       const precacheSet = new Set<string>([
         ...(mainEntry ? [`/assets/${mainEntry}`] : []),
         ...(mainCss ? [`/assets/${mainCss}`] : []),
+        ...firebaseCompatFiles.filter((f) => existsSync(join(assetsDir, f))).map((f) => `/assets/${f}`),
         ...htmlAssets,
       ]);
       const dashChunks = assetFiles.filter((n) => /^(?:DashboardPage|DashboardLowerZones)-.*\.js$/.test(n));

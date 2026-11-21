@@ -347,9 +347,43 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     parsed.pathname.toLowerCase().includes('.m3u8') ||
     (parsed.search.toLowerCase().includes('.m3u8') && !upstreamCt.includes('video/'));
 
+async function readLimitedText(response, maxBytes) {
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      throw new Error('Upstream response exceeded size limit');
+    }
+    return text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let out = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error('Upstream response exceeded size limit');
+    }
+    out += decoder.decode(value, { stream: true });
+  }
+  out += decoder.decode();
+  return out;
+}
+
+const DISALLOWED_MEDIA_CT_RE =
+  /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/javascript|application\/javascript)$/;
+
   let consumed = null;
   if (looksLikePlaylist) {
-    const text = await upstream.text();
+    let text;
+    try {
+      text = await readLimitedText(upstream, 2 * 1024 * 1024);
+    } catch (e) {
+      return jsonResponse({ error: e.message || 'Playlist too large' }, 502, request);
+    }
     if (text && text.includes('#EXTM3U')) {
       const base = proxyBase(request);
       const sealKey = env.CDN_STAMP_KEY || null;
@@ -361,6 +395,8 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
         headers: {
           ...cors,
           'Content-Type': 'application/vnd.apple.mpegurl',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
           'Cache-Control': 'public, max-age=30',
         },
       });
@@ -374,11 +410,18 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     upstreamCt.includes('application/x-subrip') ||
     parsed.pathname.toLowerCase().endsWith('.vtt');
   if (looksLikeVtt) {
-    const text = consumed !== null ? consumed : await upstream.text();
+    let text;
+    try {
+      text = consumed !== null ? consumed : await readLimitedText(upstream, 4 * 1024 * 1024);
+    } catch (e) {
+      return jsonResponse({ error: e.message || 'Subtitle too large' }, 502, request);
+    }
     const cleaned = stripAdCues(text);
     const vttHeaders = {
       ...cors,
       'Content-Type': 'text/vtt; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
       'Cache-Control': 'public, max-age=3600',
     };
     if (request.method === 'HEAD') {
@@ -387,8 +430,15 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     return new Response(cleaned, { status: 200, headers: vttHeaders });
   }
 
+  const baseCt = (upstream.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+  const safeCt = DISALLOWED_MEDIA_CT_RE.test(baseCt)
+    ? 'application/octet-stream'
+    : (upstream.headers.get('content-type') || 'application/octet-stream');
+
   const outHeaders = { ...cors };
-  outHeaders['Content-Type'] = upstream.headers.get('content-type') || 'application/octet-stream';
+  outHeaders['Content-Type'] = safeCt;
+  outHeaders['X-Content-Type-Options'] = 'nosniff';
+  outHeaders['Content-Security-Policy'] = "default-src 'none'; sandbox";
   outHeaders['Cache-Control'] = 'public, max-age=3600';
   for (const h of ['accept-ranges', 'content-range', 'content-length']) {
     const v = upstream.headers.get(h);

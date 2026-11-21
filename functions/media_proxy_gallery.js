@@ -94,19 +94,9 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     return;
   }
 
-  const idToken = req.headers.authorization?.replace('Bearer ', '');
-  if (!idToken) {
-    res.status(401).json({ error: 'Auth required' });
-    return;
-  }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
   const admin = getAdmin();
-  let decoded;
-  try {
-    decoded = await admin.auth().verifyIdToken(idToken);
-  } catch (e) {
-    res.status(401).json({ error: 'Invalid or expired auth token' });
-    return;
-  }
   if (await getVerifiedUsername(decoded) !== 'khentsgdz') {
     res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
     return;

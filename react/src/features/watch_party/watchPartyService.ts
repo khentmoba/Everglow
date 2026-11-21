@@ -469,10 +469,15 @@ export async function clearRoomChat(roomId: string): Promise<void> {
     demoChatChanges.emit();
     return;
   }
-  const snap = await withGetTimeout(getDocs(collection(db, 'watch_party_chats', roomId, 'messages')), 'party chat clear scan');
-  const batch = writeBatch(db);
-  for (const d of snap.docs) batch.delete(d.ref);
-  await batch.commit();
+  const messagesCol = collection(db, 'watch_party_chats', roomId, 'messages');
+  while (true) {
+    const snap = await withGetTimeout(getDocs(query(messagesCol, limit(450))), 'party chat clear scan');
+    if (snap.empty) break;
+    const batch = writeBatch(db);
+    for (const d of snap.docs) batch.delete(d.ref);
+    await batch.commit();
+    if (snap.docs.length < 450) break;
+  }
 }
 
 export function roomChatStream(roomId: string): Source<WatchPartyChatMessage[]> {

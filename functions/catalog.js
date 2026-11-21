@@ -41,7 +41,7 @@ function lastfmCacheTtlMs(method, period) {
 const proxyTmdb = cappedHttps(20, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
   res.set('Vary', 'Origin, Authorization');
-  res.set('Cache-Control', 'private, max-age=0, s-maxage=300');
+  res.set('Cache-Control', 'private, max-age=300');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }

@@ -833,9 +833,13 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       }
       consumed = text;
     }
-    const ct =
-      upstream.headers.get('content-type') || 'application/octet-stream';
+    const rawCt = (upstream.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+    const ct = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/javascript|application\/javascript)$/.test(rawCt)
+      ? 'application/octet-stream'
+      : (upstream.headers.get('content-type') || 'application/octet-stream');
     res.set('Content-Type', ct);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', 'public, max-age=3600');
     const acceptRanges = upstream.headers.get('accept-ranges');
     if (acceptRanges) res.set('Accept-Ranges', acceptRanges);
@@ -869,9 +873,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
 });
 
 const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -925,10 +927,13 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
       res.status(upstream.status).json({ error: `Upstream ${upstream.status}` });
       return;
     }
-    res.set(
-      'Content-Type',
-      upstream.headers.get('content-type') || 'application/octet-stream',
-    );
+    const rawSegCt = (upstream.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+    const segCt = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/javascript|application\/javascript)$/.test(rawSegCt)
+      ? 'application/octet-stream'
+      : (upstream.headers.get('content-type') || 'application/octet-stream');
+    res.set('Content-Type', segCt);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', 'public, max-age=300');
     if (upstream.body && typeof upstream.body.getReader === 'function') {
       await streamMediaBody(upstream.body, res);

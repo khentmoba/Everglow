@@ -18,14 +18,30 @@ export function AnniversaryMetrics() {
   const [minuteKey, setMinuteKey] = useState(() => Math.floor(Date.now() / 60_000));
 
   useEffect(() => {
-    const sync = () => {
-      if (!document.hidden) setMinuteKey(Math.floor(Date.now() / 60_000));
+    let id = 0;
+    const sync = () => setMinuteKey(Math.floor(Date.now() / 60_000));
+    const start = () => {
+      if (id || document.hidden) return;
+      id = window.setInterval(sync, 15_000);
     };
-    const id = window.setInterval(sync, 15_000);
-    document.addEventListener('visibilitychange', sync);
-    return () => {
+    const stop = () => {
+      if (!id) return;
       clearInterval(id);
-      document.removeEventListener('visibilitychange', sync);
+      id = 0;
+    };
+    const onVis = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        sync();
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
 
@@ -52,30 +68,34 @@ function LiveSecondsCard() {
   const inViewRef = useRef(true);
 
   useEffect(() => {
-    const tick = () => {
-      if (!document.hidden && inViewRef.current) {
-        setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+    let id = 0;
+    const sync = () => setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+    const updateTimer = () => {
+      const shouldRun = !document.hidden && inViewRef.current;
+      if (shouldRun && !id) {
+        sync();
+        id = window.setInterval(sync, 1000);
+      } else if (!shouldRun && id) {
+        clearInterval(id);
+        id = 0;
       }
     };
     let observer: IntersectionObserver | null = null;
     if (typeof IntersectionObserver !== 'undefined' && hostRef.current) {
       observer = new IntersectionObserver(
         (entries) => {
-          const visible = entries[0]?.isIntersecting ?? true;
-          inViewRef.current = visible;
-          if (visible && !document.hidden) {
-            setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
-          }
+          inViewRef.current = entries[0]?.isIntersecting ?? true;
+          updateTimer();
         },
         { threshold: 0 },
       );
       observer.observe(hostRef.current);
     }
-    const id = window.setInterval(tick, 1000);
-    document.addEventListener('visibilitychange', tick);
+    updateTimer();
+    document.addEventListener('visibilitychange', updateTimer);
     return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', tick);
+      if (id) clearInterval(id);
+      document.removeEventListener('visibilitychange', updateTimer);
       observer?.disconnect();
     };
   }, []);

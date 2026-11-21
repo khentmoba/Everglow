@@ -202,8 +202,31 @@ function CountdownEventCard({ event }: { event: CalendarEvent }) {
   const emoji = CALENDAR_TYPE_EMOJI[event.type] ?? '📌';
 
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
+    let id = 0;
+    const sync = () => setNow(new Date());
+    const start = () => {
+      if (id || document.hidden) return;
+      id = window.setInterval(sync, 60_000);
+    };
+    const stop = () => {
+      if (!id) return;
+      clearInterval(id);
+      id = 0;
+    };
+    const onVis = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        sync();
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const diffMs = Math.max(0, event.date.getTime() - now.getTime());

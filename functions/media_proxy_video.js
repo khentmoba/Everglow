@@ -2,7 +2,7 @@
 
 const { randomBytes } = require('node:crypto');
 const { streamMediaBody } = require('./stream_media_body');
-const { cappedHttps, enforceRateLimit, requireAuth, fetchPublicUrl, getDb } = require('./common.js');
+const { applyCors, cappedHttps, enforceRateLimit, requireAuth, fetchPublicUrl, getDb } = require('./common.js');
 const { STREAM_LIFETIME_MS, mediaUrl, signedStreamUrl, validStreamSignature, rewritePlaylist } = require('./watch_stream_access');
 
 async function streamSecret(uid, create = false) {
@@ -19,8 +19,7 @@ async function streamSecret(uid, create = false) {
 }
 
 const proxyWatchStream = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  applyCors(req, res, 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
   res.set('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
   res.set('Cache-Control', 'private, no-store');

@@ -1,16 +1,14 @@
 'use strict';
 
 const common = require('./common.js');
-const { applyCors, cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin } = common;
 const { resolveKatanaServerCookie } = require('./media_proxy_core.js');
 const { streamMediaBody } = require('./stream_media_body');
 
 const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|avif|bmp|x-icon|vnd\.microsoft\.icon)(?:;|$)/i;
 
 const proxyScanlation = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
