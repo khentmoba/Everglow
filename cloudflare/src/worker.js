@@ -209,13 +209,60 @@ async function handleProxyHls(request, env, _ctx) {
   const range = request.headers.get('Range');
   if (range) headers.Range = range;
 
+function isBlockedRedirectHost(hostname) {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(h)) {
+    const [a, b] = h.split('.').map(Number);
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+  }
+  if (h.includes(':')) {
+    if (h === '::1' || h === '::' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('::ffff:')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function fetchPublicHls(initialTarget, initialHeaders, signal) {
+  let current = new URL(initialTarget);
+  const reqHeaders = { ...initialHeaders };
+  for (let hop = 0; hop <= 5; hop++) {
+    if (current.protocol !== 'https:' || current.username || current.password || isBlockedRedirectHost(current.hostname)) {
+      throw new Error('Redirect host not allowed');
+    }
+    const resp = await fetch(current.toString(), {
+      headers: reqHeaders,
+      redirect: 'manual',
+      signal,
+    });
+    if ([301, 302, 303, 307, 308].includes(resp.status)) {
+      const loc = resp.headers.get('location');
+      if (!loc || hop === 5) throw new Error('Invalid or excessive redirects');
+      const next = new URL(loc, current);
+      if (next.origin !== current.origin) {
+        for (const key of Object.keys(reqHeaders)) {
+          const lower = key.toLowerCase();
+          if (lower === 'referer' || lower === 'cookie' || lower === 'authorization') {
+            delete reqHeaders[key];
+          }
+        }
+      }
+      current = next;
+      continue;
+    }
+    return resp;
+  }
+  throw new Error('Excessive redirects');
+}
+
   let upstream;
   try {
-    upstream = await fetch(target, {
-      headers,
-      redirect: 'follow',
-      signal: AbortSignal.timeout(25_000),
-    });
+    upstream = await fetchPublicHls(target, headers, AbortSignal.timeout(25_000));
   } catch (e) {
     console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
     return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502);

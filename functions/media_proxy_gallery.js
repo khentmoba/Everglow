@@ -1,13 +1,11 @@
 'use strict';
 
-const { Readable } = require('node:stream');
 const { applyCors, cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core.js');
+const { streamMediaBody } = require('./stream_media_body');
 
 const proxyGalleryImage = cappedHttps(30, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -61,25 +59,17 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     }
     res.status(200);
     if (upstream.body != null) {
-      await new Promise((resolve) => {
-        let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
-        try {
-          const nodeStream = Readable.fromWeb(upstream.body);
-          nodeStream.on('error', () => { try { res.end(); } catch (_) {} finish(); });
-          res.on('close', finish);
-          nodeStream.pipe(res);
-        } catch (_) {
-          try { res.end(); } catch (_) {}
-          finish();
-        }
-      });
+      await streamMediaBody(upstream.body, res);
     } else {
       const buffer = Buffer.from(await upstream.arrayBuffer());
       res.send(buffer);
     }
   } catch (e) {
     console.warn(`proxyGalleryImage failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });

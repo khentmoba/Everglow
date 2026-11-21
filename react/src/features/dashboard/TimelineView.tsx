@@ -210,11 +210,25 @@ export function TimelineView() {
     };
   }, [cancelGlide, updateCardFocus]);
 
+  const carouselInViewRef = useRef(true);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined' || !scrollerRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        carouselInViewRef.current = entries[0]?.isIntersecting ?? true;
+      },
+      { threshold: 0 },
+    );
+    observer.observe(scrollerRef.current);
+    return () => observer.disconnect();
+  }, [milestones]);
+
   useEffect(() => {
     if (reduceAmbient || carouselHovered || selected != null) return;
     if (!milestones || milestones.length <= 1) return;
     const id = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || !carouselInViewRef.current) return;
       glideToCard((activeCardRef.current + 1) % milestones.length);
     }, 5500);
     return () => window.clearInterval(id);

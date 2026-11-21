@@ -1,6 +1,7 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin, requireAuth } = require('./common.js');
+const common = require('./common.js');
+const { cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
 const { streamMediaBody } = require('./stream_media_body');
 
 const proxyMangaImage = cappedHttps(30, async (req, res) => {
@@ -61,8 +62,7 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
     });
@@ -144,8 +144,7 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakakalot.com/' },
       signal: AbortSignal.timeout(20000),
     });
@@ -231,8 +230,7 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakatana.com/' },
       signal: AbortSignal.timeout(20000),
     });
@@ -295,15 +293,14 @@ const proxyComick = cappedHttps(30, async (req, res) => {
   const targetUrl = `https://api.comick.dev/${safePath}`;
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(20000),
     });
-    const body = await upstream.text();
+    const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
     res.status(upstream.status);
     res.set(
       'Content-Type',
@@ -355,15 +352,14 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
   const targetUrl = `https://api.mangadex.org/${safePath}`;
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(20000),
     });
-    const body = await upstream.text();
+    const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
     res.status(upstream.status);
     res.set(
       'Content-Type',

@@ -1,5 +1,5 @@
 // Port of lib/features/dashboard/presentation/widgets/anniversary_metrics.dart.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppRadius } from '../../core/theme/layout';
 import { Align, linear, shadowLayer, insetBorder } from '../../core/theme/paint';
@@ -48,20 +48,43 @@ export function AnniversaryMetrics() {
 
 function LiveSecondsCard() {
   const [seconds, setSeconds] = useState(() => calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const inViewRef = useRef(true);
 
   useEffect(() => {
     const tick = () => {
-      if (!document.hidden) setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+      if (!document.hidden && inViewRef.current) {
+        setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+      }
     };
+    let observer: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver !== 'undefined' && hostRef.current) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries[0]?.isIntersecting ?? true;
+          inViewRef.current = visible;
+          if (visible && !document.hidden) {
+            setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+          }
+        },
+        { threshold: 0 },
+      );
+      observer.observe(hostRef.current);
+    }
     const id = window.setInterval(tick, 1000);
     document.addEventListener('visibilitychange', tick);
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', tick);
+      observer?.disconnect();
     };
   }, []);
 
-  return <MetricCard label="Seconds" value={seconds} isLive flat />;
+  return (
+    <div ref={hostRef}>
+      <MetricCard label="Seconds" value={seconds} isLive flat />
+    </div>
+  );
 }
 
 function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {

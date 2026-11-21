@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const { streamMediaBody } = require('./stream_media_body');
 const { escHtml, hlsPlayerHtml } = require('./hls_player');
 
-const { getAdmin, getDb, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = require('./common.js');
+const common = require('./common.js');
+const { getAdmin, getDb, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = common;
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -807,9 +808,8 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     const headers = megaplay ? megaplayHeaders() : megavidHeaders();
     const range = req.get('Range') || req.headers.range;
     if (range && typeof range === 'string') headers.Range = range;
-    const upstream = await fetch(targetUrl, {
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers,
-      redirect: 'follow',
       signal: AbortSignal.timeout(25000),
     });
     if (!upstream.ok && upstream.status !== 206) {
@@ -822,7 +822,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       upstreamCt.includes('x-mpegurl') ||
       parsed.pathname.toLowerCase().includes('.m3u8');
     if (looksLikePlaylist) {
-      const text = await upstream.text();
+      const text = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
         const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
@@ -916,13 +916,12 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: {
         'User-Agent': DESKTOP_UA,
         Accept: '*/*',
         Referer: 'https://kwik.cx/',
       },
-      redirect: 'follow',
       signal: AbortSignal.timeout(30000),
     });
     if (!upstream.ok) {

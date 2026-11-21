@@ -1,6 +1,7 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, requireAuth } = require('./common.js');
+const common = require('./common.js');
+const { cappedHttps, enforceRateLimit, requireAuth } = common;
 const { streamMediaBody } = require('./stream_media_body');
 
 const proxyAnimeImage = cappedHttps(30, async (req, res) => {
@@ -52,8 +53,7 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
+    const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
     });

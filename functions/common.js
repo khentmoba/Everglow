@@ -80,6 +80,7 @@ async function isPublicDnsHost(hostname) {
 
 async function fetchPublicUrl(target, { headers, signal }) {
   const { Readable } = require('node:stream');
+  const reqHeaders = headers ? { ...headers } : {};
   let url = new URL(target);
   for (let hop = 0; hop <= 5; hop++) {
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
@@ -98,7 +99,7 @@ async function fetchPublicUrl(target, { headers, signal }) {
     const transport = require(url.protocol === 'https:' ? 'node:https' : 'node:http');
     const incoming = await new Promise((resolve, reject) => {
       const request = transport.get(url, {
-        headers, signal,
+        headers: reqHeaders, signal,
         agent: false,
         lookup: (_host, options, callback) => {
           callback(null, options.all ? [records[0]] : records[0].address, records[0].family);
@@ -110,7 +111,14 @@ async function fetchPublicUrl(target, { headers, signal }) {
       incoming.destroy();
       if (!incoming.headers.location || hop === 5) throw new Error('Invalid or excessive redirects');
       const nextUrl = new URL(incoming.headers.location, url);
-      if (nextUrl.origin !== url.origin && headers?.Referer) delete headers.Referer;
+      if (nextUrl.origin !== url.origin) {
+        for (const key of Object.keys(reqHeaders)) {
+          const lower = key.toLowerCase();
+          if (lower === 'referer' || lower === 'cookie' || lower === 'authorization') {
+            delete reqHeaders[key];
+          }
+        }
+      }
       url = nextUrl;
       continue;
     }
@@ -122,6 +130,36 @@ async function fetchPublicUrl(target, { headers, signal }) {
       body: Readable.toWeb(incoming),
     };
   }
+}
+
+async function readLimitedText(body, maxBytes = 4 * 1024 * 1024) {
+  if (!body) return '';
+  if (typeof body.getReader !== 'function') {
+    const text = await new Response(body).text();
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+      throw new Error('Upstream response exceeded size limit');
+    }
+    return text;
+  }
+  const reader = body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        throw new Error('Upstream response exceeded size limit');
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+  }
+  return Buffer.concat(chunks, total).toString('utf8');
 }
 
 function isAllowedBookTextUrl(url) {
@@ -321,6 +359,7 @@ module.exports = {
   isPrivateIp,
   isPublicDnsHost,
   fetchPublicUrl,
+  readLimitedText,
   isAllowedBookTextUrl,
   _getExternalCache,
   _setExternalCache,

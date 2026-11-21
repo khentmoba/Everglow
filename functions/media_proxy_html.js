@@ -1,7 +1,7 @@
 'use strict';
 
 const common = require('./common.js');
-const { cappedHttps, enforceRateLimit, getAdmin } = common;
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin } = common;
 const { resolveKatanaServerCookie } = require('./media_proxy_core.js');
 const { streamMediaBody } = require('./stream_media_body');
 
@@ -113,9 +113,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
 });
 
 const proxyFetchHtml = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -217,16 +215,15 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
         },
         signal: AbortSignal.timeout(20000),
       });
-      body = await new Response(upstream.body).text();
+      body = await common.readLimitedText(upstream.body, 4 * 1024 * 1024);
       status = upstream.status;
       if (status !== 200 || body.length > 0) break;
       await new Promise((r) => setTimeout(r, 350));
     }
     res.status(status);
-    res.set(
-      'Content-Type',
-      'text/html; charset=utf-8',
-    );
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', 'sandbox');
     res.set('Cache-Control', body.length > 0 ? 'public, max-age=60' : 'no-store');
     res.send(body);
   } catch (e) {

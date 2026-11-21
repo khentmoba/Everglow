@@ -23,6 +23,7 @@ import { useSyncExternalStore } from 'react';
 import { AgentMode } from '../agent/agentMode';
 import { RouteMemory } from '../router/routeMemory';
 import { Logger } from '../system/logger';
+import { presenceService } from './presence';
 import { Prefs } from '../system/prefs';
 import { withGetTimeout } from '../utils/liveSource';
 import { initializeProgress } from '../../features/xp/xpService';
@@ -395,6 +396,11 @@ class AuthService {
     this.isAgentSession = false;
     this.lastAuthError = null;
     try {
+      await presenceService.stopHeartbeat();
+    } catch (e) {
+      Logger.w(`Presence logout cleanup warning: ${String(e)}`);
+    }
+    try {
       await notificationService.unregisterForLogout();
     } catch (e) {
       Logger.w(`FCM logout cleanup warning: ${String(e)}`);
@@ -405,6 +411,8 @@ class AuthService {
       Logger.w(`signOut warning: ${String(e)}`);
     }
     RouteMemory.clear();
+    Prefs.remove('spotify_code_verifier');
+    Prefs.remove('spotify_oauth_state');
     this.currentUser = null;
     this.user = null;
     this.partnerUid = null;

@@ -662,13 +662,6 @@ const STILL_HOLD = 20000;
 const TRAILER_HOLD = 30000;
 const cacheKeyOf = (item: MediaItem) => `${item.anilistId ?? item.tmdbId}`;
 
-// Scroll events don't bubble, so one capture listener tracks "scrolling".
-let lastScrollAt = 0;
-if (typeof document !== 'undefined') {
-  document.addEventListener('scroll', () => (lastScrollAt = performance.now()), { capture: true, passive: true });
-}
-const isScrolling = () => performance.now() - lastScrollAt < 150;
-
 export function AnimeXSpotlight({
   items,
   loading,
@@ -699,8 +692,19 @@ export function AnimeXSpotlight({
   const timer = useRef<number | undefined>(undefined);
   const armTimer = useRef<number | undefined>(undefined);
   const fallbackTimer = useRef<number | undefined>(undefined);
+  const lastScrollAt = useRef(0);
+  const isScrolling = () => performance.now() - lastScrollAt.current < 150;
   const state = useRef({ items, index, muted, playing, ready, trailerCache });
   state.current = { items, index, muted, playing, ready, trailerCache };
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onScroll = () => {
+      lastScrollAt.current = performance.now();
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, []);
 
   const resolveKey = (item: MediaItem, cache = state.current.trailerCache) =>
     item.trailerYoutubeId ? item.trailerYoutubeId : (cache.get(cacheKeyOf(item)) ?? null);

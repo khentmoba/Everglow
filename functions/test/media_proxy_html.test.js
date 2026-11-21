@@ -61,3 +61,41 @@ test('only active HTML scraping and watch stream proxies are exported', () => {
   assert.equal('onWatchPartyInvite' in index, false);
   assert.equal('onWatchPartyInvite' in triggers, false);
 });
+
+test('proxyFetchHtml returns text/plain with sandbox CSP and readLimitedText enforces byte cap', async (t) => {
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'text/html' }),
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(Buffer.from('<html><script>alert(1)</script></html>'));
+        controller.close();
+      },
+    }),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    json(b) { this.body = b; },
+    send(b) { this.body = b; },
+  };
+  await html.proxyFetchHtml(
+    { method: 'GET', headers: { origin: 'https://everglow-1c6db.web.app' }, get: () => '', ip: '8.8.8.8', query: { url: 'https://mangakatana.com/test' } },
+    res,
+  );
+  assert.equal(res.code, 200);
+  assert.equal(res.headers['Content-Type'], 'text/plain; charset=utf-8');
+  assert.equal(res.headers['Content-Security-Policy'], 'sandbox');
+  assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+
+  const oversized = new ReadableStream({
+    start(controller) {
+      controller.enqueue(Buffer.alloc(1024, 65));
+      controller.close();
+    },
+  });
+  await assert.rejects(() => common.readLimitedText(oversized, 512), /size limit/i);
+});

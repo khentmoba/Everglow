@@ -1,9 +1,11 @@
 'use strict';
 
 const common = require('./common.js');
-const { cappedHttps, enforceRateLimit, getAdmin, _getExternalCache, _setExternalCache } = common;
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin, _getExternalCache, _setExternalCache } = common;
 
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+const CATALOG_MAX_BYTES = 2 * 1024 * 1024;
+const CATALOG_MAX_CACHE_BYTES = 256 * 1024;
 
 const _catalogBases = {
   openlibrary: 'https://openlibrary.org/',
@@ -47,9 +49,7 @@ function resolveCatalogUpstream(baseKey, pathParam) {
 }
 
 const proxyCatalog = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -102,13 +102,14 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
       },
       signal: AbortSignal.timeout(20000),
     });
-    const body = await new Response(upstream.body).text();
+    const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
     const contentType = upstream.headers.get('content-type') || 'application/json';
-    if (!noStore && upstream.status === 200) {
+    if (!noStore && upstream.status === 200 && Buffer.byteLength(body, 'utf8') <= CATALOG_MAX_CACHE_BYTES) {
       _setExternalCache(cacheKey, { status: 200, contentType, body });
     }
     res.status(upstream.status);
     res.set('Content-Type', contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
     res.set('Cache-Control', noStore ? 'private, no-store' : 'public, max-age=300');
     res.set('X-Cache', 'MISS');
     res.send(body);

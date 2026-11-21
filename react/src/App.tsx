@@ -3,7 +3,7 @@ import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { createBrowserRouter, Outlet, redirect, RouterProvider, useLocation, useNavigate, type LoaderFunctionArgs } from 'react-router';
 import { AgentMode } from './core/agent/agentMode';
 import { LazyPages } from './core/router/routeChunks';
-import { agentJumpLocation, cinemaOnlyRedirect } from './core/router/routeHelpers';
+import { agentJumpLocation, cinemaOnlyRedirect, sanitizeInternalPath } from './core/router/routeHelpers';
 import { RouteMemory } from './core/router/routeMemory';
 import { authService } from './core/services/auth';
 import { notificationService } from './core/services/notifications';
@@ -135,10 +135,11 @@ function guard({ request }: LoaderFunctionArgs) {
     authService.enableAgentSession(AgentMode.activeProfile.value);
   }
 
-  if (jumpParam) {
-    const lower = jumpParam.toLowerCase().trim();
-    target = AgentMode.routeAliases[lower] ?? jumpParam;
-    if (!target.startsWith('/')) target = `/${target}`;
+  if (jumpParam && (AgentMode.canActivate || AgentMode.isActive.value)) {
+    const trimmed = jumpParam.trim();
+    const lower = trimmed.toLowerCase();
+    const candidate = AgentMode.routeAliases[lower] ?? (trimmed.startsWith('/') ? trimmed : `/${trimmed}`);
+    target = sanitizeInternalPath(candidate);
   }
 
   if (loc === '/' && target != null && target !== '/') {
