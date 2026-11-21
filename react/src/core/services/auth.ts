@@ -67,6 +67,7 @@ class AuthService {
   currentUser: string | null = null;
   lastAuthError: string | null = null;
   isSessionLoaded = false;
+  hasResolvedAuthState = false;
   isAgentSession = false;
   isOfflineMode = false;
   partnerUid: string | null = null;
@@ -76,11 +77,21 @@ class AuthService {
   isResolvingPartner = false;
   private listeners = new Set<() => void>();
   private version = 0;
+  private authReadyPromise: Promise<void>;
 
   constructor() {
     this.loadSession();
+    this.authReadyPromise = auth
+      .authStateReady()
+      .catch(() => {})
+      .then(() => {
+        this.user = auth.currentUser;
+        this.hasResolvedAuthState = true;
+        this.notify();
+      });
     onAuthStateChanged(auth, (user) => {
       this.user = user;
+      this.hasResolvedAuthState = true;
       this.hasSyncedUserDoc = false;
       if (user && this.currentUser != null) {
         if (user.isAnonymous && this.isCoupleUser) {
@@ -111,6 +122,23 @@ class AuthService {
 
   get isAuthenticated(): boolean {
     return this.user != null || this.isAgentSession;
+  }
+
+  get hasActiveSession(): boolean {
+    if (this.isAgentSession || this.isOfflineMode) return true;
+    if (this.user == null) return false;
+    if (this.user.isAnonymous && this.isCoupleUser) return false;
+    return true;
+  }
+
+  async waitForAuthReady(timeoutMs = 2500): Promise<void> {
+    if (this.isAgentSession || this.isOfflineMode || this.hasResolvedAuthState) return;
+    await Promise.race([
+      this.authReadyPromise,
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, timeoutMs);
+      }),
+    ]);
   }
 
   get hasOfflineRememberedCode(): boolean {
@@ -229,6 +257,8 @@ class AuthService {
           Logger.e(`verifyCouplePasscode sign-in failed via ${url}`, e);
           continue;
         }
+        this.user = auth.currentUser;
+        this.hasResolvedAuthState = true;
         this.currentUser = data.username;
         this.isAgentSession = false;
         await this.saveSession(data.username, this.isCoupleUser ? passcode : null);

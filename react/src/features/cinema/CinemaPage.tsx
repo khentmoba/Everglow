@@ -261,7 +261,14 @@ export function CinemaPage() {
 
       {!isDesktop && (
         <>
-          <div style={{ position: 'fixed', top: 10, left: 12, zIndex: 25 }}>
+          <div
+            style={{
+              position: 'fixed',
+              top: 'calc(10px + env(safe-area-inset-top, 0px))',
+              left: 'calc(12px + env(safe-area-inset-left, 0px))',
+              zIndex: 25,
+            }}
+          >
             <button
               type="button"
               className="bare-button"
@@ -283,7 +290,14 @@ export function CinemaPage() {
             </button>
           </div>
           {isCinemaOnlyUser && (
-            <div style={{ position: 'fixed', top: 10, right: 12, zIndex: 25 }}>
+            <div
+              style={{
+                position: 'fixed',
+                top: 'calc(10px + env(safe-area-inset-top, 0px))',
+                right: 'calc(12px + env(safe-area-inset-right, 0px))',
+                zIndex: 25,
+              }}
+            >
               <MediaSectionMenuButton currentRoute="/cinema" />
             </div>
           )}
@@ -457,7 +471,7 @@ function HomeTab({
       )}
 
       {emptyCatalogue && (
-        <div style={{ padding: 24, textAlign: 'center' }}>
+        <div style={{ padding: 'calc(76px + env(safe-area-inset-top, 0px)) 24px 24px', textAlign: 'center' }}>
           <div style={{ ...AppTypography.outfitWhite, color: NetflixColors.textSecondary }}>The catalogue could not load.</div>
           <button
             type="button"

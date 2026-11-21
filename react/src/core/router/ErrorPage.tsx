@@ -19,8 +19,7 @@ export function ErrorPage({ uri }: { uri?: string }) {
   const displayUri = uri ?? `${location.pathname}${location.search}${location.hash}`;
 
   const handleGoHome = () => {
-    const authed = auth.isAuthenticated || auth.currentUser != null;
-    navigate(homeRouteFor(authed, auth.isCinemaOnlyUser));
+    navigate(homeRouteFor(auth.hasActiveSession, auth.isCinemaOnlyUser));
   };
 
   return (

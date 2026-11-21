@@ -1044,7 +1044,8 @@ export function NetflixBottomNav({
         zIndex: 30,
         background: NetflixColors.background,
         borderTop: `1px solid ${NetflixColors.hairline}`,
-        height: 62,
+        height: 'calc(62px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         display: 'flex',
       }}
     >
@@ -1116,8 +1117,10 @@ export function NetflixCinemaTopBar({
   return (
     <header
       style={{
-        height: 56,
-        padding: '0 48px',
+        height: 'calc(56px + env(safe-area-inset-top, 0px))',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingLeft: 'calc(48px + env(safe-area-inset-left, 0px))',
+        paddingRight: 'calc(48px + env(safe-area-inset-right, 0px))',
         background: scrolled ? 'rgba(0,0,0,0.92)' : 'transparent',
         borderBottom: `1px solid ${scrolled ? NetflixColors.hairline : 'transparent'}`,
         display: 'flex',

@@ -116,7 +116,7 @@ function RouteFallback() {
 }
 
 /** The redirect rules from the Flutter router, run before each page. */
-function guard({ request }: LoaderFunctionArgs) {
+async function guard({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const loc = url.pathname;
   const agentParam = url.searchParams.get('agent') ?? url.searchParams.get('demo');
@@ -151,7 +151,10 @@ function guard({ request }: LoaderFunctionArgs) {
 
   const isPublic = loc === '/' || AgentMode.isActive.value;
   if (!authService.isSessionLoaded) return null;
-  const authed = authService.isAuthenticated || authService.currentUser != null;
+  if (!AgentMode.isActive.value) {
+    await authService.waitForAuthReady();
+  }
+  const authed = authService.hasActiveSession;
   if (!authed && !isPublic) {
     return redirect(`/?${new URLSearchParams({ from: loc + url.search })}`);
   }
@@ -174,6 +177,24 @@ function RootLayout() {
   useEffect(() => {
     RouteMemory.remember(location.pathname + location.search);
   }, [location.pathname, location.search]);
+  useEffect(() => {
+    const checkSession = () => {
+      if (
+        location.pathname === '/' ||
+        AgentMode.isActive.value ||
+        !authService.hasResolvedAuthState ||
+        authService.hasActiveSession
+      ) {
+        return;
+      }
+      navigate(`/?${new URLSearchParams({ from: location.pathname + location.search })}`, { replace: true });
+    };
+    checkSession();
+    const unsub = authService.subscribe(checkSession);
+    return () => {
+      unsub();
+    };
+  }, [location.pathname, location.search, navigate]);
   useEffect(() => {
     notificationService.setForegroundHandler((n) => {
       const label = [n.title, n.body].filter(Boolean).join(' — ');
@@ -245,7 +266,7 @@ function RootLayout() {
       <RouteErrorBoundary
         resetKey={location.pathname}
         onGoHome={() => {
-          const home = authService.isCinemaOnlyUser ? '/cinema' : '/dashboard';
+          const home = !authService.hasActiveSession ? '/' : authService.isCinemaOnlyUser ? '/cinema' : '/dashboard';
           if (location.pathname === home) window.location.reload();
           else navigate(home);
         }}
