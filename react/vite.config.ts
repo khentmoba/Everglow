@@ -69,9 +69,13 @@ const PRECACHE = ${precacheList};
 const NO_STORE = new Set(["/", "/index.html", "/version.json", "/sw.js", "/firebase-messaging-sw.js", "/manifest.json", "/manifest_screen.json"]);
 
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(SHELL).then((cache) => cache.addAll(PRECACHE).catch(() => {})).catch(() => {})
+    caches.open(SHELL).then(async (cache) => {
+      await Promise.allSettled(PRECACHE.map((url) => cache.add(url)));
+      if (await cache.match("/index.html")) {
+        await self.skipWaiting();
+      }
+    }).catch(() => {})
   );
 });
 

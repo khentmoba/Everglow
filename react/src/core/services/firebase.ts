@@ -2,7 +2,13 @@
 // The JS SDK shares its saved sign-in with the Flutter build on the same site.
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore';
 import type { FirebaseStorage } from 'firebase/storage';
 
 export const app = initializeApp({
@@ -15,7 +21,18 @@ export const app = initializeApp({
 });
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+function initDb(): Firestore {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
+
+export const db = initDb();
 
 let storagePromise: Promise<{ storage: FirebaseStorage; mod: typeof import('firebase/storage') }> | null = null;
 export function loadStorage() {

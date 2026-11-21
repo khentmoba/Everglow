@@ -211,7 +211,11 @@ async function handleProxyHls(request, env, _ctx) {
 
   let upstream;
   try {
-    upstream = await fetch(target, { headers, redirect: 'follow' });
+    upstream = await fetch(target, {
+      headers,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(25_000),
+    });
   } catch (e) {
     console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
     return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502);

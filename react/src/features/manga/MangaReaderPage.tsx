@@ -4,7 +4,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { useAuth } from '../../core/services/auth';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
-import { motionReduced } from '../../core/theme/motion';
+import { motionReduced, reduceAmbientMotion } from '../../core/theme/motion';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
 import {
@@ -100,6 +100,7 @@ export function MangaReaderView({
 }) {
   const { currentUser } = useAuth();
   const { width: viewportWidth, height: viewportHeight } = useViewport();
+  const allowBlur = !reduceAmbientMotion(viewportWidth, viewportHeight);
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageContentRef = useRef<HTMLDivElement>(null);
@@ -2494,9 +2495,9 @@ export function MangaReaderView({
             zIndex: 97,
             width: 44,
             borderRadius: 99,
-            background: 'rgba(9, 6, 12, 0.58)',
+            background: allowBlur ? 'rgba(9, 6, 12, 0.58)' : 'rgba(9, 6, 12, 0.88)',
             border: `1px solid ${KatanaColors.border}`,
-            backdropFilter: 'blur(8px)',
+            ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -2578,7 +2579,7 @@ export function MangaReaderView({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                backdropFilter: 'blur(10px)',
+                ...(allowBlur ? { backdropFilter: 'blur(10px)' } : {}),
               }}
             >
               <Icon name="zoom_out_map" size={16} color={KatanaColors.accentSoft} />
@@ -2605,7 +2606,7 @@ export function MangaReaderView({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                backdropFilter: 'blur(8px)',
+                ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
               }}
             >
               <Icon name="pause" size={16} color={KatanaColors.accentSoft} />
@@ -2638,7 +2639,7 @@ export function MangaReaderView({
             maxWidth: '86vw',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            backdropFilter: 'blur(10px)',
+            ...(allowBlur ? { backdropFilter: 'blur(10px)' } : {}),
           }}
         >
           {toast}
@@ -2656,13 +2657,13 @@ export function MangaReaderView({
             zIndex: 95,
             padding: '4px 10px',
             borderRadius: 99,
-            background: 'rgba(9, 6, 12, 0.72)',
+            background: allowBlur ? 'rgba(9, 6, 12, 0.72)' : 'rgba(9, 6, 12, 0.9)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
             color: 'rgba(255, 245, 248, 0.85)',
             fontSize: 11.5,
             fontWeight: 600,
             pointerEvents: 'none',
-            backdropFilter: 'blur(6px)',
+            ...(allowBlur ? { backdropFilter: 'blur(6px)' } : {}),
           }}
         >
           {displayPageLabel}
@@ -2682,9 +2683,9 @@ export function MangaReaderView({
           paddingLeft: 'max(8px, env(safe-area-inset-left))',
           paddingRight: 'max(8px, env(safe-area-inset-right))',
           paddingBottom: 8,
-          background: 'rgba(9, 6, 12, 0.78)',
+          background: allowBlur ? 'rgba(9, 6, 12, 0.78)' : 'rgba(9, 6, 12, 0.94)',
           borderBottom: `1px solid ${KatanaColors.border}`,
-          backdropFilter: 'blur(12px)',
+          ...(allowBlur ? { backdropFilter: 'blur(12px)' } : {}),
           display: 'flex',
           alignItems: 'center',
           gap: 6,
@@ -2814,9 +2815,9 @@ export function MangaReaderView({
           paddingLeft: 'max(12px, env(safe-area-inset-left))',
           paddingRight: 'max(12px, env(safe-area-inset-right))',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
-          background: 'rgba(9, 6, 12, 0.82)',
+          background: allowBlur ? 'rgba(9, 6, 12, 0.82)' : 'rgba(9, 6, 12, 0.95)',
           borderTop: `1px solid ${KatanaColors.border}`,
-          backdropFilter: 'blur(12px)',
+          ...(allowBlur ? { backdropFilter: 'blur(12px)' } : {}),
           display: 'flex',
           flexDirection: 'column',
           gap: 6,

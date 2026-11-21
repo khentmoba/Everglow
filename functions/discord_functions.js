@@ -3,7 +3,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-const { getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
+const { applyCors, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
 
 function epLabel(mediaType, season, episode) {
   if (mediaType !== 'tv' || season == null || episode == null) return null;
@@ -86,9 +86,7 @@ function isAllowedDiscordUser({ userId, env }) {
 }
 
 const notifyDiscordWatch = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
   res.set('Cache-Control', 'private, no-store');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }

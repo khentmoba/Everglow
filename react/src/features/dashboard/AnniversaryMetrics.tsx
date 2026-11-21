@@ -15,20 +15,21 @@ import {
 import { MetricCard } from './MetricCard';
 
 export function AnniversaryMetrics() {
-  const [now, setNow] = useState(() => new Date());
+  const [minuteKey, setMinuteKey] = useState(() => Math.floor(Date.now() / 60_000));
 
   useEffect(() => {
-    const tick = () => {
-      if (!document.hidden) setNow(new Date());
+    const sync = () => {
+      if (!document.hidden) setMinuteKey(Math.floor(Date.now() / 60_000));
     };
-    const id = window.setInterval(tick, 1000);
-    document.addEventListener('visibilitychange', tick);
+    const id = window.setInterval(sync, 15_000);
+    document.addEventListener('visibilitychange', sync);
     return () => {
       clearInterval(id);
-      document.removeEventListener('visibilitychange', tick);
+      document.removeEventListener('visibilitychange', sync);
     };
   }, []);
 
+  const now = new Date(minuteKey * 60_000);
   const counter = calculateAnniversary(ANNIVERSARY_DATE, now);
   const totalDays = totalDaysSinceAnniversary(now);
 
@@ -43,6 +44,24 @@ export function AnniversaryMetrics() {
       </div>
     </div>
   );
+}
+
+function LiveSecondsCard() {
+  const [seconds, setSeconds] = useState(() => calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+
+  useEffect(() => {
+    const tick = () => {
+      if (!document.hidden) setSeconds(calculateAnniversary(ANNIVERSARY_DATE, new Date()).seconds);
+    };
+    const id = window.setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, []);
+
+  return <MetricCard label="Seconds" value={seconds} isLive flat />;
 }
 
 function SectionEyebrow({ counter }: { counter: AnniversaryCounter }) {
@@ -250,7 +269,7 @@ function KeepsakeClock({ counter, totalDays }: { counter: AnniversaryCounter; to
                   </div>
                   <VDivider />
                   <div style={{ flex: 1 }}>
-                    <MetricCard label="Seconds" value={counter.seconds} isLive flat />
+                    <LiveSecondsCard />
                   </div>
                 </div>
               </div>

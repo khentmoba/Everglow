@@ -15,8 +15,14 @@ const bad = [
   good.replace('googleapis.com/', 'googleapis.com:444/'),
 ];
 function response() {
-  return { code: 200, set() { return this; }, status(n) { this.code = n; return this; },
-    json(data) { this.body = data; }, send(data) { this.body = data; } };
+  return {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    json(data) { this.body = data; },
+    send(data) { this.body = data; },
+  };
 }
 test('gallery URL parser accepts only exact HTTPS project buckets', () => {
   assert.equal(parseProjectStorageUrl(good).hostname, 'firebasestorage.googleapis.com');
@@ -43,6 +49,7 @@ test('gallery proxy rejects malicious URLs before fetch and forbids redirects', 
   const res = response();
   await proxyGalleryImage(req(good), res);
   assert.equal(res.code, 200);
+  assert.match(res.headers['Cache-Control'], /^private,/);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].opts.redirect, 'error');
 });

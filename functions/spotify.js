@@ -1,6 +1,6 @@
 'use strict';
 
-const { getAdmin, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
+const { applyCors, getAdmin, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
 
 
 function _getSpotifyCreds() {
@@ -101,9 +101,7 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
 });
 
 const spotifyExchange = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
@@ -150,9 +148,7 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
 });
 
 const spotifyRefresh = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
@@ -220,9 +216,7 @@ function _mapSpotifyRecentItems(items) {
 }
 
 const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);

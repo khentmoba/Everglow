@@ -177,10 +177,11 @@ class AuthService {
   async verifyCouplePasscode(passcode: string): Promise<string | null> {
     const host = window.location.hostname;
     const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    const isProdOrigin = window.location.origin === 'https://everglow-1c6db.web.app';
     const urls = [
       ...(isLocal ? [] : ['/api/verifyPasscode']),
       'https://us-central1-everglow-1c6db.cloudfunctions.net/verifyPasscode',
-      'https://everglow-1c6db.web.app/api/verifyPasscode',
+      ...(isProdOrigin ? [] : ['https://everglow-1c6db.web.app/api/verifyPasscode']),
     ];
     let lastError: unknown = null;
     for (const url of urls) {
@@ -192,6 +193,9 @@ class AuthService {
           signal: AbortSignal.timeout(10_000),
         });
         if (resp.status === 401 || resp.status === 400) return null;
+        if (resp.status === 429) {
+          throw new PasscodeConnectionError('HTTP 429');
+        }
         if (resp.status !== 200) {
           lastError = `HTTP ${resp.status}`;
           Logger.e(`verifyCouplePasscode ${url} -> ${resp.status}`);
@@ -219,6 +223,7 @@ class AuthService {
         this.notify();
         return data.username;
       } catch (e) {
+        if (e instanceof PasscodeConnectionError) throw e;
         lastError = e;
         Logger.e(`verifyCouplePasscode ${url} failed`, e);
       }

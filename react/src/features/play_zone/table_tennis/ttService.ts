@@ -167,6 +167,7 @@ export const ttLocalState = {
 };
 
 export function handleTTMessage(event: MessageEvent) {
+  if (event.origin !== window.location.origin) return;
   const map = event.data as Record<string, unknown> | null;
   if (!map || typeof map !== 'object' || Array.isArray(map)) return;
   switch (map.type) {
@@ -187,7 +188,7 @@ export const findTTIframe = () => document.querySelector<HTMLIFrameElement>('ifr
 
 function post(iframe: HTMLIFrameElement, type: string, data: Record<string, unknown>) {
   try {
-    iframe.contentWindow?.postMessage({ type, ...data }, '*');
+    iframe.contentWindow?.postMessage({ type, ...data }, window.location.origin);
   } catch (e) {
     Logger.w(`[TTBridgeService] Failed to post message to iframe: ${String(e)}`);
   }

@@ -1,7 +1,7 @@
 'use strict';
 
 const { Readable } = require('node:stream');
-const { cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
+const { applyCors, cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core.js');
 
 const proxyGalleryImage = cappedHttps(30, async (req, res) => {
@@ -55,9 +55,9 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     const thumbPx = typeof thumbWidth === 'string' ? parseInt(thumbWidth, 10) : NaN;
     const isThumbFile = targetUrl.includes('_thumb.jpg');
     if ((Number.isFinite(thumbPx) && thumbPx > 0 && thumbPx <= 1600) || isThumbFile) {
-      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      res.set('Cache-Control', 'private, max-age=31536000, immutable');
     } else {
-      res.set('Cache-Control', 'public, max-age=3600');
+      res.set('Cache-Control', 'private, max-age=3600');
     }
     res.status(200);
     if (upstream.body != null) {
@@ -85,9 +85,7 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
 });
 
 const cleanupGallery = cappedHttps(5, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -150,9 +148,7 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
 });
 
 const deleteGalleryPhoto = cappedHttps(10, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
