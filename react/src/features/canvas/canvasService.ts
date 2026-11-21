@@ -15,7 +15,6 @@ import {
   Timestamp,
   writeBatch,
   type DocumentData,
-  type DocumentReference,
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
 import { db } from '../../core/services/firebase';
@@ -118,6 +117,7 @@ export function simplifyCanvasPoints(points: CanvasPoint[], epsilon = 0.001): Ca
 
 const STROKES = 'canvas_strokes';
 const LIVE = 'live_canvas';
+const MAX_STROKES = 2400;
 
 class CanvasService {
   getStrokesStream(): Source<DoodleStroke[]> {
@@ -129,8 +129,8 @@ class CanvasService {
         unsub = onSnapshot(
           query(collection(db, STROKES), orderBy('createdAt'), limit(max)),
           (snap) => {
-            if (snap.docs.length === max) {
-              max *= 2;
+            if (snap.docs.length === max && max < MAX_STROKES) {
+              max = Math.min(max * 2, MAX_STROKES);
               unsub();
               listen();
               return;
@@ -181,20 +181,21 @@ class CanvasService {
   async clearAllStrokes(): Promise<void> {
     if (AgentMode.demo) return;
     try {
-      const strokes = await withGetTimeout(getDocs(collection(db, STROKES)), 'canvas clear strokes');
-      await this.deleteInBatches(strokes.docs.map((d) => d.ref));
-      const live = await withGetTimeout(getDocs(collection(db, LIVE)), 'canvas clear live');
-      await this.deleteInBatches(live.docs.map((d) => d.ref));
+      await this.deleteCollectionChunked(STROKES, 'canvas clear strokes');
+      await this.deleteCollectionChunked(LIVE, 'canvas clear live');
     } catch (e) {
       Logger.e('Canvas clearAllStrokes failed', e);
     }
   }
 
-  private async deleteInBatches(refs: DocumentReference[]) {
-    for (let i = 0; i < refs.length; i += 500) {
+  private async deleteCollectionChunked(name: string, label: string) {
+    for (let page = 0; page < 20; page++) {
+      const snap = await withGetTimeout(getDocs(query(collection(db, name), limit(500))), label);
+      if (snap.empty) break;
       const batch = writeBatch(db);
-      for (const ref of refs.slice(i, i + 500)) batch.delete(ref);
+      for (const d of snap.docs) batch.delete(d.ref);
       await batch.commit();
+      if (snap.docs.length < 500) break;
     }
   }
 }

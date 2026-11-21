@@ -355,9 +355,11 @@ class ConversationRepository {
 
   private async trimFullSessions(): Promise<void> {
     try {
-      const snapshot = await getDocs(query(sessionsRef(), where('hasSummary', '==', false), orderBy('createdAt', 'desc')));
+      const snapshot = await getDocs(
+        query(sessionsRef(), where('hasSummary', '==', false), orderBy('createdAt', 'desc'), limit(25)),
+      );
       if (snapshot.docs.length <= 8) return;
-      for (const d of snapshot.docs.slice(8)) {
+      for (const d of snapshot.docs.slice(8, 13)) {
         const messages = (d.data().messages as Json[] | undefined) ?? [];
         const summary = await this.buildLLMSummary(messages);
         await updateDoc(d.ref, { hasSummary: true, summary, messages: [] });

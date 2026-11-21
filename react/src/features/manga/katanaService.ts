@@ -152,9 +152,7 @@ async function fetchHtml(url: string, cookie = ''): Promise<string | null> {
 }
 
 function unescapeHtml(raw: string): string {
-  const el = document.createElement('textarea');
-  el.innerHTML = raw;
-  return el.value;
+  return new DOMParser().parseFromString(raw, 'text/html').documentElement.textContent ?? '';
 }
 
 function cleanText(raw: string): string {

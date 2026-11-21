@@ -208,6 +208,7 @@ let deviceId: string | null = null;
 let connected = false;
 let initialization: Promise<void> | null = null;
 let currentToken = '';
+let tokenRefreshTimer: number | null = null;
 
 function loadSdk(): Promise<void> {
   const w = window as SpotifyWindow;
@@ -225,6 +226,26 @@ function loadSdk(): Promise<void> {
   });
 }
 
+function armTokenRefresh() {
+  if (tokenRefreshTimer != null) window.clearInterval(tokenRefreshTimer);
+  tokenRefreshTimer = window.setInterval(
+    async () => {
+      if (!auth.currentUser) {
+        if (tokenRefreshTimer != null) {
+          window.clearInterval(tokenRefreshTimer);
+          tokenRefreshTimer = null;
+        }
+        connected = false;
+        return;
+      }
+      if (!connected) return;
+      const fresh = await storedAccessToken();
+      if (fresh) currentToken = fresh;
+    },
+    50 * 60 * 1000,
+  );
+}
+
 async function initPlayer(): Promise<void> {
   try {
     await loadSdk();
@@ -236,7 +257,11 @@ async function initPlayer(): Promise<void> {
   if (!token) return;
   currentToken = token;
   const w = window as SpotifyWindow & { _everglowSpotifyPlayer?: SpotifyPlayer };
-  if (w._everglowSpotifyPlayer) return;
+  if (w._everglowSpotifyPlayer) {
+    if (deviceId != null) connected = true;
+    armTokenRefresh();
+    return;
+  }
   const player = new w.Spotify!.Player({ name: 'Everglow Jukebox', getOAuthToken: (cb) => cb(currentToken), volume: 0.8 });
   w._everglowSpotifyPlayer = player;
   player.addListener('ready', ({ device_id }) => {
@@ -247,14 +272,7 @@ async function initPlayer(): Promise<void> {
   player.addListener('not_ready', () => (connected = false));
   player.addListener('initialization_error', ({ message }) => Logger.w(`Spotify error: ${message}`));
   void player.connect();
-  setInterval(
-    async () => {
-      if (!connected) return;
-      const fresh = await storedAccessToken();
-      if (fresh) currentToken = fresh;
-    },
-    50 * 60 * 1000,
-  );
+  armTokenRefresh();
 }
 
 function initSpotifyPlayer(): Promise<void> {
