@@ -11,10 +11,10 @@ import { useSource } from '../../core/utils/liveSource';
 import type { MilestoneCategory } from '../../core/agent/fixtures';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
-import { creatorService } from './creatorService';
+import { creatorService, type MemberAccount } from './creatorService';
 import { MILESTONE_META } from './milestoneService';
 
-type CreatorTab = 'letters' | 'memories' | 'surprises' | 'system';
+type CreatorTab = 'letters' | 'memories' | 'surprises' | 'accounts' | 'system';
 
 const LETTER_TEMPLATES = [
   { name: 'Love Letter', title: 'To My Love', body: 'Just a quiet reminder that you are my favorite part of every single day.' },
@@ -72,6 +72,7 @@ export function CreatorModal({ onClose }: { onClose: () => void }) {
     { id: 'letters', label: 'Letters', icon: 'mail_outline' },
     { id: 'memories', label: 'Memories', icon: 'photo_library' },
     { id: 'surprises', label: 'Surprises', icon: 'auto_awesome' },
+    { id: 'accounts', label: 'Accounts', icon: 'manage_accounts' },
     { id: 'system', label: 'System', icon: 'tune' },
   ];
 
@@ -144,7 +145,7 @@ export function CreatorModal({ onClose }: { onClose: () => void }) {
             style={{
               width: '100%',
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(5, 1fr)',
               gap: 6,
               marginTop: 12,
               paddingBottom: 10,
@@ -190,6 +191,7 @@ export function CreatorModal({ onClose }: { onClose: () => void }) {
           {tab === 'letters' && <CreatorLettersTab />}
           {tab === 'memories' && <CreatorMemoriesTab />}
           {tab === 'surprises' && <CreatorSurprisesTab />}
+          {tab === 'accounts' && <CreatorAccountsTab />}
           {tab === 'system' && <CreatorSystemTab />}
         </div>
       </div>
@@ -788,6 +790,370 @@ function CreatorSystemTab() {
           Clear local Letterbox &amp; Cinema caches
         </button>
       </div>
+    </>
+  );
+}
+
+function formatShortDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function CreatorAccountsTab() {
+  const [accounts, setAccounts] = useState<MemberAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busyUser, setBusyUser] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await creatorService.listMemberAccounts();
+      setAccounts(list);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load accounts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const act = async (username: string, action: 'approve' | 'reject' | 'revoke' | 'delete') => {
+    setBusyUser(username);
+    try {
+      await creatorService.updateMemberAccount(username, action);
+      const labels: Record<typeof action, string> = {
+        approve: `Approved @${username}`,
+        reject: `Rejected @${username}`,
+        revoke: `Moved @${username} back to pending`,
+        delete: `Deleted @${username}`,
+      };
+      showSnackBar(labels[action]);
+      await load();
+    } catch (e) {
+      showSnackBar(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusyUser(null);
+    }
+  };
+
+  const pending = accounts.filter((a) => a.status === 'pending');
+  const approved = accounts.filter((a) => a.status === 'approved');
+  const rejected = accounts.filter((a) => a.status === 'rejected');
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+          <div style={{ ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
+            Member Account Approvals
+          </div>
+          <div style={{ fontSize: 12, color: Derived.textMuted }}>
+            {pending.length} pending · {approved.length} approved
+          </div>
+        </div>
+        <button
+          type="button"
+          className="bare-button"
+          onClick={() => void load()}
+          disabled={loading}
+          style={{
+            padding: '7px 12px',
+            borderRadius: 999,
+            background: withAlpha(AppColors.petalWhite, 0.08),
+            border: `1px solid ${Derived.border}`,
+            color: AppColors.petalWhite,
+            ...AppTypography.outfitBold,
+            fontSize: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <Icon name="refresh" size={15} color={AppColors.blushGold} />
+          <span>{loading ? 'Loading…' : 'Refresh'}</span>
+        </button>
+      </div>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            ...cardStyle,
+            borderColor: withAlpha(AppColors.error, 0.5),
+            background: withAlpha(AppColors.error, 0.12),
+            color: AppColors.petalWhite,
+            fontSize: 12.5,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: AppColors.blushGold }}>
+            Pending Approval ({pending.length})
+          </div>
+        </div>
+        {loading && accounts.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: Derived.textMuted }}>Checking pending requests…</div>
+        ) : pending.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: Derived.textMuted }}>No pending account requests right now.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pending.map((acc) => {
+              const isBusy = busyUser === acc.username;
+              return (
+                <div
+                  key={acc.id}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: AppRadius.sm,
+                    background: withAlpha(AppColors.shimmerBase, 0.72),
+                    border: `1px solid ${withAlpha(AppColors.blushGold, 0.3)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
+                      @{acc.username}
+                    </div>
+                    {acc.createdAt && (
+                      <div style={{ fontSize: 11.5, color: Derived.textMuted }}>
+                        Requested {formatShortDate(acc.createdAt)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      disabled={isBusy}
+                      onClick={() => void act(acc.username, 'approve')}
+                      style={{
+                        padding: '7px 12px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.success, 0.22),
+                        border: `1px solid ${withAlpha(AppColors.success, 0.6)}`,
+                        color: AppColors.petalWhite,
+                        ...AppTypography.outfitBold,
+                        fontSize: 12,
+                        opacity: isBusy ? 0.5 : 1,
+                      }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      disabled={isBusy}
+                      onClick={() => void act(acc.username, 'reject')}
+                      style={{
+                        padding: '7px 12px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.error, 0.16),
+                        border: `1px solid ${withAlpha(AppColors.error, 0.45)}`,
+                        color: AppColors.petalWhite,
+                        ...AppTypography.outfitBold,
+                        fontSize: 12,
+                        opacity: isBusy ? 0.5 : 1,
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: AppColors.success }}>
+          Approved Accounts ({approved.length})
+        </div>
+        {approved.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: Derived.textMuted }}>No custom accounts approved yet.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {approved.map((acc) => {
+              const isBusy = busyUser === acc.username;
+              return (
+                <div
+                  key={acc.id}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: AppRadius.sm,
+                    background: withAlpha(AppColors.shimmerBase, 0.65),
+                    border: `1px solid ${Derived.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
+                      @{acc.username}
+                    </div>
+                    {acc.approvedAt && (
+                      <div style={{ fontSize: 11.5, color: Derived.textMuted }}>
+                        Approved {formatShortDate(acc.approvedAt)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      disabled={isBusy}
+                      onClick={() => void act(acc.username, 'revoke')}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.petalWhite, 0.08),
+                        border: `1px solid ${Derived.border}`,
+                        color: Derived.textMedium,
+                        ...AppTypography.outfitBold,
+                        fontSize: 11.5,
+                        opacity: isBusy ? 0.5 : 1,
+                      }}
+                    >
+                      Revoke
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      disabled={isBusy}
+                      onClick={() => void act(acc.username, 'delete')}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.error, 0.14),
+                        border: `1px solid ${withAlpha(AppColors.error, 0.4)}`,
+                        color: AppColors.petalWhite,
+                        ...AppTypography.outfitBold,
+                        fontSize: 11.5,
+                        opacity: isBusy ? 0.5 : 1,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: Derived.textMedium }}>
+          Legacy Door-Key Accounts
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {['breyan', 'octagram'].map((legacy) => (
+            <span
+              key={legacy}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 999,
+                background: withAlpha(AppColors.petalWhite, 0.06),
+                border: `1px solid ${Derived.border}`,
+                ...AppTypography.outfitBold,
+                fontSize: 12.5,
+                color: AppColors.petalWhite,
+              }}
+            >
+              @{legacy}
+            </span>
+          ))}
+        </div>
+        <div style={{ fontSize: 11.5, color: Derived.textMuted }}>
+          Always active via their legacy 4-digit door key.
+        </div>
+      </div>
+
+      {rejected.length > 0 && (
+        <div style={cardStyle}>
+          <div style={{ ...AppTypography.outfitBold, fontSize: 13.5, color: Derived.textMuted }}>
+            Rejected ({rejected.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {rejected.map((acc) => {
+              const isBusy = busyUser === acc.username;
+              return (
+                <div
+                  key={acc.id}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: AppRadius.sm,
+                    background: withAlpha(AppColors.shimmerBase, 0.5),
+                    border: `1px solid ${Derived.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ ...AppTypography.outfitBold, fontSize: 13, color: Derived.textMuted }}>
+                    @{acc.username}
+                  </span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      disabled={isBusy}
+                      onClick={() => void act(acc.username, 'approve')}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.success, 0.18),
+                        border: `1px solid ${withAlpha(AppColors.success, 0.45)}`,
+                        color: AppColors.petalWhite,
+                        ...AppTypography.outfitBold,
+                        fontSize: 11.5,
+                      }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      disabled={isBusy}
+                      onClick={() => void act(acc.username, 'delete')}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: 999,
+                        background: withAlpha(AppColors.error, 0.14),
+                        border: `1px solid ${withAlpha(AppColors.error, 0.38)}`,
+                        color: AppColors.petalWhite,
+                        ...AppTypography.outfitBold,
+                        fontSize: 11.5,
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 }

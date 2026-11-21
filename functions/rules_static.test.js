@@ -196,3 +196,17 @@ test('personal book and manga library collections are owner-scoped for cinema pr
     'our_books must remain couple-only',
   );
 });
+
+test('member_accounts and community_watch_room_secrets are server-only, global_chat_messages and community_watch_rooms are protected', () => {
+  assert.match(rules, /match \/member_accounts\/\{accountId\} \{ allow read, write: if false; \}/);
+  assert.match(rules, /match \/community_watch_room_secrets\/\{roomId\} \{ allow read, write: if false; \}/);
+  assert.match(
+    rules,
+    /match \/global_chat_messages\/\{messageId\} \{[\s\S]*?allow read: if isAppUser\(\);[\s\S]*?request\.resource\.data\.senderUid == request\.auth\.uid[\s\S]*?request\.resource\.data\.senderName == username\(\)/,
+  );
+  assert.match(
+    rules,
+    /match \/community_watch_rooms\/\{roomId\} \{[\s\S]*?allow read: if isAppUser\(\);[\s\S]*?allow create: if false;[\s\S]*?isValidCommunityRoomShape\(request\.resource\.data\)[\s\S]*?match \/members\/\{memberUid\} \{[\s\S]*?allow write: if false;[\s\S]*?match \/messages\/\{messageId\} \{[\s\S]*?canAccessCommunityRoomById\(roomId\)/,
+  );
+  assert.match(rules, /data\.serverHost == 'everglow'/);
+});

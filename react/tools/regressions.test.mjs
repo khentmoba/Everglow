@@ -439,7 +439,7 @@ test('Restored Flutter features: Creator Studio, Jukebox insights, TV nav, Slow-
     await page.waitForSelector('text=Slow connection', { timeout: 10_000 });
     await page.locator('button[aria-label="Open creator tools"]').click();
     await page.waitForSelector('text=Creator Studio', { timeout: 5_000 });
-    for (const tabName of ['Memories', 'Surprises', 'System', 'Letters']) {
+    for (const tabName of ['Memories', 'Surprises', 'Accounts', 'System', 'Letters']) {
       await page.getByRole('tab', { name: tabName }).click();
     }
     await page.locator('button[aria-label="Close Creator Studio"]').click();
@@ -455,11 +455,13 @@ test('Restored Flutter features: Creator Studio, Jukebox insights, TV nav, Slow-
     await page.waitForSelector('text=MangaCelestia', { timeout: 5_000 });
 
     await page.goto(`${baseUrl}/watch-party?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Host a Watch Party', { timeout: 10_000 });
+    await page.getByRole('tab', { name: 'Just Us Rooms' }).click();
     await page.waitForSelector('text=Create a room', { timeout: 10_000 });
     const firstRoom = page.locator('button:has-text("LIVE"), button:has-text("IDLE")').first();
     if (await firstRoom.isVisible().catch(() => false)) {
       await firstRoom.click();
-      await page.waitForSelector('button[aria-label="Switch server"]', { timeout: 8_000 });
+      await page.waitForSelector('[title*="Everglow Server"]', { timeout: 8_000 });
     }
 
     assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);

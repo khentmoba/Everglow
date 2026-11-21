@@ -1261,6 +1261,39 @@ export function NetflixCinemaTopBar({
               className="bare-button"
               onClick={() => {
                 setMenuOpen(false);
+                navigate('/books');
+              }}
+              style={{ padding: '8px 12px', textAlign: 'left', ...AppTypography.outfitWhite, fontSize: 13 }}
+            >
+              Books
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => {
+                setMenuOpen(false);
+                navigate('/watch-party');
+              }}
+              style={{ padding: '8px 12px', textAlign: 'left', ...AppTypography.outfitWhite, fontSize: 13 }}
+            >
+              Watch Party
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => {
+                setMenuOpen(false);
+                navigate('/global-chat');
+              }}
+              style={{ padding: '8px 12px', textAlign: 'left', ...AppTypography.outfitWhite, fontSize: 13 }}
+            >
+              Global Chat
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => {
+                setMenuOpen(false);
                 onLogout();
               }}
               style={{ padding: '8px 12px', textAlign: 'left', ...AppTypography.outfitWhite, fontSize: 13 }}
@@ -1319,6 +1352,8 @@ export function MediaSectionMenuButton({ currentRoute }: { currentRoute: string 
             ['/anime', 'Anime', 'animation'],
             ['/manga', 'Mangacelestia', 'auto_stories'],
             ['/books', 'Books', 'menu_book'],
+            ['/watch-party', 'Watch Party', 'live_tv'],
+            ['/global-chat', 'Global Chat', 'forum'],
           ].map(([route, label, icon]) => (
             <button
               key={route}

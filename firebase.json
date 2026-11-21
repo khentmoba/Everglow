@@ -205,6 +205,22 @@
         "function": "verifyPasscode"
       },
       {
+        "source": "/api/registerAccount",
+        "function": "registerAccount"
+      },
+      {
+        "source": "/api/loginAccount",
+        "function": "loginAccount"
+      },
+      {
+        "source": "/api/manageAccounts",
+        "function": "manageAccounts"
+      },
+      {
+        "source": "/api/communityWatchPartyAccess",
+        "function": "communityWatchPartyAccess"
+      },
+      {
         "source": "/api/proxyTmdb",
         "function": "proxyTmdb"
       },
