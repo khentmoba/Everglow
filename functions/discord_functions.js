@@ -135,6 +135,11 @@ const discordInteractions = onRequest({ invoker: 'public', maxInstances: 10 }, a
   if (enforceRateLimit(req, res, { endpoint: 'discordInteractions', limit: 120, windowMs: 60000 })) return;
   const sig = req.get('X-Signature-Ed25519') || '';
   const ts = req.get('X-Signature-Timestamp') || '';
+  const tsNum = Number(ts);
+  if (!ts || !Number.isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > 300) {
+    res.status(401).json({ error: 'Bad signature' });
+    return;
+  }
   const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
   let ok = false;
   try {

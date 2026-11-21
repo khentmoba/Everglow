@@ -67,16 +67,24 @@ const OFFLINE_MEDIA = "everglow-offline-media-v1";
 const OFFLINE_MANGA = "everglow-offline-manga-v1";
 const PRESERVED = new Set([SHELL, OFFLINE_PHOTOS, OFFLINE_MEDIA, OFFLINE_MANGA]);
 const PRECACHE = ${precacheList};
+const isCorePrecache = (url) =>
+  url === "/index.html" ||
+  (url.startsWith("/assets/") &&
+    (url.endsWith(".js") || url.endsWith(".css")) &&
+    (url.startsWith("/assets/index-") ||
+      url.startsWith("/assets/react-vendor-") ||
+      url.startsWith("/assets/firebase-core-")));
 const NO_STORE = new Set(["/", "/index.html", "/version.json", "/sw.js", "/firebase-messaging-sw.js", "/manifest.json", "/manifest_screen.json"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SHELL).then(async (cache) => {
-      await Promise.allSettled(PRECACHE.map((url) => cache.add(url)));
-      if (await cache.match("/index.html")) {
-        await self.skipWaiting();
-      }
-    }).catch(() => {})
+      const core = PRECACHE.filter(isCorePrecache);
+      const extra = PRECACHE.filter((url) => !isCorePrecache(url));
+      await Promise.all(core.map((url) => cache.add(url)));
+      await Promise.allSettled(extra.map((url) => cache.add(url)));
+      await self.skipWaiting();
+    })
   );
 });
 
@@ -287,8 +295,9 @@ function webShellPlugin(): Plugin {
         const src = join(firebasePkgDir, f);
         if (existsSync(src)) cpSync(src, join(assetsDir, f));
       }
-      // Precache the entry shell + Dashboard chunk (and its direct imports) so
-      // offline reload of /dashboard works immediately after SW activation.
+      // Precache the entry shell + Dashboard chunks and their static imports
+      // (excluding dynamic import(...) of unrelated lazy route chunks) so
+      // offline reload of /dashboard works without downloading the whole app.
       const precacheSet = new Set<string>([
         ...(mainEntry ? [`/assets/${mainEntry}`] : []),
         ...(mainCss ? [`/assets/${mainCss}`] : []),
@@ -305,7 +314,7 @@ function webShellPlugin(): Plugin {
           visited.add(name);
           precacheSet.add(`/assets/${name}`);
           const src = readFileSync(join(assetsDir, name), 'utf8');
-          for (const m of src.matchAll(/(?:from|import)\s*\(?\s*["']\.\/([^"']+\.js)["']/g)) {
+          for (const m of src.matchAll(/\bfrom\s*["']\.\/([^"']+\.js)["']/g)) {
             if (existsSync(join(assetsDir, m[1]))) queue.push(m[1]);
           }
         }

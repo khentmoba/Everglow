@@ -218,19 +218,59 @@ let currentToken = '';
 let currentTokenExpiresAt = 0;
 let tokenRefreshTimer: number | null = null;
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    if (tokenRefreshTimer != null) {
+      window.clearInterval(tokenRefreshTimer);
+      tokenRefreshTimer = null;
+    }
+    const w = window as SpotifyWindow & { _everglowSpotifyPlayer?: SpotifyPlayer & { disconnect?: () => void } };
+    try {
+      w._everglowSpotifyPlayer?.disconnect?.();
+    } catch {
+      // ignore disconnect errors during logout
+    }
+    delete w._everglowSpotifyPlayer;
+    deviceId = null;
+    connected = false;
+    initialization = null;
+    currentToken = '';
+    currentTokenExpiresAt = 0;
+  });
+}
+
 function loadSdk(): Promise<void> {
   const w = window as SpotifyWindow;
   if (w.Spotify?.Player) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    w.onSpotifyWebPlaybackSDKReady = () => resolve();
+    let settled = false;
+    const cleanup = () => {
+      window.clearTimeout(pollTimer);
+      window.clearTimeout(failTimer);
+    };
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+    w.onSpotifyWebPlaybackSDKReady = done;
     if (!document.querySelector('script[data-spotify-sdk]')) {
       const script = document.createElement('script');
       script.src = 'https://sdk.scdn.co/spotify-player.js';
       script.setAttribute('data-spotify-sdk', '1');
       document.head.appendChild(script);
     }
-    setTimeout(() => w.Spotify?.Player && resolve(), 900);
-    setTimeout(() => reject(new Error('Spotify SDK failed to load')), 12000);
+    const pollTimer = window.setTimeout(() => {
+      if (w.Spotify?.Player) done();
+    }, 900);
+    const failTimer = window.setTimeout(() => fail(new Error('Spotify SDK failed to load')), 12000);
   });
 }
 

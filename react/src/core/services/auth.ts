@@ -253,12 +253,30 @@ class AuthService {
       return null;
     }
     if (!v.salt) return null;
+    const recordFailure = () => {
+      const fails = (Number(Prefs.get('offline_passcode_fails') ?? '0') || 0) + 1;
+      if (fails >= 5) {
+        this.offlineVerifier = null;
+        Prefs.remove('offline_passcode_verifier');
+        Prefs.remove('offline_passcode_fails');
+        Logger.w('[AuthService] offline verifier wiped after 5 failed attempts');
+      } else {
+        Prefs.set('offline_passcode_fails', String(fails));
+      }
+    };
     if (v.v === 2) {
-      if ((await pbkdf2Hex(remembered, v.salt, passcode)) !== v.digest) return null;
+      if ((await pbkdf2Hex(remembered, v.salt, passcode)) !== v.digest) {
+        recordFailure();
+        return null;
+      }
     } else {
-      if ((await sha256Hex(`${remembered}:${v.salt}:${passcode}`)) !== v.digest) return null;
+      if ((await sha256Hex(`${remembered}:${v.salt}:${passcode}`)) !== v.digest) {
+        recordFailure();
+        return null;
+      }
       await this.saveSession(remembered, passcode);
     }
+    Prefs.remove('offline_passcode_fails');
     this.isOfflineMode = true;
     this.lastAuthError = null;
     Logger.i(`[AuthService] offline remembered login for ${remembered}`);
@@ -269,6 +287,7 @@ class AuthService {
   private async saveSession(name: string | null, passcode: string | null) {
     if (name) Prefs.set('current_user_name', name);
     else Prefs.remove('current_user_name');
+    Prefs.remove('offline_passcode_fails');
     if (!name || !passcode) {
       this.offlineVerifier = null;
       Prefs.remove('offline_passcode_verifier');

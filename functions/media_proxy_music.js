@@ -63,6 +63,8 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => isAllowedLastfmImageUrl(u.toString()),
     });
     if (!upstream.ok) {
       await upstream.body?.cancel().catch(() => {});

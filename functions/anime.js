@@ -804,8 +804,11 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     const range = req.get('Range') || req.headers.range;
     if (range && typeof range === 'string') headers.Range = range;
     const upstream = await common.fetchPublicUrl(targetUrl, {
+      method: req.method === 'HEAD' ? 'HEAD' : 'GET',
       headers,
       signal: AbortSignal.timeout(25000),
+      httpsOnly: true,
+      ...(stamped ? {} : { isAllowedUrl: (u) => isAnimeCdnHost(u.hostname) }),
     });
     if (!upstream.ok && upstream.status !== 206) {
       await upstream.body?.cancel().catch(() => {});
@@ -817,6 +820,29 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       upstreamCt.includes('mpegurl') ||
       upstreamCt.includes('x-mpegurl') ||
       parsed.pathname.toLowerCase().includes('.m3u8');
+    if (req.method === 'HEAD') {
+      await upstream.body?.cancel().catch(() => {});
+      const headCt = looksLikePlaylist
+        ? 'application/vnd.apple.mpegurl'
+        : (() => {
+            const rawCt = (upstream.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+            return /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/javascript|application\/javascript)$/.test(rawCt)
+              ? 'application/octet-stream'
+              : (upstream.headers.get('content-type') || 'application/octet-stream');
+          })();
+      res.set('Content-Type', headCt);
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      res.set('Cache-Control', looksLikePlaylist ? 'private, max-age=30' : 'public, max-age=3600');
+      const acceptRanges = upstream.headers.get('accept-ranges');
+      if (acceptRanges) res.set('Accept-Ranges', acceptRanges);
+      const contentRange = upstream.headers.get('content-range');
+      if (contentRange) res.set('Content-Range', contentRange);
+      const contentLength = upstream.headers.get('content-length');
+      if (contentLength && !looksLikePlaylist) res.set('Content-Length', contentLength);
+      res.status(upstream.status === 206 ? 206 : 200).send('');
+      return;
+    }
     let consumed = null;
     if (looksLikePlaylist) {
       const text = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
@@ -832,7 +858,9 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
           stampKey,
         );
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
-        res.set('Cache-Control', 'public, max-age=30');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+        res.set('Cache-Control', 'private, max-age=30');
         res.status(200).send(rewritten);
         return;
       }
@@ -908,10 +936,11 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
     return;
   }
   const host = parsed.hostname.toLowerCase();
-  const allowed = [...SEGMENT_HOSTS].some(
-    (h) => host === h || host.endsWith(`.${h}`),
-  );
-  if (parsed.protocol !== 'https:' || !allowed) {
+  const isAllowedSegment = (u) => {
+    const h = u.hostname.toLowerCase();
+    return [...SEGMENT_HOSTS].some((allow) => h === allow || h.endsWith(`.${allow}`));
+  };
+  if (parsed.protocol !== 'https:' || !isAllowedSegment(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -928,6 +957,8 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
         Referer: 'https://kwik.cx/',
       },
       signal: AbortSignal.timeout(30000),
+      httpsOnly: true,
+      isAllowedUrl: isAllowedSegment,
     });
     if (!upstream.ok) {
       await upstream.body?.cancel().catch(() => {});

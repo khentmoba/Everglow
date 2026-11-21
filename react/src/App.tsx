@@ -243,8 +243,9 @@ function RootLayout() {
       <RouteErrorBoundary
         resetKey={location.pathname}
         onGoHome={() => {
-          if (location.pathname === '/dashboard') window.location.reload();
-          else navigate('/dashboard');
+          const home = authService.isCinemaOnlyUser ? '/cinema' : '/dashboard';
+          if (location.pathname === home) window.location.reload();
+          else navigate(home);
         }}
       >
         <Suspense fallback={<RouteFallback />}>
