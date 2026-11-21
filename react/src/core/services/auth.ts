@@ -28,7 +28,7 @@ import { Prefs } from '../system/prefs';
 import { withGetTimeout } from '../utils/liveSource';
 import { initializeProgress } from '../../features/xp/xpService';
 import { letterboxService } from '../../features/dashboard/letterboxService';
-import { auth, db } from './firebase';
+import { auth, clearFirestoreCache, db } from './firebase';
 import { notificationService } from './notifications';
 
 export class PasscodeConnectionError extends Error {}
@@ -393,6 +393,7 @@ class AuthService {
   }
 
   async logout() {
+    const wasAgent = this.isAgentSession;
     this.isAgentSession = false;
     this.lastAuthError = null;
     try {
@@ -422,7 +423,13 @@ class AuthService {
     await this.saveSession(null, null);
     AgentMode.clearPersistedState();
     await OfflinePhotos.clear();
+    if (!wasAgent) {
+      await clearFirestoreCache();
+    }
     this.notify();
+    if (!wasAgent && typeof window !== 'undefined') {
+      window.location.replace('/');
+    }
   }
 }
 

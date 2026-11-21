@@ -92,6 +92,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
       signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
       res
         .status(upstream.status)
         .json({ error: `Upstream returned ${upstream.status}` });

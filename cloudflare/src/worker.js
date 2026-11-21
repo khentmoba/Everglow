@@ -230,7 +230,7 @@ async function handleProxyAnime(request, env) {
       headers: {
         ...cors,
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': query.token ? 'private, no-store' : 'public, max-age=300',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (e) {
@@ -311,6 +311,7 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     });
     if ([301, 302, 303, 307, 308].includes(resp.status)) {
       const loc = resp.headers.get('location');
+      await resp.body?.cancel().catch(() => {});
       if (!loc || hop === 5) throw new Error('Invalid or excessive redirects');
       const next = new URL(loc, current);
       if (next.origin !== current.origin) {
@@ -337,6 +338,7 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal) {
     return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502, request);
   }
   if (!upstream.ok && upstream.status !== 206) {
+    await upstream.body?.cancel().catch(() => {});
     return jsonResponse({ error: `Upstream ${upstream.status}` }, upstream.status, request);
   }
 
@@ -447,6 +449,7 @@ const DISALLOWED_MEDIA_CT_RE =
   if (consumed !== null) delete outHeaders['Content-Length'];
 
   if (request.method === 'HEAD') {
+    await upstream.body?.cancel().catch(() => {});
     return new Response(null, { status: upstream.status === 206 ? 206 : 200, headers: outHeaders });
   }
 

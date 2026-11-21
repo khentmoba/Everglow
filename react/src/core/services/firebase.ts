@@ -3,10 +3,12 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import {
+  clearIndexedDbPersistence,
   getFirestore,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  terminate,
   type Firestore,
 } from 'firebase/firestore';
 import type { FirebaseStorage } from 'firebase/storage';
@@ -33,6 +35,19 @@ function initDb(): Firestore {
 }
 
 export const db = initDb();
+
+export async function clearFirestoreCache(): Promise<void> {
+  try {
+    await terminate(db);
+  } catch {
+    // Already terminated or unavailable.
+  }
+  try {
+    await clearIndexedDbPersistence(db);
+  } catch {
+    // Another tab may still hold the lock or persistence may be disabled.
+  }
+}
 
 let storagePromise: Promise<{ storage: FirebaseStorage; mod: typeof import('firebase/storage') }> | null = null;
 export function loadStorage() {

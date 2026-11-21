@@ -70,6 +70,7 @@ export function DashboardPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLoadVeil, setShowLoadVeil] = useState(() => DashboardLoadVeilControl.consumePasscodeLoaderRequest());
   const [showLowerZones, setShowLowerZones] = useState(false);
+  const [requestedZone, setRequestedZone] = useState<string | null>(null);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pendingJumpRef = useRef<string | null>(null);
   useRememberedScroll('dashboard', scrollRef, auth.isReady);
@@ -147,6 +148,7 @@ export function DashboardPage() {
   const contentMaxWidth = responsive(width, { mobile: 600, tablet: 820, desktop: 980 });
 
   const jumpTo = (id: string) => {
+    setRequestedZone(id);
     const el = zoneRefs.current[id];
     if (el) {
       pendingJumpRef.current = null;
@@ -201,7 +203,12 @@ export function DashboardPage() {
 
           {showLowerZones && (
             <Suspense fallback={<div style={{ height: 1200 }} />}>
-              <DashboardLowerZones width={width} registerZone={registerZone} />
+              <DashboardLowerZones
+                width={width}
+                registerZone={registerZone}
+                scrollRoot={scrollRef}
+                requestedZone={requestedZone}
+              />
             </Suspense>
           )}
 

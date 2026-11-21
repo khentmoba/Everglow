@@ -117,7 +117,14 @@ self.addEventListener("fetch", (event) => {
         if (hit) return hit;
         try {
           const res = await fetch(req);
-          if (res && res.ok) await cache.put(req, res.clone());
+          const ct = (res.headers.get("content-type") || "").toLowerCase();
+          if (res && res.ok && !ct.includes("text/html")) {
+            await cache.put(req, res.clone());
+            return res;
+          }
+          if (ct.includes("text/html")) {
+            return Response.error();
+          }
           return res;
         } catch {
           return hit || Response.error();

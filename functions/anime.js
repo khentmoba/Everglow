@@ -804,6 +804,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       signal: AbortSignal.timeout(25000),
     });
     if (!upstream.ok && upstream.status !== 206) {
+      await upstream.body?.cancel().catch(() => {});
       res.status(upstream.status).json({ error: `Upstream ${upstream.status}` });
       return;
     }
@@ -848,6 +849,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     const contentLength = upstream.headers.get('content-length');
     if (contentLength && consumed === null) res.set('Content-Length', contentLength);
     if (req.method === 'HEAD') {
+      await upstream.body?.cancel().catch(() => {});
       res.status(upstream.status === 206 ? 206 : 200).send('');
       return;
     }
@@ -924,6 +926,7 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
       signal: AbortSignal.timeout(30000),
     });
     if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
       res.status(upstream.status).json({ error: `Upstream ${upstream.status}` });
       return;
     }

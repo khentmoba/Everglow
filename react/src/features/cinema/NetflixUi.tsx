@@ -198,6 +198,8 @@ function NetflixHoverPreview({
           <img
             src={backdropUrl}
             alt={item.title}
+            loading="lazy"
+            decoding="async"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         )}
@@ -464,6 +466,8 @@ export function NetflixPosterCard({
         <img
           src={posterUrl}
           alt={item.title}
+          loading="lazy"
+          decoding="async"
           onError={() => setImgErr(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
