@@ -7,7 +7,7 @@ import { WebTts } from '../../core/system/webTts';
 import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
-import { useSource } from '../../core/utils/liveSource';
+import { just, useSource } from '../../core/utils/liveSource';
 import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
@@ -88,7 +88,11 @@ export function BookDetailPage() {
   const userName = currentUser ?? '';
   const readlist = useSource(() => watchReadList(userName), [userName], []);
   const favorites = useSource(() => watchBookFavorites(userName), [userName], []);
-  const ourBooks = useSource(() => watchOurBooks(300), [], []);
+  const ourBooks = useSource(
+    () => (isCoupleUser ? watchOurBooks(300) : just([])),
+    [isCoupleUser],
+    [],
+  );
 
   useEffect(() => {
     if (state?.result || !workKeyParam) return;
@@ -352,47 +356,45 @@ export function BookDetailPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', marginTop: 22 }}>
+          <DetailActionCircle
+            icon={inReadlist ? 'bookmark' : 'bookmark_outline'}
+            label={inReadlist ? 'Saved' : 'Save'}
+            active={Boolean(inReadlist)}
+            onClick={() => {
+              if (inReadlist) runAction(removeFromReadList(item.workKey, userName));
+              else runAction(saveToReadList(item, 'to-read', userName));
+            }}
+          />
+          {inReadlist && (
+            <DetailActionCircle
+              icon="check_circle"
+              label={isBookRead(inReadlist.status) ? 'Read' : 'Mark read'}
+              active={isBookRead(inReadlist.status)}
+              onClick={() => runAction(saveToReadList(item, isBookRead(inReadlist.status) ? 'to-read' : 'read-self', userName))}
+            />
+          )}
+          <DetailActionCircle
+            icon={isLoved ? 'favorite' : 'favorite_border'}
+            label={isLoved ? 'Loved' : 'Love'}
+            active={isLoved}
+            onClick={() => runAction(toggleBookFavorite(item, userName, !isLoved))}
+          />
           {isCoupleUser && (
-            <>
-              <DetailActionCircle
-                icon={inReadlist ? 'bookmark' : 'bookmark_outline'}
-                label={inReadlist ? 'Saved' : 'Save'}
-                active={Boolean(inReadlist)}
-                onClick={() => {
-                  if (inReadlist) runAction(removeFromReadList(item.workKey, userName));
-                  else runAction(saveToReadList(item, 'to-read', userName));
-                }}
-              />
-              {inReadlist && (
-                <DetailActionCircle
-                  icon="check_circle"
-                  label={isBookRead(inReadlist.status) ? 'Read' : 'Mark read'}
-                  active={isBookRead(inReadlist.status)}
-                  onClick={() => runAction(saveToReadList(item, isBookRead(inReadlist.status) ? 'to-read' : 'read-self', userName))}
-                />
-              )}
-              <DetailActionCircle
-                icon={isLoved ? 'favorite' : 'favorite_border'}
-                label={isLoved ? 'Loved' : 'Love'}
-                active={isLoved}
-                onClick={() => runAction(toggleBookFavorite(item, userName, !isLoved))}
-              />
-              <DetailActionCircle
-                icon={inOurBooks ? 'check' : 'volunteer_activism'}
-                label={inOurBooks ? 'In Our Books' : 'Our Books'}
-                active={inOurBooks}
-                onClick={() => {
-                  if (inOurBooks) {
-                    setConfirmRemove(true);
-                  } else {
-                    runAction(addToOurBooks(item, userName).then(() => {
-                      setAddedToast(true);
-                      window.setTimeout(() => setAddedToast(false), 2600);
-                    }));
-                  }
-                }}
-              />
-            </>
+            <DetailActionCircle
+              icon={inOurBooks ? 'check' : 'volunteer_activism'}
+              label={inOurBooks ? 'In Our Books' : 'Our Books'}
+              active={inOurBooks}
+              onClick={() => {
+                if (inOurBooks) {
+                  setConfirmRemove(true);
+                } else {
+                  runAction(addToOurBooks(item, userName).then(() => {
+                    setAddedToast(true);
+                    window.setTimeout(() => setAddedToast(false), 2600);
+                  }));
+                }
+              }}
+            />
           )}
           <DetailActionCircle icon="ios_share" label="Share" onClick={copyShare} />
         </div>

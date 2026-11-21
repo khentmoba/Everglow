@@ -275,8 +275,13 @@ export function BooksPage() {
   const [recError, setRecError] = useState(false);
   const [homeRetryKey, setHomeRetryKey] = useState(0);
   const [slowLoad, setSlowLoad] = useState(false);
-  const goal = useSource(() => watchCoupleGoal(), [], 12);
+  const goal = useSource(
+    () => (isCoupleUser ? watchCoupleGoal() : (l) => { l.data(12); return () => {}; }),
+    [isCoupleUser],
+    12,
+  );
   const setGoal = (next: number) => {
+    if (!isCoupleUser) return;
     const value = Math.max(1, Math.min(52, next));
     void saveCoupleGoal(value);
   };
@@ -477,7 +482,11 @@ export function BooksPage() {
   const popularRail = dedupe(popular);
   const recentRail = dedupe(recent);
   const showSkeleton = loadingHome && popular.length === 0 && recent.length === 0;
-  const remoteProgress = useSource(() => watchAllReaderProgress(20), [userName], [] as ReaderProgress[]);
+  const remoteProgress = useSource(
+    () => watchAllReaderProgress(20, isCoupleUser ? undefined : userName),
+    [isCoupleUser, userName],
+    [] as ReaderProgress[],
+  );
   const progressMap = new Map<string, ReaderProgress>();
   for (const p of listProgress()) progressMap.set(p.workKey, p);
   for (const p of remoteProgress) progressMap.set(p.workKey, p);

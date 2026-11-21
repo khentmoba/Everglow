@@ -601,7 +601,7 @@ export function KatanaHeader({
           <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>{searchField}</div>
           <div style={{ width: 16, flexShrink: 0 }} />
           <div style={{ width: 210, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-            {showBack && bookmarksButton}
+            {bookmarksButton}
             <div style={{ width: 8 }} />
             {userChip}
           </div>
@@ -613,7 +613,7 @@ export function KatanaHeader({
             {logo}
             <div style={{ flex: 1 }} />
             {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
-            {showBack && bookmarksButton}
+            {bookmarksButton}
           </div>
           <div style={{ height: 10 }} />
           {searchField}
@@ -687,9 +687,9 @@ export function KatanaHeader({
             onSelectGenre={onSelectGenre}
             onOpenGenresPage={() => onSelectNav('genres')}
           />
-          {showBack && nav('reading', 'Currently Reading', 'auto_stories')}
+          {nav('reading', 'Currently Reading', 'auto_stories')}
           {nav('downloads', 'Downloads', 'download_done')}
-          {!desktop && showBack && (
+          {!desktop && (
             <>
               <div style={{ width: 4, flexShrink: 0 }} />
               <NavItem label="Bookmarks" icon="bookmark" active={false} onClick={() => onSelectNav('bookmarks')} />
