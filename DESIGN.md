@@ -21,10 +21,13 @@ a pass that only touched shared headers was rejected as "mostly no changes".
 - All values live in `react/src/core/theme/` (`colors.ts`, `typography.ts`,
   `paint.ts`, `motion.ts`). Use the tokens and never hardcode a colour.
 
-## Separate worlds
+## Separate worlds (non-pink)
 
-Cinema (Netflix-inspired, `cinemaRed`), Anime, Books and Mangacelestia keep
-their own looks. Cinema is shared with family guests, so its words stay
+The pink/rose couple palette above belongs **only** to the couple dashboard
+and couple-specific features. Cinema (Netflix-inspired, `cinemaRed`),
+Mangacelestia, Anime, and Books must **not** default to pink — each should
+use the color scheme and visual language that best fits community consensus
+for its medium. Cinema is shared with family guests, so its words stay
 neutral.
 
 ## What a good change looks like

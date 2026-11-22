@@ -101,7 +101,8 @@ no bump does nothing.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
 - **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-pr` skill.
 - **Hidden contracts** (stream proxies removed on purpose, legacy photo paths, the desktop bridge, OAuth scopes, the low-end motion gate): `docs/ARCHITECTURE.md` §6.5.
-- **Redesigns keep the identity:** read `DESIGN.md` first. Improve page bodies, not just shared headers, and show the difference in before/after shots.
+- **Theme & color boundaries (pink is couple-only):** Only the couple dashboard and couple-specific spaces (Together, chat, gallery, notes, garden, letters, etc.) should use Everglow's pink/rose couple theme. Outside the dashboard — especially Cinema (Netflix-inspired) and Manga Celestia, plus Anime and Books — do NOT default to pink. Be creative and choose the color scheme, surfaces, and visual identity that best match community consensus for that media experience (for example, Netflix-style dark/red for Cinema, and a best-in-class manga/manhwa/manhua palette for Manga Celestia). Keep any new tokens cleanly defined in `react/src/core/theme/` or the feature's own theme module.
+- **Redesigns keep the identity:** read `DESIGN.md` first (its pink/rose palette applies to the couple dashboard and couple spaces; separate media worlds own their own look). Improve page bodies, not just shared headers, and show the difference in before/after shots.
 - **Score loops stop:** a loop chasing a reviewer's score (UI rating, %) ends after two rounds that find nothing new, and includes one code review early. An AI score alone never means done.
 
 ## Shell
