@@ -129,3 +129,22 @@ test('allowedCorsOrigin permits Everglow and localhost origins and rejects stran
   assert.equal(allowedCorsOrigin(mk('https://evil.example')), 'https://everglow-1c6db.web.app');
   assert.equal(allowedCorsOrigin(mk('')), 'https://everglow-1c6db.web.app');
 });
+
+test('requireAuth checks token revocation and applyCors caches preflight for 24h', async (t) => {
+  const { applyCors, getAdmin } = require('./common');
+  let seenCheckRevoked = null;
+  t.mock.method(getAdmin(), 'auth', () => ({
+    verifyIdToken: async (_token, checkRevoked) => {
+      seenCheckRevoked = checkRevoked;
+      return { uid: 'u1', username: 'clairjassen', firebase: { sign_in_provider: 'custom' } };
+    },
+  }));
+  const req = { get: () => 'Bearer tok', headers: {} };
+  const decoded = await requireAuth(req, resMock());
+  assert.equal(decoded.uid, 'u1');
+  assert.equal(seenCheckRevoked, true);
+
+  const res = { headers: {}, set(k, v) { this.headers[k] = v; return this; } };
+  applyCors({ get: () => 'https://everglow-1c6db.web.app', headers: {} }, res, 'GET, OPTIONS');
+  assert.equal(res.headers['Access-Control-Max-Age'], '86400');
+});

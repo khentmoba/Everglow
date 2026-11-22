@@ -30,6 +30,7 @@ const _PC_WINDOW_MS = 10 * 60 * 1000;
 const _PC_MAX_FAILS = 20;
 const _PC_LOCK_MS = 15 * 60 * 1000;
 const _PC_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+const _PC_GLOBAL_LOCK_MS = 30 * 60 * 1000;
 const _PC_GLOBAL_MAX_FAILS = 100;
 
 function _sha256Hex(value) {
@@ -77,7 +78,11 @@ async function _pcLockoutAttempt(db, ipRef, globalRef, accepted) {
 
     let globalFails = Number(globalData.fails || 0);
     let globalFirstFailAt = Number(globalData.firstFailAt || now);
-    if (now - globalFirstFailAt >= _PC_GLOBAL_WINDOW_MS) {
+    const prevGlobalLock = Number(globalData.lockedUntil || 0);
+    if (
+      now - globalFirstFailAt >= _PC_GLOBAL_WINDOW_MS ||
+      (prevGlobalLock > 0 && prevGlobalLock <= now)
+    ) {
       globalFails = 0;
       globalFirstFailAt = now;
     }
@@ -86,7 +91,7 @@ async function _pcLockoutAttempt(db, ipRef, globalRef, accepted) {
       fails: globalFails,
       firstFailAt: globalFirstFailAt,
       lockedUntil: globalFails >= _PC_GLOBAL_MAX_FAILS
-        ? globalFirstFailAt + _PC_GLOBAL_WINDOW_MS
+        ? now + _PC_GLOBAL_LOCK_MS
         : 0,
     }, { merge: true });
     return { locked: false };

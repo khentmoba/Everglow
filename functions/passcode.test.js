@@ -108,3 +108,19 @@ test('invalid passcode attempts fail closed if durable lockout storage is down',
   await assert.rejects(attempt(db, 'ip', true), /Firestore unavailable/);
   await assert.rejects(attempt(db, 'ip', false), /Firestore unavailable/);
 });
+
+test('global lockout uses a 30-minute cooldown and resets counter once cooldown expires', async () => {
+  const before = Date.now();
+  const db = makeDb({
+    global: { fails: 99, firstFailAt: before - 1000, lockedUntil: 0 },
+  });
+  await attempt(db, 'ip-a', false);
+  const lockMs = db.data.get('global').lockedUntil - before;
+  assert.ok(lockMs > 25 * 60 * 1000 && lockMs <= 35 * 60 * 1000);
+
+  db.data.set('global', { fails: 100, firstFailAt: before - 60 * 60 * 1000, lockedUntil: before - 1000 });
+  const after = await attempt(db, 'ip-b', false);
+  assert.deepEqual(after, { locked: false });
+  assert.equal(db.data.get('global').fails, 1);
+  assert.equal(db.data.get('global').lockedUntil, 0);
+});

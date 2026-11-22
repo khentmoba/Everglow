@@ -361,3 +361,52 @@ test('manageAccounts restricts access to khentsgdz and supports list/approve/rej
   assert.equal(resApprove.code, 200);
   assert.equal(db.store.get('member_accounts/kenji').status, 'approved');
 });
+
+test('manageAccounts deletes users/{uid} on revoke and delete to cut off Firestore access immediately', async (t) => {
+  const admin = require('./common').getAdmin();
+  const db = makeFakeFirestore({
+    'member_accounts/ren': { username: 'ren', status: 'approved', uid: 'uid_ren' },
+    'users/uid_ren': { username: 'ren', partnerUsername: null },
+    'member_accounts/kai': { username: 'kai', status: 'approved', uid: 'uid_kai' },
+    'users/uid_kai': { username: 'kai', partnerUsername: null },
+  });
+  t.mock.method(admin, 'firestore', () => db);
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'uid_khent',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  let revokedUid = null;
+  let deletedUid = null;
+  t.mock.method(admin.auth(), 'revokeRefreshTokens', async (uid) => { revokedUid = uid; });
+  t.mock.method(admin.auth(), 'deleteUser', async (uid) => { deletedUid = uid; });
+
+  const resRevoke = makeRes();
+  await manageAccounts(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok' },
+      get: (h) => (h === 'Authorization' ? 'Bearer tok' : ''),
+      body: { action: 'revoke', username: 'ren' },
+    },
+    resRevoke,
+  );
+  assert.equal(resRevoke.code, 200);
+  assert.equal(revokedUid, 'uid_ren');
+  assert.equal(db.store.has('users/uid_ren'), false);
+
+  const resDelete = makeRes();
+  await manageAccounts(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok' },
+      get: (h) => (h === 'Authorization' ? 'Bearer tok' : ''),
+      body: { action: 'delete', username: 'kai' },
+    },
+    resDelete,
+  );
+  assert.equal(resDelete.code, 200);
+  assert.equal(deletedUid, 'uid_kai');
+  assert.equal(db.store.has('users/uid_kai'), false);
+  assert.equal(db.store.has('member_accounts/kai'), false);
+});
