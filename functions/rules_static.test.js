@@ -14,6 +14,23 @@ const storage = fs.readFileSync(
   'utf8',
 );
 
+/** Extract a brace-balanced `match ... { ... }` block so regexes never bleed across collections. */
+function blockFor(src, matchPrefix) {
+  const start = src.indexOf(matchPrefix);
+  assert.ok(start !== -1, `missing block for ${matchPrefix}`);
+  const open = src.indexOf(' {', start + matchPrefix.length);
+  assert.ok(open !== -1, `missing opening brace for ${matchPrefix}`);
+  let depth = 0;
+  for (let i = open + 1; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') {
+      depth--;
+      if (depth === 0) return src.slice(start, i + 1);
+    }
+  }
+  assert.fail(`unclosed block for ${matchPrefix}`);
+}
+
 test('Motchi action reservations cannot be forged or read by clients', () => {
   assert.match(rules, /match \/motchi_actions\/\{docId\} \{ allow read, write: if false; \}/);
 });
@@ -49,12 +66,13 @@ test('shape validators live inside the match helpers scope', () => {
 });
 
 test('academy_questions: no open write, delete denied', () => {
-  assert.ok(!rules.includes('academy_questions/{docId} {\n      allow read, write'));
-  assert.match(rules, /match \/academy_questions\/\{docId\} \{[\s\S]*?allow delete: if false/);
+  const blk = blockFor(rules, 'match /academy_questions/{docId}');
+  assert.ok(!/allow read,\s*write/.test(blk));
+  assert.match(blk, /allow delete: if false/);
 });
 
 test('active_matches: join, question refresh, and scoring writes are field-scoped', () => {
-  const matchRules = rules.split('match /active_matches/{docId} {')[1].split('match /tt_rooms/')[0];
+  const matchRules = blockFor(rules, 'match /active_matches/{docId}');
   assert.match(matchRules, /request\.resource\.data\.hostId == request\.auth\.uid/);
   assert.match(matchRules, /request\.resource\.data\.participantId == null/);
   assert.match(matchRules, /resource\.data\.participantId == null/);
@@ -72,46 +90,41 @@ test('active_matches: join, question refresh, and scoring writes are field-scope
 });
 
 test('push tokens are private per-device registrations for the signed-in couple identity', () => {
-  assert.match(
-    rules,
-    /match \/fcm_tokens\/\{docId\} \{[\s\S]*?allow read, write: if false;[\s\S]*?match \/devices\/\{deviceId\} \{[\s\S]*?allow read: if false;[\s\S]*?allow create, update: if isCouple\(\) && docId == username\(\)/,
-  );
-  assert.match(rules, /request\.resource\.data\.uid == request\.auth\.uid/);
+  const blk = blockFor(rules, 'match /fcm_tokens/{docId}');
+  assert.match(blk, /allow read, write: if false;/);
+  const devicesBlk = blockFor(blk, 'match /devices/{deviceId}');
+  assert.match(devicesBlk, /allow read: if false;/);
+  assert.match(devicesBlk, /allow create, update: if isCouple\(\) && docId == username\(\)/);
+  assert.match(devicesBlk, /request\.resource\.data\.uid == request\.auth\.uid/);
 });
 
 test('presence writes are owner-scoped', () => {
-  assert.match(
-    rules,
-    /match \/presence\/\{docId\} \{[^}]*docId == request\.auth\.uid/,
-  );
-  assert.match(
-    rules,
-    /match \/presence_sessions\/\{docId\} \{[^}]*resource\.data\.uid == request\.auth\.uid/,
-  );
+  assert.match(blockFor(rules, 'match /presence/{docId}'), /docId == request\.auth\.uid/);
+  assert.match(blockFor(rules, 'match /presence_sessions/{docId}'), /resource\.data\.uid == request\.auth\.uid/);
 });
 
 test('sanctuary/starlight updates keep type + allow-list', () => {
   assert.match(
-    rules,
-    /match \/sanctuary_messages\/\{messageId\} \{[\s\S]*?affectedKeys\(\)\.hasOnly\(\['text', 'updatedAt', 'editedAt', 'edited'\]\)/,
+    blockFor(rules, 'match /sanctuary_messages/{messageId}'),
+    /affectedKeys\(\)\.hasOnly\(\['text', 'updatedAt', 'editedAt', 'edited'\]\)/,
   );
   assert.match(
-    rules,
-    /match \/starlight_jar\/\{docId\} \{[\s\S]*?affectedKeys\(\)\.hasOnly\(\['content', 'updatedAt', 'opened', 'openedAt'\]\)/,
+    blockFor(rules, 'match /starlight_jar/{docId}'),
+    /affectedKeys\(\)\.hasOnly\(\['content', 'updatedAt', 'opened', 'openedAt'\]\)/,
   );
 });
 
 test('watch_list cinema updates cannot reassign ownership', () => {
   assert.match(
-    rules,
-    /match \/watch_list\/\{docId\} \{[\s\S]*?request\.resource\.data\.userName == resource\.data\.userName/,
+    blockFor(rules, 'match /watch_list/{docId}'),
+    /request\.resource\.data\.userName == resource\.data\.userName/,
   );
 });
 
 test('tt_rooms updates restrict the match status', () => {
   assert.match(
-    rules,
-    /match \/tt_rooms\/\{roomId\} \{[\s\S]*?request\.resource\.data\.status in \['waiting', 'playing', 'finished'\]/,
+    blockFor(rules, 'match /tt_rooms/{roomId}'),
+    /request\.resource\.data\.status in \['waiting', 'playing', 'finished'\]/,
   );
 });
 
@@ -127,19 +140,16 @@ test('secure-default deny-all is present', () => {
 });
 
 test('garden_stats allows couple reads and owner-scoped writes', () => {
-  assert.match(
-    rules,
-    /match \/users\/\{userId\}\/garden_stats\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow write: if isCouple\(\) && ownerOf\(userId\);/,
-  );
+  const blk = blockFor(rules, 'match /users/{userId}/garden_stats/{docId}');
+  assert.match(blk, /allow read: if isCouple\(\);/);
+  assert.match(blk, /allow write: if isCouple\(\) && ownerOf\(userId\);/);
 });
 
 test('storage gallery/memories/milestones allow couple reads', () => {
   for (const prefix of ['gallery', 'memories', 'milestones']) {
     assert.match(
-      storage,
-      new RegExp(
-        `match \\/${prefix}\\/\\{userId\\}[\\s\\S]*?allow read: if isCoupleUser\\(\\);`,
-      ),
+      blockFor(storage, `match /${prefix}/{userId}`),
+      /allow read: if isCoupleUser\(\);/,
       `${prefix} must allow couple reads`,
     );
   }
@@ -147,43 +157,34 @@ test('storage gallery/memories/milestones allow couple reads', () => {
 });
 
 test('subscriptions is couple-only', () => {
-  assert.match(
-    rules,
-    /match \/subscriptions\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow delete: if isCouple\(\);/,
-  );
+  const blk = blockFor(rules, 'match /subscriptions/{docId}');
+  assert.match(blk, /allow read: if isCouple\(\);/);
+  assert.match(blk, /allow delete: if isCouple\(\);/);
 });
 
 test('motchi_games is couple-only', () => {
-  assert.match(
-    rules,
-    /match \/motchi_games\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow delete: if isCouple\(\);/,
-  );
+  const blk = blockFor(rules, 'match /motchi_games/{docId}');
+  assert.match(blk, /allow read: if isCouple\(\);/);
+  assert.match(blk, /allow delete: if isCouple\(\);/);
 });
 
 test('motchi_sessions is couple read-only, client write denied', () => {
-  assert.match(
-    rules,
-    /match \/motchi_sessions\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow write: if false;/,
-  );
+  const blk = blockFor(rules, 'match /motchi_sessions/{docId}');
+  assert.match(blk, /allow read: if isCouple\(\);/);
+  assert.match(blk, /allow write: if false;/);
 });
 
 test('personal book and manga library collections are owner-scoped for cinema profiles', () => {
-  const blockFor = (name) => {
-    const start = rules.indexOf(`match /${name}/{docId} {`);
-    assert.ok(start !== -1, `missing match block for ${name}`);
-    const next = rules.indexOf('\n    match /', start + 1);
-    return next === -1 ? rules.slice(start) : rules.slice(start, next);
-  };
   for (const name of ['read_list', 'book_favorites', 'book_download_history']) {
     assert.match(
-      blockFor(name),
+      blockFor(rules, `match /${name}/{docId}`),
       /allow read: if isCouple\(\) \|\|[\s\S]*?isCinemaProfile\(\) && resource\.data\.userName == username\(\)/,
       `${name} must scope cinema profile reads to own userName`,
     );
   }
   for (const [name, sep] of [['reader_state', '__'], ['katana_bookmarks', '\\\\|']]) {
     assert.match(
-      blockFor(name),
+      blockFor(rules, `match /${name}/{docId}`),
       new RegExp(
         `allow list: if isCouple\\(\\) \\|\\|[\\s\\S]*?isCinemaProfile\\(\\) && resource\\.data\\.userName == username\\(\\)[\\s\\S]*?allow create: if \\(isCouple\\(\\) \\|\\|[\\s\\S]*?isCinemaProfile\\(\\) && docId\\.matches\\('\\^' \\+ username\\(\\) \\+ '${sep}\\.\\*'\\) &&[\\s\\S]*?request\\.resource\\.data\\.userName == username\\(\\)\\)`,
       ),
@@ -191,22 +192,25 @@ test('personal book and manga library collections are owner-scoped for cinema pr
     );
   }
   assert.match(
-    blockFor('our_books'),
+    blockFor(rules, 'match /our_books/{docId}'),
     /allow read: if isCouple\(\);/,
     'our_books must remain couple-only',
   );
 });
 
 test('member_accounts and community_watch_room_secrets are server-only, global_chat_messages and community_watch_rooms are protected', () => {
-  assert.match(rules, /match \/member_accounts\/\{accountId\} \{ allow read, write: if false; \}/);
-  assert.match(rules, /match \/community_watch_room_secrets\/\{roomId\} \{ allow read, write: if false; \}/);
-  assert.match(
-    rules,
-    /match \/global_chat_messages\/\{messageId\} \{[\s\S]*?allow read: if isAppUser\(\);[\s\S]*?request\.resource\.data\.senderUid == request\.auth\.uid[\s\S]*?request\.resource\.data\.senderName == username\(\)/,
-  );
-  assert.match(
-    rules,
-    /match \/community_watch_rooms\/\{roomId\} \{[\s\S]*?allow read: if isAppUser\(\);[\s\S]*?allow create: if false;[\s\S]*?isValidCommunityRoomShape\(request\.resource\.data\)[\s\S]*?match \/members\/\{memberUid\} \{[\s\S]*?allow write: if false;[\s\S]*?match \/messages\/\{messageId\} \{[\s\S]*?canAccessCommunityRoomById\(roomId\)/,
-  );
+  assert.match(blockFor(rules, 'match /member_accounts/{accountId}'), /allow read, write: if false;/);
+  assert.match(blockFor(rules, 'match /community_watch_room_secrets/{roomId}'), /allow read, write: if false;/);
+  const globalChat = blockFor(rules, 'match /global_chat_messages/{messageId}');
+  assert.match(globalChat, /allow read: if isAppUser\(\);/);
+  assert.match(globalChat, /request\.resource\.data\.senderUid == request\.auth\.uid/);
+  assert.match(globalChat, /request\.resource\.data\.senderName == username\(\)/);
+
+  const watchRooms = blockFor(rules, 'match /community_watch_rooms/{roomId}');
+  assert.match(watchRooms, /allow read: if isAppUser\(\);/);
+  assert.match(watchRooms, /allow create: if false;/);
+  assert.match(watchRooms, /isValidCommunityRoomShape\(request\.resource\.data\)/);
+  assert.match(blockFor(watchRooms, 'match /members/{memberUid}'), /allow write: if false;/);
+  assert.match(blockFor(watchRooms, 'match /messages/{messageId}'), /canAccessCommunityRoomById\(roomId\)/);
   assert.match(rules, /data\.serverHost == 'everglow'/);
 });

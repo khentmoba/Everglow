@@ -64,6 +64,20 @@ test('dist shell outputs include version.json, sw.js, manifests, and FCM sw', ()
     assert.ok(sw.includes(cache), `sw.js must preserve ${cache}`);
   }
   assert.ok(sw.includes('onBackgroundMessage') && sw.includes('notificationclick'), 'sw.js handles background push notifications');
+
+  const precacheMatch = /const PRECACHE = (\[[\s\S]*?\]);/.exec(sw);
+  assert.ok(precacheMatch, 'sw.js must define PRECACHE array');
+  const precache = JSON.parse(precacheMatch[1]);
+  assert.ok(precache.includes('/index.html'), 'PRECACHE must include /index.html');
+  assert.ok(precache.includes(ver.core), `PRECACHE must include core entry chunk ${ver.core}`);
+  const jsChunks = precache.filter((u) => u.startsWith('/assets/') && u.endsWith('.js'));
+  assert.ok(
+    jsChunks.length >= 3,
+    `PRECACHE must include dynamic JS chunks (got ${jsChunks.length}: ${jsChunks.join(', ')})`,
+  );
+  for (const url of precache) {
+    assert.ok(existsSync(join(DIST, url.replace(/^\//, ''))), `PRECACHE entry ${url} missing from react/dist`);
+  }
 });
 
 test('browser registers service worker, shows update prompt on new version.json, and boots offline', async () => {

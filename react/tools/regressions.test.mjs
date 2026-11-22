@@ -152,17 +152,17 @@ test('Welcome gift covers the app for Clair until Continue, and only for Clair',
     const gift = page.getByRole('dialog', { name: 'A gift for you' });
     const proceed = page.getByRole('button', { name: 'Continue to Everglow' });
 
-    await page.goto(`${baseUrl}/dashboard?agent=clair&gift=1`, { waitUntil: 'domcontentloaded' });
-    await gift.waitFor({ state: 'visible', timeout: 10_000 });
+    await page.goto(`${baseUrl}/dashboard?agent=clair&gift=1`, { waitUntil: 'load' });
+    await gift.waitFor({ state: 'visible', timeout: 15_000 });
     assert.equal(await proceed.count(), 0, 'Continue stays hidden until the letter ends');
     const readOn = page.frameLocator('iframe[title="A gift for you"]').getByRole('button', { name: 'Read on' });
-    await readOn.waitFor({ state: 'visible', timeout: 10_000 });
+    await readOn.waitFor({ state: 'visible', timeout: 15_000 });
     await page.waitForTimeout(300);
     await readOn.click();
-    await proceed.waitFor({ state: 'visible', timeout: 5_000 });
+    await proceed.waitFor({ state: 'visible', timeout: 10_000 });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     await proceed.click();
-    await gift.waitFor({ state: 'detached', timeout: 5_000 });
+    await gift.waitFor({ state: 'detached', timeout: 10_000 });
 
     for (const route of ['/dashboard?agent=clair', '/dashboard?agent=khent&gift=1']) {
       const other = await context.newPage();

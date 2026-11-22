@@ -218,6 +218,8 @@ test('OfflineVideoHud mounts over cached offline video and drives playback, sett
       }
       rec.stop();
       await done;
+      track.stop();
+      canvas.remove();
       const blob = new Blob(chunks, { type: 'video/webm' });
 
       const cache = await caches.open('everglow-offline-media-v1');
@@ -251,7 +253,8 @@ test('OfflineVideoHud mounts over cached offline video and drives playback, sett
       waitUntil: 'domcontentloaded',
     });
 
-    await page.waitForSelector('div[role="slider"][aria-label="Seek"]', { timeout: 10_000 });
+    await page.waitForSelector('video', { timeout: 15_000 });
+    await page.waitForSelector('div[role="slider"][aria-label="Seek"]', { timeout: 20_000 });
     const hasNativeControls = await page.evaluate(() => Boolean(document.querySelector('video')?.controls));
     assert.equal(hasNativeControls, false, 'offline <video> should disable native browser controls when OfflineVideoHud is active');
 

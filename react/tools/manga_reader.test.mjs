@@ -315,7 +315,7 @@ test('Webtoon Next chapter button advances even after seamless next-chapter appe
       );
       if (scroller) scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight - 300;
     });
-    await page.waitForFunction(() => document.querySelectorAll('[data-chapter-id="c43"]').length > 0, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelectorAll('[data-chapter-id="c43"]').length > 0, null, { timeout: 5000 });
 
     // Show HUD if scroll hid it, then click Next chapter
     await page.mouse.click(206, 446);
@@ -323,6 +323,7 @@ test('Webtoon Next chapter button advances even after seamless next-chapter appe
     await page.locator('button[aria-label="Next chapter"]').click();
     await page.waitForFunction(
       () => /Chapter 43.*1 \/ 6/.test(document.querySelector('div[aria-live="polite"]')?.textContent ?? ''),
+      null,
       { timeout: 5000 },
     );
     // Confirm it stays on Chapter 43 and does not bounce back to Chapter 42
@@ -333,6 +334,7 @@ test('Webtoon Next chapter button advances even after seamless next-chapter appe
     await page.locator('button[aria-label="Previous chapter"]').click();
     await page.waitForFunction(
       () => /Chapter 42/.test(document.querySelector('div[aria-live="polite"]')?.textContent ?? ''),
+      null,
       { timeout: 5000 },
     );
     await page.evaluate(() => {
@@ -341,13 +343,14 @@ test('Webtoon Next chapter button advances even after seamless next-chapter appe
       );
       if (scroller) scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight - 200;
     });
-    await page.waitForFunction(() => document.querySelectorAll('[data-chapter-id="c43"]').length > 0, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelectorAll('[data-chapter-id="c43"]').length > 0, null, { timeout: 5000 });
     await page.evaluate(() => {
       const target = document.querySelector('[data-chapter-id="c43"][data-page-idx="1"]');
       if (target) target.scrollIntoView({ block: 'center' });
     });
     await page.waitForFunction(
       () => /Chapter 43/.test(document.querySelector('div[aria-live="polite"]')?.textContent ?? ''),
+      null,
       { timeout: 5000 },
     );
 

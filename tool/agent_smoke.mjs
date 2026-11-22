@@ -1,13 +1,39 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { launch, serve, sleep, stop } from './perf/_harness.mjs';
+
+const distDir = process.argv[2] || 'react/dist';
+const filterArg = process.argv[3]?.trim() || '';
+
+if (resolve(distDir) === resolve('react/dist')) {
+  execFileSync(process.execPath, [fileURLToPath(new URL('../react/tools/check_dist.mjs', import.meta.url))], {
+    stdio: 'inherit',
+  });
+}
 
 const source = readFileSync(new URL('../react/src/core/agent/agentMode.ts', import.meta.url), 'utf8');
 const aliasesBlock = source.split('routeAliases: {')[1].split('} as Record')[0];
-const routes = [...new Set([...aliasesBlock.matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]))];
-assert.ok(routes.length > 0, 'No agent routes found in agentMode.ts');
+const aliasEntries = [...aliasesBlock.matchAll(/('[^']+'|\w+)\s*:\s*'([^']+)'/g)].map((m) => [
+  m[1].replace(/^'|'$/g, ''),
+  m[2],
+]);
+const aliasMap = new Map(aliasEntries);
+const allRoutes = ['/', ...new Set(aliasEntries.map(([, r]) => r))];
+assert.ok(allRoutes.length > 1, 'No agent routes found in agentMode.ts');
 
-const server = await serve(process.argv[2] || 'react/dist', 0);
+let targetRoutes = allRoutes;
+if (filterArg) {
+  const mapped = aliasMap.get(filterArg.toLowerCase());
+  const normalized = filterArg.startsWith('/') ? filterArg : `/${filterArg}`;
+  if (mapped) targetRoutes = [mapped];
+  else if (allRoutes.includes(normalized)) targetRoutes = [normalized];
+  else throw new Error(`Unknown agent route/alias "${filterArg}". Known aliases: ${[...aliasMap.keys()].join(', ')}`);
+}
+
+const server = await serve(distDir, 0);
 const chrome = await launch();
 try {
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -21,7 +47,7 @@ try {
       window.addEventListener('unhandledrejection', (e) => window.__smokeErr?.(String(e.reason || 'unhandledrejection')));
     })();`,
   });
-  for (const route of ['/', ...routes]) {
+  for (const route of targetRoutes) {
     const errors = [];
     const offEx = cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
       errors.push(exceptionDetails?.exception?.description || exceptionDetails?.text || 'Runtime exception');
