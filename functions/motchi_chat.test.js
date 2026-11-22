@@ -88,7 +88,7 @@ test('streaming dangling repair covers loop exits (repeat guard + round cap)', (
 test('exhausted tool rounds trigger final text synthesis so web searches finish', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
   assert.match(src, /if \(toolRound >= MAX_TOOL_ROUNDS\) \{\s*forceTextNextRound = true;\s*\}/);
-  assert.match(src, /while \(toolRound < MAX_TOOL_ROUNDS \|\| forceTextNextRound\)/);
+  assert.match(src, /while \(toolRound < MAX_TOOL_ROUNDS \|\| forceTextNextRound \|\| repairNextRound\)/);
   assert.match(src, /_streamedFinalReply \+= repairText;\s*sendEvent\(\{ content: repairText \}\);\s*streamInterrupted = false;/);
   assert.match(src, /if \(nsInterrupted && nsMessages\[nsMessages\.length - 1\]\?\.role === 'tool'\)/);
 });

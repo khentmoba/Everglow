@@ -311,7 +311,9 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
     }
   };
 
-  const startDrop = (content: string, author: string) => {
+  const startDrop = (content: string, author: string, category: string, tags: string[]) => {
+    const optimisticId = `optimistic_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    let cancelled = false;
     const end: [number, number] = [60 + Math.random() * 160, 220 + Math.random() * 60];
     drop.current = { start: [128, -40], end, v: 0 };
     void run(1000, (v) => {
@@ -319,18 +321,23 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
       draw();
     }).then(() => {
       drop.current = null;
+      if (cancelled) return;
       setOptimistic((list) => [
         ...list,
         {
-          id: `optimistic_${Date.now()}`,
+          id: optimisticId,
           content,
           author: author.toLowerCase(),
           timestamp: new Date(),
-          category: 'gratitude',
-          tags: [],
+          category,
+          tags,
         },
       ]);
     });
+    return () => {
+      cancelled = true;
+      setOptimistic((list) => list.filter((n) => n.id !== optimisticId));
+    };
   };
 
   const openDrop = async () => {
@@ -338,12 +345,13 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
       barrierColor: 'transparent',
       insetPadding: '0',
     });
-    if (!result || result.content.trim() === '') return;
+    const trimmed = result?.content.trim() ?? '';
+    if (!result || trimmed === '') return;
     const author = auth.currentUser ?? 'unknown';
     const uid = auth.uid;
-    startDrop(result.content, author);
+    const rollbackDrop = startDrop(trimmed, author, result.category, result.tags);
     try {
-      await starlightService.addStar(result.content, author, result.category, result.tags);
+      await starlightService.addStar(trimmed, author, result.category, result.tags);
       if (uid) {
         try {
           await awardDaily(uid, 'star', { amount: 15, dailyCap: 3 });
@@ -353,7 +361,7 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
       }
     } catch (e) {
       Logger.e('Optimistic action failed and rolled back', e);
-      setOptimistic((list) => list.filter((n) => n.content !== result.content));
+      rollbackDrop();
       showSnackBar('Failed to save star. Please try again.', { duration: 2000 });
     }
   };

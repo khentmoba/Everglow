@@ -270,7 +270,21 @@ class GalleryService {
     }
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const snap = await getDocs(query(collection(db, COLLECTION), orderBy('uploadedAt', 'desc'), limit(100)));
+    const windowMonthDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today.getTime() + (i - 3) * 86_400_000);
+      return monthDay(d);
+    });
+    const col = collection(db, COLLECTION);
+    let snap = await withGetTimeout(
+      getDocs(query(col, where('monthDay', 'in', windowMonthDays), limit(200))),
+      'gallery this-week',
+    );
+    if (snap.empty) {
+      snap = await withGetTimeout(
+        getDocs(query(col, orderBy('uploadedAt', 'desc'), limit(200))),
+        'gallery this-week fallback',
+      );
+    }
     return snap.docs
       .map(mapDoc)
       .filter((p) => {

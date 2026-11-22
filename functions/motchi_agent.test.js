@@ -85,6 +85,9 @@ test('quiet hours cross midnight, nudges have a persistent interval, requested r
   const sent = pushReservation('daily_digest', noon);
   assert.equal(allowsPush(sent, 'daily_digest', noon), false);
   assert.equal(allowsPush(sent, 'night_recap', noon), true);
+  const night1111Pht = Date.parse('2026-10-10T15:11:00Z');
+  assert.equal(allowsPush({}, 'night_recap', night1111Pht), true);
+  assert.equal(allowsPush({ preferences: { digests: false } }, 'night_recap', night1111Pht), false);
   assert.equal(allowsPush(pushReservation('journal_nudge', noon - 2 * 86400000), 'journal_nudge', noon), false);
 });
 

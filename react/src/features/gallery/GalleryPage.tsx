@@ -567,9 +567,11 @@ function GalleryMapView({ photos, loading }: { photos: MemoryPhoto[]; loading: b
         </span>
         <div style={{ flex: 1 }} />
         <TextButton
-          onPressed={() => {}}
+          onPressed={() =>
+            showSnackBar('Upload a photo with a location tag to pin it on your shared map.', { duration: 4000 })
+          }
           color={AppColors.blushGold}
-          icon={<Icon name="open_in_new" size={14} color={AppColors.blushGold} />}
+          icon={<Icon name="info_outline" size={14} color={AppColors.blushGold} />}
           style={{ ...AppTypography.outfitWhite, fontSize: 11, color: AppColors.blushGold }}
         >
           How it works

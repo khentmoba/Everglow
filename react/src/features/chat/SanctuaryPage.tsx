@@ -99,12 +99,12 @@ export function SanctuaryPage() {
       setAuthChecked(true);
       setAuthError(e);
     };
-    if (!auth.isAuthenticated) return fail('not_authenticated');
+    if (!auth.hasActiveSession) return fail('not_authenticated');
     if (auth.isCinemaOnlyUser) return fail('cinema_only');
     if (!auth.isCoupleUser) return fail('not_couple_user');
     const uid = auth.uid;
-    if (uid == null) return fail('not_authenticated');
-    if (!AgentMode.isActive.value) {
+    if (uid == null && !auth.isOfflineMode) return fail('not_authenticated');
+    if (!AgentMode.isActive.value && !auth.isOfflineMode && uid != null) {
       setDoc(doc(db, 'users', uid), { username: auth.currentUser, updatedAt: serverTimestamp() }, { merge: true }).catch((e) =>
         Logger.e('Sanctuary: failed to ensure user doc', e),
       );

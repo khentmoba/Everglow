@@ -15,18 +15,26 @@ export function SpotifyCallbackPage() {
   const state = params.get('state');
   const error = params.get('error');
   const [status, setStatus] = useState('Connecting to Spotify...');
-  const [done, setDone] = useState(false);
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
     let alive = true;
     let timer = 0;
     void (async () => {
-      if (error != null) return setStatus(`Spotify auth failed: ${error}`);
-      if (!code) return setStatus('No code returned');
+      if (error != null) {
+        setStatus(`Spotify auth failed: ${error}`);
+        setFinished(true);
+        return;
+      }
+      if (!code) {
+        setStatus('No code returned');
+        setFinished(true);
+        return;
+      }
       const ok = await handleSpotifyCallback(code, state);
       if (!alive) return;
       setStatus(ok ? 'Spotify linked! ✓' : 'Link failed — try again');
-      setDone(ok);
+      setFinished(true);
       if (ok) timer = window.setTimeout(() => alive && navigate('/dashboard'), 900);
     })();
     return () => {
@@ -51,12 +59,12 @@ export function SpotifyCallbackPage() {
         <div style={{ height: 16 }} />
         <span style={{ ...AppTypography.outfitWhite, fontSize: 16, textAlign: 'center' }}>{status}</span>
         <div style={{ height: 24 }} />
-        {!done && error == null && (
+        {!finished && (
           <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CircularProgress size={32} strokeWidth={4} color={AppColors.blushGold} />
           </div>
         )}
-        {(done || error != null) && (
+        {finished && (
           <button
             type="button"
             className="bare-button"

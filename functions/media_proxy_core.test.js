@@ -23,6 +23,7 @@ test('TMDB proxy strips client credentials and appends server key', () => {
 
 test('TMDB proxy rejects traversal paths', () => {
   assert.throws(() => buildTmdbUpstream('/../secret', {}, 'server-key'));
+  assert.throws(() => buildTmdbUpstream('/%2e%2e/4/list', {}, 'server-key'));
 });
 
 test('Last.fm proxy allows only read-only lookup methods', () => {

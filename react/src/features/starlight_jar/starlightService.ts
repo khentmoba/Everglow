@@ -90,6 +90,7 @@ export const starlightService = {
       Logger.i('Dropped star into jar successfully');
     } catch (e) {
       Logger.e('Error adding star', e);
+      throw e;
     }
   },
 
