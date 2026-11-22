@@ -1,6 +1,9 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { promisify } = require('node:util');
+
+const scryptAsync = promisify(crypto.scrypt);
 
 const { getAdmin, clientIp, cappedHttps, applyCors, requireAuth } = require('./common.js');
 const {
@@ -46,6 +49,11 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   return { salt, hash: derived };
 }
 
+async function hashPasswordAsync(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const derived = (await scryptAsync(String(password), salt, SCRYPT_KEYLEN)).toString('hex');
+  return { salt, hash: derived };
+}
+
 function verifyPassword(password, salt, expectedHash) {
   if (!salt || !expectedHash) return false;
   try {
@@ -56,6 +64,26 @@ function verifyPassword(password, salt, expectedHash) {
   } catch {
     return false;
   }
+}
+
+async function verifyPasswordAsync(password, salt, expectedHash) {
+  if (!salt || !expectedHash) return false;
+  try {
+    const derived = await scryptAsync(String(password), String(salt), SCRYPT_KEYLEN);
+    const expected = Buffer.from(String(expectedHash), 'hex');
+    if (derived.length !== expected.length) return false;
+    return crypto.timingSafeEqual(derived, expected);
+  } catch {
+    return false;
+  }
+}
+
+async function isAccountLocked(ipRef, globalRef) {
+  const now = Date.now();
+  const [ipSnap, globalSnap] = await Promise.all([ipRef.get(), globalRef.get()]);
+  const ipUntil = Number(ipSnap.exists ? ipSnap.data()?.lockedUntil || 0 : 0);
+  const globalUntil = Number(globalSnap.exists ? globalSnap.data()?.lockedUntil || 0 : 0);
+  return ipUntil > now || globalUntil > now;
 }
 
 function serializeAccount(id, data) {
@@ -119,7 +147,7 @@ const registerAccount = cappedHttps(10, async (req, res) => {
   try {
     const db = getAdmin().firestore();
     const ref = db.collection('member_accounts').doc(key);
-    const { salt, hash } = hashPassword(password);
+    const { salt, hash } = await hashPasswordAsync(password);
     const now = getAdmin().firestore.FieldValue.serverTimestamp();
 
     const accountId = crypto.randomUUID().replace(/-/g, '');
@@ -189,16 +217,27 @@ const loginAccount = cappedHttps(10, async (req, res) => {
   const key = username.toLowerCase();
   try {
     const db = getAdmin().firestore();
+    const attempts = db.collection('auth_attempts');
+    const ipRef = attempts.doc(`acct_${_sha256Hex(ip)}`);
+    const globalRef = attempts.doc('acct_global');
+    try {
+      if (await isAccountLocked(ipRef, globalRef)) {
+        res.status(429).json({ error: 'Too many attempts — try again later' });
+        return;
+      }
+    } catch (e) {
+      console.error('[loginAccount] lockout check failed:', e.message);
+      res.status(503).json({ error: 'Login temporarily unavailable' });
+      return;
+    }
+
     const ref = db.collection('member_accounts').doc(key);
     const snap = await ref.get();
     const data = snap.exists ? snap.data() || {} : null;
-    const validPassword = Boolean(data && verifyPassword(password, data.passwordSalt, data.passwordHash));
+    const validPassword = Boolean(data && await verifyPasswordAsync(password, data.passwordSalt, data.passwordHash));
 
     let lock;
     try {
-      const attempts = db.collection('auth_attempts');
-      const ipRef = attempts.doc(`acct_${_sha256Hex(ip)}`);
-      const globalRef = attempts.doc('acct_global');
       lock = await _pcLockoutAttempt(db, ipRef, globalRef, validPassword);
     } catch (e) {
       console.error('[loginAccount] lockout transaction failed:', e.message);
@@ -345,6 +384,7 @@ const manageAccounts = cappedHttps(10, async (req, res) => {
         updatedAt: now,
       });
       if (data.uid) {
+        await db.collection('users').doc(data.uid).delete().catch(() => {});
         await getAdmin().auth().revokeRefreshTokens(data.uid).catch(() => {});
       }
       res.json({ ok: true, username: data.username || username, status: nextStatus });
@@ -354,6 +394,7 @@ const manageAccounts = cappedHttps(10, async (req, res) => {
     if (action === 'delete') {
       await ref.delete();
       if (data.uid) {
+        await db.collection('users').doc(data.uid).delete().catch(() => {});
         await getAdmin().auth().deleteUser(data.uid).catch(() => {});
       }
       res.json({ ok: true, username: data.username || username, status: 'deleted' });
@@ -442,7 +483,7 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
         unlockedAt: now,
       });
       if (hasPassword) {
-        const { salt, hash } = hashPassword(cleanPassword);
+        const { salt, hash } = await hashPasswordAsync(cleanPassword);
         batch.set(db.collection('community_watch_room_secrets').doc(roomRef.id), {
           passwordSalt: salt,
           passwordHash: hash,
@@ -487,7 +528,7 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
       if (!isBypass) {
         const secretSnap = await db.collection('community_watch_room_secrets').doc(roomId).get();
         const secret = secretSnap.exists ? secretSnap.data() || {} : null;
-        if (!secret || !verifyPassword(password, secret.passwordSalt, secret.passwordHash)) {
+        if (!secret || !(await verifyPasswordAsync(password, secret.passwordSalt, secret.passwordHash))) {
           res.status(403).json({ error: 'Incorrect room password.' });
           return;
         }

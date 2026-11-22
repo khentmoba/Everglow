@@ -5,17 +5,49 @@ const { streamMediaBody } = require('./stream_media_body');
 const { applyCors, cappedHttps, enforceRateLimit, requireAuth, fetchPublicUrl, getDb } = require('./common.js');
 const { STREAM_LIFETIME_MS, mediaUrl, signedStreamUrl, validStreamSignature, rewritePlaylist } = require('./watch_stream_access');
 
+const _STREAM_SECRET_TTL_MS = 10 * 60 * 1000;
+const _STREAM_SECRET_MAX = 200;
+const _streamSecretCache = new Map();
+
+function _getCachedStreamSecret(uid) {
+  const entry = _streamSecretCache.get(uid);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > _STREAM_SECRET_TTL_MS) {
+    _streamSecretCache.delete(uid);
+    return null;
+  }
+  return entry.secret;
+}
+
+function _setCachedStreamSecret(uid, secret) {
+  if (!secret) return;
+  _streamSecretCache.delete(uid);
+  _streamSecretCache.set(uid, { secret, ts: Date.now() });
+  if (_streamSecretCache.size > _STREAM_SECRET_MAX) {
+    const oldest = _streamSecretCache.keys().next().value;
+    if (oldest !== undefined) _streamSecretCache.delete(oldest);
+  }
+}
+
 async function streamSecret(uid, create = false) {
+  const cached = _getCachedStreamSecret(uid);
+  if (cached) return cached;
   const db = getDb();
   const ref = db.collection('watch_stream_keys').doc(uid);
-  if (!create) return (await ref.get()).data()?.secret;
-  return db.runTransaction(async (tx) => {
+  if (!create) {
+    const secret = (await ref.get()).data()?.secret;
+    if (secret) _setCachedStreamSecret(uid, secret);
+    return secret;
+  }
+  const secret = await db.runTransaction(async (tx) => {
     const saved = await tx.get(ref);
     if (saved.exists) return saved.data().secret;
-    const secret = randomBytes(32).toString('hex');
-    tx.set(ref, { secret });
-    return secret;
+    const next = randomBytes(32).toString('hex');
+    tx.set(ref, { secret: next });
+    return next;
   });
+  _setCachedStreamSecret(uid, secret);
+  return secret;
 }
 
 const proxyWatchStream = cappedHttps(10, async (req, res) => {

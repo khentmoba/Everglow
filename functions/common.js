@@ -32,7 +32,7 @@ async function requireAuth(req, res) {
     return null;
   }
   try {
-    const decoded = await getAdmin().auth().verifyIdToken(idToken);
+    const decoded = await getAdmin().auth().verifyIdToken(idToken, true);
     if (decoded.firebase?.sign_in_provider === 'anonymous') {
       res.status(401).json({ error: 'A signed-in profile is required' });
       return null;
@@ -354,6 +354,7 @@ function applyCors(req, res, methods, headers = 'Content-Type, Authorization') {
   res.set('Vary', 'Origin');
   res.set('Access-Control-Allow-Methods', methods);
   res.set('Access-Control-Allow-Headers', headers);
+  res.set('Access-Control-Max-Age', '86400');
 }
 
 function cappedHttps(maxInstances, handler, opts = {}) {

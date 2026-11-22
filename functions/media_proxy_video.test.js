@@ -6,8 +6,9 @@ const common = require('./common');
 const { signedStreamUrl, validStreamSignature, rewritePlaylist, STREAM_LIFETIME_MS } = require('./watch_stream_access');
 
 const keys = new Map();
+let keyReads = 0;
 common.getDb = () => ({ collection: () => ({ doc: (uid) => ({
-  get: async () => ({ exists: keys.has(uid), data: () => keys.get(uid) }),
+  get: async () => { keyReads++; return { exists: keys.has(uid), data: () => keys.get(uid) }; },
   set: (value) => keys.set(uid, value),
 }) }), runTransaction: async (fn) => fn({ get: (ref) => ref.get(), set: (ref, value) => ref.set(value) }) });
 common.enforceRateLimit = () => false;
@@ -93,4 +94,5 @@ test('authenticated issuance lets headerless native media load rewritten playlis
   assert.equal(res.code, 206);
   assert.equal(res.headers['content-range'], 'bytes 0-3/8');
   assert.equal(Buffer.concat(res.chunks).toString(), 'DEMO');
+  assert.equal(keyReads, 1);
 });

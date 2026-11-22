@@ -252,10 +252,21 @@ export async function resolveWatchPartyStream(room: WatchPartyRoom): Promise<Wat
   if (!src.startsWith('https://')) {
     throw new Error('No direct HLS stream available for this title');
   }
-  const subsRaw = Array.isArray(json.subtitles) ? json.subtitles : [];
+  const subsRaw = Array.isArray(json.tracks)
+    ? json.tracks
+    : Array.isArray(json.subtitles)
+      ? json.subtitles
+      : [];
   const subtitles: WatchPartySubtitle[] = subsRaw
-    .filter((s): s is Record<string, unknown> => Boolean(s && typeof s === 'object' && typeof (s as Record<string, unknown>).url === 'string'))
-    .map((s) => ({ url: String(s.url), label: String(s.label ?? 'Subtitles') }));
+    .filter((s): s is Record<string, unknown> => {
+      if (!s || typeof s !== 'object') return false;
+      const rec = s as Record<string, unknown>;
+      return typeof rec.url === 'string' || typeof rec.file === 'string';
+    })
+    .map((s) => ({
+      url: String(s.url ?? s.file),
+      label: String(s.label ?? 'Subtitles'),
+    }));
   const authorizedSrc = await authorizeWatchStreamUrl(src);
   return {
     src: authorizedSrc,

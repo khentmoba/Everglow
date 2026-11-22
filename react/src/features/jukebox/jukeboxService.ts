@@ -31,7 +31,15 @@ export const LASTFM_USER_KHENT = 'khentsgdz';
 export const LASTFM_USER_CLAIR = 'clairjassen';
 export const DEFAULT_SHOWDOWN_ARTIST = 'Ethel Cain';
 
-const LASTFM_PROXY_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
+function lastfmProxyUrl(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '0.0.0.0') {
+      return '/api/proxyLastfm';
+    }
+  }
+  return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
+}
 export const FUNCTIONS_BASE_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
 
 export interface MusicStatus {
@@ -185,7 +193,7 @@ export async function fetchLastfmJson(params: Record<string, string>): Promise<R
   if (!token) return null;
   try {
     const qs = new URLSearchParams({ ...params, format: 'json' });
-    const resp = await fetch(`${LASTFM_PROXY_URL}?${qs.toString()}`, {
+    const resp = await fetch(`${lastfmProxyUrl()}?${qs.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(12000),
     });
