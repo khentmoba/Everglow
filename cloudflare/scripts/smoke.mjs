@@ -3,15 +3,42 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {pathToFileURL, fileURLToPath} from 'node:url';
 
 export const CASES = [
-  {name: 'movie 603', query: {source: 'cinema', type: 'movie', tmdbId: '603'}},
-  {name: 'movie 155', query: {source: 'cinema', type: 'movie', tmdbId: '155'}},
-  {name: 'tv 1399 s1e1', query: {source: 'cinema', type: 'tv', tmdbId: '1399', s: '1', e: '1'}},
-  {name: 'anime 16498 ep1', query: {source: 'everglow', anilistId: '16498', ep: '1'}},
-  {name: 'anime 21 ep1', query: {source: 'everglow', anilistId: '21', ep: '1'}},
+  {name: 'movie 603', query: {source: 'cinema', type: 'movie', tmdbId: '603'}, minSeconds: 6000, maxSeconds: 10000},
+  {name: 'movie 155', query: {source: 'cinema', type: 'movie', tmdbId: '155'}, minSeconds: 7000, maxSeconds: 11500},
+  {name: 'tv 1399 s1e1', query: {source: 'cinema', type: 'tv', tmdbId: '1399', s: '1', e: '1'}, minSeconds: 2400, maxSeconds: 5400},
+  {name: 'anime 16498 ep1', query: {source: 'everglow', anilistId: '16498', ep: '1'}, minSeconds: 900, maxSeconds: 2400},
+  {name: 'anime 21 ep1', query: {source: 'everglow', anilistId: '21', ep: '1'}, minSeconds: 900, maxSeconds: 2400},
 ];
 
 export const LIVE = 'https://everglow-stream.khentplaysmoba.workers.dev';
 const TIMEOUT_MS = 30000;
+const OVERALL_DEADLINE_MS = 180000;
+
+/** Sum #EXTINF segment durations in a media playlist; returns null for master playlists. */
+export function parseExtinfDuration(m3u8) {
+  let total = 0;
+  let count = 0;
+  for (const m of String(m3u8 || '').matchAll(/^#EXTINF:\s*([0-9]+(?:\.[0-9]+)?)/gm)) {
+    total += Number(m[1]);
+    count++;
+  }
+  return count > 0 ? Math.round(total) : null;
+}
+
+/** Validate media playlist duration against expected bounds (ignores master playlists). */
+export function checkPlaylistDuration(m3u8, {minSeconds, maxSeconds} = {}) {
+  if (!minSeconds && !maxSeconds) return null;
+  const seconds = parseExtinfDuration(m3u8);
+  if (seconds == null) return null;
+  if (minSeconds && seconds < minSeconds) return `decoy/short playlist (${seconds}s < ${minSeconds}s)`;
+  if (maxSeconds && seconds > maxSeconds) return `unexpected long playlist (${seconds}s > ${maxSeconds}s)`;
+  return null;
+}
+
+/** True when a failure reason indicates a transient upstream 502/503/504/timeout rather than a Worker 4xx/500 bug. */
+export function isUpstreamOutageReason(why = '') {
+  return /^(?:resolve|playlist) 50[234]\b|^timeout\b/i.test(String(why).trim());
+}
 
 const rowsPlayed = (results) => {
   const rows = new Map();
@@ -47,46 +74,52 @@ export function compare(before, after) {
   return {failures, outages};
 }
 
-async function fetchWithTimeout(url) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-  try {
-    return await fetch(url, {signal: ctrl.signal, headers: {'User-Agent': 'everglow-smoke'}});
-  } finally {
-    clearTimeout(timer);
-  }
+async function fetchWithTimeout(url, deadlineAt) {
+  const remaining = deadlineAt ? Math.max(1000, Math.min(TIMEOUT_MS, deadlineAt - Date.now())) : TIMEOUT_MS;
+  return fetch(url, {signal: AbortSignal.timeout(remaining), headers: {'User-Agent': 'everglow-smoke'}});
 }
 
-async function plays(origin, query) {
+async function plays(origin, query, bounds = {}, deadlineAt = 0) {
+  if (deadlineAt && Date.now() >= deadlineAt) return {ok: false, why: 'overall deadline exceeded'};
   try {
     const url = new URL('/proxyAnime', origin);
     for (const [k, v] of Object.entries({...query, format: 'json'})) url.searchParams.set(k, v);
-    const res = await fetchWithTimeout(url);
+    const res = await fetchWithTimeout(url, deadlineAt);
     if (res.status !== 200) return {ok: false, why: `resolve ${res.status}`};
     const body = await res.json();
     if (!body.src) return {ok: false, why: 'no src'};
     const src = new URL(body.src, origin);
-    const list = await fetchWithTimeout(new URL(src.pathname + src.search, origin));
+    const list = await fetchWithTimeout(new URL(src.pathname + src.search, origin), deadlineAt);
     const text = list.status === 200 ? await list.text() : '';
     if (!text.trimStart().startsWith('#EXTM3U')) return {ok: false, why: `playlist ${list.status}`, body};
+    const durationErr = checkPlaylistDuration(text, bounds);
+    if (durationErr) return {ok: false, why: durationErr, body};
     return {ok: true, body};
   } catch (e) {
-    return {ok: false, why: e.name === 'AbortError' ? 'timeout' : e.message};
+    return {ok: false, why: e.name === 'AbortError' || e.name === 'TimeoutError' ? 'timeout' : e.message};
   }
 }
 
-export async function collect(origin, log = console.log) {
+export async function collect(origin, log = console.log, {deadlineMs = OVERALL_DEADLINE_MS} = {}) {
+  const deadlineAt = Date.now() + deadlineMs;
   const results = [];
   for (const c of CASES) {
-    const first = await plays(origin, c.query);
+    if (Date.now() >= deadlineAt) {
+      log(`${c.name.padEnd(16)} FAIL (overall deadline exceeded)`);
+      results.push({name: c.name, played: false, why: 'overall deadline exceeded', rows: []});
+      continue;
+    }
+    const first = await plays(origin, c.query, c, deadlineAt);
     const servers = first.body?.servers || [];
-    log(`${c.name.padEnd(16)} ${first.ok ? 'plays' : `FAIL (${first.why})`}  rows=${servers.length}`);
+    const tag = first.ok ? 'plays' : `${isUpstreamOutageReason(first.why) ? 'UPSTREAM' : 'FAIL'} (${first.why})`;
+    log(`${c.name.padEnd(16)} ${tag}  rows=${servers.length}`);
     const rows = await Promise.all(servers.map(async (s) => {
-      const r = await plays(origin, {...c.query, server: s.id});
-      log(`  ${String(s.id).padEnd(12)} ${String(s.label || '').padEnd(10)} ${r.ok ? 'plays' : `no (${r.why})`}`);
-      return {id: s.id, played: r.ok};
+      const r = await plays(origin, {...c.query, server: s.id}, c, deadlineAt);
+      const rTag = r.ok ? 'plays' : `${isUpstreamOutageReason(r.why) ? 'upstream' : 'no'} (${r.why})`;
+      log(`  ${String(s.id).padEnd(12)} ${String(s.label || '').padEnd(10)} ${rTag}`);
+      return {id: s.id, played: r.ok, why: r.ok ? undefined : r.why};
     }));
-    results.push({name: c.name, played: first.ok, rows});
+    results.push({name: c.name, played: first.ok, why: first.ok ? undefined : first.why, rows});
   }
   return results;
 }
@@ -111,7 +144,7 @@ function startRemote(port) {
     for (let i = 0; i < 90; i++) {
       if (child.exitCode != null) throw new Error(`wrangler dev exited:\n${output.slice(-2000)}`);
       try {
-        if ((await fetch(`${origin}/health`)).ok) return origin;
+        if ((await fetch(`${origin}/health`, {signal: AbortSignal.timeout(3000)})).ok) return origin;
       } catch {}
       await new Promise((r) => setTimeout(r, 1000));
     }

@@ -113,11 +113,24 @@ ordinary Quality success does not prove that those browser checks passed.
 - Non-UI change (CI, docs, backend-only): honestly mark N/A, or add a
   shot of the app booting logged-out from your local build.
 - **There are no PR previews.** No channel deploys and no preview link is
-  posted. Prove a frontend change from a local release build instead:
-  `npm --prefix react run build`, serve `react/dist` on a spare port
-  (`serve()` in `tool/perf/_harness.mjs`), and drive it in headless Chrome
-  with `?agent=1`. Say in the PR body that the shot came
-  from a local build, and never imply a preview proved it.
+  posted. Prove a frontend change from a local release build instead using
+  the maintained proof CLI (do not write throwaway Playwright scripts):
+  ```bash
+  npm --prefix react run build
+  node tool/capture_proof.mjs --route "/books?agent=1&hud=0" --viewport phone --out docs/pr-proof/pr-<number>/shot.png
+  ```
+  It checks that `react/dist` is fresh, serves it on a spare port, launches
+  muted headless Chrome at `phone` (430x932), `tablet` (820x1180), or
+  `desktop` (1280x800), and always cleans up both Chrome and the server.
+  Say in the PR body that the shot came from a local build, and never imply
+  a preview proved it.
+- **T3 PR tools & `gh` merge notes:**
+  - When using T3 PR tools (`watch_pull_request`, `pull_request_read`,
+    `pull_request_merge`), pass `repository: "khentmoba/Everglow"` when
+    using `number` (or pass the full `url`).
+  - With `gh pr merge`, use `--subject` (not `--title`), and omit
+    `--delete-branch` inside a git worktree where `main` is checked out
+    elsewhere.
 
 ## 4. Write the PR body
 
