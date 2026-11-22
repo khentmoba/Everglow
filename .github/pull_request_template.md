@@ -26,8 +26,8 @@ Review:
 
 **Door:**
 **Blast radius:**
-
-<!-- Choose one-way or two-way. For one-way changes describe failure and recovery. -->
+<!-- One-way doors also require a plain-text line starting with:
+Recovery: what breaks if this is wrong and how to undo it. -->
 
 ## Still to do
 

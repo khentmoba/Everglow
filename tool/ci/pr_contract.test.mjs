@@ -129,6 +129,26 @@ test('--body checks a local branch and tells a visual PR to open as a draft firs
     writeFileSync(join(cwd, 'README.md'), 'Docs');
     git('commit', '-am', 'docs');
     assert.match(cli(body.replace(shot, 'Proof: N/A — docs only')).out, /\[pr-contract\] OK/);
+
+    // --help and --draft flags work from CLI
+    const helpOut = execFileSync(process.execPath,
+      [fileURLToPath(new URL('./pr_contract.mjs', import.meta.url)), '--help'],
+      {cwd, encoding:'utf8', stdio:'pipe'});
+    assert.match(helpOut, /--body <file>/);
+    assert.match(helpOut, /--draft/);
+
+    writeFileSync(join(cwd, 'empty.md'), 'WIP draft');
+    const draftOut = execFileSync(process.execPath,
+      [fileURLToPath(new URL('./pr_contract.mjs', import.meta.url)), '--body', 'empty.md', '--base', 'main', '--draft'],
+      {cwd, encoding:'utf8', stdio:'pipe'});
+    assert.match(draftOut, /\[pr-contract\] OK/);
+
+    // One-way door without plain-text Recovery: explains the exact prefix
+    const oneWayErrs = checkPrContract({
+      body: body.replace('**Door:** two-way', '**Door:** one-way').replace(shot, 'Proof: N/A — docs only'),
+      paths: ['AGENTS.md'],
+    });
+    assert.ok(oneWayErrs.some(e => e.includes('Recovery: <failure and undo steps>')));
   } finally {
     rmSync(cwd, {recursive:true, force:true});
   }

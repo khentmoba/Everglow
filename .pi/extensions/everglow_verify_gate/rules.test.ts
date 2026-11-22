@@ -28,6 +28,8 @@ test("verifySignals maps the React and backend verification commands", () => {
 	assert.deepEqual(verifySignals("npm --prefix react run typecheck"), ["react typecheck"]);
 	assert.deepEqual(verifySignals("npm --prefix react run build"), ["react build"]);
 	assert.deepEqual(verifySignals("node tool/ci/run_checks.mjs"), ["regression guard"]);
+	assert.deepEqual(verifySignals("node tool/ci/verify_all.mjs"), ["verify_all"]);
+	assert.deepEqual(verifySignals("node tool/ci/verify_all.mjs --quick"), []);
 	assert.deepEqual(verifySignals("npm run verify"), ["npm verify"]);
 	assert.deepEqual(verifySignals("git status"), []);
 });
@@ -83,6 +85,14 @@ test("PR needs npm run verify for functions/", () => {
 	const fn = "functions/index.js";
 	assert.match(prBlockReason(run([edit(fn), verify("npm test")])) ?? "", /npm run verify/);
 	assert.equal(prBlockReason(run([edit(fn), verify("npm verify")])), null);
+});
+
+test("cloudflare/src edits require verification before commit and PR", () => {
+	const worker = "cloudflare/src/anime.js";
+	assert.match(commitBlockReason(run([edit(worker)])) ?? "", /ran no verification/);
+	assert.match(prBlockReason(run([edit(worker), verify("react build")])) ?? "", /cloudflare test/);
+	assert.equal(prBlockReason(run([edit(worker), verify("npm test")])), null);
+	assert.equal(prBlockReason(run([edit(worker), verify("verify_all")])), null);
 });
 
 test("PR says nothing when this session edited no code", () => {

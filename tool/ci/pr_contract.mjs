@@ -14,7 +14,7 @@ export function checkPrContract({body = '', draft = false, paths = []}, exists =
   }
   if (!/\*\*Door:\*\*\s*(one-way|two-way)\b/i.test(body)) errors.push('Declare **Door:** one-way or two-way.');
   if (!/\*\*Blast radius:\*\*\s*\S/i.test(body)) errors.push('Declare **Blast radius:**.');
-  if (/\*\*Door:\*\*\s*one-way\b/i.test(body) && !/^Recovery:\s*\S/im.test(body)) errors.push('One-way changes need Recovery: failure and undo steps.');
+  if (/\*\*Door:\*\*\s*one-way\b/i.test(body) && !/^Recovery:\s*\S/im.test(body)) errors.push('One-way changes need a line starting with `Recovery: <failure and undo steps>` (plain text, not bold).');
   const visual = paths.some(path => /^(react\/src\/(?:features\/|shared\/|core\/theme\/|core\/agent\/)|assets\/images\/)/.test(path));
   const shots = [...body.matchAll(/!\[[^\]]*\]\((https:\/\/raw\.githubusercontent\.com\/khentmoba\/Everglow\/([a-f0-9]{40})\/(docs\/pr-proof\/pr-\d+\/[^)\s]+\.(?:png|jpe?g|webp)))\)/gi)];
   if (visual && shots.length === 0) errors.push(`Visual changes need a SHA-pinned screenshot under docs/pr-proof/pr-<number>/; capture blockers belong in a draft. ${DRAFT_FIRST}`);
@@ -45,10 +45,24 @@ const changedPaths = range => execFileSync('git', ['diff', '--name-only', '--no-
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const args = process.argv.slice(2);
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(
+        'Usage:\n' +
+        '  node tool/ci/pr_contract.mjs --body <file> [--base <ref>] [--draft]\n' +
+        '  node tool/ci/pr_contract.mjs <github-event.json>\n\n' +
+        'Options:\n' +
+        '  --body <file>   Validate a local PR body markdown file against the current branch diff\n' +
+        '  --base <ref>    Git base ref for changed files (default: origin/main)\n' +
+        '  --draft         Validate as a draft PR (skips ready-only contract checks)\n' +
+        '  --help, -h      Show this help',
+      );
+      process.exit(0);
+    }
     const flag = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
     if (flag('--body')) {
       const paths = changedPaths([`${flag('--base') || 'origin/main'}...HEAD`]);
-      const errors = checkPrContract({body: readFileSync(flag('--body'), 'utf8'), paths}, existsAtCommit);
+      const draft = args.includes('--draft');
+      const errors = checkPrContract({body: readFileSync(flag('--body'), 'utf8'), draft, paths}, existsAtCommit);
       if (errors.length) throw new Error(errors.join('\n'));
     } else {
       const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH || args[0], 'utf8'));

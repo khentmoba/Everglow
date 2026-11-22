@@ -120,11 +120,81 @@ function checkBuiltDistIfPresent() {
   console.log('[dist] OK: react/dist contains required SPA, PWA, SW, and embed outputs.');
 }
 
+const OUTLINE_NONE_BASELINE_MAX = 44;
+
+/** Pure mechanical-guard scanner (exported for unit tests). */
+export function findMechanicalViolations({
+  rules = '',
+  mediaProxyFiles = [],
+  reactFiles = [],
+  testToolFiles = [],
+  outlineNoneMax = OUTLINE_NONE_BASELINE_MAX,
+} = {}) {
+  const errors = [];
+  if (/\.data\.size\(\)/.test(rules)) {
+    errors.push('firestore.rules: banned .data.size() (counts map keys, not bytes).');
+  }
+  for (const { path, content } of mediaProxyFiles) {
+    if (/Access-Control-Allow-Origin['"\s:,]+\*/i.test(content)) {
+      errors.push(`${path}: banned wildcard Access-Control-Allow-Origin (*).`);
+    }
+    if (/\bfetch\s*\(/.test(content) && !content.includes('ci:raw-fetch-allow')) {
+      errors.push(`${path}: raw fetch() in media_proxy_*.js (use fetchPublicUrl or add // ci:raw-fetch-allow).`);
+    }
+  }
+  const outlineNoneFiles = [];
+  for (const { path, content } of reactFiles) {
+    if (/postMessage\([^)]*['"]\*['"]/.test(content) && !content.includes('ci:postmessage-wildcard')) {
+      errors.push(`${path}: banned postMessage(..., '*') (use explicit origin or // ci:postmessage-wildcard).`);
+    }
+    if (/\bAbortSignal\.any\b/.test(content)) {
+      errors.push(`${path}: banned AbortSignal.any() (unsupported on older iOS Safari).`);
+    }
+    if (/\boutline\s*:\s*['"]?none\b/.test(content) && !content.includes('ci:outline-none')) {
+      outlineNoneFiles.push(path);
+    }
+  }
+  if (outlineNoneFiles.length > outlineNoneMax) {
+    errors.push(
+      `react/src: outline: 'none' file count (${outlineNoneFiles.length}) exceeded baseline (${outlineNoneMax}); use :focus-visible or add // ci:outline-none.`,
+    );
+  }
+  for (const { path, content } of testToolFiles) {
+    if (/\bwaitForFunction\s*\([^,]+,\s*\{\s*timeout\b/.test(content)) {
+      errors.push(`${path}: 2-arg waitForFunction(fn, { timeout }) ignores timeout; pass null as 2nd arg.`);
+    }
+  }
+  return errors;
+}
+
+function checkMechanicalGuards() {
+  const rules = readFileSync('firestore.rules', 'utf8');
+  const mediaProxyFiles = existsSync('functions')
+    ? readdirSync('functions')
+        .filter((n) => /^media_proxy_.*\.js$/.test(n) && !n.endsWith('.test.js'))
+        .map((n) => ({ path: `functions/${n}`, content: readFileSync(join('functions', n), 'utf8') }))
+    : [];
+  const reactFiles = walk('react/src', ['.ts', '.tsx']).map((p) => ({
+    path: p.replace(/\\/g, '/'),
+    content: readFileSync(p, 'utf8'),
+  }));
+  const testToolFiles = [...walk('react/tools', ['.mjs']), ...walk('tool', ['.mjs'])]
+    .map((p) => p.replace(/\\/g, '/'))
+    .filter((p) => p !== 'tool/ci/run_checks.mjs' && p !== 'tool/ci/run_checks.test.mjs')
+    .map((p) => ({ path: p, content: readFileSync(p, 'utf8') }));
+  const errors = findMechanicalViolations({ rules, mediaProxyFiles, reactFiles, testToolFiles });
+  assert.equal(errors.length, 0, errors.join('\n'));
+  console.log(
+    `[mechanical] OK: firestore.rules, ${mediaProxyFiles.length} media proxies, ${reactFiles.length} React files, and ${testToolFiles.length} tool scripts clean.`,
+  );
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   checkFirebaseHosting();
   checkReleaseSync();
   checkDemoPrivacy();
   checkNoAds();
   checkFirestoreCollectionsAndLimits();
+  checkMechanicalGuards();
   checkBuiltDistIfPresent();
 }
