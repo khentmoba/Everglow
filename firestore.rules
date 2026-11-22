@@ -245,6 +245,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isNotAnonymous() &&
         request.auth.uid == userId &&
         (hasCoupleIdentity() || hasCinemaIdentity()) &&
+        !(('accountType' in request.auth.token) && request.auth.token.accountType == 'member') &&
         request.resource.data.username == request.auth.token.username;
       allow read: if isCouple() || ownerOf(userId);
       allow update: if ownerOf(userId) &&
@@ -615,12 +616,13 @@ service cloud.firestore {
     match /global_chat_messages/{messageId} {
       allow read: if isAppUser();
       allow create: if isAppUser() &&
+        request.resource.data.keys().hasOnly(['senderUid', 'senderName', 'text', 'createdAt']) &&
         request.resource.data.senderUid == request.auth.uid &&
         request.resource.data.senderName == username() &&
         request.resource.data.text is string &&
         request.resource.data.text.size() > 0 &&
         request.resource.data.text.size() <= 2000 &&
-        request.resource.data.keys().size() <= 12;
+        request.resource.data.createdAt == request.time;
       allow update: if false;
       allow delete: if isCouple() ||
         (isAppUser() && resource.data.senderUid == request.auth.uid);
@@ -675,12 +677,13 @@ service cloud.firestore {
         allow read: if isAppUser() && canAccessCommunityRoomById(roomId);
         allow create: if isAppUser() &&
           canAccessCommunityRoomById(roomId) &&
+          request.resource.data.keys().hasOnly(['senderUid', 'senderName', 'text', 'timestamp']) &&
           request.resource.data.senderUid == request.auth.uid &&
           request.resource.data.senderName == username() &&
           request.resource.data.text is string &&
           request.resource.data.text.size() > 0 &&
           request.resource.data.text.size() <= 2000 &&
-          request.resource.data.keys().size() <= 12;
+          request.resource.data.timestamp == request.time;
         allow update: if false;
         allow delete: if isCouple() ||
           (isAppUser() && resource.data.senderUid == request.auth.uid);

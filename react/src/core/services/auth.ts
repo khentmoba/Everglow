@@ -404,6 +404,8 @@ class AuthService {
           continue;
         }
         await signInWithCustomToken(auth, data.token);
+        this.user = auth.currentUser;
+        this.hasResolvedAuthState = true;
         this.currentUser = data.username;
         this.isAgentSession = false;
         await this.saveSession(data.username, null);
@@ -494,6 +496,10 @@ class AuthService {
       }
       if (identity.claims['username'] !== this.currentUser) {
         this.hasSyncedUserDoc = false;
+        return;
+      }
+      if (identity.claims['accountType'] === 'member') {
+        void initializeProgress(me.uid).catch((e) => Logger.e('XP init failed (bg)', e));
         return;
       }
       await setDoc(

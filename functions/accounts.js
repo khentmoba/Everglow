@@ -449,17 +449,22 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
     try {
       const roomRef = db.collection('community_watch_rooms').doc();
       const batch = db.batch();
+      const posNum = (v) => (v != null && v !== '' && Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null);
+      const malIdVal = m ? posNum(m.malId) : null;
+      const seasonVal = m ? posNum(m.season) : null;
+      const episodeVal = m ? posNum(m.episode) : null;
+      const episodeCountVal = m ? posNum(m.episodeCount) : null;
       const roomDoc = {
         name: cleanName,
         hostUid: decoded.uid,
         hostName: caller,
         mediaType,
         tmdbId,
-        ...(m && Number.isFinite(Number(m.malId)) ? { malId: Number(m.malId) } : {}),
+        ...(malIdVal != null ? { malId: malIdVal } : {}),
         isAnime: Boolean(m && m.isAnime === true),
-        ...(m && Number.isFinite(Number(m.season)) ? { season: Number(m.season) } : {}),
-        ...(m && Number.isFinite(Number(m.episode)) ? { episode: Number(m.episode) } : {}),
-        ...(m && Number.isFinite(Number(m.episodeCount)) ? { episodeCount: Number(m.episodeCount) } : {}),
+        ...(seasonVal != null ? { season: seasonVal } : {}),
+        ...(episodeVal != null ? { episode: episodeVal } : {}),
+        ...(episodeCountVal != null ? { episodeCount: episodeCountVal } : {}),
         title: m ? String(m.title || '').slice(0, 200) : '',
         posterPath: m ? String(m.posterPath || '').slice(0, 400) : '',
         serverType: 'hls',

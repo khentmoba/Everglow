@@ -5,7 +5,7 @@ import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppRadius, AppSpacing } from '../../core/theme/layout';
 import { linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
-import { useSource } from '../../core/utils/liveSource';
+import { useSourceState } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
@@ -31,14 +31,20 @@ export function GlobalChatPage() {
   const navigate = useNavigate();
   const myUid = auth.uid ?? '';
   const myUsername = auth.currentUser ?? '';
-  const messages = useSource(() => watchGlobalChat(100), [], []);
+  const [retryKey, setRetryKey] = useState(0);
+  const { value: messages, error: streamError } = useSourceState(
+    () => watchGlobalChat(100),
+    [myUid, myUsername, retryKey],
+    [],
+  );
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages.length]);
+  }, [lastMessageId]);
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
@@ -148,7 +154,46 @@ export function GlobalChatPage() {
           boxSizing: 'border-box',
         }}
       >
-        {messages.length === 0 ? (
+        {streamError && messages.length === 0 ? (
+          <div
+            role="alert"
+            style={{
+              margin: 'auto',
+              padding: 28,
+              borderRadius: AppRadius.md,
+              background: Derived.surfaceGlass,
+              border: `1px solid ${Derived.border}`,
+              textAlign: 'center',
+              maxWidth: 340,
+            }}
+          >
+            <Icon name="cloud_off" size={32} color={AppColors.roseQuartz} />
+            <div style={{ height: 8 }} />
+            <div style={{ ...AppTypography.outfitHeading, fontSize: 15, color: AppColors.petalWhite }}>
+              Could not load messages
+            </div>
+            <div style={{ height: 4 }} />
+            <div style={{ fontSize: 12.5, color: Derived.textMuted }}>
+              Check your connection or tap retry.
+            </div>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => setRetryKey((k) => k + 1)}
+              style={{
+                marginTop: 12,
+                padding: '8px 16px',
+                borderRadius: 999,
+                background: AppColors.deepRose,
+                color: AppColors.petalWhite,
+                ...AppTypography.outfitBold,
+                fontSize: 12.5,
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
           <div
             style={{
               margin: 'auto',
@@ -172,7 +217,7 @@ export function GlobalChatPage() {
           </div>
         ) : (
           messages.map((msg) => {
-            const mine = msg.senderUid === myUid || msg.senderName === myUsername;
+            const mine = Boolean(myUid) && msg.senderUid === myUid;
             const label = displayNameFor(msg.senderName);
             const badge = roleTag(msg.senderName);
             const canDelete = mine || auth.isCoupleUser;
