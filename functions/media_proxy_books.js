@@ -5,6 +5,7 @@ const { applyCors, cappedHttps, enforceRateLimit, fetchPublicUrl, isAllowedBookT
 const MAX_URLS = 10;
 const MAX_TEXT_BYTES = 5 * 1024 * 1024;
 const MAX_EPUB_BYTES = 7 * 1024 * 1024;
+const OVERALL_BUDGET_MS = 45_000;
 
 async function readStreamCapped(body, maxBytes) {
   if (!body || typeof body.getReader !== 'function') return null;
@@ -50,14 +51,17 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
   }
 
   const candidates = urls.slice(0, MAX_URLS);
+  const deadline = Date.now() + OVERALL_BUDGET_MS;
   for (let i = 0; i < candidates.length; i++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 1000) break;
     const url = candidates[i];
     if (typeof url !== 'string' || !isAllowedBookTextUrl(url)) {
       console.warn(`proxyBookText rejected URL ${url}`);
       continue;
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const timer = setTimeout(() => controller.abort(), Math.min(12000, remaining));
     try {
       const response = await fetchPublicUrl(url, {
         headers: { 'Accept': 'text/plain' },
@@ -123,14 +127,17 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
   }
 
   const candidates = urls.slice(0, MAX_URLS);
+  const deadline = Date.now() + OVERALL_BUDGET_MS;
   for (let i = 0; i < candidates.length; i++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 1000) break;
     const url = candidates[i];
     if (typeof url !== 'string' || !isAllowedBookTextUrl(url)) {
       console.warn(`proxyBookFile rejected URL ${url}`);
       continue;
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), Math.min(20000, remaining));
     try {
       const response = await fetchPublicUrl(url, {
         headers: { 'Accept': 'application/epub+zip, application/octet-stream, */*' },

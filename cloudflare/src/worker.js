@@ -46,9 +46,14 @@ function checkWorkerRateLimit(request, bucket, limit, windowMs = 60_000) {
   const key = `${bucket}:${ip}`;
   let entry = WORKER_RATE_BUCKETS.get(key);
   if (!entry || now >= entry.resetAt) {
-    if (WORKER_RATE_BUCKETS.size > 2000) {
+    if (WORKER_RATE_BUCKETS.size >= 2000) {
       for (const [k, v] of WORKER_RATE_BUCKETS) {
         if (now >= v.resetAt) WORKER_RATE_BUCKETS.delete(k);
+      }
+      while (WORKER_RATE_BUCKETS.size >= 2000) {
+        const oldest = WORKER_RATE_BUCKETS.keys().next().value;
+        if (oldest === undefined) break;
+        WORKER_RATE_BUCKETS.delete(oldest);
       }
     }
     entry = { count: 1, resetAt: now + windowMs };
@@ -75,6 +80,7 @@ function corsHeaders(request) {
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
     'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+    'Access-Control-Max-Age': '86400',
   };
 }
 
@@ -284,15 +290,17 @@ function isBlockedRedirectHost(hostname) {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(h)) {
-    const [a, b] = h.split('.').map(Number);
-    if (a === 0 || a === 10 || a === 127) return true;
+    const [a, b, c] = h.split('.').map(Number);
+    if (a === 0 || a === 10 || a === 127 || a >= 224) return true;
     if (a === 169 && b === 254) return true;
     if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 0 && c === 0) return true;
     if (a === 192 && b === 168) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true;
     if (a === 100 && b >= 64 && b <= 127) return true;
   }
   if (h.includes(':')) {
-    if (h === '::1' || h === '::' || /^fe[89ab][0-9a-f]:/i.test(h) || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('::ffff:')) {
+    if (h === '::1' || h === '::' || /^fe[89ab][0-9a-f]:/i.test(h) || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('::ffff:') || h.startsWith('64:ff9b:')) {
       return true;
     }
   }
