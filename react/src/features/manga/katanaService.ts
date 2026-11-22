@@ -680,6 +680,7 @@ export async function saveKatanaReadingProgress(p: {
     {
       slug: p.slug,
       userName: p.userName,
+      ...(existing == null ? { bookmarked: false } : {}),
       lastReadChapterId: p.chapterId,
       lastReadPage: p.page,
       lastReadChapterTitle: p.chapterTitle,

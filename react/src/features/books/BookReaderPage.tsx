@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
-import { Prefs } from '../../core/system/prefs';
 import { useViewport } from '../../core/system/viewport';
 import { WebTts } from '../../core/system/webTts';
 import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
@@ -324,10 +323,8 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     fetchBookText(candidates).then((res) => {
       window.clearTimeout(slowTimer);
       if (!alive) return;
-      const cachedText = Prefs.getString(`book_text_work::${book.workKey}`) ?? '';
-      const rawText = res.text || cachedText;
+      const rawText = res.text;
       if (rawText) {
-        if (res.text) Prefs.set(`book_text_work::${book.workKey}`, res.text);
         const sourceText = sample ? `${rawText.split('\n\n').slice(0, 4).join('\n\n')}\n\n*** END OF SAMPLE ***` : rawText;
         const list = splitBookChapters(sourceText, book.title);
         const initial = saved && saved.chapter < list.length ? saved.chapter : 0;
@@ -383,6 +380,49 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     if (menuOpen) window.requestAnimationFrame(() => activeChapterRef.current?.scrollIntoView({ block: 'center' }));
   }, [menuOpen]);
 
+  const { width: readerWidth, height: readerHeight } = useViewport();
+
+  useEffect(() => {
+    if (!book || !pendingJump) return;
+    const id = window.requestAnimationFrame(() => {
+      const el = Array.from(scrollRef.current?.querySelectorAll('article p') ?? []).find((p) => p.textContent?.includes(pendingJump));
+      el?.scrollIntoView({ block: 'center' });
+      setPendingJump('');
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [book, pendingJump, chapterIdx]);
+
+  useEffect(() => {
+    if (!book || !synced.progress || syncedOnceRef.current === book.workKey) return;
+    const remote = synced.progress;
+    if (remote.workKey !== book.workKey) return;
+    syncedOnceRef.current = book.workKey;
+    const local = loadProgress(book.workKey);
+    if (local && local.updatedAt >= remote.updatedAt) return;
+    const idx = chapters.length ? Math.min(remote.chapter, chapters.length - 1) : remote.chapter;
+    setChapterIdx(idx);
+    chapterRef.current = idx;
+    setScrollPct(remote.scroll);
+    scrollFracRef.current = remote.scroll;
+    saveProgress({ ...remote, workKey: book.workKey });
+    if (synced.bookmarks.length) replaceBookmarks(book.workKey, synced.bookmarks);
+    if (synced.highlights.length) replaceHighlights(book.workKey, synced.highlights);
+    setBookmarks(loadBookmarks(book.workKey));
+    setHighlights(loadHighlights(book.workKey));
+    window.requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      if (remote.paragraphIndex != null) {
+        const target = el.querySelectorAll('article p')[remote.paragraphIndex] as HTMLElement | undefined;
+        if (target) {
+          el.scrollTop = Math.max(0, target.offsetTop - 12);
+          return;
+        }
+      }
+      el.scrollTop = remote.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  }, [synced, book, chapters.length]);
+
   if (!book) {
     return (
       <div style={{ height: '100%', background: BookColors.black, color: BookColors.white, display: 'grid', placeItems: 'center', padding: 24 }}>
@@ -413,7 +453,6 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
   const currentChapter = chapters[chapterIdx] ?? null;
   const paragraphs = currentChapter ? toParagraphs(currentChapter.body) : [];
   const speechText = paragraphs.join('\n');
-  const { width: readerWidth, height: readerHeight } = useViewport();
   const perPage = Math.max(3, Math.min(14, Math.floor(readerHeight / (settings.fontSize * settings.lineHeight * 2.1))));
   const pageCount = Math.max(1, Math.ceil(paragraphs.length / perPage));
   const safePageIdx = Math.min(pageIdx, pageCount - 1);
@@ -519,47 +558,6 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
     setHighlights(removeHighlight(book.workKey, id));
     syncState();
   };
-
-  useEffect(() => {
-    if (!pendingJump) return;
-    const id = window.requestAnimationFrame(() => {
-      const el = Array.from(scrollRef.current?.querySelectorAll('article p') ?? []).find((p) => p.textContent?.includes(pendingJump));
-      el?.scrollIntoView({ block: 'center' });
-      setPendingJump('');
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [pendingJump, chapterIdx]);
-
-  useEffect(() => {
-    if (!book || !synced.progress || syncedOnceRef.current === book.workKey) return;
-    const remote = synced.progress;
-    if (remote.workKey !== book.workKey) return;
-    syncedOnceRef.current = book.workKey;
-    const local = loadProgress(book.workKey);
-    if (local && local.updatedAt >= remote.updatedAt) return;
-    const idx = chapters.length ? Math.min(remote.chapter, chapters.length - 1) : remote.chapter;
-    setChapterIdx(idx);
-    chapterRef.current = idx;
-    setScrollPct(remote.scroll);
-    scrollFracRef.current = remote.scroll;
-    saveProgress({ ...remote, workKey: book.workKey });
-    if (synced.bookmarks.length) replaceBookmarks(book.workKey, synced.bookmarks);
-    if (synced.highlights.length) replaceHighlights(book.workKey, synced.highlights);
-    setBookmarks(loadBookmarks(book.workKey));
-    setHighlights(loadHighlights(book.workKey));
-    window.requestAnimationFrame(() => {
-      const el = scrollRef.current;
-      if (!el) return;
-      if (remote.paragraphIndex != null) {
-        const target = el.querySelectorAll('article p')[remote.paragraphIndex] as HTMLElement | undefined;
-        if (target) {
-          el.scrollTop = Math.max(0, target.offsetTop - 12);
-          return;
-        }
-      }
-      el.scrollTop = remote.scroll * Math.max(0, el.scrollHeight - el.clientHeight);
-    });
-  }, [synced, book, chapters.length]);
 
   const bookMatches = bookSearch.trim()
     ? chapters.flatMap((ch, i) => {
