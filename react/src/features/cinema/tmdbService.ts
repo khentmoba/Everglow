@@ -175,25 +175,66 @@ function fromFirestoreDoc(data: Record<string, unknown>, id: string): MediaItem 
   };
 }
 
+const TMDB_CACHE_TTL_MS = 5 * 60 * 1000;
+const TMDB_CACHE_MAX = 120;
+const tmdbCache = new Map<string, { data: Record<string, unknown>; ts: number }>();
+const tmdbInFlight = new Map<string, Promise<Record<string, unknown> | null>>();
+
+function getCachedTmdb(key: string): Record<string, unknown> | null {
+  const entry = tmdbCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > TMDB_CACHE_TTL_MS) {
+    tmdbCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedTmdb(key: string, data: Record<string, unknown>): void {
+  tmdbCache.delete(key);
+  tmdbCache.set(key, { data, ts: Date.now() });
+  if (tmdbCache.size > TMDB_CACHE_MAX) {
+    const oldest = tmdbCache.keys().next().value;
+    if (oldest !== undefined) tmdbCache.delete(oldest);
+  }
+}
+
 async function tmdbJson(pathWithQuery: string): Promise<Record<string, unknown> | null> {
-  const url = `${TMDB_BASE}${pathWithQuery.startsWith('/') ? '' : '/'}${pathWithQuery}`;
+  const normalizedPath = pathWithQuery.startsWith('/') ? pathWithQuery : `/${pathWithQuery}`;
+  const url = `${TMDB_BASE}${normalizedPath}`;
   if (AgentMode.demo) {
     return agentTmdbResponse(url);
   }
-  await auth.authStateReady();
-  const user = auth.currentUser;
-  if (!user) return null;
+  const cached = getCachedTmdb(normalizedPath);
+  if (cached) return cached;
+  const pending = tmdbInFlight.get(normalizedPath);
+  if (pending) return pending;
+
+  const task = (async (): Promise<Record<string, unknown> | null> => {
+    await auth.authStateReady();
+    const user = auth.currentUser;
+    if (!user) return null;
+    try {
+      const token = await user.getIdToken();
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as Record<string, unknown>;
+      setCachedTmdb(normalizedPath, data);
+      return data;
+    } catch (e) {
+      Logger.w(`TMDB fetch failed (${pathWithQuery}): ${String(e)}`);
+      return null;
+    }
+  })();
+
+  tmdbInFlight.set(normalizedPath, task);
   try {
-    const token = await user.getIdToken();
-    const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!resp.ok) return null;
-    return (await resp.json()) as Record<string, unknown>;
-  } catch (e) {
-    Logger.w(`TMDB fetch failed (${pathWithQuery}): ${String(e)}`);
-    return null;
+    return await task;
+  } finally {
+    tmdbInFlight.delete(normalizedPath);
   }
 }
 
