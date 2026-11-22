@@ -5,6 +5,42 @@ import { Icon } from '../../shared/widgets/Icon';
 import type { WatchPartyRoom } from './watchPartyService';
 import { resolveWatchPartyStream, type WatchPartyClock, type WatchPartyStream } from './watchPartySync';
 
+type HlsInstance = {
+  loadSource(url: string): void;
+  attachMedia(video: HTMLVideoElement): void;
+  on(event: string, cb: (_ev: unknown, data?: { fatal?: boolean }) => void): void;
+  destroy(): void;
+};
+
+type HlsConstructor = {
+  new (opts?: Record<string, unknown>): HlsInstance;
+  isSupported(): boolean;
+  Events: { ERROR: string };
+};
+
+const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+
+function loadHlsConstructor(): Promise<HlsConstructor | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  const w = window as unknown as { Hls?: HlsConstructor };
+  if (w.Hls) return Promise.resolve(w.Hls);
+  return new Promise((resolve) => {
+    const existing = document.getElementById('everglow-hlsjs') as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', () => resolve(w.Hls ?? null), { once: true });
+      existing.addEventListener('error', () => resolve(null), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'everglow-hlsjs';
+    script.crossOrigin = 'anonymous';
+    script.src = HLS_SCRIPT_SRC;
+    script.onload = () => resolve(w.Hls ?? null);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+}
+
 export function HlsServerPlayer({
   room,
   clock,
@@ -48,6 +84,47 @@ export function HlsServerPlayer({
       alive = false;
     };
   }, [mediaKey]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream) return;
+    let alive = true;
+    let hls: HlsInstance | null = null;
+
+    const nativeHls = Boolean(video.canPlayType('application/vnd.apple.mpegurl'));
+    const attach = async () => {
+      const Hls = await loadHlsConstructor();
+      if (!alive) return;
+      if (Hls && Hls.isSupported()) {
+        video.removeAttribute('src');
+        hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
+        hls.on(Hls.Events.ERROR, (_ev, data) => {
+          if (data?.fatal && alive) {
+            setError('Video playback failed on this browser — try Embed Sync.');
+          }
+        });
+        hls.loadSource(stream.src);
+        hls.attachMedia(video);
+      } else if (nativeHls) {
+        video.src = stream.src;
+      } else {
+        setError('HLS playback is not supported on this browser — try Embed Sync.');
+      }
+    };
+    void attach();
+    return () => {
+      alive = false;
+      if (hls) {
+        try {
+          hls.destroy();
+        } catch {
+          // ignore
+        }
+      }
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [stream]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -135,7 +212,6 @@ export function HlsServerPlayer({
   return (
     <video
       ref={videoRef}
-      src={stream.src}
       controls
       playsInline
       crossOrigin="anonymous"

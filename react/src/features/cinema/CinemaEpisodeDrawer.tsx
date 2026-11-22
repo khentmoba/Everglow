@@ -721,7 +721,6 @@ export function CinemaEpisodeDrawer({
           onSeasonChanged={selectSeason}
         />
       )}
-      <SimilarGrid similar={similar} loading={loadingSimilar} onTap={onShowItem} />
       <ExtraTabs selected={extraTab} onSelect={selectExtraTab} isAnimeSourced={isAnimeSourced} />
       {extraTab === 1 ? (
         <Reviews reviews={reviews} loading={loadingReviews} />

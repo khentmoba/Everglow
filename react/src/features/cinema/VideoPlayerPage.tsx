@@ -490,6 +490,9 @@ class PlayerController {
         void video.play().catch(() => undefined);
       } else {
         this.mountOnlineIframe(host);
+        this.restartLoadTimer();
+        if (this.p.isAnime) void this.bootstrapAnime();
+        else this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
       }
     });
     host.replaceChildren(video);

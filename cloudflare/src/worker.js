@@ -418,9 +418,10 @@ const DISALLOWED_MEDIA_CT_RE =
     if (text && text.includes('#EXTM3U')) {
       const base = proxyBase(request);
       const sealKey = env.CDN_STAMP_KEY || null;
+      const finalUrl = upstream.url || target;
       const rewritten = megaplay
-        ? await rewritePlaylistWithHosts(text, target, base, 'megaplay', sealKey)
-        : await rewriteCinemaPlaylist(text, target, base, provider, sealKey);
+        ? await rewritePlaylistWithHosts(text, finalUrl, base, 'megaplay', sealKey)
+        : await rewriteCinemaPlaylist(text, finalUrl, base, provider, sealKey);
       const response = new Response(rewritten, {
         status: 200,
         headers: {

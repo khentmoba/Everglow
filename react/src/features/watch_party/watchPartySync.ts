@@ -8,7 +8,7 @@ import { Prefs } from '../../core/system/prefs';
 import type { WatchPartyRoom } from './watchPartyService';
 
 const FUNCTIONS_BASE = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
-const PROXY_CINEMA_ORIGIN = 'https://everglow-proxy.khentplaysmoba.workers.dev';
+const PROXY_CINEMA_ORIGIN = 'https://everglow-stream.khentplaysmoba.workers.dev';
 const CUSTOM_SERVERS_PREF = 'watch_party_custom_servers';
 
 export interface WatchPartyServer {

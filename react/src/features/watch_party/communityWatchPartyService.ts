@@ -28,6 +28,12 @@ export interface CommunityWatchPartyRoom extends WatchPartyRoom {
 
 const unlockedRooms = new Set<string>();
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    unlockedRooms.clear();
+  });
+}
+
 export function markCommunityRoomUnlocked(roomId: string): void {
   unlockedRooms.add(roomId);
 }
@@ -441,7 +447,6 @@ export async function updateCommunityRoomMedia(
       positionAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedBy,
-      active: true,
     });
   } catch (e) {
     Logger.e(`CommunityWatchParty: updateMedia failed for ${roomId}`, e);
