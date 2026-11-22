@@ -42,6 +42,8 @@ export function GardenPage() {
           position: 'relative',
           zIndex: 1,
           height: '100%',
+          padding:
+            'var(--safe-top, env(safe-area-inset-top, 0px)) var(--safe-right, env(safe-area-inset-right, 0px)) var(--safe-bottom, env(safe-area-inset-bottom, 0px)) var(--safe-left, env(safe-area-inset-left, 0px))',
           display: 'flex',
           flexDirection: 'column',
         }}

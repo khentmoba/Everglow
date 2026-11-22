@@ -382,7 +382,14 @@ export function CanvasPage() {
   const isLoading = saved.data == null;
   return (
     <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ paddingTop: 'env(safe-area-inset-top)', flexShrink: 0 }}>
+      <div
+        style={{
+          paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))',
+          paddingLeft: 'var(--safe-left, env(safe-area-inset-left, 0px))',
+          paddingRight: 'var(--safe-right, env(safe-area-inset-right, 0px))',
+          flexShrink: 0,
+        }}
+      >
         <EverglowFeatureHeader
           title="Everglow Canvas"
           subtitle="draw something together"
@@ -533,7 +540,15 @@ function CanvasToolbar(p: {
 }) {
   const muted = withAlpha(AppColors.petalWhite, 0.2);
   return (
-    <div style={{ padding: '0 16px 32px', maxWidth: '100%', boxSizing: 'border-box', pointerEvents: 'auto' }}>
+    <div
+      style={{
+        padding:
+          '0 calc(16px + var(--safe-right, env(safe-area-inset-right, 0px))) calc(32px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) calc(16px + var(--safe-left, env(safe-area-inset-left, 0px)))',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        pointerEvents: 'auto',
+      }}
+    >
       <div
         style={{
           padding: '9.5px 13.5px',

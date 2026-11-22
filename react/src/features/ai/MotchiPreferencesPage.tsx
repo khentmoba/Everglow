@@ -61,7 +61,17 @@ export function MotchiPreferencesPage() {
     saving ? undefined : (value: CompanionPreferences[K]) => setPreferences((p) => p && { ...p, [key]: value });
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: AppColors.inkDeep, display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        padding:
+          'var(--safe-top, env(safe-area-inset-top, 0px)) var(--safe-right, env(safe-area-inset-right, 0px)) var(--safe-bottom, env(safe-area-inset-bottom, 0px)) var(--safe-left, env(safe-area-inset-left, 0px))',
+        background: AppColors.inkDeep,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <MaterialAppBar title="Motchi preferences" />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 600, display: 'flex', flexDirection: 'column' }}>

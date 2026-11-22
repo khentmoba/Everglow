@@ -327,7 +327,10 @@ export function AnimeXTopHeader({
   return (
     <header
       style={{
-        height: AnimeXTokens.headerHeight,
+        height: `calc(${AnimeXTokens.headerHeight}px + var(--safe-top, env(safe-area-inset-top, 0px)))`,
+        paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))',
+        paddingLeft: 'var(--safe-left, env(safe-area-inset-left, 0px))',
+        paddingRight: 'var(--safe-right, env(safe-area-inset-right, 0px))',
         flexShrink: 0,
         position: 'relative',
         zIndex: 50,
@@ -582,7 +585,7 @@ export function AnimeXMobileBottomNav({
         background: AnimeXTokens.surface,
         position: 'relative',
         zIndex: 50,
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingBottom: 'var(--safe-bottom, env(safe-area-inset-bottom, 0px))',
       }}
     >
       <div

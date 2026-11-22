@@ -312,7 +312,7 @@ export function SanctuaryPage() {
   }
 
   return (
-    <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       <EverglowBackground baseColor={AppColors.inkDeep} />
       <div
         style={{
@@ -320,6 +320,8 @@ export function SanctuaryPage() {
           height: '100%',
           maxWidth: 860,
           margin: '0 auto',
+          padding:
+            'var(--safe-top, env(safe-area-inset-top, 0px)) var(--safe-right, env(safe-area-inset-right, 0px)) var(--safe-bottom, env(safe-area-inset-bottom, 0px)) var(--safe-left, env(safe-area-inset-left, 0px))',
           display: 'flex',
           flexDirection: 'column',
         }}
