@@ -16,6 +16,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { ConnectivityService } from '../../core/network/connectivity';
 import { fetchFallbackChapterPages } from './mangaFallbackProviders';
+import { getDemoChapterPages } from './readerDemo';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
@@ -57,6 +58,8 @@ export interface KatanaManga {
   updateAt?: Date;
 }
 
+export type KatanaLibraryStatus = 'reading' | 'completed' | 'planned' | 'dropped';
+
 export interface KatanaBookmark {
   slug: string;
   title: string;
@@ -71,8 +74,16 @@ export interface KatanaBookmark {
   recommendationNote: string;
   readChapterIds: string[];
   bookmarked: boolean;
+  libraryStatus?: KatanaLibraryStatus;
   /** Set once the reader reaches the last page of the final chapter of a completed series. */
   finishedAt?: Date;
+}
+
+export function resolveLibraryStatus(bm: KatanaBookmark): KatanaLibraryStatus {
+  if (bm.libraryStatus) return bm.libraryStatus;
+  if (bm.finishedAt) return 'completed';
+  if (bm.lastReadChapterId) return 'reading';
+  return 'planned';
 }
 
 export interface KatanaPageResult {
@@ -80,6 +91,7 @@ export interface KatanaPageResult {
   page: number;
   hasNext: boolean;
   hasPrev: boolean;
+  error?: string;
 }
 
 export interface KatanaHomeData {
@@ -87,6 +99,8 @@ export interface KatanaHomeData {
   latest: KatanaManga[];
   hot: KatanaManga[];
   genres: KatanaGenre[];
+  error?: string;
+  fromCache?: boolean;
 }
 
 export function katanaChapterNumFromId(id: string): string {
@@ -304,21 +318,295 @@ function items(blocks: string[]): KatanaManga[] {
   return blocks.map(parseExpandedItem).filter((m): m is KatanaManga => m != null);
 }
 
+const HOME_CACHE_KEY = 'everglow_katana_home_cache_v1';
+const RECENT_SEARCH_KEY = 'everglow_katana_recent_searches_v1';
+
+export function getRecentMangaSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SEARCH_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string').slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function pushRecentMangaSearch(q: string): string[] {
+  const trimmed = q.trim();
+  if (!trimmed) return getRecentMangaSearches();
+  const next = [trimmed, ...getRecentMangaSearches().filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+  try {
+    localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage quota
+  }
+  return next;
+}
+
+export function clearRecentMangaSearches(): void {
+  try {
+    localStorage.removeItem(RECENT_SEARCH_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function saveHomeCache(data: KatanaHomeData): void {
+  if (data.latest.length === 0 && data.hot.length === 0) return;
+  try {
+    localStorage.setItem(HOME_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data }));
+  } catch {
+    // ignore storage quota
+  }
+}
+
+function loadHomeCache(): KatanaHomeData | null {
+  try {
+    const raw = localStorage.getItem(HOME_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: number; data?: KatanaHomeData };
+    if (!parsed?.data) return null;
+    const reviveChapter = (c: KatanaChapter): KatanaChapter => ({
+      ...c,
+      updateAt: c.updateAt ? new Date(c.updateAt) : undefined,
+    });
+    const reviveManga = (m: KatanaManga): KatanaManga => ({
+      ...m,
+      updateAt: m.updateAt ? new Date(m.updateAt) : undefined,
+      latestChapter: m.latestChapter ? reviveChapter(m.latestChapter) : undefined,
+      recentChapters: (m.recentChapters ?? []).map(reviveChapter),
+      chapters: (m.chapters ?? []).map(reviveChapter),
+    });
+    return {
+      hotUpdates: (parsed.data.hotUpdates ?? []).map(reviveManga),
+      latest: (parsed.data.latest ?? []).map(reviveManga),
+      hot: (parsed.data.hot ?? []).map(reviveManga),
+      genres: parsed.data.genres ?? [],
+      fromCache: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildDemoGenres(): KatanaGenre[] {
+  return [
+    { slug: 'action', name: 'Action', count: 1420, description: 'High-stakes battles, martial arts, and relentless momentum.' },
+    { slug: 'fantasy', name: 'Fantasy', count: 1180, description: 'Arcane realms, dungeons, and grand world-building.' },
+    { slug: 'manhwa', name: 'Manhwa', count: 960, description: 'Full-color Korean vertical-scroll webtoons and action epics.' },
+    { slug: 'manhua', name: 'Manhua', count: 640, description: 'Chinese cultivation, wuxia, and mythic adventures.' },
+    { slug: 'adventure', name: 'Adventure', count: 1090, description: 'Long journeys across uncharted frontiers.' },
+    { slug: 'sci-fi', name: 'Sci-Fi', count: 510, description: 'Cyberpunk cities, orbital colonies, and speculative futures.' },
+    { slug: 'mystery', name: 'Mystery', count: 470, description: 'Twisted investigations, clues, and psychological tension.' },
+    { slug: 'slice-of-life', name: 'Slice of Life', count: 690, description: 'Quiet everyday stories with warmth and craft.' },
+    { slug: 'drama', name: 'Drama', count: 830, description: 'Character-driven turning points and emotional stakes.' },
+    { slug: 'comedy', name: 'Comedy', count: 780, description: 'Sharp wit, deadpan gags, and ensemble chaos.' },
+    { slug: 'seinen', name: 'Seinen', count: 620, description: 'Mature storytelling, intricate art, and complex themes.' },
+    { slug: 'supernatural', name: 'Supernatural', count: 710, description: 'Spirits, curses, and hidden worlds beyond sight.' },
+  ];
+}
+
+function makeDemoChapters(count: number, prefix: string): KatanaChapter[] {
+  const now = Date.now();
+  return Array.from({ length: count }, (_, i) => {
+    const n = count - i;
+    return {
+      id: `c${n}`,
+      num: String(n),
+      title: `Chapter ${n}${i === 0 ? `: ${prefix}` : ''}`,
+      updateAt: new Date(now - i * 36 * 3600 * 1000),
+      isNew: i < 2,
+    };
+  });
+}
+
+function buildDemoCatalog(): KatanaManga[] {
+  const genres = buildDemoGenres();
+  const g = (...slugs: string[]) => genres.filter((x) => slugs.includes(x.slug));
+  const now = Date.now();
+  const series: Array<{
+    slug: string;
+    title: string;
+    coverUrl: string;
+    status: 'ongoing' | 'completed';
+    authors: string[];
+    altNames: string[];
+    genres: KatanaGenre[];
+    summary: string;
+    chapterCount: number;
+    latestSubtitle: string;
+    updateText: string;
+    hoursAgo: number;
+  }> = [
+    {
+      slug: 'demo-starlight-manga',
+      title: 'Fictional Starlight Manga',
+      coverUrl: '/images/demo/poster-4.jpg',
+      status: 'ongoing',
+      authors: ['Renji Takahashi'],
+      altNames: ['Hoshikuzu Senki', 'Starlight Chronicles'],
+      genres: g('action', 'fantasy', 'adventure'),
+      summary: 'When an ancient observatory splits the night sky over the archipelago, a young cartographer and a rogue bladesmith race across floating ruins to chart the fallen stars before rival guilds claim them.',
+      chapterCount: 43,
+      latestSubtitle: 'Beyond the Horizon',
+      updateText: '2 hours ago',
+      hoursAgo: 2,
+    },
+    {
+      slug: 'demo-iron-sovereign',
+      title: 'Iron Sovereign of the Ashen Gate',
+      coverUrl: '/images/demo/poster-1.jpg',
+      status: 'ongoing',
+      authors: ['Min-Jun Kang', 'Studio Baekho'],
+      altNames: ['Ashen Gate', 'Cheolwang-ui Mun'],
+      genres: g('manhwa', 'action', 'fantasy'),
+      summary: 'Left for dead inside a collapsing S-rank labyrinth, a low-tier smith awakens the memory of a forgotten forge master and climbs back through every tower floor.',
+      chapterCount: 118,
+      latestSubtitle: 'The Seventh Anvil',
+      updateText: '4 hours ago',
+      hoursAgo: 4,
+    },
+    {
+      slug: 'demo-paper-moon',
+      title: 'Demo Paper Moon',
+      coverUrl: '/images/demo/poster-2.jpg',
+      status: 'completed',
+      authors: ['Haruka Sato'],
+      altNames: ['Kami no Tsuki'],
+      genres: g('mystery', 'drama', 'seinen'),
+      summary: 'In a rain-drenched coastal town where letters arrive from the wrong decade, an archivist pieces together a century-old disappearance hidden inside bindings of old journals.',
+      chapterCount: 120,
+      latestSubtitle: 'Final Postmark',
+      updateText: '1 day ago',
+      hoursAgo: 24,
+    },
+    {
+      slug: 'demo-jade-sky-blade',
+      title: 'Jade Sky Blade Pavilion',
+      coverUrl: '/images/demo/poster-3.jpg',
+      status: 'ongoing',
+      authors: ['Lin Wuyue'],
+      altNames: ['Bi Tian Jian Ge'],
+      genres: g('manhua', 'action', 'supernatural'),
+      summary: 'A wandering ink-painter discovers his brush strokes can unseal ancient sword spirits dormant across the Nine River Provinces.',
+      chapterCount: 86,
+      latestSubtitle: 'Mist Over Southern Peak',
+      updateText: '6 hours ago',
+      hoursAgo: 6,
+    },
+    {
+      slug: 'demo-neon-courier',
+      title: 'Neon Courier 2099',
+      coverUrl: '/images/demo/poster-1.jpg',
+      status: 'ongoing',
+      authors: ['Kenji Morita'],
+      altNames: ['Shinjuku Express 99'],
+      genres: g('sci-fi', 'action', 'seinen'),
+      summary: 'A zero-gravity bike messenger in Neo-Kobe takes one unlogged parcel and triggers a citywide blackout pursued by orbital syndicates.',
+      chapterCount: 54,
+      latestSubtitle: 'Sublevel Relay',
+      updateText: '9 hours ago',
+      hoursAgo: 9,
+    },
+    {
+      slug: 'demo-garden-of-letters',
+      title: 'Demo Garden of Letters',
+      coverUrl: '/images/demo/poster-3.jpg',
+      status: 'ongoing',
+      authors: ['Aoi Nishimura'],
+      altNames: ['Tegami no Niwa'],
+      genres: g('slice-of-life', 'drama', 'comedy'),
+      summary: 'Two stubborn apprentices inherit a hillside bookshop and revive a neighborhood reading circle one eccentric regular at a time.',
+      chapterCount: 28,
+      latestSubtitle: 'Rainy Afternoon Shelf',
+      updateText: '12 hours ago',
+      hoursAgo: 12,
+    },
+    {
+      slug: 'demo-crimson-tides',
+      title: 'Crimson Tides of Busan',
+      coverUrl: '/images/demo/poster-2.jpg',
+      status: 'ongoing',
+      authors: ['Ji-Hoon Park'],
+      altNames: ['Bulgeun Pado'],
+      genres: g('manhwa', 'mystery', 'supernatural'),
+      summary: 'When ghost ships begin docking at dawn with passengers who never aged, a harbor diver uncovers a pact beneath the breakwater.',
+      chapterCount: 67,
+      latestSubtitle: 'Low Tide Signal',
+      updateText: '18 hours ago',
+      hoursAgo: 18,
+    },
+    {
+      slug: 'demo-cloud-sect-alchemist',
+      title: 'Cloud Sect Alchemist',
+      coverUrl: '/images/demo/poster-4.jpg',
+      status: 'completed',
+      authors: ['Chen Zihan'],
+      altNames: ['Yun Zong Dan Shi'],
+      genres: g('manhua', 'fantasy', 'comedy'),
+      summary: 'Banished from the inner sect for brewing tea instead of elixirs, a laid-back disciple accidentally turns his roadside stall into the most feared neutral ground in the realm.',
+      chapterCount: 95,
+      latestSubtitle: 'Epilogue: First Steep',
+      updateText: '3 days ago',
+      hoursAgo: 72,
+    },
+  ];
+
+  return series.map((s, idx) => {
+    const chapters = makeDemoChapters(s.chapterCount, s.latestSubtitle);
+    return {
+      slug: s.slug,
+      id: String(1000 + idx),
+      title: s.title,
+      coverUrl: s.coverUrl,
+      status: s.status,
+      updateText: s.updateText,
+      summary: s.summary,
+      genres: s.genres,
+      latestChapter: chapters[0],
+      recentChapters: chapters.slice(0, 3),
+      altNames: s.altNames,
+      authors: s.authors,
+      artists: [],
+      chapters,
+      updateAt: new Date(now - s.hoursAgo * 3600 * 1000),
+    };
+  });
+}
+
 export async function fetchKatanaHome(): Promise<KatanaHomeData> {
   const html = await fetchHtml(`${BASE_URL}/`);
-  if (!html) return { hotUpdates: [], latest: [], hot: [], genres: [] };
+  if (!html) {
+    if (AgentMode.demo) {
+      const catalog = buildDemoCatalog();
+      return {
+        hotUpdates: catalog.slice(0, 6),
+        latest: catalog,
+        hot: [...catalog].sort((a, b) => b.chapters.length - a.chapters.length),
+        genres: buildDemoGenres(),
+      };
+    }
+    const cached = loadHomeCache();
+    if (cached) {
+      return { ...cached, error: 'Live catalog refresh failed — showing your last cached list.' };
+    }
+    return { hotUpdates: [], latest: [], hot: [], genres: [], error: 'Could not reach the manga catalog right now.' };
+  }
   const hotIdx = html.indexOf('Hot Manga');
   const latestIdx = Math.max(0, html.indexOf('Latest Updates'));
   const latest = items(blocksOfClass(html, 'item', latestIdx, hotIdx < 0 ? -1 : hotIdx));
   const hot = hotIdx >= 0 ? items(blocksOfClass(html, 'item', hotIdx)) : [];
   const hotUpdateIdx = html.indexOf('id="hot_update"');
   const hotUpdateEnd = hotUpdateIdx >= 0 ? html.indexOf('id="wrap_content"', hotUpdateIdx) : -1;
-  return {
+  const result: KatanaHomeData = {
     hotUpdates: hotUpdateIdx >= 0 ? items(blocksOfClass(html, 'item', hotUpdateIdx, hotUpdateEnd)) : [],
     latest,
     hot,
     genres: parseGenres(html),
   };
+  saveHomeCache(result);
+  return result;
 }
 
 export async function fetchKatanaCatalog(opts: {
@@ -370,7 +658,42 @@ export async function fetchKatanaCatalog(opts: {
     url += `?${params.toString()}`;
   }
   const html = await fetchHtml(url);
-  if (!html) return { items: [], page, hasNext: false, hasPrev: page > 1 };
+  if (!html) {
+    if (AgentMode.demo) {
+      let demo = buildDemoCatalog();
+      if (opts.mode === 'genre' && opts.key) {
+        demo = demo.filter((m) => m.genres.some((g) => g.slug === opts.key));
+      }
+      if (opts.mode === 'search' && opts.query) {
+        const q = opts.query.trim().toLowerCase();
+        demo = demo.filter((m) =>
+          opts.searchBy === 'author'
+            ? m.authors.some((a) => a.toLowerCase().includes(q))
+            : m.title.toLowerCase().includes(q) || m.altNames.some((a) => a.toLowerCase().includes(q)),
+        );
+      }
+      if (opts.include && opts.include.length > 0) {
+        const inc = opts.include.map((s) => s.toLowerCase());
+        demo = demo.filter((m) => {
+          const slugs = m.genres.map((g) => g.slug);
+          return opts.genreMode === 'or' ? inc.some((s) => slugs.includes(s)) : inc.every((s) => slugs.includes(s));
+        });
+      }
+      if (opts.exclude && opts.exclude.length > 0) {
+        const exc = new Set(opts.exclude.map((s) => s.toLowerCase()));
+        demo = demo.filter((m) => !m.genres.some((g) => exc.has(g.slug)));
+      }
+      if (opts.chapters) {
+        const minCh = Number(opts.chapters) || 0;
+        if (minCh > 1) demo = demo.filter((m) => m.chapters.length >= minCh);
+      }
+      if (opts.orderBy === 'az') demo.sort((a, b) => a.title.localeCompare(b.title));
+      else if (opts.orderBy === 'numc') demo.sort((a, b) => b.chapters.length - a.chapters.length);
+      else if (opts.orderBy === 'new') demo.sort((a, b) => a.chapters.length - b.chapters.length);
+      return { items: demo, page, hasNext: false, hasPrev: page > 1 };
+    }
+    return { items: [], page, hasNext: false, hasPrev: page > 1, error: 'Could not load catalog right now.' };
+  }
   const blocks =
     opts.mode === 'search'
       ? (() => {
@@ -395,7 +718,7 @@ export async function fetchKatanaByType(type: string, page = 1): Promise<KatanaP
 }
 
 export async function fetchKatanaSuggestions(queryText: string, searchBy = 'm_name'): Promise<KatanaManga[]> {
-  if (queryText.trim().length < 3) return [];
+  if (queryText.trim().length < 2) return [];
   const res = await fetchKatanaCatalog({ mode: 'search', query: queryText.trim(), searchBy });
   return res.items.slice(0, 8);
 }
@@ -403,7 +726,12 @@ export async function fetchKatanaSuggestions(queryText: string, searchBy = 'm_na
 export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | null> {
   if (!slug) return null;
   const html = await fetchHtml(`${BASE_URL}/manga/${slug}`);
-  if (!html) return null;
+  if (!html) {
+    if (AgentMode.demo) {
+      return buildDemoCatalog().find((m) => m.slug === slug) ?? buildDemoCatalog()[0] ?? null;
+    }
+    return null;
+  }
   const idM = /data-id="(\d+)"/.exec(html);
   const titleM = /<h1 class="heading">([^<]+)<\/h1>/.exec(html);
   const statusM = /class="d-cell-small value status (ongoing|completed)"/.exec(html);
@@ -489,7 +817,9 @@ export async function fetchKatanaChapterPages(slug: string, chapterId: string, p
   }
   // Multi-source fallback (MangaDex -> ComicK -> Bato -> Scanlation) when MangaKatana fails.
   const fallback = await fetchFallbackChapterPages(slug, chapterId);
-  return fallback.pages;
+  if (fallback.pages.length > 0) return fallback.pages;
+  if (AgentMode.demo) return getDemoChapterPages(chapterId);
+  return [];
 }
 
 const demoProgress = (
@@ -498,6 +828,7 @@ const demoProgress = (
   coverUrl: string,
   chapter: number,
   finishedAt?: Date,
+  latestChapterTitle = '',
 ): KatanaBookmark => ({
   slug,
   title,
@@ -507,11 +838,12 @@ const demoProgress = (
   lastReadChapterId: `c${chapter}`,
   lastReadPage: 1,
   lastReadChapterTitle: `Chapter ${chapter}`,
-  latestChapterTitle: '',
+  latestChapterTitle,
   recommendedBy: '',
   recommendationNote: '',
-  readChapterIds: [`c${chapter}`],
+  readChapterIds: Array.from({ length: Math.min(chapter, 6) }, (_, i) => `c${chapter - i}`),
   bookmarked: true,
+  libraryStatus: finishedAt ? 'completed' : 'reading',
   finishedAt,
 });
 
@@ -520,15 +852,15 @@ const demoBookmarks = new Map<string, KatanaBookmark[]>([
   [
     'khentsgdz',
     [
-      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 42),
-      demoProgress('demo-paper-moon', 'Demo Paper Moon', '/images/demo/poster-2.jpg', 120, new Date(2026, 2, 1)),
+      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 42, undefined, 'Chapter 43'),
+      demoProgress('demo-paper-moon', 'Demo Paper Moon', '/images/demo/poster-2.jpg', 120, new Date(2026, 2, 1), 'Chapter 120'),
     ],
   ],
   [
     'clairjassen',
     [
-      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 12),
-      demoProgress('demo-garden-of-letters', 'Demo Garden of Letters', '/images/demo/poster-3.jpg', 7),
+      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 12, undefined, 'Chapter 43'),
+      demoProgress('demo-garden-of-letters', 'Demo Garden of Letters', '/images/demo/poster-3.jpg', 7, undefined, 'Chapter 28'),
     ],
   ],
 ]);
@@ -554,6 +886,13 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     recommendationNote: String(data.recommendationNote ?? ''),
     readChapterIds: Array.isArray(data.readChapterIds) ? data.readChapterIds.map(String) : [],
     bookmarked: data.bookmarked !== false,
+    libraryStatus:
+      data.libraryStatus === 'reading' ||
+      data.libraryStatus === 'completed' ||
+      data.libraryStatus === 'planned' ||
+      data.libraryStatus === 'dropped'
+        ? data.libraryStatus
+        : undefined,
     finishedAt: (data.finishedAt as Timestamp | undefined)?.toDate?.(),
   };
 }
@@ -688,6 +1027,114 @@ export async function saveKatanaReadingProgress(p: {
       ...(p.finished && !existing?.finishedAt ? { finishedAt: Timestamp.now(), status: 'completed' } : {}),
       ...(p.title ? { title: p.title } : {}),
       ...(p.coverUrl ? { coverUrl: p.coverUrl } : {}),
+    },
+    { merge: true },
+  );
+}
+
+export async function setKatanaLibraryStatus(
+  manga: Pick<KatanaManga, 'slug' | 'title' | 'coverUrl' | 'status'>,
+  userName: string,
+  libraryStatus: KatanaLibraryStatus,
+): Promise<void> {
+  if (!userName || !manga.slug) return;
+  if (AgentMode.demo) {
+    const list = demoBookmarks.get(userName) ?? [];
+    const idx = list.findIndex((b) => b.slug === manga.slug);
+    const cur = idx >= 0 ? list[idx] : undefined;
+    const entry: KatanaBookmark = {
+      slug: manga.slug,
+      title: manga.title || cur?.title || manga.slug,
+      coverUrl: manga.coverUrl || cur?.coverUrl || '',
+      status: manga.status || cur?.status || 'ongoing',
+      addedAt: cur?.addedAt ?? new Date(),
+      lastReadChapterId: cur?.lastReadChapterId ?? '',
+      lastReadPage: cur?.lastReadPage ?? 0,
+      lastReadChapterTitle: cur?.lastReadChapterTitle ?? '',
+      latestChapterTitle: cur?.latestChapterTitle ?? '',
+      recommendedBy: cur?.recommendedBy ?? '',
+      recommendationNote: cur?.recommendationNote ?? '',
+      readChapterIds: cur?.readChapterIds ?? [],
+      bookmarked: true,
+      libraryStatus,
+      finishedAt: libraryStatus === 'completed' ? cur?.finishedAt ?? new Date() : undefined,
+    };
+    const next = [...list];
+    if (idx >= 0) next[idx] = entry;
+    else next.unshift(entry);
+    demoBookmarks.set(userName, next);
+    demoChanges.emit();
+    return;
+  }
+  await setDoc(
+    doc(db, 'katana_bookmarks', `${userName}|${manga.slug}`),
+    {
+      slug: manga.slug,
+      title: manga.title,
+      coverUrl: manga.coverUrl,
+      status: manga.status,
+      userName,
+      bookmarked: true,
+      libraryStatus,
+      ...(libraryStatus === 'completed' ? { finishedAt: Timestamp.now() } : { finishedAt: deleteField() }),
+      addedAt: Timestamp.now(),
+    },
+    { merge: true },
+  );
+}
+
+export async function markKatanaChaptersRead(
+  manga: Pick<KatanaManga, 'slug' | 'title' | 'coverUrl' | 'status'>,
+  userName: string,
+  chapterIds: string[],
+  read: boolean,
+): Promise<void> {
+  if (!userName || !manga.slug || chapterIds.length === 0) return;
+  const targets = new Set(chapterIds);
+  if (AgentMode.demo) {
+    const list = demoBookmarks.get(userName) ?? [];
+    const idx = list.findIndex((b) => b.slug === manga.slug);
+    const cur = idx >= 0 ? list[idx] : undefined;
+    const prev = cur?.readChapterIds ?? [];
+    const readChapterIds = read
+      ? Array.from(new Set([...prev, ...chapterIds]))
+      : prev.filter((id) => !targets.has(id));
+    const entry: KatanaBookmark = {
+      slug: manga.slug,
+      title: manga.title || cur?.title || manga.slug,
+      coverUrl: manga.coverUrl || cur?.coverUrl || '',
+      status: manga.status || cur?.status || 'ongoing',
+      addedAt: cur?.addedAt ?? new Date(),
+      lastReadChapterId: cur?.lastReadChapterId ?? '',
+      lastReadPage: cur?.lastReadPage ?? 0,
+      lastReadChapterTitle: cur?.lastReadChapterTitle ?? '',
+      latestChapterTitle: cur?.latestChapterTitle ?? '',
+      recommendedBy: cur?.recommendedBy ?? '',
+      recommendationNote: cur?.recommendationNote ?? '',
+      readChapterIds,
+      bookmarked: cur?.bookmarked ?? false,
+      libraryStatus: cur?.libraryStatus,
+      finishedAt: cur?.finishedAt,
+    };
+    const next = [...list];
+    if (idx >= 0) next[idx] = entry;
+    else next.unshift(entry);
+    demoBookmarks.set(userName, next);
+    demoChanges.emit();
+    return;
+  }
+  const existing = await getKatanaBookmark(manga.slug, userName);
+  const prev = existing?.readChapterIds ?? [];
+  const readChapterIds = read
+    ? Array.from(new Set([...prev, ...chapterIds]))
+    : prev.filter((id) => !targets.has(id));
+  await setDoc(
+    doc(db, 'katana_bookmarks', `${userName}|${manga.slug}`),
+    {
+      slug: manga.slug,
+      userName,
+      ...(existing == null ? { bookmarked: false, title: manga.title, coverUrl: manga.coverUrl, status: manga.status } : {}),
+      readChapterIds,
     },
     { merge: true },
   );

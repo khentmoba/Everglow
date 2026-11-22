@@ -5,22 +5,22 @@ function makeDemoSvgPage(chapterNum: number, pageNum: number, totalPages: number
   const w = wide ? 1400 : 800;
   const h = wide ? 960 : 1200;
   const palette = [
-    ['#1A1024', '#FF2E7E', '#3A1F47'],
-    ['#121829', '#7B61FF', '#223152'],
-    ['#1D1420', '#FF85B3', '#3D2239'],
-    ['#131A24', '#5BC0EB', '#21354A'],
+    ['#151A26', '#F59E0B', '#232B3D'],
+    ['#121826', '#60A5FA', '#1E293B'],
+    ['#161D24', '#2DD4BF', '#22313B'],
+    ['#191722', '#FB923C', '#2B2638'],
   ][(chapterNum + pageNum) % 4];
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-  <rect width="${w}" height="${h}" fill="#0B0810"/>
+  <rect width="${w}" height="${h}" fill="#0B0D12"/>
   <rect x="28" y="28" width="${w - 56}" height="${Math.round(h * 0.44)}" rx="12" fill="${palette[0]}" stroke="${palette[1]}" stroke-width="4"/>
   <circle cx="${Math.round(w * 0.72)}" cy="${Math.round(h * 0.22)}" r="${Math.round(h * 0.12)}" fill="${palette[1]}" opacity="0.22"/>
   <rect x="28" y="${Math.round(h * 0.49)}" width="${Math.round((w - 72) * 0.48)}" height="${Math.round(h * 0.46)}" rx="12" fill="${palette[2]}" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="3"/>
   <rect x="${Math.round(44 + (w - 72) * 0.48)}" y="${Math.round(h * 0.49)}" width="${Math.round((w - 72) * 0.52)}" height="${Math.round(h * 0.46)}" rx="12" fill="${palette[0]}" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="3"/>
-  <ellipse cx="${Math.round(w * 0.28)}" cy="${Math.round(h * 0.18)}" rx="150" ry="68" fill="#FFF8FA"/>
-  <text x="${Math.round(w * 0.28)}" y="${Math.round(h * 0.175)}" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="700" fill="#170E1D">Chapter ${chapterNum}</text>
-  <text x="${Math.round(w * 0.28)}" y="${Math.round(h * 0.205)}" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="600" fill="#C9185B">${wide ? 'Double-Page Spread' : `Demo Panel ${pageNum} of ${totalPages}`}</text>
-  <text x="${Math.round(w * 0.5)}" y="${h - 46}" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#D9B8C7" opacity="0.85">STARLIGHT CHRONICLES — CH.${chapterNum} • P.${pageNum}</text>
+  <ellipse cx="${Math.round(w * 0.28)}" cy="${Math.round(h * 0.18)}" rx="150" ry="68" fill="#F8FAFC"/>
+  <text x="${Math.round(w * 0.28)}" y="${Math.round(h * 0.175)}" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="700" fill="#0F172A">Chapter ${chapterNum}</text>
+  <text x="${Math.round(w * 0.28)}" y="${Math.round(h * 0.205)}" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="600" fill="#B45309">${wide ? 'Double-Page Spread' : `Demo Panel ${pageNum} of ${totalPages}`}</text>
+  <text x="${Math.round(w * 0.5)}" y="${h - 46}" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#A8B3C7" opacity="0.88">STARLIGHT CHRONICLES — CH.${chapterNum} • P.${pageNum}</text>
 </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }

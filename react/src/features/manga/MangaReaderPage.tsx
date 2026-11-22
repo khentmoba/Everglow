@@ -2435,40 +2435,40 @@ export function MangaReaderView({
         >
           {settings.tapZoneLayout === 'kindle' ? (
             <>
-              <div style={{ gridColumn: '1 / -1', background: 'rgba(9, 6, 12, 0.45)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ gridColumn: '1 / -1', background: 'rgba(11, 13, 18, 0.5)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 HUD Menu
               </div>
-              <div style={{ background: isRtl ? 'rgba(255, 46, 126, 0.2)' : 'rgba(123, 97, 255, 0.2)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(245, 158, 11, 0.22)' : 'rgba(96, 165, 250, 0.22)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: isRtl ? 'rgba(123, 97, 255, 0.2)' : 'rgba(255, 46, 126, 0.2)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(96, 165, 250, 0.22)' : 'rgba(245, 158, 11, 0.22)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Prev' : 'Next'}
               </div>
             </>
           ) : settings.tapZoneLayout === 'l-shaped' ? (
             <>
-              <div style={{ gridColumn: '1 / -1', background: 'rgba(123, 97, 255, 0.2)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ gridColumn: '1 / -1', background: 'rgba(96, 165, 250, 0.22)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: isRtl ? 'rgba(255, 46, 126, 0.2)' : 'rgba(123, 97, 255, 0.2)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(245, 158, 11, 0.22)' : 'rgba(96, 165, 250, 0.22)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: 'rgba(9, 6, 12, 0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: 'rgba(11, 13, 18, 0.5)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 HUD
               </div>
-              <div style={{ background: isRtl ? 'rgba(123, 97, 255, 0.2)' : 'rgba(255, 46, 126, 0.2)', borderLeft: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(96, 165, 250, 0.22)' : 'rgba(245, 158, 11, 0.22)', borderLeft: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Prev' : 'Next'}
               </div>
-              <div style={{ gridColumn: '1 / -1', background: 'rgba(255, 46, 126, 0.2)', borderTop: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ gridColumn: '1 / -1', background: 'rgba(245, 158, 11, 0.22)', borderTop: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {settings.invertTapZones ? 'Prev' : 'Next'}
               </div>
             </>
           ) : (
             <>
-              <div style={{ background: 'rgba(255, 46, 126, 0.2)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: 'rgba(245, 158, 11, 0.22)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: showTapHint ? 'rgba(9, 6, 12, 0.45)' : 'transparent', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13, textAlign: 'center', padding: 12 }}>
+              <div style={{ background: showTapHint ? 'rgba(11, 13, 18, 0.5)' : 'transparent', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13, textAlign: 'center', padding: 12 }}>
                 {showTapHint ? (
                   <div>
                     <div>Tap Center for Menu</div>

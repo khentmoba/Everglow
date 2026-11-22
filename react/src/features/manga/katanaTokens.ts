@@ -1,35 +1,97 @@
 import type { CSSProperties } from 'react';
-import { AppColors } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 
-export const KatanaColors = {
-  background: '#060408',
-  surface: '#0E0912',
-  surfaceAlt: '#170E1D',
-  surfaceGlow: '#211229',
-  border: '#2E1726',
-  borderStrong: '#52213B',
-  text: '#FFF5F8',
-  textMuted: '#D9B8C7',
-  textLight: '#997586',
-  accent: '#FF2E7E',
-  accentDark: '#C9185B',
-  accentSoft: '#FF85B3',
-  link: '#FF85B3',
-  green: AppColors.success,
-  orange: '#FF5C99',
-  headerDark: '#09060C',
+export const KATANA_BREAKPOINTS = {
+  tablet: 720,
+  desktop: 960,
 } as const;
 
-// Flutter merges these into bodyMedium, so a style with no height keeps
-// 20/14 and every line rounds to a whole pixel.
+/**
+ * Community-consensus manga/manhwa/manhua palette (inspired by MangaDex, Mihon, Comick):
+ * deep neutral obsidian/slate surfaces that keep cover artwork the star, paired with
+ * warm editorial amber for primary CTAs and restrained sky/emerald/coral semantic accents.
+ */
+export const KatanaColors = {
+  background: '#0B0D12',
+  surface: '#13161F',
+  surfaceAlt: '#1B202C',
+  surfaceGlow: '#232A3A',
+  border: '#262C3B',
+  borderStrong: '#384259',
+  text: '#F3F5F9',
+  textMuted: '#A8B3C7',
+  textLight: '#7D89A0',
+  accent: '#F59E0B',
+  accentDark: '#D97706',
+  accentSoft: '#FCD34D',
+  accentInk: '#111318',
+  link: '#60A5FA',
+  green: '#34D399',
+  orange: '#FB923C',
+  crimson: '#F43F5E',
+  teal: '#2DD4BF',
+  headerDark: '#0E1118',
+} as const;
+
 export const KatanaType = {
-  title: { fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: 16, lineHeight: lineHeight(16, 1.25) },
-  heading: { fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: 22, lineHeight: lineHeight(22, 1.2) },
-  section: { fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: 17, lineHeight: lineHeight(17, 1.2) },
-  body: { fontFamily: Fonts.body, fontWeight: 500, color: KatanaColors.textMuted, fontSize: 13.5, lineHeight: lineHeight(13.5, 1.55) },
-  small: { fontFamily: Fonts.body, fontWeight: 500, color: KatanaColors.textLight, fontSize: 12, lineHeight: lineHeight(12) },
-  link: { fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.link, fontSize: 13, lineHeight: lineHeight(13) },
-  accent: { fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.accent, fontSize: 13, lineHeight: lineHeight(13) },
+  display: {
+    fontFamily: Fonts.display,
+    fontWeight: 700,
+    color: KatanaColors.text,
+    fontSize: 28,
+    letterSpacing: -0.3,
+    lineHeight: lineHeight(28, 1.12),
+  },
+  title: {
+    fontFamily: Fonts.body,
+    fontWeight: 600,
+    color: KatanaColors.text,
+    fontSize: 16,
+    lineHeight: lineHeight(16, 1.25),
+  },
+  heading: {
+    fontFamily: Fonts.body,
+    fontWeight: 700,
+    color: KatanaColors.text,
+    fontSize: 22,
+    letterSpacing: -0.2,
+    lineHeight: lineHeight(22, 1.2),
+  },
+  section: {
+    fontFamily: Fonts.body,
+    fontWeight: 700,
+    color: KatanaColors.text,
+    fontSize: 18,
+    letterSpacing: -0.15,
+    lineHeight: lineHeight(18, 1.2),
+  },
+  body: {
+    fontFamily: Fonts.body,
+    fontWeight: 500,
+    color: KatanaColors.textMuted,
+    fontSize: 14,
+    lineHeight: lineHeight(14, 1.55),
+  },
+  small: {
+    fontFamily: Fonts.body,
+    fontWeight: 500,
+    color: KatanaColors.textLight,
+    fontSize: 12.5,
+    lineHeight: lineHeight(12.5, 1.35),
+  },
+  link: {
+    fontFamily: Fonts.body,
+    fontWeight: 600,
+    color: KatanaColors.link,
+    fontSize: 13,
+    lineHeight: lineHeight(13, 1.3),
+  },
+  accent: {
+    fontFamily: Fonts.body,
+    fontWeight: 600,
+    color: KatanaColors.accentSoft,
+    fontSize: 13,
+    lineHeight: lineHeight(13, 1.3),
+  },
 } satisfies Record<string, CSSProperties>;
