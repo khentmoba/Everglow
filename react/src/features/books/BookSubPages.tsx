@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
@@ -71,9 +71,20 @@ export function BookDetailPage() {
   );
 
   useEffect(() => {
-    if (state?.result || !workKeyParam) return;
+    if (state?.result) {
+      setResult(state.result);
+      setResolving(false);
+      setResolveError(false);
+      setDescExpanded(false);
+      setSimilar([]);
+      return;
+    }
+    if (!workKeyParam) return;
     let alive = true;
+    setResolving(true);
     setResolveError(false);
+    setDescExpanded(false);
+    setSimilar([]);
     void resolveBookByWorkKey(workKeyParam).then((found) => {
       if (!alive) return;
       setResult(found);
@@ -475,7 +486,12 @@ export function BookListPage() {
   const params = new URLSearchParams(location.search);
   const subjectParam = params.get('subject');
   const kindParam = params.get('kind') as 'popular' | 'recent' | null;
-  const effectiveCategory: BookCategory | undefined = state.category ?? (subjectParam ? { name: subjectParam, query: subjectParam, icon: 'menu_book', color: AppColors.warmAmber } : undefined);
+  const effectiveCategory: BookCategory | undefined = useMemo(
+    () =>
+      state.category ??
+      (subjectParam ? { name: subjectParam, query: subjectParam, icon: 'menu_book', color: AppColors.warmAmber } : undefined),
+    [state.category, subjectParam],
+  );
   const effectiveKind = state.kind ?? kindParam ?? 'popular';
 
   const PAGE = 30;

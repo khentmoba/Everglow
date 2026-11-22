@@ -40,7 +40,8 @@ export function buildCoupleRoomId(a: string, b: string): string {
 export async function ensureTemporaryChatRoom(roomId: string, myUid: string, partnerUid: string): Promise<void> {
   if (!roomId || !myUid || !partnerUid || AgentMode.demo) return;
   try {
-    await setDoc(doc(db, COLLECTION, roomId), { hostUid: myUid, partnerUid, updatedAt: serverTimestamp() }, { merge: true });
+    const [hostUid, secondUid] = [myUid, partnerUid].sort();
+    await setDoc(doc(db, COLLECTION, roomId), { hostUid, partnerUid: secondUid, updatedAt: serverTimestamp() }, { merge: true });
   } catch (e) {
     Logger.w(`TemporaryChatService.ensureRoom failed: ${e}`);
   }

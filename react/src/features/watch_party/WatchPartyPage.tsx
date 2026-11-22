@@ -832,10 +832,6 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                 return (
                   <div
                     key={room.id}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      void deleteWatchPartyRoom(room.id);
-                    }}
                     style={{
                       padding: 10,
                       background: Derived.surfaceGlass,
@@ -843,7 +839,7 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                       border: `1px solid ${live ? withAlpha(AppColors.deepRose, 0.55) : Derived.border}`,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 12,
+                      gap: 10,
                     }}
                   >
                     <button
@@ -928,6 +924,28 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                         size={22}
                         color={live ? AppColors.roseQuartz : Derived.textMuted}
                       />
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label={`Delete ${room.name || 'Our room'}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete "${room.name || 'Our room'}"?`)) {
+                          void deleteWatchPartyRoom(room.id);
+                        }
+                      }}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: withAlpha(AppColors.petalWhite, 0.06),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name="delete_outline" size={16} color={Derived.textMuted} />
                     </button>
                   </div>
                 );
@@ -1073,11 +1091,30 @@ function WatchPartyRoomView({
   );
   const clock = useMemo(() => new WatchPartyClock(), []);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const suppressEmbedEventsUntil = useRef(0);
   const roomRef = useRef(room);
   roomRef.current = room;
   const [chatOpen, setChatOpen] = useState(false);
   const [msgText, setMsgText] = useState('');
   const [displaySeconds, setDisplaySeconds] = useState(0);
+
+  const postEmbedCommand = (command: string, args: unknown[] = []) => {
+    const frame = iframeRef.current;
+    const win = frame?.contentWindow;
+    if (!frame || !win) return;
+    let targetOrigin = window.location.origin;
+    try {
+      if (frame.src) targetOrigin = new URL(frame.src, window.location.origin).origin;
+    } catch {
+      return;
+    }
+    suppressEmbedEventsUntil.current = Date.now() + 900;
+    try {
+      win.postMessage(cinesrcCommand(command, args), targetOrigin);
+    } catch {
+      // Cross-origin frame not ready yet.
+    }
+  };
 
   const patchRoom = (patch: Record<string, unknown>) =>
     isHub ? updateCommunityWatchPartyRoom(roomId, patch) : updateWatchPartyRoom(roomId, patch);
@@ -1130,7 +1167,7 @@ function WatchPartyRoomView({
       const currentRoom = roomRef.current;
       if (!currentRoom || currentRoom.serverType === 'hls') return;
       const ev = parseCinesrcEvent(e.data);
-      if (!ev) return;
+      if (!ev || Date.now() < suppressEmbedEventsUntil.current) return;
       if (ev.name === 'play' && currentRoom.state !== 'playing') {
         void patchRoom({
           state: 'playing',
@@ -1303,16 +1340,22 @@ function WatchPartyRoomView({
   const everglowEmbed = BUILTIN_WATCH_PARTY_SERVERS.find((s) => s.type === 'embed');
   const embedSrc = hasMedia
     ? room.isAnime
-      ? `https://everglow-1c6db.web.app/embed.html?source=megaplay&malId=${room.malId ?? room.tmdbId}&ep=${room.episode ?? 1}`
+      ? `https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime?source=everglow&malId=${room.malId ?? room.tmdbId}&ep=${room.episode ?? 1}&audio=sub`
       : `https://everglow-1c6db.web.app/embed.html?source=cinema&type=${room.mediaType}&tmdbId=${room.tmdbId}${room.mediaType === 'tv' ? `&s=${room.season ?? 1}&e=${room.episode ?? 1}` : ''}&title=${encodeURIComponent(room.title)}`
     : '';
 
-  const togglePlay = () =>
+  const togglePlay = () => {
+    const nextState = room.state === 'playing' ? 'paused' : 'playing';
+    const nextTime = clock.expectedPosition(room);
+    if (!isHlsMode) {
+      postEmbedCommand(nextState === 'playing' ? 'play' : 'pause');
+    }
     void patchRoom({
-      state: room.state === 'playing' ? 'paused' : 'playing',
-      currentTime: clock.expectedPosition(room),
+      state: nextState,
+      currentTime: nextTime,
       updatedBy: myUid,
     });
+  };
 
   const openMediaPicker = async () => {
     const picked = await showWatchPartyMediaPicker({
@@ -1599,12 +1642,14 @@ function WatchPartyRoomView({
                 <button
                   type="button"
                   className="bare-button"
-                  onClick={() =>
+                  onClick={() => {
+                    const target = Math.max(0, clock.expectedPosition(room) - 15);
+                    if (!isHlsMode) postEmbedCommand('seek', [target]);
                     void patchRoom({
-                      currentTime: Math.max(0, clock.expectedPosition(room) - 15),
+                      currentTime: target,
                       updatedBy: myUid,
-                    })
-                  }
+                    });
+                  }}
                   style={{
                     padding: '6px 10px',
                     borderRadius: 8,
@@ -1618,12 +1663,14 @@ function WatchPartyRoomView({
                 <button
                   type="button"
                   className="bare-button"
-                  onClick={() =>
+                  onClick={() => {
+                    const target = Math.max(0, clock.expectedPosition(room) + 15);
+                    if (!isHlsMode) postEmbedCommand('seek', [target]);
                     void patchRoom({
-                      currentTime: Math.max(0, clock.expectedPosition(room) + 15),
+                      currentTime: target,
                       updatedBy: myUid,
-                    })
-                  }
+                    });
+                  }}
                   style={{
                     padding: '6px 10px',
                     borderRadius: 8,

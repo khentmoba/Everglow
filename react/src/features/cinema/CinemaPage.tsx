@@ -213,7 +213,7 @@ export function CinemaPage() {
     if (action === 'resume') launchPlayer(item);
     else if (action === 'restart') launchPlayer(item, undefined, undefined, { restart: true });
     else if (action === 'episodes') setDrawerItem(item);
-    else if (action === 'finished') void saveToWatchList(item, userName, 'watched');
+    else if (action === 'finished') void saveToWatchList(item, 'watched-self', userName);
     else if (action === 'remove') void clearWatchProgress(item, userName);
   };
 

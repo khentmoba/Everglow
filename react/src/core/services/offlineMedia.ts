@@ -324,8 +324,19 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       .sort((a, b) => ((a.chapterId ?? '') < (b.chapterId ?? '') ? -1 : (a.chapterId ?? '') > (b.chapterId ?? '') ? 1 : 0));
   }
 
+  private activeControllers = new Map<string, AbortController>();
+  private mangaProxyMap = new Map<string, (url: string) => string>();
+
   private put(item: OfflineMediaItem) {
+    if (!item.id) return;
     this.value = { ...this.value, [item.id]: item };
+  }
+
+  private putIfPresent(id: string, patch: Partial<OfflineMediaItem>): boolean {
+    const cur = this.value[id];
+    if (!cur) return false;
+    this.value = { ...this.value, [id]: { ...cur, ...patch } };
+    return true;
   }
 
   private save() {
@@ -378,31 +389,48 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     this.put(initial);
     this.save();
 
-    if (url.startsWith('http')) {
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(10 * 60 * 1000) });
-        if (res.ok) {
-          const { ok, bytes } = await saveStreamToCache(args.id, res, 'video/mp4', (loaded, total) => {
-            const denom = total > 0 ? total : Math.max(estimated, loaded);
-            this.put({
-              ...initial,
-              progress: Math.min(0.99, Math.max(0.05, loaded / denom)),
-              downloadedBytes: loaded,
-              totalBytes: denom,
+    const controller = new AbortController();
+    this.activeControllers.get(args.id)?.abort();
+    this.activeControllers.set(args.id, controller);
+    const timer = window.setTimeout(() => controller.abort(), 10 * 60 * 1000);
+
+    try {
+      if (url.startsWith('http')) {
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          if (res.ok) {
+            const { ok, bytes } = await saveStreamToCache(args.id, res, 'video/mp4', (loaded, total) => {
+              if (controller.signal.aborted || !this.value[args.id]) return;
+              const denom = total > 0 ? total : Math.max(estimated, loaded);
+              this.putIfPresent(args.id, {
+                progress: Math.min(0.99, Math.max(0.05, loaded / denom)),
+                downloadedBytes: loaded,
+                totalBytes: denom,
+              });
             });
-          });
-          if (ok && bytes > 0) {
-            this.put({ ...initial, status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes });
-            this.save();
-            return;
+            if (controller.signal.aborted) return;
+            if (ok && bytes > 0) {
+              if (this.putIfPresent(args.id, { status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes })) {
+                this.save();
+              }
+              return;
+            }
           }
+        } catch (e) {
+          if (controller.signal.aborted) return;
+          Logger.e(`Offline download failed for ${args.id}`, e);
         }
-      } catch (e) {
-        Logger.e(`Offline download failed for ${args.id}`, e);
+      }
+      if (controller.signal.aborted) return;
+      if (this.putIfPresent(args.id, { status: 'failed', progress: 0, downloadedBytes: 0 })) {
+        this.save();
+      }
+    } finally {
+      window.clearTimeout(timer);
+      if (this.activeControllers.get(args.id) === controller) {
+        this.activeControllers.delete(args.id);
       }
     }
-    this.put({ ...initial, status: 'failed', progress: 0, downloadedBytes: 0 });
-    this.save();
   }
 
   async startDownloadMangaChapter(args: {
@@ -419,6 +447,9 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     const id = OfflineIds.mangaChapterId(args.slug, args.chapterId);
     const existing = this.value[id];
     if (existing && isCompleted(existing)) return;
+    const proxy = args.proxy ?? this.mangaProxyMap.get(id) ?? ((raw: string) =>
+      `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyKatanaImage?url=${encodeURIComponent(raw)}`);
+    this.mangaProxyMap.set(id, proxy);
     const estimated = args.pageUrls.length * 750 * 1024;
     const initial: OfflineMediaItem = {
       id,
@@ -439,50 +470,80 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     this.put(initial);
     this.save();
 
-    if (args.pageUrls.length > 0) {
-      try {
-        let saved = 0;
-        let total = 0;
-        for (let i = 0; i < args.pageUrls.length; i++) {
-          const raw = args.pageUrls[i];
-          const pageKey = `${id}_p_${i + 1}`;
-          const src = raw.startsWith('http')
-            ? args.proxy
-              ? args.proxy(raw)
-              : raw
-            : raw.startsWith('assets/')
-              ? `/${raw}`
-              : null;
-          if (src) {
-            const res = await fetch(src, { signal: AbortSignal.timeout(15000) });
-            const blob = res.ok ? await res.blob() : null;
-            if (blob && blob.size > 0) {
-              await saveBlob(pageKey, blob, true, 'image/jpeg');
-              saved++;
-              total += blob.size;
-            } else {
-              Logger.e(`Failed to fetch manga page ${i} (${src}): status ${res.status}`);
+    const controller = new AbortController();
+    this.activeControllers.get(id)?.abort();
+    this.activeControllers.set(id, controller);
+
+    try {
+      if (args.pageUrls.length > 0) {
+        try {
+          let saved = 0;
+          let total = 0;
+          for (let i = 0; i < args.pageUrls.length; i++) {
+            if (controller.signal.aborted || !this.value[id]) return;
+            const raw = args.pageUrls[i];
+            const pageKey = `${id}_p_${i + 1}`;
+            const src = raw.startsWith('http')
+              ? proxy(raw)
+              : raw.startsWith('assets/')
+                ? `/${raw}`
+                : null;
+            if (src) {
+              const pageController = new AbortController();
+              const onParentAbort = () => pageController.abort();
+              controller.signal.addEventListener('abort', onParentAbort, { once: true });
+              const timer = setTimeout(() => pageController.abort(), 15000);
+              let res: Response;
+              let blob: Blob | null = null;
+              try {
+                res = await fetch(src, { signal: pageController.signal });
+                blob = res.ok ? await res.blob() : null;
+              } finally {
+                clearTimeout(timer);
+                controller.signal.removeEventListener('abort', onParentAbort);
+              }
+              if (controller.signal.aborted || !this.value[id]) return;
+              if (blob && blob.size > 0) {
+                await saveBlob(pageKey, blob, true, 'image/jpeg');
+                saved++;
+                total += blob.size;
+              } else {
+                Logger.e(`Failed to fetch manga page ${i} (${src}): status ${res.status}`);
+              }
+            }
+            const progress = Math.min(1, saved / args.pageUrls.length);
+            if (!this.putIfPresent(id, { progress, downloadedBytes: total > 0 ? total : Math.round(estimated * progress) })) {
+              return;
             }
           }
-          const progress = Math.min(1, saved / args.pageUrls.length);
-          this.put({ ...this.value[id], progress, downloadedBytes: total > 0 ? total : Math.round(estimated * progress) });
+          if (controller.signal.aborted || !this.value[id]) return;
+          if (saved === args.pageUrls.length && saved > 0) {
+            const bytes = total > 0 ? total : estimated;
+            if (this.putIfPresent(id, { status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes })) {
+              this.save();
+            }
+            return;
+          }
+        } catch (e) {
+          if (controller.signal.aborted) return;
+          Logger.e(`Manga chapter download failed for ${id}`, e);
         }
-        if (saved === args.pageUrls.length && saved > 0) {
-          const bytes = total > 0 ? total : estimated;
-          this.put({ ...this.value[id], status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes });
-          this.save();
-          return;
-        }
-      } catch (e) {
-        Logger.e(`Manga chapter download failed for ${id}`, e);
+      }
+      if (controller.signal.aborted) return;
+      for (let i = 1; i <= args.pageUrls.length; i++) await deleteBlob(`${id}_p_${i}`, true);
+      if (this.putIfPresent(id, { status: 'failed', progress: 0, downloadedBytes: 0 })) {
+        this.save();
+      }
+    } finally {
+      if (this.activeControllers.get(id) === controller) {
+        this.activeControllers.delete(id);
       }
     }
-    for (let i = 1; i <= args.pageUrls.length; i++) await deleteBlob(`${id}_p_${i}`, true);
-    this.put({ ...initial, status: 'failed', progress: 0, downloadedBytes: 0 });
-    this.save();
   }
 
   pauseDownload(id: string) {
+    this.activeControllers.get(id)?.abort();
+    this.activeControllers.delete(id);
     const item = this.value[id];
     if (!item) return;
     this.put({ ...item, status: 'paused' });
@@ -502,34 +563,47 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
         chapterId: item.chapterId ?? '1',
         chapterTitle: item.subtitle,
         pageUrls: item.pageUrls,
+        proxy: this.mangaProxyMap.get(id),
       });
     }
   }
 
   async deleteDownload(id: string) {
+    this.activeControllers.get(id)?.abort();
+    this.activeControllers.delete(id);
+    this.mangaProxyMap.delete(id);
     const item = this.value[id];
     if (!item) return;
     const next = { ...this.value };
     delete next[id];
-    await deleteItemBlobs(item);
     this.value = next;
     this.save();
+    await deleteItemBlobs(item);
   }
 
   async clearAll(type?: OfflineMediaType) {
     if (type == null) {
+      for (const ctrl of this.activeControllers.values()) ctrl.abort();
+      this.activeControllers.clear();
+      this.mangaProxyMap.clear();
       this.value = {};
+      this.save();
       await clearStorage();
     } else {
+      const toDelete = Object.values(this.value).filter((item) => item.type === type);
       const next = { ...this.value };
-      for (const item of Object.values(this.value)) {
-        if (item.type !== type) continue;
+      for (const item of toDelete) {
+        this.activeControllers.get(item.id)?.abort();
+        this.activeControllers.delete(item.id);
+        this.mangaProxyMap.delete(item.id);
         delete next[item.id];
-        await deleteItemBlobs(item);
       }
       this.value = next;
+      this.save();
+      for (const item of toDelete) {
+        await deleteItemBlobs(item);
+      }
     }
-    this.save();
   }
 
   updatePlaybackPosition(id: string, positionSeconds: number, immediate = false) {

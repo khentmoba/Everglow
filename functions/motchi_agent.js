@@ -75,7 +75,7 @@ function allowsPush(data, type, now = Date.now()) {
   const quiet = prefs.quietStart === prefs.quietEnd ? false
     : prefs.quietStart < prefs.quietEnd ? hour >= prefs.quietStart && hour < prefs.quietEnd
       : hour >= prefs.quietStart || hour < prefs.quietEnd;
-  if (quiet) return false;
+  if (quiet && type !== 'night_recap') return false;
   if (/digest|recap/.test(type)) {
     return prefs.digests && data?.lastDigests?.[type] !== new Date(now + 8 * 3600000).toISOString().slice(0, 10);
   }

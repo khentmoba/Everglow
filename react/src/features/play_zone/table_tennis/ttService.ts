@@ -100,12 +100,17 @@ export const ttService = {
 
   async findOpenRoom(myUid: string): Promise<TTRoom | null> {
     const snap = await withGetTimeout(
-      getDocs(query(collection(db, COLLECTION), where('status', '==', 'waiting'), where('hostUid', '!=', myUid), limit(1))),
+      getDocs(query(collection(db, COLLECTION), where('status', '==', 'waiting'), where('hostUid', '!=', myUid), limit(10))),
       'table tennis open room',
     );
     if (snap.empty) return null;
-    const d = snap.docs[0];
-    return roomFromDoc(d.id, d.data());
+    const cutoffMs = Date.now() - 10 * 60 * 1000;
+    for (const d of snap.docs) {
+      const room = roomFromDoc(d.id, d.data());
+      const updatedMs = room.updatedAt?.toMillis?.() ?? 0;
+      if (updatedMs >= cutoffMs) return room;
+    }
+    return null;
   },
 
   joinRoom(roomId: string, guestUid: string): Promise<TTRoom> {

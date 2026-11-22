@@ -210,27 +210,21 @@ export const academyService = {
   async seedQuestions(): Promise<void> {
     try {
       const data = (await (await fetch('/data/academy_questions_seed.json')).json()) as Array<Record<string, unknown>>;
-      for (let i = 0; i < data.length; i += 500) {
-        const batch = writeBatch(db);
-        for (const q of data.slice(i, i + 500)) {
+      const prepared = await Promise.all(
+        data.map(async (q) => {
           const questionText = str(q.questionText);
           const id = await generateQuestionId(questionText);
-          batch.set(
-            doc(questionsRef(), id),
-            {
-              id,
-              questionText,
-              options: Array.isArray(q.options) ? q.options.map(String) : [],
-              correctOptionIndex: q.correctOptionIndex ?? 0,
-              category: q.category ?? 'general',
-              createdAt: serverTimestamp(),
-              source: 'local_seed',
-            },
-            { merge: true },
-          );
-        }
-        await batch.commit();
-      }
+          return {
+            id,
+            questionText,
+            options: Array.isArray(q.options) ? q.options.map(String) : [],
+            correctOptionIndex: typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : 0,
+            category: str(q.category, 'general'),
+            explanation: null,
+          } as AcademyQuestion;
+        }),
+      );
+      await saveQuestions(prepared, 'general', 'local_seed', true);
       Logger.i(`Successfully seeded ${data.length} questions to Firestore`);
     } catch (e) {
       Logger.e('Error seeding questions', e);
@@ -242,22 +236,26 @@ export const academyService = {
     await cleanupStaleMatches(userUid);
 
     const waiting = await withGetTimeout(
-      getDocs(query(matchesRef(), where('status', '==', 'waiting'), where('category', '==', category), limit(1))),
+      getDocs(query(matchesRef(), where('status', '==', 'waiting'), where('category', '==', category), limit(5))),
       'academy waiting match',
     );
 
-    if (!waiting.empty) {
-      const ref = waiting.docs[0].ref;
-      return runTransaction(db, async (tx) => {
-        const snap = await tx.get(ref);
-        if (!snap.exists()) throw new Error('Match no longer available');
-        const match = matchFromMap(snap.data(), snap.id);
-        if (match.status === 'waiting' && match.hostId !== userUid) {
-          tx.update(ref, { status: 'active', participantId: userUid, participantUsername: username });
-          return { ...match, status: 'active', participantId: userUid, participantUsername: username };
-        }
-        throw new Error('Match no longer available');
-      });
+    const candidate = waiting.docs.find((d) => str(d.data().hostId) !== userUid);
+    if (candidate) {
+      try {
+        return await runTransaction(db, async (tx) => {
+          const snap = await tx.get(candidate.ref);
+          if (!snap.exists()) throw new Error('Match no longer available');
+          const match = matchFromMap(snap.data(), snap.id);
+          if (match.status === 'waiting' && match.hostId !== userUid) {
+            tx.update(candidate.ref, { status: 'active', participantId: userUid, participantUsername: username });
+            return { ...match, status: 'active', participantId: userUid, participantUsername: username };
+          }
+          throw new Error('Match no longer available');
+        });
+      } catch (e) {
+        if (!(e instanceof Error) || e.message !== 'Match no longer available') throw e;
+      }
     }
 
     const ids =
@@ -453,16 +451,31 @@ async function generateViaMotchi(category: string, count: number, topic = ''): P
   );
 }
 
-async function saveQuestions(questions: AcademyQuestion[], category: string, source: string): Promise<void> {
+async function saveQuestions(
+  questions: AcademyQuestion[],
+  category: string,
+  source: string,
+  keepItemCategory = false,
+): Promise<void> {
   if (questions.length === 0) return;
+  const unique = new Map<string, AcademyQuestion>();
+  for (const q of questions) {
+    if (!unique.has(q.id)) unique.set(q.id, q);
+  }
+  const existing = await academyService.getQuestionsByIds([...unique.keys()]);
+  const existingIds = new Set(existing.map((q) => q.id));
+  const toCreate = [...unique.values()].filter((q) => !existingIds.has(q.id));
+  if (toCreate.length === 0) return;
   let batch = writeBatch(db);
   let pending = 0;
-  for (const q of questions) {
-    batch.set(
-      doc(questionsRef(), q.id),
-      { ...questionToMap(q), id: q.id, category, createdAt: serverTimestamp(), source },
-      { merge: true },
-    );
+  for (const q of toCreate) {
+    batch.set(doc(questionsRef(), q.id), {
+      ...questionToMap(q),
+      id: q.id,
+      category: keepItemCategory ? q.category : category,
+      createdAt: serverTimestamp(),
+      source,
+    });
     if (++pending >= 400) {
       await batch.commit();
       batch = writeBatch(db);
@@ -690,20 +703,13 @@ export const academySyncService = {
     if (matchId) await updateDoc(doc(matchesRef(), matchId), { isReplenishing: true });
     try {
       const fresh = await fetchTrivia(apiCategoryId, 50);
-      const batch = writeBatch(db);
-      for (const q of fresh) {
-        batch.set(
-          doc(questionsRef(), q.id),
-          { ...questionToMap(q), id: q.id, createdAt: serverTimestamp(), source: 'opentdb' },
-          { merge: true },
-        );
-      }
-      await batch.commit();
+      await saveQuestions(fresh, category, 'opentdb');
     } catch (e) {
       Logger.e('Error replenishing questions', e);
       throw e;
+    } finally {
+      if (matchId) await updateDoc(doc(matchesRef(), matchId), { isReplenishing: false }).catch(() => {});
     }
-    if (matchId) await updateDoc(doc(matchesRef(), matchId), { isReplenishing: false });
   },
 };
 

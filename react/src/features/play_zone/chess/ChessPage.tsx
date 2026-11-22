@@ -112,8 +112,8 @@ export function ChessPage() {
       label={f ? 'White • Khent' : 'Black • Clair'}
       isWhite={f}
       isTurn={(game.turn === 'w') === f}
-      captured={f ? game.capturedByBlack : game.capturedByWhite}
-      materialDiff={mW - mB}
+      captured={f ? game.capturedByWhite : game.capturedByBlack}
+      materialDiff={f ? mW - mB : mB - mW}
     />
   );
   const bottomBar = (
@@ -121,8 +121,8 @@ export function ChessPage() {
       label={f ? 'Black • Clair' : 'White • Khent'}
       isWhite={!f}
       isTurn={(game.turn === 'w') !== f}
-      captured={f ? game.capturedByWhite : game.capturedByBlack}
-      materialDiff={mB - mW}
+      captured={f ? game.capturedByBlack : game.capturedByWhite}
+      materialDiff={f ? mB - mW : mW - mB}
     />
   );
   const board = <BoardSection game={game} pulse={pulse.value} onTap={(sq) => update(() => game.tap(sq))} />;

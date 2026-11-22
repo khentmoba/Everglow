@@ -74,8 +74,6 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
       }
       access = { uid: input.uid, expires: Number(input.expires) };
     }
-    if (enforceRateLimit(req, res, { endpoint: issue ? 'watchStreamAccess' : 'proxyWatchStream',
-      limit: issue ? 10 : 240, windowMs: 60000, uid: access.uid })) return;
     if (typeof input.url !== 'string') { res.status(400).json({ error: 'Stream url required' }); return; }
     const targetUrl = mediaUrl(input.url);
     access.referer = typeof input.referer === 'string' && input.referer ? mediaUrl(input.referer) : '';
@@ -84,6 +82,8 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
         !validStreamSignature(targetUrl, access, input.signature))) {
       res.status(401).json({ error: 'Invalid or expired stream access' }); return;
     }
+    if (enforceRateLimit(req, res, { endpoint: issue ? 'watchStreamAccess' : 'proxyWatchStream',
+      limit: issue ? 10 : 240, windowMs: 60000, uid: access.uid })) return;
     if (issue) { res.json({ url: signedStreamUrl(targetUrl, access) }); return; }
 
     const headers = { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' };

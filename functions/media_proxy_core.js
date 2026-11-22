@@ -20,6 +20,9 @@ function buildTmdbUpstream(path, query = {}, apiKey = '') {
   } catch (err) {
     throw new Error('Invalid TMDB path', { cause: err });
   }
+  if (upstream.origin !== 'https://api.themoviedb.org' || !upstream.pathname.startsWith('/3/')) {
+    throw new Error('Invalid TMDB path');
+  }
   for (const [key, value] of Object.entries(query)) {
     const name = key.toLowerCase();
     if (name === 'api_key' || name === 'access_token' || name === '__auth') continue;

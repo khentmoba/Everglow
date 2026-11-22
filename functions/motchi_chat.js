@@ -857,18 +857,20 @@ ${HTML_GAME_GUIDE}
       let didDanglingRepair = false;
       let didActionRepair = false;
       let forceTextNextRound = false;
+      let repairNextRound = false;
       let fullContent = '';
       let _ttftMs = null;
       let streamInterrupted = true;
       let _hitLengthLimit = false;
       const seenToolCalls = new Set();
 
-      while (toolRound < MAX_TOOL_ROUNDS || forceTextNextRound) {
+      while (toolRound < MAX_TOOL_ROUNDS || forceTextNextRound || repairNextRound) {
         workSignal.throwIfAborted();
         toolRound++;
         const _round0 = Date.now();
         const noToolsThisRound = forceTextNextRound;
         forceTextNextRound = false;
+        repairNextRound = false;
 
         let streamResp = null;
         let lastFetchError = null;
@@ -1064,6 +1066,7 @@ ${HTML_GAME_GUIDE}
             if (missingTool && !tools.some((t) => t.function.name === actionMismatch.tool)) {
               tools = [...tools, missingTool];
             }
+            repairNextRound = true;
             continue;
           }
           streamInterrupted = false;

@@ -1204,10 +1204,14 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'function fetchVtt(pick){if(typeof fetch!=="function")return;' +
     'var el=trackEls()[pick];var src=el&&(el.src||(el.getAttribute&&el.getAttribute("src")));' +
     'if(!src||cueFetching===pick)return;cueFetching=pick;var seq=++cueFetchSeq;' +
-    'fetch(src).then(function(r){return r&&r.ok?r.text():"";}).then(function(txt){' +
-    'if(seq!==cueFetchSeq||subPick!==pick)return;' +
-    'var parsed=parseVtt(txt);if(parsed.length){cueList=parsed;cueTrack=pick;renderCues();}' +
-    '}).catch(function(){});}' +
+    (token
+      ? 'var opts={};try{if(new URL(src,location.href).origin===location.origin){opts.headers={Authorization:"Bearer "+' + safeScriptJson(String(token)) + '};}}catch(e){}' +
+        'fetch(src,opts)'
+      : 'fetch(src)') +
+    '.then(function(r){return r&&r.ok?r.text():"";}).then(function(txt){' +
+    'if(seq!==cueFetchSeq||subPick!==pick){if(cueFetching===pick)cueFetching=-1;return;}' +
+    'var parsed=parseVtt(txt);if(parsed.length){cueList=parsed;cueTrack=pick;renderCues();}else{cueFetching=-1;}' +
+    '}).catch(function(){if(cueFetching===pick)cueFetching=-1;});}' +
     'function readCues(){var n=trackCount();if(!n)return;' +
     'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
     'if(cueTrack===pick&&cueList.length)return;var out=[];' +

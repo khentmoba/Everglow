@@ -218,9 +218,12 @@ export function roomsStream(uid: string): Source<WatchPartyRoom[]> {
   }
 
   return (l) => {
-    const map = new Map<string, WatchPartyRoom>();
+    const hostMap = new Map<string, WatchPartyRoom>();
+    const partMap = new Map<string, WatchPartyRoom>();
     const emit = () => {
-      l.data([...map.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+      const merged = new Map<string, WatchPartyRoom>(partMap);
+      for (const [id, r] of hostMap) merged.set(id, r);
+      l.data([...merged.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
     };
     const hostQ = query(
       collection(db, 'watch_party_rooms'),
@@ -237,7 +240,8 @@ export function roomsStream(uid: string): Source<WatchPartyRoom[]> {
     const u1 = onSnapshot(
       hostQ,
       (s) => {
-        for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
+        hostMap.clear();
+        for (const d of s.docs) hostMap.set(d.id, fromFirestoreRoom(d.data(), d.id));
         emit();
       },
       (e) => Logger.e('WatchParty host stream failed', e),
@@ -245,7 +249,8 @@ export function roomsStream(uid: string): Source<WatchPartyRoom[]> {
     const u2 = onSnapshot(
       partQ,
       (s) => {
-        for (const d of s.docs) map.set(d.id, fromFirestoreRoom(d.data(), d.id));
+        partMap.clear();
+        for (const d of s.docs) partMap.set(d.id, fromFirestoreRoom(d.data(), d.id));
         emit();
       },
       (e) => Logger.e('WatchParty partner stream failed', e),
@@ -324,8 +329,8 @@ export async function createWatchPartyRoom(opts: {
     episodeCount: m?.episodeCount,
     title: m?.title ?? '',
     posterPath: m?.posterPath ?? '',
-    serverType: 'everglow',
-    serverName: 'Everglow',
+    serverType: 'hls',
+    serverName: 'Everglow Server',
     serverHost: 'everglow',
     captionsOn: true,
     proxyEnabled: false,
@@ -376,10 +381,17 @@ export async function createWatchPartyRoom(opts: {
 }
 
 export async function updateWatchPartyRoom(roomId: string, patch: Record<string, unknown>): Promise<void> {
+  const updatesPosition = patch.state != null || patch.currentTime != null;
   if (AgentMode.demo) {
     const cur = demoRooms.get(roomId);
     if (cur) {
-      demoRooms.set(roomId, { ...cur, ...patch, updatedAt: new Date() } as WatchPartyRoom);
+      const now = new Date();
+      demoRooms.set(roomId, {
+        ...cur,
+        ...patch,
+        updatedAt: now,
+        ...(updatesPosition ? { positionAt: now } : {}),
+      } as WatchPartyRoom);
       demoRoomChanges.emit();
     }
     return;
@@ -387,6 +399,7 @@ export async function updateWatchPartyRoom(roomId: string, patch: Record<string,
   await updateDoc(doc(db, 'watch_party_rooms', roomId), {
     ...patch,
     updatedAt: serverTimestamp(),
+    ...(updatesPosition ? { positionAt: serverTimestamp() } : {}),
   });
 }
 
@@ -407,8 +420,8 @@ export async function updateRoomMedia(roomId: string, media: MediaRef, updatedBy
       episodeCount: media.episodeCount,
       title: media.title,
       posterPath: media.posterPath,
-      serverType: 'everglow',
-      serverName: 'Everglow',
+      serverType: 'hls',
+      serverName: 'Everglow Server',
       serverHost: 'everglow',
       subtitleUrl: undefined,
       captionsOn: true,
@@ -433,8 +446,8 @@ export async function updateRoomMedia(roomId: string, media: MediaRef, updatedBy
       isAnime: media.isAnime,
       title: media.title,
       posterPath: media.posterPath,
-      serverType: 'everglow',
-      serverName: 'Everglow',
+      serverType: 'hls',
+      serverName: 'Everglow Server',
       serverHost: 'everglow',
       streamUrl: deleteField(),
       subtitleUrl: deleteField(),

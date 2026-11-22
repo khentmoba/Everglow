@@ -25,16 +25,24 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
   const [countdown, setCountdown] = useState(0);
   const mounted = useRef(true);
   const guestSub = useRef<(() => void) | null>(null);
+  const hostedRoomIdRef = useRef<string | null>(null);
+  const matchStartedRef = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       guestSub.current?.();
+      if (hostedRoomIdRef.current && !matchStartedRef.current) {
+        const orphanId = hostedRoomIdRef.current;
+        hostedRoomIdRef.current = null;
+        void ttService.deleteRoom(orphanId).catch(() => {});
+      }
     };
   }, []);
 
   const startCountdown = (id: string, isHost: boolean) => {
+    matchStartedRef.current = true;
     setRoomId(id);
     setCountdown(3);
     setSearching(false);
@@ -66,6 +74,7 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
   const findMatch = async () => {
     const uid = auth.uid;
     if (!uid) return;
+    matchStartedRef.current = false;
     setSearching(true);
     setStatusText('Searching for opponent...');
     try {
@@ -77,7 +86,12 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
         startCountdown(existing.id, false);
       } else {
         const room = await ttService.createRoom(uid);
-        if (!mounted.current) return;
+        if (!mounted.current) {
+          void ttService.deleteRoom(room.id).catch(() => {});
+          return;
+        }
+        hostedRoomIdRef.current = room.id;
+        setRoomId(room.id);
         waitForGuest(room.id);
       }
     } catch (e) {
@@ -90,7 +104,9 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
   const cancelSearch = () => {
     guestSub.current?.();
     guestSub.current = null;
-    if (roomId != null) void ttService.deleteRoom(roomId).catch(() => {});
+    const idToDelete = hostedRoomIdRef.current ?? roomId;
+    hostedRoomIdRef.current = null;
+    if (idToDelete != null) void ttService.deleteRoom(idToDelete).catch(() => {});
     setSearching(false);
     setRoomId(null);
     setStatusText(null);

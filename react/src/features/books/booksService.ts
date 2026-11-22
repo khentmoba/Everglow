@@ -447,6 +447,55 @@ export async function fetchBookDetails(result: BookSearchResult): Promise<BookSe
   return result;
 }
 
+const BOOK_TEXT_CACHE_NAME = 'everglow-book-text-v1';
+const bookTextMemoryCache = new Map<string, string>();
+const BOOK_TEXT_MEM_MAX = 4;
+
+async function writeBookTextCache(url: string, text: string): Promise<void> {
+  bookTextMemoryCache.delete(url);
+  bookTextMemoryCache.set(url, text);
+  if (bookTextMemoryCache.size > BOOK_TEXT_MEM_MAX) {
+    const oldest = bookTextMemoryCache.keys().next().value;
+    if (oldest !== undefined) bookTextMemoryCache.delete(oldest);
+  }
+  if (typeof caches === 'undefined') return;
+  try {
+    const cache = await caches.open(BOOK_TEXT_CACHE_NAME);
+    const key = new Request(`https://book-cache.local/${encodeURIComponent(url)}`);
+    await cache.put(key, new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } }));
+    const keys = await cache.keys();
+    if (keys.length > 12) {
+      for (const old of keys.slice(0, keys.length - 12)) {
+        await cache.delete(old);
+      }
+    }
+  } catch {
+    // Cache Storage unavailable (e.g. private browsing).
+  }
+}
+
+async function readBookTextCache(url: string): Promise<string | null> {
+  const mem = bookTextMemoryCache.get(url);
+  if (mem) return mem;
+  if (typeof caches !== 'undefined') {
+    try {
+      const cache = await caches.open(BOOK_TEXT_CACHE_NAME);
+      const match = await cache.match(new Request(`https://book-cache.local/${encodeURIComponent(url)}`));
+      if (match) {
+        const text = await match.text();
+        if (text) return text;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  const legacy = Prefs.get(`book_text::${url}`);
+  if (legacy && typeof legacy === 'object' && typeof (legacy as { text?: unknown }).text === 'string') {
+    return (legacy as { text: string }).text;
+  }
+  return null;
+}
+
 export async function fetchBookText(candidates: string[]): Promise<{ text: string; usedUrl: string; error?: string }> {
   if (!candidates.length) return { text: '', usedUrl: '', error: 'No read source URLs available.' };
   if (AgentMode.demo) {
@@ -481,8 +530,8 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
     if (resp.ok) {
       const data = (await resp.json()) as { text?: string; usedUrl?: string; error?: string };
       if (data.text) {
-        const cacheKey = `book_text::${data.usedUrl ?? candidates[0]}`;
-        Prefs.set(cacheKey, { text: data.text, usedUrl: data.usedUrl ?? candidates[0] });
+        const used = data.usedUrl ?? candidates[0];
+        void writeBookTextCache(used, data.text);
         return { text: data.text, usedUrl: data.usedUrl ?? '' };
       }
       return { text: '', usedUrl: '', error: data.error || 'Proxy returned empty response.' };
@@ -491,9 +540,9 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
     Logger.w(`proxyBookText failed: ${String(e)}`);
   }
   for (const url of candidates) {
-    const cached = Prefs.get(`book_text::${url}`);
-    if (cached && typeof cached === 'object' && typeof (cached as { text?: unknown }).text === 'string') {
-      return { text: (cached as { text: string }).text, usedUrl: url };
+    const cached = await readBookTextCache(url);
+    if (cached) {
+      return { text: cached, usedUrl: url };
     }
   }
   return { text: '', usedUrl: '', error: 'We couldn’t load the text right now.' };
