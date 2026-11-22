@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tool/ci/changes.test.mjs tool/ci/deploy_parity.test.mjs tool/ci/run_checks.test.mjs
-      - run: node --test tool/ci/pr_contract.test.mjs tool/remove_worktree.test.mjs
+      - run: node --test tool/ci/pr_contract.test.mjs tool/remove_worktree.test.mjs tool/capture_proof.test.mjs
       # The verify gate's rules, tested without the pi runtime.
       - name: Verify gate rules
         run: >-
@@ -62,6 +62,8 @@ jobs:
         run: npm ci
       - working-directory: react
         run: npm run typecheck
+      - working-directory: react
+        run: npm run lint
       - name: Build web
         env:
           VITE_FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}

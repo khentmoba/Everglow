@@ -169,7 +169,9 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
     };
     const ref = getAdmin().firestore().collection('spotify_tokens').doc(decoded.uid);
     const existing = await ref.get();
-    if (existing.exists && !data.refresh_token && existing.data().refresh_token) doc.refresh_token = existing.data().refresh_token;
+    if (existing.exists && !data.refresh_token && existing.data().refresh_token) {
+      doc.refresh_token = existing.data().refresh_token;
+    }
     await ref.set(doc, { merge: true });
     res.json({ ok: true, expires_in: data.expires_in, spotify_user_id: doc.spotify_user_id });
   } catch (e) {
@@ -275,7 +277,15 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
             const dd = await rr.json();
             token = dd.access_token;
             expiresAt = Date.now() + (dd.expires_in * 1000);
-            await ref.set({ access_token: token, expires_at: expiresAt, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(), ...(dd.refresh_token ? { refresh_token: dd.refresh_token } : {}) }, { merge: true });
+            await ref.set(
+              {
+                access_token: token,
+                expires_at: expiresAt,
+                updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                ...(dd.refresh_token ? { refresh_token: dd.refresh_token } : {}),
+              },
+              { merge: true },
+            );
           }
         } catch (_) {}
       }

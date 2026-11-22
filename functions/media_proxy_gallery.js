@@ -34,6 +34,7 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   }
 
   try {
+    // ci:raw-fetch-allow: targetUrl is validated by parseProjectStorageUrl above with redirect: 'error'
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       redirect: 'error',

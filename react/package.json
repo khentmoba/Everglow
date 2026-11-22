@@ -7,7 +7,9 @@
     "dev": "vite --open=false",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
+    "lint": "eslint src",
     "test": "node tools/check_dist.mjs && node --experimental-strip-types --test tools/*.test.mjs",
+    "test:one": "node tools/check_dist.mjs && node --experimental-strip-types --test",
     "preview": "vite preview --open=false"
   },
   "dependencies": {
@@ -22,10 +24,13 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "5.2.0",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "pixelmatch": "8.0.0",
     "playwright-core": "1.65.1",
     "pngjs": "7.0.0",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.73.0",
     "vite": "7.3.8"
   }
 }

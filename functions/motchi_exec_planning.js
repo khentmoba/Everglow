@@ -126,7 +126,13 @@ async function exec_add_trip(ctx, args) {
       searchKey: `${title.toLowerCase()} ${(args.description||'').toLowerCase()}`,
     };
     const ref = await ctx.db.collection('travel_trips').add(data);
-    return JSON.stringify({ success: true, id: ref.id, title, start: sd.toISOString().slice(0,10), end: ed.toISOString().slice(0,10) });
+    return JSON.stringify({
+      success: true,
+      id: ref.id,
+      title,
+      start: sd.toISOString().slice(0, 10),
+      end: ed.toISOString().slice(0, 10),
+    });
 }
 
 async function exec_add_trip_pin(ctx, args) {
