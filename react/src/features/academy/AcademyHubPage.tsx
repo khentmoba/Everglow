@@ -266,7 +266,16 @@ export function AcademyHubPage() {
           { color: AppColors.deepRose, alignment: [0.85, 0.9], size: 0.7, opacity: 0.1 },
         ]}
       />
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          padding:
+            'var(--safe-top, env(safe-area-inset-top, 0px)) var(--safe-right, env(safe-area-inset-right, 0px)) var(--safe-bottom, env(safe-area-inset-bottom, 0px)) var(--safe-left, env(safe-area-inset-left, 0px))',
+        }}
+      >
         <EverglowFeatureHeader
           title="Academy Hub"
           subtitle="play · learn · compete together"
@@ -495,7 +504,7 @@ function CategoryPickerSheet({ allowTopic, onPick }: { allowTopic: boolean; onPi
   }, []);
 
   return (
-    <div style={{ margin: '0 auto', maxWidth: 640, maxHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ margin: '0 auto', maxWidth: 640, maxHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       {/* The theme's M3 drag handle, drawn on the sheet's transparent surface. */}
       <div style={{ height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 32, height: 4, borderRadius: 2, background: withAlpha(AppColors.moonlight, 0.35) }} />

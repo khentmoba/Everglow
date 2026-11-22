@@ -58,7 +58,18 @@ export function AgentHudOverlay() {
   const show = useValue(AgentMode.showHud);
   if (!active || !show) return null;
   return (
-    <div style={{ position: 'fixed', left: 16, right: 16, bottom: 16, zIndex: 1000, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+    <div
+      style={{
+        position: 'fixed',
+        left: 'calc(16px + var(--safe-left, env(safe-area-inset-left, 0px)))',
+        right: 'calc(16px + var(--safe-right, env(safe-area-inset-right, 0px)))',
+        bottom: 'calc(16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))',
+        zIndex: 1000,
+        display: 'flex',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+      }}
+    >
       <AgentHud />
     </div>
   );

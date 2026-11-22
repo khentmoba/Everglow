@@ -28,7 +28,16 @@ export function PlayZoneHubPage() {
           { color: AppColors.auroraTeal, alignment: [0.85, 0.9], size: 0.7, opacity: 0.1 },
         ]}
       />
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          padding:
+            'var(--safe-top, env(safe-area-inset-top, 0px)) var(--safe-right, env(safe-area-inset-right, 0px)) var(--safe-bottom, env(safe-area-inset-bottom, 0px)) var(--safe-left, env(safe-area-inset-left, 0px))',
+        }}
+      >
         <EverglowFeatureHeader
           title="Play Zone"
           subtitle="arcade · co-op · games for two"

@@ -591,7 +591,16 @@ export function KatanaHeader({
   );
 
   return (
-    <header style={{ background: KatanaColors.headerDark, borderBottom: `1px solid ${KatanaColors.borderStrong}`, flexShrink: 0 }}>
+    <header
+      style={{
+        background: KatanaColors.headerDark,
+        borderBottom: `1px solid ${KatanaColors.borderStrong}`,
+        paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))',
+        paddingLeft: 'var(--safe-left, env(safe-area-inset-left, 0px))',
+        paddingRight: 'var(--safe-right, env(safe-area-inset-right, 0px))',
+        flexShrink: 0,
+      }}
+    >
       {desktop ? (
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center' }}>
           {backButton}

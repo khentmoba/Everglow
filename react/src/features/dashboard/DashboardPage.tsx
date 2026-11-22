@@ -23,7 +23,7 @@ import { AnniversaryMetrics } from './AnniversaryMetrics';
 import { DashboardJumpBar } from './DashboardJumpBar';
 import { DashboardLoadVeil, DashboardLoadVeilControl } from './DashboardLoadVeil';
 import { BreathingEmblem, DashboardAmbience, PulseHeart, ShimmerTitle } from './DashboardMotion';
-import { DashboardOverlays, kTopActionsReserve } from './DashboardOverlays';
+import { DashboardOverlays, kTopActionsReserveCss } from './DashboardOverlays';
 import { DashboardPair, DashboardZoneHeader } from './DashboardZoneHeader';
 import { LetterboxView } from './LetterboxView';
 import { isNoteUnlocked, letterboxService } from './letterboxService';
@@ -150,8 +150,16 @@ export function DashboardPage() {
         className="no-scrollbar"
         style={{ position: 'relative', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}
       >
-        <div style={{ margin: '0 auto', width: '100%', maxWidth: contentMaxWidth }}>
-          <div style={{ padding: `${kTopActionsReserve}px ${AppSpacing.pageH(width)}px 24px` }}>
+        <div
+          style={{
+            margin: '0 auto',
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            paddingLeft: 'var(--safe-left, env(safe-area-inset-left, 0px))',
+            paddingRight: 'var(--safe-right, env(safe-area-inset-right, 0px))',
+          }}
+        >
+          <div style={{ padding: `${kTopActionsReserveCss} ${AppSpacing.pageH(width)}px 24px` }}>
             <DashboardHeader width={width} />
           </div>
           <div style={{ padding: '8px 24px' }}>
@@ -192,7 +200,7 @@ export function DashboardPage() {
             </Suspense>
           )}
 
-          <div style={{ height: 110 }} />
+          <div style={{ height: 'calc(110px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))' }} />
         </div>
       </div>
 

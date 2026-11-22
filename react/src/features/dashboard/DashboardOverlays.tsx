@@ -24,6 +24,14 @@ export const kTopActionsReserve = kTopActionsInset + kTopActionsSize + 20;
 export const kTopActionsRowRight = 24 + kTopActionsSize + kTopActionsGap;
 export const kMoodPromptTop = kTopActionsReserve + 34;
 
+const safeTop = 'var(--safe-top, env(safe-area-inset-top, 0px))';
+const safeRight = 'var(--safe-right, env(safe-area-inset-right, 0px))';
+const safeBottom = 'var(--safe-bottom, env(safe-area-inset-bottom, 0px))';
+const safeLeft = 'var(--safe-left, env(safe-area-inset-left, 0px))';
+const topActionsTop = `max(${kTopActionsInset}px, calc(${safeTop} + 12px))`;
+export const kTopActionsReserveCss = `calc(${topActionsTop} + ${kTopActionsSize + 20}px)`;
+const moodPromptTopCss = `calc(${kTopActionsReserveCss} + 34px)`;
+
 export function DashboardOverlays() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -32,12 +40,25 @@ export function DashboardOverlays() {
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: `calc(${safeTop} + 16px)`,
+          background: `linear-gradient(180deg, ${AppColors.inkDeep} 0%, ${withAlpha(AppColors.inkDeep, 0.82)} 65%, transparent 100%)`,
+          pointerEvents: 'none',
+        }}
+      />
+
       {/* Bottom-right: Motchi avatar + Guardian */}
       <div
         style={{
           position: 'absolute',
-          bottom: 24,
-          right: 24,
+          bottom: `calc(24px + ${safeBottom})`,
+          right: `calc(24px + ${safeRight})`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end',
@@ -59,7 +80,7 @@ export function DashboardOverlays() {
 
       {/* Top-left: Creator tools for Khent */}
       {auth.currentUser === 'khentsgdz' && (
-        <div style={{ position: 'absolute', top: kTopActionsInset, left: 24, pointerEvents: 'auto' }}>
+        <div style={{ position: 'absolute', top: topActionsTop, left: `calc(24px + ${safeLeft})`, pointerEvents: 'auto' }}>
           <FloatingAction tooltip="Open creator tools" onTap={() => setCreatorOpen(true)}>
             <Icon name="favorite" size={26} color={AppColors.roseQuartz} />
           </FloatingAction>
@@ -78,8 +99,8 @@ export function DashboardOverlays() {
       <div
         style={{
           position: 'absolute',
-          top: kTopActionsInset,
-          right: kTopActionsRowRight,
+          top: topActionsTop,
+          right: `calc(${kTopActionsRowRight}px + ${safeRight})`,
           display: 'flex',
           alignItems: 'center',
           gap: kTopActionsGap,
@@ -94,14 +115,14 @@ export function DashboardOverlays() {
       </div>
 
       {/* Top-right: Sanctuary chat */}
-      <div style={{ position: 'absolute', top: kTopActionsInset, right: 24, pointerEvents: 'auto' }}>
+      <div style={{ position: 'absolute', top: topActionsTop, right: `calc(24px + ${safeRight})`, pointerEvents: 'auto' }}>
         <FloatingAction tooltip="Open Sanctuary chat" filled onTap={() => navigate('/sanctuary')}>
           <Icon name="chat_bubble_outline" size={26} color={AppColors.petalWhite} />
         </FloatingAction>
       </div>
 
       {isMoodPromptVisible && (
-        <div style={{ position: 'absolute', top: kMoodPromptTop, right: 24, pointerEvents: 'auto', zIndex: 20 }}>
+        <div style={{ position: 'absolute', top: moodPromptTopCss, right: `calc(24px + ${safeRight})`, pointerEvents: 'auto', zIndex: 20 }}>
           <MoodPicker />
         </div>
       )}

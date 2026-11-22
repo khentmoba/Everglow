@@ -37,8 +37,10 @@ export function EverglowScaffold({
         style={{
           position: 'absolute',
           inset: 0,
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))',
+          paddingRight: 'var(--safe-right, env(safe-area-inset-right, 0px))',
+          paddingBottom: 'var(--safe-bottom, env(safe-area-inset-bottom, 0px))',
+          paddingLeft: 'var(--safe-left, env(safe-area-inset-left, 0px))',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -52,8 +54,8 @@ export function EverglowScaffold({
         <div
           style={{
             position: 'absolute',
-            right: 'calc(16px + env(safe-area-inset-right))',
-            bottom: 'calc(16px + env(safe-area-inset-bottom))',
+            right: 'calc(16px + var(--safe-right, env(safe-area-inset-right, 0px)))',
+            bottom: 'calc(16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))',
             zIndex: 2,
           }}
         >

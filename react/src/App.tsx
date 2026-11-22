@@ -279,7 +279,7 @@ function RootLayout() {
       <div
         style={{
           position: 'fixed',
-          top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+          top: 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px)',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1350,
