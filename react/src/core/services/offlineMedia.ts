@@ -489,9 +489,19 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
                 ? `/${raw}`
                 : null;
             if (src) {
-              const pageSignal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
-              const res = await fetch(src, { signal: pageSignal });
-              const blob = res.ok ? await res.blob() : null;
+              const pageController = new AbortController();
+              const onParentAbort = () => pageController.abort();
+              controller.signal.addEventListener('abort', onParentAbort, { once: true });
+              const timer = setTimeout(() => pageController.abort(), 15000);
+              let res: Response;
+              let blob: Blob | null = null;
+              try {
+                res = await fetch(src, { signal: pageController.signal });
+                blob = res.ok ? await res.blob() : null;
+              } finally {
+                clearTimeout(timer);
+                controller.signal.removeEventListener('abort', onParentAbort);
+              }
               if (controller.signal.aborted || !this.value[id]) return;
               if (blob && blob.size > 0) {
                 await saveBlob(pageKey, blob, true, 'image/jpeg');
