@@ -2,15 +2,9 @@
 
 const common = require('./common.js');
 const { applyCors, cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
-const { streamMediaBody } = require('./stream_media_body');
+const { resolveRasterImageStream, streamMediaBody } = require('./stream_media_body');
 
-const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|avif|bmp|x-icon|vnd\.microsoft\.icon)$/;
 const SANDBOX_CSP = "default-src 'none'; sandbox";
-
-function safeRasterContentType(raw) {
-  const base = String(raw || 'image/jpeg').split(';')[0].trim().toLowerCase();
-  return RASTER_IMAGE_RE.test(base) ? base : null;
-}
 
 function safeJsonContentType(raw) {
   const base = String(raw || 'application/json').split(';')[0].trim().toLowerCase();
@@ -89,17 +83,16 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType = safeRasterContentType(upstream.headers.get('content-type'));
-    if (!contentType) {
-      await upstream.body?.cancel();
+    const resolved = await resolveRasterImageStream(upstream);
+    if (!resolved) {
       res.status(415).json({ error: 'Upstream did not return a raster image' });
       return;
     }
-    res.set('Content-Type', contentType);
+    res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=600');
-    await streamMediaBody(upstream.body, res);
+    await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyMangaImage failed (${targetUrl}):`, e.message);
     if (res.headersSent || res.destroyed) {
@@ -181,17 +174,16 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType = safeRasterContentType(upstream.headers.get('content-type'));
-    if (!contentType) {
-      await upstream.body?.cancel();
+    const resolved = await resolveRasterImageStream(upstream);
+    if (!resolved) {
       res.status(415).json({ error: 'Upstream did not return a raster image' });
       return;
     }
-    res.set('Content-Type', contentType);
+    res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=600');
-    await streamMediaBody(upstream.body, res);
+    await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyMangaKakalotImage failed (${targetUrl}):`, e.message);
     if (res.headersSent || res.destroyed) {
@@ -275,17 +267,16 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
         .json({ error: `Upstream returned ${upstream.status}` });
       return;
     }
-    const contentType = safeRasterContentType(upstream.headers.get('content-type'));
-    if (!contentType) {
-      await upstream.body?.cancel();
+    const resolved = await resolveRasterImageStream(upstream);
+    if (!resolved) {
       res.status(415).json({ error: 'Upstream did not return a raster image' });
       return;
     }
-    res.set('Content-Type', contentType);
+    res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
     res.set('Cache-Control', 'public, max-age=600');
-    await streamMediaBody(upstream.body, res);
+    await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyMangaKatana failed (${targetUrl}):`, e.message);
     if (res.headersSent || res.destroyed) {
