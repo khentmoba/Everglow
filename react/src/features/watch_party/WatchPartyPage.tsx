@@ -1073,6 +1073,8 @@ function WatchPartyRoomView({
   );
   const clock = useMemo(() => new WatchPartyClock(), []);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const roomRef = useRef(room);
+  roomRef.current = room;
   const [chatOpen, setChatOpen] = useState(false);
   const [msgText, setMsgText] = useState('');
   const [displaySeconds, setDisplaySeconds] = useState(0);
@@ -1112,25 +1114,37 @@ function WatchPartyRoomView({
   }, [room?.id, room?.hostUid, myUid, isHub]);
 
   // CineSrc postMessage bridge for embed playback sync.
+  const isEmbedMode = Boolean(room && room.serverType !== 'hls');
   useEffect(() => {
-    if (!room || room.serverType === 'hls') return;
+    if (!isEmbedMode) return;
     const onMessage = (e: MessageEvent) => {
+      const frame = iframeRef.current;
+      if (!frame || e.source !== frame.contentWindow) return;
+      let expectedOrigin = window.location.origin;
+      try {
+        if (frame.src) expectedOrigin = new URL(frame.src, window.location.origin).origin;
+      } catch {
+        return;
+      }
+      if (e.origin !== expectedOrigin) return;
+      const currentRoom = roomRef.current;
+      if (!currentRoom || currentRoom.serverType === 'hls') return;
       const ev = parseCinesrcEvent(e.data);
       if (!ev) return;
-      if (ev.name === 'play' && room.state !== 'playing') {
+      if (ev.name === 'play' && currentRoom.state !== 'playing') {
         void patchRoom({
           state: 'playing',
-          currentTime: ev.currentTime ?? clock.expectedPosition(room),
+          currentTime: ev.currentTime ?? clock.expectedPosition(currentRoom),
           updatedBy: myUid,
         });
-      } else if (ev.name === 'pause' && room.state === 'playing') {
+      } else if (ev.name === 'pause' && currentRoom.state === 'playing') {
         void patchRoom({
           state: 'paused',
-          currentTime: ev.currentTime ?? clock.expectedPosition(room),
+          currentTime: ev.currentTime ?? clock.expectedPosition(currentRoom),
           updatedBy: myUid,
         });
       } else if ((ev.name === 'seeked' || ev.name === 'timeupdate') && ev.currentTime != null) {
-        if (isUserSeek(clock.expectedPosition(room), ev.currentTime, 2.5)) {
+        if (isUserSeek(clock.expectedPosition(currentRoom), ev.currentTime, 2.5)) {
           void patchRoom({
             currentTime: ev.currentTime,
             updatedBy: myUid,
@@ -1140,21 +1154,29 @@ function WatchPartyRoomView({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [room, myUid, clock, isHub]);
+  }, [isEmbedMode, myUid, clock, isHub, roomId]);
 
   // Push remote play/pause/seek state into the CineSrc embed iframe.
   useEffect(() => {
     if (!room || room.serverType === 'hls') return;
-    const win = iframeRef.current?.contentWindow;
-    if (!win) return;
+    if (room.updatedBy === myUid) return;
+    const frame = iframeRef.current;
+    const win = frame?.contentWindow;
+    if (!frame || !win) return;
+    let targetOrigin = window.location.origin;
+    try {
+      if (frame.src) targetOrigin = new URL(frame.src, window.location.origin).origin;
+    } catch {
+      return;
+    }
     const expected = clock.expectedPosition(room);
     try {
-      win.postMessage(cinesrcCommand('seek', [expected]), '*');
-      win.postMessage(cinesrcCommand(room.state === 'playing' ? 'play' : 'pause'), '*');
+      win.postMessage(cinesrcCommand('seek', [expected]), targetOrigin);
+      win.postMessage(cinesrcCommand(room.state === 'playing' ? 'play' : 'pause'), targetOrigin);
     } catch {
       // Cross-origin frame not ready yet.
     }
-  }, [room?.state, room?.currentTime, room?.serverType, clock]);
+  }, [room?.state, room?.currentTime, room?.serverType, room?.updatedBy, myUid, clock]);
 
   if (!room) {
     return (

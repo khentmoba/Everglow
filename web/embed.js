@@ -49,6 +49,28 @@
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
+  var ALLOWED_PARENT_ORIGINS = [
+    'https://everglow-1c6db.web.app',
+    'https://everglow-1c6db.firebaseapp.com'
+  ];
+
+  function resolveParentOrigin() {
+    if (document.referrer) {
+      try {
+        var refOrigin = new URL(document.referrer).origin;
+        if (
+          ALLOWED_PARENT_ORIGINS.indexOf(refOrigin) !== -1 ||
+          /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(refOrigin)
+        ) {
+          return refOrigin;
+        }
+      } catch (e) {}
+    }
+    return window.location.origin;
+  }
+
+  var PARENT_ORIGIN = resolveParentOrigin();
+
   document.addEventListener('wheel', function (e) {
     try {
       window.parent.postMessage({
@@ -56,7 +78,7 @@
         deltaX: Number(e.deltaX) || 0,
         deltaY: Number(e.deltaY) || 0,
         deltaMode: Number(e.deltaMode) || 0
-      }, '*');
+      }, PARENT_ORIGIN);
     } catch (err) {}
   }, { passive: true });
 
@@ -97,7 +119,7 @@
         out.result = d.result;
       }
       try {
-        window.parent.postMessage(out, '*');
+        window.parent.postMessage(out, PARENT_ORIGIN);
       } catch (err) {}
       if (d.type === 'cinesrc:timeupdate') {
         try {
@@ -116,7 +138,7 @@
     try {
       window.parent.postMessage(
         { type: 'cinesrc:nextepisode', season: season, episode: episode },
-        '*'
+        PARENT_ORIGIN
       );
     } catch (err) {}
     try {
@@ -190,7 +212,7 @@
     loader.classList.add('hidden');
     errorBox.classList.add('visible');
     try {
-      window.parent.postMessage({ type: 'everglow-embed-failed' }, '*');
+      window.parent.postMessage({ type: 'everglow-embed-failed' }, PARENT_ORIGIN);
     } catch (e) {}
     try {
       if (window.EverglowPlayer && window.EverglowPlayer.postMessage) {
