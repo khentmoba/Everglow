@@ -1,5 +1,5 @@
 // Port of lib/features/guardian/presentation/widgets/everglow_guardian.dart.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useValue } from '../../core/system/store';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -22,13 +22,24 @@ export function EverglowGuardian() {
   const message = useValue(guardianController.currentMessage);
 
   const [particles, setParticles] = useState<Particle[]>([]);
-  const [floatY, setFloatY] = useState(0);
-  const [bounceScale, setBounceScale] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [chatText, setChatText] = useState('');
+  const catRef = useRef<HTMLButtonElement | null>(null);
+  const floatYRef = useRef(0);
+  const bounceScaleRef = useRef(1);
   const particleTimer = useRef<number | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const didLongPress = useRef(false);
+
+  // Both idle animations run every frame. Writing the transform straight to
+  // the DOM keeps them off React state, so the guardian and its thought bubble
+  // are not re-rendered ~60 times a second on the main screen.
+  const applyTransform = useCallback(() => {
+    const el = catRef.current;
+    if (!el) return;
+    const scale = reduced ? 1 : bounceScaleRef.current;
+    el.style.transform = `translateY(${floatYRef.current.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+  }, [reduced]);
 
   useEffect(() => {
     guardianController.welcome();
@@ -40,20 +51,23 @@ export function EverglowGuardian() {
   // Idle floating animation (3s easeInOut reverse repeat, 0 to -15px)
   useEffect(() => {
     if (reduceAmbient || reduced) {
-      setFloatY(0);
+      floatYRef.current = 0;
+      applyTransform();
       return;
     }
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (document.hidden) return;
       const cycle = ((now - start) % 6000) / 3000;
       const t = cycle <= 1 ? cycle : 2 - cycle;
-      setFloatY(-15 * Curves.easeInOut(t));
-      raf = requestAnimationFrame(tick);
+      floatYRef.current = -15 * Curves.easeInOut(t);
+      applyTransform();
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [reduceAmbient, reduced]);
+  }, [reduceAmbient, reduced, applyTransform]);
 
   const playBounce = () => {
     if (reduced) return;
@@ -63,12 +77,16 @@ export function EverglowGuardian() {
     const step = (now: number) => {
       const p = Math.min(1, (now - start) / dur);
       if (p < 0.3) {
-        setBounceScale(1 + 0.3 * Curves.easeOut(p / 0.3));
+        bounceScaleRef.current = 1 + 0.3 * Curves.easeOut(p / 0.3);
       } else {
-        setBounceScale(1.3 - 0.3 * Curves.bounceOut((p - 0.3) / 0.7));
+        bounceScaleRef.current = 1.3 - 0.3 * Curves.bounceOut((p - 0.3) / 0.7);
       }
+      applyTransform();
       if (p < 1) requestAnimationFrame(step);
-      else setBounceScale(1);
+      else {
+        bounceScaleRef.current = 1;
+        applyTransform();
+      }
     };
     requestAnimationFrame(step);
   };
@@ -158,6 +176,7 @@ export function EverglowGuardian() {
       )}
 
       <button
+        ref={catRef}
         type="button"
         className="bare-button"
         aria-label="Everglow Guardian Cat"
@@ -176,9 +195,6 @@ export function EverglowGuardian() {
           if (longPressTimer.current) clearTimeout(longPressTimer.current);
         }}
         onClick={handleTap}
-        style={{
-          transform: `translateY(${floatY.toFixed(2)}px) scale(${(reduced ? 1 : bounceScale).toFixed(4)})`,
-        }}
       >
         {reduceAmbient ? (
           <img
