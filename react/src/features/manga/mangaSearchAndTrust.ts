@@ -7,8 +7,10 @@ export interface OfficialPublisherLink {
   badge: string;
   url: string;
   icon: string;
+  category: 'publisher' | 'tracker' | 'registry';
   /** True only when `url` points directly to the exact series page (not a generic search query). */
   directLink: boolean;
+  /** True only when the link is an established official publisher or licensed store URL (never true for trackers or search queries). */
   officialSimulpub: boolean;
 }
 
@@ -16,7 +18,13 @@ export interface SourceBadgeInfo {
   id: NonNullable<KatanaManga['source']>;
   badge: 'MK' | 'MD' | 'CK' | 'BT';
   name: string;
-  trustScore: number;
+  /** Small tie-breaker preference bonus (2–8 pts) used only after title match and metadata completeness signals. */
+  searchPreferenceBonus: number;
+  signals: {
+    provenance: string;
+    metadataQuality: string;
+    specialty: string;
+  };
   tooltip: string;
 }
 
@@ -25,29 +33,53 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     id: 'mangadex',
     badge: 'MD',
     name: 'MangaDex',
-    trustScore: 28,
-    tooltip: 'MD · MangaDex — Primary multilingual scanlation & official-link registry (Trust rank #1)',
+    searchPreferenceBonus: 8,
+    signals: {
+      provenance: 'Community scanlation index (unlicensed)',
+      metadataQuality: 'Includes tracker IDs, publisher links & language tags',
+      specialty: 'Multilingual chapters & group attribution',
+    },
+    tooltip:
+      'MD · MangaDex — Community scanlation index · Includes tracker IDs, publisher links & group attribution (Search preference #1)',
   },
   mangakatana: {
     id: 'mangakatana',
     badge: 'MK',
     name: 'MangaKatana',
-    trustScore: 25,
-    tooltip: 'MK · MangaKatana — Fast chapter feed & multi-CDN reader mirrors (Trust rank #2)',
+    searchPreferenceBonus: 6,
+    signals: {
+      provenance: 'Community chapter aggregator (unlicensed)',
+      metadataQuality: 'Standard title, author, genre & chapter timestamps',
+      specialty: 'Fast chapter feed & multi-CDN reader mirrors',
+    },
+    tooltip:
+      'MK · MangaKatana — Community chapter aggregator · Fast release feed & multi-CDN reader mirrors (Search preference #2)',
   },
   comick: {
     id: 'comick',
     badge: 'CK',
     name: 'ComicK',
-    trustScore: 20,
-    tooltip: 'CK · ComicK — High-resolution tankobon & community chapter index (Trust rank #3)',
+    searchPreferenceBonus: 4,
+    signals: {
+      provenance: 'Community chapter & volume index (unlicensed)',
+      metadataQuality: 'Alt-title index & volume cover metadata',
+      specialty: 'Tankobon releases & fallback chapter mirrors',
+    },
+    tooltip:
+      'CK · ComicK — Community chapter index · Alt-title catalog & volume chapters (Search preference #3)',
   },
   bato: {
     id: 'bato',
     badge: 'BT',
     name: 'Bato.to',
-    trustScore: 16,
-    tooltip: 'BT · Bato.to — Full-color webtoon & community mirror catalog (Trust rank #4)',
+    searchPreferenceBonus: 2,
+    signals: {
+      provenance: 'Community mirror catalog (unlicensed)',
+      metadataQuality: 'Basic series & chapter metadata',
+      specialty: 'Full-color webtoon & long-strip series',
+    },
+    tooltip:
+      'BT · Bato.to — Community mirror catalog · Full-color webtoon & long-strip catalog (Search preference #4)',
   },
 };
 
@@ -62,11 +94,11 @@ export function getSourceBadgeInfo(
   return SOURCE_TRUST_META.mangakatana;
 }
 
-const SOURCE_TRUST_SCORE: Record<NonNullable<KatanaManga['source']>, number> = {
-  mangadex: SOURCE_TRUST_META.mangadex.trustScore,
-  mangakatana: SOURCE_TRUST_META.mangakatana.trustScore,
-  comick: SOURCE_TRUST_META.comick.trustScore,
-  bato: SOURCE_TRUST_META.bato.trustScore,
+const SOURCE_PREFERENCE_BONUS: Record<NonNullable<KatanaManga['source']>, number> = {
+  mangadex: SOURCE_TRUST_META.mangadex.searchPreferenceBonus,
+  mangakatana: SOURCE_TRUST_META.mangakatana.searchPreferenceBonus,
+  comick: SOURCE_TRUST_META.comick.searchPreferenceBonus,
+  bato: SOURCE_TRUST_META.bato.searchPreferenceBonus,
 };
 
 export function normalizeCanonicalTitle(raw: string): string {
@@ -86,15 +118,27 @@ function tokenizeQuery(raw: string): string[] {
 }
 
 /**
- * Scores a catalog item by relevance to the search query, rating/popularity, chapter completeness,
- * and source reliability so exact matches on trusted sources always outrank weak partial matches.
+ * Scores a catalog item by explainable signals: query match accuracy, metadata completeness
+ * (linked tracker IDs, alt titles, author/genre presence, chapter count), reader rating/popularity,
+ * and a small catalog search preference tie-breaker.
  */
 export function computeMangaSearchRelevance(
   item: KatanaManga,
   query: string,
   orderBy = 'popular',
 ): number {
-  let score = SOURCE_TRUST_SCORE[item.source ?? 'mangakatana'] ?? 15;
+  let score = SOURCE_PREFERENCE_BONUS[item.source ?? 'mangakatana'] ?? 4;
+  // Explainable metadata completeness signals
+  if (
+    item.externalLinks?.anilistId ||
+    item.externalLinks?.malId ||
+    item.externalLinks?.officialEnglishUrl ||
+    item.externalLinks?.rawOfficialUrl
+  ) {
+    score += 10;
+  }
+  if ((item.altNames?.length ?? 0) > 0) score += 6;
+  if ((item.authors?.length ?? 0) > 0 && item.genres.length > 0) score += 6;
   const qClean = query.trim().toLowerCase();
   const qNorm = normalizeCanonicalTitle(query);
   const titleLower = item.title.trim().toLowerCase();
@@ -344,10 +388,11 @@ export function resolveOfficialPublisherLinks(
   if (ext?.officialEnglishUrl && /^https?:\/\//i.test(ext.officialEnglishUrl)) {
     links.push({
       id: 'official-en',
-      name: 'Official English Page',
-      badge: 'Verified Direct Link',
+      name: 'Official English Publisher',
+      badge: 'Official Publisher Link',
       url: ext.officialEnglishUrl,
       icon: 'verified',
+      category: 'publisher',
       directLink: true,
       officialSimulpub: true,
     });
@@ -355,54 +400,25 @@ export function resolveOfficialPublisherLinks(
   if (ext?.rawOfficialUrl && /^https?:\/\//i.test(ext.rawOfficialUrl)) {
     links.push({
       id: 'official-raw',
-      name: 'Original Publisher',
-      badge: 'Verified Direct Link',
+      name: 'Original Publisher Page',
+      badge: 'Official Publisher Link',
       url: ext.rawOfficialUrl,
       icon: 'verified',
+      category: 'publisher',
       directLink: true,
       officialSimulpub: true,
     });
   }
-  if (anilistId) {
+
+  const bwPath = ext?.bookwalkerPath?.replace(/^\/+/, '');
+  if (bwPath) {
     links.push({
-      id: 'anilist-direct',
-      name: `AniList #${anilistId}`,
-      badge: 'Direct Series Page',
-      url: `https://anilist.co/manga/${encodeURIComponent(anilistId)}`,
-      icon: 'verified',
-      directLink: true,
-      officialSimulpub: true,
-    });
-  }
-  if (malId) {
-    links.push({
-      id: 'mal-direct',
-      name: `MAL #${malId}`,
-      badge: 'Direct Series Page',
-      url: `https://myanimelist.net/manga/${encodeURIComponent(malId)}`,
-      icon: 'verified',
-      directLink: true,
-      officialSimulpub: true,
-    });
-  }
-  if (kitsuId) {
-    links.push({
-      id: 'kitsu-direct',
-      name: `Kitsu #${kitsuId}`,
-      badge: 'Direct Series Page',
-      url: `https://kitsu.app/manga/${encodeURIComponent(kitsuId)}`,
-      icon: 'verified',
-      directLink: true,
-      officialSimulpub: true,
-    });
-  }
-  if (muId) {
-    links.push({
-      id: 'mangaupdates',
-      name: 'MangaUpdates',
-      badge: 'Direct License Registry',
-      url: `https://www.mangaupdates.com/series/${encodeURIComponent(muId)}`,
-      icon: 'fact_check',
+      id: 'bookwalker',
+      name: 'BookWalker Store',
+      badge: 'Direct Store Page',
+      url: `https://bookwalker.jp/${bwPath}`,
+      icon: 'collections_bookmark',
+      category: 'publisher',
       directLink: true,
       officialSimulpub: true,
     });
@@ -412,19 +428,21 @@ export function resolveOfficialPublisherLinks(
     links.push(
       {
         id: 'webtoon',
-        name: 'Find on WEBTOON',
-        badge: 'Publisher Lookup',
+        name: 'Search WEBTOON',
+        badge: 'Publisher Catalog Search',
         url: `https://www.webtoons.com/en/search?keyword=${q}`,
         icon: 'search',
+        category: 'publisher',
         directLink: false,
         officialSimulpub: false,
       },
       {
         id: 'tapas',
-        name: 'Find on Tapas',
-        badge: 'Publisher Lookup',
+        name: 'Search Tapas',
+        badge: 'Publisher Catalog Search',
         url: `https://tapas.io/search?q=${q}`,
         icon: 'search',
+        category: 'publisher',
         directLink: false,
         officialSimulpub: false,
       },
@@ -433,35 +451,88 @@ export function resolveOfficialPublisherLinks(
     links.push(
       {
         id: 'mangaplus',
-        name: 'Find on MANGA Plus',
-        badge: 'Publisher Lookup',
+        name: 'Search MANGA Plus',
+        badge: 'Publisher Catalog Search',
         url: `https://mangaplus.shueisha.co.jp/search_result?keyword=${q}`,
         icon: 'search',
+        category: 'publisher',
         directLink: false,
         officialSimulpub: false,
       },
       {
         id: 'viz',
-        name: 'Find on VIZ',
-        badge: 'Publisher Lookup',
+        name: 'Search VIZ',
+        badge: 'Publisher Catalog Search',
         url: `https://www.viz.com/search?search=${q}`,
         icon: 'search',
+        category: 'publisher',
         directLink: false,
         officialSimulpub: false,
       },
     );
   }
 
-  const bwPath = ext?.bookwalkerPath?.replace(/^\/+/, '');
-  links.push({
-    id: 'bookwalker',
-    name: bwPath ? 'BookWalker' : 'Find on BookWalker',
-    badge: bwPath ? 'Direct Store Page' : 'Publisher Lookup',
-    url: bwPath ? `https://bookwalker.jp/${bwPath}` : `https://global.bookwalker.jp/search/?word=${q}`,
-    icon: bwPath ? 'collections_bookmark' : 'search',
-    directLink: Boolean(bwPath),
-    officialSimulpub: Boolean(bwPath),
-  });
+  if (!bwPath) {
+    links.push({
+      id: 'bookwalker',
+      name: 'Search BookWalker',
+      badge: 'Publisher Catalog Search',
+      url: `https://global.bookwalker.jp/search/?word=${q}`,
+      icon: 'search',
+      category: 'publisher',
+      directLink: false,
+      officialSimulpub: false,
+    });
+  }
+
+  if (anilistId) {
+    links.push({
+      id: 'anilist-direct',
+      name: `AniList #${anilistId}`,
+      badge: 'Tracker Entry (Matched ID)',
+      url: `https://anilist.co/manga/${encodeURIComponent(anilistId)}`,
+      icon: 'query_stats',
+      category: 'tracker',
+      directLink: true,
+      officialSimulpub: false,
+    });
+  }
+  if (malId) {
+    links.push({
+      id: 'mal-direct',
+      name: `MyAnimeList #${malId}`,
+      badge: 'Tracker Entry (Matched ID)',
+      url: `https://myanimelist.net/manga/${encodeURIComponent(malId)}`,
+      icon: 'query_stats',
+      category: 'tracker',
+      directLink: true,
+      officialSimulpub: false,
+    });
+  }
+  if (kitsuId) {
+    links.push({
+      id: 'kitsu-direct',
+      name: `Kitsu #${kitsuId}`,
+      badge: 'Tracker Entry (Matched ID)',
+      url: `https://kitsu.app/manga/${encodeURIComponent(kitsuId)}`,
+      icon: 'query_stats',
+      category: 'tracker',
+      directLink: true,
+      officialSimulpub: false,
+    });
+  }
+  if (muId) {
+    links.push({
+      id: 'mangaupdates',
+      name: 'MangaUpdates',
+      badge: 'Release & License Database',
+      url: `https://www.mangaupdates.com/series/${encodeURIComponent(muId)}`,
+      icon: 'fact_check',
+      category: 'registry',
+      directLink: true,
+      officialSimulpub: false,
+    });
+  }
 
   return links;
 }

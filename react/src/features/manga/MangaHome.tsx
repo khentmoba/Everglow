@@ -216,8 +216,8 @@ function FeaturedHero({
           onClick={() => onSelectManga(featured.slug)}
           style={{
             position: 'relative',
-            width: compact ? 104 : desktop ? 164 : 128,
-            height: compact ? 150 : desktop ? 236 : 184,
+            width: compact ? 86 : desktop ? 164 : 128,
+            height: compact ? 124 : desktop ? 236 : 184,
             borderRadius: 11,
             overflow: 'hidden',
             flexShrink: 0,
@@ -336,12 +336,12 @@ function FeaturedHero({
 
           {featured.summary && (
             <p
-              className={compact ? 'clamp-2' : 'clamp-3'}
+              className={compact ? 'clamp-1' : 'clamp-3'}
               style={{
                 ...KatanaType.body,
                 fontSize: compact ? 12 : 13.5,
                 margin: 0,
-                lineHeight: compact ? 1.4 : 1.55,
+                lineHeight: compact ? 1.35 : 1.55,
                 color: compact ? KatanaColors.textMuted : KatanaColors.text,
               }}
             >
@@ -1250,15 +1250,20 @@ export function MangaHome({
   const featuredCandidates = useMemo(() => {
     const pool = data.hot.length > 0 ? data.hot : data.latest;
     const readingSet = new Set(currentlyReading.map((b) => b.slug));
-    // Prioritize in-progress series and ongoing hot titles before completed titles so the Hero Spotlight feels live.
-    const sorted = [...pool].sort((a, b) => {
-      const aActive = readingSet.has(a.slug) ? 2 : a.status.toLowerCase() !== 'completed' ? 1 : 0;
-      const bActive = readingSet.has(b.slug) ? 2 : b.status.toLowerCase() !== 'completed' ? 1 : 0;
-      if (bActive !== aActive) return bActive - aActive;
+    const droppedSet = new Set(
+      libraryBookmarks.filter((b) => b.libraryStatus === 'dropped').map((b) => b.slug),
+    );
+    const discoveryPool = pool.filter((m) => !readingSet.has(m.slug) && !droppedSet.has(m.slug));
+    const candidates = discoveryPool.length >= 2 ? discoveryPool : pool;
+    // Prioritize ongoing discovery titles before completed titles so the Hero Spotlight feels fresh and never duplicates Currently Reading.
+    const sorted = [...candidates].sort((a, b) => {
+      const aOngoing = a.status.toLowerCase() !== 'completed' ? 1 : 0;
+      const bOngoing = b.status.toLowerCase() !== 'completed' ? 1 : 0;
+      if (bOngoing !== aOngoing) return bOngoing - aOngoing;
       return (b.follows ?? 0) - (a.follows ?? 0) || (b.rating ?? 0) - (a.rating ?? 0);
     });
     return sorted.slice(0, 4);
-  }, [data.hot, data.latest, currentlyReading]);
+  }, [data.hot, data.latest, currentlyReading, libraryBookmarks]);
 
   const [tasteOnboardDismissed, setTasteOnboardDismissed] = useState<boolean>(() => {
     try {
@@ -2268,22 +2273,22 @@ export function MangaHome({
                 ? `${alertUnreadSeriesCount} new chapter ${alertUnreadSeriesCount === 1 ? 'update' : 'updates'}`
                 : `${alertUnreadSeriesCount} followed ${alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters`}
           </span>
-          {sourceHealth && (
+          {sourceHealth && isSourceHealthDegraded && (
             <span
               title={sourceHealthSummary}
               style={{
                 padding: '2px 7px',
                 borderRadius: 99,
                 background: KatanaColors.surface,
-                border: `1px solid ${isSourceHealthDegraded ? withAlpha(KatanaColors.orange, 0.45) : withAlpha(KatanaColors.green, 0.4)}`,
+                border: `1px solid ${withAlpha(KatanaColors.orange, 0.45)}`,
                 fontFamily: Fonts.body,
                 fontSize: 12,
                 fontWeight: 700,
-                color: isSourceHealthDegraded ? KatanaColors.orange : KatanaColors.green,
+                color: KatanaColors.orange,
                 whiteSpace: 'nowrap',
               }}
             >
-              {isSourceHealthDegraded ? 'Fallback active' : '4/4 sources healthy'}
+              Fallback active
             </span>
           )}
         </div>
@@ -2872,6 +2877,17 @@ export function MangaHome({
           <>
             {pullBanner}
             {data.error && <KatanaErrorBanner message={data.error} onRetry={onRetryHome} />}
+            {compact && !hiddenHomeRails.includes('reading') && (
+              <CurrentlyReadingShelf
+                items={currentlyReading}
+                catalog={allCatalog}
+                downloadedCounts={downloadedCounts}
+                compact={compact}
+                onSelectManga={onSelectManga}
+                onResumeBookmark={onResumeBookmark}
+                onViewAll={() => onViewAllReading?.()}
+              />
+            )}
             {type === 'all' && (
               <FeaturedHero
                 candidates={featuredCandidates}
@@ -2882,7 +2898,7 @@ export function MangaHome({
                 onSelectGenre={onSelectGenre}
               />
             )}
-            {!hiddenHomeRails.includes('reading') && (
+            {!compact && !hiddenHomeRails.includes('reading') && (
               <CurrentlyReadingShelf
                 items={currentlyReading}
                 catalog={allCatalog}

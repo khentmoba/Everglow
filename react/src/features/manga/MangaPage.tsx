@@ -3424,85 +3424,164 @@ export function MangaPage() {
                           </div>
                         )}
 
-                        <div
-                          style={{
-                            marginTop: 14,
-                            padding: '10px 12px',
-                            borderRadius: 10,
-                            background: KatanaColors.surfaceAlt,
-                            border: `1px solid ${KatanaColors.border}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 8,
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <Icon name="verified_user" size={16} color={KatanaColors.green} />
-                            <span style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
-                              Official Links &amp; Publishers:
-                            </span>
-                            {resolveOfficialPublisherLinks(detail, detailBm).map((pub) => (
-                              <a
-                                key={pub.id}
-                                href={pub.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={`${pub.name} · ${pub.badge}`}
-                                style={{
-                                  padding: '3px 8px',
-                                  borderRadius: 99,
-                                  background: pub.directLink
-                                    ? withAlpha(KatanaColors.green, 0.14)
-                                    : KatanaColors.surface,
-                                  border: `1px solid ${
-                                    pub.directLink ? withAlpha(KatanaColors.green, 0.45) : KatanaColors.borderStrong
-                                  }`,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  fontFamily: Fonts.body,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: pub.directLink ? KatanaColors.green : KatanaColors.textMuted,
-                                  textDecoration: 'none',
-                                }}
-                              >
-                                <Icon
-                                  name={pub.directLink ? 'verified' : 'search'}
-                                  size={12}
-                                  color={pub.directLink ? KatanaColors.green : KatanaColors.textMuted}
-                                />
-                                <span>{pub.name}</span>
-                              </a>
-                            ))}
-                          </div>
-                          {userName && (
-                            <button
-                              type="button"
-                              className="bare-button"
-                              onClick={() => void openMigrationPicker(detail)}
+                        {(() => {
+                          const allLinks = resolveOfficialPublisherLinks(detail, detailBm);
+                          const publisherLinks = allLinks.filter((l) => l.category === 'publisher');
+                          const hasVerifiedPublisher = publisherLinks.some((l) => l.officialSimulpub);
+                          const trackerAndRegistryLinks = allLinks.filter(
+                            (l) => l.category === 'tracker' || l.category === 'registry',
+                          );
+                          const srcMeta = getSourceBadgeInfo(detail.source, detail.slug);
+                          return (
+                            <div
                               style={{
-                                minHeight: 32,
-                                padding: '3px 9px',
-                                borderRadius: 99,
-                                background: withAlpha(KatanaColors.teal, 0.14),
-                                border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                fontFamily: Fonts.body,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: KatanaColors.teal,
+                                marginTop: 14,
+                                padding: '10px 12px',
+                                borderRadius: 10,
+                                background: KatanaColors.surfaceAlt,
+                                border: `1px solid ${KatanaColors.border}`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 8,
                               }}
                             >
-                              <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
-                              <span>Check 4 Source Mirrors</span>
-                            </button>
-                          )}
-                        </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  flexWrap: 'wrap',
+                                  gap: 8,
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  <Icon
+                                    name={hasVerifiedPublisher ? 'verified' : 'menu_book'}
+                                    size={16}
+                                    color={hasVerifiedPublisher ? KatanaColors.green : KatanaColors.accentSoft}
+                                  />
+                                  <span style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
+                                    {hasVerifiedPublisher ? 'Official Publisher & Store:' : 'Publisher Catalog Lookups:'}
+                                  </span>
+                                  {publisherLinks.map((pub) => (
+                                    <a
+                                      key={pub.id}
+                                      href={pub.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title={`${pub.name} · ${pub.badge}`}
+                                      style={{
+                                        padding: '3px 8px',
+                                        borderRadius: 99,
+                                        background: pub.officialSimulpub
+                                          ? withAlpha(KatanaColors.green, 0.14)
+                                          : KatanaColors.surface,
+                                        border: `1px solid ${
+                                          pub.officialSimulpub
+                                            ? withAlpha(KatanaColors.green, 0.45)
+                                            : KatanaColors.borderStrong
+                                        }`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        color: pub.officialSimulpub ? KatanaColors.green : KatanaColors.textMuted,
+                                        textDecoration: 'none',
+                                      }}
+                                    >
+                                      <Icon
+                                        name={pub.icon}
+                                        size={12}
+                                        color={pub.officialSimulpub ? KatanaColors.green : KatanaColors.textMuted}
+                                      />
+                                      <span>{pub.name}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                                {userName && (
+                                  <button
+                                    type="button"
+                                    className="bare-button"
+                                    onClick={() => void openMigrationPicker(detail)}
+                                    style={{
+                                      minHeight: 32,
+                                      padding: '3px 9px',
+                                      borderRadius: 99,
+                                      background: withAlpha(KatanaColors.teal, 0.14),
+                                      border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: KatanaColors.teal,
+                                    }}
+                                  >
+                                    <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
+                                    <span>Check 4 Source Mirrors</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  flexWrap: 'wrap',
+                                  gap: 8,
+                                  paddingTop: 6,
+                                  borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.65)}`,
+                                }}
+                              >
+                                {trackerAndRegistryLinks.length > 0 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <Icon name="query_stats" size={15} color={KatanaColors.link} />
+                                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
+                                      Trackers &amp; Metadata:
+                                    </span>
+                                    {trackerAndRegistryLinks.map((trk) => (
+                                      <a
+                                        key={trk.id}
+                                        href={trk.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`${trk.name} · ${trk.badge}`}
+                                        style={{
+                                          padding: '2px 8px',
+                                          borderRadius: 99,
+                                          background: withAlpha(KatanaColors.link, 0.12),
+                                          border: `1px solid ${withAlpha(KatanaColors.link, 0.38)}`,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 4,
+                                          fontFamily: Fonts.body,
+                                          fontSize: 11.5,
+                                          fontWeight: 700,
+                                          color: KatanaColors.link,
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        <Icon name={trk.icon} size={12} color={KatanaColors.link} />
+                                        <span>{trk.name}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                                <span
+                                  title={srcMeta.tooltip}
+                                  style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}
+                                >
+                                  Source: <strong style={{ color: KatanaColors.text }}>{srcMeta.name}</strong> ·{' '}
+                                  {srcMeta.signals.provenance} · {srcMeta.signals.specialty}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {migrationOpen && userName && (
                           <div
@@ -7523,7 +7602,7 @@ export function MangaPage() {
                           const active = catalogSource === src;
                           const tip =
                             src === 'all'
-                              ? 'Search and rank across all 4 catalogs simultaneously (MD · MK · CK · BT)'
+                              ? 'Search across all 4 community catalogs · Ranked by title match, metadata completeness (tracker IDs, authors, chapter count), and source preference (MD · MK · CK · BT)'
                               : getSourceBadgeInfo(src).tooltip;
                           return (
                             <button
