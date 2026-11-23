@@ -1066,3 +1066,30 @@ test('subtitle VTT fetch fallback renders cues and strips ASS tags when textTrac
   await new Promise((r) => setTimeout(r, 10));
   assert.equal(context.elements['sub-txt'].textContent, 'A long, long time ago,');
 });
+
+test('proxyAnime passes checkRevoked=true to verifyIdToken', async (t) => {
+  const { getAdmin } = require('./common');
+  const { proxyAnime } = require('./anime');
+  const seen = [];
+  t.mock.method(getAdmin().auth(), 'verifyIdToken', async (token, checkRevoked) => {
+    seen.push({ token, checkRevoked });
+    throw new Error('revoked');
+  });
+  const res = {
+    set() { return this; },
+    status(code) { this.code = code; return this; },
+    send(body) { this.body = body; return this; },
+    json(body) { this.body = body; return this; },
+  };
+  await proxyAnime(
+    {
+      method: 'GET',
+      headers: { authorization: 'Bearer test-token-123' },
+      query: { source: 'megavid', anilistId: '1', ep: '1' },
+      get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer test-token-123' : ''),
+    },
+    res,
+  );
+  assert.deepEqual(seen, [{ token: 'test-token-123', checkRevoked: true }]);
+  assert.equal(res.code, 401);
+});

@@ -23,7 +23,7 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '').trim() : '';
   if (idToken) {
     try {
-      const decoded = await getAdmin().auth().verifyIdToken(idToken);
+      const decoded = await getAdmin().auth().verifyIdToken(idToken, true);
       uid = decoded.uid || '';
     } catch (e) {
       res.status(401).json({ error: 'Invalid or expired auth token' });
