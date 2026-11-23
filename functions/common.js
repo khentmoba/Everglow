@@ -287,58 +287,21 @@ function _todayDayKey(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
 
-const _dailyCapCache = new Map();
-const DAILY_CAP_CACHE_TTL_MS = 60 * 1000;
-const DAILY_CAP_CACHE_MAX = 500;
-
-function _dailyCapCacheGet(key) {
-  const entry = _dailyCapCache.get(key);
-  if (!entry) return null;
-  if ((Date.now() - entry.ts) > DAILY_CAP_CACHE_TTL_MS) {
-    _dailyCapCache.delete(key);
-    return null;
-  }
-  return entry.count;
-}
-
-function _dailyCapCacheSet(key, count) {
-  _dailyCapCache.set(key, { count, ts: Date.now() });
-  if (_dailyCapCache.size > DAILY_CAP_CACHE_MAX) {
-    const oldest = _dailyCapCache.keys().next().value;
-    _dailyCapCache.delete(oldest);
-  }
-}
-
 async function checkDailyCap(uid, endpoint, dailyLimit) {
   const day = _todayDayKey();
-  const key = `${uid}:${endpoint}:${day}`;
-  const cached = _dailyCapCacheGet(key);
-  if (cached !== null) {
-    const count = cached + 1;
-    _dailyCapCacheSet(key, count);
-    try {
-      const ref = getDb().collection('api_usage').doc(uid).collection('days').doc(day);
-      ref.set({
-        [endpoint]: getAdmin().firestore.FieldValue.increment(1),
-        updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-      }, { merge: true }).catch((e) => {
-        console.warn('[usage] background daily cap sync failed:', e.message);
-      });
-    } catch (e) {
-      console.warn('[usage] background daily cap sync failed:', e.message);
-    }
-    return { allowed: count <= dailyLimit, count };
-  }
   try {
-    const ref = getDb().collection('api_usage').doc(uid).collection('days').doc(day);
-    await ref.set({
-      [endpoint]: getAdmin().firestore.FieldValue.increment(1),
-      updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-    const snap = await ref.get();
-    const count = Number(snap.data()?.[endpoint] || 0);
-    _dailyCapCacheSet(key, count);
-    return { allowed: count <= dailyLimit, count };
+    const database = getDb();
+    const ref = database.collection('api_usage').doc(uid).collection('days').doc(day);
+    return await database.runTransaction(async (transaction) => {
+      const snap = await transaction.get(ref);
+      const previousCount = Number(snap.data()?.[endpoint] || 0);
+      const count = previousCount + 1;
+      transaction.set(ref, {
+        [endpoint]: count,
+        updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { allowed: count <= dailyLimit, count };
+    });
   } catch (e) {
     console.warn('[usage] daily cap check failed (fail-open):', e.message);
     return { allowed: true, count: 0 };
