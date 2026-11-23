@@ -25,6 +25,7 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
   const [countdown, setCountdown] = useState(0);
   const mounted = useRef(true);
   const guestSub = useRef<(() => void) | null>(null);
+  const countdownTimer = useRef(0);
   const hostedRoomIdRef = useRef<string | null>(null);
   const matchStartedRef = useRef(false);
 
@@ -32,6 +33,7 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
     mounted.current = true;
     return () => {
       mounted.current = false;
+      window.clearTimeout(countdownTimer.current);
       guestSub.current?.();
       if (hostedRoomIdRef.current && !matchStartedRef.current) {
         const orphanId = hostedRoomIdRef.current;
@@ -42,13 +44,19 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
   }, []);
 
   const startCountdown = (id: string, isHost: boolean) => {
+    // The guest subscription re-emits on every room update. Without this guard
+    // each update starts a second countdown that calls onStart on its own.
+    if (matchStartedRef.current) return;
     matchStartedRef.current = true;
+    guestSub.current?.();
+    guestSub.current = null;
+    window.clearTimeout(countdownTimer.current);
     setRoomId(id);
     setCountdown(3);
     setSearching(false);
     let left = 3;
     const step = () => {
-      window.setTimeout(() => {
+      countdownTimer.current = window.setTimeout(() => {
         if (!mounted.current) return;
         if (left > 1) {
           left--;
@@ -102,8 +110,10 @@ function Lobby({ onStart }: { onStart: (g: { roomId: string; isHost: boolean }) 
   };
 
   const cancelSearch = () => {
+    window.clearTimeout(countdownTimer.current);
     guestSub.current?.();
     guestSub.current = null;
+    matchStartedRef.current = false;
     const idToDelete = hostedRoomIdRef.current ?? roomId;
     hostedRoomIdRef.current = null;
     if (idToDelete != null) void ttService.deleteRoom(idToDelete).catch(() => {});
