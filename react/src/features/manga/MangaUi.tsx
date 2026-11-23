@@ -1710,6 +1710,7 @@ function ItemCover({
   width,
   height,
   status,
+  source,
   unreadCount,
   downloadedCount,
 }: {
@@ -1718,10 +1719,13 @@ function ItemCover({
   width: number;
   height: number;
   status: string;
+  source?: 'mangakatana' | 'mangadex' | 'comick';
   unreadCount?: number;
   downloadedCount?: number;
 }) {
   const completed = status === 'completed';
+  const srcCode = source === 'mangadex' ? 'MD' : source === 'comick' ? 'CK' : source === 'mangakatana' ? 'MK' : null;
+  const srcColor = source === 'mangadex' ? KatanaColors.teal : source === 'comick' ? KatanaColors.link : KatanaColors.accentSoft;
   return (
     <div style={{ border: `1px solid ${KatanaColors.borderStrong}`, borderRadius: 9, flexShrink: 0, overflow: 'hidden' }}>
       <div style={{ position: 'relative', width, height, background: KatanaColors.surfaceAlt }}>
@@ -1731,15 +1735,44 @@ function ItemCover({
             position: 'absolute',
             left: 6,
             top: 6,
-            padding: '2px 7px',
-            background: completed ? withAlpha(KatanaColors.green, 0.92) : withAlpha(KatanaColors.background, 0.86),
-            border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
-            borderRadius: 6,
-            ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
-            whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            flexWrap: 'wrap',
           }}
         >
-          {completed ? 'Completed' : 'Ongoing'}
+          <span
+            style={{
+              padding: '2px 7px',
+              background: completed ? withAlpha(KatanaColors.green, 0.92) : withAlpha(KatanaColors.background, 0.86),
+              border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
+              borderRadius: 6,
+              ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {completed ? 'Completed' : 'Ongoing'}
+          </span>
+          {srcCode && (
+            <span
+              title={
+                source === 'mangadex'
+                  ? 'Source: MangaDex'
+                  : source === 'comick'
+                    ? 'Source: ComicK'
+                    : 'Source: MangaKatana'
+              }
+              style={{
+                padding: '2px 5px',
+                borderRadius: 5,
+                background: 'rgba(11, 13, 18, 0.9)',
+                border: `1px solid ${withAlpha(srcColor, 0.55)}`,
+                ...bodyText(10, 800, srcColor, 1.2),
+              }}
+            >
+              {srcCode}
+            </span>
+          )}
         </div>
         <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
       </div>
@@ -1805,6 +1838,7 @@ export function KatanaItemCard({
           width={coverW}
           height={coverH}
           status={manga.status}
+          source={manga.source}
           unreadCount={unreadCount}
           downloadedCount={downloadedCount}
         />
@@ -2038,17 +2072,38 @@ export function KatanaPosterCard({
           )}
           {manga.source && (
             <span
-              title={manga.source === 'mangadex' ? 'Source: MangaDex' : 'Source: MangaKatana'}
+              title={
+                manga.source === 'mangadex'
+                  ? 'Source: MangaDex'
+                  : manga.source === 'comick'
+                    ? 'Source: ComicK'
+                    : 'Source: MangaKatana'
+              }
               style={{
                 padding: '2px 6px',
                 borderRadius: 6,
                 background: 'rgba(11, 13, 18, 0.9)',
-                border: `1px solid ${manga.source === 'mangadex' ? withAlpha(KatanaColors.teal, 0.55) : withAlpha(KatanaColors.accent, 0.5)}`,
+                border: `1px solid ${
+                  manga.source === 'mangadex'
+                    ? withAlpha(KatanaColors.teal, 0.55)
+                    : manga.source === 'comick'
+                      ? withAlpha(KatanaColors.link, 0.55)
+                      : withAlpha(KatanaColors.accent, 0.5)
+                }`,
                 boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                ...bodyText(11, 800, manga.source === 'mangadex' ? KatanaColors.teal : KatanaColors.accentSoft, 1.2),
+                ...bodyText(
+                  11,
+                  800,
+                  manga.source === 'mangadex'
+                    ? KatanaColors.teal
+                    : manga.source === 'comick'
+                      ? KatanaColors.link
+                      : KatanaColors.accentSoft,
+                  1.2,
+                ),
               }}
             >
-              {manga.source === 'mangadex' ? 'MD' : 'MK'}
+              {manga.source === 'mangadex' ? 'MD' : manga.source === 'comick' ? 'CK' : 'MK'}
             </span>
           )}
         </div>

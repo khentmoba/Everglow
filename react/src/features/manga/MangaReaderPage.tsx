@@ -66,6 +66,7 @@ import {
   setLruEntry,
   SINGLE_TAP_DELAY_MS,
   WIDE_ASPECT_THRESHOLD,
+  type GuidedPanelRect,
   type SeriesReadingFormat,
 } from './readerSpread';
 
@@ -246,6 +247,7 @@ export function MangaReaderView({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [guidedPanelIdx, setGuidedPanelIdx] = useState(0);
+  const [detectedPanelsByKey, setDetectedPanelsByKey] = useState<Record<string, GuidedPanelRect[]>>({});
   const [sleepTimerEndAt, setSleepTimerEndAt] = useState<number | null>(null);
   const [sleepTimerExpired, setSleepTimerExpired] = useState(false);
   const cloudResumeTimerRef = useRef(0);
@@ -303,6 +305,7 @@ export function MangaReaderView({
     prefetchedChapterRef.current.clear();
     aspectMapRef.current.clear();
     setFailedPageKeys([]);
+    setDetectedPanelsByKey({});
     setPageBookmarks(loadPageBookmarks(params.slug));
     return () => {
       offlineMedia.revokeBlobUrls(blobs);
@@ -814,8 +817,12 @@ export function MangaReaderView({
             programmaticScrollRef.current = false;
           });
         }
+        const portraitTabletSpreadHint =
+          viewportWidth >= 720 && viewportWidth <= viewportHeight && !isWebtoon && !isDouble
+            ? ' • Rotate or tap Spread for 2-page view'
+            : '';
         writeProgressNow(chapterId, targetIdx + 1, existing.pages.length, resume?.offsetRatio ?? 0, false);
-        flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(existing.chapter)}`);
+        flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(existing.chapter)}${portraitTabletSpreadHint}`);
       }
       return;
     }
@@ -854,8 +861,12 @@ export function MangaReaderView({
       }
       activeKeyRef.current = `${chapterId}:${targetIdx}`;
       setPageIdx(targetIdx);
+      const portraitTabletSpreadHint =
+        viewportWidth >= 720 && viewportWidth <= viewportHeight && !isWebtoon && !isDouble
+          ? ' • Rotate or tap Spread for 2-page view'
+          : '';
       writeProgressNow(chapterId, targetIdx + 1, urls.length, resume?.offsetRatio ?? 0, false);
-      flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(ch)}`);
+      flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(ch)}${portraitTabletSpreadHint}`);
     });
 
     return () => {
@@ -1464,9 +1475,10 @@ export function MangaReaderView({
 
   const guidedActive = settings.guidedPanelZoom && !isWebtoon && !isHorizontalStrip && pages.length > 0;
   const currentPageAspect = aspectMapRef.current.get(`${chapterId}:${pageIdx}`) ?? 0.7;
+  const activeDetectedPanels = detectedPanelsByKey[`${chapterId}:${pageIdx}`];
   const guidedPanels = useMemo(
-    () => (guidedActive ? buildGuidedPanels(currentPageAspect, isRtl) : []),
-    [guidedActive, currentPageAspect, isRtl],
+    () => (guidedActive ? buildGuidedPanels(currentPageAspect, isRtl, activeDetectedPanels) : []),
+    [guidedActive, currentPageAspect, isRtl, activeDetectedPanels],
   );
 
   useEffect(() => {
@@ -2638,9 +2650,13 @@ export function MangaReaderView({
                   rotateWide={settings.rotateWidePages}
                   eager
                   cropBorders={settings.cropBorders}
+                  detectPanels={settings.guidedPanelZoom}
                   knownAspect={aspectMapRef.current.get(rawKey)}
                   reloadToken={pageReloadTokens[rawKey] ?? 0}
                   onDimensions={(w, h) => handlePageDimensions(chapterId, slot.pageIndex, w, h)}
+                  onPanelsDetected={(panels) =>
+                    setDetectedPanelsByKey((prev) => (prev[rawKey] ? prev : { ...prev, [rawKey]: panels }))
+                  }
                   onLongPress={(resolvedUrl, num) => {
                     lastSwipeAtRef.current = Date.now();
                     setPageAction({ url: resolvedUrl, pageNumber: num, key: rawKey });
@@ -2765,6 +2781,9 @@ export function MangaReaderView({
                     <div>Tap Center for Menu</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500, opacity: 0.85, marginTop: 6 }}>
                       Double-tap to zoom • Swipe to turn
+                      {viewportWidth >= 720 && viewportWidth <= viewportHeight && !isDouble
+                        ? ' • Rotate or tap Spread for 2-page view'
+                        : ''}
                     </div>
                   </div>
                 ) : (

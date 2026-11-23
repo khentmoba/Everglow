@@ -296,3 +296,89 @@ test('runMangaUpdateCheck respects custom quietStartHour/quietEndHour and predic
 
   assert.equal(seriesProbes, 0, 'should skip direct series probe when now < nextCheckAt');
 });
+
+test('runMangaUpdateCheck batch-resolves multiple MangaDex md- slugs and persists updateCursorSlug', async () => {
+  const writes = [];
+  const pushed = [];
+  const fakeDb = {
+    collection: () => ({
+      doc: (id) => ({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            alertPrefs: { frequency: 'instant', quietHours: false },
+            updateCursorSlug: 'katana.1',
+          }),
+        }),
+        set: async (data) => writes.push({ id, data }),
+      }),
+      where: function () {
+        return this;
+      },
+      get: async () => ({
+        docs: [
+          {
+            id: 'khentsgdz|katana.1',
+            data: () => ({ slug: 'katana.1', title: 'Katana 1', bookmarked: true, lastNotifiedChapter: '5' }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|katana.1', data }) },
+          },
+          {
+            id: 'khentsgdz|katana.2',
+            data: () => ({ slug: 'katana.2', title: 'Katana 2', bookmarked: true, lastNotifiedChapter: '8' }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|katana.2', data }) },
+          },
+          {
+            id: 'khentsgdz|md-11111111-2222-3333-4444-555555555555',
+            data: () => ({
+              slug: 'md-11111111-2222-3333-4444-555555555555',
+              title: 'MD Series A',
+              bookmarked: true,
+              lastNotifiedChapter: '10',
+            }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|md-a', data }) },
+          },
+          {
+            id: 'khentsgdz|md-66666666-7777-8888-9999-000000000000',
+            data: () => ({
+              slug: 'md-66666666-7777-8888-9999-000000000000',
+              title: 'MD Series B',
+              bookmarked: true,
+              lastNotifiedChapter: '20',
+            }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|md-b', data }) },
+          },
+        ],
+      }),
+    }),
+  };
+
+  let batchCalls = 0;
+  let singleMdCalls = 0;
+  await runMangaUpdateCheck({
+    db: fakeDb,
+    sendPush: async (uid, payload) => {
+      pushed.push({ uid, payload });
+      return true;
+    },
+    fetchLatest: async () => new Map(),
+    fetchMangaDexBatch: async (slugs) => {
+      batchCalls += 1;
+      assert.equal(slugs.length, 2);
+      return new Map([
+        ['md-11111111-2222-3333-4444-555555555555', { chapterId: 'md-c11', chapterNum: '11', num: 11 }],
+        ['md-66666666-7777-8888-9999-000000000000', { chapterId: 'md-c20', chapterNum: '20', num: 20 }],
+      ]);
+    },
+    fetchMangaDexLatest: async () => {
+      singleMdCalls += 1;
+      return null;
+    },
+    fetchKatanaSeriesLatest: async () => null,
+    now: new Date('2026-11-23T06:00:00Z'),
+  });
+
+  assert.equal(batchCalls, 2);
+  assert.equal(singleMdCalls, 0, 'batch map should satisfy both md- slugs without individual probes');
+  assert.equal(pushed.length, 2);
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|__prefs__' && typeof w.data.updateCursorSlug === 'string'));
+});

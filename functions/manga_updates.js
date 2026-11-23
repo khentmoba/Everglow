@@ -213,6 +213,64 @@ async function fetchMangaDexLatestChapter(slug, fetchFn = common.fetchPublicUrl)
   }
 }
 
+/**
+ * Batch MangaDex latest-chapters sweep: queries up to 50 followed `md-<uuid>` series
+ * in a single `/chapter` feed call so large MangaDex libraries don't consume N round-trips.
+ */
+async function fetchMangaDexBatchLatest(slugs, fetchFn = common.fetchPublicUrl) {
+  const out = new Map();
+  if (!Array.isArray(slugs) || slugs.length === 0) return out;
+  const uuids = [];
+  for (const s of slugs) {
+    if (typeof s !== 'string' || !s.startsWith('md-')) continue;
+    const uuid = s.slice(3).trim().toLowerCase();
+    if (/^[0-9a-f-]{16,64}$/i.test(uuid) && !uuids.includes(uuid)) {
+      uuids.push(uuid);
+    }
+    if (uuids.length >= 50) break;
+  }
+  if (uuids.length === 0) return out;
+  const mangaParams = uuids.map((id) => `manga[]=${encodeURIComponent(id)}`).join('&');
+  const url = `${MANGADEX_API_BASE}/chapter?translatedLanguage[]=en&order[publishAt]=desc&limit=100&${mangaParams}`;
+  try {
+    const upstream = await fetchFn(url, {
+      headers: {
+        'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.mangadex.org',
+    });
+    if (!upstream.ok) return out;
+    const text = await common.readLimitedText(upstream.body, 512 * 1024);
+    const json = JSON.parse(text);
+    const items = Array.isArray(json?.data) ? json.data : [];
+    for (const item of items) {
+      const chRaw = item?.attributes?.chapter;
+      if (!item?.id || chRaw == null || String(chRaw).trim() === '') continue;
+      const mangaRel = Array.isArray(item.relationships)
+        ? item.relationships.find((r) => r && r.type === 'manga' && typeof r.id === 'string')
+        : null;
+      if (!mangaRel?.id) continue;
+      const slug = `md-${mangaRel.id.toLowerCase()}`;
+      const chapterNum = String(chRaw).trim();
+      const num = parseChapterNumber(chapterNum);
+      const prev = out.get(slug);
+      if (!prev || (Number.isFinite(num) && num > prev.num)) {
+        out.set(slug, {
+          chapterId: `md-${item.id}`,
+          chapterNum,
+          num: Number.isFinite(num) ? num : -1,
+        });
+      }
+    }
+    return out;
+  } catch {
+    return out;
+  }
+}
+
 async function fetchKatanaSeriesLatestChapter(slug, fetchFn = common.fetchPublicUrl) {
   if (!slug || slug.startsWith('md-') || !/^[\w.-]{1,160}$/.test(slug)) return null;
   try {
@@ -241,6 +299,7 @@ async function runMangaUpdateCheck({
   sendPush = sendFCMToUser,
   fetchLatest = fetchMangaHomeLatest,
   fetchMangaDexLatest = fetchMangaDexLatestChapter,
+  fetchMangaDexBatch = fetchMangaDexBatchLatest,
   fetchKatanaSeriesLatest = fetchKatanaSeriesLatestChapter,
   now = new Date(),
 } = {}) {
@@ -289,14 +348,31 @@ async function runMangaUpdateCheck({
     const freshUpdates = [];
     const checkedSeriesUpdates = [];
     const nowMs = now.getTime();
-    // Sort stalest lastCheckedAt first so cursor-based round-robin covers every followed series across runs.
-    const sortedDocs = [...snap.docs].sort((a, b) => {
+    // Sort stalest lastCheckedAt first, with durable cursor tie-breaking so every followed series rotates evenly across runs.
+    const cursorSlug = typeof prefs.updateCursorSlug === 'string' ? prefs.updateCursorSlug : '';
+    const baseDocs = [...snap.docs].sort((a, b) => {
       const ta = Number(a.data()?.lastCheckedAt || 0);
       const tb = Number(b.data()?.lastCheckedAt || 0);
-      return ta - tb;
+      if (ta !== tb) return ta - tb;
+      const sa = String(a.data()?.slug || a.id);
+      const sb = String(b.data()?.slug || b.id);
+      return sa.localeCompare(sb);
     });
+    const cursorIdx = cursorSlug ? baseDocs.findIndex((d) => String(d.data()?.slug || '') === cursorSlug) : -1;
+    const sortedDocs =
+      cursorIdx >= 0 && cursorIdx < baseDocs.length - 1
+        ? [...baseDocs.slice(cursorIdx + 1), ...baseDocs.slice(0, cursorIdx + 1)]
+        : baseDocs;
+
+    // Batch-resolve followed MangaDex series in a single /chapter feed call when multiple md- slugs are followed.
+    const mdFollowedSlugs = sortedDocs
+      .map((d) => String(d.data()?.slug || '').trim().toLowerCase())
+      .filter((s) => s.startsWith('md-'));
+    const mdBatchMap = mdFollowedSlugs.length > 1 ? await fetchMangaDexBatch(mdFollowedSlugs) : new Map();
+
     let mdLookups = 0;
     let katanaLookups = 0;
+    let lastProbedSlug = cursorSlug;
     for (const docSnap of sortedDocs) {
       if (docSnap.id.endsWith('|__prefs__')) continue;
       const data = docSnap.data() || {};
@@ -313,18 +389,23 @@ async function runMangaUpdateCheck({
       if (!slug) continue;
 
       let latest = hasKatanaMap ? latestBySlug.get(slug) : null;
+      if (!latest && slug.startsWith('md-') && mdBatchMap && mdBatchMap.size > 0) {
+        latest = mdBatchMap.get(slug.toLowerCase()) || null;
+      }
       let fromSeriesPage = false;
       // Mihon Smart Updates: only probe an individual series page when its predicted cadence window is due.
       const dueForDirectProbe = typeof data.nextCheckAt !== 'number' || nowMs >= data.nextCheckAt;
       const canLookup = dueForDirectProbe && Date.now() < lookupDeadline;
       if (!latest && canLookup && slug.startsWith('md-') && mdLookups < MANGADEX_PER_RUN_CAP) {
         mdLookups += 1;
+        lastProbedSlug = slug;
         latest = await fetchMangaDexLatest(slug);
         checkedSeriesUpdates.push({ ref: docSnap.ref, data });
         fromSeriesPage = true;
       } else if (!latest && canLookup && !slug.startsWith('md-') && katanaLookups < KATANA_SERIES_PER_RUN_CAP) {
         // Followed series that missed the latest-updates feed: read its own page (stalest first).
         katanaLookups += 1;
+        lastProbedSlug = slug;
         latest = await fetchKatanaSeriesLatest(slug);
         checkedSeriesUpdates.push({ ref: docSnap.ref, data });
         fromSeriesPage = true;
@@ -385,7 +466,13 @@ async function runMangaUpdateCheck({
     }
 
     if (freshUpdates.length === 0) {
-      await prefsRef.set({ lastUpdateCheckAt: nowMs }, { merge: true });
+      await prefsRef.set(
+        {
+          lastUpdateCheckAt: nowMs,
+          ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
+        },
+        { merge: true },
+      );
       continue;
     }
 
@@ -429,8 +516,15 @@ async function runMangaUpdateCheck({
     );
     await prefsRef.set(
       mode === 'daily_digest'
-        ? { lastPushDigestDay: dayKey, lastUpdateCheckAt: nowMs }
-        : { lastUpdateCheckAt: nowMs },
+        ? {
+            lastPushDigestDay: dayKey,
+            lastUpdateCheckAt: nowMs,
+            ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
+          }
+        : {
+            lastUpdateCheckAt: nowMs,
+            ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
+          },
       { merge: true },
     );
   }
@@ -453,6 +547,7 @@ module.exports = {
   checkMangaUpdates,
   runMangaUpdateCheck,
   fetchKatanaSeriesLatestChapter,
+  fetchMangaDexBatchLatest,
   extractLatestChaptersFromFeedXml,
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,

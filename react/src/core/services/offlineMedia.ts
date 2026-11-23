@@ -270,13 +270,21 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     if (this.initialized) return;
     this.initialized = true;
     const items: Record<string, OfflineMediaItem> = {};
+    const autoResumeIds: string[] = [];
     try {
       const raw = Prefs.getString(PREFS_KEY);
       if (raw) {
         for (const entry of JSON.parse(raw) as unknown[]) {
           if (entry && typeof entry === 'object') {
             const item = fromJson(entry as Record<string, unknown>);
-            items[item.id] = item.status === 'downloading' ? { ...item, status: 'paused' } : item;
+            if (item.status === 'downloading' || item.status === 'queued') {
+              items[item.id] = { ...item, status: 'paused' };
+              if (item.type === 'manga' && item.pageUrls.length > 0) {
+                autoResumeIds.push(item.id);
+              }
+            } else {
+              items[item.id] = item;
+            }
           }
         }
       }
@@ -287,6 +295,13 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       for (const item of demoItems()) items[item.id] = item;
     }
     this.value = items;
+    if (autoResumeIds.length > 0 && !AgentMode.demo && typeof navigator !== 'undefined' && navigator.onLine !== false) {
+      queueMicrotask(() => {
+        for (const id of autoResumeIds) {
+          void this.resumeDownload(id);
+        }
+      });
+    }
   }
 
   /** Completed or in-progress downloads, newest first. */
@@ -500,6 +515,23 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     };
     this.put(initial);
     this.save();
+
+    // Delegate background cache population hint to active Service Worker when supported
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller && args.pageUrls.length > 0) {
+      try {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'EVERGLOW_PRECACHE_MANGA',
+          id,
+          cacheName: MANGA_CACHE,
+          pages: args.pageUrls.map((raw, idx) => ({
+            key: cacheKey(`${id}_p_${idx + 1}`, true),
+            url: raw.startsWith('http') ? proxy(raw) : raw,
+          })),
+        });
+      } catch {
+        // ignore SW message errors
+      }
+    }
 
     const controller = new AbortController();
     this.activeControllers.get(id)?.abort();

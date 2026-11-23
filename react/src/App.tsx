@@ -321,6 +321,7 @@ const router = createBrowserRouter([
       { path: '/manga/reader', loader: guard, element: <LazyPages.MangaReaderPage /> },
       { path: '/manga/series/:slug', loader: guard, element: <LazyPages.MangaPage /> },
       { path: '/manga/series/:slug/:chapterId', loader: guard, element: <LazyPages.MangaPage /> },
+      { path: '/manga/series/:slug/read/:chapterId', loader: guard, element: <LazyPages.MangaPage /> },
       { path: '/books', loader: guard, element: <LazyPages.BooksPage /> },
       { path: '/books/reader', loader: guard, element: <LazyPages.BookReaderPage /> },
       { path: '/books/listen', loader: guard, element: <LazyPages.BookReaderPage startListening /> },

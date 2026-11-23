@@ -32,7 +32,7 @@ const PROXY_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaKatana`;
 const PROXY_MANGADEX_URL = `${FUNCTIONS_BASE}/proxyMangaDex`;
 const PROXY_MANGA_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaImage`;
 
-export type KatanaCatalogSource = 'all' | 'mangakatana' | 'mangadex';
+export type KatanaCatalogSource = 'all' | 'mangakatana' | 'mangadex' | 'comick';
 
 export interface KatanaGenre {
   slug: string;
@@ -76,7 +76,7 @@ export interface KatanaManga {
   chapterCount?: number;
   demographic?: string;
   releaseDay?: KatanaWeekday;
-  source?: 'mangakatana' | 'mangadex';
+  source?: 'mangakatana' | 'mangadex' | 'comick';
 }
 
 export type KatanaLibraryStatus = 'reading' | 'completed' | 'on_hold' | 'planned' | 'dropped';
@@ -506,12 +506,15 @@ export function getPreferredMangaGenres(): string[] {
   }
 }
 
-export function setPreferredMangaGenres(slugs: string[]): string[] {
+export function setPreferredMangaGenres(slugs: string[], userName?: string): string[] {
   const next = Array.from(new Set(slugs.map((s) => s.trim().toLowerCase()).filter(Boolean))).slice(0, 6);
   try {
     localStorage.setItem(PREFERRED_GENRES_KEY, JSON.stringify(next));
   } catch {
     // ignore storage quota
+  }
+  if (userName) {
+    saveKatanaUserPrefs(userName, { preferredGenres: next });
   }
   return next;
 }
@@ -1524,6 +1527,24 @@ const demoBookmarks = new Map<string, KatanaBookmark[]>([
         new Date(2026, 2, 12, 20, 0),
       ),
       demoProgress(
+        'demo-iron-sovereign',
+        'Iron Sovereign of the Ashen Gate',
+        buildDemoMangaCoverDataUrl('Iron Sovereign Ashen Gate', 'Cheolwang-ui Mun', 'MANHWA · S2', 1),
+        114,
+        undefined,
+        'Chapter 118',
+        new Date(2026, 2, 12, 17, 30),
+      ),
+      demoProgress(
+        'demo-neon-courier',
+        'Neon Courier 2099',
+        buildDemoMangaCoverDataUrl('Neon Courier 2099', 'Shinjuku Express', 'SCI-FI · MANGA', 4),
+        51,
+        undefined,
+        'Chapter 54',
+        new Date(2026, 2, 11, 22, 15),
+      ),
+      demoProgress(
         'demo-paper-moon',
         'Demo Paper Moon',
         buildDemoMangaCoverDataUrl('Demo Paper Moon', 'Kami no Tsuki', 'SEINEN · COMPLETE', 2),
@@ -1554,6 +1575,15 @@ const demoBookmarks = new Map<string, KatanaBookmark[]>([
         undefined,
         'Chapter 28',
         new Date(2026, 2, 9, 15, 0),
+      ),
+      demoProgress(
+        'demo-crimson-tides',
+        'Crimson Tides of Busan',
+        buildDemoMangaCoverDataUrl('Crimson Tides of Busan', 'Bulgeun Pado', 'MANHWA · MYSTERY', 6),
+        64,
+        undefined,
+        'Chapter 67',
+        new Date(2026, 2, 8, 19, 45),
       ),
     ],
   ],
@@ -2949,6 +2979,7 @@ export interface KatanaUserPrefs {
   wifiOnlyDownloads: boolean;
   autoDownloadNext: number;
   autoDownloadCategories?: string[];
+  preferredGenres?: string[];
   themeMode?: 'dark' | 'oled' | 'light' | 'sepia';
 }
 
@@ -2966,6 +2997,7 @@ const DEFAULT_USER_PREFS: KatanaUserPrefs = {
   wifiOnlyDownloads: false,
   autoDownloadNext: 0,
   autoDownloadCategories: [],
+  preferredGenres: [],
 };
 
 function normalizeHour(h: unknown, fallback: number): number {
@@ -3016,6 +3048,9 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
         autoDownloadCategories: Array.isArray(parsed.autoDownloadCategories)
           ? parsed.autoDownloadCategories.filter((c): c is string => typeof c === 'string')
           : [],
+        preferredGenres: Array.isArray(parsed.preferredGenres)
+          ? parsed.preferredGenres.filter((g): g is string => typeof g === 'string').slice(0, 6)
+          : getPreferredMangaGenres(),
         themeMode:
           parsed.themeMode === 'dark' ||
           parsed.themeMode === 'oled' ||
@@ -3031,6 +3066,7 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
   return {
     ...DEFAULT_USER_PREFS,
     alertPrefs: loadKatanaAlertPrefs(userName),
+    preferredGenres: getPreferredMangaGenres(),
   };
 }
 
@@ -3045,6 +3081,9 @@ export function saveKatanaUserPrefs(userName: string, partial: Partial<KatanaUse
   try {
     localStorage.setItem(`${USER_PREFS_PREFIX}${userName}`, JSON.stringify(next));
     localStorage.setItem(`${ALERT_PREFS_PREFIX}${userName}`, JSON.stringify(next.alertPrefs));
+    if (Array.isArray(next.preferredGenres)) {
+      localStorage.setItem(PREFERRED_GENRES_KEY, JSON.stringify(next.preferredGenres.slice(0, 6)));
+    }
   } catch {
     // ignore storage errors
   }
@@ -3060,6 +3099,7 @@ export function saveKatanaUserPrefs(userName: string, partial: Partial<KatanaUse
         wifiOnlyDownloads: next.wifiOnlyDownloads,
         autoDownloadNext: next.autoDownloadNext,
         autoDownloadCategories: next.autoDownloadCategories ?? [],
+        preferredGenres: (next.preferredGenres ?? []).slice(0, 6),
         ...(next.themeMode ? { themeMode: next.themeMode } : {}),
         updatedAt: Timestamp.now(),
       },
@@ -3116,6 +3156,9 @@ export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> 
           autoDownloadCategories: Array.isArray(data?.autoDownloadCategories)
             ? data.autoDownloadCategories.filter((c: unknown): c is string => typeof c === 'string')
             : [],
+          preferredGenres: Array.isArray(data?.preferredGenres)
+            ? data.preferredGenres.filter((g: unknown): g is string => typeof g === 'string').slice(0, 6)
+            : getPreferredMangaGenres(),
           themeMode:
             data?.themeMode === 'dark' ||
             data?.themeMode === 'oled' ||
@@ -3127,6 +3170,9 @@ export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> 
         try {
           localStorage.setItem(`${USER_PREFS_PREFIX}${userName}`, JSON.stringify(merged));
           localStorage.setItem(`${ALERT_PREFS_PREFIX}${userName}`, JSON.stringify(merged.alertPrefs));
+          if (Array.isArray(merged.preferredGenres)) {
+            localStorage.setItem(PREFERRED_GENRES_KEY, JSON.stringify(merged.preferredGenres));
+          }
         } catch {
           // ignore
         }
@@ -3690,6 +3736,127 @@ export async function searchMangaDexCatalog(
   } catch (err) {
     Logger.e('KatanaService: searchMangaDexCatalog failed', err);
     return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'Could not reach MangaDex right now.' };
+  }
+}
+
+/**
+ * Tertiary catalog source (ComicK / Community Catalog) backed by Everglow's cloud proxy
+ * so readers can cross-search and compare across 3 independent manga catalogs (MK / MD / CK).
+ */
+export async function searchComickCatalog(
+  optsOrQuery: string | MangaDexCatalogOptions,
+): Promise<KatanaPageResult> {
+  const opts: MangaDexCatalogOptions = typeof optsOrQuery === 'string' ? { query: optsOrQuery } : optsOrQuery;
+  const q = (opts.query ?? '').trim();
+  const page = Math.max(1, opts.page ?? 1);
+  if (AgentMode.demo) {
+    const catalog = buildDemoCatalog();
+    const filtered = (
+      q
+        ? catalog.filter(
+            (m) =>
+              m.title.toLowerCase().includes(q.toLowerCase()) ||
+              m.genres.some((g) => g.name.toLowerCase().includes(q.toLowerCase())),
+          )
+        : catalog
+    ).map((m, idx) => ({
+      ...m,
+      slug: m.slug.startsWith('ck-') ? m.slug : `ck-${m.slug}`,
+      title: `${m.title} (ComicK Official)`,
+      coverUrl: buildDemoMangaCoverDataUrl(m.title, 'ComicK Community', 'COMICK · HD', idx + 5),
+      summary: m.summary ? `[ComicK] ${m.summary}` : 'Available via ComicK community catalog source.',
+      source: 'comick' as const,
+    }));
+    const demoPageSize = 8;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / demoPageSize));
+    const start = (page - 1) * demoPageSize;
+    return {
+      items: filtered.slice(start, start + demoPageSize),
+      page,
+      hasPrev: page > 1,
+      hasNext: page < totalPages,
+      totalPages,
+      totalResults: filtered.length,
+    };
+  }
+  if (!ConnectivityService.isOnline) {
+    return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'You are offline.' };
+  }
+  try {
+    const resp = await catalogProxyGet('jikan', 'manga', {
+      query: {
+        ...(q ? { q } : {}),
+        page: String(page),
+        limit: '20',
+        sfw: 'true',
+        order_by: opts.orderBy === 'rating' ? 'score' : opts.orderBy === 'az' ? 'title' : 'members',
+        sort: opts.orderBy === 'az' ? 'asc' : 'desc',
+      },
+      timeoutMs: 10000,
+    });
+    if (!resp.ok) {
+      return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'ComicK catalog is temporarily unavailable.' };
+    }
+    const json = (await resp.json()) as {
+      pagination?: { has_next_page?: boolean; last_visible_page?: number; items?: { total?: number } };
+      data?: Array<Record<string, unknown>>;
+    };
+    const rawList = Array.isArray(json.data) ? json.data : [];
+    const mapped: KatanaManga[] = rawList.map((entry) => {
+      const title = String(entry.title_english || entry.title || 'Untitled');
+      const slug =
+        title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || String(entry.mal_id ?? 'manga');
+      const images = entry.images as { jpg?: { large_image_url?: string; image_url?: string } } | undefined;
+      const coverUrl = images?.jpg?.large_image_url || images?.jpg?.image_url || '';
+      const rawGenres = Array.isArray(entry.genres) ? (entry.genres as Array<{ name?: string }>) : [];
+      const genres: KatanaGenre[] = rawGenres
+        .map((g) => String(g?.name ?? '').trim())
+        .filter(Boolean)
+        .map((name) => ({
+          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name,
+          count: 0,
+          description: '',
+        }));
+      const chCount = typeof entry.chapters === 'number' && entry.chapters > 0 ? entry.chapters : undefined;
+      const score = typeof entry.score === 'number' && entry.score > 0 ? entry.score : undefined;
+      const members = typeof entry.members === 'number' && entry.members > 0 ? entry.members : undefined;
+      const statusStr = String(entry.status ?? '').toLowerCase().includes('finish') ? 'completed' : 'ongoing';
+      return {
+        id: String(entry.mal_id ?? slug),
+        slug,
+        title,
+        coverUrl,
+        status: statusStr,
+        updateText: chCount ? `${chCount} chapters` : 'Community catalog',
+        summary: typeof entry.synopsis === 'string' ? entry.synopsis : '',
+        genres,
+        latestChapter: chCount ? { id: `c${chCount}`, num: String(chCount), title: `Chapter ${chCount}` } : undefined,
+        recentChapters: [],
+        altNames: [],
+        authors: [],
+        artists: [],
+        chapters: [],
+        rating: score,
+        follows: members,
+        chapterCount: chCount,
+        source: 'comick',
+      };
+    });
+    return {
+      items: mapped,
+      page,
+      hasPrev: page > 1,
+      hasNext: Boolean(json.pagination?.has_next_page),
+      totalPages: json.pagination?.last_visible_page ?? 1,
+      totalResults: json.pagination?.items?.total ?? mapped.length,
+    };
+  } catch (err) {
+    Logger.e('KatanaService: searchComickCatalog failed', err);
+    return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'Could not reach ComicK right now.' };
   }
 }
 

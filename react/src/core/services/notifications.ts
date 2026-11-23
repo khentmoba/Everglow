@@ -42,7 +42,7 @@ export function routeFromNotification(data: Record<string, string> | undefined):
       const slug = data?.slug?.trim();
       const chapterId = data?.chapterId?.trim();
       if (slug && chapterId) {
-        return `/manga/series/${encodeURIComponent(slug)}/read/${encodeURIComponent(chapterId)}`;
+        return `/manga/series/${encodeURIComponent(slug)}/${encodeURIComponent(chapterId)}`;
       }
       if (slug) return `/manga/series/${encodeURIComponent(slug)}`;
       return '/manga';
