@@ -136,7 +136,8 @@ export function KatanaButton({
 }) {
   const isPrimary = color === KatanaColors.accent && filled;
   const fg = filled ? (isPrimary ? KatanaColors.accentInk : white) : color;
-  const pad = size === 'sm' ? '6px 12px' : '9px 16px';
+  const pad = size === 'sm' ? '7px 13px' : '10px 18px';
+  const minH = size === 'sm' ? 38 : 44;
   const fontSize = size === 'sm' ? 12.5 : 13.5;
   return (
     <button
@@ -150,6 +151,7 @@ export function KatanaButton({
         justifyContent: 'center',
         gap: 6,
         padding: pad,
+        minHeight: minH,
         borderRadius: 99,
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -446,7 +448,7 @@ export function KatanaHeader({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const phoneCompact = width < KATANA_BREAKPOINTS.tablet;
-
+  const tabletOrDesktop = width >= KATANA_BREAKPOINTS.tablet;
   const desktop = width >= KATANA_BREAKPOINTS.desktop;
   const narrow = width < 500;
   const hasText = queryText !== '';
@@ -501,8 +503,8 @@ export function KatanaHeader({
       title="Back to Everglow"
       aria-label="Back to Everglow"
       style={{
-        width: 38,
-        height: 38,
+        width: 42,
+        height: 42,
         flexShrink: 0,
         borderRadius: 10,
         background: KatanaColors.surfaceAlt,
@@ -937,26 +939,27 @@ export function KatanaHeader({
             maxWidth: 1240,
             margin: '0 auto',
             overflowX: 'auto',
-            padding: desktop ? '4px 12px' : '3px 10px',
+            padding: tabletOrDesktop ? '4px 12px' : '3px 10px',
             display: 'flex',
             alignItems: 'center',
             gap: 2,
           }}
         >
-          {desktop ? (
+          {tabletOrDesktop ? (
             <>
               {nav('home', 'Home', 'home')}
               {nav('directory', 'Browse', 'explore')}
               {nav('latest', 'Latest', 'bolt')}
-              {nav('newManga', 'New Releases', 'new_releases')}
+              {nav('newManga', desktop ? 'New Releases' : 'New', 'new_releases')}
               <GenresDropdown
                 genres={genres}
                 active={active === 'genres'}
                 onSelectGenre={onSelectGenre}
                 onOpenGenresPage={() => onSelectNav('genres')}
               />
-              {nav('reading', 'Currently Reading', 'auto_stories')}
+              {nav('reading', desktop ? 'Currently Reading' : 'Reading', 'auto_stories')}
               {nav('downloads', 'Downloads', 'download_done')}
+              {!desktop && nav('bookmarks', 'Library', 'bookmarks')}
             </>
           ) : (
             <>

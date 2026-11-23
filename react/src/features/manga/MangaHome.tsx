@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { reduceAmbientMotion } from '../../core/system/device';
 import { withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
@@ -30,6 +31,7 @@ import {
   type KatanaGenre,
   type KatanaHomeData,
   type KatanaManga,
+  type KatanaWeekday,
 } from './katanaService';
 import { getKatanaGridColumns, KATANA_BREAKPOINTS, KatanaColors, KatanaType } from './katanaTokens';
 
@@ -112,10 +114,32 @@ function FeaturedHero({
   const bm = bookmarks.find((b) => b.slug === featured.slug);
   const completed = featured.status === 'completed';
   const backdropUrl = featured.coverUrl ? proxyKatanaImageUrl(featured.coverUrl) : '';
+  const allowBlur = !reduceAmbientMotion({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800,
+  });
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (candidates.length <= 1 || e.touches.length !== 1) return;
+    swipeStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || candidates.length <= 1 || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    setIndex((prev) => (dx < 0 ? (prev + 1) % candidates.length : (prev - 1 + candidates.length) % candidates.length));
+  };
 
   return (
     <section
       aria-label="Featured title"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       style={{
         position: 'relative',
         borderRadius: 16,
@@ -125,8 +149,8 @@ function FeaturedHero({
         marginBottom: 14,
       }}
     >
-      {/* Cover-derived atmospheric blurred backdrop */}
-      {backdropUrl && (
+      {/* Cover-derived atmospheric backdrop (blur gated behind motion preference) */}
+      {backdropUrl && allowBlur ? (
         <img
           src={backdropUrl}
           alt=""
@@ -137,9 +161,20 @@ function FeaturedHero({
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            filter: 'blur(28px) saturate(1.2) brightness(0.42)',
-            transform: 'scale(1.18)',
-            opacity: 0.72,
+            filter: 'blur(24px) saturate(1.15) brightness(0.42)',
+            transform: 'scale(1.16)',
+            opacity: 0.7,
+            pointerEvents: 'none',
+          }}
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(circle at 18% 24%, rgba(245, 158, 11, 0.16) 0%, rgba(35, 42, 58, 0.36) 45%, rgba(11, 13, 18, 0.96) 100%)',
             pointerEvents: 'none',
           }}
         />
@@ -569,6 +604,168 @@ function CurrentlyReadingShelf({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+const WEEKDAYS: KatanaWeekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function todayWeekday(): KatanaWeekday {
+  const jsDay = new Date().getDay(); // 0=Sun..6=Sat
+  return WEEKDAYS[(jsDay + 6) % 7];
+}
+
+function ReleaseScheduleRail({
+  catalog,
+  unreadBySlug,
+  downloadedCounts,
+  compact,
+  onSelectManga,
+}: {
+  catalog: KatanaManga[];
+  unreadBySlug: Record<string, number>;
+  downloadedCounts: Record<string, number>;
+  compact: boolean;
+  onSelectManga: (slug: string) => void;
+}) {
+  const today = useMemo(() => todayWeekday(), []);
+  const scheduled = useMemo(() => catalog.filter((m) => m.releaseDay), [catalog]);
+  const byDay = useMemo(() => {
+    const map: Record<KatanaWeekday, KatanaManga[]> = {
+      Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [],
+    };
+    for (const m of scheduled) {
+      if (m.releaseDay) map[m.releaseDay].push(m);
+    }
+    return map;
+  }, [scheduled]);
+  const [selectedDay, setSelectedDay] = useState<KatanaWeekday>(() => {
+    if (scheduled.some((m) => m.releaseDay === today)) return today;
+    return scheduled[0]?.releaseDay ?? today;
+  });
+
+  if (scheduled.length === 0) return null;
+
+  const activeItems = byDay[selectedDay] ?? [];
+
+  return (
+    <section aria-label="Release schedule" style={{ marginTop: 22 }}>
+      <KatanaSectionHeader
+        title="Release Schedule"
+        badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
+      />
+      <div style={{ height: 10 }} />
+      <div
+        className="no-scrollbar"
+        role="tablist"
+        aria-label="Release day"
+        style={{
+          display: 'flex',
+          gap: 6,
+          overflowX: 'auto',
+          marginBottom: 12,
+          paddingBottom: 2,
+          maskImage: 'linear-gradient(to right, black 92%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to right, black 92%, transparent 100%)',
+        }}
+      >
+        {WEEKDAYS.map((day) => {
+          const active = selectedDay === day;
+          const count = byDay[day].length;
+          const isToday = day === today;
+          return (
+            <button
+              key={day}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className="bare-button"
+              onClick={() => setSelectedDay(day)}
+              style={{
+                flexShrink: 0,
+                minHeight: compact ? 40 : 34,
+                padding: '6px 12px',
+                borderRadius: 99,
+                background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
+                border: `1px solid ${active ? KatanaColors.accent : isToday ? KatanaColors.borderStrong : KatanaColors.border}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  ...KatanaType.small,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: active ? KatanaColors.accentInk : KatanaColors.text,
+                }}
+              >
+                {day}
+              </span>
+              {isToday && (
+                <span
+                  aria-label="Today"
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: 99,
+                    background: active ? KatanaColors.accentInk : KatanaColors.accent,
+                  }}
+                />
+              )}
+              {count > 0 && (
+                <span
+                  style={{
+                    ...KatanaType.small,
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
+                    opacity: active ? 0.85 : 1,
+                  }}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {activeItems.length === 0 ? (
+        <div
+          style={{
+            padding: '16px 14px',
+            borderRadius: 12,
+            background: KatanaColors.surface,
+            border: `1px solid ${KatanaColors.border}`,
+            ...KatanaType.small,
+            color: KatanaColors.textMuted,
+          }}
+        >
+          No tracked releases scheduled for {selectedDay}. Tap another day to preview upcoming drops.
+        </div>
+      ) : (
+        <div
+          className="no-scrollbar"
+          style={{
+            display: 'flex',
+            gap: 10,
+            overflowX: 'auto',
+            paddingBottom: 4,
+          }}
+        >
+          {activeItems.map((m) => (
+            <div key={m.slug} style={{ width: compact ? 128 : 148, flexShrink: 0 }}>
+              <KatanaPosterCard
+                manga={m}
+                unreadCount={unreadBySlug[m.slug]}
+                downloadedCount={downloadedCounts[m.slug]}
+                onSelect={() => onSelectManga(m.slug)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -1159,11 +1356,60 @@ export function MangaHome({
 
   const center = (child: ReactNode) => <div style={{ maxWidth: 1240, margin: '0 auto' }}>{child}</div>;
 
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStartYRef = useRef<number | null>(null);
+  const handlePullStart = (e: React.TouchEvent) => {
+    if (!onRetryHome || e.touches.length !== 1) return;
+    if (typeof window !== 'undefined' && window.scrollY > 2) return;
+    pullStartYRef.current = e.touches[0].clientY;
+  };
+  const handlePullMove = (e: React.TouchEvent) => {
+    if (pullStartYRef.current === null || e.touches.length !== 1) return;
+    const dy = e.touches[0].clientY - pullStartYRef.current;
+    if (dy > 10 && dy < 120) setPullDistance(Math.round(dy));
+    else if (dy <= 0) setPullDistance(0);
+  };
+  const handlePullEnd = () => {
+    if (pullDistance >= 64 && onRetryHome) onRetryHome();
+    pullStartYRef.current = null;
+    setPullDistance(0);
+  };
+
+  const pullBanner =
+    pullDistance > 14 ? (
+      <div
+        role="status"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          padding: '6px 12px',
+          marginBottom: 10,
+          borderRadius: 99,
+          background: KatanaColors.surfaceAlt,
+          border: `1px solid ${pullDistance >= 64 ? KatanaColors.accent : KatanaColors.border}`,
+          ...KatanaType.small,
+          color: pullDistance >= 64 ? KatanaColors.accentSoft : KatanaColors.textMuted,
+          fontWeight: 600,
+        }}
+      >
+        <Icon name="refresh" size={14} color={pullDistance >= 64 ? KatanaColors.accent : KatanaColors.textMuted} />
+        {pullDistance >= 64 ? 'Release to refresh' : 'Pull down to refresh'}
+      </div>
+    ) : null;
+
   if (!desktop) {
     return (
-      <div style={{ padding: '14px 16px 32px' }}>
+      <div
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        style={{ padding: '14px 16px 32px' }}
+      >
         {center(
           <>
+            {pullBanner}
             {data.error && <KatanaErrorBanner message={data.error} onRetry={onRetryHome} />}
             {type === 'all' && (
               <FeaturedHero
@@ -1187,6 +1433,15 @@ export function MangaHome({
             {typeChips}
             <div style={{ height: 14 }} />
             {feedSection}
+            {type === 'all' && (
+              <ReleaseScheduleRail
+                catalog={allCatalog}
+                unreadBySlug={unreadBySlug}
+                downloadedCounts={downloadedCounts}
+                compact={compact}
+                onSelectManga={onSelectManga}
+              />
+            )}
             {recommendedRail}
             {type === 'all' && hotCard && <div style={{ marginTop: 20 }}>{hotCard}</div>}
             {genresCard && <div style={{ marginTop: 18 }}>{genresCard}</div>}
@@ -1226,6 +1481,15 @@ export function MangaHome({
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
             <div style={{ flex: 7, minWidth: 0 }}>
               {feedSection}
+              {type === 'all' && (
+                <ReleaseScheduleRail
+                  catalog={allCatalog}
+                  unreadBySlug={unreadBySlug}
+                  downloadedCounts={downloadedCounts}
+                  compact={false}
+                  onSelectManga={onSelectManga}
+                />
+              )}
               {recommendedRail}
             </div>
             <aside style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>

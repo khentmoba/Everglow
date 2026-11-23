@@ -28,7 +28,7 @@ export const KatanaColors = {
   borderStrong: '#384259',
   text: '#F3F5F9',
   textMuted: '#A8B3C7',
-  textLight: '#7D89A0',
+  textLight: '#9AA6BE',
   accent: '#F59E0B',
   accentDark: '#D97706',
   accentSoft: '#FCD34D',
