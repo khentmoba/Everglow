@@ -225,10 +225,21 @@ function revokeObjectUrl(url: string | null | undefined): void {
 }
 
 async function deleteItemBlobs(item: OfflineMediaItem) {
-  if (item.blobKey) await deleteBlob(item.blobKey, item.type === 'manga');
   if (item.type === 'manga') {
-    for (let i = 1; i <= item.pageUrls.length; i++) await deleteBlob(`${item.id}_p_${i}`, true);
+    try {
+      const cache = await caches.open(MANGA_CACHE);
+      const deletes: Promise<boolean>[] = [];
+      if (item.blobKey) deletes.push(cache.delete(cacheKey(item.blobKey, true)));
+      for (let i = 1; i <= item.pageUrls.length; i++) {
+        deletes.push(cache.delete(cacheKey(`${item.id}_p_${i}`, true)));
+      }
+      await Promise.all(deletes);
+    } catch (e) {
+      Logger.e(`OfflineMediaStorage: could not delete manga blobs for ${item.id}`, e);
+    }
+    return;
   }
+  if (item.blobKey) await deleteBlob(item.blobKey, false);
 }
 
 // --- Service ------------------------------------------------------------------
