@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../../shared/widgets/Icon';
-import { katanaCdnFallback, proxyKatanaImageUrl } from './katanaService';
+import { katanaCdnFallback, proxyKatanaImageUrl, resolveCorsProxyImageUrl } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
 import type { FitMode } from './readerSettings';
 import { WIDE_ASPECT_THRESHOLD, type GuidedPanelRect } from './readerSpread';
@@ -305,7 +305,8 @@ export function ReaderPageImage({
       applyAnalysis(analyzePageCanvas(img));
       return;
     }
-    // Probe via detached CORS image so the visible <img> never fails if a mirror omits CORS headers.
+    // Probe via detached CORS image routed through Everglow's CORS-enabled image proxy
+    // so gutter detection, border cropping, and edge-color sampling are always deterministic.
     let alive = true;
     const probe = new Image();
     probe.crossOrigin = 'anonymous';
@@ -315,11 +316,11 @@ export function ReaderPageImage({
     probe.onerror = () => {
       if (alive && shouldCrop) setCropInsets(null);
     };
-    probe.src = resolved;
+    probe.src = resolveCorsProxyImageUrl(resolved);
     return () => {
       alive = false;
     };
-  }, [needsCanvasSample, shouldCrop, sampleEdgeColor, status, resolved, onEdgeColor]);
+  }, [needsCanvasSample, shouldCrop, sampleEdgeColor, detectPanels, status, resolved, onEdgeColor, onPanelsDetected]);
 
   useEffect(() => () => {
     if (longPressTimer.current != null) window.clearTimeout(longPressTimer.current);

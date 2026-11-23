@@ -24,6 +24,7 @@ import {
   computeSeriesReleaseSchedule,
   estimateUnreadCount,
   extractChapterNumber,
+  fetchKatanaCatalog,
   formatKatanaTime,
   formatCompactNumber,
   getPreferredMangaGenres,
@@ -33,9 +34,10 @@ import {
   type KatanaGenre,
   type KatanaHomeData,
   type KatanaManga,
+  type KatanaSourceHealth,
   type KatanaWeekday,
 } from './katanaService';
-import { getKatanaGridColumns, KATANA_BREAKPOINTS, KatanaColors, KatanaType } from './katanaTokens';
+import { getKatanaGridColumns, KATANA_BREAKPOINTS, KatanaColors, KatanaType, useCoverDominantAccent } from './katanaTokens';
 
 export type MangaType = 'all' | 'manga' | 'manhwa' | 'manhua';
 type FeedTab = 'latest' | 'new_hot' | 'updates';
@@ -114,11 +116,16 @@ function FeaturedHero({
   onSelectGenre: (g: KatanaGenre) => void;
 }) {
   const [index, setIndex] = useState(0);
-  if (candidates.length === 0) return null;
-  const featured = candidates[index % candidates.length];
+  const featured = candidates.length > 0 ? candidates[index % candidates.length] : null;
+  const backdropUrl = featured?.coverUrl ? proxyKatanaImageUrl(featured.coverUrl) : '';
+  const heroAccent = useCoverDominantAccent(
+    backdropUrl,
+    featured?.title ?? '',
+    featured?.genres.map((g) => g.name),
+  );
+  if (!featured) return null;
   const bm = bookmarks.find((b) => b.slug === featured.slug);
   const completed = featured.status === 'completed';
-  const backdropUrl = featured.coverUrl ? proxyKatanaImageUrl(featured.coverUrl) : '';
   const allowBlur = !reduceAmbientMotion({
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 800,
@@ -178,7 +185,7 @@ function FeaturedHero({
           style={{
             position: 'absolute',
             inset: 0,
-            background: `radial-gradient(circle at 18% 24%, ${withAlpha(KatanaColors.accent, 0.16)} 0%, ${withAlpha(KatanaColors.surfaceAlt, 0.42)} 45%, ${withAlpha(KatanaColors.background, 0.96)} 100%)`,
+            background: `radial-gradient(circle at 18% 24%, ${withAlpha(heroAccent.accent, 0.22)} 0%, ${withAlpha(heroAccent.secondary, 0.14)} 45%, ${withAlpha(KatanaColors.background, 0.96)} 100%)`,
             pointerEvents: 'none',
           }}
         />
@@ -230,7 +237,7 @@ function FeaturedHero({
                 background: KatanaColors.chipSelectedBg,
                 border: `1px solid ${KatanaColors.chipSelectedBorder}`,
                 fontFamily: Fonts.body,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 color: KatanaColors.chipSelectedText,
                 letterSpacing: 0.5,
@@ -245,7 +252,7 @@ function FeaturedHero({
                 borderRadius: 6,
                 background: withAlpha(completed ? KatanaColors.green : KatanaColors.teal, 0.16),
                 fontFamily: Fonts.body,
-                fontSize: 10.5,
+                fontSize: 12,
                 fontWeight: 600,
                 color: completed ? KatanaColors.green : KatanaColors.teal,
                 flexShrink: 0,
@@ -256,7 +263,7 @@ function FeaturedHero({
             {featured.rating != null && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                 <Icon name="star" size={12} color={KatanaColors.accent} />
-                <span style={{ fontFamily: Fonts.body, fontSize: 11.5, fontWeight: 700, color: KatanaColors.text }}>
+                <span style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
                   {featured.rating.toFixed(1)}
                 </span>
               </span>
@@ -271,7 +278,7 @@ function FeaturedHero({
                 className="ellipsis"
                 style={{
                   ...KatanaType.small,
-                  fontSize: 11.5,
+                  fontSize: 12,
                   color: KatanaColors.link,
                   flexShrink: compact ? 0 : 1,
                 }}
@@ -1110,6 +1117,7 @@ export function MangaHome({
   libraryBookmarks = [],
   extraCatalog = [],
   downloadedCounts = {},
+  sourceHealth,
   type,
   typeItems,
   typeLoading,
@@ -1135,6 +1143,7 @@ export function MangaHome({
   libraryBookmarks?: KatanaBookmark[];
   extraCatalog?: KatanaManga[];
   downloadedCounts?: Record<string, number>;
+  sourceHealth?: KatanaSourceHealth;
   type: MangaType;
   typeItems: KatanaManga[];
   typeLoading: boolean;
@@ -1173,13 +1182,54 @@ export function MangaHome({
   }, [syncedPreferredGenres]);
 
   const effectiveView = viewMode;
+  const [genreRecPool, setGenreRecPool] = useState<KatanaManga[]>([]);
+  const topActiveGenresKey = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const g of tasteGenres) counts.set(g, (counts.get(g) ?? 0) + 3);
+    for (const bm of libraryBookmarks) {
+      if (bm.libraryStatus === 'dropped') continue;
+      const w = bm.userScore != null && bm.userScore >= 8 ? 3 : 1;
+      for (const g of bm.genres ?? []) counts.set(g, (counts.get(g) ?? 0) + w);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map((e) => e[0])
+      .join(',');
+  }, [tasteGenres, libraryBookmarks]);
+
+  useEffect(() => {
+    if (!topActiveGenresKey) return;
+    let alive = true;
+    const slugs = topActiveGenresKey.split(',').filter(Boolean);
+    Promise.all(
+      slugs.map((gSlug) => fetchKatanaCatalog({ mode: 'genre', key: gSlug, page: 1 }).catch(() => ({ items: [] as KatanaManga[] }))),
+    ).then((results) => {
+      if (!alive) return;
+      const merged: KatanaManga[] = [];
+      const seen = new Set<string>();
+      for (const r of results) {
+        for (const m of r.items) {
+          if (!seen.has(m.slug)) {
+            seen.add(m.slug);
+            merged.push(m);
+          }
+        }
+      }
+      if (merged.length > 0) setGenreRecPool(merged);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [topActiveGenresKey]);
+
   const allCatalog = useMemo(() => {
     const seen = new Map<string, KatanaManga>();
-    for (const m of [...data.hotUpdates, ...data.hot, ...data.latest, ...extraCatalog]) {
+    for (const m of [...data.hotUpdates, ...data.hot, ...data.latest, ...extraCatalog, ...genreRecPool]) {
       if (!seen.has(m.slug)) seen.set(m.slug, m);
     }
     return [...seen.values()];
-  }, [data.hotUpdates, data.hot, data.latest, extraCatalog]);
+  }, [data.hotUpdates, data.hot, data.latest, extraCatalog, genreRecPool]);
 
   const featuredCandidates = useMemo(() => {
     const pool = data.hot.length > 0 ? data.hot : data.latest;
@@ -1238,27 +1288,33 @@ export function MangaHome({
 
     for (const bm of libraryBookmarks) {
       const m = allCatalog.find((x) => x.slug === bm.slug);
-      if (!m) continue;
+      const bmGenreSlugs =
+        m && m.genres.length > 0
+          ? m.genres.map((g) => g.slug)
+          : Array.isArray(bm.genres) && bm.genres.length > 0
+            ? bm.genres
+            : [];
+      if (bmGenreSlugs.length === 0) continue;
       if (bm.libraryStatus === 'dropped') {
-        m.genres.forEach((g) => droppedGenres.add(g.slug));
+        bmGenreSlugs.forEach((gSlug) => droppedGenres.add(gSlug));
         continue;
       }
       if (bm.anilistId || bm.malId || bm.kitsuId || bm.mangaUpdatesId || bm.shikimoriId || bm.bangumiId) {
-        m.genres.forEach((g) => {
-          if (!trackerGenreSource.has(g.slug)) trackerGenreSource.set(g.slug, bm.title);
+        bmGenreSlugs.forEach((gSlug) => {
+          if (!trackerGenreSource.has(gSlug)) trackerGenreSource.set(gSlug, bm.title);
         });
       }
       if (bm.userScore != null && bm.userScore >= 8) {
-        for (const g of m.genres) {
-          const prev = ratedGenreSource.get(g.slug);
+        for (const gSlug of bmGenreSlugs) {
+          const prev = ratedGenreSource.get(gSlug);
           if (!prev || bm.userScore > prev.score) {
-            ratedGenreSource.set(g.slug, { title: bm.title, score: bm.userScore });
+            ratedGenreSource.set(gSlug, { title: bm.title, score: bm.userScore });
           }
         }
       }
       if (bm.libraryStatus === 'completed' || readingSlugs.has(bm.slug)) {
-        m.genres.forEach((g) => {
-          if (!readingGenreSource.has(g.slug)) readingGenreSource.set(g.slug, bm.title);
+        bmGenreSlugs.forEach((gSlug) => {
+          if (!readingGenreSource.has(gSlug)) readingGenreSource.set(gSlug, bm.title);
         });
       }
     }
@@ -1804,63 +1860,111 @@ export function MangaHome({
     </KatanaCard>
   ) : null;
 
+  const isSourceHealthDegraded = Boolean(
+    sourceHealth &&
+      (sourceHealth.fallbackActive ||
+        sourceHealth.mangadexBatchOk === false ||
+        sourceHealth.comickOk === false ||
+        sourceHealth.batoOk === false),
+  );
+
+  const sourceHealthSummary = useMemo(() => {
+    if (!sourceHealth) return '';
+    const mk = sourceHealth.katanaFeedOk !== false ? 'MK ✓' : 'MK fallback';
+    const md = sourceHealth.mangadexBatchOk !== false ? 'MD ✓' : 'MD degraded';
+    const ck = sourceHealth.comickOk !== false ? 'CK ✓' : 'CK degraded';
+    const bt = sourceHealth.batoOk !== false ? 'BT ✓' : 'BT degraded';
+    const checkedLabel = sourceHealth.checkedAt ? ` · Checked ${formatKatanaTime(new Date(sourceHealth.checkedAt))}` : '';
+    return `Update sources: ${mk} · ${md} · ${ck} · ${bt}${checkedLabel}`;
+  }, [sourceHealth]);
+
   const newChapterAlertBanner =
-    !alertBannerDismissed && alertUnreadSeriesCount > 0 && type === 'all' && feedTab !== 'updates' ? (
+    (!alertBannerDismissed && alertUnreadSeriesCount > 0 && type === 'all' && feedTab !== 'updates') || isSourceHealthDegraded ? (
       <div
         role="status"
         style={{
           marginTop: compact ? 6 : 8,
-          padding: compact ? '4px 8px 4px 10px' : '8px 12px',
-          borderRadius: compact ? 99 : 10,
-          background: withAlpha(KatanaColors.accent, 0.12),
-          border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
+          padding: compact ? '6px 10px' : '8px 12px',
+          borderRadius: compact ? 12 : 10,
+          background: isSourceHealthDegraded
+            ? withAlpha(KatanaColors.orange, 0.14)
+            : withAlpha(KatanaColors.accent, 0.12),
+          border: `1px solid ${
+            isSourceHealthDegraded ? withAlpha(KatanaColors.orange, 0.45) : withAlpha(KatanaColors.accent, 0.38)
+          }`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 8,
-          flexWrap: 'nowrap',
+          flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-          <Icon name="notifications_active" size={15} color={KatanaColors.accent} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+          <Icon
+            name={isSourceHealthDegraded ? 'health_and_safety' : 'notifications_active'}
+            size={15}
+            color={isSourceHealthDegraded ? KatanaColors.orange : KatanaColors.accent}
+          />
           <span className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: compact ? 12 : 13, fontWeight: 600, color: KatanaColors.text }}>
-            {compact
-              ? `${alertUnreadSeriesCount} new chapter ${alertUnreadSeriesCount === 1 ? 'update' : 'updates'}`
-              : `${alertUnreadSeriesCount} followed ${alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters`}
+            {isSourceHealthDegraded
+              ? 'Update checks degraded — Primary feed fallback active; per-series direct checks running'
+              : compact
+                ? `${alertUnreadSeriesCount} new chapter ${alertUnreadSeriesCount === 1 ? 'update' : 'updates'}`
+                : `${alertUnreadSeriesCount} followed ${alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters`}
           </span>
+          {sourceHealth && (
+            <span
+              title={sourceHealthSummary}
+              style={{
+                padding: '2px 7px',
+                borderRadius: 99,
+                background: KatanaColors.surface,
+                border: `1px solid ${isSourceHealthDegraded ? withAlpha(KatanaColors.orange, 0.45) : withAlpha(KatanaColors.green, 0.4)}`,
+                fontFamily: Fonts.body,
+                fontSize: 12,
+                fontWeight: 700,
+                color: isSourceHealthDegraded ? KatanaColors.orange : KatanaColors.green,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isSourceHealthDegraded ? 'Fallback active' : '4/4 sources healthy'}
+            </span>
+          )}
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <button
-            type="button"
-            className="bare-button"
-            onClick={() => {
-              setAlertBannerDismissed(true);
-              setFeedTab('updates');
-            }}
-            style={{
-              minHeight: 40,
-              padding: compact ? '6px 12px' : '6px 12px',
-              borderRadius: compact ? 99 : 8,
-              background: KatanaColors.accent,
-              color: KatanaColors.accentInk,
-              fontFamily: Fonts.body,
-              fontSize: 12,
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            View
-          </button>
-          <button
-            type="button"
-            className="bare-button"
-            aria-label="Dismiss chapter alerts banner"
-            onClick={() => setAlertBannerDismissed(true)}
-            style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}
-          >
-            <Icon name="close" size={15} color={KatanaColors.textMuted} />
-          </button>
-        </div>
+        {alertUnreadSeriesCount > 0 && feedTab !== 'updates' && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => {
+                setAlertBannerDismissed(true);
+                setFeedTab('updates');
+              }}
+              style={{
+                minHeight: 40,
+                padding: '6px 12px',
+                borderRadius: compact ? 99 : 8,
+                background: KatanaColors.accent,
+                color: KatanaColors.accentInk,
+                fontFamily: Fonts.body,
+                fontSize: 12,
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              View
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              aria-label="Dismiss chapter alerts banner"
+              onClick={() => setAlertBannerDismissed(true)}
+              style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}
+            >
+              <Icon name="close" size={15} color={KatanaColors.textMuted} />
+            </button>
+          </div>
+        )}
       </div>
     ) : null;
 

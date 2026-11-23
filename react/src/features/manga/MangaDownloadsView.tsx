@@ -4,6 +4,7 @@ import { withAlpha } from '../../core/theme/colors';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { chapterDisplayTitle, type KatanaChapter, type KatanaManga } from './katanaService';
+import { estimateMangaBatchMegabytes } from './mangaSearchAndTrust';
 import { KatanaColors, KatanaFonts as Fonts, KatanaType } from './katanaTokens';
 import {
   KatanaButton,
@@ -204,6 +205,7 @@ export function KatanaDownloadsView({
         <KatanaSectionHeader title="Downloads" badge={items.length > 0 ? String(items.length) : undefined} />
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <label
+            title="Import one or multiple .cbz chapter archives"
             style={{
               minHeight: 40,
               padding: '6px 12px',
@@ -224,18 +226,80 @@ export function KatanaDownloadsView({
             <span>Import CBZ</span>
             <input
               type="file"
+              multiple
               accept=".cbz,application/vnd.comicbook+zip,application/zip"
               style={{ display: 'none' }}
               onChange={async (e) => {
-                const file = e.target.files?.[0];
+                const files = Array.from(e.target.files ?? []).filter((f) =>
+                  f.name.toLowerCase().endsWith('.cbz') || f.name.toLowerCase().endsWith('.zip'),
+                );
                 e.target.value = '';
-                if (!file) return;
-                const imported = await offlineMedia.importMangaChapterCbz(file);
-                if (imported) {
-                  showSnackBar(`Imported "${imported.title}" (${imported.subtitle || 'CBZ chapter'}) for offline reading`);
-                } else {
-                  showSnackBar('Could not read that .cbz archive — check that it contains JPG/PNG/WebP pages');
+                if (files.length === 0) return;
+                let okCount = 0;
+                let lastTitle = '';
+                let lastSub = '';
+                for (const file of files) {
+                  const imported = await offlineMedia.importMangaChapterCbz(file);
+                  if (imported) {
+                    okCount += 1;
+                    lastTitle = imported.title;
+                    lastSub = imported.subtitle || 'CBZ chapter';
+                  }
                 }
+                if (okCount === 1) {
+                  showSnackBar(`Imported "${lastTitle}" (${lastSub}) for offline reading`);
+                } else if (okCount > 1) {
+                  showSnackBar(`Imported ${okCount} CBZ chapters for offline reading`);
+                } else {
+                  showSnackBar('Could not read those .cbz archives — check that they contain JPG/PNG/WebP pages');
+                }
+              }}
+            />
+          </label>
+          <label
+            title="Import an entire folder of .cbz chapter archives"
+            style={{
+              minHeight: 40,
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: KatanaColors.surfaceAlt,
+              border: `1px solid ${KatanaColors.border}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontFamily: Fonts.body,
+              fontSize: 12,
+              fontWeight: 700,
+              color: KatanaColors.textMuted,
+              cursor: 'pointer',
+            }}
+          >
+            <Icon name="create_new_folder" size={15} color={KatanaColors.textMuted} />
+            <span>Import Folder</span>
+            <input
+              type="file"
+              multiple
+              {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files ?? []).filter((f) =>
+                  f.name.toLowerCase().endsWith('.cbz'),
+                );
+                e.target.value = '';
+                if (files.length === 0) {
+                  showSnackBar('No .cbz files found in that folder');
+                  return;
+                }
+                let okCount = 0;
+                for (const file of files) {
+                  const imported = await offlineMedia.importMangaChapterCbz(file);
+                  if (imported) okCount += 1;
+                }
+                showSnackBar(
+                  okCount > 0
+                    ? `Imported ${okCount} of ${files.length} CBZ chapters from folder`
+                    : 'Could not import .cbz files from that folder',
+                );
               }}
             />
           </label>
@@ -419,21 +483,26 @@ export function KatanaDownloadsView({
             gap: 8,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Icon name="downloading" size={18} color={autoDownloadNext > 0 ? KatanaColors.link : KatanaColors.textMuted} />
             <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 600 }}>
               Auto-download next unread
             </span>
+            <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.textLight }}>
+              (~{estimateMangaBatchMegabytes(1, false, items).perChapterMb} MB/ch est.)
+            </span>
           </div>
-          <div style={{ display: 'inline-flex', gap: 5 }}>
+          <div style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap' }}>
             {[0, 1, 3, 5].map((n) => {
               const active = autoDownloadNext === n;
+              const est = n > 0 ? estimateMangaBatchMegabytes(n, false, items).label : '';
               return (
                 <button
                   key={n}
                   type="button"
                   className="bare-button"
                   aria-pressed={active}
+                  title={n === 0 ? 'Disable auto-download' : `Auto-download next ${n} unread (${est} est.)`}
                   onClick={() => onChangeAutoDownloadNext(n)}
                   style={{
                     minHeight: 44,
@@ -447,7 +516,7 @@ export function KatanaDownloadsView({
                     color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
                   }}
                 >
-                  {n === 0 ? 'Off' : `${n} ch`}
+                  {n === 0 ? 'Off' : `${n} ch (${est})`}
                 </button>
               );
             })}
@@ -492,8 +561,8 @@ export function KatanaDownloadsView({
             </div>
             {downloadQueue.length > 0 && (
               <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
-                  Up Next ({downloadQueue.length}) — reorder or remove
+                <div style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.textMuted }}>
+                  Up Next ({downloadQueue.length} · {estimateMangaBatchMegabytes(downloadQueue.length, false, items).label} est.) — reorder or remove
                 </div>
                 {downloadQueue.slice(0, 6).map((q, idx) => (
                   <div

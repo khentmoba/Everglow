@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { lineHeight } from '../../core/theme/paint';
 
 /** Dedicated typography for Manga Celestia (distinct from Everglow's Cormorant Garamond + Outfit couple theme). */
@@ -224,6 +224,143 @@ export function getSeriesVisualAccent(title: string, genres?: readonly string[])
     hash = (hash * 31 + title.charCodeAt(i)) >>> 0;
   }
   return SERIES_PALETTES[hash % SERIES_PALETTES.length];
+}
+
+const coverAccentCache = new Map<string, SeriesVisualAccent>();
+
+function toHexByte(n: number): string {
+  return Math.max(0, Math.min(255, Math.round(n)))
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase();
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${toHexByte(r)}${toHexByte(g)}${toHexByte(b)}`;
+}
+
+function sanitizeNonPinkRgb(r: number, g: number, b: number): [number, number, number] {
+  // Prevent magenta/rose/pink hues (where R is high, B is medium-high, and G is significantly lower)
+  // from producing a couple-theme pink aura in Manga Celestia.
+  if (r > 150 && b > 105 && g < Math.min(r, b) * 0.78) {
+    return [r, Math.max(g, Math.round(r * 0.68)), Math.round(b * 0.42)];
+  }
+  return [r, g, b];
+}
+
+function sampleDominantCoverPalette(img: HTMLImageElement): SeriesVisualAccent | null {
+  try {
+    const w = 24;
+    const h = 32;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const buckets = Array.from({ length: 12 }, () => ({ r: 0, g: 0, b: 0, weight: 0 }));
+
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
+      if (a < 180) continue;
+      const [r, g, b] = sanitizeNonPinkRgb(data[i], data[i + 1], data[i + 2]);
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const lum = (max + min) / 2;
+      if (lum < 28 || lum > 236) continue;
+      const sat = max === min ? 0 : (max - min) / (255 - Math.abs(max + min - 255));
+      if (sat < 0.18) continue;
+      let hue = 0;
+      const d = max - min;
+      if (d > 0) {
+        if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+        else if (max === g) hue = ((b - r) / d + 2) * 60;
+        else hue = ((r - g) / d + 4) * 60;
+      }
+      const bIdx = Math.floor(hue / 30) % 12;
+      const wgt = sat * (1 - Math.abs(lum - 135) / 160);
+      buckets[bIdx].r += r * wgt;
+      buckets[bIdx].g += g * wgt;
+      buckets[bIdx].b += b * wgt;
+      buckets[bIdx].weight += wgt;
+    }
+
+    const ranked = buckets
+      .map((b, idx) => ({ ...b, idx }))
+      .filter((b) => b.weight > 0.25)
+      .sort((a, b) => b.weight - a.weight);
+    if (ranked.length === 0) return null;
+
+    const top = ranked[0];
+    const sec = ranked.find((b) => Math.abs(b.idx - top.idx) >= 2) ?? ranked[1] ?? top;
+
+    const boost = (c: number) => Math.min(248, Math.max(58, Math.round(c * 1.12)));
+    const [r1, g1, b1] = sanitizeNonPinkRgb(
+      boost(top.r / top.weight),
+      boost(top.g / top.weight),
+      boost(top.b / top.weight),
+    );
+    const [r2, g2, b2] = sanitizeNonPinkRgb(
+      boost(sec.r / sec.weight),
+      boost(sec.g / sec.weight),
+      boost(sec.b / sec.weight),
+    );
+
+    const accent = rgbToHex(r1, g1, b1);
+    const secondary = rgbToHex(r2, g2, b2);
+    const bgStart = rgbToHex(Math.round(r1 * 0.16 + 12), Math.round(g1 * 0.16 + 14), Math.round(b1 * 0.16 + 20));
+    const bgEnd = rgbToHex(Math.round(r2 * 0.11 + 11), Math.round(g2 * 0.11 + 13), Math.round(b2 * 0.11 + 19));
+    return { accent, secondary, bgStart, bgEnd, stripe: accent };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extracts the actual cover artwork's dominant color palette for the detail-hero and spotlight aura,
+ * falling back to `getSeriesVisualAccent(title, genres)` while loading or if sampling is unavailable.
+ */
+export function useCoverDominantAccent(
+  coverUrl: string | undefined,
+  title: string,
+  genres?: readonly string[],
+): SeriesVisualAccent {
+  const fallback = getSeriesVisualAccent(title, genres);
+  const [sampled, setSampled] = useState<SeriesVisualAccent | null>(() =>
+    coverUrl ? coverAccentCache.get(coverUrl) ?? null : null,
+  );
+
+  useEffect(() => {
+    if (!coverUrl) {
+      setSampled(null);
+      return;
+    }
+    const cached = coverAccentCache.get(coverUrl);
+    if (cached) {
+      setSampled(cached);
+      return;
+    }
+    let alive = true;
+    const img = new Image();
+    if (!coverUrl.startsWith('data:') && !coverUrl.startsWith('blob:') && !coverUrl.startsWith('/')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.onload = () => {
+      if (!alive) return;
+      const res = sampleDominantCoverPalette(img);
+      if (res) {
+        coverAccentCache.set(coverUrl, res);
+        setSampled(res);
+      }
+    };
+    img.src = coverUrl;
+    return () => {
+      alive = false;
+    };
+  }, [coverUrl]);
+
+  return sampled ?? fallback;
 }
 
 export const KatanaType = {

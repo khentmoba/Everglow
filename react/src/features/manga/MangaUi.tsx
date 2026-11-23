@@ -28,6 +28,7 @@ import {
   KatanaType,
   type KatanaThemeMode,
 } from './katanaTokens';
+import { getSourceBadgeInfo } from './mangaSearchAndTrust';
 
 export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'history' | 'downloads' | 'bookmarks';
 
@@ -2050,8 +2051,8 @@ export function KatanaPosterCard({
           style={{
             position: 'absolute',
             inset: 'auto 0 0 0',
-            height: '44%',
-            background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.9)}, transparent)`,
+            height: '46%',
+            background: 'linear-gradient(to top, rgba(11, 13, 18, 0.94) 0%, rgba(11, 13, 18, 0.48) 54%, transparent 100%)',
             pointerEvents: 'none',
           }}
         />
@@ -2088,54 +2089,44 @@ export function KatanaPosterCard({
               <span>{manga.rating.toFixed(1)}</span>
             </span>
           )}
-          {manga.source && (
-            <span
-              title={
-                manga.source === 'mangadex'
-                  ? 'Catalog Source: MangaDex'
-                  : manga.source === 'comick'
-                    ? 'Catalog Source: ComicK'
-                    : manga.source === 'bato'
-                      ? 'Catalog Source: Bato.to'
-                      : 'Catalog Source: MangaKatana'
-              }
-              style={{
-                padding: '2px 6px',
-                borderRadius: 6,
-                background: 'rgba(11, 13, 18, 0.9)',
-                border: `1px solid ${
-                  manga.source === 'mangadex'
-                    ? withAlpha(KatanaColors.teal, 0.55)
-                    : manga.source === 'comick'
-                      ? withAlpha(KatanaColors.link, 0.55)
-                      : manga.source === 'bato'
-                        ? withAlpha(KatanaColors.green, 0.55)
-                        : withAlpha(KatanaColors.accent, 0.5)
-                }`,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                ...bodyText(
-                  10.5,
-                  800,
-                  manga.source === 'mangadex'
-                    ? KatanaColors.teal
-                    : manga.source === 'comick'
-                      ? KatanaColors.link
-                      : manga.source === 'bato'
-                        ? KatanaColors.green
-                        : KatanaColors.accentSoft,
-                  1.2,
-                ),
-              }}
-            >
-              {manga.source === 'mangadex'
-                ? 'MD'
-                : manga.source === 'comick'
-                  ? 'CK'
-                  : manga.source === 'bato'
-                    ? 'BT'
-                    : 'MK'}
-            </span>
-          )}
+          {manga.source && (() => {
+            const srcInfo = getSourceBadgeInfo(manga.source, manga.slug);
+            return (
+              <span
+                title={srcInfo.tooltip}
+                aria-label={srcInfo.tooltip}
+                style={{
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                  background: 'rgba(11, 13, 18, 0.92)',
+                  border: `1px solid ${
+                    manga.source === 'mangadex'
+                      ? withAlpha(KatanaColors.teal, 0.55)
+                      : manga.source === 'comick'
+                        ? withAlpha(KatanaColors.link, 0.55)
+                        : manga.source === 'bato'
+                          ? withAlpha(KatanaColors.green, 0.55)
+                          : withAlpha(KatanaColors.accent, 0.5)
+                  }`,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                  ...bodyText(
+                    12,
+                    800,
+                    manga.source === 'mangadex'
+                      ? KatanaColors.teal
+                      : manga.source === 'comick'
+                        ? KatanaColors.link
+                        : manga.source === 'bato'
+                          ? KatanaColors.green
+                          : KatanaColors.accentSoft,
+                    1.2,
+                  ),
+                }}
+              >
+                {srcInfo.badge}
+              </span>
+            );
+          })()}
         </div>
         <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
         {manga.latestChapter && (
@@ -2164,9 +2155,10 @@ export function KatanaPosterCard({
                 width: '100%',
                 padding: '4px 8px',
                 borderRadius: 7,
-                background: 'rgba(14, 17, 24, 0.84)',
+                background: 'rgba(11, 13, 18, 0.92)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
                 backdropFilter: 'blur(4px)',
-                ...bodyText(11.5, 600, KatanaColors.link, 1.2),
+                ...bodyText(12, 700, '#93C5FD', 1.2),
                 ...ellipsis,
                 display: 'block',
               }}
@@ -2293,16 +2285,16 @@ export function KatanaCompactCard({
         </div>
       </button>
       {reason && (
-        <div style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textMuted, marginTop: 2, ...ellipsis }} title={reason}>
+        <div style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.textMuted, marginTop: 2, ...ellipsis }} title={reason}>
           {reason}
         </div>
       )}
       <div style={{ height: 2 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: completed ? KatanaColors.green : KatanaColors.textMuted }} />
-        <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{completed ? 'Completed' : 'Ongoing'}</span>
+        <span style={{ ...KatanaType.small, fontSize: 12 }}>{completed ? 'Completed' : 'Ongoing'}</span>
         {manga.follows != null && manga.follows > 0 && (
-          <span style={{ ...KatanaType.small, fontSize: 11, marginLeft: 'auto' }}>{formatCompactNumber(manga.follows)}</span>
+          <span style={{ ...KatanaType.small, fontSize: 12, marginLeft: 'auto' }}>{formatCompactNumber(manga.follows)}</span>
         )}
       </div>
       {manga.latestChapter && (

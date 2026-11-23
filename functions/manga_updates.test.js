@@ -451,3 +451,71 @@ test('runMangaUpdateCheck skips bookmarks with ignoreUpdates=true or in excludeU
 
   assert.equal(pushed.length, 0);
 });
+
+test('runMangaUpdateCheck checks ComicK ck- and Bato bt- slugs and alerts khentsgdz after 2 consecutive feed failures', async () => {
+  const writes = [];
+  const pushed = [];
+  const fakeDb = {
+    collection: () => ({
+      doc: (id) => ({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            alertPrefs: { frequency: 'instant', quietHours: false },
+            sourceHealth: { fallbackActive: true, consecutiveFeedFailures: 1 },
+          }),
+        }),
+        set: async (data) => writes.push({ id, data }),
+      }),
+      where: function () {
+        return this;
+      },
+      get: async () => ({
+        docs: [
+          {
+            id: 'khentsgdz|ck-hid12345',
+            data: () => ({
+              slug: 'ck-hid12345',
+              title: 'ComicK Series',
+              bookmarked: true,
+              lastNotifiedChapter: '14',
+            }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|ck-hid12345', data }) },
+          },
+          {
+            id: 'khentsgdz|bt-987654',
+            data: () => ({
+              slug: 'bt-987654',
+              title: 'Bato Webtoon',
+              bookmarked: true,
+              lastNotifiedChapter: '88',
+            }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|bt-987654', data }) },
+          },
+        ],
+      }),
+    }),
+  };
+
+  await runMangaUpdateCheck({
+    db: fakeDb,
+    sendPush: async (uid, payload) => {
+      pushed.push({ uid, payload });
+      return true;
+    },
+    fetchLatest: async () => new Map(),
+    fetchComickLatest: async (slug) =>
+      slug === 'ck-hid12345' ? { chapterId: 'ck-ch15', chapterNum: '15', num: 15 } : null,
+    fetchBatoLatest: async (slug) =>
+      slug === 'bt-987654' ? { chapterId: 'bt-ch89', chapterNum: '89', num: 89 } : null,
+    fetchKatanaSeriesLatest: async () => null,
+    now: new Date('2026-11-23T06:00:00Z'),
+  });
+
+  assert.ok(pushed.some((p) => p.uid === 'khentsgdz' && /Feed fallback active/.test(p.payload.title)));
+  assert.ok(pushed.some((p) => p.uid === 'khentsgdz' && /2 followed manga updated/.test(p.payload.title)));
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|ck-hid12345' && w.data.lastNotifiedChapter === '15'));
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|bt-987654' && w.data.lastNotifiedChapter === '89'));
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|__prefs__' && w.data.sourceHealth?.comickOk === true && w.data.sourceHealth?.batoOk === true));
+});
+

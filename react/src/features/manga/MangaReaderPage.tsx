@@ -180,6 +180,14 @@ export function MangaReaderView({
   }, [globalSettings, seriesOverride, fitBucket]);
   const modeMeta = READING_MODE_META[settings.readingMode];
   const effectiveMeta = READING_MODE_META[effectiveMode];
+  const resolvedModeShortLabel =
+    effectiveMode !== settings.readingMode
+      ? `${effectiveMeta.shortLabel} (Auto)`
+      : effectiveMeta.shortLabel;
+  const resolvedModeAriaLabel =
+    effectiveMode !== settings.readingMode
+      ? `${effectiveMeta.label} (${modeMeta.label})`
+      : effectiveMeta.label;
   const isWebtoon = effectiveMeta.isWebtoon;
   const isHorizontalStrip = effectiveMeta.isHorizontalStrip;
   const isRtl = effectiveMeta.isRtl;
@@ -1172,10 +1180,14 @@ export function MangaReaderView({
       return;
     }
     idleTimerRef.current = window.setTimeout(() => {
+      if (!hasSeenReaderHint()) {
+        markReaderHintSeen();
+        flashToast('Tap center of page to show or hide reader controls', true);
+      }
       setShowUi(false);
     }, settings.autoHideDelayMs);
     return () => window.clearTimeout(idleTimerRef.current);
-  }, [showUi, settings.autoHideChrome, settings.autoHideDelayMs, activeSheet, pageAction, loading, loadFailed, pageIdx, chapterId]);
+  }, [showUi, settings.autoHideChrome, settings.autoHideDelayMs, activeSheet, pageAction, loading, loadFailed, pageIdx, chapterId, flashToast]);
 
   // Seamless next-chapter append in webtoon & continuous horizontal strip modes
   const appendNextChapterSegment = useCallback(async () => {
@@ -3126,7 +3138,8 @@ export function MangaReaderView({
         <button
           type="button"
           className="bare-button player-focusable"
-          aria-label={`Reading mode: ${modeMeta.label}. Tap to switch`}
+          aria-label={`Reading mode: ${resolvedModeAriaLabel}. Tap to switch`}
+          title={`Reading mode: ${resolvedModeAriaLabel}`}
           onClick={cycleMode}
           style={{
             minHeight: 40,
@@ -3143,8 +3156,8 @@ export function MangaReaderView({
             flexShrink: 0,
           }}
         >
-          <Icon name={modeMeta.icon} size={17} color={KatanaColors.accentSoft} />
-          <span>{modeMeta.shortLabel}</span>
+          <Icon name={effectiveMeta.icon} size={17} color={KatanaColors.accentSoft} />
+          <span>{resolvedModeShortLabel}</span>
         </button>
 
         {isTabletOrWide && !isWebtoon && (

@@ -8,7 +8,11 @@ const COUPLE_USERS = ['khentsgdz', 'clairjassen'];
 const MANGA_HOME_URL = 'https://mangakatana.com/';
 const MANGA_FEED_URL = 'https://mangakatana.com/feed';
 const MANGADEX_API_BASE = 'https://api.mangadex.org';
+const COMICK_API_BASE = 'https://api.comick.dev';
+const BATO_BASE_URL = 'https://bato.to';
 const MANGADEX_PER_RUN_CAP = 25;
+const COMICK_PER_RUN_CAP = 15;
+const BATO_PER_RUN_CAP = 10;
 const KATANA_SERIES_PER_RUN_CAP = 10;
 // Per-series page reads stop here so the hourly job finishes well inside its 120s budget.
 const SERIES_LOOKUP_BUDGET_MS = 70000;
@@ -272,7 +276,9 @@ async function fetchMangaDexBatchLatest(slugs, fetchFn = common.fetchPublicUrl) 
 }
 
 async function fetchKatanaSeriesLatestChapter(slug, fetchFn = common.fetchPublicUrl) {
-  if (!slug || slug.startsWith('md-') || !/^[\w.-]{1,160}$/.test(slug)) return null;
+  if (!slug || slug.startsWith('md-') || slug.startsWith('ck-') || slug.startsWith('bt-') || !/^[\w.-]{1,160}$/.test(slug)) {
+    return null;
+  }
   try {
     const upstream = await fetchFn(`${MANGA_HOME_URL}manga/${encodeURIComponent(slug)}`, {
       headers: {
@@ -294,12 +300,90 @@ async function fetchKatanaSeriesLatestChapter(slug, fetchFn = common.fetchPublic
   }
 }
 
+async function fetchComickLatestChapter(slug, fetchFn = common.fetchPublicUrl) {
+  if (!slug || !slug.startsWith('ck-')) return null;
+  const hid = slug.slice(3).trim();
+  if (!/^[a-z0-9_-]{3,80}$/i.test(hid)) return null;
+  const url = `${COMICK_API_BASE}/comic/${encodeURIComponent(hid)}/chapters?lang=en&limit=1`;
+  try {
+    const upstream = await fetchFn(url, {
+      headers: {
+        'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.comick.dev',
+    });
+    if (!upstream.ok) return null;
+    const text = await common.readLimitedText(upstream.body, 256 * 1024);
+    const json = JSON.parse(text);
+    const chapters = Array.isArray(json?.chapters) ? json.chapters : Array.isArray(json) ? json : [];
+    const item = chapters[0] || null;
+    const chRaw = item?.chap ?? item?.chapter;
+    if (chRaw == null || String(chRaw).trim() === '') return null;
+    const chapterNum = String(chRaw).trim();
+    const num = parseChapterNumber(chapterNum);
+    return {
+      chapterId: item?.hid ? `ck-${item.hid}` : `c${chapterNum}`,
+      chapterNum,
+      num: Number.isFinite(num) ? num : -1,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchBatoLatestChapter(slug, fetchFn = common.fetchPublicUrl) {
+  if (!slug || !slug.startsWith('bt-')) return null;
+  const batoId = slug.slice(3).trim();
+  if (!/^[a-z0-9_-]{2,120}$/i.test(batoId)) return null;
+  const url = `${BATO_BASE_URL}/series/${encodeURIComponent(batoId)}`;
+  try {
+    const upstream = await fetchFn(url, {
+      headers: {
+        'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
+        Accept: 'text/html',
+      },
+      signal: AbortSignal.timeout(10000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => {
+        const host = u.hostname.toLowerCase();
+        return host === 'bato.to' || host.endsWith('.bato.to');
+      },
+    });
+    if (!upstream.ok) return null;
+    const html = await common.readLimitedText(upstream.body, 1024 * 1024);
+    const chRe = /href="\/chapter\/(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+    let best = null;
+    let match;
+    while ((match = chRe.exec(html)) !== null) {
+      const chId = (match[1] || '').trim();
+      const label = String(match[2] || '').replace(/<[^>]+>/g, ' ').trim();
+      const num = parseChapterNumber(label);
+      if (!Number.isFinite(num)) continue;
+      if (!best || num > best.num) {
+        best = {
+          chapterId: chId ? `bt-${chId}` : `c${num}`,
+          chapterNum: String(num),
+          num,
+        };
+      }
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
 async function runMangaUpdateCheck({
   db = common.getDb(),
   sendPush = sendFCMToUser,
   fetchLatest = fetchMangaHomeLatest,
   fetchMangaDexLatest = fetchMangaDexLatestChapter,
   fetchMangaDexBatch = fetchMangaDexBatchLatest,
+  fetchComickLatest = fetchComickLatestChapter,
+  fetchBatoLatest = fetchBatoLatestChapter,
   fetchKatanaSeriesLatest = fetchKatanaSeriesLatestChapter,
   now = new Date(),
 } = {}) {
@@ -379,15 +463,19 @@ async function runMangaUpdateCheck({
 
     // When primary RSS/HTML feed returns 0 items (markup shift), widen direct per-series fallback budget automatically.
     const effectiveKatanaCap = hasKatanaMap ? KATANA_SERIES_PER_RUN_CAP : Math.max(KATANA_SERIES_PER_RUN_CAP * 2, 20);
-    const sourceHealth = {
-      katanaFeedOk: Boolean(hasKatanaMap),
-      katanaFeedCount: latestBySlug ? latestBySlug.size : 0,
-      mangadexBatchOk: mdFollowedSlugs.length <= 1 || Boolean(mdBatchMap && mdBatchMap.size > 0),
-      fallbackActive: !hasKatanaMap,
-      checkedAt: nowMs,
-    };
+    const prevConsecutiveFailures =
+      typeof prefs.sourceHealth?.consecutiveFeedFailures === 'number'
+        ? prefs.sourceHealth.consecutiveFeedFailures
+        : prefs.sourceHealth?.fallbackActive
+          ? 1
+          : 0;
+    const consecutiveFeedFailures = hasKatanaMap ? 0 : prevConsecutiveFailures + 1;
 
     let mdLookups = 0;
+    let ckLookups = 0;
+    let ckSuccesses = 0;
+    let btLookups = 0;
+    let btSuccesses = 0;
     let katanaLookups = 0;
     let lastProbedSlug = cursorSlug;
     for (const docSnap of sortedDocs) {
@@ -412,21 +500,40 @@ async function runMangaUpdateCheck({
       const slug = typeof data.slug === 'string' ? data.slug.trim() : '';
       if (!slug) continue;
 
-      let latest = hasKatanaMap ? latestBySlug.get(slug) : null;
-      if (!latest && slug.startsWith('md-') && mdBatchMap && mdBatchMap.size > 0) {
+      const isMd = slug.startsWith('md-');
+      const isCk = slug.startsWith('ck-');
+      const isBt = slug.startsWith('bt-');
+      const isKatana = !isMd && !isCk && !isBt;
+
+      let latest = isKatana && hasKatanaMap ? latestBySlug.get(slug) : null;
+      if (!latest && isMd && mdBatchMap && mdBatchMap.size > 0) {
         latest = mdBatchMap.get(slug.toLowerCase()) || null;
       }
       let fromSeriesPage = false;
       // Mihon Smart Updates: only probe an individual series page when its predicted cadence window is due.
       const dueForDirectProbe = typeof data.nextCheckAt !== 'number' || nowMs >= data.nextCheckAt;
       const canLookup = dueForDirectProbe && Date.now() < lookupDeadline;
-      if (!latest && canLookup && slug.startsWith('md-') && mdLookups < MANGADEX_PER_RUN_CAP) {
+      if (!latest && canLookup && isMd && mdLookups < MANGADEX_PER_RUN_CAP) {
         mdLookups += 1;
         lastProbedSlug = slug;
         latest = await fetchMangaDexLatest(slug);
         checkedSeriesUpdates.push({ ref: docSnap.ref, data });
         fromSeriesPage = true;
-      } else if (!latest && canLookup && !slug.startsWith('md-') && katanaLookups < effectiveKatanaCap) {
+      } else if (!latest && canLookup && isCk && ckLookups < COMICK_PER_RUN_CAP) {
+        ckLookups += 1;
+        lastProbedSlug = slug;
+        latest = await fetchComickLatest(slug);
+        if (latest) ckSuccesses += 1;
+        checkedSeriesUpdates.push({ ref: docSnap.ref, data });
+        fromSeriesPage = true;
+      } else if (!latest && canLookup && isBt && btLookups < BATO_PER_RUN_CAP) {
+        btLookups += 1;
+        lastProbedSlug = slug;
+        latest = await fetchBatoLatest(slug);
+        if (latest) btSuccesses += 1;
+        checkedSeriesUpdates.push({ ref: docSnap.ref, data });
+        fromSeriesPage = true;
+      } else if (!latest && canLookup && isKatana && katanaLookups < effectiveKatanaCap) {
         // Followed series that missed the latest-updates feed: read its own page (stalest first).
         katanaLookups += 1;
         lastProbedSlug = slug;
@@ -468,6 +575,30 @@ async function runMangaUpdateCheck({
       });
     }
 
+    const sourceHealth = {
+      katanaFeedOk: Boolean(hasKatanaMap),
+      katanaFeedCount: latestBySlug ? latestBySlug.size : 0,
+      mangadexBatchOk: mdFollowedSlugs.length <= 1 || Boolean(mdBatchMap && mdBatchMap.size > 0),
+      comickOk: ckLookups === 0 || ckSuccesses > 0,
+      batoOk: btLookups === 0 || btSuccesses > 0,
+      fallbackActive: !hasKatanaMap,
+      consecutiveFeedFailures,
+      checkedAt: nowMs,
+    };
+
+    let alertedHealthToday = false;
+    if (
+      uid === 'khentsgdz' &&
+      consecutiveFeedFailures >= 2 &&
+      prefs.lastSourceHealthAlertDay !== dayKey
+    ) {
+      alertedHealthToday = await sendPush('khentsgdz', {
+        title: 'Manga Celestia: Feed fallback active',
+        body: 'Primary MangaKatana feed returned 0 items for 2+ hours; per-series direct checks are active.',
+        data: { type: 'manga_update', slug: '' },
+      });
+    }
+
     const freshRefs = new Set(freshUpdates.map((u) => u.ref));
     if (checkedSeriesUpdates.length > 0) {
       await Promise.all(
@@ -494,6 +625,7 @@ async function runMangaUpdateCheck({
         {
           lastUpdateCheckAt: nowMs,
           sourceHealth,
+          ...(alertedHealthToday ? { lastSourceHealthAlertDay: dayKey } : {}),
           ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
         },
         { merge: true },
@@ -545,11 +677,13 @@ async function runMangaUpdateCheck({
             lastPushDigestDay: dayKey,
             lastUpdateCheckAt: nowMs,
             sourceHealth,
+            ...(alertedHealthToday ? { lastSourceHealthAlertDay: dayKey } : {}),
             ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
           }
         : {
             lastUpdateCheckAt: nowMs,
             sourceHealth,
+            ...(alertedHealthToday ? { lastSourceHealthAlertDay: dayKey } : {}),
             ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
           },
       { merge: true },
@@ -575,6 +709,8 @@ module.exports = {
   runMangaUpdateCheck,
   fetchKatanaSeriesLatestChapter,
   fetchMangaDexBatchLatest,
+  fetchComickLatestChapter,
+  fetchBatoLatestChapter,
   extractLatestChaptersFromFeedXml,
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,
