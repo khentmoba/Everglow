@@ -57,12 +57,12 @@ export function JournalPage() {
   const [search, setSearch] = useState<{ run: number; term: string } | null>(null);
   const [filters, setFilters] = useState<Filters>({ category: null, author: null, pinnedOnly: false, lockedOnly: false });
   const [retry, setRetry] = useState(0);
-  const searching = query.trim() !== '';
+  const searchTerm = query.trim();
+  const searching = searchTerm !== '';
   const isFiltered = filters.category != null || filters.author != null || filters.pinnedOnly || filters.lockedOnly;
 
   // Searching walks every entry, so wait for the typing to settle instead of
   // rescanning the collection on each keystroke.
-  const searchTerm = query.trim();
   useEffect(() => {
     if (searchTerm === '') {
       setSearch(null);
