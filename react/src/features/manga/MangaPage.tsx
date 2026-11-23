@@ -136,14 +136,7 @@ import {
   type KatanaThemeMode,
 } from './katanaTokens';
 import { clearResumeAnchor } from './readerSettings';
-
-const STATUS_LABELS: Record<KatanaLibraryStatus, { label: string; icon: string; color: string }> = {
-  reading: { label: 'Reading', icon: 'auto_stories', color: KatanaColors.accent },
-  on_hold: { label: 'On Hold', icon: 'pause_circle_outline', color: KatanaColors.orange },
-  completed: { label: 'Completed', icon: 'check_circle', color: KatanaColors.green },
-  planned: { label: 'Plan to Read', icon: 'schedule', color: KatanaColors.link },
-  dropped: { label: 'Dropped', icon: 'cancel', color: KatanaColors.textLight },
-};
+import { MangaLibraryCollectionView, STATUS_LABELS } from './MangaLibraryView';
 
 const WIFI_ONLY_DL_KEY = 'katana.downloadWifiOnly.v1';
 
@@ -1781,6 +1774,11 @@ export function MangaPage() {
     ));
     return Boolean(ok);
   }, []);
+
+  useEffect(() => {
+    if (offline.mangaItems.length === 0) return;
+    void offlineMedia.verifyAllMangaChaptersCache();
+  }, [offline.mangaItems.length]);
 
   const downloadChapter = useCallback(
     async (manga: KatanaManga, chapter: KatanaChapter, silent = false): Promise<boolean> => {
@@ -3427,7 +3425,8 @@ export function MangaPage() {
                         {(() => {
                           const allLinks = resolveOfficialPublisherLinks(detail, detailBm);
                           const publisherLinks = allLinks.filter((l) => l.category === 'publisher');
-                          const hasVerifiedPublisher = publisherLinks.some((l) => l.officialSimulpub);
+                          const verifiedPublisherLinks = publisherLinks.filter((l) => l.directLink && l.officialSimulpub);
+                          const searchLookupLinks = publisherLinks.filter((l) => !l.directLink);
                           const trackerAndRegistryLinks = allLinks.filter(
                             (l) => l.category === 'tracker' || l.category === 'registry',
                           );
@@ -3436,95 +3435,172 @@ export function MangaPage() {
                             <div
                               style={{
                                 marginTop: 14,
-                                padding: '10px 12px',
-                                borderRadius: 10,
+                                padding: '12px 14px',
+                                borderRadius: 12,
                                 background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${KatanaColors.border}`,
+                                border: `1px solid ${
+                                  verifiedPublisherLinks.length > 0
+                                    ? withAlpha(KatanaColors.green, 0.45)
+                                    : KatanaColors.border
+                                }`,
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: 8,
+                                gap: 10,
                               }}
                             >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  flexWrap: 'wrap',
-                                  gap: 8,
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                  <Icon
-                                    name={hasVerifiedPublisher ? 'verified' : 'menu_book'}
-                                    size={16}
-                                    color={hasVerifiedPublisher ? KatanaColors.green : KatanaColors.accentSoft}
-                                  />
-                                  <span style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
-                                    {hasVerifiedPublisher ? 'Official Publisher & Store:' : 'Publisher Catalog Lookups:'}
-                                  </span>
-                                  {publisherLinks.map((pub) => (
-                                    <a
-                                      key={pub.id}
-                                      href={pub.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      title={`${pub.name} · ${pub.badge}`}
+                              {verifiedPublisherLinks.length > 0 && (
+                                <div
+                                  style={{
+                                    padding: '10px 12px',
+                                    borderRadius: 10,
+                                    background: withAlpha(KatanaColors.green, 0.1),
+                                    border: `1px solid ${withAlpha(KatanaColors.green, 0.42)}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 8,
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <span
                                       style={{
-                                        padding: '3px 8px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 12.5,
+                                        fontWeight: 800,
+                                        color: KatanaColors.green,
+                                      }}
+                                    >
+                                      <Icon name="verified" size={16} color={KatanaColors.green} />
+                                      <span>Verified Official Release (Direct Series Links):</span>
+                                    </span>
+                                    {verifiedPublisherLinks.map((pub) => (
+                                      <a
+                                        key={pub.id}
+                                        href={pub.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`${pub.name} · ${pub.badge}`}
+                                        style={{
+                                          minHeight: 34,
+                                          padding: '4px 11px',
+                                          borderRadius: 99,
+                                          background: withAlpha(KatanaColors.green, 0.2),
+                                          border: `1.5px solid ${withAlpha(KatanaColors.green, 0.65)}`,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 5,
+                                          fontFamily: Fonts.body,
+                                          fontSize: 12.5,
+                                          fontWeight: 800,
+                                          color: '#A7F3D0',
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        <Icon name={pub.icon} size={14} color={KatanaColors.green} />
+                                        <span>{pub.name}</span>
+                                        <Icon name="open_in_new" size={12} color={KatanaColors.green} />
+                                      </a>
+                                    ))}
+                                  </div>
+                                  {userName && (
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      onClick={() => void openMigrationPicker(detail)}
+                                      style={{
+                                        minHeight: 32,
+                                        padding: '3px 10px',
                                         borderRadius: 99,
-                                        background: pub.officialSimulpub
-                                          ? withAlpha(KatanaColors.green, 0.14)
-                                          : KatanaColors.surface,
-                                        border: `1px solid ${
-                                          pub.officialSimulpub
-                                            ? withAlpha(KatanaColors.green, 0.45)
-                                            : KatanaColors.borderStrong
-                                        }`,
+                                        background: withAlpha(KatanaColors.teal, 0.14),
+                                        border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: 4,
                                         fontFamily: Fonts.body,
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: 700,
-                                        color: pub.officialSimulpub ? KatanaColors.green : KatanaColors.textMuted,
-                                        textDecoration: 'none',
+                                        color: KatanaColors.teal,
                                       }}
                                     >
-                                      <Icon
-                                        name={pub.icon}
-                                        size={12}
-                                        color={pub.officialSimulpub ? KatanaColors.green : KatanaColors.textMuted}
-                                      />
-                                      <span>{pub.name}</span>
-                                    </a>
-                                  ))}
+                                      <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
+                                      <span>Check 4 Source Mirrors</span>
+                                    </button>
+                                  )}
                                 </div>
-                                {userName && (
-                                  <button
-                                    type="button"
-                                    className="bare-button"
-                                    onClick={() => void openMigrationPicker(detail)}
-                                    style={{
-                                      minHeight: 32,
-                                      padding: '3px 9px',
-                                      borderRadius: 99,
-                                      background: withAlpha(KatanaColors.teal, 0.14),
-                                      border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: KatanaColors.teal,
-                                    }}
-                                  >
-                                    <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
-                                    <span>Check 4 Source Mirrors</span>
-                                  </button>
-                                )}
-                              </div>
+                              )}
+
+                              {searchLookupLinks.length > 0 && (
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 8,
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <Icon name="search" size={15} color={KatanaColors.textMuted} />
+                                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
+                                      Search Official Catalogs (lookup query only — official chapters not confirmed):
+                                    </span>
+                                    {searchLookupLinks.map((pub) => (
+                                      <a
+                                        key={pub.id}
+                                        href={pub.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`${pub.name} · ${pub.badge}`}
+                                        style={{
+                                          padding: '2px 9px',
+                                          borderRadius: 99,
+                                          background: KatanaColors.surface,
+                                          border: `1px dashed ${KatanaColors.borderStrong}`,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 4,
+                                          fontFamily: Fonts.body,
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          color: KatanaColors.textMuted,
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        <Icon name="search" size={12} color={KatanaColors.textMuted} />
+                                        <span>{pub.name}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                  {verifiedPublisherLinks.length === 0 && userName && (
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      onClick={() => void openMigrationPicker(detail)}
+                                      style={{
+                                        minHeight: 32,
+                                        padding: '3px 9px',
+                                        borderRadius: 99,
+                                        background: withAlpha(KatanaColors.teal, 0.14),
+                                        border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: KatanaColors.teal,
+                                      }}
+                                    >
+                                      <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
+                                      <span>Check 4 Source Mirrors</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
 
                               <div
                                 style={{
@@ -3575,7 +3651,7 @@ export function MangaPage() {
                                   title={srcMeta.tooltip}
                                   style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}
                                 >
-                                  Source: <strong style={{ color: KatanaColors.text }}>{srcMeta.name}</strong> ·{' '}
+                                  Catalog Source: <strong style={{ color: KatanaColors.text }}>{srcMeta.name} ({srcMeta.badge})</strong> ·{' '}
                                   {srcMeta.signals.provenance} · {srcMeta.signals.specialty}
                                 </span>
                               </div>
@@ -5189,6 +5265,7 @@ export function MangaPage() {
                             const isChecked = selectedChapterIds.has(c.id);
                             const offlineId = OfflineIds.mangaChapterId(detail.slug, c.id);
                             const isOffline = offlineMedia.isDownloaded(offlineId);
+                            const needsOfflineRepair = offlineMedia.needsCacheRepair(offlineId);
                             const isDownloading = downloadingChapterIds.has(c.id);
 
                             const resolveVolumeLabel = (ch: KatanaChapter): string => {
@@ -5413,12 +5490,17 @@ export function MangaPage() {
                                               return c.updateAt ? `· ${meta}` : meta;
                                             })()}
                                           </span>
-                                          {isOffline && (
+                                          {needsOfflineRepair ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 700, color: KatanaColors.accentSoft }}>
+                                              <Icon name="warning_amber" size={13} color={KatanaColors.accent} />
+                                              Needs Repair
+                                            </span>
+                                          ) : isOffline ? (
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 600, color: KatanaColors.green }}>
                                               <Icon name="download_done" size={13} color={KatanaColors.green} />
                                               Offline
                                             </span>
-                                          )}
+                                          ) : null}
                                         </div>
                                       )}
                                     </div>
@@ -5509,13 +5591,23 @@ export function MangaPage() {
                                       type="button"
                                       className="bare-button"
                                       disabled={isDownloading}
-                                      title={isOffline ? 'Saved offline' : isDownloading ? 'Downloading chapter…' : 'Download chapter'}
+                                      title={
+                                        needsOfflineRepair
+                                          ? 'Offline cache missing evicted pages — tap to repair'
+                                          : isOffline
+                                            ? 'Saved offline (Cache Storage verified)'
+                                            : isDownloading
+                                              ? 'Downloading chapter…'
+                                              : 'Download chapter'
+                                      }
                                       aria-label={
-                                        isOffline
-                                          ? `${chapterDisplayTitle(c)} saved offline`
-                                          : isDownloading
-                                            ? `Downloading ${chapterDisplayTitle(c)}`
-                                            : `Download ${chapterDisplayTitle(c)}`
+                                        needsOfflineRepair
+                                          ? `Repair offline cache for ${chapterDisplayTitle(c)}`
+                                          : isOffline
+                                            ? `${chapterDisplayTitle(c)} saved offline`
+                                            : isDownloading
+                                              ? `Downloading ${chapterDisplayTitle(c)}`
+                                              : `Download ${chapterDisplayTitle(c)}`
                                       }
                                       onClick={() => void downloadChapter(detail, c)}
                                       style={{
@@ -5529,9 +5621,25 @@ export function MangaPage() {
                                       }}
                                     >
                                       <Icon
-                                        name={isOffline ? 'download_done' : isDownloading ? 'hourglass_top' : 'download'}
+                                        name={
+                                          needsOfflineRepair
+                                            ? 'build'
+                                            : isOffline
+                                              ? 'download_done'
+                                              : isDownloading
+                                                ? 'hourglass_top'
+                                                : 'download'
+                                        }
                                         size={19}
-                                        color={isOffline ? KatanaColors.green : isDownloading ? KatanaColors.accent : KatanaColors.textMuted}
+                                        color={
+                                          needsOfflineRepair
+                                            ? KatanaColors.accent
+                                            : isOffline
+                                              ? KatanaColors.green
+                                              : isDownloading
+                                                ? KatanaColors.accent
+                                                : KatanaColors.textMuted
+                                        }
                                       />
                                     </button>
                                   )}
@@ -7161,258 +7269,25 @@ export function MangaPage() {
                 )}
 
                 <div style={{ height: 14 }} />
-                {filteredLibrary.length === 0 ? (
-                  <KatanaEmptyState
-                    icon="bookmarks"
-                    title={savedBookmarks.length === 0 ? 'Your library is empty' : 'No titles match this filter'}
-                    subtitle={
-                      savedBookmarks.length === 0
-                        ? 'Add manga, manhwa, or manhua from any detail page to track reading progress and organize shelves.'
-                        : 'Try switching shelves or clearing your search.'
-                    }
-                    actionLabel={savedBookmarks.length === 0 ? 'Explore Catalog' : 'Show All'}
-                    actionIcon={savedBookmarks.length === 0 ? 'explore' : 'restart_alt'}
-                    onAction={() => {
-                      if (savedBookmarks.length === 0) handleNav('directory');
-                      else {
-                        setLibraryBucket('all');
-                        setLibraryQuery('');
-                      }
-                    }}
-                  />
-                ) : libraryViewMode === 'list' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, minmax(0, 1fr))' : tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 12 }}>
-                    {filteredLibrary.map((bm) => {
-                      const st = resolveLibraryStatus(bm);
-                      const meta = STATUS_LABELS[st];
-                      const unread = estimateUnreadCount(bm);
-                      const dlCount = downloadedCounts[bm.slug] ?? 0;
-                      const caughtUp = isBookmarkCaughtUp(bm);
-                      const selected = selectedLibrarySlugs.has(bm.slug);
-                      const actionLabel =
-                        st === 'completed'
-                          ? 'Re-read'
-                          : caughtUp || !bm.lastReadChapterId
-                            ? 'Read'
-                            : 'Resume';
-                      return (
-                        <KatanaCard
-                          key={bm.slug}
-                          padding={12}
-                          style={selected ? { borderColor: KatanaColors.accent, background: withAlpha(KatanaColors.accent, 0.06) } : undefined}
-                        >
-                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                            {librarySelectMode && (
-                              <button
-                                type="button"
-                                className="bare-button"
-                                aria-label={`Select ${bm.title}`}
-                                onClick={() => toggleSelectLibrarySlug(bm.slug)}
-                                style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 2 }}
-                              >
-                                <Icon
-                                  name={selected ? 'check_box' : 'check_box_outline_blank'}
-                                  size={20}
-                                  color={selected ? KatanaColors.accent : KatanaColors.textLight}
-                                />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className="bare-button"
-                              aria-label={`Open ${bm.title}`}
-                              onClick={() => (librarySelectMode ? toggleSelectLibrarySlug(bm.slug) : openDetail(bm.slug))}
-                              style={{ position: 'relative', width: 72, height: 104, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}
-                            >
-                              <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={22} />
-                              <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
-                            </button>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <button
-                                type="button"
-                                className="bare-button"
-                                onClick={() => (librarySelectMode ? toggleSelectLibrarySlug(bm.slug) : openDetail(bm.slug))}
-                                style={{ textAlign: 'left', width: '100%' }}
-                              >
-                                <div className="clamp-2" style={KatanaType.title}>{bm.title}</div>
-                              </button>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: withAlpha(meta.color, 0.16),
-                                    fontFamily: Fonts.body,
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    color: meta.color,
-                                  }}
-                                >
-                                  {caughtUp ? 'Caught Up' : meta.label}
-                                </span>
-                                {bm.readChapterIds.length > 0 && (
-                                  <span style={KatanaType.small}>{bm.readChapterIds.length} ch read</span>
-                                )}
-                              </div>
-                              {bm.lastReadChapterTitle && (
-                                <div style={{ ...KatanaType.small, color: KatanaColors.link, marginTop: 6 }}>
-                                  {bm.lastReadChapterTitle}
-                                  {bm.latestChapterTitle ? ` · Latest: ${bm.latestChapterTitle}` : ''}
-                                </div>
-                              )}
-                              {!librarySelectMode && (
-                                <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-                                  <KatanaButton
-                                    label={actionLabel}
-                                    icon="play_arrow"
-                                    size="sm"
-                                    onClick={() => void resumeBookmark(bm)}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </KatanaCard>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${getKatanaGridColumns(width, libraryViewMode === 'compact')}, minmax(0, 1fr))`,
-                      gap: libraryViewMode === 'compact' ? 10 : 14,
-                    }}
-                  >
-                    {filteredLibrary.map((bm) => {
-                      const unread = estimateUnreadCount(bm);
-                      const dlCount = downloadedCounts[bm.slug] ?? 0;
-                      const selected = selectedLibrarySlugs.has(bm.slug);
-                      return (
-                        <div
-                          key={bm.slug}
-                          style={{
-                            position: 'relative',
-                            borderRadius: 11,
-                            overflow: 'hidden',
-                            background: KatanaColors.surface,
-                            border: `2px solid ${selected ? KatanaColors.accent : KatanaColors.border}`,
-                            display: 'flex',
-                            flexDirection: 'column',
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="bare-button"
-                            onClick={() => (librarySelectMode ? toggleSelectLibrarySlug(bm.slug) : openDetail(bm.slug))}
-                            style={{
-                              textAlign: 'left',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              flex: 1,
-                              width: '100%',
-                            }}
-                          >
-                            <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 3', background: KatanaColors.surfaceAlt }}>
-                              <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={24} />
-                              <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
-                              {bm.userScore != null && !librarySelectMode && (
-                                <span
-                                  style={{
-                                    position: 'absolute',
-                                    top: 6,
-                                    left: 6,
-                                    padding: '2px 6px',
-                                    borderRadius: 6,
-                                    background: withAlpha(KatanaColors.background, 0.86),
-                                    border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
-                                    fontFamily: Fonts.body,
-                                    fontSize: 10.5,
-                                    fontWeight: 800,
-                                    color: KatanaColors.accentSoft,
-                                  }}
-                                >
-                                  ★ {bm.userScore}
-                                </span>
-                              )}
-                              {librarySelectMode && (
-                                <span
-                                  style={{
-                                    position: 'absolute',
-                                    top: 6,
-                                    left: 6,
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: 6,
-                                    background: selected ? KatanaColors.accent : withAlpha(KatanaColors.background, 0.78),
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                  }}
-                                >
-                                  <Icon
-                                    name={selected ? 'check' : 'check_box_outline_blank'}
-                                    size={16}
-                                    color={selected ? KatanaColors.accentInk : KatanaColors.text}
-                                  />
-                                </span>
-                              )}
-                              {libraryViewMode === 'compact' && (
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    inset: 'auto 0 0 0',
-                                    padding: '22px 44px 8px 8px',
-                                    background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.94)}, transparent)`,
-                                  }}
-                                >
-                                  <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text, lineHeight: 1.2 }}>
-                                    {bm.title}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            {libraryViewMode === 'grid' && (
-                              <div style={{ padding: '8px 9px 10px' }}>
-                                <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text, lineHeight: 1.25 }}>
-                                  {bm.title}
-                                </div>
-                                <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
-                                  {bm.lastReadChapterTitle || STATUS_LABELS[resolveLibraryStatus(bm)].label}
-                                </div>
-                              </div>
-                            )}
-                          </button>
-                          {!librarySelectMode && (
-                            <button
-                              type="button"
-                              className="bare-button"
-                              aria-label={`Resume ${bm.title}`}
-                              title={bm.lastReadChapterTitle ? `Resume ${bm.lastReadChapterTitle}` : `Start ${bm.title}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void resumeBookmark(bm);
-                              }}
-                              style={{
-                                position: 'absolute',
-                                right: 7,
-                                bottom: libraryViewMode === 'grid' ? 54 : 7,
-                                width: 34,
-                                height: 34,
-                                borderRadius: 99,
-                                background: KatanaColors.accent,
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.55)',
-                                display: 'grid',
-                                placeItems: 'center',
-                              }}
-                            >
-                              <Icon name="play_arrow" size={19} color={KatanaColors.accentInk} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <MangaLibraryCollectionView
+                  savedBookmarks={savedBookmarks}
+                  filteredLibrary={filteredLibrary}
+                  libraryViewMode={libraryViewMode}
+                  librarySelectMode={librarySelectMode}
+                  selectedLibrarySlugs={selectedLibrarySlugs}
+                  downloadedCounts={downloadedCounts}
+                  width={width}
+                  tablet={tablet}
+                  desktop={desktop}
+                  onToggleSelectSlug={toggleSelectLibrarySlug}
+                  onOpenDetail={openDetail}
+                  onResumeBookmark={(bm) => void resumeBookmark(bm)}
+                  onExploreCatalog={() => handleNav('directory')}
+                  onResetFilters={() => {
+                    setLibraryBucket('all');
+                    setLibraryQuery('');
+                  }}
+                />
               </div>
             ) : tab === 'reading' || tab === 'history' ? (
               <MangaReadingHistoryView
@@ -7682,6 +7557,59 @@ export function MangaPage() {
                     </div>
                   </div>
                 </div>
+
+                {(catalogMode === 'directory' || catalogMode === 'search') && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      background: withAlpha(KatanaColors.surfaceAlt, 0.72),
+                      border: `1px solid ${KatanaColors.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 6,
+                    }}
+                  >
+                    <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
+                      {catalogSource === 'all' ? (
+                        <>
+                          <strong style={{ color: KatanaColors.text }}>All 4 Sources Active:</strong> Ranked by title match,
+                          verified official links &amp; tracker metadata (MangaDex · Katana · ComicK · Bato.to). Tap any card&apos;s
+                          source badge for provenance.
+                        </>
+                      ) : (
+                        (() => {
+                          const info = getSourceBadgeInfo(catalogSource);
+                          return (
+                            <>
+                              <strong style={{ color: KatanaColors.text }}>
+                                {info.name} ({info.badge}):
+                              </strong>{' '}
+                              {info.signals.provenance} · {info.signals.specialty}
+                            </>
+                          );
+                        })()
+                      )}
+                    </span>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontFamily: Fonts.body,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: KatanaColors.green,
+                      }}
+                    >
+                      <Icon name="verified" size={13} color={KatanaColors.green} />
+                      <span>Official publisher links prioritized</span>
+                    </span>
+                  </div>
+                )}
 
                 {/* Desktop inline filter drawer */}
                 {filterOpen && desktop && (catalogMode === 'directory' || catalogMode === 'genre' || catalogMode === 'search') && (

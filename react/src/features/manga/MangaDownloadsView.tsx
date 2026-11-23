@@ -3,7 +3,7 @@ import { formattedSize, offlineMedia, type OfflineMediaItem } from '../../core/s
 import { withAlpha } from '../../core/theme/colors';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
-import { chapterDisplayTitle, type KatanaChapter, type KatanaManga } from './katanaService';
+import { chapterDisplayTitle, proxyKatanaImageUrl, type KatanaChapter, type KatanaManga } from './katanaService';
 import { estimateMangaBatchMegabytes } from './mangaSearchAndTrust';
 import { KatanaColors, KatanaFonts as Fonts, KatanaType } from './katanaTokens';
 import {
@@ -107,9 +107,49 @@ export function KatanaDownloadsView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [quotaInfo, setQuotaInfo] = useState<{ usage: number; quota: number } | null>(null);
   const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [verifyingCache, setVerifyingCache] = useState(false);
+  const [repairingAll, setRepairingAll] = useState(false);
   const [unknownWifiPolicy, setUnknownWifiPolicy] = useState<UnknownNetworkWifiPolicy>(() =>
     loadUnknownNetworkWifiPolicy(),
   );
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    void offlineMedia.verifyAllMangaChaptersCache();
+  }, [items.length]);
+
+  const evictedItems = useMemo(
+    () => items.filter((it) => it.status === 'completed' && (it.cacheMissingPages ?? 0) > 0),
+    [items],
+  );
+
+  const handleVerifyCache = async () => {
+    if (verifyingCache) return;
+    setVerifyingCache(true);
+    try {
+      const res = await offlineMedia.verifyAllMangaChaptersCache();
+      if (res.evictedChapters > 0) {
+        showSnackBar(
+          `Found ${res.missingPages} evicted page(s) across ${res.evictedChapters} chapter(s) — tap Repair to restore`,
+        );
+      } else {
+        showSnackBar(`Verified ${res.checked} offline chapter(s) — all cached pages intact`);
+      }
+    } finally {
+      setVerifyingCache(false);
+    }
+  };
+
+  const handleRepairAllEvicted = async () => {
+    if (repairingAll || evictedItems.length === 0) return;
+    setRepairingAll(true);
+    try {
+      const count = await offlineMedia.repairAllEvictedMangaChapters(proxyKatanaImageUrl);
+      showSnackBar(`Repaired ${count} chapter(s) in offline cache`);
+    } finally {
+      setRepairingAll(false);
+    }
+  };
 
   const onChangeUnknownWifiPolicy = (nextPolicy: UnknownNetworkWifiPolicy) => {
     setUnknownWifiPolicy(nextPolicy);
@@ -754,7 +794,30 @@ export function KatanaDownloadsView({
                     : ''}
                 </span>
               </div>
-              <div style={{ display: 'inline-flex', gap: 6 }}>
+              <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={verifyingCache}
+                  onClick={() => void handleVerifyCache()}
+                  title="Verify every downloaded chapter page in browser Cache Storage"
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 7,
+                    background: KatanaColors.surfaceAlt,
+                    border: `1px solid ${KatanaColors.borderStrong}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontFamily: Fonts.body,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: KatanaColors.teal,
+                  }}
+                >
+                  <Icon name="fact_check" size={14} color={KatanaColors.teal} />
+                  <span>{verifyingCache ? 'Verifying…' : 'Verify Cache'}</span>
+                </button>
                 {(
                   [
                     ['recent', 'Recent'],
@@ -800,6 +863,36 @@ export function KatanaDownloadsView({
             <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
               Pending downloads save automatically and resume next time you open Manga Celestia. Clearing browser site data removes cached pages unless you export a portable <strong>.cbz</strong> archive.
             </div>
+            {evictedItems.length > 0 && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: withAlpha(KatanaColors.accent, 0.14),
+                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.5)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px' }}>
+                  <Icon name="warning_amber" size={18} color={KatanaColors.accent} />
+                  <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.text, fontWeight: 600 }}>
+                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter has' : 'chapters have'} missing
+                    Cache Storage pages evicted by the browser and won&apos;t load completely offline until repaired.
+                  </span>
+                </div>
+                <KatanaButton
+                  label={repairingAll ? 'Repairing…' : `Repair All (${evictedItems.length})`}
+                  icon="build"
+                  size="sm"
+                  onClick={() => void handleRepairAllEvicted()}
+                />
+              </div>
+            )}
             {persisted === false && (
               <div
                 style={{
@@ -888,6 +981,10 @@ export function KatanaDownloadsView({
                   </div>
                   {chapters.map((ch, idx) => {
                     const checked = selectedIds.has(ch.id);
+                    const missingPages = ch.cacheMissingPages ?? 0;
+                    const totalPages = ch.pageUrls.length;
+                    const cachedPages = ch.verifiedCachedPages ?? Math.max(0, totalPages - missingPages);
+                    const needsRepair = missingPages > 0;
                     return (
                       <div
                         key={ch.id}
@@ -897,7 +994,11 @@ export function KatanaDownloadsView({
                           gap: 10,
                           padding: '10px 12px',
                           borderTop: idx > 0 ? `1px solid ${KatanaColors.border}` : undefined,
-                          background: checked ? withAlpha(KatanaColors.accent, 0.08) : 'transparent',
+                          background: checked
+                            ? withAlpha(KatanaColors.accent, 0.08)
+                            : needsRepair
+                              ? withAlpha(KatanaColors.accent, 0.06)
+                              : 'transparent',
                         }}
                       >
                         {dlSelectMode && (
@@ -917,14 +1018,64 @@ export function KatanaDownloadsView({
                           onClick={() => (dlSelectMode ? toggleSelect(ch.id) : onOpen(ch))}
                           style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
                         >
-                          <Icon name="menu_book" size={18} color={KatanaColors.accentSoft} />
+                          <Icon
+                            name={needsRepair ? 'warning_amber' : 'menu_book'}
+                            size={18}
+                            color={needsRepair ? KatanaColors.accent : KatanaColors.accentSoft}
+                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ ...KatanaType.title, fontSize: 13.5 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
-                            <div style={KatanaType.small}>{formattedSize(ch)}</div>
+                            <div style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span>{formattedSize(ch)}</span>
+                              {needsRepair ? (
+                                <span style={{ color: KatanaColors.accentSoft, fontWeight: 700 }}>
+                                  · Needs Repair ({cachedPages}/{totalPages} pages cached)
+                                </span>
+                              ) : totalPages > 0 ? (
+                                <span style={{ color: KatanaColors.green, fontWeight: 600 }}>
+                                  · Offline verified ({cachedPages} {cachedPages === 1 ? 'page' : 'pages'})
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </button>
                         {!dlSelectMode && (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {needsRepair && (
+                              <button
+                                type="button"
+                                className="bare-button"
+                                title="Re-download evicted pages into Cache Storage"
+                                aria-label={`Repair offline cache for ${ch.subtitle || ch.title}`}
+                                onClick={async () => {
+                                  showSnackBar(`Repairing ${ch.subtitle || ch.title}…`);
+                                  await offlineMedia.repairMangaChapter(ch.id, proxyKatanaImageUrl);
+                                  const res = await offlineMedia.verifyMangaChapterCache(ch.id);
+                                  showSnackBar(
+                                    res.isComplete
+                                      ? `Repaired ${ch.subtitle || ch.title} (${res.cachedPages}/${res.totalPages} pages cached)`
+                                      : `Could not restore all pages (${res.cachedPages}/${res.totalPages} cached) — check connection`,
+                                  );
+                                }}
+                                style={{
+                                  minHeight: 44,
+                                  padding: '0 11px',
+                                  borderRadius: 7,
+                                  background: withAlpha(KatanaColors.accent, 0.18),
+                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 11.5,
+                                  fontWeight: 800,
+                                  color: KatanaColors.accentSoft,
+                                }}
+                              >
+                                <Icon name="build" size={14} color={KatanaColors.accentSoft} />
+                                <span>Repair</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="bare-button"

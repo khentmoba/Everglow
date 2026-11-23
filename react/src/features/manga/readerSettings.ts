@@ -117,6 +117,7 @@ export interface ResumeAnchor {
   chapterId: string;
   pageIdx: number;
   offsetRatio: number;
+  updatedAt?: number;
 }
 
 export interface PageBookmark {
@@ -533,45 +534,75 @@ export function saveSeriesReaderOverride(slug: string, override: SeriesReaderOve
   Prefs.set(SERIES_PREFIX + slug, JSON.stringify(override));
 }
 
-export function loadResumeAnchor(slug: string, chapterId: string): ResumeAnchor | null {
-  if (!slug || !chapterId) return null;
+export interface StoredChapterResumeEntry {
+  pageIdx: number;
+  offsetRatio: number;
+  updatedAt: number;
+}
+
+/**
+ * Loads the per-chapter map of fine-grained reading positions (page index + vertical scroll ratio
+ * + timestamp). Synced across phone and tablet via Firestore `reader_state` (`hydrateMangaReaderSeriesState`
+ * / `syncMangaReaderSeriesState`) and cached locally in `Prefs` for instant offline cold-open.
+ */
+export function loadAllResumeAnchors(slug: string): Record<string, StoredChapterResumeEntry> {
+  if (!slug) return {};
   const raw = Prefs.getString(RESUME_PREFIX + slug);
-  if (!raw) return null;
+  if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as {
-      chapters?: Record<string, { pageIdx: number; offsetRatio: number }>;
+      chapters?: Record<string, { pageIdx: number; offsetRatio: number; updatedAt?: number }>;
       chapterId?: string;
       pageIdx?: number;
       offsetRatio?: number;
+      updatedAt?: number;
     };
-    const entry = parsed.chapters?.[chapterId] ?? (parsed.chapterId === chapterId ? parsed : undefined);
-    if (!entry || typeof entry.pageIdx !== 'number' || typeof entry.offsetRatio !== 'number') return null;
-    return {
-      chapterId,
-      pageIdx: Math.max(0, Math.floor(entry.pageIdx)),
-      offsetRatio: clamp(entry.offsetRatio, 0, 1),
-    };
+    const out: Record<string, StoredChapterResumeEntry> = {};
+    if (parsed.chapters && typeof parsed.chapters === 'object') {
+      for (const [chId, entry] of Object.entries(parsed.chapters)) {
+        if (entry && typeof entry.pageIdx === 'number' && typeof entry.offsetRatio === 'number') {
+          out[chId] = {
+            pageIdx: Math.max(0, Math.floor(entry.pageIdx)),
+            offsetRatio: Number(clamp(entry.offsetRatio, 0, 1).toFixed(3)),
+            updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : 0,
+          };
+        }
+      }
+    } else if (parsed.chapterId && typeof parsed.pageIdx === 'number' && typeof parsed.offsetRatio === 'number') {
+      out[parsed.chapterId] = {
+        pageIdx: Math.max(0, Math.floor(parsed.pageIdx)),
+        offsetRatio: Number(clamp(parsed.offsetRatio, 0, 1).toFixed(3)),
+        updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0,
+      };
+    }
+    return out;
   } catch {
-    return null;
+    return {};
   }
+}
+
+export function loadResumeAnchor(slug: string, chapterId: string): ResumeAnchor | null {
+  if (!slug || !chapterId) return null;
+  const all = loadAllResumeAnchors(slug);
+  const entry = all[chapterId];
+  if (!entry) return null;
+  return {
+    chapterId,
+    pageIdx: entry.pageIdx,
+    offsetRatio: entry.offsetRatio,
+    updatedAt: entry.updatedAt,
+  };
 }
 
 export function saveResumeAnchor(slug: string, anchor: ResumeAnchor): void {
   if (!slug || !anchor.chapterId) return;
-  let existing: Record<string, { pageIdx: number; offsetRatio: number }> = {};
-  try {
-    const raw = Prefs.getString(RESUME_PREFIX + slug);
-    if (raw) {
-      const parsed = JSON.parse(raw) as { chapters?: Record<string, { pageIdx: number; offsetRatio: number }> };
-      if (parsed.chapters && typeof parsed.chapters === 'object') existing = { ...parsed.chapters };
-    }
-  } catch {
-    // Reset malformed cache
-  }
+  const existing = loadAllResumeAnchors(slug);
+  const now = typeof anchor.updatedAt === 'number' && anchor.updatedAt > 0 ? anchor.updatedAt : Date.now();
   delete existing[anchor.chapterId];
   existing[anchor.chapterId] = {
     pageIdx: Math.max(0, Math.floor(anchor.pageIdx)),
     offsetRatio: Number(clamp(anchor.offsetRatio, 0, 1).toFixed(3)),
+    updatedAt: now,
   };
   const keys = Object.keys(existing);
   while (keys.length > 12) {
@@ -579,6 +610,50 @@ export function saveResumeAnchor(slug: string, anchor: ResumeAnchor): void {
     if (oldest) delete existing[oldest];
   }
   Prefs.set(RESUME_PREFIX + slug, JSON.stringify({ chapters: existing }));
+}
+
+/**
+ * Merges Firestore-synced resume anchors from another device (e.g. phone -> tablet) into the local
+ * cache using `updatedAt` timestamps so the freshest reading position always wins across devices.
+ */
+export function mergeRemoteResumeAnchors(
+  slug: string,
+  remoteResume?: ResumeAnchor | null,
+  remoteChapters?: Record<string, { pageIdx: number; offsetRatio: number; updatedAt?: number }> | null,
+  remoteDocUpdatedAt?: number,
+): { mergedChapters: Record<string, StoredChapterResumeEntry>; updatedChapterIds: Set<string> } {
+  const local = loadAllResumeAnchors(slug);
+  const updatedChapterIds = new Set<string>();
+  const applyCandidate = (chId: string, cand: { pageIdx: number; offsetRatio: number; updatedAt?: number }) => {
+    if (!chId || typeof cand.pageIdx !== 'number' || typeof cand.offsetRatio !== 'number') return;
+    const candTime =
+      typeof cand.updatedAt === 'number' && cand.updatedAt > 0
+        ? cand.updatedAt
+        : typeof remoteDocUpdatedAt === 'number' && remoteDocUpdatedAt > 0
+          ? remoteDocUpdatedAt
+          : 1;
+    const cur = local[chId];
+    if (!cur || candTime > (cur.updatedAt || 0)) {
+      local[chId] = {
+        pageIdx: Math.max(0, Math.floor(cand.pageIdx)),
+        offsetRatio: Number(clamp(cand.offsetRatio, 0, 1).toFixed(3)),
+        updatedAt: candTime,
+      };
+      updatedChapterIds.add(chId);
+    }
+  };
+  if (remoteChapters && typeof remoteChapters === 'object') {
+    for (const [chId, entry] of Object.entries(remoteChapters)) {
+      if (entry) applyCandidate(chId, entry);
+    }
+  }
+  if (remoteResume && remoteResume.chapterId) {
+    applyCandidate(remoteResume.chapterId, remoteResume);
+  }
+  if (updatedChapterIds.size > 0) {
+    Prefs.set(RESUME_PREFIX + slug, JSON.stringify({ chapters: local }));
+  }
+  return { mergedChapters: local, updatedChapterIds };
 }
 
 export function clearResumeAnchor(slug: string): void {

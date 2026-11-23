@@ -30,6 +30,9 @@ export interface OfflineMediaItem {
   lastPositionSeconds?: number;
   pageUrls: string[];
   downloadedPages?: number;
+  verifiedCachedPages?: number;
+  cacheMissingPages?: number;
+  cacheVerifiedAt?: string;
   blobKey?: string;
 }
 
@@ -91,6 +94,9 @@ function fromJson(json: Record<string, unknown>): OfflineMediaItem {
     lastPositionSeconds: int(json.lastPositionSeconds),
     pageUrls: Array.isArray(json.pageUrls) ? json.pageUrls.filter((u): u is string => typeof u === 'string') : [],
     downloadedPages: int(json.downloadedPages),
+    verifiedCachedPages: int(json.verifiedCachedPages),
+    cacheMissingPages: int(json.cacheMissingPages),
+    cacheVerifiedAt: str(json.cacheVerifiedAt),
     blobKey: str(json.blobKey),
   };
 }
@@ -115,6 +121,9 @@ const toJson = (i: OfflineMediaItem) => ({
   lastPositionSeconds: i.lastPositionSeconds ?? null,
   pageUrls: i.pageUrls,
   downloadedPages: i.downloadedPages ?? null,
+  verifiedCachedPages: i.verifiedCachedPages ?? null,
+  cacheMissingPages: i.cacheMissingPages ?? null,
+  cacheVerifiedAt: i.cacheVerifiedAt ?? null,
   blobKey: i.blobKey ?? null,
 });
 
@@ -295,6 +304,11 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       for (const item of demoItems()) items[item.id] = item;
     }
     this.value = items;
+    if (typeof caches !== 'undefined') {
+      queueMicrotask(() => {
+        void this.verifyAllMangaChaptersCache();
+      });
+    }
     if (autoResumeIds.length > 0 && !AgentMode.demo && typeof navigator !== 'undefined' && navigator.onLine !== false) {
       queueMicrotask(() => {
         for (const id of autoResumeIds) {
@@ -342,7 +356,11 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
   }
   isDownloaded(id: string) {
     const item = this.value[id];
-    return !!item && isCompleted(item) && item.downloadedBytes > 0;
+    return !!item && isCompleted(item) && item.downloadedBytes > 0 && (item.cacheMissingPages ?? 0) === 0;
+  }
+  needsCacheRepair(id: string) {
+    const item = this.value[id];
+    return !!item && item.type === 'manga' && isCompleted(item) && (item.cacheMissingPages ?? 0) > 0;
   }
   isDownloading(id: string) {
     const item = this.value[id];
@@ -479,11 +497,13 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     pageUrls: string[];
     /** Rewrites a remote page URL through our image proxy (KatanaService.proxyImageUrl). */
     proxy?: (url: string) => string;
+    /** Force delta re-download of evicted/missing Cache Storage pages even if status was 'completed'. */
+    forceRepair?: boolean;
   }): Promise<void> {
     this.init();
     const id = OfflineIds.mangaChapterId(args.slug, args.chapterId);
     const existing = this.value[id];
-    if (existing && isCompleted(existing)) return;
+    if (existing && isCompleted(existing) && !args.forceRepair && (existing.cacheMissingPages ?? 0) === 0) return;
     const proxy = args.proxy ?? this.mangaProxyMap.get(id) ?? ((raw: string) =>
       `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyKatanaImage?url=${encodeURIComponent(raw)}`);
     this.mangaProxyMap.set(id, proxy);
@@ -631,6 +651,9 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
                 status: 'completed',
                 progress: 1,
                 downloadedPages: saved,
+                verifiedCachedPages: saved,
+                cacheMissingPages: 0,
+                cacheVerifiedAt: new Date().toISOString(),
                 downloadedBytes: bytes,
                 totalBytes: bytes,
               })
@@ -651,6 +674,9 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
             status: 'failed',
             progress: partialProgress,
             downloadedPages: saved,
+            verifiedCachedPages: saved,
+            cacheMissingPages: Math.max(0, args.pageUrls.length - saved),
+            cacheVerifiedAt: new Date().toISOString(),
             downloadedBytes: total,
           })
         ) {
@@ -754,12 +780,145 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     return (await getBlobUrl(item.blobKey, item.type === 'manga')) || null;
   }
 
-  async getMangaPageUrl(itemId: string, pageNumber: number): Promise<string | null> {
+  private isBundledOrInlinePageUrl(raw: string): boolean {
+    if (!raw) return false;
+    if (raw.startsWith('data:')) return true;
+    if (AgentMode.demo && (raw.startsWith('/images/demo/') || raw.startsWith('images/demo/'))) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Verifies every page of a downloaded manga chapter in Cache Storage (`everglow-offline-manga-v1`),
+   * updating `verifiedCachedPages` and `cacheMissingPages` so browser cache eviction is surfaced
+   * instead of silently treated as offline-ready.
+   */
+  async verifyMangaChapterCache(
+    itemId: string,
+  ): Promise<{ totalPages: number; cachedPages: number; missingPages: number; isComplete: boolean }> {
+    this.init();
+    const item = this.value[itemId];
+    if (!item || item.type !== 'manga') {
+      return { totalPages: 0, cachedPages: 0, missingPages: 0, isComplete: false };
+    }
+    const totalPages = item.pageUrls.length;
+    if (totalPages === 0) {
+      return { totalPages: 0, cachedPages: 0, missingPages: 0, isComplete: false };
+    }
+    let cachedPages = 0;
+    for (let i = 1; i <= totalPages; i++) {
+      const raw = item.pageUrls[i - 1] ?? '';
+      const size = await getCachedBlobSize(`${itemId}_p_${i}`, true);
+      if (size > 0 || this.isBundledOrInlinePageUrl(raw)) {
+        cachedPages += 1;
+      }
+    }
+    const missingPages = Math.max(0, totalPages - cachedPages);
+    const prevMissing = item.cacheMissingPages ?? 0;
+    const prevVerified = item.verifiedCachedPages;
+    if (prevMissing !== missingPages || prevVerified !== cachedPages) {
+      if (
+        this.putIfPresent(itemId, {
+          verifiedCachedPages: cachedPages,
+          cacheMissingPages: missingPages,
+          cacheVerifiedAt: new Date().toISOString(),
+        })
+      ) {
+        this.save();
+      }
+    }
+    return {
+      totalPages,
+      cachedPages,
+      missingPages,
+      isComplete: missingPages === 0,
+    };
+  }
+
+  async verifyAllMangaChaptersCache(): Promise<{
+    checked: number;
+    evictedChapters: number;
+    missingPages: number;
+  }> {
+    this.init();
+    const chapters = Object.values(this.value).filter((i) => i.type === 'manga' && isCompleted(i));
+    let evictedChapters = 0;
+    let missingPages = 0;
+    for (const ch of chapters) {
+      const res = await this.verifyMangaChapterCache(ch.id);
+      if (res.missingPages > 0) {
+        evictedChapters += 1;
+        missingPages += res.missingPages;
+      }
+    }
+    return {
+      checked: chapters.length,
+      evictedChapters,
+      missingPages,
+    };
+  }
+
+  async repairMangaChapter(itemId: string, proxy?: (url: string) => string): Promise<void> {
+    this.init();
+    const item = this.value[itemId];
+    if (!item || item.type !== 'manga' || item.pageUrls.length === 0) return;
+    await this.startDownloadMangaChapter({
+      slug: item.mediaId,
+      mangaTitle: item.title,
+      coverUrl: item.coverUrl,
+      chapterId: item.chapterId ?? '1',
+      chapterTitle: item.subtitle,
+      pageUrls: item.pageUrls,
+      proxy: proxy ?? this.mangaProxyMap.get(itemId),
+      forceRepair: true,
+    });
+  }
+
+  async repairAllEvictedMangaChapters(proxy?: (url: string) => string): Promise<number> {
+    this.init();
+    const evicted = Object.values(this.value).filter(
+      (i) => i.type === 'manga' && isCompleted(i) && (i.cacheMissingPages ?? 0) > 0,
+    );
+    for (const item of evicted) {
+      await this.repairMangaChapter(item.id, proxy);
+    }
+    return evicted.length;
+  }
+
+  /**
+   * Returns a verified offline page URL from Cache Storage (`blob:` URL) or bundled data/demo asset.
+   * Never silently substitutes a remote network URL when a cached page was evicted—records the
+   * cache miss on the item so the UI surfaces a repair/re-download state.
+   */
+  async getMangaPageUrl(
+    itemId: string,
+    pageNumber: number,
+    opts?: { allowRemoteFallback?: boolean },
+  ): Promise<string | null> {
     const url = await getBlobUrl(`${itemId}_p_${pageNumber}`, true);
     if (url) return url;
     const item = this.value[itemId];
-    if (item && pageNumber > 0 && pageNumber <= item.pageUrls.length) return item.pageUrls[pageNumber - 1];
-    return null;
+    if (!item || pageNumber <= 0 || pageNumber > item.pageUrls.length) return null;
+    const raw = item.pageUrls[pageNumber - 1];
+    if (this.isBundledOrInlinePageUrl(raw) && (item.cacheMissingPages ?? 0) === 0) {
+      return raw;
+    }
+    // Cache Storage miss for an offline chapter: flag missing pages immediately and verify full chapter cache
+    if ((item.cacheMissingPages ?? 0) === 0) {
+      this.putIfPresent(itemId, {
+        cacheMissingPages: Math.max(1, item.cacheMissingPages ?? 1),
+        verifiedCachedPages: Math.max(0, item.pageUrls.length - 1),
+        cacheVerifiedAt: new Date().toISOString(),
+      });
+      this.save();
+    }
+    void this.verifyMangaChapterCache(itemId);
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (isOffline || opts?.allowRemoteFallback !== true) {
+      return null;
+    }
+    return raw;
   }
 
   revokeBlobUrl(url: string | null | undefined) {

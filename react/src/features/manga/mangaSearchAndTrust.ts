@@ -17,6 +17,7 @@ export interface OfficialPublisherLink {
 export interface SourceBadgeInfo {
   id: NonNullable<KatanaManga['source']>;
   badge: 'MK' | 'MD' | 'CK' | 'BT';
+  shortLabel: string;
   name: string;
   /** Small tie-breaker preference bonus (2–8 pts) used only after title match and metadata completeness signals. */
   searchPreferenceBonus: number;
@@ -32,6 +33,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
   mangadex: {
     id: 'mangadex',
     badge: 'MD',
+    shortLabel: 'MangaDex',
     name: 'MangaDex',
     searchPreferenceBonus: 8,
     signals: {
@@ -40,11 +42,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
       specialty: 'Multilingual chapters & group attribution',
     },
     tooltip:
-      'MD · MangaDex — Community scanlation index · Includes tracker IDs, publisher links & group attribution (Search preference #1)',
+      'MangaDex (MD) — Community scanlation index · Includes official publisher links, tracker IDs & group attribution',
   },
   mangakatana: {
     id: 'mangakatana',
     badge: 'MK',
+    shortLabel: 'Katana',
     name: 'MangaKatana',
     searchPreferenceBonus: 6,
     signals: {
@@ -53,11 +56,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
       specialty: 'Fast chapter feed & multi-CDN reader mirrors',
     },
     tooltip:
-      'MK · MangaKatana — Community chapter aggregator · Fast release feed & multi-CDN reader mirrors (Search preference #2)',
+      'MangaKatana (MK) — Community chapter aggregator · Fast release feed & multi-CDN reader mirrors',
   },
   comick: {
     id: 'comick',
     badge: 'CK',
+    shortLabel: 'ComicK',
     name: 'ComicK',
     searchPreferenceBonus: 4,
     signals: {
@@ -66,11 +70,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
       specialty: 'Tankobon releases & fallback chapter mirrors',
     },
     tooltip:
-      'CK · ComicK — Community chapter index · Alt-title catalog & volume chapters (Search preference #3)',
+      'ComicK (CK) — Community chapter index · Alt-title catalog & volume chapters',
   },
   bato: {
     id: 'bato',
     badge: 'BT',
+    shortLabel: 'Bato.to',
     name: 'Bato.to',
     searchPreferenceBonus: 2,
     signals: {
@@ -79,7 +84,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
       specialty: 'Full-color webtoon & long-strip series',
     },
     tooltip:
-      'BT · Bato.to — Community mirror catalog · Full-color webtoon & long-strip catalog (Search preference #4)',
+      'Bato.to (BT) — Community mirror catalog · Full-color webtoon & long-strip catalog',
   },
 };
 
@@ -128,12 +133,19 @@ export function computeMangaSearchRelevance(
   orderBy = 'popular',
 ): number {
   let score = SOURCE_PREFERENCE_BONUS[item.source ?? 'mangakatana'] ?? 4;
-  // Explainable metadata completeness signals
+  // Explainable metadata completeness & official link availability signals
+  if (
+    item.externalLinks?.officialEnglishUrl ||
+    item.externalLinks?.rawOfficialUrl ||
+    item.externalLinks?.bookwalkerPath
+  ) {
+    score += 14;
+  }
   if (
     item.externalLinks?.anilistId ||
     item.externalLinks?.malId ||
-    item.externalLinks?.officialEnglishUrl ||
-    item.externalLinks?.rawOfficialUrl
+    item.externalLinks?.kitsuId ||
+    item.externalLinks?.mangaUpdatesId
   ) {
     score += 10;
   }
@@ -360,10 +372,65 @@ export function rankAndMergeMultiSourceCatalog(args: {
     .map((e) => e.item);
 }
 
+function describeOfficialPublisherUrl(
+  url: string,
+  kind: 'english' | 'raw',
+): { name: string; platformKey?: 'mangaplus' | 'viz' | 'webtoon' | 'tapas' | 'bookwalker' } {
+  const lower = url.toLowerCase();
+  if (lower.includes('mangaplus.shueisha.co.jp')) {
+    return { name: 'Read on MANGA Plus (Official)', platformKey: 'mangaplus' };
+  }
+  if (lower.includes('viz.com')) {
+    return { name: 'Read on VIZ / Shonen Jump (Official)', platformKey: 'viz' };
+  }
+  if (lower.includes('webtoons.com')) {
+    return { name: 'Read on WEBTOON (Official)', platformKey: 'webtoon' };
+  }
+  if (lower.includes('tapas.io')) {
+    return { name: 'Read on Tapas (Official)', platformKey: 'tapas' };
+  }
+  if (lower.includes('bookwalker.jp')) {
+    return { name: 'Read on BookWalker (Official)', platformKey: 'bookwalker' };
+  }
+  if (lower.includes('kodansha.us')) {
+    return { name: 'Read on Kodansha (Official)' };
+  }
+  if (lower.includes('yenpress.com')) {
+    return { name: 'Read on Yen Press (Official)' };
+  }
+  if (lower.includes('sevenseasentertainment.com')) {
+    return { name: 'Read on Seven Seas (Official)' };
+  }
+  if (lower.includes('j-novel.club')) {
+    return { name: 'Read on J-Novel Club (Official)' };
+  }
+  if (lower.includes('shonenjumpplus.com')) {
+    return { name: 'Shonen Jump+ (Original Official)' };
+  }
+  if (lower.includes('kadocomi.jp') || lower.includes('comic-walker.com')) {
+    return { name: 'KadoComi (Original Official)' };
+  }
+  if (lower.includes('pocket.shonenmagazine.com')) {
+    return { name: 'Magazine Pocket (Original Official)' };
+  }
+  return {
+    name: kind === 'english' ? 'Read on Official English Publisher' : 'Original Publisher Page (Official)',
+  };
+}
+
+export function getPrimaryVerifiedOfficialLink(
+  manga: Pick<KatanaManga, 'slug' | 'title' | 'genres' | 'demographic' | 'altNames' | 'externalLinks'>,
+  bookmark?: Pick<KatanaBookmark, 'malId' | 'anilistId' | 'kitsuId' | 'mangaUpdatesId'> | null,
+): OfficialPublisherLink | null {
+  const all = resolveOfficialPublisherLinks(manga, bookmark);
+  return all.find((l) => l.category === 'publisher' && l.directLink && l.officialSimulpub) ?? null;
+}
+
 /**
- * Resolves verified direct series deep links (when an exact official English URL, BookWalker path,
- * AniList ID, MyAnimeList ID, Kitsu ID, or MangaUpdates ID is known) alongside clearly labeled
- * publisher catalog search links (MANGA Plus, VIZ, WEBTOON, Tapas, BookWalker).
+ * Resolves verified direct series deep links (when an exact official English URL, raw publisher URL,
+ * BookWalker path, AniList ID, MyAnimeList ID, Kitsu ID, or MangaUpdates ID is known) FIRST,
+ * followed by clearly separated and labeled publisher catalog search queries (MANGA Plus, VIZ,
+ * WEBTOON, Tapas, BookWalker).
  */
 export function resolveOfficialPublisherLinks(
   manga: Pick<KatanaManga, 'slug' | 'title' | 'genres' | 'demographic' | 'altNames' | 'externalLinks'>,
@@ -384,12 +451,15 @@ export function resolveOfficialPublisherLinks(
   const muId = bookmark?.mangaUpdatesId || ext?.mangaUpdatesId;
 
   const links: OfficialPublisherLink[] = [];
+  const coveredPlatforms = new Set<string>();
 
   if (ext?.officialEnglishUrl && /^https?:\/\//i.test(ext.officialEnglishUrl)) {
+    const desc = describeOfficialPublisherUrl(ext.officialEnglishUrl, 'english');
+    if (desc.platformKey) coveredPlatforms.add(desc.platformKey);
     links.push({
       id: 'official-en',
-      name: 'Official English Publisher',
-      badge: 'Official Publisher Link',
+      name: desc.name,
+      badge: 'Verified Official Series Link',
       url: ext.officialEnglishUrl,
       icon: 'verified',
       category: 'publisher',
@@ -398,10 +468,12 @@ export function resolveOfficialPublisherLinks(
     });
   }
   if (ext?.rawOfficialUrl && /^https?:\/\//i.test(ext.rawOfficialUrl)) {
+    const desc = describeOfficialPublisherUrl(ext.rawOfficialUrl, 'raw');
+    if (desc.platformKey) coveredPlatforms.add(desc.platformKey);
     links.push({
       id: 'official-raw',
-      name: 'Original Publisher Page',
-      badge: 'Official Publisher Link',
+      name: desc.name,
+      badge: 'Verified Official Publisher Page',
       url: ext.rawOfficialUrl,
       icon: 'verified',
       category: 'publisher',
@@ -412,10 +484,11 @@ export function resolveOfficialPublisherLinks(
 
   const bwPath = ext?.bookwalkerPath?.replace(/^\/+/, '');
   if (bwPath) {
+    coveredPlatforms.add('bookwalker');
     links.push({
       id: 'bookwalker',
-      name: 'BookWalker Store',
-      badge: 'Direct Store Page',
+      name: 'BookWalker Official Store',
+      badge: 'Verified Direct Store Page',
       url: `https://bookwalker.jp/${bwPath}`,
       icon: 'collections_bookmark',
       category: 'publisher',
@@ -425,58 +498,62 @@ export function resolveOfficialPublisherLinks(
   }
 
   if (format === 'webtoon') {
-    links.push(
-      {
+    if (!coveredPlatforms.has('webtoon')) {
+      links.push({
         id: 'webtoon',
-        name: 'Search WEBTOON',
-        badge: 'Publisher Catalog Search',
+        name: 'WEBTOON Catalog Search',
+        badge: 'Catalog search query only — not a verified official chapter',
         url: `https://www.webtoons.com/en/search?keyword=${q}`,
         icon: 'search',
         category: 'publisher',
         directLink: false,
         officialSimulpub: false,
-      },
-      {
+      });
+    }
+    if (!coveredPlatforms.has('tapas')) {
+      links.push({
         id: 'tapas',
-        name: 'Search Tapas',
-        badge: 'Publisher Catalog Search',
+        name: 'Tapas Catalog Search',
+        badge: 'Catalog search query only — not a verified official chapter',
         url: `https://tapas.io/search?q=${q}`,
         icon: 'search',
         category: 'publisher',
         directLink: false,
         officialSimulpub: false,
-      },
-    );
+      });
+    }
   } else {
-    links.push(
-      {
+    if (!coveredPlatforms.has('mangaplus')) {
+      links.push({
         id: 'mangaplus',
-        name: 'Search MANGA Plus',
-        badge: 'Publisher Catalog Search',
+        name: 'MANGA Plus Catalog Search',
+        badge: 'Catalog search query only — not a verified official chapter',
         url: `https://mangaplus.shueisha.co.jp/search_result?keyword=${q}`,
         icon: 'search',
         category: 'publisher',
         directLink: false,
         officialSimulpub: false,
-      },
-      {
+      });
+    }
+    if (!coveredPlatforms.has('viz')) {
+      links.push({
         id: 'viz',
-        name: 'Search VIZ',
-        badge: 'Publisher Catalog Search',
+        name: 'VIZ Catalog Search',
+        badge: 'Catalog search query only — not a verified official chapter',
         url: `https://www.viz.com/search?search=${q}`,
         icon: 'search',
         category: 'publisher',
         directLink: false,
         officialSimulpub: false,
-      },
-    );
+      });
+    }
   }
 
-  if (!bwPath) {
+  if (!coveredPlatforms.has('bookwalker')) {
     links.push({
       id: 'bookwalker',
-      name: 'Search BookWalker',
-      badge: 'Publisher Catalog Search',
+      name: 'BookWalker Catalog Search',
+      badge: 'Catalog search query only — not a verified official chapter',
       url: `https://global.bookwalker.jp/search/?word=${q}`,
       icon: 'search',
       category: 'publisher',

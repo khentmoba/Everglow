@@ -923,6 +923,8 @@ function buildDemoCatalog(): KatanaManga[] {
     follows: number;
     demographic: string;
     releaseDay: KatanaWeekday;
+    source?: KatanaManga['source'];
+    externalLinks?: KatanaExternalLinks;
   }> = [
     {
       slug: 'demo-starlight-manga',
@@ -941,6 +943,16 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 64800,
       demographic: 'Shounen',
       releaseDay: 'Mon',
+      source: 'mangadex',
+      externalLinks: {
+        officialEnglishUrl: 'https://mangaplus.shueisha.co.jp/titles/100001',
+        rawOfficialUrl: 'https://shonenjumpplus.com/episode/100001',
+        bookwalkerPath: 'series/100001',
+        anilistId: '100001',
+        malId: '100001',
+        kitsuId: '100001',
+        mangaUpdatesId: '100001',
+      },
     },
     {
       slug: 'demo-iron-sovereign',
@@ -959,6 +971,13 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 142000,
       demographic: 'Shounen',
       releaseDay: 'Tue',
+      source: 'mangakatana',
+      externalLinks: {
+        officialEnglishUrl: 'https://www.webtoons.com/en/action/iron-sovereign/list?title_no=1002',
+        anilistId: '100002',
+        malId: '100002',
+        mangaUpdatesId: '100002',
+      },
     },
     {
       slug: 'demo-paper-moon',
@@ -977,6 +996,14 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 51300,
       demographic: 'Seinen',
       releaseDay: 'Wed',
+      source: 'mangadex',
+      externalLinks: {
+        officialEnglishUrl: 'https://www.viz.com/shonenjump/chapters/paper-moon',
+        bookwalkerPath: 'series/100003',
+        anilistId: '100003',
+        malId: '100003',
+        kitsuId: '100003',
+      },
     },
     {
       slug: 'demo-jade-sky-blade',
@@ -995,6 +1022,11 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 38900,
       demographic: 'Shounen',
       releaseDay: 'Thu',
+      source: 'comick',
+      externalLinks: {
+        anilistId: '100004',
+        mangaUpdatesId: '100004',
+      },
     },
     {
       slug: 'demo-neon-courier',
@@ -1013,6 +1045,12 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 29400,
       demographic: 'Seinen',
       releaseDay: 'Fri',
+      source: 'mangadex',
+      externalLinks: {
+        officialEnglishUrl: 'https://kodansha.us/series/neon-courier-2099/',
+        anilistId: '100005',
+        malId: '100005',
+      },
     },
     {
       slug: 'demo-garden-of-letters',
@@ -1031,6 +1069,12 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 21700,
       demographic: 'Josei',
       releaseDay: 'Sat',
+      source: 'comick',
+      externalLinks: {
+        bookwalkerPath: 'series/100006',
+        anilistId: '100006',
+        malId: '100006',
+      },
     },
     {
       slug: 'demo-crimson-tides',
@@ -1049,6 +1093,11 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 44100,
       demographic: 'Seinen',
       releaseDay: 'Sun',
+      source: 'bato',
+      externalLinks: {
+        officialEnglishUrl: 'https://tapas.io/series/crimson-tides-of-busan/info',
+        anilistId: '100007',
+      },
     },
     {
       slug: 'demo-cloud-sect-alchemist',
@@ -1067,6 +1116,11 @@ function buildDemoCatalog(): KatanaManga[] {
       follows: 33500,
       demographic: 'Shounen',
       releaseDay: 'Mon',
+      source: 'mangakatana',
+      externalLinks: {
+        anilistId: '100008',
+        mangaUpdatesId: '100008',
+      },
     },
   ];
 
@@ -1093,7 +1147,8 @@ function buildDemoCatalog(): KatanaManga[] {
       chapterCount: s.chapterCount,
       demographic: s.demographic,
       releaseDay: s.releaseDay,
-      source: 'mangakatana',
+      source: s.source ?? 'mangakatana',
+      externalLinks: s.externalLinks,
     };
   });
 }
@@ -1774,7 +1829,7 @@ export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | nul
           ? 'comick'
           : slug.startsWith('bt-')
             ? 'bato'
-            : 'mangakatana';
+            : found.source ?? 'mangakatana';
       return { ...found, slug, source: inferredSource };
     }
     return fetchMangaDexDetailFallback(slug);
@@ -4900,7 +4955,8 @@ export async function syncMangaReaderGlobalSettings<T extends object>(userName: 
 
 export interface SyncedMangaSeriesReaderState {
   override?: Record<string, unknown> | null;
-  resume?: { chapterId: string; pageIdx: number; offsetRatio: number } | null;
+  resume?: { chapterId: string; pageIdx: number; offsetRatio: number; updatedAt?: number } | null;
+  resumeChapters?: Record<string, { pageIdx: number; offsetRatio: number; updatedAt: number }> | null;
   bookmarks?: Array<{ chapterId: string; chapterTitle: string; pageIdx: number; createdAt: number }>;
   updatedAt?: number;
 }
@@ -4917,6 +4973,10 @@ export async function hydrateMangaReaderSeriesState(
     return {
       override: data?.override && typeof data.override === 'object' ? (data.override as Record<string, unknown>) : null,
       resume: data?.resume && typeof data.resume === 'object' ? (data.resume as SyncedMangaSeriesReaderState['resume']) : null,
+      resumeChapters:
+        data?.resumeChapters && typeof data.resumeChapters === 'object'
+          ? (data.resumeChapters as SyncedMangaSeriesReaderState['resumeChapters'])
+          : null,
       bookmarks: Array.isArray(data?.bookmarks) ? (data.bookmarks as SyncedMangaSeriesReaderState['bookmarks']) : undefined,
       updatedAt: typeof data?.updatedAt === 'number' ? data.updatedAt : undefined,
     };

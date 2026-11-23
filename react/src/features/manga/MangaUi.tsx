@@ -28,7 +28,7 @@ import {
   KatanaType,
   type KatanaThemeMode,
 } from './katanaTokens';
-import { getSourceBadgeInfo } from './mangaSearchAndTrust';
+import { getPrimaryVerifiedOfficialLink, getSourceBadgeInfo } from './mangaSearchAndTrust';
 
 export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'history' | 'downloads' | 'bookmarks';
 
@@ -2007,10 +2007,12 @@ export function KatanaPosterCard({
 }) {
   const viewport = useViewport();
   const [hovered, setHovered] = useState(false);
+  const [sourceDetailOpen, setSourceDetailOpen] = useState(false);
   const interactive = !reduceAmbientMotion(viewport);
   const lit = interactive && hovered;
   const completed = manga.status === 'completed';
   const totalCh = manga.chapterCount ?? (manga.chapters.length > 0 ? manga.chapters.length : undefined);
+  const verifiedOfficial = getPrimaryVerifiedOfficialLink(manga);
 
   return (
     <article
@@ -2091,43 +2093,138 @@ export function KatanaPosterCard({
           )}
           {manga.source && (() => {
             const srcInfo = getSourceBadgeInfo(manga.source, manga.slug);
+            const badgeColor =
+              manga.source === 'mangadex'
+                ? KatanaColors.teal
+                : manga.source === 'comick'
+                  ? KatanaColors.link
+                  : manga.source === 'bato'
+                    ? KatanaColors.green
+                    : KatanaColors.accentSoft;
             return (
-              <span
+              <button
+                type="button"
+                className="bare-button"
                 title={srcInfo.tooltip}
-                aria-label={srcInfo.tooltip}
+                aria-label={`Source details: ${srcInfo.tooltip}`}
+                aria-expanded={sourceDetailOpen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSourceDetailOpen((v) => !v);
+                }}
                 style={{
-                  padding: '2px 6px',
+                  padding: '2px 7px',
                   borderRadius: 6,
                   background: 'rgba(11, 13, 18, 0.92)',
-                  border: `1px solid ${
-                    manga.source === 'mangadex'
-                      ? withAlpha(KatanaColors.teal, 0.55)
-                      : manga.source === 'comick'
-                        ? withAlpha(KatanaColors.link, 0.55)
-                        : manga.source === 'bato'
-                          ? withAlpha(KatanaColors.green, 0.55)
-                          : withAlpha(KatanaColors.accent, 0.5)
-                  }`,
+                  border: `1px solid ${withAlpha(badgeColor, 0.55)}`,
                   boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                  ...bodyText(
-                    12,
-                    800,
-                    manga.source === 'mangadex'
-                      ? KatanaColors.teal
-                      : manga.source === 'comick'
-                        ? KatanaColors.link
-                        : manga.source === 'bato'
-                          ? KatanaColors.green
-                          : KatanaColors.accentSoft,
-                    1.2,
-                  ),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  cursor: 'pointer',
+                  ...bodyText(11.5, 800, badgeColor, 1.2),
                 }}
               >
-                {srcInfo.badge}
-              </span>
+                <span>{srcInfo.shortLabel}</span>
+                <Icon name="info" size={11} color={badgeColor} />
+              </button>
             );
           })()}
+          {verifiedOfficial && (
+            <a
+              href={verifiedOfficial.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${verifiedOfficial.name} · ${verifiedOfficial.badge}`}
+              aria-label={`${verifiedOfficial.name} · ${verifiedOfficial.badge}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                padding: '2px 7px',
+                borderRadius: 6,
+                background: 'rgba(6, 78, 59, 0.94)',
+                border: `1px solid ${withAlpha(KatanaColors.green, 0.72)}`,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                textDecoration: 'none',
+                ...bodyText(11, 800, '#A7F3D0', 1.2),
+              }}
+            >
+              <Icon name="verified" size={11} color="#34D399" />
+              <span>Official</span>
+            </a>
+          )}
         </div>
+        {sourceDetailOpen && manga.source && (() => {
+          const srcInfo = getSourceBadgeInfo(manga.source, manga.slug);
+          return (
+            <div
+              role="dialog"
+              aria-label={`${srcInfo.name} source provenance`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: 34,
+                left: 6,
+                right: 6,
+                zIndex: 4,
+                padding: '8px 10px',
+                borderRadius: 9,
+                background: 'rgba(11, 13, 18, 0.96)',
+                border: `1px solid ${KatanaColors.borderStrong}`,
+                boxShadow: '0 8px 20px rgba(0,0,0,0.75)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ ...bodyText(12, 800, '#F8FAFC', 1.2) }}>
+                  {srcInfo.name} ({srcInfo.badge})
+                </span>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label="Close source info"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSourceDetailOpen(false);
+                  }}
+                  style={{ padding: 2, color: '#94A3B8', display: 'inline-flex' }}
+                >
+                  <Icon name="close" size={13} color="#94A3B8" />
+                </button>
+              </div>
+              <span style={{ ...bodyText(11, 600, '#CBD5E1', 1.3) }}>{srcInfo.signals.provenance}</span>
+              <span style={{ ...bodyText(10.5, 500, '#94A3B8', 1.3) }}>{srcInfo.signals.specialty}</span>
+              {verifiedOfficial && (
+                <a
+                  href={verifiedOfficial.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    marginTop: 2,
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    background: withAlpha(KatanaColors.green, 0.18),
+                    border: `1px solid ${withAlpha(KatanaColors.green, 0.55)}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    textDecoration: 'none',
+                    ...bodyText(11, 700, '#6EE7B7', 1.2),
+                  }}
+                >
+                  <Icon name="verified" size={12} color="#34D399" />
+                  <span style={{ ...ellipsis }}>{verifiedOfficial.name}</span>
+                  <Icon name="open_in_new" size={11} color="#34D399" />
+                </a>
+              )}
+            </div>
+          );
+        })()}
         <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
         {manga.latestChapter && (
           <button

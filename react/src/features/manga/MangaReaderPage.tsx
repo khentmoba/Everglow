@@ -29,6 +29,7 @@ import { normalizeAssetUrl, ReaderPageImage, resolveReaderImageUrl } from './Rea
 import {
   getFitModeBucket,
   hasSeenReaderHint,
+  loadAllResumeAnchors,
   loadChapterAspects,
   loadGlobalReaderSettings,
   loadPageBookmarks,
@@ -37,6 +38,7 @@ import {
   loadSeriesDefaultAspect,
   loadSeriesReaderOverride,
   markReaderHintSeen,
+  mergeRemoteResumeAnchors,
   READING_MODE_META,
   READING_MODE_ORDER,
   resolveBackgroundTheme,
@@ -252,6 +254,13 @@ export function MangaReaderView({
   const [pageAction, setPageAction] = useState<{ url: string; pageNumber: number; key: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showTapHint, setShowTapHint] = useState(false);
+  const [seenOnboardingHint, setSeenOnboardingHint] = useState(() => hasSeenReaderHint());
+  const [evictedOfflineState, setEvictedOfflineState] = useState<{
+    itemId: string;
+    missingPages: number;
+    totalPages: number;
+  } | null>(null);
+  const [repairingOffline, setRepairingOffline] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [autoScrolling, setAutoScrolling] = useState(false);
   const [einkFlashing, setEinkFlashing] = useState(false);
@@ -420,8 +429,24 @@ export function MangaReaderView({
           return merged;
         });
       }
-      if (remote.resume && remote.resume.chapterId) {
-        saveResumeAnchor(params.slug, remote.resume);
+      if (remote.resume || remote.resumeChapters) {
+        const { mergedChapters, updatedChapterIds } = mergeRemoteResumeAnchors(
+          params.slug,
+          remote.resume,
+          remote.resumeChapters,
+          remote.updatedAt,
+        );
+        if (updatedChapterIds.has(chapterId) && !userScrolledRef.current) {
+          const synced = mergedChapters[chapterId];
+          if (synced) {
+            pendingResumeRef.current = {
+              chapterId,
+              pageIdx: synced.pageIdx,
+              offsetRatio: synced.offsetRatio,
+            };
+            setPageIdx(synced.pageIdx);
+          }
+        }
       }
     });
     return () => {
@@ -639,17 +664,38 @@ export function MangaReaderView({
   );
 
   const writeProgressNow = useCallback(
-    (targetChapterId: string, page: number, totalPages: number, offsetRatio = 0, allowMarkFinished = true) => {
+    (
+      targetChapterId: string,
+      page: number,
+      totalPages: number,
+      offsetRatio = 0,
+      allowMarkFinished = true,
+      immediateCloudSync = false,
+    ) => {
       const safePage = Math.max(1, page);
       const chapterCompleted = allowMarkFinished && totalPages > 0 && safePage >= totalPages;
       if (!incognitoSession) {
-        const resumeAnchor = { chapterId: targetChapterId, pageIdx: safePage - 1, offsetRatio };
+        const now = Date.now();
+        const resumeAnchor = {
+          chapterId: targetChapterId,
+          pageIdx: safePage - 1,
+          offsetRatio,
+          updatedAt: now,
+        };
         saveResumeAnchor(params.slug, resumeAnchor);
         if (currentUser) {
           window.clearTimeout(cloudResumeTimerRef.current);
-          cloudResumeTimerRef.current = window.setTimeout(() => {
-            void syncMangaReaderSeriesState(currentUser, params.slug, { resume: resumeAnchor });
-          }, 1200);
+          const pushCloud = () => {
+            void syncMangaReaderSeriesState(currentUser, params.slug, {
+              resume: resumeAnchor,
+              resumeChapters: loadAllResumeAnchors(params.slug),
+            });
+          };
+          if (immediateCloudSync) {
+            pushCloud();
+          } else {
+            cloudResumeTimerRef.current = window.setTimeout(pushCloud, 900);
+          }
         }
       }
       // Mark chapter finished only on active reading advance to the true final page
@@ -720,11 +766,12 @@ export function MangaReaderView({
       window.clearTimeout(einkTimerRef.current);
       window.clearTimeout(aspectSaveTimerRef.current);
       window.clearTimeout(programmaticScrollTimerRef.current);
+      window.clearTimeout(cloudResumeTimerRef.current);
       if (tapTimerRef.current != null) window.clearTimeout(tapTimerRef.current);
       if (scrollRafRef.current != null) window.cancelAnimationFrame(scrollRafRef.current);
       const latest = latestProgressRef.current;
       if (latest.total > 0) {
-        flushProgressRef.current(latest.chapterId, latest.page, latest.total, latest.offsetRatio);
+        flushProgressRef.current(latest.chapterId, latest.page, latest.total, latest.offsetRatio, true, true);
       }
     };
   }, []);
@@ -744,26 +791,36 @@ export function MangaReaderView({
         const resolved = await Promise.all(
           offlineItem.pageUrls.map(async (raw, i) => {
             const blobUrl = await offlineMedia.getMangaPageUrl(offlineItem.id, i + 1);
-            if (blobUrl && blobUrl.startsWith('blob:')) {
-              offlineBlobUrlsRef.current.add(blobUrl);
+            if (blobUrl && (blobUrl.startsWith('blob:') || blobUrl.startsWith('data:'))) {
+              if (blobUrl.startsWith('blob:')) offlineBlobUrlsRef.current.add(blobUrl);
               return blobUrl;
+            }
+            if (blobUrl && AgentMode.demo && blobUrl.startsWith('/images/demo/')) {
+              return demoFallback?.[i] ?? blobUrl;
             }
             evictedCount += 1;
             if (demoFallback && demoFallback[i]) return demoFallback[i];
-            const candidate = normalizeAssetUrl(blobUrl ?? raw);
+            const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+            if (isOffline) return '';
+            const candidate = normalizeAssetUrl(raw);
             return candidate.startsWith('http') ? proxyKatanaImageUrl(candidate) : candidate;
           }),
         );
+        if (evictedCount > 0) {
+          setEvictedOfflineState({
+            itemId: offlineItem.id,
+            missingPages: evictedCount,
+            totalPages: offlineItem.pageUrls.length,
+          });
+        } else {
+          setEvictedOfflineState(null);
+        }
         const filtered = resolved.filter(Boolean);
         if (filtered.length > 0) {
-          if (evictedCount > 0 && evictedCount < filtered.length) {
-            flashToast(
-              `Offline cache recovered ${filtered.length - evictedCount}/${filtered.length} pages (rest via live fallback)`,
-              true,
-            );
-          }
           return filtered;
         }
+      } else {
+        setEvictedOfflineState(null);
       }
 
       if (AgentMode.demo && params.slug.startsWith('demo-')) {
@@ -978,8 +1035,13 @@ export function MangaReaderView({
       programmaticScrollTimerRef.current = window.setTimeout(
         () => {
           programmaticScrollRef.current = false;
+          scrollDownAccumRef.current = 0;
+          scrollUpAccumRef.current = 0;
+          if (scrollRef.current) {
+            lastScrollTopRef.current = scrollRef.current.scrollTop;
+          }
         },
-        behavior === 'smooth' ? 550 : 180,
+        behavior === 'smooth' ? 950 : 220,
       );
       return true;
     },
@@ -1268,7 +1330,11 @@ export function MangaReaderView({
     idleTimerRef.current = window.setTimeout(() => {
       if (!hasSeenReaderHint()) {
         markReaderHintSeen();
-        flashToast('Tap center of page to show or hide reader controls', true);
+        idleTimerRef.current = window.setTimeout(() => {
+          setSeenOnboardingHint(true);
+          setShowUi(false);
+        }, 2200);
+        return;
       }
       setShowUi(false);
     }, settings.autoHideDelayMs);
@@ -1448,7 +1514,10 @@ export function MangaReaderView({
       const delta = curTop - lastScrollTopRef.current;
       lastScrollTopRef.current = curTop;
 
-      if (!programmaticScrollRef.current && !autoScrolling && activeSheet === 'none' && pageAction == null) {
+      if (programmaticScrollRef.current) {
+        scrollDownAccumRef.current = 0;
+        scrollUpAccumRef.current = 0;
+      } else if (!autoScrolling && activeSheet === 'none' && pageAction == null) {
         const threshold = SCROLL_HIDE_THRESHOLD[settings.scrollHideSensitivity];
         if (delta > 0) {
           scrollDownAccumRef.current += delta;
@@ -3130,28 +3199,41 @@ export function MangaReaderView({
         </div>
       )}
 
-      {/* Persistent unobtrusive page indicator pill when HUD is hidden */}
-      {!showUi && settings.showPageIndicator && pages.length > 0 && !loading && (
-        <div
-          aria-hidden
+      {/* Persistent unobtrusive interactive control & page indicator pill when HUD is hidden */}
+      {!showUi && pages.length > 0 && !loading && (
+        <button
+          type="button"
+          className="bare-button player-focusable"
+          aria-label={`Show reader controls (${displayPageLabel})`}
+          title="Show reader controls"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowUi(true);
+          }}
           style={{
             position: 'fixed',
             right: 'max(12px, env(safe-area-inset-right))',
             bottom: 'max(12px, env(safe-area-inset-bottom))',
             zIndex: 95,
-            padding: '4px 10px',
+            minHeight: 34,
+            padding: '5px 11px',
             borderRadius: 99,
-            background: allowBlur ? 'rgba(9, 6, 12, 0.72)' : 'rgba(9, 6, 12, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: 'rgba(255, 245, 248, 0.85)',
+            background: allowBlur ? 'rgba(9, 6, 12, 0.78)' : 'rgba(9, 6, 12, 0.92)',
+            border: '1px solid rgba(245, 158, 11, 0.32)',
+            color: 'rgba(255, 245, 248, 0.92)',
             fontSize: 11.5,
-            fontWeight: 600,
-            pointerEvents: 'none',
-            ...(allowBlur ? { backdropFilter: 'blur(6px)' } : {}),
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.45)',
+            ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
           }}
         >
-          {displayPageLabel}
-        </div>
+          <Icon name="tune" size={14} color={KatanaColors.accentSoft} />
+          <span>{settings.showPageIndicator ? `${displayPageLabel} · Controls` : 'Controls'}</span>
+        </button>
       )}
 
       {/* Compact translucent top HUD bar */}
@@ -3217,6 +3299,27 @@ export function MangaReaderView({
             <span className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>
               {chapterDisplayTitle(activeChapter)}
             </span>
+            {!incognitoSession && currentUser && (
+              <span
+                title="Exact page and scroll position synced across phone and tablet"
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                  color: KatanaColors.textMuted,
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 2,
+                }}
+              >
+                <Icon name="cloud_done" size={10} color={KatanaColors.accentSoft} />
+                {!isCompactPhone && <span>Synced</span>}
+              </span>
+            )}
             {incognitoSession && (
               <span
                 style={{
@@ -3375,6 +3478,126 @@ export function MangaReaderView({
             gap: 8,
           }}
         >
+        {evictedOfflineState && evictedOfflineState.missingPages > 0 && (
+          <div
+            style={{
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: `1px solid ${KatanaColors.accent}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, fontWeight: 600 }}>
+              <Icon name="warning_amber" size={14} color={KatanaColors.accent} />{' '}
+              {evictedOfflineState.missingPages} of {evictedOfflineState.totalPages} offline page(s) evicted from cache
+            </span>
+            <button
+              type="button"
+              className="bare-button player-focusable"
+              disabled={repairingOffline}
+              onClick={async () => {
+                if (repairingOffline) return;
+                setRepairingOffline(true);
+                try {
+                  await offlineMedia.repairMangaChapter(evictedOfflineState.itemId, proxyKatanaImageUrl);
+                  const check = await offlineMedia.verifyMangaChapterCache(evictedOfflineState.itemId);
+                  if (check.isComplete) {
+                    setEvictedOfflineState(null);
+                    prefetchedChapterRef.current.delete(`${chapterId}|${server}`);
+                    setReloadNonce((n) => n + 1);
+                  } else {
+                    setEvictedOfflineState({
+                      itemId: evictedOfflineState.itemId,
+                      missingPages: check.missingPages,
+                      totalPages: check.totalPages,
+                    });
+                  }
+                } finally {
+                  setRepairingOffline(false);
+                }
+              }}
+              style={{
+                minHeight: 30,
+                padding: '3px 10px',
+                borderRadius: 6,
+                background: KatanaColors.accent,
+                color: KatanaColors.accentInk,
+                fontSize: 11.5,
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Icon name="build" size={13} color={KatanaColors.accentInk} />
+              <span>{repairingOffline ? 'Repairing…' : 'Repair Offline Cache'}</span>
+            </button>
+          </div>
+        )}
+        {!seenOnboardingHint && (
+          <div
+            style={{
+              padding: '5px 10px',
+              borderRadius: 8,
+              background: KatanaColors.surfaceAlt,
+              border: `1px solid ${KatanaColors.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 6,
+            }}
+          >
+            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
+              Tap center or the bottom-right <strong style={{ color: KatanaColors.accentSoft }}>Controls</strong> pill to
+              toggle menu · Tap or swipe edges to turn pages
+            </span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {!isWebtoon && (
+                <button
+                  type="button"
+                  className="bare-button player-focusable"
+                  onClick={() => setShowTapHint((v) => !v)}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    background: KatanaColors.surface,
+                    border: `1px solid ${KatanaColors.borderStrong}`,
+                    color: KatanaColors.accentSoft,
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {showTapHint ? 'Hide Zones' : 'Touch Zones'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="bare-button player-focusable"
+                aria-label="Dismiss controls tip"
+                onClick={() => {
+                  markReaderHintSeen();
+                  setSeenOnboardingHint(true);
+                }}
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: 'transparent',
+                  color: KatanaColors.textLight,
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         {pages.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
