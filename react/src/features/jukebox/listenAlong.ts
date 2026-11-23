@@ -367,7 +367,7 @@ async function initPlayer(): Promise<void> {
   });
   player.addListener('not_ready', () => (connected = false));
   player.addListener('initialization_error', ({ message }) => Logger.w(`Spotify error: ${message}`));
-  void player.connect();
+  void player.connect().catch((e) => Logger.e('Spotify connect failed', e));
   armTokenRefresh();
 }
 

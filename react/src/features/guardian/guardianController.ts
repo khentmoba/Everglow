@@ -24,6 +24,8 @@ class GuardianController {
 
   private idleTimer: number | null = null;
   private dismissTimer: number | null = null;
+  private welcomeTimer: number | null = null;
+  private reactTimer: number | null = null;
   private messageCounter = 0;
   private lastTapAt = 0;
   private moodCache: UserMood | null = null;
@@ -52,7 +54,9 @@ class GuardianController {
 
   welcome() {
     this.state.value = 'greeting';
-    window.setTimeout(() => {
+    if (this.welcomeTimer) clearTimeout(this.welcomeTimer);
+    this.welcomeTimer = window.setTimeout(() => {
+      this.welcomeTimer = null;
       this.state.value = 'idle';
       this.startIdleTimer();
     }, 2000);
@@ -75,7 +79,9 @@ class GuardianController {
     } else {
       void this.showMessage();
     }
-    window.setTimeout(() => {
+    if (this.reactTimer) clearTimeout(this.reactTimer);
+    this.reactTimer = window.setTimeout(() => {
+      this.reactTimer = null;
       if (this.state.value === 'reacting') this.state.value = 'idle';
     }, 800);
   }
