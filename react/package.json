@@ -7,7 +7,7 @@
     "dev": "vite --open=false",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "lint": "eslint src",
+    "lint": "eslint src --max-warnings=115",
     "test": "node tools/check_dist.mjs && node --experimental-strip-types --test tools/*.test.mjs",
     "test:one": "node tools/check_dist.mjs && node --experimental-strip-types --test",
     "preview": "vite preview --open=false"

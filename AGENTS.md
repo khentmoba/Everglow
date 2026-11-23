@@ -34,14 +34,15 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 * Helpers: `react/src/core/` holds app-wide agent mode, router memory, viewport/update services, and audio/TTS helpers. Services that need logout cleanup listen to the `everglow:logout` window event instead of importing `authService` (importing `authService` from feature services causes circular-init mount crashes).
 * Shelf widgets: `react/src/shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books (posters, carousels).
 * Server: `functions/` talks to movies, music, and AI (`index.js` only wires modules together). The app never calls those sites directly.
-* Streaming Worker: `cloudflare/` hosts the HLS streaming Worker (`cloudflare/src/worker.js`, `cloudflare/src/anime.js`). `cloudflare/src/anime.js` re-exports from `functions/hls_player.js`, so any edit to `functions/hls_player.js` must also run `npm --prefix cloudflare test`.
+* Streaming Worker: `cloudflare/` hosts the HLS streaming Worker (`cloudflare/src/worker.js`, `cloudflare/src/anime.js`). `cloudflare/src/anime.js` re-exports from `functions/hls_player.js`, so any edit to `functions/hls_player.js` must also run `npm --prefix cloudflare test`. Test new stream providers through `wrangler dev --remote` (or `npm --prefix cloudflare run smoke`) before wiring them — residential IPs pass where Cloudflare's edge gets 403.
 * Rules: `firestore.rules` decides who sees what.
 
 ## Workflow — how we ship (agreed with Khent)
 
 Ship through the `everglow-pr` skill
 (`.agents/skills/everglow-pr/SKILL.md`) — before committing, opening a PR,
-or merging, and for any "is this done?" judgement.
+or merging, and for any "is this done?" judgement. Review passes also enforce
+[`CODING_STANDARDS.md`](CODING_STANDARDS.md).
 
 Three rules never bend, even if the skill is not loaded:
 
@@ -51,7 +52,9 @@ Three rules never bend, even if the skill is not loaded:
   `node tool/ci/run_checks.mjs`, `node tool/agent_smoke.mjs react/dist`,
   and `node --test tool/ci/*.test.mjs`).
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
-  honest N/A. Fake demo data only, never real couple data.
+  honest N/A. Fake demo data only, never real couple data. Capture with
+  `node tool/capture_proof.mjs --route "<route>" --viewport phone --out <path>`
+  (or `--pack <manifest.json>` for multi-shot packs) instead of ad-hoc Playwright scripts.
 
 ### Agent mode (testing without logins)
 
@@ -104,13 +107,13 @@ no bump does nothing.
 - **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-pr` skill.
 - **Hidden contracts** (stream proxies removed on purpose, legacy photo paths, the desktop bridge, OAuth scopes, the low-end motion gate): `docs/ARCHITECTURE.md` §6.5.
 - **Redesigns keep the identity:** read `DESIGN.md` first. Improve page bodies, not just shared headers, and show the difference in before/after shots.
-- **Score loops stop:** a loop chasing a reviewer's score (UI rating, %) ends after two rounds that find nothing new, and includes one code review early. An AI score alone never means done.
+- **Score loops stop:** an AI score alone never means done — follow `rate-loop`'s plateau stop and include a code review early.
 
 ## Shell
 
-- Claude runs Git Bash; Gemini/opencode helpers run PowerShell, where `&&`, `rg`, and `head` fail: use `;`, `git grep`, `Select-String`.
+- Claude and Pi run Git Bash (tool: `bash`); OpenCode and Antigravity run Windows PowerShell 5.1 (where `&&`, `grep`, `rg`, `sed`, and `head` fail — use `;`, `git grep`, `Select-String`, and `node` scripts).
 - Write files with the Write/Edit tools, never `cat <<EOF` or script heredocs (they mangle quotes and backslashes).
-- In a fresh worktree run `npm --prefix react ci`, `npm --prefix functions ci`, and `npm --prefix cloudflare ci` before running checks or tests (or run `node tool/ci/verify_all.mjs` which checks for missing `node_modules`).
+- In a fresh worktree run `node tool/ci/verify_all.mjs --install` (or `npm --prefix react ci`, `npm --prefix functions ci`, `npm --prefix cloudflare ci`) before running checks or tests.
 
 ## Rules that matter
 
