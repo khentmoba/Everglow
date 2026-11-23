@@ -13,6 +13,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures, type MilestoneCategory, type MilestoneFixture } from '../../core/agent/fixtures';
 import { db, loadStorage } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import { dedupeMilestones } from './milestonePure';
 
@@ -45,8 +46,11 @@ export function repairLegacyMilestoneImageUrl(url: string): string {
   return `milestones/legacy/${filename}`;
 }
 
+const STORAGE_URL_CACHE_MAX = 200;
 const resolvedStorageUrlCache = new Map<string, Promise<string | null>>();
 const resolvedStorageUrlStrings = new Map<string, string>();
+
+clearOnLogout(resolvedStorageUrlCache, resolvedStorageUrlStrings);
 
 export function getCachedMilestoneImageUrl(path: string): string | null {
   const normalized = repairLegacyMilestoneImageUrl(path);
@@ -61,12 +65,14 @@ export function resolveMilestoneImageUrl(path: string): Promise<string | null> {
   if (/^(https?:|data:|blob:|\/)/i.test(normalized)) {
     return Promise.resolve(normalized);
   }
+  const known = resolvedStorageUrlStrings.get(normalized);
+  if (known) return Promise.resolve(known);
   const cached = resolvedStorageUrlCache.get(normalized);
   if (cached) return cached;
   const pending = loadStorage()
     .then(({ storage, mod }) => mod.getDownloadURL(mod.ref(storage, normalized)))
     .then((url) => {
-      if (url) resolvedStorageUrlStrings.set(normalized, url);
+      if (url) setBoundedCache(resolvedStorageUrlStrings, normalized, url, STORAGE_URL_CACHE_MAX);
       return url;
     })
     .catch((e: unknown) => {
@@ -74,7 +80,7 @@ export function resolveMilestoneImageUrl(path: string): Promise<string | null> {
       resolvedStorageUrlCache.delete(normalized);
       return null;
     });
-  resolvedStorageUrlCache.set(normalized, pending);
+  setBoundedCache(resolvedStorageUrlCache, normalized, pending, STORAGE_URL_CACHE_MAX);
   return pending;
 }
 

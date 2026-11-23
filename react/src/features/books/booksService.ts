@@ -22,6 +22,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
+import { setBoundedCache } from '../../core/utils/boundedCache';
 import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import {
   buildReadCandidates,
@@ -452,12 +453,7 @@ const bookTextMemoryCache = new Map<string, string>();
 const BOOK_TEXT_MEM_MAX = 4;
 
 async function writeBookTextCache(url: string, text: string): Promise<void> {
-  bookTextMemoryCache.delete(url);
-  bookTextMemoryCache.set(url, text);
-  if (bookTextMemoryCache.size > BOOK_TEXT_MEM_MAX) {
-    const oldest = bookTextMemoryCache.keys().next().value;
-    if (oldest !== undefined) bookTextMemoryCache.delete(oldest);
-  }
+  setBoundedCache(bookTextMemoryCache, url, text, BOOK_TEXT_MEM_MAX);
   if (typeof caches === 'undefined') return;
   try {
     const cache = await caches.open(BOOK_TEXT_CACHE_NAME);
