@@ -303,6 +303,7 @@ export function MangaPage() {
 
   const [readerParams, setReaderParams] = useState<MangaReaderParams | null>(null);
   const [detailRetryTick, setDetailRetryTick] = useState(0);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [showPartnerReading, setShowPartnerReading] = useState(false);
   const [resumingSlug, setResumingSlug] = useState<string | null>(null);
 
@@ -2873,7 +2874,7 @@ export function MangaPage() {
                                     }}
                                   >
                                     <Icon name="download" size={16} color={KatanaColors.link} />
-                                    <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
+                                    <span>{batchProgress ? `Saving ${batchProgress.done} of ${batchProgress.total}` : 'Save 3 chapters'}</span>
                                   </button>
                                 )}
                                 {desktop && userName && (
@@ -3303,7 +3304,7 @@ export function MangaPage() {
                                       }}
                                     >
                                       <Icon name="download" size={15} color={KatanaColors.link} />
-                                      <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
+                                      <span>{batchProgress ? `Saving ${batchProgress.done} of ${batchProgress.total}` : 'Save 3 chapters'}</span>
                                     </button>
                                   )}
                                   {userName && (
@@ -3415,7 +3416,7 @@ export function MangaPage() {
                           )}
                         </div>
 
-                        {tablet && detail.summary && (
+                        {tablet && !desktop && detail.summary && (
                           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${KatanaColors.border}` }}>
                             <div style={{ ...KatanaType.title, fontSize: 15, marginBottom: 6 }}>Synopsis</div>
                             <p style={{ ...KatanaType.body, margin: 0 }}>{detail.summary}</p>
@@ -3488,6 +3489,35 @@ export function MangaPage() {
                                 </div>
                               </div>
                             )}
+                        {compactCard && detail.summary && (
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ ...KatanaType.title, fontSize: 14, marginBottom: 4 }}>About this series</div>
+                            <p
+                              className={summaryOpen ? undefined : 'clamp-2'}
+                              style={{ ...KatanaType.body, margin: 0, fontSize: 13, lineHeight: 1.5 }}
+                            >
+                              {detail.summary}
+                            </p>
+                            <button
+                              type="button"
+                              className="bare-button"
+                              aria-expanded={summaryOpen}
+                              onClick={() => setSummaryOpen((v) => !v)}
+                              style={{
+                                marginTop: 4,
+                                minHeight: 44,
+                                padding: '0 2px',
+                                fontFamily: Fonts.body,
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                color: KatanaColors.accentSoft,
+                              }}
+                            >
+                              {summaryOpen ? 'Show less' : 'More'}
+                            </button>
+                          </div>
+                        )}
+
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                           <KatanaSectionHeader
                             title="Chapters"
@@ -4814,13 +4844,6 @@ export function MangaPage() {
                           </aside>
                         )}
                       </div>
-
-                        {compactCard && detail.summary && (
-                          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${KatanaColors.border}` }}>
-                            <div style={{ ...KatanaType.title, fontSize: 15, marginBottom: 6 }}>Synopsis</div>
-                            <p style={{ ...KatanaType.body, margin: 0 }}>{detail.summary}</p>
-                          </div>
-                        )}
 
                         {(() => {
                           const allLinks = resolveOfficialPublisherLinks(detail, detailBm);
@@ -7011,9 +7034,9 @@ export function MangaPage() {
                     gap: 8,
                     overflowX: 'auto',
                     paddingBottom: 2,
-                    paddingRight: 40,
-                    maskImage: 'linear-gradient(to right, black 84%, transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to right, black 84%, transparent 100%)',
+                    paddingRight: 56,
+                    maskImage: 'linear-gradient(to right, black 86%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to right, black 86%, transparent 100%)',
                   }}
                 >
                   {(['all', 'reading', 'caught_up', 'downloaded', 'on_hold', 'completed', 'planned', 'dropped'] as const).map((bucket) => {
@@ -7032,9 +7055,10 @@ export function MangaPage() {
                         type="button"
                         className="bare-button"
                         onClick={() => setLibraryBucket(bucket)}
+                        aria-pressed={active}
                         style={{
                           flexShrink: 0,
-                          minHeight: compactCard ? 40 : 34,
+                          minHeight: 44,
                           padding: '7px 13px',
                           borderRadius: 99,
                           background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -7061,8 +7085,8 @@ export function MangaPage() {
                       right: 0,
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      width: 32,
-                      height: 32,
+                      width: 44,
+                      height: 44,
                       borderRadius: 99,
                       background: KatanaColors.surface,
                       border: `1px solid ${KatanaColors.borderStrong}`,
@@ -7084,7 +7108,7 @@ export function MangaPage() {
                       style={{
                         flex: 1,
                         minWidth: 180,
-                        height: 38,
+                        height: 44,
                         padding: '0 12px',
                         borderRadius: 9,
                         background: KatanaColors.surface,

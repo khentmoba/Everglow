@@ -107,7 +107,7 @@ export function KatanaSectionHeader({
         <span
           aria-hidden="true"
           style={{
-            flex: '0 1 42px',
+            flex: '1 1 24px',
             minWidth: 0,
             height: 1,
             background: linear([withAlpha(KatanaColors.accent, 0.55), withAlpha(KatanaColors.accent, 0)], {
@@ -120,6 +120,7 @@ export function KatanaSectionHeader({
           <span
             style={{
               flexShrink: 0,
+              whiteSpace: 'nowrap',
               padding: '2px 9px',
               borderRadius: 99,
               background: KatanaColors.surfaceAlt,
@@ -633,8 +634,8 @@ export function KatanaHeader({
       title="Back to Everglow"
       aria-label="Back to Everglow"
       style={{
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 44,
         flexShrink: 0,
         borderRadius: 10,
         background: KatanaColors.surfaceAlt,
@@ -2260,9 +2261,9 @@ export function KatanaPosterCard({
               </button>
             )}
             {manga.follows != null && manga.follows > 0
-              ? ` · ${formatCompactNumber(manga.follows)}`
+              ? ` · ${formatCompactNumber(manga.follows)} readers`
               : totalCh != null && totalCh > 0
-                ? ` · ${totalCh} ch`
+                ? ` · ${totalCh} chapters`
                 : ''}
           </div>
         </button>

@@ -972,7 +972,7 @@ export function MangaReaderView({
             ? ' • Rotate or tap Spread for 2-page view'
             : '';
         writeProgressNow(chapterId, targetIdx + 1, existing.pages.length, resume?.offsetRatio ?? 0, false);
-        flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(existing.chapter)}${portraitTabletSpreadHint}`);
+        flashToast(`${resolvedModeShortLabel} • ${chapterDisplayTitle(existing.chapter)}${portraitTabletSpreadHint}`);
       }
       return;
     }
@@ -1016,7 +1016,7 @@ export function MangaReaderView({
           ? ' • Rotate or tap Spread for 2-page view'
           : '';
       writeProgressNow(chapterId, targetIdx + 1, urls.length, resume?.offsetRatio ?? 0, false);
-      flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(ch)}${portraitTabletSpreadHint}`);
+      flashToast(`${resolvedModeShortLabel} • ${chapterDisplayTitle(ch)}${portraitTabletSpreadHint}`);
     });
 
     return () => {
@@ -3594,12 +3594,12 @@ export function MangaReaderView({
                   setSeenOnboardingHint(true);
                 }}
                 style={{
-                  minHeight: 36,
+                  minHeight: 44,
                   padding: '6px 12px',
                   borderRadius: 6,
                   background: 'transparent',
                   color: KatanaColors.textLight,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 700,
                 }}
               >

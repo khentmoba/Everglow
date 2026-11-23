@@ -235,7 +235,7 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
     await page.waitForSelector('text=Downloads are using', { timeout: 5_000 });
     await page.waitForSelector('text=/offline/i', { timeout: 5_000 });
 
-    await page.locator('button:has-text("Offline verified")').first().click();
+    await page.locator('button:has-text("Ready offline")').first().click();
     await page.waitForFunction(
       () => [...document.querySelectorAll('img')].some((img) => img.src.includes('/images/demo/') && img.complete && img.naturalWidth > 0),
       null,
@@ -248,7 +248,7 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
     await page.waitForTimeout(450);
     await page.getByRole('button', { name: 'Close reader' }).click();
     await page.waitForSelector('text=Downloads are using', { timeout: 5_000 });
-    await page.locator('button:has-text("Offline verified")').first().click();
+    await page.locator('button:has-text("Ready offline")').first().click();
     await page.waitForSelector('text=2 / 3', { timeout: 5_000 });
 
     assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);

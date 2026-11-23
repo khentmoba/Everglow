@@ -186,11 +186,13 @@ export function KatanaDownloadsView({
       .catch(() => showSnackBar('Could not change storage protection'));
   };
 
+  // Only bytes actually on disk, so the per-series line agrees with the storage card above it.
   const seriesBytes = (chapters: OfflineMediaItem[]) => {
-    const bytes = chapters.reduce((sum, c) => sum + (c.downloadedBytes > 0 ? c.downloadedBytes : c.totalBytes || 0), 0);
+    const bytes = chapters.reduce((sum, c) => sum + Math.max(0, c.downloadedBytes), 0);
     if (bytes <= 0) return '';
     return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
   };
+  const seriesStillDownloading = (chapters: OfflineMediaItem[]) => chapters.filter((c) => c.downloadedBytes <= 0).length;
 
   useEffect(() => {
     let active = true;
@@ -649,6 +651,9 @@ export function KatanaDownloadsView({
                         <div style={KatanaType.small}>
                           {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'} offline
                           {seriesBytes(chapters) ? ` · ${seriesBytes(chapters)}` : ''}
+                          {seriesStillDownloading(chapters) > 0
+                            ? ` · ${seriesStillDownloading(chapters)} still downloading`
+                            : ''}
                         </div>
                       </div>
                     </div>
@@ -704,11 +709,11 @@ export function KatanaDownloadsView({
                               <span>{formattedSize(ch)}</span>
                               {needsRepair ? (
                                 <span style={{ color: KatanaColors.accentSoft, fontWeight: 700 }}>
-                                  · Needs Repair ({cachedPages}/{totalPages} pages cached)
+                                  · Needs repair ({cachedPages} of {totalPages} pages)
                                 </span>
                               ) : totalPages > 0 ? (
                                 <span style={{ color: KatanaColors.green, fontWeight: 600 }}>
-                                  · Offline verified ({cachedPages} {cachedPages === 1 ? 'page' : 'pages'})
+                                  · Ready offline · {cachedPages} {cachedPages === 1 ? 'page' : 'pages'}
                                 </span>
                               ) : null}
                             </div>
@@ -786,7 +791,7 @@ export function KatanaDownloadsView({
                               }}
                             >
                               <Icon name="folder_zip" size={14} color={KatanaColors.link} />
-                              <span>Save file</span>
+                              <span>Save a copy</span>
                             </button>
                             <button
                               type="button"
