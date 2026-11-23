@@ -198,6 +198,7 @@ test('Manga auto-read pauses while the tab is hidden', async (t) => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     // Fastest auto-read speed (2500ms a page) keeps the check short.
+    // Prefs keeps JSON-encoded strings in localStorage, hence the double stringify.
     await page.addInitScript(() => {
       localStorage.setItem(
         'flutter.katana_reader_settings_v3',

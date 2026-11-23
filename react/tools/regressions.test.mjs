@@ -462,6 +462,9 @@ test('Restored Flutter features: Creator Studio, Jukebox insights, TV nav, Slow-
     if (await firstRoom.isVisible().catch(() => false)) {
       await firstRoom.click();
       await page.waitForSelector('[title*="Everglow Server"]', { timeout: 8_000 });
+      // The position line owns the one-second clock; it must still read the
+      // room it belongs to after being split out of the party page.
+      await page.waitForSelector('text=/Updated by (you|partner|room member)/', { timeout: 5_000 });
     }
 
     assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
