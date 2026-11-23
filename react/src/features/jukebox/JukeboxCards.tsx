@@ -1441,6 +1441,7 @@ export function ArtistShowdownCard() {
         if (!alive) return;
         setSuggestions(list);
         for (let i = 0; i < list.length; i++) {
+          if (!alive) return;
           if (list[i].imageUrl) continue;
           const img = await fetchArtistImage(list[i].name);
           if (!alive || !img) continue;
