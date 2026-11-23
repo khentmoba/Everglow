@@ -60,6 +60,18 @@ export function JournalPage() {
   const searching = query.trim() !== '';
   const isFiltered = filters.category != null || filters.author != null || filters.pinnedOnly || filters.lockedOnly;
 
+  // Searching walks every entry, so wait for the typing to settle instead of
+  // rescanning the collection on each keystroke.
+  useEffect(() => {
+    const term = query.trim();
+    if (term === '') {
+      setSearch(null);
+      return;
+    }
+    const t = window.setTimeout(() => setSearch((s) => ({ run: (s?.run ?? 0) + 1, term })), 320);
+    return () => window.clearTimeout(t);
+  }, [query]);
+
   const noMatch = <EverglowEmptyState icon="search_off" title="No matching entries" subtitle="Try adjusting filters or search" />;
 
   return (
@@ -93,10 +105,7 @@ export function JournalPage() {
         <EverglowSearchField
           value={query}
           hint="Search memories, tags, dreams..."
-          onChanged={(v) => {
-            setQuery(v);
-            setSearch((s) => (v.trim() === '' ? null : { run: (s?.run ?? 0) + 1, term: v }));
-          }}
+          onChanged={(v) => setQuery(v)}
         />
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
