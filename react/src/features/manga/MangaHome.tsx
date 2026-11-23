@@ -934,30 +934,71 @@ export function MangaHome({
 
   const latestLeadSlugs = useMemo(() => new Set(data.latest.slice(0, 6).map((m) => m.slug)), [data.latest]);
 
-  // Explainable recommendations: cross-rail deduped first, with varied per-card "why" reasons.
+  // Explainable recommendations: score-weighted, penalizing dropped genres, cross-rail deduped.
   const recommended = useMemo(() => {
     if (allCatalog.length === 0) return [];
     const readingSlugs = new Set(currentlyReading.map((b) => b.slug));
+    const droppedSlugs = new Set(
+      libraryBookmarks.filter((b) => b.libraryStatus === 'dropped').map((b) => b.slug),
+    );
+    const droppedGenres = new Set<string>();
+    const ratedGenreSource = new Map<string, { title: string; score: number }>();
     const readingGenreSource = new Map<string, string>();
-    for (const bm of currentlyReading) {
+
+    for (const bm of libraryBookmarks) {
       const m = allCatalog.find((x) => x.slug === bm.slug);
-      m?.genres.forEach((g) => {
-        if (!readingGenreSource.has(g.slug)) readingGenreSource.set(g.slug, bm.title);
-      });
+      if (!m) continue;
+      if (bm.libraryStatus === 'dropped') {
+        m.genres.forEach((g) => droppedGenres.add(g.slug));
+        continue;
+      }
+      if (bm.userScore != null && bm.userScore >= 8) {
+        for (const g of m.genres) {
+          const prev = ratedGenreSource.get(g.slug);
+          if (!prev || bm.userScore > prev.score) {
+            ratedGenreSource.set(g.slug, { title: bm.title, score: bm.userScore });
+          }
+        }
+      }
+      if (bm.libraryStatus === 'completed' || readingSlugs.has(bm.slug)) {
+        m.genres.forEach((g) => {
+          if (!readingGenreSource.has(g.slug)) readingGenreSource.set(g.slug, bm.title);
+        });
+      }
     }
+
     const explicitSet = new Set(tasteGenres);
-    const candidates = allCatalog.filter((m) => !readingSlugs.has(m.slug));
+    const candidates = allCatalog.filter((m) => !readingSlugs.has(m.slug) && !droppedSlugs.has(m.slug));
     const nonDuplicate = candidates.filter((m) => !latestLeadSlugs.has(m.slug));
     const pool = nonDuplicate.length >= 4 ? nonDuplicate : candidates;
 
     const usedBecauseTitles = new Map<string, number>();
     const scored = pool.map((m) => {
       const explicitMatches = m.genres.filter((g) => explicitSet.has(g.slug));
+      const ratedMatch = m.genres.find((g) => ratedGenreSource.has(g.slug));
       const historyMatch = m.genres.find((g) => readingGenreSource.has(g.slug));
+      const droppedPenalty = m.genres.filter((g) => droppedGenres.has(g.slug)).length * 1.5;
       const novelBonus = latestLeadSlugs.has(m.slug) ? 0 : 1.5;
-      const score = explicitMatches.length * 3 + (historyMatch ? 2 : 0) + (m.rating ? m.rating / 5 : 0) + novelBonus;
+      const ratedBonus = ratedMatch ? (ratedGenreSource.get(ratedMatch.slug)!.score / 10) * 3.5 : 0;
+      const score =
+        explicitMatches.length * 3 +
+        ratedBonus +
+        (historyMatch ? 2 : 0) +
+        (m.rating ? m.rating / 5 : 0) +
+        novelBonus -
+        droppedPenalty;
+
       let reason = '';
-      if (explicitMatches.length > 0) {
+      if (ratedMatch) {
+        const fav = ratedGenreSource.get(ratedMatch.slug)!;
+        const count = usedBecauseTitles.get(fav.title) ?? 0;
+        if (count < 1) {
+          usedBecauseTitles.set(fav.title, count + 1);
+          reason = `Because you rated ${fav.title} ${fav.score}/10`;
+        } else {
+          reason = `Matches your ${ratedMatch.name} favorites`;
+        }
+      } else if (explicitMatches.length > 0) {
         reason = `Matches ${explicitMatches.slice(0, 2).map((g) => g.name).join(' · ')}`;
       } else if (historyMatch) {
         const src = readingGenreSource.get(historyMatch.slug)!;
@@ -981,7 +1022,7 @@ export function MangaHome({
     });
 
     return scored.sort((a, b) => b.score - a.score).slice(0, 8);
-  }, [allCatalog, currentlyReading, tasteGenres, latestLeadSlugs]);
+  }, [allCatalog, currentlyReading, libraryBookmarks, tasteGenres, latestLeadSlugs]);
 
   const distinctHot = useMemo(() => {
     const recSlugs = new Set(recommended.slice(0, 6).map((r) => r.manga.slug));

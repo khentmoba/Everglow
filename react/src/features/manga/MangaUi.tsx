@@ -751,14 +751,17 @@ export function KatanaHeader({
   );
 
   const themeMeta =
-    themeMode === 'light'
-      ? { icon: 'light_mode', label: 'Light' }
-      : themeMode === 'sepia'
-        ? { icon: 'auto_stories', label: 'Sepia' }
-        : { icon: 'dark_mode', label: 'Dark' };
+    themeMode === 'oled'
+      ? { icon: 'contrast', label: 'OLED Black' }
+      : themeMode === 'light'
+        ? { icon: 'light_mode', label: 'Light' }
+        : themeMode === 'sepia'
+          ? { icon: 'auto_stories', label: 'Sepia' }
+          : { icon: 'dark_mode', label: 'Dark' };
 
   const themeOptions: Array<{ id: KatanaThemeMode; icon: string; label: string }> = [
     { id: 'dark', icon: 'dark_mode', label: 'Dark' },
+    { id: 'oled', icon: 'contrast', label: 'OLED Black' },
     { id: 'sepia', icon: 'auto_stories', label: 'Sepia' },
     { id: 'light', icon: 'light_mode', label: 'Light' },
   ];
@@ -905,55 +908,74 @@ export function KatanaHeader({
         </div>
       ) : phoneCompact ? (
         <div style={{ padding: '8px 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            {backButton}
-            <div style={{ minWidth: 0, flexShrink: 1 }}>{logo}</div>
-            <div style={{ flex: 1, minWidth: 4 }} />
-            <GenresDropdown
-              genres={genres}
-              active={active === 'genres'}
-              iconOnly
-              onSelectGenre={onSelectGenre}
-              onOpenGenresPage={() => onSelectNav('genres')}
-            />
-            {themeButton}
-            <button
-              type="button"
-              className="bare-button"
-              aria-label={phoneSearchOpen ? 'Close search' : 'Search manga'}
-              aria-expanded={phoneSearchOpen}
-              onClick={() => {
-                setPhoneSearchOpen((open) => {
-                  const next = !open;
-                  if (next) {
-                    setFocused(true);
-                    window.setTimeout(() => searchInputRef.current?.focus(), 20);
-                  } else {
-                    setFocused(false);
-                  }
-                  return next;
-                });
-              }}
-              style={{
-                height: 40,
-                minWidth: 40,
-                padding: '0 9px',
-                borderRadius: 10,
-                background: phoneSearchOpen || hasText ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                border: `1px solid ${phoneSearchOpen || hasText ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 5,
-                flexShrink: 0,
-              }}
-            >
-              <Icon name={phoneSearchOpen ? 'close' : 'search'} size={18} color={phoneSearchOpen || hasText ? KatanaColors.accentSoft : KatanaColors.textMuted} />
-              {!phoneSearchOpen && !narrow && <span style={bodyText(12.5, 600, KatanaColors.textMuted, 1)}>Search</span>}
-            </button>
-            {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
-          </div>
-          {phoneSearchOpen && <div style={{ marginTop: 8 }}>{searchField}</div>}
+          {phoneSearchOpen ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                type="button"
+                className="bare-button"
+                aria-label="Close search"
+                onClick={() => {
+                  setPhoneSearchOpen(false);
+                  setFocused(false);
+                }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="arrow_back" size={19} color={KatanaColors.text} />
+              </button>
+              <div style={{ flex: 1, minWidth: 0 }}>{searchField}</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              {backButton}
+              <div style={{ minWidth: 0, flexShrink: 1 }}>{logo}</div>
+              <div style={{ flex: 1, minWidth: 4 }} />
+              <GenresDropdown
+                genres={genres}
+                active={active === 'genres'}
+                iconOnly
+                onSelectGenre={onSelectGenre}
+                onOpenGenresPage={() => onSelectNav('genres')}
+              />
+              {themeButton}
+              <button
+                type="button"
+                className="bare-button"
+                aria-label="Search manga"
+                aria-expanded={false}
+                onClick={() => {
+                  setPhoneSearchOpen(true);
+                  setFocused(true);
+                  window.setTimeout(() => searchInputRef.current?.focus(), 20);
+                }}
+                style={{
+                  height: 40,
+                  minWidth: 40,
+                  padding: '0 9px',
+                  borderRadius: 10,
+                  background: hasText ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                  border: `1px solid ${hasText ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="search" size={18} color={hasText ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                {!narrow && <span style={bodyText(12.5, 600, KatanaColors.textMuted, 1)}>Search</span>}
+              </button>
+              {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ padding: '10px 14px 10px' }}>
@@ -1153,6 +1175,12 @@ export function KatanaHeader({
               display: 'flex',
               alignItems: 'center',
               gap: 2,
+              ...(!desktop
+                ? {
+                    maskImage: 'linear-gradient(to right, black 0%, black 92%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to right, black 0%, black 92%, transparent 100%)',
+                  }
+                : {}),
             }}
           >
             {nav('home', 'Home', 'home')}
@@ -1318,14 +1346,13 @@ export function KatanaCoverImage({
           position: 'absolute',
           inset: 0,
           backgroundColor: fill,
-          background: `linear-gradient(150deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
+          background: `linear-gradient(155deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          padding: 8,
-          textAlign: 'center',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          padding: '10px 10px 10px 14px',
+          textAlign: 'left',
           overflow: 'hidden',
         }}
       >
@@ -1336,7 +1363,7 @@ export function KatanaCoverImage({
             left: 0,
             top: 0,
             bottom: 0,
-            width: 4,
+            width: 5,
             background: `linear-gradient(180deg, ${palette.accent}, ${palette.secondary})`,
           }}
         />
@@ -1344,31 +1371,58 @@ export function KatanaCoverImage({
           aria-hidden="true"
           style={{
             position: 'absolute',
+            left: 5,
+            top: 0,
+            bottom: 0,
+            width: 2,
+            background: 'rgba(0,0,0,0.38)',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
             inset: 0,
-            opacity: 0.14,
+            opacity: 0.16,
             backgroundImage: `radial-gradient(${palette.accent} 1px, transparent 1px)`,
-            backgroundSize: '10px 10px',
+            backgroundSize: '11px 11px',
             pointerEvents: 'none',
           }}
         />
-        {initial ? (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'relative',
+            width: Math.max(24, iconSize - 2),
+            height: Math.max(24, iconSize - 2),
+            borderRadius: 7,
+            background: withAlpha(palette.accent, 0.2),
+            border: `1px solid ${withAlpha(palette.accent, 0.5)}`,
+            display: 'grid',
+            placeItems: 'center',
+            fontFamily: Fonts.display,
+            fontWeight: 800,
+            fontSize: Math.max(12, Math.round(iconSize * 0.45)),
+            color: palette.accent,
+          }}
+        >
+          {initial || <Icon name={emptyIcon} size={Math.max(14, iconSize - 10)} color={palette.accent} />}
+        </div>
+        {cleanTitle ? (
           <div
+            className="clamp-3"
             style={{
               position: 'relative',
-              width: Math.max(32, iconSize + 10),
-              height: Math.max(32, iconSize + 10),
-              borderRadius: 10,
-              background: withAlpha(palette.accent, 0.2),
-              border: `1px solid ${withAlpha(palette.accent, 0.55)}`,
-              display: 'grid',
-              placeItems: 'center',
-              fontFamily: Fonts.body,
+              fontFamily: Fonts.display,
               fontWeight: 800,
-              fontSize: Math.max(15, Math.round(iconSize * 0.65)),
-              color: palette.accent,
+              fontSize: iconSize >= 30 ? 12.5 : 10.5,
+              lineHeight: 1.2,
+              letterSpacing: -0.2,
+              color: '#F8FAFC',
+              textShadow: '0 1px 6px rgba(0,0,0,0.55)',
             }}
           >
-            {initial}
+            {cleanTitle}
           </div>
         ) : (
           <Icon name={emptyIcon} size={iconSize} color={KatanaColors.textLight} />

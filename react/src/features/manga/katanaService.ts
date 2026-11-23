@@ -24,8 +24,13 @@ import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../cor
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 
 const BASE_URL = 'https://mangakatana.com';
-const PROXY_HTML_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
-const PROXY_IMAGE_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana';
+const FUNCTIONS_BASE = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
+const PROXY_HTML_URL = `${FUNCTIONS_BASE}/proxyFetchHtml`;
+const PROXY_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaKatana`;
+const PROXY_MANGADEX_URL = `${FUNCTIONS_BASE}/proxyMangaDex`;
+const PROXY_MANGA_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaImage`;
+
+export type KatanaCatalogSource = 'mangakatana' | 'mangadex';
 
 export interface KatanaGenre {
   slug: string;
@@ -1315,6 +1320,7 @@ export async function setKatanaBookmark(manga: KatanaManga, userName: string, bo
             recommendedBy: '',
             recommendationNote: '',
             readChapterIds: [],
+            notifyOnUpdate: true,
             bookmarked,
           };
     const next = [...list];
@@ -1334,6 +1340,7 @@ export async function setKatanaBookmark(manga: KatanaManga, userName: string, bo
           status: manga.status,
           userName,
           bookmarked: true,
+          notifyOnUpdate: true,
           addedAt: Timestamp.now(),
         }
       : { bookmarked: false, userName },
@@ -2150,16 +2157,32 @@ function buildDemoHistory(): KatanaHistoryEntry[] {
 }
 
 const HISTORY_META_SUFFIX = '|__history__';
+const PREFS_META_SUFFIX = '|__prefs__';
 const ALERT_PREFS_PREFIX = 'katana_alert_prefs_v1_';
+const LAST_DIGEST_PREFIX = 'katana_last_digest_v1_';
+const USER_PREFS_PREFIX = 'katana_user_prefs_v1_';
 
 export interface KatanaAlertPrefs {
   frequency: 'instant' | 'daily';
   quietHours: boolean;
 }
 
+export interface KatanaUserPrefs {
+  alertPrefs: KatanaAlertPrefs;
+  wifiOnlyDownloads: boolean;
+  autoDownloadNext: number;
+  themeMode?: 'dark' | 'oled' | 'light' | 'sepia';
+}
+
 const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
   frequency: 'instant',
   quietHours: false,
+};
+
+const DEFAULT_USER_PREFS: KatanaUserPrefs = {
+  alertPrefs: DEFAULT_ALERT_PREFS,
+  wifiOnlyDownloads: false,
+  autoDownloadNext: 0,
 };
 
 export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
@@ -2179,13 +2202,119 @@ export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
   return DEFAULT_ALERT_PREFS;
 }
 
-export function saveKatanaAlertPrefs(userName: string, prefs: KatanaAlertPrefs): void {
-  if (!userName) return;
+export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
+  if (!userName) return DEFAULT_USER_PREFS;
   try {
-    localStorage.setItem(`${ALERT_PREFS_PREFIX}${userName}`, JSON.stringify(prefs));
+    const raw = localStorage.getItem(`${USER_PREFS_PREFIX}${userName}`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<KatanaUserPrefs>;
+      return {
+        alertPrefs: {
+          frequency: parsed.alertPrefs?.frequency === 'daily' ? 'daily' : loadKatanaAlertPrefs(userName).frequency,
+          quietHours: parsed.alertPrefs?.quietHours ?? loadKatanaAlertPrefs(userName).quietHours,
+        },
+        wifiOnlyDownloads: Boolean(parsed.wifiOnlyDownloads),
+        autoDownloadNext: typeof parsed.autoDownloadNext === 'number' && parsed.autoDownloadNext >= 0 ? parsed.autoDownloadNext : 0,
+        themeMode:
+          parsed.themeMode === 'dark' ||
+          parsed.themeMode === 'oled' ||
+          parsed.themeMode === 'light' ||
+          parsed.themeMode === 'sepia'
+            ? parsed.themeMode
+            : undefined,
+      };
+    }
   } catch {
     // ignore storage errors
   }
+  return {
+    ...DEFAULT_USER_PREFS,
+    alertPrefs: loadKatanaAlertPrefs(userName),
+  };
+}
+
+export function saveKatanaUserPrefs(userName: string, partial: Partial<KatanaUserPrefs>): KatanaUserPrefs {
+  const current = loadKatanaUserPrefs(userName);
+  const next: KatanaUserPrefs = {
+    ...current,
+    ...partial,
+    alertPrefs: partial.alertPrefs ? { ...current.alertPrefs, ...partial.alertPrefs } : current.alertPrefs,
+  };
+  if (!userName) return next;
+  try {
+    localStorage.setItem(`${USER_PREFS_PREFIX}${userName}`, JSON.stringify(next));
+    localStorage.setItem(`${ALERT_PREFS_PREFIX}${userName}`, JSON.stringify(next.alertPrefs));
+  } catch {
+    // ignore storage errors
+  }
+  if (!AgentMode.demo) {
+    setDoc(
+      doc(db, 'katana_bookmarks', `${userName}${PREFS_META_SUFFIX}`),
+      {
+        kind: 'prefs_meta',
+        userName,
+        alertPrefs: next.alertPrefs,
+        wifiOnlyDownloads: next.wifiOnlyDownloads,
+        autoDownloadNext: next.autoDownloadNext,
+        ...(next.themeMode ? { themeMode: next.themeMode } : {}),
+        updatedAt: Timestamp.now(),
+      },
+      { merge: true },
+    ).catch((err) => Logger.e('KatanaService: saveKatanaUserPrefs failed', err));
+  }
+  return next;
+}
+
+export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> {
+  if (!userName) {
+    return (l) => {
+      queueMicrotask(() => l.data(DEFAULT_USER_PREFS));
+      return () => {};
+    };
+  }
+  if (AgentMode.demo) {
+    return (l) => {
+      queueMicrotask(() => l.data(loadKatanaUserPrefs(userName)));
+      return () => {};
+    };
+  }
+  const ref = doc(db, 'katana_bookmarks', `${userName}${PREFS_META_SUFFIX}`);
+  return withFirestoreTimeout(
+    snapshots(
+      (next: (s: DocumentSnapshot<DocumentData>) => void, error) => onSnapshot(ref, next, error),
+      (snap): KatanaUserPrefs => {
+        if (!snap.exists()) return loadKatanaUserPrefs(userName);
+        const data = snap.data();
+        const merged: KatanaUserPrefs = {
+          alertPrefs: {
+            frequency: data?.alertPrefs?.frequency === 'daily' ? 'daily' : 'instant',
+            quietHours: Boolean(data?.alertPrefs?.quietHours),
+          },
+          wifiOnlyDownloads: Boolean(data?.wifiOnlyDownloads),
+          autoDownloadNext: typeof data?.autoDownloadNext === 'number' && data.autoDownloadNext >= 0 ? data.autoDownloadNext : 0,
+          themeMode:
+            data?.themeMode === 'dark' ||
+            data?.themeMode === 'oled' ||
+            data?.themeMode === 'light' ||
+            data?.themeMode === 'sepia'
+              ? data.themeMode
+              : undefined,
+        };
+        try {
+          localStorage.setItem(`${USER_PREFS_PREFIX}${userName}`, JSON.stringify(merged));
+          localStorage.setItem(`${ALERT_PREFS_PREFIX}${userName}`, JSON.stringify(merged.alertPrefs));
+        } catch {
+          // ignore
+        }
+        return merged;
+      },
+    ),
+    { label: `katana-prefs-${userName}` },
+  );
+}
+
+export function saveKatanaAlertPrefs(userName: string, prefs: KatanaAlertPrefs): void {
+  saveKatanaUserPrefs(userName, { alertPrefs: prefs });
 }
 
 function isQuietHoursNow(): boolean {
@@ -2332,10 +2461,24 @@ export interface KatanaAlertHit {
   chapterTitle: string;
 }
 
+export function markKatanaAlertSeen(userName: string, slug: string, chapterId: string): void {
+  if (!userName || !slug || !chapterId) return;
+  try {
+    const raw = localStorage.getItem(`${NOTIFIED_ALERTS_PREFIX}${userName}`);
+    const seenMap: Record<string, string> = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    if (seenMap[slug] === chapterId) return;
+    seenMap[slug] = chapterId;
+    localStorage.setItem(`${NOTIFIED_ALERTS_PREFIX}${userName}`, JSON.stringify(seenMap));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 /**
  * Checks alert-enabled bookmarks against live catalog updates.
  * Fires a real browser Notification when permission is granted and a previously
- * unseen chapter arrives, and returns all alert-enabled series with new unread chapters.
+ * unseen chapter arrives (instant or batched once-a-day digest), deferring
+ * during quiet hours instead of dropping alerts.
  */
 export function checkKatanaChapterAlerts(
   userName: string,
@@ -2353,42 +2496,83 @@ export function checkKatanaChapterAlerts(
   }
 
   const hits: KatanaAlertHit[] = [];
+  const unseenHits: KatanaAlertHit[] = [];
   let mapChanged = false;
   const alertPrefs = loadKatanaAlertPrefs(userName);
   const suppressByQuietHours = alertPrefs.quietHours && isQuietHoursNow();
-  const canNotify =
+  const canBrowserNotify =
     typeof window !== 'undefined' &&
     'Notification' in window &&
     Notification.permission === 'granted' &&
     !AgentMode.demo &&
-    !suppressByQuietHours &&
-    alertPrefs.frequency === 'instant';
+    !suppressByQuietHours;
 
   for (const bm of bookmarks) {
-    if (!bm.notifyOnUpdate) continue;
+    if (bm.notifyOnUpdate === false) continue;
     const item = bySlug.get(bm.slug);
     const latest = item?.latestChapter;
     if (!item || !latest?.id) continue;
     const readIds = new Set(bm.readChapterIds ?? []);
     if (readIds.has(latest.id) || bm.lastReadChapterId === latest.id) continue;
-    hits.push({
+    const hit: KatanaAlertHit = {
       slug: item.slug,
       title: item.title,
       coverUrl: item.coverUrl,
       chapterId: latest.id,
       chapterTitle: latest.title || `Chapter ${latest.num}`,
-    });
+    };
+    hits.push(hit);
     if (seenMap[item.slug] !== latest.id) {
-      seenMap[item.slug] = latest.id;
-      mapChanged = true;
-      if (canNotify) {
+      unseenHits.push(hit);
+    }
+  }
+
+  if (canBrowserNotify && unseenHits.length > 0) {
+    if (alertPrefs.frequency === 'instant') {
+      for (const hit of unseenHits) {
         try {
-          new Notification(`${item.title} — New Chapter`, {
-            body: `${latest.title || `Chapter ${latest.num}`} is ready to read in Manga Celestia.`,
-            tag: `manga-update-${item.slug}`,
+          new Notification(`${hit.title} — New Chapter`, {
+            body: `${hit.chapterTitle} is ready to read in Manga Celestia.`,
+            tag: `manga-update-${hit.slug}`,
           });
+          seenMap[hit.slug] = hit.chapterId;
+          mapChanged = true;
         } catch {
           // ignore notification constructor errors on restricted browsers
+        }
+      }
+    } else {
+      let lastDigestAt = 0;
+      try {
+        lastDigestAt = Number(localStorage.getItem(`${LAST_DIGEST_PREFIX}${userName}`) || '0') || 0;
+      } catch {
+        lastDigestAt = 0;
+      }
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      if (Date.now() - lastDigestAt >= ONE_DAY_MS) {
+        const preview = unseenHits.slice(0, 3).map((h) => `${h.title} (${h.chapterTitle})`).join(', ');
+        const extra = unseenHits.length > 3 ? ` +${unseenHits.length - 3} more` : '';
+        try {
+          new Notification(
+            unseenHits.length === 1
+              ? `${unseenHits[0].title} — Daily Digest`
+              : `${unseenHits.length} manga updated today`,
+            {
+              body: `${preview}${extra}`,
+              tag: `manga-daily-digest-${userName}`,
+            },
+          );
+          for (const hit of unseenHits) {
+            seenMap[hit.slug] = hit.chapterId;
+          }
+          mapChanged = true;
+          try {
+            localStorage.setItem(`${LAST_DIGEST_PREFIX}${userName}`, String(Date.now()));
+          } catch {
+            // ignore
+          }
+        } catch {
+          // ignore notification constructor errors
         }
       }
     }
@@ -2402,4 +2586,107 @@ export function checkKatanaChapterAlerts(
     }
   }
   return hits;
+}
+
+/**
+ * Secondary catalog source backed by our Cloud Function MangaDex proxy
+ * so readers can browse/search MangaDex without direct third-party client calls.
+ */
+export async function searchMangaDexCatalog(queryText: string): Promise<KatanaManga[]> {
+  const q = queryText.trim();
+  if (AgentMode.demo) {
+    const demoHome = await fetchKatanaHome();
+    const pool = [...demoHome.hot, ...demoHome.latest];
+    const filtered = q
+      ? pool.filter(
+          (m) =>
+            m.title.toLowerCase().includes(q.toLowerCase()) ||
+            m.genres.some((g) => g.name.toLowerCase().includes(q.toLowerCase())),
+        )
+      : pool;
+    return filtered.slice(0, 12).map((m) => ({
+      ...m,
+      summary: m.summary ? `[MangaDex] ${m.summary}` : 'Available via MangaDex catalog source.',
+    }));
+  }
+  if (!ConnectivityService.isOnline) return [];
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch {
+      // continue unsigned if guest
+    }
+    const mdPath = q
+      ? `/manga?title=${encodeURIComponent(q)}&limit=18&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&order[relevance]=desc`
+      : `/manga?limit=18&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&order[followedCount]=desc`;
+    const resp = await fetch(`${PROXY_MANGADEX_URL}?path=${encodeURIComponent(mdPath)}`, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) return [];
+    const json = (await resp.json()) as {
+      data?: Array<{
+        id: string;
+        attributes?: {
+          title?: Record<string, string>;
+          altTitles?: Array<Record<string, string>>;
+          description?: Record<string, string>;
+          status?: string;
+          lastChapter?: string | null;
+          tags?: Array<{ id?: string; attributes?: { name?: Record<string, string> } }>;
+        };
+        relationships?: Array<{ type?: string; attributes?: { fileName?: string } }>;
+      }>;
+    };
+    const items = json.data ?? [];
+    return items.map((entry) => {
+      const attrs = entry.attributes ?? {};
+      const titleObj = attrs.title ?? {};
+      const title = titleObj.en || titleObj['ja-ro'] || Object.values(titleObj)[0] || 'Untitled';
+      const coverRel = entry.relationships?.find((r) => r.type === 'cover_art');
+      const fileName = coverRel?.attributes?.fileName;
+      const coverUrl = fileName
+        ? `${PROXY_MANGA_IMAGE_URL}?url=${encodeURIComponent(`https://uploads.mangadex.org/covers/${entry.id}/${fileName}.512.jpg`)}`
+        : '';
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      const genres: KatanaGenre[] = (attrs.tags ?? [])
+        .map((t) => t.attributes?.name?.en || '')
+        .filter(Boolean)
+        .slice(0, 5)
+        .map((name) => ({
+          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name,
+          count: 0,
+          description: '',
+        }));
+      const statusRaw = (attrs.status ?? 'ongoing').toLowerCase();
+      const status = statusRaw === 'completed' ? 'Completed' : statusRaw === 'hiatus' ? 'Hiatus' : 'Ongoing';
+      const lastCh = attrs.lastChapter ? String(attrs.lastChapter) : '';
+      const safeSlug = slug || entry.id;
+      return {
+        id: safeSlug,
+        slug: safeSlug,
+        title,
+        coverUrl,
+        summary: attrs.description?.en || '',
+        status,
+        updateText: '',
+        genres,
+        latestChapter: lastCh ? { id: `c${lastCh}`, num: lastCh, title: `Chapter ${lastCh}` } : undefined,
+        recentChapters: [],
+        authors: [],
+        artists: [],
+        altNames: (attrs.altTitles ?? []).flatMap((o) => Object.values(o)).slice(0, 4),
+        chapters: [],
+      } satisfies KatanaManga;
+    });
+  } catch (err) {
+    Logger.e('KatanaService: searchMangaDexCatalog failed', err);
+    return [];
+  }
 }

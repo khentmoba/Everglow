@@ -8,14 +8,14 @@ export const KATANA_BREAKPOINTS = {
   desktop: 960,
 } as const;
 
-export type KatanaThemeMode = 'dark' | 'light' | 'sepia';
+export type KatanaThemeMode = 'dark' | 'oled' | 'light' | 'sepia';
 
 const THEME_STORAGE_KEY = 'katana_theme_mode_v1';
 
 export function loadKatanaThemeMode(): KatanaThemeMode {
   try {
     const raw = localStorage.getItem(THEME_STORAGE_KEY);
-    if (raw === 'light' || raw === 'sepia' || raw === 'dark') return raw;
+    if (raw === 'light' || raw === 'sepia' || raw === 'dark' || raw === 'oled') return raw;
   } catch {
     // ignore storage errors
   }
@@ -61,6 +61,31 @@ export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> 
     '--katana-teal': '#2DD4BF',
     '--katana-header-dark': '#0E1118',
     '--katana-switch-off': '#272E3F',
+  },
+  oled: {
+    '--katana-bg': '#000000',
+    '--katana-surface': '#090B0F',
+    '--katana-surface-alt': '#12151C',
+    '--katana-surface-glow': '#1A1F2A',
+    '--katana-border': '#1E2430',
+    '--katana-border-strong': '#303A4D',
+    '--katana-text': '#F6F8FC',
+    '--katana-text-muted': '#A6B1C4',
+    '--katana-text-light': '#92A0B8',
+    '--katana-accent': '#F59E0B',
+    '--katana-accent-dark': '#D97706',
+    '--katana-accent-soft': '#FCD34D',
+    '--katana-accent-ink': '#000000',
+    '--katana-chip-selected-bg': '#1F293D',
+    '--katana-chip-selected-border': '#4B5E82',
+    '--katana-chip-selected-text': '#F8FAFC',
+    '--katana-link': '#60A5FA',
+    '--katana-green': '#34D399',
+    '--katana-orange': '#FB923C',
+    '--katana-crimson': '#F43F5E',
+    '--katana-teal': '#2DD4BF',
+    '--katana-header-dark': '#000000',
+    '--katana-switch-off': '#1F2533',
   },
   light: {
     '--katana-bg': '#F5F7FA',
