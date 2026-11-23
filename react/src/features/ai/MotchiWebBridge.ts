@@ -135,6 +135,8 @@ export class MotchiWebBridge {
       });
       if (this.recognition !== rec || this.audioContext !== ctx) {
         for (const track of stream.getTracks()) track.stop();
+        if (this.audioContext === ctx) this.audioContext = null;
+        void ctx.close().catch((e) => Logger.e('Motchi audio context close failed', e));
         return;
       }
       this.meterStream = stream;

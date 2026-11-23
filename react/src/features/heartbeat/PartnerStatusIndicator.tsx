@@ -1,5 +1,5 @@
 // Port of lib/features/heartbeat/presentation/widgets/partner_status_indicator.dart.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppColors, withAlpha } from '../../core/theme/colors';
@@ -55,20 +55,25 @@ export function PartnerStatusIndicator() {
 function MoodHeart({ score, emoji }: { score: number; emoji: string }) {
   const { width, height } = useViewport();
   const reduceAmbient = reduceAmbientMotion(width, height);
-  const [scale, setScale] = useState(1);
+  const heartRef = useRef<HTMLSpanElement | null>(null);
 
+  // The 4s pulse runs every frame; write the transform straight to the DOM so
+  // it never re-renders this widget (and its callers) ~60 times a second.
   useEffect(() => {
     if (reduceAmbient) {
-      setScale(1);
+      if (heartRef.current) heartRef.current.style.transform = 'scale(1)';
       return;
     }
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (document.hidden) return;
       const cycle = ((now - start) % 4000) / 2000;
       const t = cycle <= 1 ? cycle : 2 - cycle;
-      setScale(1 + 0.2 * Curves.easeInOut(t));
-      raf = requestAnimationFrame(tick);
+      if (heartRef.current) {
+        heartRef.current.style.transform = `scale(${(1 + 0.2 * Curves.easeInOut(t)).toFixed(4)})`;
+      }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -103,10 +108,10 @@ function MoodHeart({ score, emoji }: { score: number; emoji: string }) {
         }}
       >
         <span
+          ref={heartRef}
           style={{
             fontSize: isAmazing ? 26 : 22,
             lineHeight: 1,
-            transform: `scale(${scale.toFixed(4)})`,
             display: 'inline-block',
           }}
         >
