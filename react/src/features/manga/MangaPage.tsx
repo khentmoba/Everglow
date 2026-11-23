@@ -59,6 +59,8 @@ import {
   setKatanaHistoryPaused,
   loadKatanaHiddenCategories,
   loadKatanaHistory,
+  lookupAniListManga,
+  lookupKitsuManga,
   lookupMalManga,
   markKatanaAlertSeen,
   markKatanaChaptersRead,
@@ -214,11 +216,16 @@ function isOnMeteredCellular(): boolean {
   return nav.connection?.type === 'cellular' || nav.connection?.saveData === true;
 }
 
-function extractTrackerId(input: string, kind: 'anilist' | 'mal'): string {
+function extractTrackerId(input: string, kind: 'anilist' | 'mal' | 'kitsu'): string {
   const trimmed = input.trim();
   if (!trimmed) return '';
   if (/^\d+$/.test(trimmed)) return trimmed;
-  const re = kind === 'anilist' ? /anilist\.co\/manga\/(\d+)/i : /myanimelist\.net\/manga\/(\d+)/i;
+  const re =
+    kind === 'anilist'
+      ? /anilist\.co\/manga\/(\d+)/i
+      : kind === 'kitsu'
+        ? /kitsu\.(?:io|app)\/manga\/(\d+)/i
+        : /myanimelist\.net\/manga\/(\d+)/i;
   const m = re.exec(trimmed);
   return m ? m[1] : trimmed.replace(/[^0-9]/g, '');
 }
@@ -448,6 +455,7 @@ export function MangaPage() {
   const [trackerOpen, setTrackerOpen] = useState(false);
   const [trackerSyncing, setTrackerSyncing] = useState(false);
   const [trackerAnilistDraft, setTrackerAnilistDraft] = useState('');
+  const [trackerKitsuDraft, setTrackerKitsuDraft] = useState('');
   const [trackerMalDraft, setTrackerMalDraft] = useState('');
   const [trackerNoteDraft, setTrackerNoteDraft] = useState('');
   const [themeMode, setThemeMode] = useState<KatanaThemeMode>(() => loadKatanaThemeMode());
@@ -698,6 +706,48 @@ export function MangaPage() {
     }
   };
 
+  const syncSeriesWithAniList = async (manga: KatanaManga, explicitId?: string) => {
+    if (!userName || trackerSyncing) return;
+    setTrackerSyncing(true);
+    try {
+      const snap = await lookupAniListManga(manga.title, explicitId);
+      if (!snap) {
+        showSnackBar('No AniList match found — enter an ID manually or retry');
+        return;
+      }
+      setTrackerAnilistDraft(snap.anilistId);
+      await saveKatanaTrackerData(manga, userName, {
+        anilistId: snap.anilistId,
+        anilistScore: snap.score ?? null,
+        lastSyncedAt: new Date(),
+      });
+      showSnackBar(`Synced with AniList #${snap.anilistId}${snap.score ? ` (${snap.score}%)` : ''}`);
+    } finally {
+      setTrackerSyncing(false);
+    }
+  };
+
+  const syncSeriesWithKitsu = async (manga: KatanaManga, explicitId?: string) => {
+    if (!userName || trackerSyncing) return;
+    setTrackerSyncing(true);
+    try {
+      const snap = await lookupKitsuManga(manga.title, explicitId);
+      if (!snap) {
+        showSnackBar('No Kitsu match found — enter an ID manually or retry');
+        return;
+      }
+      setTrackerKitsuDraft(snap.kitsuId);
+      await saveKatanaTrackerData(manga, userName, {
+        kitsuId: snap.kitsuId,
+        kitsuScore: snap.score ?? null,
+        lastSyncedAt: new Date(),
+      });
+      showSnackBar(`Synced with Kitsu #${snap.kitsuId}${snap.score ? ` (${snap.score}%)` : ''}`);
+    } finally {
+      setTrackerSyncing(false);
+    }
+  };
+
   const toggleSeriesAlerts = async (manga: KatanaManga, currentlyEnabled: boolean) => {
     if (!userName) return;
     const next = !currentlyEnabled;
@@ -842,6 +892,66 @@ export function MangaPage() {
     let alive = true;
     setCatLoading(true);
     setCatError(undefined);
+    if (catalogSource === 'all' && (catalogMode === 'search' || catalogMode === 'directory')) {
+      Promise.allSettled([
+        fetchKatanaCatalog({
+          mode: catalogMode,
+          key: genreSlug,
+          page: catPage,
+          query: searchQuery,
+          searchBy,
+          include: includeGenres,
+          exclude: excludeGenres,
+          genreMode,
+          chapters: minChapters,
+          orderBy,
+          status: statusFilter,
+          demographic: demographicFilter,
+          author: authorFilter,
+        }),
+        searchMangaDexCatalog({
+          query: searchQuery,
+          page: catPage,
+          status: statusFilter,
+          demographic: demographicFilter,
+          orderBy,
+          include: includeGenres,
+          exclude: excludeGenres,
+          genreMode,
+          chapters: minChapters,
+          author: authorFilter,
+          language: languageFilter,
+        }),
+      ]).then(([katanaRes, mdRes]) => {
+        if (!alive) return;
+        const kItems = katanaRes.status === 'fulfilled' ? katanaRes.value.items : [];
+        const mItems = mdRes.status === 'fulfilled' ? mdRes.value.items : [];
+        const seen = new Set<string>();
+        const merged: KatanaManga[] = [];
+        const maxLen = Math.max(kItems.length, mItems.length);
+        for (let i = 0; i < maxLen; i += 1) {
+          for (const candidate of [kItems[i], mItems[i]]) {
+            if (!candidate) continue;
+            const normKey = candidate.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+            if (seen.has(candidate.slug) || (normKey && seen.has(normKey))) continue;
+            seen.add(candidate.slug);
+            if (normKey) seen.add(normKey);
+            merged.push(candidate);
+          }
+        }
+        const kVal = katanaRes.status === 'fulfilled' ? katanaRes.value : undefined;
+        const mVal = mdRes.status === 'fulfilled' ? mdRes.value : undefined;
+        setCatItems(merged);
+        setCatHasNext(Boolean(kVal?.hasNext || mVal?.hasNext));
+        setCatTotalPages(Math.max(kVal?.totalPages ?? 1, mVal?.totalPages ?? 1));
+        setCatTotalResults((kVal?.totalResults ?? kItems.length) + (mVal?.totalResults ?? mItems.length));
+        setCatError(merged.length === 0 ? kVal?.error || mVal?.error : undefined);
+        setCatLoading(false);
+      });
+      return () => {
+        alive = false;
+      };
+    }
     if (catalogSource === 'mangadex' && (catalogMode === 'search' || catalogMode === 'directory')) {
       searchMangaDexCatalog({
         query: searchQuery,
@@ -2256,6 +2366,7 @@ export function MangaPage() {
               ) : (
                 (() => {
                   const detailBm = bookmarks.find((b) => b.slug === detail.slug);
+    const partnerDetailBm = isCoupleUser ? partnerBookmarks.find((b) => b.slug === detail.slug) : undefined;
                   const isBookmarked = Boolean(detailBm?.bookmarked);
                   const hasReadingProgress = Boolean(detailBm?.lastReadChapterId);
                   const currentStatus = detailBm ? resolveLibraryStatus(detailBm) : undefined;
@@ -2773,6 +2884,7 @@ export function MangaPage() {
                                       setStatusMenuOpen(false);
                                       if (!trackerOpen) {
                                         setTrackerAnilistDraft(detailBm?.anilistId ?? '');
+                                        setTrackerKitsuDraft(detailBm?.kitsuId ?? '');
                                         setTrackerMalDraft(detailBm?.malId ?? '');
                                         setTrackerNoteDraft(detailBm?.trackerNote ?? '');
                                       }
@@ -2845,6 +2957,7 @@ export function MangaPage() {
                                           onClick={() => {
                                             setDetailOverflowOpen(false);
                                             setTrackerAnilistDraft(detailBm?.anilistId ?? '');
+                                            setTrackerKitsuDraft(detailBm?.kitsuId ?? '');
                                             setTrackerMalDraft(detailBm?.malId ?? '');
                                             setTrackerNoteDraft(detailBm?.trackerNote ?? '');
                                             setTrackerOpen((v) => !v);
@@ -3372,12 +3485,67 @@ export function MangaPage() {
                                   color: KatanaColors.text,
                                 }}
                               />
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  value={trackerKitsuDraft}
+                                  onChange={(e) => setTrackerKitsuDraft(e.target.value)}
+                                  placeholder="Kitsu ID or URL (auto-syncs)"
+                                  aria-label="Kitsu ID or URL"
+                                  style={{
+                                    flex: 1,
+                                    height: 36,
+                                    padding: '0 10px',
+                                    borderRadius: 8,
+                                    background: KatanaColors.background,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 12.5,
+                                    color: KatanaColors.text,
+                                  }}
+                                />
+                                {detailBm?.kitsuId && (
+                                  <a
+                                    href={`https://kitsu.app/manga/${encodeURIComponent(detailBm.kitsuId)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="Open on Kitsu"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.surfaceAlt,
+                                      border: `1px solid ${KatanaColors.borderStrong}`,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      color: KatanaColors.accentSoft,
+                                      textDecoration: 'none',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <span>Kitsu</span>
+                                    <Icon name="open_in_new" size={13} color={KatanaColors.accentSoft} />
+                                  </a>
+                                )}
+                              </div>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Syncing MAL…' : detailBm?.malId ? 'Sync MAL Now' : 'Auto-Match MAL'}
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.anilistId ? 'Sync AniList' : 'Match AniList'}
+                                  icon="sync"
+                                  size="sm"
+                                  filled={false}
+                                  color={KatanaColors.link}
+                                  disabled={trackerSyncing}
+                                  onClick={() => void syncSeriesWithAniList(detail, extractTrackerId(trackerAnilistDraft, 'anilist') || detailBm?.anilistId)}
+                                />
+                                <KatanaButton
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.malId ? 'Sync MAL' : 'Match MAL'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -3385,11 +3553,30 @@ export function MangaPage() {
                                   disabled={trackerSyncing}
                                   onClick={() => void syncSeriesWithMal(detail, extractTrackerId(trackerMalDraft, 'mal') || detailBm?.malId)}
                                 />
+                                <KatanaButton
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.kitsuId ? 'Sync Kitsu' : 'Match Kitsu'}
+                                  icon="sync"
+                                  size="sm"
+                                  filled={false}
+                                  color={KatanaColors.accentSoft}
+                                  disabled={trackerSyncing}
+                                  onClick={() => void syncSeriesWithKitsu(detail, extractTrackerId(trackerKitsuDraft, 'kitsu') || detailBm?.kitsuId)}
+                                />
+                                {detailBm?.anilistScore != null && (
+                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                    AniList {detailBm.anilistScore}%
+                                  </span>
+                                )}
                                 {detailBm?.malScore != null && (
                                   <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
                                     MAL ★ {detailBm.malScore.toFixed(2)}
                                     {detailBm.malRank ? ` · #${detailBm.malRank}` : ''}
                                     {detailBm.malTotalChapters ? ` · ${detailBm.malTotalChapters} ch` : ''}
+                                  </span>
+                                )}
+                                {detailBm?.kitsuScore != null && (
+                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                    Kitsu {detailBm.kitsuScore.toFixed(1)}%
                                   </span>
                                 )}
                               </div>
@@ -3428,9 +3615,11 @@ export function MangaPage() {
                                 size="sm"
                                 onClick={() => {
                                   const al = extractTrackerId(trackerAnilistDraft, 'anilist');
+                                  const kt = extractTrackerId(trackerKitsuDraft, 'kitsu');
                                   const mal = extractTrackerId(trackerMalDraft, 'mal');
                                   void saveKatanaTrackerData(detail, userName, {
                                     anilistId: al || null,
+                                    kitsuId: kt || null,
                                     malId: mal || null,
                                     trackerNote: trackerNoteDraft.trim() || null,
                                     lastSyncedAt: new Date(),
@@ -3442,6 +3631,45 @@ export function MangaPage() {
                           </div>
                         )}
                       </KatanaCard>
+
+                      {partnerDetailBm && (partnerDetailBm.userScore || partnerDetailBm.trackerNote || partnerDetailBm.lastReadChapterTitle) && (
+                        <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Icon name="people_outline" size={16} color={KatanaColors.accentSoft} />
+                              <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                {partnerUsername ? `${partnerUsername}'s shelf` : "Partner's shelf"}
+                              </span>
+                              {partnerDetailBm.lastReadChapterTitle && (
+                                <span style={{ ...KatanaType.small, color: KatanaColors.textMuted }}>
+                                  · {partnerDetailBm.lastReadChapterTitle}
+                                </span>
+                              )}
+                            </div>
+                            {partnerDetailBm.userScore && (
+                              <span
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 99,
+                                  background: withAlpha(KatanaColors.accent, 0.14),
+                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 11.5,
+                                  fontWeight: 700,
+                                  color: KatanaColors.accentSoft,
+                                }}
+                              >
+                                ★ {partnerDetailBm.userScore}/10
+                              </span>
+                            )}
+                          </div>
+                          {partnerDetailBm.trackerNote && (
+                            <p style={{ ...KatanaType.body, fontSize: 13, color: KatanaColors.textMuted, margin: '6px 0 0' }}>
+                              “{partnerDetailBm.trackerNote}”
+                            </p>
+                          )}
+                        </KatanaCard>
+                      )}
 
                       <div style={{ height: 14 }} />
 
@@ -5015,9 +5243,9 @@ export function MangaPage() {
                   <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                       <div>
-                        <div style={{ ...KatanaType.title, fontSize: 13.5 }}>Library Backup & Tracker Export</div>
+                        <div style={{ ...KatanaType.title, fontSize: 13.5 }}>Full Backup & Tracker Export</div>
                         <div style={{ ...KatanaType.small, marginTop: 2 }}>
-                          Export your shelves, ratings, and reading progress as JSON or MyAnimeList / AniList XML.
+                          Export shelves, ratings, progress, and reader settings in one JSON file, or export MAL / AniList XML.
                         </div>
                       </div>
                       <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 8 }}>
@@ -5722,15 +5950,31 @@ export function MangaPage() {
                             padding: ch === 'all' ? '0 10px' : '0 6px',
                             borderRadius: 8,
                             flexShrink: 0,
-                            background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
-                            border: `1px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                            background:
+                              active
+                                ? ch === 'all'
+                                  ? KatanaColors.chipSelectedBg
+                                  : KatanaColors.accent
+                                : KatanaColors.surfaceAlt,
+                            border: `1px solid ${
+                              active
+                                ? ch === 'all'
+                                  ? KatanaColors.chipSelectedBorder
+                                  : KatanaColors.accent
+                                : KatanaColors.border
+                            }`,
                             fontFamily: Fonts.body,
                             fontSize: 11.5,
                             fontWeight: 700,
-                            color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
+                            color:
+                              active
+                                ? ch === 'all'
+                                  ? KatanaColors.chipSelectedText
+                                  : KatanaColors.accentInk
+                                : KatanaColors.textMuted,
                           }}
                         >
-                          {ch === 'all' ? 'A–Z' : ch}
+                          {ch === 'all' ? 'All' : ch}
                         </button>
                       );
                     })}
@@ -6521,6 +6765,7 @@ export function MangaPage() {
                       >
                         {(
                           [
+                            ['all', 'All Sources'],
                             ['mangakatana', 'MangaKatana'],
                             ['mangadex', 'MangaDex'],
                           ] as const
@@ -7179,49 +7424,61 @@ function KatanaDownloadsView({
       <div style={{ height: 14 }} />
       <KatanaCard padding={12} radius={10} style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon name="wifi" size={18} color={wifiOnly ? KatanaColors.green : KatanaColors.textMuted} />
-              <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 600 }}>
-                Wi-Fi only — {wifiOnly ? 'On' : 'Off'}
-              </span>
-            </div>
-            {!supportsNetworkConnectionApi() && (
-              <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
-                Your browser (e.g. iOS Safari) does not expose Wi-Fi vs. cellular status to web apps; this setting applies automatically on supported browsers.
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={wifiOnly}
-            aria-label={`Download over Wi-Fi only: ${wifiOnly ? 'On' : 'Off'}`}
-            className="bare-button"
-            onClick={onToggleWifiOnly}
-            style={{
-              width: 48,
-              height: 28,
-              borderRadius: 99,
-              padding: 3,
-              background: wifiOnly ? KatanaColors.green : KatanaColors.switchOff,
-              border: `1px solid ${wifiOnly ? KatanaColors.green : KatanaColors.borderStrong}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: wifiOnly ? 'flex-end' : 'flex-start',
-              transition: 'background 160ms ease',
-            }}
-          >
-            <span
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 99,
-                background: '#FFFFFF',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
-              }}
-            />
-          </button>
+          {(() => {
+            const netSupported = supportsNetworkConnectionApi();
+            const effectiveWifiOnly = netSupported && wifiOnly;
+            return (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name="wifi" size={18} color={effectiveWifiOnly ? KatanaColors.green : KatanaColors.textMuted} />
+                    <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 600 }}>
+                      Wi-Fi only — {!netSupported ? 'Not supported by this browser' : wifiOnly ? 'On' : 'Off'}
+                    </span>
+                  </div>
+                  {!netSupported && (
+                    <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
+                      Your browser (e.g. iOS Safari) does not report Wi-Fi vs. cellular status to web apps, so automatic Wi-Fi gating is unavailable here.
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={effectiveWifiOnly}
+                  aria-disabled={!netSupported}
+                  disabled={!netSupported}
+                  aria-label={`Download over Wi-Fi only: ${!netSupported ? 'Unavailable on this browser' : wifiOnly ? 'On' : 'Off'}`}
+                  className="bare-button"
+                  onClick={netSupported ? onToggleWifiOnly : undefined}
+                  style={{
+                    width: 48,
+                    height: 28,
+                    borderRadius: 99,
+                    padding: 3,
+                    opacity: netSupported ? 1 : 0.45,
+                    cursor: netSupported ? 'pointer' : 'not-allowed',
+                    background: effectiveWifiOnly ? KatanaColors.green : KatanaColors.switchOff,
+                    border: `1px solid ${effectiveWifiOnly ? KatanaColors.green : KatanaColors.borderStrong}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: effectiveWifiOnly ? 'flex-end' : 'flex-start',
+                    transition: 'background 160ms ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 99,
+                      background: '#FFFFFF',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+                    }}
+                  />
+                </button>
+              </>
+            );
+          })()}
         </div>
         <div
           style={{

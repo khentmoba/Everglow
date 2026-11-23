@@ -664,8 +664,8 @@ function demoItems(): OfflineMediaItem[] {
   const M = 60 * 1000;
   const st = 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg';
   const fr = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-n1HJZ2s7vGgA.jpg';
-  const sl = 'https://uploads.mangadex.org/covers/32d76d19-8a05-4db0-9fc2-e0b0648fe9d0/37aeaa0a-8bf7-42f5-b28e-f5139031c03a.jpg';
-  const pages = ['assets/images/demo/poster-1.jpg', 'assets/images/demo/poster-2.jpg', 'assets/images/demo/poster-3.jpg'];
+  const sl = '/images/demo/poster-4.jpg';
+  const pages = ['/images/demo/poster-1.jpg', '/images/demo/poster-2.jpg', '/images/demo/poster-3.jpg'];
   const base = { status: 'completed' as const, progress: 1, pageUrls: [] as string[] };
   const video = (
     id: string,
@@ -700,10 +700,10 @@ function demoItems(): OfflineMediaItem[] {
   });
   const chapter = (n: string, subtitle: string, bytes: number, at: string): OfflineMediaItem => ({
     ...base,
-    id: `manga_solo-leveling_ch_${n}`,
+    id: `manga_demo-starlight-manga_ch_${n}`,
     type: 'manga',
-    mediaId: 'solo-leveling',
-    title: 'Solo Leveling',
+    mediaId: 'demo-starlight-manga',
+    title: 'Fictional Starlight Manga',
     subtitle,
     chapterId: n,
     coverUrl: sl,
@@ -711,7 +711,7 @@ function demoItems(): OfflineMediaItem[] {
     downloadedBytes: bytes,
     downloadedAt: at,
     pageUrls: pages,
-    blobKey: `manga_solo-leveling_ch_${n}`,
+    blobKey: `manga_demo-starlight-manga_ch_${n}`,
   });
   const frieren = "Frieren: Beyond Journey's End";
   return [

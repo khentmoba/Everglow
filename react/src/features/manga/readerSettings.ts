@@ -13,6 +13,22 @@ export type ReadingMode =
 
 export type FitMode = 'smart-fit' | 'fit-width' | 'fit-height' | 'fit-screen' | 'stretch' | 'original';
 
+export type FitModeBucket = 'webtoon' | 'single' | 'double' | 'strip';
+
+export const FIT_MODE_BUCKET_LABEL: Record<FitModeBucket, string> = {
+  webtoon: 'Webtoon',
+  single: 'Single Page',
+  double: 'Double Page',
+  strip: 'Horizontal Strip',
+};
+
+export function getFitModeBucket(effectiveMode: ReadingMode): FitModeBucket {
+  if (effectiveMode === 'webtoon') return 'webtoon';
+  if (effectiveMode === 'double-rtl' || effectiveMode === 'double-ltr') return 'double';
+  if (effectiveMode === 'strip-rtl' || effectiveMode === 'strip-ltr') return 'strip';
+  return 'single';
+}
+
 export type ReaderBackground = 'auto' | 'oled' | 'dark' | 'gray' | 'sepia' | 'white';
 
 export type TapZoneLayout = 'standard' | 'kindle' | 'l-shaped' | 'edge' | 'disabled';
@@ -30,6 +46,7 @@ export type VerticalSeekbarSide = 'off' | 'right' | 'left';
 export interface ReaderSettings {
   readingMode: ReadingMode;
   fitMode: FitMode;
+  fitByMode?: Partial<Record<FitModeBucket, FitMode>>;
   coverOffset: boolean;
   autoSpreadWide: boolean;
   splitWidePages: boolean;
@@ -103,6 +120,12 @@ export interface PageBookmark {
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   readingMode: 'webtoon',
   fitMode: 'fit-width',
+  fitByMode: {
+    webtoon: 'fit-width',
+    single: 'fit-screen',
+    double: 'fit-screen',
+    strip: 'fit-height',
+  },
   coverOffset: true,
   autoSpreadWide: true,
   splitWidePages: false,
@@ -288,6 +311,18 @@ export function loadGlobalReaderSettings(): ReaderSettings {
       fitMode: VALID_FITS.has(String(parsed.fitMode))
         ? (parsed.fitMode as FitMode)
         : DEFAULT_READER_SETTINGS.fitMode,
+      fitByMode: (() => {
+        const out: Partial<Record<FitModeBucket, FitMode>> = { ...(DEFAULT_READER_SETTINGS.fitByMode ?? {}) };
+        if (parsed.fitByMode && typeof parsed.fitByMode === 'object') {
+          for (const bucket of ['webtoon', 'single', 'double', 'strip'] as const) {
+            const candidate = (parsed.fitByMode as Record<string, unknown>)[bucket];
+            if (typeof candidate === 'string' && VALID_FITS.has(candidate)) {
+              out[bucket] = candidate as FitMode;
+            }
+          }
+        }
+        return out;
+      })(),
       coverOffset: typeof parsed.coverOffset === 'boolean' ? parsed.coverOffset : DEFAULT_READER_SETTINGS.coverOffset,
       autoSpreadWide:
         typeof parsed.autoSpreadWide === 'boolean' ? parsed.autoSpreadWide : DEFAULT_READER_SETTINGS.autoSpreadWide,
@@ -351,7 +386,9 @@ export function loadGlobalReaderSettings(): ReaderSettings {
           : DEFAULT_READER_SETTINGS.autoScrollSpeed,
       preloadCount:
         typeof parsed.preloadCount === 'number' && Number.isFinite(parsed.preloadCount)
-          ? clamp(Math.round(parsed.preloadCount), 1, 6)
+          ? parsed.preloadCount >= 99
+            ? 99
+            : clamp(Math.round(parsed.preloadCount), 1, 6)
           : DEFAULT_READER_SETTINGS.preloadCount,
       preloadWifiOnly:
         typeof parsed.preloadWifiOnly === 'boolean' ? parsed.preloadWifiOnly : DEFAULT_READER_SETTINGS.preloadWifiOnly,
@@ -638,6 +675,73 @@ export function saveSeriesChapterFilter(slug: string, filter: SeriesChapterFilte
     return;
   }
   Prefs.set(CHAPTER_FILTER_PREFIX + slug, JSON.stringify({ lang: filter.lang, group: filter.group }));
+}
+
+export interface ReaderBackupBundle {
+  globalSettings: ReaderSettings;
+  seriesOverrides: Record<string, SeriesReaderOverride>;
+  pageBookmarks: Record<string, PageBookmark[]>;
+  resumeAnchors: Record<string, Record<string, { pageIdx: number; offsetRatio: number }>>;
+}
+
+/** Collects global reader settings, per-series overrides, page bookmarks, and resume anchors for full-backup export. */
+export function exportReaderBackupData(slugs: string[]): ReaderBackupBundle {
+  const uniqueSlugs = Array.from(new Set(slugs.filter(Boolean)));
+  const seriesOverrides: Record<string, SeriesReaderOverride> = {};
+  const pageBookmarks: Record<string, PageBookmark[]> = {};
+  const resumeAnchors: Record<string, Record<string, { pageIdx: number; offsetRatio: number }>> = {};
+  for (const slug of uniqueSlugs) {
+    const ov = loadSeriesReaderOverride(slug);
+    if (ov && Object.keys(ov).length > 0) seriesOverrides[slug] = ov;
+    const bms = loadPageBookmarks(slug);
+    if (bms.length > 0) pageBookmarks[slug] = bms;
+    const rawResume = Prefs.getString(RESUME_PREFIX + slug);
+    if (rawResume) {
+      try {
+        const parsed = JSON.parse(rawResume) as { chapters?: Record<string, { pageIdx: number; offsetRatio: number }> };
+        if (parsed.chapters && Object.keys(parsed.chapters).length > 0) {
+          resumeAnchors[slug] = parsed.chapters;
+        }
+      } catch {
+        // ignore malformed anchor cache
+      }
+    }
+  }
+  return {
+    globalSettings: loadGlobalReaderSettings(),
+    seriesOverrides,
+    pageBookmarks,
+    resumeAnchors,
+  };
+}
+
+/** Restores reader settings, per-series overrides, page bookmarks, and resume anchors from a full backup. */
+export function importReaderBackupData(bundle: unknown): void {
+  if (!bundle || typeof bundle !== 'object') return;
+  const rec = bundle as Partial<ReaderBackupBundle>;
+  if (rec.globalSettings && typeof rec.globalSettings === 'object') {
+    saveGlobalReaderSettings({ ...loadGlobalReaderSettings(), ...rec.globalSettings });
+  }
+  if (rec.seriesOverrides && typeof rec.seriesOverrides === 'object') {
+    for (const [slug, ov] of Object.entries(rec.seriesOverrides)) {
+      if (slug && ov && typeof ov === 'object') saveSeriesReaderOverride(slug, ov);
+    }
+  }
+  if (rec.pageBookmarks && typeof rec.pageBookmarks === 'object') {
+    for (const [slug, bms] of Object.entries(rec.pageBookmarks)) {
+      if (slug && Array.isArray(bms)) savePageBookmarks(slug, bms);
+    }
+  }
+  if (rec.resumeAnchors && typeof rec.resumeAnchors === 'object') {
+    for (const [slug, chapters] of Object.entries(rec.resumeAnchors)) {
+      if (!slug || !chapters || typeof chapters !== 'object') continue;
+      for (const [chapterId, anchor] of Object.entries(chapters)) {
+        if (chapterId && anchor && typeof anchor.pageIdx === 'number' && typeof anchor.offsetRatio === 'number') {
+          saveResumeAnchor(slug, { chapterId, pageIdx: anchor.pageIdx, offsetRatio: anchor.offsetRatio });
+        }
+      }
+    }
+  }
 }
 
 export function hasSeenReaderHint(): boolean {

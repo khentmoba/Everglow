@@ -4,6 +4,8 @@ import { chapterDisplayTitle, proxyKatanaImageUrl, type KatanaChapter } from './
 import { KatanaColors, KatanaType } from './katanaTokens';
 import { resolveReaderImageUrl } from './ReaderPageImage';
 import {
+  FIT_MODE_BUCKET_LABEL,
+  getFitModeBucket,
   READER_BACKGROUNDS,
   READER_PROFILES,
   READING_MODE_META,
@@ -828,7 +830,9 @@ export function ReaderSettingsSheet({
                 })}
               </div>
 
-              <SectionLabel>Image Scaling</SectionLabel>
+              <SectionLabel>
+                Image Scaling · {FIT_MODE_BUCKET_LABEL[getFitModeBucket(settings.readingMode)]}
+              </SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>
                 {fitOptions.map((opt) => {
                   const active = settings.fitMode === opt.id;
@@ -1000,18 +1004,35 @@ export function ReaderSettingsSheet({
                 />
                 {!settings.dataSaver && (
                   <div style={{ padding: '4px 2px' }}>
-                    <SectionLabel>Pages to Preload Ahead ({settings.preloadCount})</SectionLabel>
-                    <input
-                      type="range"
-                      className="manga-range"
-                      min={1}
-                      max={6}
-                      step={1}
-                      value={settings.preloadCount}
-                      aria-label="Pages to preload ahead"
-                      onChange={(e) => onUpdateSettings({ preloadCount: Number(e.target.value) })}
-                      style={{ width: '100%' }}
-                    />
+                    <SectionLabel>
+                      Pages to Preload Ahead ({settings.preloadCount >= 99 ? 'Whole chapter' : settings.preloadCount})
+                    </SectionLabel>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {([1, 2, 3, 4, 6, 99] as const).map((cnt) => {
+                        const active = settings.preloadCount === cnt;
+                        return (
+                          <button
+                            key={cnt}
+                            type="button"
+                            className="bare-button player-focusable"
+                            onClick={() => onUpdateSettings({ preloadCount: cnt })}
+                            style={{
+                              flex: cnt === 99 ? '1 1 92px' : '1 1 42px',
+                              minHeight: 38,
+                              padding: '0 10px',
+                              borderRadius: 9,
+                              background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                              border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                              color: active ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                              fontSize: 12,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {cnt >= 99 ? 'All pages' : `${cnt}`}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

@@ -10,6 +10,7 @@ const CATALOG_MAX_CACHE_BYTES = 256 * 1024;
 const _catalogBases = {
   openlibrary: 'https://openlibrary.org/',
   jikan: 'https://api.jikan.moe/v4/',
+  kitsu: 'https://kitsu.io/api/edge/',
   itunes: 'https://itunes.apple.com/',
   aniskip: 'https://api.aniskip.com/',
   opentdb: 'https://opentdb.com/',
@@ -23,7 +24,7 @@ const _catalogNoStoreBases = new Set(['opentdb']);
 
 function resolveCatalogUpstream(baseKey, pathParam) {
   const upstreamBase = _catalogBases[String(baseKey || '').toLowerCase()];
-  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, anizip, or torrentio');
+  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, kitsu, anilist, itunes, aniskip, opentdb, gutendex, archive, anizip, or torrentio');
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     throw new Error('Missing ?path=<api path> query param');
   }
@@ -70,6 +71,64 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
       res.status(401).json({ error: 'Invalid or expired auth token' });
       return;
     }
+  }
+
+  if (String(req.query.base || '').toLowerCase() === 'anilist') {
+    const rawPath = String(req.query.path || '');
+    const idMatch = /^manga\/(\d+)$/.exec(rawPath);
+    const searchMatch = /^manga\?(.+)$/.exec(rawPath);
+    const searchText = searchMatch ? new URLSearchParams(searchMatch[1]).get('search') || '' : '';
+    const mediaId = idMatch ? Number.parseInt(idMatch[1], 10) : 0;
+    if (!mediaId && !searchText.trim()) {
+      res.status(400).json({ error: 'anilist path must be manga/<id> or manga?search=<title>' });
+      return;
+    }
+    const cacheKey = `catalog:anilist:${mediaId || searchText.trim().toLowerCase()}`;
+    const cached = _getExternalCache(cacheKey, CATALOG_CACHE_TTL_MS);
+    if (cached) {
+      res.status(cached.status);
+      res.set('Content-Type', cached.contentType);
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      res.set('Cache-Control', 'public, max-age=300');
+      res.set('X-Cache', 'HIT');
+      res.send(cached.body);
+      return;
+    }
+    const query = mediaId
+      ? 'query ($id: Int) { Media(id: $id, type: MANGA) { id title { romaji english } averageScore chapters status siteUrl } }'
+      : 'query ($search: String) { Media(search: $search, type: MANGA) { id title { romaji english } averageScore chapters status siteUrl } }';
+    const variables = mediaId ? { id: mediaId } : { search: searchText.trim() };
+    try {
+      const upstream = await common.fetchPublicUrl('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+        },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(15000),
+        httpsOnly: true,
+        isAllowedUrl: (u) => u.protocol === 'https:' && u.hostname === 'graphql.anilist.co',
+      });
+      const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
+      const contentType = 'application/json; charset=utf-8';
+      if (upstream.status === 200 && Buffer.byteLength(body, 'utf8') <= CATALOG_MAX_CACHE_BYTES) {
+        _setExternalCache(cacheKey, { status: 200, contentType, body });
+      }
+      res.status(upstream.status);
+      res.set('Content-Type', contentType);
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      res.set('Cache-Control', 'public, max-age=300');
+      res.set('X-Cache', 'MISS');
+      res.send(body);
+    } catch (e) {
+      console.warn('proxyCatalog anilist failed:', e.message);
+      res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+    }
+    return;
   }
 
   let targetUrl;

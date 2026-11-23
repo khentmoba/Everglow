@@ -170,8 +170,18 @@ export function ReaderPageImage({
 
   useEffect(() => {
     setStep(0);
-    setStatus('loading');
     setCropInsets(null);
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setStatus('loaded');
+      onErrorChange?.(false);
+      onCdnStepResolved?.(0);
+      const ratio = img.naturalWidth / img.naturalHeight;
+      setAspect(ratio);
+      onDimensions?.(img.naturalWidth, img.naturalHeight);
+    } else {
+      setStatus('loading');
+    }
   }, [src, reloadToken]);
 
   useEffect(() => {
@@ -183,6 +193,19 @@ export function ReaderPageImage({
     retryCount > 0 && baseResolved && !baseResolved.startsWith('blob:') && !baseResolved.startsWith('data:')
       ? `${baseResolved}${baseResolved.includes('?') ? '&' : '?'}_r=${retryCount}`
       : baseResolved;
+
+  // Catch cached/data-URL images that finish decoding before React attaches or flushes the reset effect.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (status === 'loading' && img && img.complete && img.naturalWidth > 0) {
+      setStatus('loaded');
+      onErrorChange?.(false);
+      onCdnStepResolved?.(step);
+      const ratio = img.naturalWidth / img.naturalHeight;
+      setAspect(ratio);
+      onDimensions?.(img.naturalWidth, img.naturalHeight);
+    }
+  }, [resolved, reloadToken, status, step]);
 
   const shouldCrop = cropBorders || fitMode === 'smart-fit';
   const needsCanvasSample = shouldCrop || sampleEdgeColor;
@@ -499,6 +522,7 @@ export function ReaderPageImage({
         </div>
       ) : (
         <img
+          key={`${resolved}#${reloadToken}`}
           ref={imgRef}
           src={resolved}
           alt={cropHalf ? `Page ${pageNumber} (${cropHalf} half)` : `Page ${pageNumber}`}

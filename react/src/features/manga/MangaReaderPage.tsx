@@ -22,6 +22,7 @@ import { KatanaColors, KatanaType } from './katanaTokens';
 import { createDemoMangaReaderParams, getDemoChapterPages } from './readerDemo';
 import { normalizeAssetUrl, ReaderPageImage, resolveReaderImageUrl } from './ReaderPageImage';
 import {
+  getFitModeBucket,
   hasSeenReaderHint,
   loadChapterAspects,
   loadGlobalReaderSettings,
@@ -132,23 +133,33 @@ export function MangaReaderView({
   const seriesDefaultAspect = useMemo(() => loadSeriesDefaultAspect(params.slug), [params.slug]);
   const [liveMedianAspect, setLiveMedianAspect] = useState<number | undefined>(undefined);
 
-  // Settings & expanded per-series overrides
+  // Settings & expanded per-series overrides (with per-reading-mode fit memory)
   const [globalSettings, setGlobalSettings] = useState<ReaderSettings>(() => loadGlobalReaderSettings());
   const [seriesOverride, setSeriesOverride] = useState<SeriesReaderOverride | null>(() =>
     loadSeriesReaderOverride(params.slug),
   );
-  const settings: ReaderSettings = useMemo(
-    () => ({
+  const rawReadingMode = seriesOverride?.readingMode ?? globalSettings.readingMode;
+  const effectiveMode = useMemo(
+    () => resolveEffectiveReadingMode(rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect ?? seriesDefaultAspect),
+    [rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect],
+  );
+  const fitBucket = getFitModeBucket(effectiveMode);
+  const settings: ReaderSettings = useMemo(() => {
+    const merged: ReaderSettings = {
       ...globalSettings,
       ...(seriesOverride ?? {}),
-    }),
-    [globalSettings, seriesOverride],
-  );
-
-  const effectiveMode = useMemo(
-    () => resolveEffectiveReadingMode(settings.readingMode, viewportWidth, viewportHeight, liveMedianAspect ?? seriesDefaultAspect),
-    [settings.readingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect],
-  );
+    };
+    const mergedFitByMode = {
+      ...(globalSettings.fitByMode ?? {}),
+      ...(seriesOverride?.fitByMode ?? {}),
+    };
+    const modeFit = mergedFitByMode[fitBucket];
+    return {
+      ...merged,
+      fitByMode: mergedFitByMode,
+      fitMode: modeFit ?? merged.fitMode,
+    };
+  }, [globalSettings, seriesOverride, fitBucket]);
   const modeMeta = READING_MODE_META[settings.readingMode];
   const effectiveMeta = READING_MODE_META[effectiveMode];
   const isWebtoon = effectiveMeta.isWebtoon;
@@ -462,8 +473,18 @@ export function MangaReaderView({
 
   const updateSettings = useCallback(
     (patch: Partial<ReaderSettings>) => {
+      const normalizedPatch: Partial<ReaderSettings> = patch.fitMode
+        ? {
+            ...patch,
+            fitByMode: {
+              ...(settings.fitByMode ?? {}),
+              ...(patch.fitByMode ?? {}),
+              [fitBucket]: patch.fitMode,
+            },
+          }
+        : patch;
       if (seriesOverride) {
-        const nextOverride: SeriesReaderOverride = { ...seriesOverride, ...patch };
+        const nextOverride: SeriesReaderOverride = { ...seriesOverride, ...normalizedPatch };
         setSeriesOverride(nextOverride);
         saveSeriesReaderOverride(params.slug, nextOverride);
         if (currentUser) {
@@ -471,7 +492,7 @@ export function MangaReaderView({
         }
       } else {
         setGlobalSettings((prev) => {
-          const next = { ...prev, ...patch };
+          const next = { ...prev, ...normalizedPatch };
           saveGlobalReaderSettings(next);
           if (currentUser) {
             void syncMangaReaderGlobalSettings(currentUser, next);
@@ -501,7 +522,7 @@ export function MangaReaderView({
         }
       }
     },
-    [seriesOverride, params.slug, currentUser, flashToast, chapterId, pageIdx],
+    [seriesOverride, params.slug, currentUser, flashToast, chapterId, pageIdx, fitBucket, settings.fitByMode],
   );
 
   const toggleSeriesOverride = useCallback(
@@ -610,9 +631,6 @@ export function MangaReaderView({
 
   const loadChapterPages = useCallback(
     async (targetChapterId: string, targetServer: string): Promise<string[]> => {
-      if (AgentMode.demo && params.slug.startsWith('demo-')) {
-        return getDemoChapterPages(targetChapterId);
-      }
       const cacheKey = `${targetChapterId}|${targetServer}`;
       const cached = prefetchedChapterRef.current.get(cacheKey);
       if (cached && cached.length > 0) return cached;
@@ -629,6 +647,10 @@ export function MangaReaderView({
         );
         const filtered = resolved.filter(Boolean);
         if (filtered.length > 0) return filtered;
+      }
+
+      if (AgentMode.demo && params.slug.startsWith('demo-')) {
+        return getDemoChapterPages(targetChapterId);
       }
 
       const urls = await fetchKatanaChapterPages(params.slug, targetChapterId, targetServer);
@@ -959,10 +981,14 @@ export function MangaReaderView({
     const cellularRestricted =
       settings.preloadWifiOnly && Boolean(conn && (conn.saveData || conn.type === 'cellular'));
     const liteMode = settings.dataSaver || cellularRestricted;
-    const ahead = liteMode ? 1 : settings.preloadCount;
+    const ahead = liteMode ? 1 : settings.preloadCount >= 99 ? pages.length : settings.preloadCount;
     const indices: number[] = [];
-    for (let i = 1; i <= ahead; i++) indices.push(pageIdx + i);
-    if (!liteMode) indices.push(pageIdx - 1);
+    if (!liteMode && settings.preloadCount >= 99) {
+      for (let i = 0; i < pages.length; i++) indices.push(i);
+    } else {
+      for (let i = 1; i <= ahead; i++) indices.push(pageIdx + i);
+      if (!liteMode) indices.push(pageIdx - 1);
+    }
     const cdnStep = workingCdnStepRef.current;
     for (const idx of indices) {
       if (idx < 0 || idx >= pages.length) continue;
@@ -3031,6 +3057,16 @@ export function MangaReaderView({
           transition: motionReduced() ? 'none' : 'opacity 180ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 760,
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
         {pages.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
@@ -3249,6 +3285,7 @@ export function MangaReaderView({
             {!isCompactPhone && <span>Next</span>}
             <Icon name={isRtl ? 'skip_previous' : 'skip_next'} size={18} color={nextChapter ? KatanaColors.accentSoft : KatanaColors.textLight} />
           </button>
+        </div>
         </div>
       </div>
 

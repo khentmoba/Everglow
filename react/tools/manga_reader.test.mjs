@@ -255,11 +255,15 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await page.keyboard.press('Escape');
 
     await page.waitForSelector('img[alt="Page 5"]', { timeout: 5000 });
-    const loadedOk = await page.evaluate(() => {
-      const img = document.querySelector('img[alt="Page 5"]');
-      return Boolean(img && img.complete && img.naturalWidth > 0);
-    });
-    assert.equal(loadedOk, true, 'Page 5 image must stay loaded with crop borders enabled');
+    await page.waitForFunction(
+      () => {
+        const img = document.querySelector('img[alt="Page 5"]');
+        if (!img || !img.complete || img.naturalWidth <= 0) return false;
+        return Number.parseFloat(getComputedStyle(img).opacity || '0') >= 0.99;
+      },
+      null,
+      { timeout: 3000 },
+    );
 
     // RTL keyboard navigation: ArrowLeft advances forward (5 -> 6), ArrowRight goes back (6 -> 5), Space advances (5 -> 6)
     await page.keyboard.press('ArrowLeft');

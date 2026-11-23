@@ -39,6 +39,10 @@ export function routeFromNotification(data: Record<string, string> | undefined):
       return '/gallery';
     case 'manga_update': {
       const slug = data?.slug?.trim();
+      const chapterId = data?.chapterId?.trim();
+      if (slug && chapterId) {
+        return `/manga/series/${encodeURIComponent(slug)}/read/${encodeURIComponent(chapterId)}`;
+      }
       if (slug) return `/manga/series/${encodeURIComponent(slug)}`;
       return '/manga';
     }

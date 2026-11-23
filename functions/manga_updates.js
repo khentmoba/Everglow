@@ -91,7 +91,11 @@ function buildMangaPushPayload(updates) {
     return {
       title: `New chapter: ${u.title}`,
       body: `Chapter ${u.chapterNum} is out now on Manga Celestia.`,
-      data: { type: 'manga_update', slug: u.slug },
+      data: {
+        type: 'manga_update',
+        slug: u.slug,
+        ...(u.chapterId ? { chapterId: String(u.chapterId) } : {}),
+      },
     };
   }
   const names = updates.slice(0, 2).map((u) => u.title).join(', ');

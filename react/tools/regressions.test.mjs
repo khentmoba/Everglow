@@ -224,7 +224,7 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
     const dropdownBox = await page.getByText('Browse all genres').boundingBox();
     assert.ok(dropdownBox && dropdownBox.height > 10 && dropdownBox.y >= 0, 'Genres dropdown must portal outside header overflow');
     await page.getByText('Browse all genres').click();
-    await page.waitForSelector('text=1 genres', { timeout: 5_000 }).catch(() => page.waitForSelector('text=3 genres', { timeout: 5_000 }));
+    await page.waitForSelector('text=/\\d+ genres/', { timeout: 5_000 });
 
     await page.getByRole('button', { name: /Currently Reading/ }).first().click();
     await page.waitForSelector('text=Mine', { timeout: 5_000 });

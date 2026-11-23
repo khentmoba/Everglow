@@ -32,7 +32,7 @@ export function saveKatanaThemeMode(mode: KatanaThemeMode): void {
 
 /** Shared cover-grid column density across Home, Browse, and Library. */
 export function getKatanaGridColumns(width: number, compact = false): number {
-  const base = width >= 1200 ? 6 : width >= KATANA_BREAKPOINTS.desktop ? 5 : width >= KATANA_BREAKPOINTS.tablet ? 4 : 3;
+  const base = width >= KATANA_BREAKPOINTS.desktop ? 5 : width >= KATANA_BREAKPOINTS.tablet ? 4 : 3;
   return compact ? base + 1 : base;
 }
 
@@ -182,7 +182,7 @@ const SERIES_PALETTES: SeriesVisualAccent[] = [
   { accent: '#F59E0B', secondary: '#FB923C', bgStart: '#231C14', bgEnd: '#141824', stripe: '#F59E0B' },
   { accent: '#38BDF8', secondary: '#818CF8', bgStart: '#132032', bgEnd: '#17182B', stripe: '#38BDF8' },
   { accent: '#34D399', secondary: '#2DD4BF', bgStart: '#122622', bgEnd: '#141A24', stripe: '#34D399' },
-  { accent: '#FB7185', secondary: '#F59E0B', bgStart: '#2B1721', bgEnd: '#171625', stripe: '#FB7185' },
+  { accent: '#818CF8', secondary: '#C084FC', bgStart: '#1A1A32', bgEnd: '#141625', stripe: '#818CF8' },
   { accent: '#A78BFA', secondary: '#60A5FA', bgStart: '#1E1833', bgEnd: '#141826', stripe: '#A78BFA' },
   { accent: '#F97316', secondary: '#EF4444', bgStart: '#2A1814', bgEnd: '#161622', stripe: '#F97316' },
   { accent: '#2DD4BF', secondary: '#38BDF8', bgStart: '#12242A', bgEnd: '#141926', stripe: '#2DD4BF' },

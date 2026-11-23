@@ -52,9 +52,10 @@ test('extractLatestChaptersFromHomeHtml picks highest chapter per slug', () => {
 });
 
 test('buildMangaPushPayload formats single and batched manga_update payloads', () => {
-  const single = buildMangaPushPayload([{ slug: 'frieren.456', title: 'Frieren', chapterNum: '136' }]);
+  const single = buildMangaPushPayload([{ slug: 'frieren.456', title: 'Frieren', chapterNum: '136', chapterId: 'c136' }]);
   assert.equal(single.data.type, 'manga_update');
   assert.equal(single.data.slug, 'frieren.456');
+  assert.equal(single.data.chapterId, 'c136');
   assert.match(single.body, /136/);
 
   const multi = buildMangaPushPayload([

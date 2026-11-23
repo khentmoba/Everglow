@@ -22,6 +22,7 @@ import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
+import { exportReaderBackupData, importReaderBackupData } from './readerSettings';
 
 const BASE_URL = 'https://mangakatana.com';
 const FUNCTIONS_BASE = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
@@ -30,7 +31,7 @@ const PROXY_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaKatana`;
 const PROXY_MANGADEX_URL = `${FUNCTIONS_BASE}/proxyMangaDex`;
 const PROXY_MANGA_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaImage`;
 
-export type KatanaCatalogSource = 'mangakatana' | 'mangadex';
+export type KatanaCatalogSource = 'all' | 'mangakatana' | 'mangadex';
 
 export interface KatanaGenre {
   slug: string;
@@ -104,6 +105,9 @@ export interface KatanaBookmark {
   rereadCount?: number;
   startedAt?: Date;
   anilistId?: string;
+  anilistScore?: number;
+  kitsuId?: string;
+  kitsuScore?: number;
   malId?: string;
   trackerNote?: string;
   /** Live tracker metadata synced via Jikan (MyAnimeList) proxy. */
@@ -263,6 +267,7 @@ export function katanaCdnFallback(url: string, step: number): string {
 }
 
 async function fetchHtml(url: string, cookie = ''): Promise<string | null> {
+  if (AgentMode.demo) return null;
   const user = auth.currentUser;
   let proxyUrl = `${PROXY_HTML_URL}?url=${encodeURIComponent(url)}`;
   if (cookie) proxyUrl += `&cookie=${encodeURIComponent(cookie)}`;
@@ -1452,6 +1457,9 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     rereadCount: typeof data.rereadCount === 'number' && data.rereadCount >= 0 ? data.rereadCount : undefined,
     startedAt: (data.startedAt as Timestamp | undefined)?.toDate?.(),
     anilistId: typeof data.anilistId === 'string' && data.anilistId.trim() ? data.anilistId.trim() : undefined,
+    anilistScore: typeof data.anilistScore === 'number' && data.anilistScore > 0 ? data.anilistScore : undefined,
+    kitsuId: typeof data.kitsuId === 'string' && data.kitsuId.trim() ? data.kitsuId.trim() : undefined,
+    kitsuScore: typeof data.kitsuScore === 'number' && data.kitsuScore > 0 ? data.kitsuScore : undefined,
     malId: typeof data.malId === 'string' && data.malId.trim() ? data.malId.trim() : undefined,
     trackerNote: typeof data.trackerNote === 'string' && data.trackerNote.trim() ? data.trackerNote.trim() : undefined,
     malScore: typeof data.malScore === 'number' && data.malScore > 0 ? data.malScore : undefined,
@@ -2039,6 +2047,9 @@ export interface KatanaTrackerPatch {
   rereadCount?: number | null;
   startedAt?: Date | null;
   anilistId?: string | null;
+  anilistScore?: number | null;
+  kitsuId?: string | null;
+  kitsuScore?: number | null;
   malId?: string | null;
   trackerNote?: string | null;
   malScore?: number | null;
@@ -2058,6 +2069,119 @@ export interface MalTrackerSnapshot {
   totalChapters?: number;
   status?: string;
   url: string;
+}
+
+export interface AniListTrackerSnapshot {
+  anilistId: string;
+  title: string;
+  score?: number;
+  totalChapters?: number;
+  status?: string;
+  url: string;
+}
+
+export interface KitsuTrackerSnapshot {
+  kitsuId: string;
+  title: string;
+  score?: number;
+  totalChapters?: number;
+  status?: string;
+  url: string;
+}
+
+/** Looks up live AniList metadata for a manga via Everglow's `proxyCatalog` AniList GraphQL proxy. */
+export async function lookupAniListManga(title: string, anilistId?: string): Promise<AniListTrackerSnapshot | null> {
+  const cleanId = anilistId?.trim();
+  if (AgentMode.demo) {
+    const hash = Array.from(title).reduce((acc, ch) => (acc * 37 + ch.charCodeAt(0)) % 140000, 30000);
+    const id = cleanId && /^\d+$/.test(cleanId) ? cleanId : String(hash);
+    return {
+      anilistId: id,
+      title,
+      score: 76 + (hash % 18),
+      totalChapters: 48 + (hash % 90),
+      status: 'RELEASING',
+      url: `https://anilist.co/manga/${id}`,
+    };
+  }
+  try {
+    const path = cleanId && /^\d+$/.test(cleanId) ? `manga/${cleanId}` : 'manga';
+    const resp = await catalogProxyGet('anilist', path, {
+      ...(cleanId && /^\d+$/.test(cleanId) ? {} : { query: { search: title.trim() } }),
+      timeoutMs: 12000,
+    });
+    if (!resp.ok) return null;
+    const json = (await resp.json()) as {
+      data?: {
+        Media?: {
+          id?: number;
+          title?: { romaji?: string; english?: string };
+          averageScore?: number | null;
+          chapters?: number | null;
+          status?: string | null;
+          siteUrl?: string | null;
+        };
+      };
+    };
+    const m = json.data?.Media;
+    if (!m || !m.id) return null;
+    return {
+      anilistId: String(m.id),
+      title: m.title?.english || m.title?.romaji || title,
+      score: typeof m.averageScore === 'number' ? m.averageScore : undefined,
+      totalChapters: typeof m.chapters === 'number' ? m.chapters : undefined,
+      status: typeof m.status === 'string' ? m.status : undefined,
+      url: typeof m.siteUrl === 'string' ? m.siteUrl : `https://anilist.co/manga/${m.id}`,
+    };
+  } catch (err) {
+    Logger.w(`KatanaService: lookupAniListManga failed: ${String(err)}`);
+    return null;
+  }
+}
+
+/** Looks up live Kitsu metadata for a manga via Everglow's `proxyCatalog` Kitsu proxy. */
+export async function lookupKitsuManga(title: string, kitsuId?: string): Promise<KitsuTrackerSnapshot | null> {
+  const cleanId = kitsuId?.trim();
+  if (AgentMode.demo) {
+    const hash = Array.from(title).reduce((acc, ch) => (acc * 41 + ch.charCodeAt(0)) % 60000, 10000);
+    const id = cleanId && /^\d+$/.test(cleanId) ? cleanId : String(hash);
+    return {
+      kitsuId: id,
+      title,
+      score: Number((74 + (hash % 18) + 0.4).toFixed(1)),
+      totalChapters: 48 + (hash % 90),
+      status: 'current',
+      url: `https://kitsu.app/manga/${id}`,
+    };
+  }
+  try {
+    const path = cleanId && /^\d+$/.test(cleanId) ? `manga/${cleanId}` : 'manga';
+    const resp = await catalogProxyGet('kitsu', path, {
+      ...(cleanId && /^\d+$/.test(cleanId) ? {} : { query: { 'filter[text]': title.trim(), 'page[limit]': '3' } }),
+      timeoutMs: 12000,
+    });
+    if (!resp.ok) return null;
+    const json = (await resp.json()) as {
+      data?:
+        | { id?: string; attributes?: Record<string, unknown> }
+        | Array<{ id?: string; attributes?: Record<string, unknown> }>;
+    };
+    const item = Array.isArray(json.data) ? json.data[0] : json.data;
+    if (!item || !item.id) return null;
+    const attrs = item.attributes ?? {};
+    const rawRating = typeof attrs.averageRating === 'string' ? Number.parseFloat(attrs.averageRating) : Number.NaN;
+    return {
+      kitsuId: String(item.id),
+      title: String(attrs.canonicalTitle ?? title),
+      score: Number.isFinite(rawRating) ? rawRating : undefined,
+      totalChapters: typeof attrs.chapterCount === 'number' ? attrs.chapterCount : undefined,
+      status: typeof attrs.status === 'string' ? attrs.status : undefined,
+      url: `https://kitsu.app/manga/${item.id}`,
+    };
+  } catch (err) {
+    Logger.w(`KatanaService: lookupKitsuManga failed: ${String(err)}`);
+    return null;
+  }
 }
 
 /** Looks up live MyAnimeList metadata for a manga via Everglow's `proxyCatalog` Jikan proxy. */
@@ -2194,6 +2318,9 @@ export async function saveKatanaTrackerData(
       rereadCount: patch.rereadCount === null ? undefined : patch.rereadCount !== undefined ? patch.rereadCount : cur?.rereadCount,
       startedAt: patch.startedAt === null ? undefined : patch.startedAt !== undefined ? patch.startedAt : cur?.startedAt,
       anilistId: patch.anilistId === null ? undefined : patch.anilistId !== undefined ? patch.anilistId.trim() || undefined : cur?.anilistId,
+      anilistScore: patch.anilistScore === null ? undefined : patch.anilistScore !== undefined ? patch.anilistScore : cur?.anilistScore,
+      kitsuId: patch.kitsuId === null ? undefined : patch.kitsuId !== undefined ? patch.kitsuId.trim() || undefined : cur?.kitsuId,
+      kitsuScore: patch.kitsuScore === null ? undefined : patch.kitsuScore !== undefined ? patch.kitsuScore : cur?.kitsuScore,
       malId: patch.malId === null ? undefined : patch.malId !== undefined ? patch.malId.trim() || undefined : cur?.malId,
       trackerNote: patch.trackerNote === null ? undefined : patch.trackerNote !== undefined ? patch.trackerNote.trim() || undefined : cur?.trackerNote,
       malScore: patch.malScore === null ? undefined : patch.malScore !== undefined ? patch.malScore : cur?.malScore,
@@ -2225,6 +2352,9 @@ export async function saveKatanaTrackerData(
   if (patch.rereadCount !== undefined) payload.rereadCount = patch.rereadCount === null ? deleteField() : patch.rereadCount;
   if (patch.startedAt !== undefined) payload.startedAt = patch.startedAt === null ? deleteField() : Timestamp.fromDate(patch.startedAt);
   if (patch.anilistId !== undefined) payload.anilistId = patch.anilistId ? patch.anilistId.trim() : deleteField();
+  if (patch.anilistScore !== undefined) payload.anilistScore = patch.anilistScore === null ? deleteField() : patch.anilistScore;
+  if (patch.kitsuId !== undefined) payload.kitsuId = patch.kitsuId ? patch.kitsuId.trim() : deleteField();
+  if (patch.kitsuScore !== undefined) payload.kitsuScore = patch.kitsuScore === null ? deleteField() : patch.kitsuScore;
   if (patch.malId !== undefined) payload.malId = patch.malId ? patch.malId.trim() : deleteField();
   if (patch.trackerNote !== undefined) payload.trackerNote = patch.trackerNote ? patch.trackerNote.trim() : deleteField();
   if (patch.malScore !== undefined) payload.malScore = patch.malScore === null ? deleteField() : patch.malScore;
@@ -2240,9 +2370,10 @@ export async function saveKatanaTrackerData(
 export function exportKatanaLibraryJson(bookmarks: KatanaBookmark[], categories: string[]): string {
   return JSON.stringify(
     {
-      format: 'mangacelestia-backup-v1',
+      format: 'mangacelestia-backup-v2',
       exportedAt: new Date().toISOString(),
       categories,
+      reader: exportReaderBackupData(bookmarks.map((b) => b.slug)),
       bookmarks: bookmarks.map((b) => ({
         ...b,
         addedAt: b.addedAt.toISOString(),
@@ -2291,7 +2422,10 @@ export function exportKatanaLibraryMalXml(bookmarks: KatanaBookmark[]): string {
 
 export async function importKatanaLibraryJson(raw: string, userName: string): Promise<number> {
   if (!userName) return 0;
-  const parsed = JSON.parse(raw) as { categories?: unknown; bookmarks?: unknown };
+  const parsed = JSON.parse(raw) as { categories?: unknown; bookmarks?: unknown; reader?: unknown };
+  if (parsed.reader) {
+    importReaderBackupData(parsed.reader);
+  }
   if (Array.isArray(parsed.categories)) {
     const existing = loadKatanaCustomCategories(userName);
     const merged = Array.from(new Set([...existing, ...parsed.categories.map((c) => String(c).trim()).filter(Boolean)]));
@@ -2323,6 +2457,9 @@ export async function importKatanaLibraryJson(raw: string, userName: string): Pr
     if (typeof rec.userScore === 'number') patch.userScore = rec.userScore;
     if (typeof rec.rereadCount === 'number') patch.rereadCount = rec.rereadCount;
     if (typeof rec.anilistId === 'string') patch.anilistId = rec.anilistId;
+    if (typeof rec.anilistScore === 'number') patch.anilistScore = rec.anilistScore;
+    if (typeof rec.kitsuId === 'string') patch.kitsuId = rec.kitsuId;
+    if (typeof rec.kitsuScore === 'number') patch.kitsuScore = rec.kitsuScore;
     if (typeof rec.malId === 'string') patch.malId = rec.malId;
     if (typeof rec.trackerNote === 'string') patch.trackerNote = rec.trackerNote;
     if (Object.keys(patch).length > 0) {
