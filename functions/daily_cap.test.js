@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const adminCompat = require('./admin_compat.js');
-const { checkDailyCap } = require('./common.js');
+const { checkDailyCap, phtDayKey } = require('./common.js');
 
 function dailyCapAdmin() {
   const docs = new Map();
@@ -57,7 +57,7 @@ test('daily AI cap counts concurrent calls atomically across workers', async (t)
   assert.deepEqual(results.map((result) => result.count).sort((a, b) => a - b),
     Array.from({ length: 25 }, (_, index) => index + 1));
 
-  const day = new Date().toISOString().slice(0, 10);
+  const day = phtDayKey();
   const usage = docs.get(`api_usage/user-1/days/${day}`);
   assert.equal(usage.proxyAI, 25);
   assert.equal(usage.updatedAt, 'server timestamp');
@@ -69,4 +69,15 @@ test('daily AI cap counts concurrent calls atomically across workers', async (t)
   assert.equal(docs.get(`api_usage/user-1/days/${day}`).proxyAI, 26);
   assert.equal(docs.get(`api_usage/user-1/days/${day}`).proxyCatalog, 1);
   assert.equal(docs.get(`api_usage/user-2/days/${day}`).proxyAI, 1);
+});
+
+test('the daily counter changes over at midnight in Manila, not UTC', () => {
+  // 2026-11-23T16:30Z is 00:30 on the 24th in Manila.
+  assert.equal(phtDayKey(new Date('2026-11-23T16:30:00Z')), '2026-11-24');
+  // 07:59 Manila is still the 24th even though UTC is still 23:59 on the 23rd.
+  assert.equal(phtDayKey(new Date('2026-11-23T23:59:00Z')), '2026-11-24');
+  // 08:00 Manila is the start of the next UTC day but the same Manila day.
+  assert.equal(phtDayKey(new Date('2026-11-24T00:00:00Z')), '2026-11-24');
+  assert.equal(phtDayKey(new Date('2026-11-24T15:59:00Z')), '2026-11-24');
+  assert.equal(phtDayKey(new Date('2026-11-24T16:00:00Z')), '2026-11-25');
 });
