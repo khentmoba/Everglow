@@ -148,6 +148,8 @@ async function callLlm({ apiKey, messages, maxTokens, timeoutMs }) {
 
 async function handleGenerateStudySet(req, res) {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');

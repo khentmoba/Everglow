@@ -28,6 +28,8 @@ async function readStreamCapped(body, maxBytes) {
 
 const proxyBookText = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -103,6 +105,8 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
 
 const proxyBookFile = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   res.set('Access-Control-Expose-Headers', 'X-Book-Source');
 
   if (req.method === 'OPTIONS') {
