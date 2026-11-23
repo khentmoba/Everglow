@@ -2339,7 +2339,7 @@ export function MangaPage() {
           />
         </div>
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 40px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px max(96px, env(safe-area-inset-bottom))' }}>
           <div style={{ maxWidth: 1380, margin: '0 auto' }}>
             {detailSlug ? (
               detailLoading ? (
@@ -7542,15 +7542,15 @@ export function MangaPage() {
                     <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
                       {catalogSource === 'all' ? (
                         <>
-                          <strong style={{ color: KatanaColors.text }}>Searching all 4 sites:</strong> MangaDex · Katana ·
-                          ComicK · Bato.to. Sorted by title match, with official releases first.
+                          <strong style={{ color: KatanaColors.text }}>Searching every source at once.</strong> Closest
+                          title match first, official releases above fan uploads.
                         </>
                       ) : (
                         (() => {
                           const info = getSourceBadgeInfo(catalogSource);
                           return (
                             <>
-                              <strong style={{ color: KatanaColors.text }}>{info.name}:</strong>{' '}
+                              <strong style={{ color: KatanaColors.text }}>{info.shortLabel}:</strong>{' '}
                               {info.signals.provenance} · {info.signals.specialty}
                             </>
                           );
@@ -8070,7 +8070,6 @@ export function MangaPage() {
                                 unreadCount={unreadBySlug[m.slug]}
                                 downloadedCount={downloadedCounts[m.slug]}
                                 onSelect={() => openDetail(m.slug)}
-                                onOpenChapter={openChapter}
                               />
                             ))}
                           </div>
@@ -8121,7 +8120,6 @@ export function MangaPage() {
                             unreadCount={unreadBySlug[m.slug]}
                             downloadedCount={downloadedCounts[m.slug]}
                             onSelect={() => openDetail(m.slug)}
-                            onOpenChapter={openChapter}
                           />
                         ))}
                       </div>

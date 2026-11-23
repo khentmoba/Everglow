@@ -51,7 +51,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'MangaKatana',
     searchPreferenceBonus: 6,
     signals: {
-      provenance: 'Fan-uploaded chapters',
+      provenance: 'Fan uploads',
       metadataQuality: 'Standard title, author, genre & chapter timestamps',
       specialty: 'New chapters usually appear here first',
     },
@@ -65,7 +65,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'ComicK',
     searchPreferenceBonus: 4,
     signals: {
-      provenance: 'Fan-uploaded chapters and volumes',
+      provenance: 'Fan uploads, volumes included',
       metadataQuality: 'Alt-title index & volume cover metadata',
       specialty: 'Collected volumes with their own covers',
     },
@@ -79,7 +79,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'Bato.to',
     searchPreferenceBonus: 2,
     signals: {
-      provenance: 'Fan-uploaded chapters',
+      provenance: 'Fan uploads',
       metadataQuality: 'Basic series & chapter metadata',
       specialty: 'Best for full-colour webtoons',
     },

@@ -2000,13 +2000,11 @@ export function KatanaPosterCard({
   unreadCount,
   downloadedCount,
   onSelect,
-  onOpenChapter,
 }: {
   manga: KatanaManga;
   unreadCount?: number;
   downloadedCount?: number;
   onSelect: () => void;
-  onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
   const viewport = useViewport();
   const [hovered, setHovered] = useState(false);
@@ -2158,7 +2156,7 @@ export function KatanaPosterCard({
                   }}
                 >
                   <Icon name="verified" size={12} color="#34D399" />
-                  <span style={{ ...ellipsis }}>{verifiedOfficial.name}</span>
+                  <span style={{ ...ellipsis }}>Official release</span>
                   <Icon name="open_in_new" size={11} color="#34D399" />
                 </a>
               )}
@@ -2166,47 +2164,6 @@ export function KatanaPosterCard({
           );
         })()}
         <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
-        {manga.latestChapter && (
-          <button
-            type="button"
-            className="bare-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenChapter?.(manga, manga.latestChapter!.id);
-            }}
-            style={{
-              position: 'absolute',
-              left: 7,
-              right: 7,
-              bottom: 0,
-              minHeight: 40,
-              padding: '0 0 7px 0',
-              display: 'flex',
-              alignItems: 'flex-end',
-              background: 'transparent',
-              textAlign: 'left',
-            }}
-          >
-            <span
-              style={{
-                width: '100%',
-                padding: '4px 8px',
-                borderRadius: 7,
-                background: withAlpha(KatanaColors.background, 0.92),
-                border: '1px solid rgba(255, 255, 255, 0.16)',
-                backdropFilter: 'blur(4px)',
-                ...bodyText(12, 700, KatanaColors.link, 1.2),
-                ...ellipsis,
-                display: 'block',
-              }}
-            >
-              {chapterDisplayTitle(manga.latestChapter)}
-              {manga.latestChapter.updateAt ? (
-                <span style={{ ...bodyText(11, 600, KatanaColors.textLight, 1.2) }}> · {formatKatanaTime(manga.latestChapter.updateAt)}</span>
-              ) : null}
-            </span>
-          </button>
-        )}
       </div>
       <div style={{ padding: '6px 2px 2px' }}>
         <button
@@ -2228,6 +2185,15 @@ export function KatanaPosterCard({
           <div className="clamp-2" style={bodyText(13.5, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.25)}>
             {manga.title}
           </div>
+          {manga.latestChapter && (
+            <span
+              className="ellipsis"
+              style={{ ...bodyText(11.5, 600, KatanaColors.textLight, 1.2), display: 'block' }}
+            >
+              {chapterDisplayTitle(manga.latestChapter)}
+              {manga.latestChapter.updateAt ? ` · ${formatKatanaTime(manga.latestChapter.updateAt)}` : ''}
+            </span>
+          )}
           <div
             style={{
               display: 'flex',
@@ -2254,9 +2220,10 @@ export function KatanaPosterCard({
                 aria-expanded={sourceDetailOpen}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: KatanaColors.textLight }}
               >
-                <span style={{ ...bodyText(11, 700, KatanaColors.textLight, 1.2) }}>{srcInfo.shortLabel}</span>
-                {verifiedOfficial && (
+                {verifiedOfficial ? (
                   <span style={{ ...bodyText(11, 700, KatanaColors.green, 1.2) }}>Official</span>
+                ) : (
+                  <Icon name="info" size={12} color={KatanaColors.textLight} />
                 )}
               </button>
             )}

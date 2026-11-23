@@ -1497,7 +1497,6 @@ export function MangaHome({
               unreadCount={unreadBySlug[m.slug]}
               downloadedCount={downloadedCounts[m.slug]}
               onSelect={() => onSelectManga(m.slug)}
-              onOpenChapter={onOpenChapter}
             />
           ))}
         </div>

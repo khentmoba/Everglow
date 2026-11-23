@@ -263,6 +263,18 @@ export function MangaReaderView({
   const [showTapHint, setShowTapHint] = useState(false);
   const [seenOnboardingHint, setSeenOnboardingHint] = useState(() => hasSeenReaderHint());
 
+  // The controls pill is the last thing on the page; it steps aside too, and any
+  // tap on the page brings the chrome (and the pill) back.
+  const [pillQuiet, setPillQuiet] = useState(false);
+  useEffect(() => {
+    if (showUi) {
+      setPillQuiet(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setPillQuiet(true), 3200);
+    return () => window.clearTimeout(timer);
+  }, [showUi, pageIdx, chapterId]);
+
   // The tip sits over the artwork, so it steps aside on its own after a few seconds.
   useEffect(() => {
     if (seenOnboardingHint) return;
@@ -3232,8 +3244,9 @@ export function MangaReaderView({
             background: allowBlur ? 'rgba(11, 13, 18, 0.72)' : 'rgba(11, 13, 18, 0.9)',
             border: `1px solid ${withAlpha(KatanaColors.accent, 0.28)}`,
             color: KatanaColors.text,
-            opacity: pageIdx === pages.length - 1 ? 0.62 : 0.92,
-            transition: motionReduced() ? 'none' : 'opacity 220ms ease',
+            opacity: pillQuiet ? 0 : pageIdx === pages.length - 1 ? 0.62 : 0.92,
+            pointerEvents: pillQuiet ? 'none' : 'auto',
+            transition: motionReduced() ? 'none' : 'opacity 260ms ease',
             fontSize: 11.5,
             fontWeight: 700,
             display: 'inline-flex',
