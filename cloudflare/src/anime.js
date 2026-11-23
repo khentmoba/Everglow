@@ -54,8 +54,10 @@ const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
 
 // The listed lanes answer in 7-13s from the edge, so the budget has to sit above
 // the slowest of them or the automatic pick times out on a title that would play.
-const CINEMA_BUDGET_MS = 20000;
-const CINEMA_PICK_BUDGET_MS = 20000;
+// It must stay under the app's 15s iframe load timer (LOAD_TIMEOUT in
+// VideoPlayerPage), which fails over to the next provider at 15s.
+const CINEMA_BUDGET_MS = 14500;
+const CINEMA_PICK_BUDGET_MS = 14500;
 const CINEMA_PICK_PLAYLIST_MS = 12000;
 const YUME_BUDGET_MS = 12000;
 const EVERGLOW_BUDGET_MS = 12000;
