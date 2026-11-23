@@ -18,6 +18,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { setBoundedCache } from '../../core/utils/boundedCache';
 import { Changes, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogKeyOf, TmdbImages, type MediaItem } from './cinemaTypes';
 import { agentTmdbResponse } from './tmdbAgentCatalogue';
@@ -193,12 +194,7 @@ function getCachedTmdb(key: string): Record<string, unknown> | null {
 }
 
 function setCachedTmdb(key: string, data: Record<string, unknown>): void {
-  tmdbCache.delete(key);
-  tmdbCache.set(key, { data, ts: Date.now() });
-  if (tmdbCache.size > TMDB_CACHE_MAX) {
-    const oldest = tmdbCache.keys().next().value;
-    if (oldest !== undefined) tmdbCache.delete(oldest);
-  }
+  setBoundedCache(tmdbCache, key, { data, ts: Date.now() }, TMDB_CACHE_MAX);
 }
 
 async function tmdbJson(pathWithQuery: string): Promise<Record<string, unknown> | null> {
@@ -653,6 +649,7 @@ export async function fetchReviews(tmdbId: number, mediaType: string): Promise<C
 }
 
 const trailerCache = new Map<string, string | null>();
+const TRAILER_CACHE_MAX = 80;
 
 /** TMDBTrailerService.fetchTrailerKey: official YouTube trailer, then any trailer, then any YouTube video. */
 export async function fetchTrailerKey(tmdbId: number, mediaType: string): Promise<string | null> {
@@ -666,8 +663,7 @@ export async function fetchTrailerKey(tmdbId: number, mediaType: string): Promis
     results.find((v) => v.site === 'YouTube' && v.type === 'Trailer') ??
     results.find((v) => v.site === 'YouTube');
   const key = typeof trailer?.key === 'string' ? trailer.key : null;
-  if (trailerCache.size >= 80 && !trailerCache.has(cacheKey)) trailerCache.delete(trailerCache.keys().next().value!);
-  trailerCache.set(cacheKey, key);
+  setBoundedCache(trailerCache, cacheKey, key, TRAILER_CACHE_MAX);
   return key;
 }
 
@@ -795,6 +791,7 @@ export async function cleanStalePartnerStatus(item: MediaItem, userName: string,
 }
 
 const imdbIds = new Map<string, string>();
+const IMDB_ID_CACHE_MAX = 200;
 
 /** TMDBDetailsService.fetchImdbId. */
 export async function fetchImdbId(id: number, mediaType: string): Promise<string | null> {
@@ -815,7 +812,7 @@ export async function fetchImdbId(id: number, mediaType: string): Promise<string
     Logger.e(`TMDB IMDB id lookup failed for ${key}`, e);
     return null;
   }
-  imdbIds.set(key, value);
+  setBoundedCache(imdbIds, key, value, IMDB_ID_CACHE_MAX);
   return value || null;
 }
 

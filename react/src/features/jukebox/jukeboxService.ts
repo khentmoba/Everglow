@@ -16,6 +16,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 import {
@@ -646,8 +647,11 @@ export interface TrackMetadata {
   albumName: string | null;
 }
 
+const TRACK_META_CACHE_MAX = 120;
+const ARTIST_IMAGE_CACHE_MAX = 60;
 const trackMetadataCache = new Map<string, Promise<TrackMetadata | null>>();
 const artistImageCache = new Map<string, Promise<string | null>>();
+clearOnLogout(trackMetadataCache, artistImageCache);
 
 const normText = normTrackText;
 
@@ -758,7 +762,7 @@ export function fetchTrackMetadata(opts: {
     }
     return lfm ?? itunes ?? spotify;
   })();
-  trackMetadataCache.set(key, pending);
+  setBoundedCache(trackMetadataCache, key, pending, TRACK_META_CACHE_MAX);
   void pending.then((val) => {
     if (!val && trackMetadataCache.get(key) === pending) {
       trackMetadataCache.delete(key);
@@ -791,7 +795,7 @@ export function fetchArtistImage(artist: string): Promise<string | null> {
       return null;
     }
   })();
-  artistImageCache.set(key, pending);
+  setBoundedCache(artistImageCache, key, pending, ARTIST_IMAGE_CACHE_MAX);
   void pending.then((val) => {
     if (!val && artistImageCache.get(key) === pending) {
       artistImageCache.delete(key);

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { useViewport } from '../../core/system/viewport';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { AppColors } from '../../core/theme/colors';
 import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
@@ -72,20 +73,22 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
   return showDownloads ? all : all.filter((i) => i.tab !== 5);
 }
 
+const DETAIL_CACHE_MAX = 60;
 const cinemaDetailCache = new Map<string, Record<string, unknown>>();
+clearOnLogout(cinemaDetailCache);
 let closeActiveCinemaPreview: (() => void) | null = null;
 
 function prefetchCinemaDetails(item: MediaItem): Promise<Record<string, unknown>> {
   const key = `${item.tmdbId}:${item.mediaType}`;
   const cached = cinemaDetailCache.get(key);
   if (cached) return Promise.resolve(cached);
-  return fetchMediaDetails(item.tmdbId, item.mediaType)
-    .then((d) => {
-      const res = d ?? {};
-      cinemaDetailCache.set(key, res);
-      return res;
-    })
-    .catch(() => ({}));
+  return fetchMediaDetails(item.tmdbId, item.mediaType).then((d) => {
+    // A blank or failed lookup must not stick: a single hiccup would leave this
+    // title's preview empty for the rest of the session.
+    if (!d || Object.keys(d).length === 0) return {};
+    setBoundedCache(cinemaDetailCache, key, d, DETAIL_CACHE_MAX);
+    return d;
+  }).catch(() => ({}));
 }
 
 function NetflixHoverPreview({

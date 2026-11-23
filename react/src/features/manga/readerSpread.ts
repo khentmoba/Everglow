@@ -245,13 +245,3 @@ export function detectChapterGap(from: KatanaChapter | null | undefined, to: Kat
   return diff > 0 ? diff : 0;
 }
 
-/** True LRU insert into a bounded Map (evicts oldest entry, never wholesale-clears). */
-export function setLruEntry<K, V>(map: Map<K, V>, key: K, value: V, maxSize: number): void {
-  if (map.has(key)) map.delete(key);
-  map.set(key, value);
-  while (map.size > maxSize) {
-    const oldest = map.keys().next().value;
-    if (oldest === undefined) break;
-    map.delete(oldest);
-  }
-}

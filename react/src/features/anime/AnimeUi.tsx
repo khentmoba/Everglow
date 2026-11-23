@@ -6,6 +6,7 @@ import { useViewport } from '../../core/system/viewport';
 import { reduceAmbientMotion } from '../../core/system/device';
 import { motionReduced } from '../../core/theme/motion';
 import { useController } from '../../core/anim/controller';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { Icon, type IconStyle } from '../../shared/widgets/Icon';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
 import type { MediaItem } from '../cinema/cinemaTypes';
@@ -1346,7 +1347,9 @@ export function AnimeXSectionHeader({
   );
 }
 
+const POPOVER_CACHE_MAX = 60;
 const animePopoverCache = new Map<string, MediaItem>();
+clearOnLogout(animePopoverCache);
 let closeActiveAnimePopover: (() => void) | null = null;
 
 function animeCacheKey(item: MediaItem): string | null {
@@ -1552,7 +1555,7 @@ export function AnimeXPosterCard({
           year: item.year || (detail.seasonYear ? String(detail.seasonYear) : ''),
           anilistId: item.anilistId ?? (detail.id || undefined),
         };
-        animePopoverCache.set(key, enriched);
+        setBoundedCache(animePopoverCache, key, enriched, POPOVER_CACHE_MAX);
         setResolvedItem(enriched);
       })
       .finally(() => setResolving(false));

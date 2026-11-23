@@ -127,7 +127,10 @@ self.addEventListener("fetch", (event) => {
           const res = await fetch(req);
           const ct = (res.headers.get("content-type") || "").toLowerCase();
           if (res && res.ok && !ct.includes("text/html")) {
-            await cache.put(req, res.clone());
+            // A full or blocked Cache Storage must never take the response with
+            // it: the fetch already succeeded, so a failed write only means the
+            // next load hits the network again.
+            await cache.put(req, res.clone()).catch(() => undefined);
             return res;
           }
           if (ct.includes("text/html")) {

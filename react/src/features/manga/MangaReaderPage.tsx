@@ -5,6 +5,7 @@ import { useAuth } from '../../core/services/auth';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
 import { motionReduced, reduceAmbientMotion } from '../../core/theme/motion';
+import { setBoundedCache } from '../../core/utils/boundedCache';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
 import {
@@ -53,7 +54,6 @@ import {
   isWideAspect,
   resolveEffectiveReadingMode,
   resolveTapZoneAction,
-  setLruEntry,
   SINGLE_TAP_DELAY_MS,
   WIDE_ASPECT_THRESHOLD,
 } from './readerSpread';
@@ -502,7 +502,7 @@ export function MangaReaderView({
 
       const urls = await fetchKatanaChapterPages(params.slug, targetChapterId, targetServer);
       if (urls.length > 0) {
-        setLruEntry(prefetchedChapterRef.current, cacheKey, urls, 12);
+        setBoundedCache(prefetchedChapterRef.current, cacheKey, urls, 12);
       }
       return urls;
     },
@@ -840,7 +840,7 @@ export function MangaReaderView({
       const img = new Image();
       img.decoding = 'async';
       img.src = resolved;
-      setLruEntry(prefetchedImagesRef.current, resolved, img, MAX_PREFETCH_CACHE);
+      setBoundedCache(prefetchedImagesRef.current, resolved, img, MAX_PREFETCH_CACHE);
     }
     if (!liteMode && nextChapter && pageIdx >= Math.max(0, pages.length - Math.max(2, ahead))) {
       const cacheKey = `${nextChapter.id}|${server}`;
@@ -1763,7 +1763,7 @@ export function MangaReaderView({
   const handlePageDimensions = useCallback(
     (segChapterId: string, idx: number, w: number, h: number) => {
       const ratio = w / Math.max(1, h);
-      setLruEntry(aspectMapRef.current, `${segChapterId}:${idx}`, ratio, MAX_ASPECT_CACHE);
+      setBoundedCache(aspectMapRef.current, `${segChapterId}:${idx}`, ratio, MAX_ASPECT_CACHE);
 
       if (segChapterId === chapterId) {
         chapterAspectsRef.current[idx] = ratio;

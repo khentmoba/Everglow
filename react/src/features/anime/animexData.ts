@@ -2,6 +2,7 @@
 // lib/features/anime/data/models/anilist_detail.dart, the detail half of
 // anilist_service.dart, aniskip_service.dart, tmdb_anime_details.dart and
 // JikanService.fetchAnimeById.
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { Logger } from '../../core/system/logger';
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 import { TmdbImages, type MediaItem } from '../cinema/cinemaTypes';
@@ -279,6 +280,7 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
 `;
 
 const DETAIL_TTL = 10 * 60 * 1000;
+const DETAIL_CACHE_MAX = 40;
 const detailCache = new Map<number, { at: number; detail: AniListDetail }>();
 
 export async function fetchDetails({ anilistId, malId }: { anilistId?: number; malId?: number }): Promise<AniListDetail | null> {
@@ -293,7 +295,7 @@ export async function fetchDetails({ anilistId, malId }: { anilistId?: number; m
   const media = obj(data?.Media);
   if (!media) return null;
   const detail = mapDetail(media);
-  detailCache.set(cacheKey, { at: Date.now(), detail });
+  setBoundedCache(detailCache, cacheKey, { at: Date.now(), detail }, DETAIL_CACHE_MAX);
   return detail;
 }
 
@@ -697,7 +699,10 @@ export function parseAniSkipTimes(json: Json): AniSkipTimes {
   return out;
 }
 
+const SKIP_CACHE_MAX = 200;
 const skipCache = new Map<string, AniSkipTimes>();
+
+clearOnLogout(detailCache, skipCache);
 
 export async function fetchSkipTimes(malId: number, episode: number): Promise<AniSkipTimes | null> {
   if (malId <= 0 || episode <= 0) return null;
@@ -706,7 +711,7 @@ export async function fetchSkipTimes(malId: number, episode: number): Promise<An
   try {
     const resp = await catalogProxyGet('aniskip', `v1/skip-times/${malId}/${episode}?types[]=op&types[]=ed`);
     if (resp.status === 404) {
-      skipCache.set(key, {});
+      setBoundedCache(skipCache, key, {}, SKIP_CACHE_MAX);
       return {};
     }
     if (resp.status !== 200) {
@@ -716,7 +721,7 @@ export async function fetchSkipTimes(malId: number, episode: number): Promise<An
     const json = obj(await resp.json());
     if (!json) return null;
     const times = parseAniSkipTimes(json);
-    skipCache.set(key, times);
+    setBoundedCache(skipCache, key, times, SKIP_CACHE_MAX);
     return times;
   } catch (e) {
     Logger.e(`[AniSkip] ${key} error`, e);

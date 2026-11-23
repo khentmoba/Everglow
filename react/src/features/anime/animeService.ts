@@ -2,6 +2,7 @@ import { collection, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, 
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { Changes, type Source } from '../../core/utils/liveSource';
 import { catalogKeyOf, type MediaItem } from '../cinema/cinemaTypes';
 import { fetchAniZipMappings } from '../../shared/utils/catalogProxy';
@@ -371,23 +372,7 @@ const PAGE_CACHE_MAX = 60;
 const DETAIL_CACHE_MAX = 40;
 const SCHEDULE_CACHE_MAX = 14;
 
-function setBoundedCache<K, V>(cache: Map<K, V>, key: K, value: V, maxSize: number) {
-  cache.delete(key);
-  cache.set(key, value);
-  while (cache.size > maxSize) {
-    const oldest = cache.keys().next().value;
-    if (oldest === undefined) break;
-    cache.delete(oldest);
-  }
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('everglow:logout', () => {
-    pageCache.clear();
-    detailCache.clear();
-    scheduleCache.clear();
-  });
-}
+clearOnLogout(pageCache, detailCache, scheduleCache);
 
 async function postAniList(queryStr: string, variables: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   const body = JSON.stringify({ query: queryStr, variables });

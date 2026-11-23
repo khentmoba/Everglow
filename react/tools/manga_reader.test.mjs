@@ -18,9 +18,9 @@ import {
   isWideAspect,
   resolveEffectiveReadingMode,
   resolveTapZoneAction,
-  setLruEntry,
   SINGLE_TAP_DELAY_MS,
 } from '../src/features/manga/readerSpread.ts';
+import { setBoundedCache } from '../src/core/utils/boundedCache.ts';
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const TYPES = {
@@ -177,10 +177,10 @@ test('l-shaped tap zones and true LRU map eviction behave accurately', () => {
   assert.equal(resolveTapZoneAction(0.5, 0.85, 'l-shaped', true, false), 'next');
 
   const cache = new Map();
-  setLruEntry(cache, 'a', 1, 2);
-  setLruEntry(cache, 'b', 2, 2);
-  setLruEntry(cache, 'a', 10, 2); // refresh 'a'
-  setLruEntry(cache, 'c', 3, 2); // should evict 'b', not 'a'
+  setBoundedCache(cache, 'a', 1, 2);
+  setBoundedCache(cache, 'b', 2, 2);
+  setBoundedCache(cache, 'a', 10, 2); // refresh 'a'
+  setBoundedCache(cache, 'c', 3, 2); // should evict 'b', not 'a'
   assert.deepEqual(Array.from(cache.keys()), ['a', 'c']);
   assert.equal(cache.get('a'), 10);
 });
