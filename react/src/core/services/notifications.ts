@@ -37,6 +37,11 @@ export function routeFromNotification(data: Record<string, string> | undefined):
       return '/motchi-today';
     case 'gallery_photo':
       return '/gallery';
+    case 'manga_update': {
+      const slug = data?.slug?.trim();
+      if (slug) return `/manga/series/${encodeURIComponent(slug)}`;
+      return '/manga';
+    }
     default:
       return null;
   }

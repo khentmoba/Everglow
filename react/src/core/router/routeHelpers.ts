@@ -30,11 +30,14 @@ export function deepLinkTarget(search: string, cinemaOnly: boolean): string | nu
   return from;
 }
 
-/** Keeps `?screencheck=1` launches in demo mode across the jump. */
+/** Preserves deep-link and launch query params (such as `hud`, `tab`, `q`, `screencheck`) across the agent jump. */
 export function agentJumpLocation(search: string, target: string): string {
   const launch = new URLSearchParams(search);
-  if (launch.get('screencheck') !== '1') return target;
+  const keepAgent = launch.get('screencheck') === '1';
   const url = new URL(target, 'http://x');
-  launch.forEach((v, k) => url.searchParams.set(k, v));
+  launch.forEach((v, k) => {
+    if (!keepAgent && (k === 'agent' || k === 'jump')) return;
+    if (!url.searchParams.has(k)) url.searchParams.set(k, v);
+  });
   return url.pathname + url.search;
 }

@@ -21,7 +21,13 @@ import {
   type KatanaGenre,
   type KatanaManga,
 } from './katanaService';
-import { KATANA_BREAKPOINTS, KatanaColors, KatanaType } from './katanaTokens';
+import {
+  getSeriesVisualAccent,
+  KATANA_BREAKPOINTS,
+  KatanaColors,
+  KatanaType,
+  type KatanaThemeMode,
+} from './katanaTokens';
 
 export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'downloads' | 'bookmarks';
 
@@ -418,6 +424,8 @@ export function KatanaHeader({
   userName,
   showBack = true,
   genres = [],
+  themeMode = 'dark',
+  onCycleTheme,
   onBack,
   onSelectNav,
   onSubmitSearch,
@@ -429,6 +437,8 @@ export function KatanaHeader({
   userName: string;
   showBack?: boolean;
   genres?: KatanaGenre[];
+  themeMode?: KatanaThemeMode;
+  onCycleTheme?: () => void;
   onBack: () => void;
   onSelectNav: (nav: KatanaNavKey) => void;
   onSubmitSearch: (q: string, searchBy: 'm_name' | 'author') => void;
@@ -651,12 +661,45 @@ export function KatanaHeader({
         onClick={() => submit()}
         title={canSubmit ? 'Search' : 'Type at least 2 letters'}
         aria-label="Search"
-        style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 8, display: 'grid', placeItems: 'center', marginRight: 2 }}
+        style={{ width: desktop ? 36 : 44, height: desktop ? 36 : 44, flexShrink: 0, borderRadius: 8, display: 'grid', placeItems: 'center', marginRight: 2 }}
       >
         <Icon name="arrow_forward" size={18} color={canSubmit ? KatanaColors.accent : KatanaColors.textLight} />
       </button>
     </div>
   );
+
+  const themeMeta =
+    themeMode === 'light'
+      ? { icon: 'light_mode', label: 'Light' }
+      : themeMode === 'sepia'
+        ? { icon: 'auto_stories', label: 'Sepia' }
+        : { icon: 'dark_mode', label: 'Dark' };
+
+  const themeButton = onCycleTheme ? (
+    <button
+      type="button"
+      className="bare-button"
+      onClick={onCycleTheme}
+      title={`Theme: ${themeMeta.label} (tap to switch Dark / Light / Sepia)`}
+      aria-label={`Switch theme (current: ${themeMeta.label})`}
+      style={{
+        height: desktop ? 36 : 44,
+        minWidth: desktop ? 36 : 44,
+        padding: desktop ? '0 10px' : '0 9px',
+        borderRadius: 10,
+        background: KatanaColors.surfaceAlt,
+        border: `1px solid ${KatanaColors.borderStrong}`,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 5,
+        flexShrink: 0,
+      }}
+    >
+      <Icon name={themeMeta.icon} size={17} color={KatanaColors.accentSoft} />
+      {desktop && <span style={bodyText(12, 600, KatanaColors.textMuted, 1)}>{themeMeta.label}</span>}
+    </button>
+  ) : null;
 
   const desktopLibraryButton = (
     <button
@@ -701,10 +744,11 @@ export function KatanaHeader({
       }}
     >
       {desktop ? (
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
           {backButton}
           {logo}
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>{searchField}</div>
+          {themeButton}
           {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
           {desktopLibraryButton}
         </div>
@@ -714,6 +758,13 @@ export function KatanaHeader({
             {backButton}
             {logo}
             <div style={{ flex: 1 }} />
+            <GenresDropdown
+              genres={genres}
+              active={active === 'genres'}
+              onSelectGenre={onSelectGenre}
+              onOpenGenresPage={() => onSelectNav('genres')}
+            />
+            {themeButton}
             <button
               type="button"
               className="bare-button"
@@ -732,18 +783,20 @@ export function KatanaHeader({
                 });
               }}
               style={{
-                height: 38,
-                padding: '0 10px',
+                height: 44,
+                minWidth: 44,
+                padding: '0 11px',
                 borderRadius: 10,
                 background: phoneSearchOpen || hasText ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                 border: `1px solid ${phoneSearchOpen || hasText ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 5,
               }}
             >
               <Icon name={phoneSearchOpen ? 'close' : 'search'} size={18} color={phoneSearchOpen || hasText ? KatanaColors.accentSoft : KatanaColors.textMuted} />
-              {!phoneSearchOpen && <span style={bodyText(12.5, 600, KatanaColors.textMuted, 1)}>Search</span>}
+              {!phoneSearchOpen && !narrow && <span style={bodyText(12.5, 600, KatanaColors.textMuted, 1)}>Search</span>}
             </button>
             {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
           </div>
@@ -751,10 +804,11 @@ export function KatanaHeader({
         </div>
       ) : (
         <div style={{ padding: '10px 14px 10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {backButton}
             {logo}
             <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>{searchField}</div>
+            {themeButton}
             {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
           </div>
         </div>
@@ -932,49 +986,36 @@ export function KatanaHeader({
         </div>
       )}
 
-      <div style={{ background: KatanaColors.surface, borderTop: `1px solid ${KatanaColors.border}` }}>
-        <div
-          className="no-scrollbar"
-          style={{
-            maxWidth: 1240,
-            margin: '0 auto',
-            overflowX: 'auto',
-            padding: tabletOrDesktop ? '4px 12px' : '3px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          {tabletOrDesktop ? (
-            <>
-              {nav('home', 'Home', 'home')}
-              {nav('directory', 'Browse', 'explore')}
-              {nav('latest', 'Latest', 'bolt')}
-              {nav('newManga', desktop ? 'New Releases' : 'New', 'new_releases')}
-              <GenresDropdown
-                genres={genres}
-                active={active === 'genres'}
-                onSelectGenre={onSelectGenre}
-                onOpenGenresPage={() => onSelectNav('genres')}
-              />
-              {nav('reading', desktop ? 'Currently Reading' : 'Reading', 'auto_stories')}
-              {nav('downloads', 'Downloads', 'download_done')}
-              {!desktop && nav('bookmarks', 'Library', 'bookmarks')}
-            </>
-          ) : (
-            <>
-              {nav('latest', 'Latest', 'bolt')}
-              {nav('newManga', 'New', 'new_releases')}
-              <GenresDropdown
-                genres={genres}
-                active={active === 'genres'}
-                onSelectGenre={onSelectGenre}
-                onOpenGenresPage={() => onSelectNav('genres')}
-              />
-            </>
-          )}
+      {tabletOrDesktop && (
+        <div style={{ background: KatanaColors.surface, borderTop: `1px solid ${KatanaColors.border}` }}>
+          <div
+            className="no-scrollbar"
+            style={{
+              maxWidth: 1240,
+              margin: '0 auto',
+              overflowX: 'auto',
+              padding: '4px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            {nav('home', 'Home', 'home')}
+            {nav('directory', 'Browse', 'explore')}
+            {nav('latest', 'Latest', 'bolt')}
+            {nav('newManga', desktop ? 'New Releases' : 'New', 'new_releases')}
+            <GenresDropdown
+              genres={genres}
+              active={active === 'genres'}
+              onSelectGenre={onSelectGenre}
+              onOpenGenresPage={() => onSelectNav('genres')}
+            />
+            {nav('reading', desktop ? 'Currently Reading' : 'Reading', 'auto_stories')}
+            {nav('downloads', 'Downloads', 'download_done')}
+            {!desktop && nav('bookmarks', 'Library', 'bookmarks')}
+          </div>
         </div>
-      </div>
+      )}
     </header>
   );
 }
@@ -1104,36 +1145,66 @@ export function KatanaCoverImage({
 
   const resolved = url ? proxyKatanaImageUrl(katanaCdnFallback(url, step)) : '';
   if (!resolved || failed) {
-    const initial = (title ?? '').trim().charAt(0).toUpperCase();
+    const cleanTitle = (title ?? '').trim();
+    const initial = cleanTitle.charAt(0).toUpperCase();
+    const palette = getSeriesVisualAccent(cleanTitle || 'manga');
     return (
       <div
+        role={cleanTitle ? 'img' : undefined}
+        aria-label={cleanTitle ? `${cleanTitle} cover artwork` : undefined}
+        aria-hidden={!cleanTitle ? true : undefined}
         style={{
           position: 'absolute',
           inset: 0,
-          background: `linear-gradient(155deg, ${KatanaColors.surfaceGlow} 0%, ${fill} 55%, ${KatanaColors.background} 100%)`,
+          backgroundColor: fill,
+          background: `linear-gradient(150deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 4,
-          padding: 6,
+          gap: 6,
+          padding: 8,
           textAlign: 'center',
+          overflow: 'hidden',
         }}
       >
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            background: `linear-gradient(180deg, ${palette.accent}, ${palette.secondary})`,
+          }}
+        />
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: 0.14,
+            backgroundImage: `radial-gradient(${palette.accent} 1px, transparent 1px)`,
+            backgroundSize: '10px 10px',
+            pointerEvents: 'none',
+          }}
+        />
         {initial ? (
           <div
             style={{
-              width: Math.max(30, iconSize + 8),
-              height: Math.max(30, iconSize + 8),
+              position: 'relative',
+              width: Math.max(32, iconSize + 10),
+              height: Math.max(32, iconSize + 10),
               borderRadius: 10,
-              background: withAlpha(KatanaColors.borderStrong, 0.55),
-              border: `1px solid ${KatanaColors.borderStrong}`,
+              background: withAlpha(palette.accent, 0.2),
+              border: `1px solid ${withAlpha(palette.accent, 0.55)}`,
               display: 'grid',
               placeItems: 'center',
               fontFamily: Fonts.body,
               fontWeight: 800,
               fontSize: Math.max(15, Math.round(iconSize * 0.65)),
-              color: KatanaColors.textMuted,
+              color: palette.accent,
             }}
           >
             {initial}
@@ -1147,7 +1218,7 @@ export function KatanaCoverImage({
   return (
     <img
       src={resolved}
-      alt=""
+      alt={title ? `${title} cover` : ''}
       loading="lazy"
       onError={() => {
         const currentUrl = katanaCdnFallback(url, step);
@@ -1646,14 +1717,13 @@ export function KatanaPosterCard({
             {manga.title}
           </div>
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...KatanaType.small, fontSize: 11.5, ...ellipsis }}>
-          <span style={ellipsis}>{manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}</span>
-          {manga.follows != null && manga.follows > 0 && (
-            <span style={{ flexShrink: 0, color: KatanaColors.textMuted }}>· {formatCompactNumber(manga.follows)}</span>
-          )}
-          {totalCh != null && totalCh > 0 && !manga.follows && (
-            <span style={{ flexShrink: 0, color: KatanaColors.textMuted }}>· {totalCh} ch</span>
-          )}
+        <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 12.5, lineHeight: 1.3 }}>
+          {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
+          {manga.follows != null && manga.follows > 0
+            ? ` · ${formatCompactNumber(manga.follows)}`
+            : totalCh != null && totalCh > 0
+              ? ` · ${totalCh} ch`
+              : ''}
         </div>
       </div>
     </article>

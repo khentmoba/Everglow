@@ -746,24 +746,76 @@ function ReleaseScheduleRail({
         </div>
       ) : (
         <div
-          className="no-scrollbar"
           style={{
-            display: 'flex',
-            gap: 10,
-            overflowX: 'auto',
-            paddingBottom: 4,
+            display: 'grid',
+            gridTemplateColumns: compact ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+            gap: 8,
           }}
         >
-          {activeItems.map((m) => (
-            <div key={m.slug} style={{ width: compact ? 128 : 148, flexShrink: 0 }}>
-              <KatanaPosterCard
-                manga={m}
-                unreadCount={unreadBySlug[m.slug]}
-                downloadedCount={downloadedCounts[m.slug]}
-                onSelect={() => onSelectManga(m.slug)}
-              />
-            </div>
-          ))}
+          {activeItems.slice(0, 6).map((m) => {
+            const unread = unreadBySlug[m.slug] ?? 0;
+            const dl = downloadedCounts[m.slug] ?? 0;
+            return (
+              <button
+                key={m.slug}
+                type="button"
+                className="bare-button"
+                onClick={() => onSelectManga(m.slug)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: 8,
+                  borderRadius: 11,
+                  background: KatanaColors.surface,
+                  border: `1px solid ${KatanaColors.border}`,
+                  textAlign: 'left',
+                  minHeight: 68,
+                }}
+              >
+                <div style={{ position: 'relative', width: 44, height: 60, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                  <KatanaCoverImage url={m.coverUrl} title={m.title} iconSize={16} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 13.5, fontWeight: 700, color: KatanaColors.text, lineHeight: 1.25 }}>
+                    {m.title}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {m.latestChapter && (
+                      <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.link, fontWeight: 600 }}>
+                        {chapterDisplayTitle(m.latestChapter)}
+                      </span>
+                    )}
+                    {m.updateText && (
+                      <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{m.updateText}</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  {unread > 0 && (
+                    <span
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: 99,
+                        background: KatanaColors.accent,
+                        color: KatanaColors.accentInk,
+                        fontFamily: Fonts.body,
+                        fontSize: 11,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {unread} new
+                    </span>
+                  )}
+                  {dl > 0 && (
+                    <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.green, fontWeight: 600 }}>
+                      {dl} offline
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </section>
@@ -838,6 +890,26 @@ export function MangaHome({
     return pool.slice(0, 4);
   }, [data.hot, data.latest]);
 
+  const [tasteOnboardDismissed, setTasteOnboardDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('katana_taste_onboarded_v1') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [feedUnreadOnly, setFeedUnreadOnly] = useState(false);
+  const [feedAlertsOnly, setFeedAlertsOnly] = useState(false);
+  const [alertBannerDismissed, setAlertBannerDismissed] = useState(false);
+
+  const dismissTasteOnboarding = () => {
+    setTasteOnboardDismissed(true);
+    try {
+      localStorage.setItem('katana_taste_onboarded_v1', '1');
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   const toggleTasteGenre = (slug: string) => {
     setTasteGenres((prev) => {
       const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug];
@@ -845,7 +917,9 @@ export function MangaHome({
     });
   };
 
-  // Explainable recommendations: every card carries a concrete "why" label.
+  const latestLeadSlugs = useMemo(() => new Set(data.latest.slice(0, 6).map((m) => m.slug)), [data.latest]);
+
+  // Explainable recommendations: cross-rail deduped first, with varied per-card "why" reasons.
   const recommended = useMemo(() => {
     if (allCatalog.length === 0) return [];
     const readingSlugs = new Set(currentlyReading.map((b) => b.slug));
@@ -858,25 +932,50 @@ export function MangaHome({
     }
     const explicitSet = new Set(tasteGenres);
     const candidates = allCatalog.filter((m) => !readingSlugs.has(m.slug));
+    const nonDuplicate = candidates.filter((m) => !latestLeadSlugs.has(m.slug));
+    const pool = nonDuplicate.length >= 4 ? nonDuplicate : candidates;
 
-    const scored = candidates.map((m) => {
+    const usedBecauseTitles = new Map<string, number>();
+    const scored = pool.map((m) => {
       const explicitMatches = m.genres.filter((g) => explicitSet.has(g.slug));
       const historyMatch = m.genres.find((g) => readingGenreSource.has(g.slug));
-      const score = explicitMatches.length * 3 + (historyMatch ? 2 : 0) + (m.rating ? m.rating / 5 : 0);
+      const novelBonus = latestLeadSlugs.has(m.slug) ? 0 : 1.5;
+      const score = explicitMatches.length * 3 + (historyMatch ? 2 : 0) + (m.rating ? m.rating / 5 : 0) + novelBonus;
       let reason = '';
       if (explicitMatches.length > 0) {
         reason = `Matches ${explicitMatches.slice(0, 2).map((g) => g.name).join(' · ')}`;
       } else if (historyMatch) {
         const src = readingGenreSource.get(historyMatch.slug)!;
-        reason = `Because you read ${src}`;
-      } else if (m.rating != null) {
+        const count = usedBecauseTitles.get(src) ?? 0;
+        if (count < 1) {
+          usedBecauseTitles.set(src, count + 1);
+          reason = `Because you read ${src}`;
+        } else if (m.genres.length > 0) {
+          reason = `More ${m.genres[0].name} for you`;
+        } else if (m.rating != null) {
+          reason = `Top rated · ${m.rating.toFixed(1)}`;
+        }
+      } else if (m.rating != null && m.rating >= 8.0) {
         reason = `Top rated · ${m.rating.toFixed(1)}`;
+      } else if (m.follows != null && m.follows > 0) {
+        reason = `Trending · ${m.follows.toLocaleString()} readers`;
+      } else if (m.genres.length > 0) {
+        reason = `Popular in ${m.genres[0].name}`;
       }
       return { manga: m, score, reason };
     });
 
     return scored.sort((a, b) => b.score - a.score).slice(0, 8);
-  }, [allCatalog, currentlyReading, tasteGenres]);
+  }, [allCatalog, currentlyReading, tasteGenres, latestLeadSlugs]);
+
+  const distinctHot = useMemo(() => {
+    const recSlugs = new Set(recommended.slice(0, 6).map((r) => r.manga.slug));
+    const ranked = [...data.hot].sort(
+      (a, b) => (b.follows ?? 0) - (a.follows ?? 0) || (b.rating ?? 0) - (a.rating ?? 0),
+    );
+    const fresh = ranked.filter((m) => !recSlugs.has(m.slug));
+    return fresh.length >= 4 ? fresh : ranked;
+  }, [data.hot, recommended]);
 
   const newAndHotItems = useMemo(() => {
     const seen = new Set<string>();
@@ -1147,7 +1246,7 @@ export function MangaHome({
         <div style={{ height: 12 }} />
         {desktop ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {data.hot.slice(0, 6).map((m, i) => (
+            {distinctHot.slice(0, 6).map((m, i) => (
               <button
                 key={m.slug}
                 type="button"
@@ -1203,7 +1302,7 @@ export function MangaHome({
           </div>
         ) : (
           <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, paddingBottom: 4 }}>
-            {data.hot.map((m) => (
+            {distinctHot.map((m) => (
               <KatanaCompactCard key={m.slug} manga={m} width={124} onSelect={() => onSelectManga(m.slug)} onOpenChapter={onOpenChapter} />
             ))}
           </div>
@@ -1239,7 +1338,19 @@ export function MangaHome({
       </KatanaCard>
     ) : null;
 
-  const activeFeedItems =
+  const alertsBySlug = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const bm of libraryBookmarks) {
+      map[bm.slug] = bm.notifyOnUpdate !== false;
+    }
+    return map;
+  }, [libraryBookmarks]);
+
+  const alertUnreadSeriesCount = useMemo(() => {
+    return libraryBookmarks.filter((bm) => bm.notifyOnUpdate !== false && estimateUnreadCount(bm) > 0).length;
+  }, [libraryBookmarks]);
+
+  const baseFeedItems =
     type !== 'all'
       ? typeItems
       : feedTab === 'new_hot'
@@ -1247,6 +1358,126 @@ export function MangaHome({
         : feedTab === 'updates'
           ? libraryUpdates
           : data.latest;
+
+  const activeFeedItems = useMemo(() => {
+    return baseFeedItems.filter((m) => {
+      if (feedUnreadOnly && (unreadBySlug[m.slug] ?? 0) <= 0) return false;
+      if (feedAlertsOnly && !alertsBySlug[m.slug]) return false;
+      return true;
+    });
+  }, [baseFeedItems, feedUnreadOnly, feedAlertsOnly, unreadBySlug, alertsBySlug]);
+
+  const showTasteOnboarding = !tasteOnboardDismissed && tasteGenres.length === 0 && type === 'all' && data.genres.length > 0;
+
+  const tasteOnboardingBanner = showTasteOnboarding ? (
+    <KatanaCard padding={14} radius={12} style={{ marginTop: 14, borderColor: withAlpha(KatanaColors.accent, 0.35) }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="auto_awesome" size={18} color={KatanaColors.accent} />
+          <div>
+            <div style={{ fontFamily: Fonts.body, fontSize: 14.5, fontWeight: 700, color: KatanaColors.text }}>
+              Tailor your Manga Celestia feed
+            </div>
+            <div style={{ ...KatanaType.small, fontSize: 12.5 }}>
+              Pick a few genres you love — Picked for You updates instantly.
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="bare-button"
+          onClick={dismissTasteOnboarding}
+          style={{ ...KatanaType.small, padding: '6px 10px', minHeight: compact ? 40 : 32 }}
+        >
+          Skip
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+        {data.genres.slice(0, 10).map((g) => {
+          const picked = tasteGenres.includes(g.slug);
+          return (
+            <button
+              key={g.slug}
+              type="button"
+              className="bare-button"
+              aria-pressed={picked}
+              onClick={() => {
+                toggleTasteGenre(g.slug);
+                dismissTasteOnboarding();
+              }}
+              style={{
+                minHeight: compact ? 40 : 32,
+                padding: '6px 12px',
+                borderRadius: 99,
+                background: picked ? KatanaColors.accent : KatanaColors.surfaceAlt,
+                border: `1px solid ${picked ? KatanaColors.accent : KatanaColors.borderStrong}`,
+                fontFamily: Fonts.body,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: picked ? KatanaColors.accentInk : KatanaColors.text,
+              }}
+            >
+              + {g.name}
+            </button>
+          );
+        })}
+      </div>
+    </KatanaCard>
+  ) : null;
+
+  const newChapterAlertBanner =
+    !alertBannerDismissed && alertUnreadSeriesCount > 0 && type === 'all' && feedTab !== 'updates' ? (
+      <div
+        role="status"
+        style={{
+          marginTop: 12,
+          padding: '10px 12px',
+          borderRadius: 11,
+          background: withAlpha(KatanaColors.accent, 0.12),
+          border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <Icon name="notifications_active" size={18} color={KatanaColors.accent} />
+          <span style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>
+            {alertUnreadSeriesCount} tracked {alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters waiting
+          </span>
+        </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => setFeedTab('updates')}
+            style={{
+              minHeight: compact ? 40 : 32,
+              padding: '5px 11px',
+              borderRadius: 8,
+              background: KatanaColors.accent,
+              color: KatanaColors.accentInk,
+              fontFamily: Fonts.body,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            View Updates
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Dismiss chapter alerts banner"
+            onClick={() => setAlertBannerDismissed(true)}
+            style={{ width: 36, height: 36, display: 'grid', placeItems: 'center' }}
+          >
+            <Icon name="close" size={16} color={KatanaColors.textMuted} />
+          </button>
+        </div>
+      </div>
+    ) : null;
 
   const feedTitle =
     type !== 'all'
@@ -1308,6 +1539,57 @@ export function MangaHome({
           {viewToggle}
         </div>
       </div>
+
+      {type === 'all' && libraryBookmarks.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+          <button
+            type="button"
+            className="bare-button"
+            aria-pressed={feedUnreadOnly}
+            onClick={() => setFeedUnreadOnly((v) => !v)}
+            style={{
+              minHeight: compact ? 38 : 30,
+              padding: '4px 10px',
+              borderRadius: 99,
+              background: feedUnreadOnly ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+              border: `1px solid ${feedUnreadOnly ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+              fontFamily: Fonts.body,
+              fontSize: 12,
+              fontWeight: 600,
+              color: feedUnreadOnly ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <Icon name="mark_chat_unread" size={14} color={feedUnreadOnly ? KatanaColors.accent : KatanaColors.textLight} />
+            Unread only
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            aria-pressed={feedAlertsOnly}
+            onClick={() => setFeedAlertsOnly((v) => !v)}
+            style={{
+              minHeight: compact ? 38 : 30,
+              padding: '4px 10px',
+              borderRadius: 99,
+              background: feedAlertsOnly ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+              border: `1px solid ${feedAlertsOnly ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+              fontFamily: Fonts.body,
+              fontSize: 12,
+              fontWeight: 600,
+              color: feedAlertsOnly ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <Icon name="notifications_active" size={14} color={feedAlertsOnly ? KatanaColors.accent : KatanaColors.textLight} />
+            Alerts on
+          </button>
+        </div>
+      )}
 
       <div style={{ height: 12 }} />
       {type !== 'all' && typeLoading && typeItems.length === 0 ? (
@@ -1431,6 +1713,8 @@ export function MangaHome({
               onViewAll={() => onViewAllReading?.()}
             />
             {typeChips}
+            {newChapterAlertBanner}
+            {tasteOnboardingBanner}
             <div style={{ height: 14 }} />
             {feedSection}
             {type === 'all' && (
@@ -1477,6 +1761,8 @@ export function MangaHome({
             onViewAll={() => onViewAllReading?.()}
           />
           {typeChips}
+          {newChapterAlertBanner}
+          {tasteOnboardingBanner}
           <div style={{ height: 14 }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
             <div style={{ flex: 7, minWidth: 0 }}>

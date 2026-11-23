@@ -21,6 +21,7 @@ import { getDemoChapterPages } from './readerDemo';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 
 const BASE_URL = 'https://mangakatana.com';
 const PROXY_HTML_URL = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
@@ -93,6 +94,16 @@ export interface KatanaBookmark {
   anilistId?: string;
   malId?: string;
   trackerNote?: string;
+  /** Live tracker metadata synced via Jikan (MyAnimeList) proxy. */
+  malScore?: number;
+  malRank?: number;
+  malTotalChapters?: number;
+  malStatus?: string;
+  lastSyncedAt?: Date;
+  /** Per-series new-chapter alert opt-in (defaults true for bookmarked series when undefined). */
+  notifyOnUpdate?: boolean;
+  /** Per-series auto-download opt-in for new unread chapters. */
+  autoDownload?: boolean;
   /** Set once the reader reaches the last page of the final chapter of a completed series. */
   finishedAt?: Date;
 }
@@ -1100,6 +1111,13 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     anilistId: typeof data.anilistId === 'string' && data.anilistId.trim() ? data.anilistId.trim() : undefined,
     malId: typeof data.malId === 'string' && data.malId.trim() ? data.malId.trim() : undefined,
     trackerNote: typeof data.trackerNote === 'string' && data.trackerNote.trim() ? data.trackerNote.trim() : undefined,
+    malScore: typeof data.malScore === 'number' && data.malScore > 0 ? data.malScore : undefined,
+    malRank: typeof data.malRank === 'number' && data.malRank > 0 ? data.malRank : undefined,
+    malTotalChapters: typeof data.malTotalChapters === 'number' && data.malTotalChapters > 0 ? data.malTotalChapters : undefined,
+    malStatus: typeof data.malStatus === 'string' && data.malStatus.trim() ? data.malStatus.trim() : undefined,
+    lastSyncedAt: (data.lastSyncedAt as Timestamp | undefined)?.toDate?.(),
+    notifyOnUpdate: typeof data.notifyOnUpdate === 'boolean' ? data.notifyOnUpdate : undefined,
+    autoDownload: typeof data.autoDownload === 'boolean' ? data.autoDownload : undefined,
     finishedAt: (data.finishedAt as Timestamp | undefined)?.toDate?.(),
   };
 }
@@ -1560,6 +1578,126 @@ export interface KatanaTrackerPatch {
   anilistId?: string | null;
   malId?: string | null;
   trackerNote?: string | null;
+  malScore?: number | null;
+  malRank?: number | null;
+  malTotalChapters?: number | null;
+  malStatus?: string | null;
+  lastSyncedAt?: Date | null;
+  notifyOnUpdate?: boolean;
+  autoDownload?: boolean;
+}
+
+export interface MalTrackerSnapshot {
+  malId: string;
+  title: string;
+  score?: number;
+  rank?: number;
+  totalChapters?: number;
+  status?: string;
+  url: string;
+}
+
+/** Looks up live MyAnimeList metadata for a manga via Everglow's `proxyCatalog` Jikan proxy. */
+export async function lookupMalManga(title: string, malId?: string): Promise<MalTrackerSnapshot | null> {
+  const cleanId = malId?.trim();
+  if (AgentMode.demo) {
+    const hash = Array.from(title).reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 90000, 10000);
+    const id = cleanId && /^\d+$/.test(cleanId) ? cleanId : String(hash);
+    return {
+      malId: id,
+      title,
+      score: Number((7.8 + (hash % 14) * 0.1).toFixed(2)),
+      rank: 120 + (hash % 850),
+      totalChapters: 48 + (hash % 90),
+      status: 'Publishing',
+      url: `https://myanimelist.net/manga/${id}`,
+    };
+  }
+  try {
+    if (cleanId && /^\d+$/.test(cleanId)) {
+      const resp = await catalogProxyGet('jikan', `manga/${cleanId}`, { timeoutMs: 12000 });
+      if (resp.ok) {
+        const json = (await resp.json()) as { data?: Record<string, unknown> };
+        const d = json.data;
+        if (d && d.mal_id) {
+          return {
+            malId: String(d.mal_id),
+            title: String(d.title ?? title),
+            score: typeof d.score === 'number' ? d.score : undefined,
+            rank: typeof d.rank === 'number' ? d.rank : undefined,
+            totalChapters: typeof d.chapters === 'number' ? d.chapters : undefined,
+            status: typeof d.status === 'string' ? d.status : undefined,
+            url: typeof d.url === 'string' ? d.url : `https://myanimelist.net/manga/${d.mal_id}`,
+          };
+        }
+      }
+    }
+    const resp = await catalogProxyGet('jikan', 'manga', {
+      query: { q: title.trim(), limit: '3', sfw: 'true' },
+      timeoutMs: 12000,
+    });
+    if (!resp.ok) return null;
+    const json = (await resp.json()) as { data?: Array<Record<string, unknown>> };
+    const list = Array.isArray(json.data) ? json.data : [];
+    const norm = title.trim().toLowerCase();
+    const match =
+      list.find((m) => String(m.title ?? '').trim().toLowerCase() === norm) ??
+      list.find((m) => String(m.title_english ?? '').trim().toLowerCase() === norm) ??
+      list[0];
+    if (!match || !match.mal_id) return null;
+    return {
+      malId: String(match.mal_id),
+      title: String(match.title ?? title),
+      score: typeof match.score === 'number' ? match.score : undefined,
+      rank: typeof match.rank === 'number' ? match.rank : undefined,
+      totalChapters: typeof match.chapters === 'number' ? match.chapters : undefined,
+      status: typeof match.status === 'string' ? match.status : undefined,
+      url: typeof match.url === 'string' ? match.url : `https://myanimelist.net/manga/${match.mal_id}`,
+    };
+  } catch (err) {
+    Logger.w(`KatanaService: lookupMalManga failed: ${String(err)}`);
+    return null;
+  }
+}
+
+const HIDDEN_CATS_PREFIX = 'katana_hidden_cats_v1_';
+const AUTO_DL_KEY = 'katana_auto_dl_next_v1';
+
+export function loadKatanaHiddenCategories(userName: string): string[] {
+  try {
+    const raw = localStorage.getItem(`${HIDDEN_CATS_PREFIX}${userName || 'guest'}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveKatanaHiddenCategories(userName: string, hidden: string[]): void {
+  const clean = Array.from(new Set(hidden.map((s) => s.trim()).filter(Boolean)));
+  try {
+    localStorage.setItem(`${HIDDEN_CATS_PREFIX}${userName || 'guest'}`, JSON.stringify(clean));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function loadKatanaAutoDownloadCount(): number {
+  try {
+    const n = Number(localStorage.getItem(AUTO_DL_KEY) ?? '0');
+    return [0, 1, 3, 5].includes(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveKatanaAutoDownloadCount(count: number): void {
+  try {
+    localStorage.setItem(AUTO_DL_KEY, String(count));
+  } catch {
+    // ignore storage errors
+  }
 }
 
 export async function saveKatanaTrackerData(
@@ -1595,6 +1733,13 @@ export async function saveKatanaTrackerData(
       anilistId: patch.anilistId === null ? undefined : patch.anilistId !== undefined ? patch.anilistId.trim() || undefined : cur?.anilistId,
       malId: patch.malId === null ? undefined : patch.malId !== undefined ? patch.malId.trim() || undefined : cur?.malId,
       trackerNote: patch.trackerNote === null ? undefined : patch.trackerNote !== undefined ? patch.trackerNote.trim() || undefined : cur?.trackerNote,
+      malScore: patch.malScore === null ? undefined : patch.malScore !== undefined ? patch.malScore : cur?.malScore,
+      malRank: patch.malRank === null ? undefined : patch.malRank !== undefined ? patch.malRank : cur?.malRank,
+      malTotalChapters: patch.malTotalChapters === null ? undefined : patch.malTotalChapters !== undefined ? patch.malTotalChapters : cur?.malTotalChapters,
+      malStatus: patch.malStatus === null ? undefined : patch.malStatus !== undefined ? patch.malStatus : cur?.malStatus,
+      lastSyncedAt: patch.lastSyncedAt === null ? undefined : patch.lastSyncedAt !== undefined ? patch.lastSyncedAt : cur?.lastSyncedAt,
+      notifyOnUpdate: patch.notifyOnUpdate !== undefined ? patch.notifyOnUpdate : cur?.notifyOnUpdate,
+      autoDownload: patch.autoDownload !== undefined ? patch.autoDownload : cur?.autoDownload,
       finishedAt: cur?.finishedAt,
     };
     const next = [...list];
@@ -1619,6 +1764,13 @@ export async function saveKatanaTrackerData(
   if (patch.anilistId !== undefined) payload.anilistId = patch.anilistId ? patch.anilistId.trim() : deleteField();
   if (patch.malId !== undefined) payload.malId = patch.malId ? patch.malId.trim() : deleteField();
   if (patch.trackerNote !== undefined) payload.trackerNote = patch.trackerNote ? patch.trackerNote.trim() : deleteField();
+  if (patch.malScore !== undefined) payload.malScore = patch.malScore === null ? deleteField() : patch.malScore;
+  if (patch.malRank !== undefined) payload.malRank = patch.malRank === null ? deleteField() : patch.malRank;
+  if (patch.malTotalChapters !== undefined) payload.malTotalChapters = patch.malTotalChapters === null ? deleteField() : patch.malTotalChapters;
+  if (patch.malStatus !== undefined) payload.malStatus = patch.malStatus ? patch.malStatus : deleteField();
+  if (patch.lastSyncedAt !== undefined) payload.lastSyncedAt = patch.lastSyncedAt === null ? deleteField() : Timestamp.fromDate(patch.lastSyncedAt);
+  if (patch.notifyOnUpdate !== undefined) payload.notifyOnUpdate = patch.notifyOnUpdate;
+  if (patch.autoDownload !== undefined) payload.autoDownload = patch.autoDownload;
   await setDoc(doc(db, 'katana_bookmarks', `${userName}|${manga.slug}`), payload, { merge: true });
 }
 
@@ -1713,6 +1865,43 @@ export async function importKatanaLibraryJson(raw: string, userName: string): Pr
     if (Object.keys(patch).length > 0) {
       await saveKatanaTrackerData({ slug, title, coverUrl, status }, userName, patch);
     }
+    imported++;
+  }
+  return imported;
+}
+
+/** Imports a MyAnimeList / AniList XML export into the user's Manga Celestia library. */
+export async function importKatanaLibraryMalXml(xml: string, userName: string): Promise<number> {
+  if (!userName) return 0;
+  const docXml = new DOMParser().parseFromString(xml, 'text/xml');
+  const nodes = Array.from(docXml.querySelectorAll('manga'));
+  if (nodes.length === 0) return 0;
+  const statusMap: Record<string, KatanaLibraryStatus> = {
+    reading: 'reading',
+    completed: 'completed',
+    'on-hold': 'on_hold',
+    'plan to read': 'planned',
+    dropped: 'dropped',
+  };
+  let imported = 0;
+  for (const node of nodes) {
+    const title = (node.querySelector('manga_title')?.textContent ?? '').trim();
+    if (!title) continue;
+    const malId = (node.querySelector('manga_mangadb_id')?.textContent ?? '').trim();
+    const rawStatus = (node.querySelector('my_status')?.textContent ?? '').trim().toLowerCase();
+    const libStatus: KatanaLibraryStatus = statusMap[rawStatus] ?? 'reading';
+    const score = Number.parseInt((node.querySelector('my_score')?.textContent ?? '0').trim(), 10) || 0;
+    const reread = Number.parseInt((node.querySelector('my_times_read')?.textContent ?? '0').trim(), 10) || 0;
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `mal-${malId || imported}`;
+    await setKatanaLibraryStatus({ slug, title, coverUrl: '', status: 'ongoing' }, userName, libStatus);
+    const patch: KatanaTrackerPatch = { lastSyncedAt: new Date() };
+    if (malId && malId !== '0') patch.malId = malId;
+    if (score >= 1 && score <= 10) patch.userScore = score;
+    if (reread > 0) patch.rereadCount = reread;
+    await saveKatanaTrackerData({ slug, title, coverUrl: '', status: 'ongoing' }, userName, patch);
     imported++;
   }
   return imported;
