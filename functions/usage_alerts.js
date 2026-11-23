@@ -2,7 +2,7 @@
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-const { getAdmin, getDb } = require('./common.js');
+const { getAdmin, getDb, phtDayKey } = require('./common.js');
 const { sendFCMToUser } = require('./triggers.js');
 
 const WARN_LEVELS = {
@@ -15,7 +15,7 @@ const ALERT_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 const MAX_USERS_SCANNED = 20;
 
 function _dayKey(date) {
-  return date.toISOString().slice(0, 10);
+  return phtDayKey(date);
 }
 
 function detectAnomalies(username, today, yesterday) {

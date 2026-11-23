@@ -408,7 +408,7 @@ function composeTodayRecap({
   now,
 } = {}) {
   const parts = [];
-  const date = dateLabel || new Date().toISOString().slice(0, 10);
+  const date = dateLabel || phtDateString();
   parts.push(`Today is ${date}.`);
 
   if (moods && moods.length > 0) {

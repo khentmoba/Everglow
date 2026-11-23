@@ -283,8 +283,18 @@ function enforceRateLimit(req, res, { endpoint, limit, windowMs, uid = '' }) {
   return false;
 }
 
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * The calendar day the couple lives in. Manila has no DST, so the offset is
+ * constant; a UTC day would change over at 8 AM for Clair.
+ */
+function phtDayKey(date = new Date()) {
+  return new Date(date.getTime() + PHT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 function _todayDayKey(now = new Date()) {
-  return now.toISOString().slice(0, 10);
+  return phtDayKey(now);
 }
 
 async function checkDailyCap(uid, endpoint, dailyLimit) {
@@ -346,6 +356,7 @@ module.exports = {
   enforceRateLimit,
   clientIp,
   checkDailyCap,
+  phtDayKey,
   _todayDayKey,
   getVerifiedUsername,
   isPrivateIpv4,

@@ -594,3 +594,40 @@ test('AI conversation memory is erased on logout, including the visible assistan
     server.close();
   }
 });
+
+test('Journal search waits for typing to settle before it scans', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/journal?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=The Magic of Ordinary Days', { timeout: 10_000 });
+
+    const input = page.getByPlaceholder('Search memories, tags, dreams...');
+    await input.click();
+    await page.keyboard.type('coffee');
+
+    // A scan per keystroke would already have painted the match here.
+    await page.waitForTimeout(140);
+    assert.equal(
+      await page.getByText('The Magic of Ordinary Days').count(),
+      0,
+      'search ran before the typing settled',
+    );
+
+    await page.waitForSelector('text=The Magic of Ordinary Days', { timeout: 3_000 });
+
+    await input.fill('zzzznomatch');
+    await page.waitForSelector('text=No matching entries', { timeout: 3_000 });
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

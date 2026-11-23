@@ -1,6 +1,6 @@
 'use strict';
 
-const { applyCors, getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
+const { applyCors, getAdmin, getDb, phtDayKey, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
 const { journeyMetrics } = require('./motchi_agent.js');
 
 const motchiStats = cappedHttps(5, async (req, res) => {
@@ -51,7 +51,7 @@ const motchiStats = cappedHttps(5, async (req, res) => {
     };
     const usage = {};
     let recentAlerts = [];
-    const usageDay = new Date().toISOString().slice(0, 10);
+    const usageDay = phtDayKey();
     try {
       const usersSnap = await db.collection('users').limit(20).get();
       await Promise.all(usersSnap.docs.map(async (u) => {

@@ -394,6 +394,7 @@ class CalendarPollService {
       await addDoc(collection(db, POLLS), payload);
     } catch (e) {
       Logger.e('Error creating poll', e);
+      throw e;
     }
   }
 

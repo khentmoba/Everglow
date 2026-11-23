@@ -116,7 +116,11 @@ function Board({
 }) {
   const total = questions.length;
   const inRange = total > 0 && match.questionIndex >= 0 && match.questionIndex < total;
-  const current = inRange ? questions[match.questionIndex] : null;
+  // The match document names the question everyone is on; a local list that is
+  // short or reshuffled would otherwise show a question the server rejects.
+  const current =
+    questions.find((q) => q.id === match.currentQuestionId) ??
+    (match.currentQuestionId === '' && inRange ? questions[match.questionIndex] : null);
   const [ref, size] = useBoxSize<HTMLDivElement>();
   return (
     <>
