@@ -44,7 +44,7 @@ export function AnimePage() {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const [page, setPage] = useState<AnimexPageKind>('home');
-  const [watchItem, setWatchItem] = useState<{ item: MediaItem; episode?: number } | null>(null);
+  const [watchItem, setWatchItem] = useState<{ item: MediaItem; episode?: number; focus?: 'info' } | null>(null);
   const [dmcaOpen, setDmcaOpen] = useState(false);
   const [browsePreset, setBrowsePreset] = useState<{
     sort?: string;
@@ -193,8 +193,8 @@ export function AnimePage() {
     scrollerRef.current?.scrollTo({ top: 0 });
   };
 
-  const openWatch = (item: MediaItem, episode?: number) => {
-    setWatchItem({ item, episode });
+  const openWatch = (item: MediaItem, episode?: number, focus?: 'info') => {
+    setWatchItem({ item, episode, focus });
     setMotchiMessages([]);
     setDmcaOpen(false);
     setMotchiOpen(false);
@@ -211,6 +211,7 @@ export function AnimePage() {
     continueWatching,
     playlists: store.playlists,
     onWatch: openWatch,
+    onInfo: (item) => openWatch(item, undefined, 'info'),
     onTrailer: (it) =>
       void showAnimexTrailer({ youtubeId: it.trailerYoutubeId, anilistId: it.anilistId, malId: it.tmdbId, title: it.title }),
     onNavigate: goTo,
@@ -299,6 +300,7 @@ export function AnimePage() {
                 controller={{
                   watchItem: watchItem.item,
                   watchEpisode: watchItem.episode,
+                  focus: watchItem.focus,
                   closeDetail: () => {
                     setWatchItem(null);
                     setDmcaOpen(false);

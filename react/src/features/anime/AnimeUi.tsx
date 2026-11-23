@@ -387,7 +387,7 @@ export function AnimeXTopHeader({
         )}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           {isCinemaOnlyUser && <MediaSectionMenuButton currentRoute="/anime" />}
-          <AnimeXIconButton icon="search" tooltip="Search" onClick={onSearch} />
+          {isDesktop && <AnimeXIconButton icon="search" tooltip="Search" onClick={onSearch} />}
           {isCoupleUser && hasDetail && onMotchiToggle && (
             <>
               <div style={{ width: isDesktop ? 4 : 2 }} />
@@ -425,29 +425,37 @@ export function AnimeXTopHeader({
               <div style={{ width: 10 }} />
             </>
           ) : (
-            <div style={{ width: 4 }} />
+            <>
+              <div style={{ width: 2 }} />
+              <AnimeXIconButton icon="download_for_offline" tooltip="Downloads" onClick={() => onNavigate('downloads')} />
+            </>
           )}
           <div style={{ minWidth: 0, maxWidth: 180, display: 'flex' }}>
             <HoverTap
+              label={`${userName || 'Login'} — my list`}
               onClick={() => onNavigate('myList')}
               style={(hover) => ({
-                padding: '8px 16px',
+                padding: isDesktop ? '8px 16px' : '8px 12px',
                 minWidth: 0,
                 maxWidth: '100%',
-                background: hover ? '#FFFFFF' : withAlpha('#FFFFFF', 0.9),
-                border: `1px solid ${withAlpha('#FFFFFF', 0.2)}`,
+                background: hover ? withAlpha('#FFFFFF', 0.1) : withAlpha('#FFFFFF', 0.05),
+                border: `1px solid ${hover ? withAlpha('#FFFFFF', 0.24) : AnimeXTokens.border}`,
               })}
             >
               {() => (
                 <>
-                  <Icon name="person_outline" size={14} color={AnimeXTokens.bg} />
-                  <div style={{ width: 6 }} />
-                  <div
-                    className="ellipsis"
-                    style={{ ...dmSansStyle({ size: 13.5, color: '#0F0F13', weight: 600 }), minWidth: 0 }}
-                  >
-                    {userName || 'Login'}
-                  </div>
+                  <Icon name="person_outline" size={14} color={AnimeXTokens.textSecondary} />
+                  {isDesktop && (
+                    <>
+                      <div style={{ width: 6 }} />
+                      <div
+                        className="ellipsis"
+                        style={{ ...dmSansStyle({ size: 13.5, color: AnimeXTokens.textPrimary, weight: 600 }), minWidth: 0 }}
+                      >
+                        {userName || 'Login'}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </HoverTap>
@@ -565,19 +573,14 @@ export function AnimeXMobileBottomNav({
   onNavigate: (p: AnimexPageKind) => void;
   onSearch: () => void;
 }) {
+  // Five destinations fit a 430px phone (Anikura/Crunchyroll use 5). History and
+  // Downloads are libraries, so they live in the header and inside My List.
   const items: { key: AnimexPageKind; label: string; icon: [string, IconStyle]; activeIcon: [string, IconStyle] }[] = [
     { key: 'home', label: 'Home', icon: ['home', 'outlined'], activeIcon: ['home', 'round'] },
     { key: 'browse', label: 'Browse', icon: ['compass_calibration', 'outlined'], activeIcon: ['compass_calibration', 'round'] },
     { key: 'schedule', label: 'Schedule', icon: ['calendar_month', 'outlined'], activeIcon: ['calendar_month', 'round'] },
-    { key: 'search', label: 'Search', icon: ['search', 'round'], activeIcon: ['search', 'round'] },
     { key: 'myList', label: 'My List', icon: ['bookmark_add', 'outlined'], activeIcon: ['bookmark_add', 'round'] },
-    {
-      key: 'downloads',
-      label: 'Downloads',
-      icon: ['download_for_offline', 'outlined'],
-      activeIcon: ['download_for_offline', 'round'],
-    },
-    { key: 'history', label: 'History', icon: ['history', 'round'], activeIcon: ['history', 'round'] },
+    { key: 'search', label: 'Search', icon: ['search', 'round'], activeIcon: ['search', 'round'] },
   ];
   return (
     <nav
@@ -606,7 +609,7 @@ export function AnimeXMobileBottomNav({
               key={item.key}
               type="button"
               className="bare-button"
-              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
               onClick={() => (item.key === 'search' ? onSearch() : onNavigate(item.key))}
               style={{
                 flex: 1,
@@ -671,6 +674,7 @@ export function AnimeXSpotlight({
   loading,
   width,
   height,
+  resumeFor,
   onWatch,
   onMoreInfo,
   onTrailer,
@@ -679,12 +683,17 @@ export function AnimeXSpotlight({
   loading: boolean;
   width: number;
   height: number;
+  resumeFor?: (item: MediaItem) => { episode: number; resumeSeconds?: number } | undefined;
   onWatch: (item: MediaItem) => void;
   onMoreInfo: (item: MediaItem) => void;
   onTrailer: (item: MediaItem) => void;
 }) {
   const phone = width < 600;
-  const heroHeight = Math.min(phone ? 620 : 660, Math.max(phone ? 500 : 440, height * (phone ? 0.68 : 0.58)));
+  // A phone hero has to leave room for Continue Watching below it: the card is
+  // the reason she opened the app. 500px was tall enough to hide it entirely.
+  const heroHeight = phone
+    ? Math.min(500, Math.max(390, height * 0.5))
+    : Math.min(620, Math.max(420, height * 0.48));
 
   const [index, setIndex] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -853,6 +862,18 @@ export function AnimeXSpotlight({
   const isAiring =
     active.airingStatus.toUpperCase().includes('RELEASING') || active.airingStatus.toUpperCase().includes('AIRING');
   const meta = (label: string) => <div style={dmSansStyle({ size: 13, color: AnimeXTokens.white85 })}>{label}</div>;
+  // "Resume Ep 5 · 7:05" when she already started this show, "Watch Now" when
+  // she has not. The hero should never invite her to start episode 1 again.
+  const resumeLabelFor = (item: MediaItem) => {
+    const r = resumeFor?.(item);
+    if (!r) return 'Watch Now';
+    if (r.resumeSeconds && r.resumeSeconds > 0) {
+      const mm = Math.floor(r.resumeSeconds / 60);
+      const ss = String(r.resumeSeconds % 60).padStart(2, '0');
+      return `Resume Ep ${r.episode} · ${mm}:${ss}`;
+    }
+    return `Resume Ep ${r.episode}`;
+  };
 
   return (
     <section
@@ -877,12 +898,17 @@ export function AnimeXSpotlight({
           style={{
             position: 'absolute',
             inset: 0,
+            overflow: 'hidden',
             pointerEvents: 'none',
             opacity: ready && playing ? 1 : 0,
             transition: 'opacity 600ms ease-in-out',
           }}
         >
-          <TrailerPlayer key={trailerKey} videoKey={trailerKey} muted={muted} playing={playing} onLoaded={onTrailerLoaded} />
+          {/* YouTube draws its own title bar and share buttons at the frame's
+              edges. Overscan by 14% so that chrome falls outside the hero. */}
+          <div style={{ position: 'absolute', inset: '-7%' }}>
+            <TrailerPlayer key={trailerKey} videoKey={trailerKey} muted={muted} playing={playing} onLoaded={onTrailerLoaded} />
+          </div>
         </div>
       )}
 
@@ -890,10 +916,10 @@ export function AnimeXSpotlight({
         style={{
           position: 'absolute',
           inset: 0,
-          background: linear(['#00000059', 'transparent', '#D90A0A0F', AnimeXTokens.bg, AnimeXTokens.bg], {
+          background: linear(['#00000059', 'transparent', '#B3000000', AnimeXTokens.bg], {
             begin: Align.topCenter,
             end: Align.bottomCenter,
-            stops: [0, 0.4, 0.8, 0.95, 1],
+            stops: [0, 0.42, 0.78, 1],
           }),
         }}
       />
@@ -910,15 +936,20 @@ export function AnimeXSpotlight({
       />
 
       <div
-        style={{ position: 'relative', width: '100%', boxSizing: 'border-box', padding: `80px 24px 80px ${phone ? 24 : 48}px` }}
+        style={{
+          position: 'relative',
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: phone ? '44px 20px 64px 20px' : `56px 24px 72px ${phone ? 24 : 48}px`,
+        }}
       >
         <div key={active.tmdbId} style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-          <div className="clamp-2" style={bebasStyle({ size: phone ? 38 : 60 })}>
+          <div className="clamp-2" style={bebasStyle({ size: phone ? 34 : 60 })}>
             {active.title}
           </div>
           <div style={{ height: 12 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px' }}>
-            <div style={dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 700 })}>#{activeIndex + 1} TRENDING</div>
+            <div style={dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 700 })}>Trending now</div>
             {isAiring && <div style={dmSansStyle({ size: 12, color: AnimeXTokens.success, weight: 600 })}>Airing Now</div>}
             {active.score != null && active.score > 0 && (
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -950,10 +981,10 @@ export function AnimeXSpotlight({
               </div>
             </>
           )}
-          <div style={{ height: 22 }} />
+          <div style={{ height: 18 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
             <AnimeXWatchNowButton
-              label="Watch Now"
+              label={resumeLabelFor(active)}
               onClick={() => {
                 pauseTrailer();
                 onWatch(active);
@@ -1628,13 +1659,7 @@ export function AnimeXPosterCard({
       />
       <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center' }}>
         {epCount != null && epCount > 0 && (
-          <AnimeXBadge label={episodeLabel ?? (epCount >= 100 ? `${epCount} EP` : `EP ${epCount}`)} kind="episodes" />
-        )}
-        {airing && (
-          <>
-            <div style={{ width: 6 }} />
-            <AnimeXBadge label="NEW" kind="newBadge" />
-          </>
+          <AnimeXBadge label={episodeLabel ?? (epCount >= 100 ? `${epCount} EPS` : `${epCount} EPS`)} kind="episodes" />
         )}
       </div>
       {activeItem.score != null && activeItem.score > 0 && !hoverAction && (
@@ -1659,7 +1684,7 @@ export function AnimeXPosterCard({
         }}
       >
         {airing && (
-          <div style={{ paddingBottom: 8 }}>
+          <div style={{ paddingBottom: progress != null ? 8 : 0 }}>
             <AnimeXBadge label="Airing" kind="airing" dot />
           </div>
         )}
@@ -1946,9 +1971,25 @@ export function AnimeXRowSkeleton({ count = 8, cardWidth }: { count?: number; ca
     <div style={{ display: 'flex', gap: 16, overflow: 'hidden', padding: '0 24px' }}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} style={{ width: cardWidth, flexShrink: 0 }}>
-          <div style={{ aspectRatio: '2 / 3', borderRadius: AnimeXTokens.radiusCard, background: AnimeXTokens.surfaceRaised }} />
+          <div className="anx-shimmer" style={{ aspectRatio: '2 / 3', borderRadius: AnimeXTokens.radiusCard, background: AnimeXTokens.surfaceRaised }} />
           <div style={{ height: 12, width: '80%', borderRadius: 4, background: AnimeXTokens.surfaceRaised, marginTop: 10 }} />
           <div style={{ height: 10, width: '50%', borderRadius: 4, background: AnimeXTokens.surfaceRaised, marginTop: 6 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Same column maths as AnimeXGrid, so the grid does not jump when it lands. */
+export function AnimeXGridSkeleton({ width, count = 12 }: { width: number; count?: number }) {
+  const cols = Math.min(8, Math.max(2, Math.floor(Math.max(240, width - 48) / 140)));
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: 14, rowGap: 28 }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} style={{ minWidth: 0 }}>
+          <div className="anx-shimmer" style={{ aspectRatio: '2 / 3', borderRadius: AnimeXTokens.radiusCard, background: AnimeXTokens.surfaceRaised }} />
+          <div style={{ height: 12, width: '78%', borderRadius: 4, background: AnimeXTokens.surfaceRaised, marginTop: 10 }} />
+          <div style={{ height: 10, width: '46%', borderRadius: 4, background: AnimeXTokens.surfaceRaised, marginTop: 6 }} />
         </div>
       ))}
     </div>
@@ -1978,7 +2019,8 @@ export function AnimeXFooter({ onGoHome, onOpenDmca }: { onGoHome: () => void; o
   return (
     <footer
       style={{
-        marginTop: 48,
+        // Pushed to the bottom of a short page instead of floating mid-viewport.
+        marginTop: 'auto',
         padding: '32px 16px',
         background: AnimeXTokens.surface,
         borderTop: `1px solid ${AnimeXTokens.border}`,

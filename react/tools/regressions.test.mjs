@@ -210,9 +210,11 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
     });
 
     await page.goto(`${baseUrl}/anime?agent=1`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('text=Downloads', { timeout: 10_000 });
+    // Downloads left the phone bottom bar (5 items now) for the header button.
+    const downloadsButton = page.getByRole('button', { name: 'Downloads', exact: true }).first();
+    await downloadsButton.waitFor({ timeout: 10_000 });
     await collapseHud(page);
-    await page.getByText('Downloads', { exact: true }).first().click();
+    await downloadsButton.click();
     await page.waitForSelector('text=Offline storage used', { timeout: 5_000 });
     await page.waitForSelector("text=Frieren: Beyond Journey's End", { timeout: 5_000 });
 

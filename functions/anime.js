@@ -45,6 +45,8 @@ function pickBestMatch(candidates, titles, year) {
 }
 
 function failHtml(title, detail) {
+  // The marker stays in the page as a hidden node: the player still detects it,
+  // Clair no longer reads a third, developer-voiced sentence about it.
   return (
     '<!DOCTYPE html><html><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -54,7 +56,7 @@ function failHtml(title, detail) {
     'justify-content:center;height:100vh;text-align:center">' +
     '<div><p style="font-size:15px;color:#e2e2ea">' + escHtml(title) + '</p>' +
     '<p style="font-size:12px">' + escHtml(detail) + '</p>' +
-    '<p style="font-size:12px">' + NO_SOURCE_MARKER + ' — try another server.</p></div>' +
+    '<span style="display:none">' + NO_SOURCE_MARKER + '</span></div>' +
     '</body></html>'
   );
 }

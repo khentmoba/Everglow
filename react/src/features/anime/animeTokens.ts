@@ -18,7 +18,12 @@ export const AnimeXTokens = {
 
   textPrimary: '#F8F8F8',
   textSecondary: '#8B8B9E',
-  textMuted: '#4A4A5E',
+  // 5.7:1 on bg. The old #4A4A5E was 2.3:1, too dim for a phone in a dim room.
+  textMuted: '#8C8CA2',
+  // Small text on our dark ground uses auroraRose (7.3:1), never the deep
+  // rose accent (3.4:1). deepRose stays for fills, borders and glows.
+  accentText: AppColors.auroraRose,
+
   white85: 'rgba(255, 255, 255, 0.851)',
   borderStrong: 'rgba(255, 255, 255, 0.2)',
   card: 'rgba(255, 255, 255, 0.0392)',

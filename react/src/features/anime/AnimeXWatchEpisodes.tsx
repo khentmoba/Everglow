@@ -85,12 +85,15 @@ export function EpisodeThumbnail({
   isPlaying,
   width,
   height,
+  compact = false,
 }: {
   episode: AniListEpisode;
   fallbackPoster: string;
   isPlaying: boolean;
   width: number;
   height: number;
+  /** Small rail rows: labels move outside the frame so they never collide. */
+  compact?: boolean;
 }) {
   const placeholder = (
     <div style={{ position: 'absolute', inset: 0, background: T.surfaceRaised, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -135,24 +138,26 @@ export function EpisodeThumbnail({
           </div>
         </div>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          left: 6,
-          bottom: 6,
-          padding: '2.5px 6px',
-          background: T.accent,
-          borderRadius: T.radiusSm,
-          boxShadow: boxShadow([{ color: 'rgba(0,0,0,0.4)', blur: 4, offset: [0, 1] }]),
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <Icon name="play_arrow" size={10} color="#FFFFFF" />
-        <div style={{ width: 2.5 }} />
-        <span style={dmSansStyle({ size: 10.5, color: '#FFFFFF', weight: 700 })}>Episode {episode.number}</span>
-      </div>
-      {episode.duration != null && episode.duration > 0 && (
+      {!compact && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 6,
+            bottom: 6,
+            padding: '2.5px 6px',
+            background: T.accent,
+            borderRadius: T.radiusSm,
+            boxShadow: boxShadow([{ color: 'rgba(0,0,0,0.4)', blur: 4, offset: [0, 1] }]),
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <Icon name="play_arrow" size={10} color="#FFFFFF" />
+          <div style={{ width: 2.5 }} />
+          <span style={dmSansStyle({ size: 10.5, color: '#FFFFFF', weight: 700 })}>Episode {episode.number}</span>
+        </div>
+      )}
+      {!compact && episode.duration != null && episode.duration > 0 && (
         <div
           style={{
             position: 'absolute',
@@ -279,7 +284,7 @@ function RevealButton({ onTap, iconSize, textStyle }: { onTap: () => void; iconS
 
 export function HideSpoilersSwitch() {
   const hide = useHideSpoilers();
-  const toggle = (v: boolean) => void AnimexStores.setHideSpoilers(v);
+  const toggle = (v: boolean) => AnimexStores.setHideSpoilers(v);
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -302,8 +307,6 @@ export function HideSpoilersSwitch() {
   );
 }
 
-// ---------- _MobileEpisodeCard ----------
-
 interface CardProps {
   episode: AniListEpisode;
   fallbackPoster: string;
@@ -314,82 +317,6 @@ interface CardProps {
   onTap: () => void;
   onInfoTap: () => void;
 }
-
-function MobileEpisodeCard(p: CardProps) {
-  const [revealed, setRevealed] = useRevealed(p.episode.number, p.hideSpoilers);
-  const hidden = p.hideSpoilers && !revealed;
-  const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
-  const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
-  const synopsis = ep.synopsis?.trim() ?? '';
-  const synStyle = dmSansStyle({ size: 11.5, color: withAlpha(T.textSecondary, 0.85), height: 1.35 });
-  return (
-    <div
-      onClick={p.onTap}
-      style={{
-        width: 260,
-        height: 300,
-        flexShrink: 0,
-        boxSizing: 'border-box',
-        background: T.surface,
-        borderRadius: T.radiusLg,
-        // Chrome rounds a 1.5px border down to 1px, so the playing border is an inset shadow.
-        padding: p.isPlaying ? 1.5 : 1,
-        boxShadow: [
-          `inset 0 0 0 ${p.isPlaying ? 1.5 : 1}px ${p.isPlaying ? T.accent : T.border}`,
-          ...(p.isPlaying ? [boxShadow([{ color: withAlpha(T.accent, 0.25), blur: 12, offset: [0, 4] }])] : []),
-        ].join(', '),
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'pointer',
-      }}
-    >
-      <EpisodeThumbnail episode={p.episode} fallbackPoster={p.fallbackPoster} isPlaying={p.isPlaying} width={260 - 2 * (p.isPlaying ? 1.5 : 1)} height={145} />
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                ...dmSansStyle({ size: 13, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.25 }),
-                ...ellipsis(2),
-              }}
-            >
-              {title}
-            </div>
-            <div style={{ height: 3 }} />
-            <div style={{ ...dmSansStyle({ size: 11, color: T.textSecondary }), ...ellipsis(1) }}>{p.animeTitle}</div>
-          </div>
-          <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} />
-        </div>
-        <div style={{ height: 6 }} />
-        {hidden ? (
-          <RevealButton onTap={() => setRevealed(true)} iconSize={16} />
-        ) : revealed ? (
-          <>
-            <div style={{ ...synStyle, ...ellipsis(3) }}>
-              {synopsis || 'No detailed synopsis is available for this episode yet.'}
-            </div>
-            <div style={{ height: 4 }} />
-            <HideDetailsLink onTap={() => setRevealed(false)} gap={4} />
-          </>
-        ) : synopsis ? (
-          <div
-            onClick={(ev) => {
-              ev.stopPropagation();
-              p.onInfoTap();
-            }}
-            style={{ ...synStyle, ...ellipsis(3) }}
-          >
-            {synopsis}
-          </div>
-        ) : ep.airedAt ? (
-          <div style={dmSansStyle({ size: 10, color: T.textMuted })}>Aired: {ymd(ep.airedAt)}</div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-// ---------- _MobileEpisodesSection ----------
 
 export interface EpisodesProps {
   episodes: AniListEpisode[];
@@ -440,48 +367,117 @@ function Pill({ active, onTap, children, style }: { active?: boolean; onTap: () 
   );
 }
 
+/** One episode of a binge list: thumb, number chip, title, duration, state. */
+function MobileEpisodeRow(p: CardProps) {
+  const [revealed, setRevealed] = useRevealed(p.episode.number, p.hideSpoilers);
+  const hidden = p.hideSpoilers && !revealed;
+  const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
+  const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
+  return (
+    <button
+      type="button"
+      className="bare-button"
+      onClick={p.onTap}
+      aria-current={p.isPlaying ? 'true' : undefined}
+      style={{
+        width: '100%',
+        minHeight: 68,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '8px 6px',
+        boxSizing: 'border-box',
+        borderRadius: T.radiusLg,
+        background: p.isPlaying ? withAlpha(T.accent, 0.14) : 'transparent',
+        border: `1px solid ${p.isPlaying ? withAlpha(T.accent, 0.5) : 'transparent'}`,
+        textAlign: 'left',
+      }}
+    >
+      <div style={{ position: 'relative', flexShrink: 0, width: 104 }}>
+        <EpisodeThumbnail
+          episode={p.episode}
+          fallbackPoster={p.fallbackPoster}
+          isPlaying={p.isPlaying}
+          width={104}
+          height={59}
+          compact
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: 4,
+            bottom: 4,
+            padding: '1px 5px',
+            borderRadius: 4,
+            background: 'rgba(0,0,0,0.75)',
+            ...dmSansStyle({ size: 10, color: '#FFFFFF', weight: 800 }),
+          }}
+        >
+          E{p.episode.number}
+        </div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            ...dmSansStyle({ size: 13.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.3 }),
+            ...ellipsis(2),
+          }}
+        >
+          {title}
+        </div>
+        <div style={{ height: 2 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {p.isPlaying && <span style={dmSansStyle({ size: 11, color: T.accentText, weight: 700 })}>Watching now</span>}
+          {!p.isPlaying && ep.duration != null && ep.duration > 0 && (
+            <span style={dmSansStyle({ size: 11.5, color: T.textSecondary })}>{ep.duration} min</span>
+          )}
+        </div>
+      </div>
+      {hidden ? (
+        <div
+          onClick={(ev) => {
+            ev.stopPropagation();
+            setRevealed(true);
+          }}
+          style={{ padding: 8, display: 'flex' }}
+        >
+          <Icon name="visibility" size={18} color={T.textSecondary} />
+        </div>
+      ) : (
+        <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} />
+      )}
+    </button>
+  );
+}
+
 export function MobileEpisodesSection(p: EpisodesProps) {
   const hideSpoilers = useHideSpoilers();
   const [showSearch, setShowSearch] = useState(false);
   const [ascending, setAscending] = useState(true);
   const [text, setText] = useState('');
   const query = text.trim().toLowerCase();
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !p.episodes.length) return;
-    const activeIndex = p.episodes.findIndex((e) => e.number === p.selectedEpisode);
-    if (activeIndex <= 0) return;
-    smoothScroll(el, 'left', activeIndex * 272 - 20);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.selectedEpisode]);
 
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
+  const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 800, letterSpacing: 0.1 })}>EPISODES</span>
-          <div style={{ width: 8 }} />
-          <span style={dmSansStyle({ size: 12, color: T.textMuted, weight: 600 })}>({p.episodes.length})</span>
+          <span style={dmSansStyle({ size: 12, color: T.textSecondary, weight: 600 })}>{p.episodes.length}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {p.seasons.length > 1 && (
-            <>
-              <Pill
-                onTap={() => showSeasonPickerSheet({ seasons: p.seasons, onSelectSeason: (s) => p.onSelectSeason?.(s) })}
-                style={{ padding: '6px 10px' }}
-              >
-                <Icon name="layers" size={13} color={T.accentWarm} />
-                <div style={{ width: 4 }} />
-                <span style={dmSansStyle({ size: 11.5, color: T.textPrimary, weight: 600 })}>Season</span>
-                <div style={{ width: 2 }} />
-                <Icon name="keyboard_arrow_down" size={14} color={T.textSecondary} />
-              </Pill>
-              <div style={{ width: 8 }} />
-            </>
+            <Pill
+              onTap={() => showSeasonPickerSheet({ seasons: p.seasons, onSelectSeason: (s) => p.onSelectSeason?.(s) })}
+              style={{ minHeight: 40, padding: '0 10px' }}
+            >
+              <Icon name="layers" size={14} color={T.accentText} />
+              <div style={{ width: 4 }} />
+              <span style={dmSansStyle({ size: 11.5, color: T.textPrimary, weight: 600 })}>Season</span>
+              <Icon name="keyboard_arrow_down" size={14} color={T.textSecondary} />
+            </Pill>
           )}
           <Pill
             active={showSearch}
@@ -489,27 +485,32 @@ export function MobileEpisodesSection(p: EpisodesProps) {
               if (showSearch) setText('');
               setShowSearch(!showSearch);
             }}
-            style={{ padding: '6px 12px' }}
+            style={{ width: 40, height: 40, justifyContent: 'center' }}
           >
-            <Icon name="search" size={14} color={T.textSecondary} />
-            <div style={{ width: 4 }} />
-            <span style={dmSansStyle({ size: 11.5, color: T.textSecondary, weight: 600 })}>Search</span>
+            <Icon name="search" size={17} color={showSearch ? T.accentText : T.textSecondary} />
           </Pill>
-          <div style={{ width: 8 }} />
-          <Pill onTap={() => setAscending(!ascending)} style={{ width: 32, height: 32, justifyContent: 'center' }}>
-            <Icon name="swap_vert" size={16} color={T.textSecondary} />
+          <Pill
+            onTap={() => setAscending(!ascending)}
+            style={{ width: 40, height: 40, justifyContent: 'center' }}
+          >
+            <Icon name="swap_vert" size={17} color={T.textSecondary} />
+          </Pill>
+          <Pill
+            active={hideSpoilers}
+            onTap={() => AnimexStores.setHideSpoilers(!hideSpoilers)}
+            style={{ width: 40, height: 40, justifyContent: 'center' }}
+          >
+            <Icon name={hideSpoilers ? 'visibility_off' : 'visibility'} size={17} color={hideSpoilers ? T.accentText : T.textSecondary} />
           </Pill>
         </div>
       </div>
-
-      <HideSpoilersSwitch />
 
       {showSearch && (
         <>
           <div style={{ height: 10 }} />
           <div
             style={{
-              height: 36,
+              height: 40,
               boxSizing: 'border-box',
               background: T.surface,
               borderRadius: T.radiusMd,
@@ -519,7 +520,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
               alignItems: 'center',
             }}
           >
-            <Icon name="search" size={16} color={T.textMuted} />
+            <Icon name="search" size={16} color={T.textSecondary} />
             <div style={{ width: 8 }} />
             <input
               autoFocus
@@ -539,25 +540,58 @@ export function MobileEpisodesSection(p: EpisodesProps) {
             />
             {query && (
               <div onClick={() => setText('')} style={{ cursor: 'pointer', display: 'flex' }}>
-                <Icon name="close" size={16} color={T.textMuted} />
+                <Icon name="close" size={16} color={T.textSecondary} />
               </div>
             )}
           </div>
         </>
       )}
 
-      <div style={{ height: 14 }} />
+      <div style={{ height: 12 }} />
+
+      {!query && upNext && (
+        <div style={{ marginBottom: 10 }}>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => p.onSelectEpisode(upNext.number)}
+            style={{
+              width: '100%',
+              minHeight: 56,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '0 12px',
+              borderRadius: T.radiusLg,
+              background: white(0.05),
+              border: `1px solid ${T.border}`,
+              textAlign: 'left',
+            }}
+          >
+            <Icon name="skip_next" size={18} color={T.accentText} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 800, letterSpacing: 0.08 })}>UP NEXT</div>
+              <div style={{ height: 2 }} />
+              <div style={{ ...dmSansStyle({ size: 13, color: T.textPrimary, weight: 600 }), ...ellipsis(1) }}>
+                Episode {upNext.number}
+                {hideSpoilers || !upNext.title ? '' : ` · ${upNext.title}`}
+              </div>
+            </div>
+            <span style={dmSansStyle({ size: 12, color: T.accentText, weight: 700 })}>Play</span>
+          </button>
+        </div>
+      )}
 
       {displayList.length === 0 ? (
-        <div style={{ padding: '24px 0', textAlign: 'center', ...dmSansStyle({ size: 12.5, color: T.textMuted }) }}>
+        <div style={{ padding: '24px 0', textAlign: 'center', ...dmSansStyle({ size: 12.5, color: T.textSecondary }) }}>
           No episodes found matching "{query}"
         </div>
       ) : (
-        <div ref={scrollRef} className="no-scrollbar" style={{ height: 300, display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {displayList.map((ep) => {
             const active = ep.number === p.selectedEpisode;
             return (
-              <MobileEpisodeCard
+              <MobileEpisodeRow
                 key={ep.number}
                 episode={ep}
                 fallbackPoster={p.fallbackPoster}

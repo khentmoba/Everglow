@@ -66,6 +66,8 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), h
 export interface AnimexWatchController {
   watchItem: MediaItem;
   watchEpisode?: number;
+  /** Open on the about section (the hero's "More Info" button). */
+  focus?: 'info';
   closeDetail: () => void;
   openWatch: (item: MediaItem, episode?: number) => void;
   savedAnime: (item: MediaItem) => MediaItem | undefined;
@@ -525,6 +527,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     recordHistory(episode);
     if (st.ready) saveWatchProgress({ episode, positionSeconds: 0 });
     void fetchSkips();
+    // The player scrolls away on a phone; choosing an episode has to bring it
+    // back, or she is listening to a screen she cannot see.
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const stepEpisode = (delta: number) => {
@@ -792,6 +797,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   // --- layout ---
   const isDesktop = width >= 1200;
   const isCompactPage = width < 700;
+  const phone = width < 600;
   const maxPlayerHeight = clamp(height - 280, 240, PLAYER_MAX_HEIGHT);
   if (!isPlayerFullscreenActive() || st.lastWindowedMaxPlayerHeight == null) st.lastWindowedMaxPlayerHeight = maxPlayerHeight;
   const contentWidth = clamp(width - 48, 0, WATCH_PAGE_MAX_WIDTH);
@@ -882,7 +888,15 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   // A centered box capped at maxHeight that keeps 16:9 (ConstrainedBox around AspectRatio).
   const playerBox = (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: (st.lastWindowedMaxPlayerHeight * 16) / 9 }}>{player}</div>
+      <div
+        style={{
+          width: '100%',
+          // A phone is a theatre: the video runs edge to edge (no 24px gutters).
+          maxWidth: phone ? undefined : (st.lastWindowedMaxPlayerHeight * 16) / 9,
+        }}
+      >
+        {player}
+      </div>
     </div>
   );
 
@@ -902,7 +916,121 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const ns = nextSeason();
   const hasNextSeason = isLastEpisode && ns != null;
 
-  const playerColumn = (
+  const showServerSheet = () => {
+    void showModalBottomSheet<void>((close) => (
+      <div style={{ padding: '4px 16px 24px' }}>
+        <SheetDragHandle />
+        <div style={dmSansStyle({ size: 15, color: T.textPrimary, weight: 800 })}>Where to watch from</div>
+        <div style={{ height: 4 }} />
+        <div style={dmSansStyle({ size: 12, color: T.textSecondary })}>
+          One free source is enough. If one stalls, pick another.
+        </div>
+        <div style={{ height: 14 }} />
+        {st.servers.map((srv, i) => {
+          const failed = st.failedServerIndices.has(i);
+          const selected = st.serverIndex === i;
+          return (
+            <button
+              key={srv.name}
+              type="button"
+              className="bare-button"
+              disabled={!srv.available}
+              onClick={() => {
+                close(null);
+                selectServer(i);
+              }}
+              style={{
+                width: '100%',
+                minHeight: 52,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '0 12px',
+                marginBottom: 8,
+                borderRadius: T.radiusLg,
+                background: selected ? withAlpha(T.accent, 0.16) : white(0.04),
+                border: `1px solid ${selected ? withAlpha(T.accent, 0.45) : T.border}`,
+                opacity: srv.available ? 1 : 0.5,
+              }}
+            >
+              <Icon
+                name={failed ? 'error_outline' : selected ? 'check_circle' : 'circle'}
+                size={17}
+                color={failed ? T.textMuted : selected ? T.accentText : T.textSecondary}
+              />
+              <span style={{ ...dmSansStyle({ size: 14, color: T.textPrimary, weight: 600 }), flex: 1, textAlign: 'left' }}>
+                {srv.name}
+              </span>
+              <span style={dmSansStyle({ size: 11, color: T.textMuted, weight: 600 })}>
+                {!srv.available ? 'Unavailable' : failed ? 'Failed' : srv.supportsAudioSelection ? 'Sub & Dub' : 'Sub'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    ));
+  };
+
+  // Phone: player pinned while the episode list scrolls under it, then one
+  // compact band of controls. The old layout stacked six bands (heading, meta,
+  // server wall, audio, toggles, prev/next) before a single episode.
+  const playerColumn = phone ? (
+    <div>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: T.bg }}>{playerBox}</div>
+      <div style={{ padding: '10px 16px 0' }}>
+        {st.ready && (
+          <>
+            <div style={{ ...dmSansStyle({ size: 17, color: T.textPrimary, weight: 700, height: 1.25 }), ...oneLine }}>
+              {activeEpisodeTitle()}
+            </div>
+            <div style={{ height: 3 }} />
+            <div style={{ ...dmSansStyle({ size: 12, color: T.textSecondary }), ...oneLine }}>
+              {[
+                ep?.duration != null && ep.duration > 0 ? `${ep.duration} min` : '',
+                ep?.airedAt ? `Aired ${ymd(ep.airedAt)}` : '',
+                seasons().length > 1 ? seasons().find((x) => x.isCurrent)?.label ?? seasons().find((x) => x.isCurrent)?.title ?? '' : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
+          </>
+        )}
+        <div style={{ height: 10 }} />
+        <div className="no-scrollbar" style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto' }}>
+          {st.servers.length > 1 && (
+            <button
+              type="button"
+              className="bare-button"
+              onClick={showServerSheet}
+              style={{
+                flexShrink: 0,
+                minHeight: 40,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '0 12px',
+                borderRadius: T.radiusPill,
+                background: white(0.05),
+                border: `1px solid ${T.border}`,
+              }}
+            >
+              <Icon name="dns" size={15} color={T.accentText} />
+              <span style={dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 700 })}>{currentServer()?.name ?? 'Source'}</span>
+              <Icon name="keyboard_arrow_down" size={15} color={T.textSecondary} />
+            </button>
+          )}
+          <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
+          <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
+        </div>
+        {failedNote && (
+          <>
+            <div style={{ height: 8 }} />
+            <div style={dmSansStyle({ size: 12, color: T.textSecondary, height: 1.4 })}>{failedNote}</div>
+          </>
+        )}
+      </div>
+    </div>
+  ) : (
     <div>
       {playerBox}
       {st.ready && (
@@ -911,7 +1039,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           <div style={dmSansStyle({ size: 18, color: T.textPrimary, weight: 700, height: 1.25 })}>{activeEpisodeTitle()}</div>
           <div style={{ height: 4 }} />
           <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'pre' }}>
-            <span style={dmSansStyle({ size: 12, color: T.accentWarm, weight: 700 })}>Episode {st.selectedEpisode}</span>
+            <span style={dmSansStyle({ size: 12, color: T.accentText, weight: 700 })}>Episode {st.selectedEpisode}</span>
             {ep?.duration != null && ep.duration > 0 && (
               <>
                 <span style={dmSansStyle({ size: 11, color: T.textMuted })}>{'  •  '}</span>
@@ -939,12 +1067,6 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               onTap={() => selectServer(i)}
             />
           ),
-        )}
-        <div style={{ width: 6 }} />
-        {currentServer()?.supportsAudioSelection !== true ? (
-          <span style={dmSansStyle({ size: 12, color: T.textSecondary })}>Choose audio inside the player</span>
-        ) : (
-          <AudioToggle audio={st.audio} onChanged={setAudio} />
         )}
       </div>
       {failedNote && (
@@ -984,6 +1106,18 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       <div style={{ width: 380, height: sidebarHeight, flexShrink: 0 }}>
         {st.ready && <DesktopEpisodesSidebar {...episodesProps} />}
       </div>
+    </div>
+  ) : phone ? (
+    <div>
+      {playerColumn}
+      {st.ready && (
+        <>
+          <div style={{ height: 22 }} />
+          <div ref={episodesRef} style={{ padding: '0 16px' }}>
+            <MobileEpisodesSection {...episodesProps} />
+          </div>
+        </>
+      )}
     </div>
   ) : (
     <div style={pageBox}>
@@ -1029,6 +1163,36 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     </>
   );
   const infoTitle = detail ? (stores.titleJapanese ? detail.titleNative || item.title : detail.titleEnglish || item.title) : '';
+  const infoRef = useRef<HTMLDivElement>(null);
+
+  // The hero's "More Info" opens this page: land on the about block, not on a
+  // player she did not ask to start.
+  useEffect(() => {
+    if (ctl.current.focus !== 'info') return;
+    const t = window.setTimeout(() => {
+      const el = infoRef.current;
+      const scroller = scrollRef.current;
+      if (!el || !scroller) return;
+      scroller.scrollTo({ top: Math.max(0, el.offsetTop - 12), behavior: 'smooth' });
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const shareTitle = titleFor(AnimexStores.titleJapanese);
+  const trailerAction =
+    detail?.trailerYoutubeId != null
+      ? () => void showAnimexTrailer({ youtubeId: detail.trailerYoutubeId!, anilistId, malId: malId(), title: displayTitle })
+      : undefined;
+  const moreActions = [
+    trailerAction
+      ? { icon: 'play_circle_outline', label: 'Play trailer', onTap: trailerAction }
+      : null,
+    { icon: 'bookmark_add', label: 'Save to a playlist', onTap: () => showPlaylistSheet(item) },
+    canWatchTogether && malId() > 0
+      ? { icon: 'favorite', label: 'Watch together', onTap: () => void startAnimeWatchParty() }
+      : null,
+    { icon: 'ios_share', label: 'Share', onTap: () => showShareSheet(shareTitle, detail?.siteUrl) },
+  ].filter(Boolean) as { icon: string; label: string; onTap: () => void }[];
 
   return (
     <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
@@ -1037,22 +1201,21 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           title={displayTitle}
           subtitle={`Episode ${st.selectedEpisode}${activeEpisodeTitle() !== `Episode ${st.selectedEpisode}` ? ` • ${activeEpisodeTitle()}` : ''}`}
           onBack={() => ctl.current.closeDetail()}
-          onTrailer={
-            detail?.trailerYoutubeId != null
-              ? () =>
-                  void showAnimexTrailer({ youtubeId: detail.trailerYoutubeId, anilistId, malId: malId(), title: displayTitle })
-              : undefined
-          }
+          onTrailer={trailerAction}
           onBookmark={() => showPlaylistSheet(item)}
           onWatchTogether={canWatchTogether && malId() > 0 ? () => void startAnimeWatchParty() : undefined}
-          onShare={() => showShareSheet(titleFor(AnimexStores.titleJapanese), detail?.siteUrl)}
+          onShare={() => showShareSheet(shareTitle, detail?.siteUrl)}
+          overflowActions={phone ? moreActions : undefined}
         />
-        <div style={{ height: 12 }} />
+        <div style={{ height: phone ? 8 : 12 }} />
         {playerSection}
-        <div style={{ height: 32 }} />
+        <div style={{ height: phone ? 20 : 32 }} />
         {detail && (
-          <div style={pageBox}>
-            <div style={bebasStyle({ size: 30, color: T.textPrimary })}>{infoTitle}</div>
+          <div style={pageBox} ref={infoRef}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div style={bebasStyle({ size: 30, color: T.textPrimary })}>{infoTitle}</div>
+              {nextAiringChip(detail, Date.now())}
+            </div>
             <div style={{ height: 8 }} />
             {detail.synopsis && <div style={{ ...interBodyStyle({ size: 13.5, height: 1.65 }), whiteSpace: 'pre-wrap' }}>{detail.synopsis}</div>}
             <div style={{ height: 16 }} />
@@ -1155,6 +1318,7 @@ function TopBar({
   onBookmark,
   onWatchTogether,
   onShare,
+  overflowActions,
 }: {
   title: string;
   subtitle: string;
@@ -1163,17 +1327,20 @@ function TopBar({
   onBookmark: () => void;
   onWatchTogether?: () => void;
   onShare: () => void;
+  /** Phone: one ⋯ button instead of four controls eating the title. */
+  overflowActions?: { icon: string; label: string; onTap: () => void }[];
 }) {
+  const compact = Boolean(overflowActions?.length);
   return (
-    <div style={{ padding: '10px 20px', display: 'flex', alignItems: 'center' }}>
+    <div style={{ padding: compact ? '8px 12px' : '10px 20px', display: 'flex', alignItems: 'center' }}>
       <button
         type="button"
         className="bare-button"
         aria-label="Back"
         onClick={onBack}
         style={{
-          width: 38,
-          height: 38,
+          width: 44,
+          height: 44,
           flexShrink: 0,
           boxSizing: 'border-box',
           background: 'rgba(10, 10, 15, 0.6)',
@@ -1186,41 +1353,94 @@ function TopBar({
       >
         <Icon name="arrow_back_ios_new" size={17} color="#FFFFFF" />
       </button>
-      <div style={{ width: 14, flexShrink: 0 }} />
+      <div style={{ width: 12, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ ...dmSansStyle({ size: 15, color: T.textPrimary, weight: 700 }), ...oneLine }}>{title}</div>
         <div style={{ ...dmSansStyle({ size: 11.5, color: T.textSecondary }), ...oneLine }}>{subtitle}</div>
       </div>
       <div style={{ width: 8, flexShrink: 0 }} />
-      {onTrailer && (
-        <PillButton
-          icon="play_circle_outline"
-          iconSize={15}
-          iconColor={T.textPrimary}
-          label="Trailer"
-          onTap={onTrailer}
-          background={white(0.06)}
-          border={T.border}
-        />
-      )}
-      <div style={{ width: 8, flexShrink: 0 }} />
-      <SquareButton icon="bookmark_add_outlined" label="Save to playlist" onTap={onBookmark} />
-      <div style={{ width: 8, flexShrink: 0 }} />
-      {onWatchTogether && (
+      {compact ? (
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="More actions"
+          onClick={() =>
+            void showModalBottomSheet<void>((close) => (
+              <div style={{ padding: '4px 12px 20px' }}>
+                <SheetDragHandle />
+                {overflowActions!.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    className="bare-button"
+                    onClick={() => {
+                      close(null);
+                      a.onTap();
+                    }}
+                    style={{
+                      width: '100%',
+                      minHeight: 52,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                      padding: '0 8px',
+                      borderBottom: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <Icon name={a.icon} size={19} color={T.textSecondary} />
+                    <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 600 })}>{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))
+          }
+          style={{
+            width: 44,
+            height: 44,
+            flexShrink: 0,
+            boxSizing: 'border-box',
+            borderRadius: T.radiusLg,
+            border: `1px solid ${T.borderStrong}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="more_horiz" size={20} color={T.textPrimary} />
+        </button>
+      ) : (
         <>
-          <PillButton
-            icon="favorite"
-            iconSize={14}
-            iconColor={AppColors.roseQuartz}
-            label="Watch Together"
-            onTap={onWatchTogether}
-            background={withAlpha(AppColors.deepRose, 0.16)}
-            border={withAlpha(AppColors.deepRose, 0.55)}
-          />
+          {onTrailer && (
+            <PillButton
+              icon="play_circle_outline"
+              iconSize={15}
+              iconColor={T.textPrimary}
+              label="Trailer"
+              onTap={onTrailer}
+              background={white(0.06)}
+              border={T.border}
+            />
+          )}
           <div style={{ width: 8, flexShrink: 0 }} />
+          <SquareButton icon="bookmark_add_outlined" label="Save to playlist" onTap={onBookmark} />
+          <div style={{ width: 8, flexShrink: 0 }} />
+          {onWatchTogether && (
+            <>
+              <PillButton
+                icon="favorite"
+                iconSize={14}
+                iconColor={AppColors.roseQuartz}
+                label="Watch Together"
+                onTap={onWatchTogether}
+                background={withAlpha(AppColors.deepRose, 0.16)}
+                border={withAlpha(AppColors.deepRose, 0.55)}
+              />
+              <div style={{ width: 8, flexShrink: 0 }} />
+            </>
+          )}
+          <SquareButton icon="ios_share" label="Share" onTap={onShare} />
         </>
       )}
-      <SquareButton icon="ios_share" label="Share" onTap={onShare} />
     </div>
   );
 }
@@ -1279,41 +1499,6 @@ function ServerChip({
   );
 }
 
-function AudioToggle({ audio, onChanged }: { audio: string; onChanged: (a: string) => void }) {
-  return (
-    <div
-      style={{ padding: 2, background: white(0.06), borderRadius: T.radiusMd, border: `1px solid ${T.border}`, display: 'flex' }}
-    >
-      {['sub', 'dub'].map((a) => (
-        <button
-          key={a}
-          type="button"
-          className="bare-button"
-          onClick={() => onChanged(a)}
-          style={{
-            padding: '6px 14px',
-            background: audio === a ? T.accent : 'transparent',
-            borderRadius: T.radiusSm,
-            display: 'flex',
-            transition: 'background-color 120ms',
-          }}
-        >
-          <span
-            style={dmSansStyle({
-              size: 11.5,
-              color: audio === a ? '#FFFFFF' : T.textSecondary,
-              weight: 700,
-              letterSpacing: 0.05,
-            })}
-          >
-            {a === 'sub' ? 'SUB' : 'DUB'}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function PrefToggle({ label, value, onChanged }: { label: string; value: boolean; onChanged: (v: boolean) => void }) {
   return (
     <button
@@ -1336,8 +1521,45 @@ function PrefToggle({ label, value, onChanged }: { label: string; value: boolean
     >
       <Icon name={value ? 'check' : 'remove'} size={13} color={value ? T.accentWarm : T.textSecondary} />
       <div style={{ width: 6 }} />
-      <span style={dmSansStyle({ size: 12, color: value ? T.accentWarm : T.textSecondary, weight: 600 })}>{label}</span>
+      <span
+        style={{
+          ...dmSansStyle({ size: 12, color: value ? T.accentWarm : T.textSecondary, weight: 600 }),
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </span>
     </button>
+  );
+}
+
+/** "Next episode in 2d 4h" — the one next-air fact Anikura puts on this page. */
+function nextAiringChip(detail: AniListDetail, now: number) {
+  if (detail.airingStatus && !/RELEASING|AIRING/i.test(detail.airingStatus)) return null;
+  if (!detail.nextAiringAt || !detail.nextAiringEpisode) return null;
+  const ms = detail.nextAiringAt * 1000 - now;
+  if (ms <= 0) return null;
+  const mins = Math.floor(ms / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const left = days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${mins % 60}m` : `${mins}m`;
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 10px',
+        borderRadius: T.radiusPill ?? 999,
+        background: withAlpha(T.accent, 0.16),
+        border: `1px solid ${withAlpha(T.accent, 0.4)}`,
+      }}
+    >
+      <Icon name="schedule" size={13} color={T.accentText} />
+      <span style={dmSansStyle({ size: 11.5, color: T.accentText, weight: 700 })}>
+        Episode {detail.nextAiringEpisode} in {left}
+      </span>
+    </div>
   );
 }
 

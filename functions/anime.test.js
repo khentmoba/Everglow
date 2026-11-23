@@ -83,9 +83,12 @@ test('validateAnimeParams rejects unknown sources', () => {
 });
 
 
-test('failHtml always carries the app failover marker', () => {
+test('failHtml keeps the failover marker hidden and shows one sentence', () => {
   const html = failHtml('Episode unavailable', 'No stream found');
   assert.ok(html.includes(NO_SOURCE_MARKER));
+  assert.ok(html.includes('display:none'));
+  // The marker must not become a third visible paragraph aimed at the user.
+  assert.ok(!html.includes(NO_SOURCE_MARKER + ' — try another server'));
 });
 
 test('hlsPlayerHtml escapes titles and includes subs', () => {
