@@ -117,25 +117,46 @@ export function resolveLibraryStatus(bm: KatanaBookmark): KatanaLibraryStatus {
 
 export function extractChapterNumber(raw?: string): number {
   if (!raw) return 0;
+  // Prefer explicit chapter token (Ch. 12.5, Chapter 42, c108) before falling back to first number.
+  const explicit = /(?:ch(?:apter|\.)?\s*|c)(\d+(?:\.\d+)?)/i.exec(raw);
+  if (explicit) return Number.parseFloat(explicit[1]) || 0;
   const m = /(\d+(?:\.\d+)?)/.exec(raw);
   return m ? Number.parseFloat(m[1]) || 0 : 0;
 }
 
-export function estimateUnreadCount(bm: KatanaBookmark, knownLatestNum?: number): number {
+export function estimateUnreadCount(
+  bm: KatanaBookmark,
+  knownLatestNum?: number,
+  knownChapters?: KatanaChapter[],
+): number {
   const status = resolveLibraryStatus(bm);
   if (status === 'completed' || status === 'dropped') return 0;
+  if (knownChapters && knownChapters.length > 0) {
+    const readSet = new Set(bm.readChapterIds);
+    if (bm.lastReadChapterId) readSet.add(bm.lastReadChapterId);
+    return knownChapters.reduce((acc, c) => acc + (readSet.has(c.id) ? 0 : 1), 0);
+  }
   const latestNum = knownLatestNum ?? extractChapterNumber(bm.latestChapterTitle);
   const readNum =
     extractChapterNumber(bm.lastReadChapterTitle) ||
     extractChapterNumber(katanaChapterNumFromId(bm.lastReadChapterId));
   if (latestNum <= 0) return 0;
-  if (readNum <= 0) return Math.floor(latestNum);
-  return Math.max(0, Math.floor(latestNum - readNum));
+  if (readNum <= 0) return Math.max(1, Math.ceil(latestNum));
+  const diff = latestNum - readNum;
+  if (diff <= 0.001) return 0;
+  return Math.max(1, Math.ceil(diff - 0.001));
 }
 
-export function isBookmarkCaughtUp(bm: KatanaBookmark, knownLatestNum?: number): boolean {
+export function isBookmarkCaughtUp(
+  bm: KatanaBookmark,
+  knownLatestNum?: number,
+  knownChapters?: KatanaChapter[],
+): boolean {
   const status = resolveLibraryStatus(bm);
   if (status !== 'reading' || !bm.lastReadChapterId) return false;
+  if (knownChapters && knownChapters.length > 0) {
+    return estimateUnreadCount(bm, knownLatestNum, knownChapters) === 0;
+  }
   const latestNum = knownLatestNum ?? extractChapterNumber(bm.latestChapterTitle);
   if (latestNum <= 0) return false;
   return estimateUnreadCount(bm, latestNum) === 0;
@@ -165,6 +186,8 @@ export interface KatanaHomeData {
   genres: KatanaGenre[];
   error?: string;
   fromCache?: boolean;
+  fetchedAt?: number;
+  sourceLabel?: string;
 }
 
 export function katanaChapterNumFromId(id: string): string {
@@ -463,7 +486,7 @@ export function getRecentMangaSearches(): string[] {
   }
 }
 
-export function pushRecentMangaSearch(q: string): string[] {
+export function pushRecentMangaSearch(q: string, userName?: string): string[] {
   const trimmed = q.trim();
   if (!trimmed) return getRecentMangaSearches();
   const next = [trimmed, ...getRecentMangaSearches().filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
@@ -472,25 +495,28 @@ export function pushRecentMangaSearch(q: string): string[] {
   } catch {
     // ignore storage quota
   }
+  if (userName) saveKatanaRecentSearches(userName, next);
   return next;
 }
 
-export function removeRecentMangaSearch(q: string): string[] {
+export function removeRecentMangaSearch(q: string, userName?: string): string[] {
   const next = getRecentMangaSearches().filter((s) => s.toLowerCase() !== q.toLowerCase());
   try {
     localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
   } catch {
     // ignore
   }
+  if (userName) saveKatanaRecentSearches(userName, next);
   return next;
 }
 
-export function clearRecentMangaSearches(): void {
+export function clearRecentMangaSearches(userName?: string): void {
   try {
     localStorage.removeItem(RECENT_SEARCH_KEY);
   } catch {
     // ignore
   }
+  if (userName) saveKatanaRecentSearches(userName, []);
 }
 
 function saveHomeCache(data: KatanaHomeData): void {
@@ -525,6 +551,8 @@ function loadHomeCache(): KatanaHomeData | null {
       hot: (parsed.data.hot ?? []).map(reviveManga),
       genres: parsed.data.genres ?? [],
       fromCache: true,
+      fetchedAt: parsed.savedAt ?? parsed.data.fetchedAt,
+      sourceLabel: 'MangaKatana (cached)',
     };
   } catch {
     return null;
@@ -767,6 +795,8 @@ export async function fetchKatanaHome(): Promise<KatanaHomeData> {
         latest: catalog,
         hot: [...catalog].sort((a, b) => b.chapters.length - a.chapters.length),
         genres: buildDemoGenres(),
+        fetchedAt: Date.now(),
+        sourceLabel: 'MangaKatana',
       };
     }
     const cached = loadHomeCache();
@@ -786,6 +816,8 @@ export async function fetchKatanaHome(): Promise<KatanaHomeData> {
     latest,
     hot,
     genres: parseGenres(html),
+    fetchedAt: Date.now(),
+    sourceLabel: 'MangaKatana',
   };
   saveHomeCache(result);
   return result;
@@ -924,6 +956,40 @@ export async function fetchKatanaCatalog(opts: {
       else if (opts.orderBy === 'popular') demo.sort((a, b) => (b.follows ?? 0) - (a.follows ?? 0));
       const filtered = applyClientFilters(demo);
       return { items: filtered, page, hasNext: false, hasPrev: page > 1, totalPages: 1, totalResults: filtered.length };
+    }
+    const cached = loadHomeCache();
+    if (cached) {
+      const seen = new Set<string>();
+      let pool: KatanaManga[] = [];
+      for (const m of [...cached.latest, ...cached.hot, ...cached.hotUpdates]) {
+        if (!seen.has(m.slug)) {
+          seen.add(m.slug);
+          pool.push(m);
+        }
+      }
+      if (opts.mode === 'genre' && opts.key) {
+        pool = pool.filter((m) => m.genres.some((g) => g.slug === opts.key));
+      }
+      if (opts.mode === 'search' && opts.query) {
+        const q = opts.query.trim().toLowerCase();
+        pool = pool.filter((m) =>
+          opts.searchBy === 'author'
+            ? m.authors.some((a) => a.toLowerCase().includes(q))
+            : m.title.toLowerCase().includes(q) || m.altNames.some((a) => a.toLowerCase().includes(q)),
+        );
+      }
+      const filtered = applyClientFilters(pool);
+      if (filtered.length > 0) {
+        return {
+          items: filtered,
+          page: 1,
+          hasNext: false,
+          hasPrev: false,
+          totalPages: 1,
+          totalResults: filtered.length,
+          error: 'Live catalog unavailable — showing matching titles from your cached catalog.',
+        };
+      }
     }
     return { items: [], page, hasNext: false, hasPrev: page > 1, error: 'Could not load catalog right now.' };
   }
@@ -1525,6 +1591,54 @@ export function watchKatanaCustomCategories(userName: string): Source<string[]> 
       },
     ),
     { label: `katana-categories-${userName}` },
+  );
+}
+
+export function saveKatanaRecentSearches(userName: string, searches: string[]): void {
+  const clean = searches.map((s) => s.trim()).filter(Boolean).slice(0, 8);
+  try {
+    localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(clean));
+  } catch {
+    // ignore storage quota
+  }
+  if (!userName || AgentMode.demo) return;
+  setDoc(
+    doc(db, 'katana_bookmarks', `${userName}${CATEGORIES_META_SUFFIX}`),
+    {
+      kind: 'categories_meta',
+      userName,
+      recentSearches: clean,
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true },
+  ).catch((err) => Logger.e('KatanaService: saveKatanaRecentSearches failed', err));
+}
+
+export function watchKatanaRecentSearches(userName: string): Source<string[]> {
+  if (!userName || AgentMode.demo) {
+    return (l) => {
+      queueMicrotask(() => l.data(getRecentMangaSearches()));
+      return () => {};
+    };
+  }
+  const ref = doc(db, 'katana_bookmarks', `${userName}${CATEGORIES_META_SUFFIX}`);
+  return withFirestoreTimeout(
+    snapshots(
+      (next: (s: DocumentSnapshot<DocumentData>) => void, error) => onSnapshot(ref, next, error),
+      (snap): string[] => {
+        if (!snap.exists()) return getRecentMangaSearches();
+        const data = snap.data();
+        if (!Array.isArray(data?.recentSearches)) return getRecentMangaSearches();
+        const clean = data.recentSearches.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 8);
+        try {
+          localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(clean));
+        } catch {
+          // ignore
+        }
+        return clean;
+      },
+    ),
+    { label: `katana-recent-searches-${userName}` },
   );
 }
 

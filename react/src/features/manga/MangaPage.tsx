@@ -68,6 +68,7 @@ import {
   setKatanaLibraryStatus,
   watchKatanaBookmarks,
   watchKatanaCustomCategories,
+  watchKatanaRecentSearches,
   type KatanaBookmark,
   type KatanaChapter,
   type KatanaGenre,
@@ -332,6 +333,7 @@ export function MangaPage() {
 
   const userName = currentUser ?? '';
   const syncedCategories = useSource(() => watchKatanaCustomCategories(userName), [userName], localCategories);
+  const syncedRecentSearches = useSource(() => watchKatanaRecentSearches(userName), [userName], []);
   useEffect(() => {
     setLocalCategories(loadKatanaCustomCategories(userName));
     setHiddenCategories(loadKatanaHiddenCategories(userName));
@@ -376,6 +378,24 @@ export function MangaPage() {
       prevFocused?.focus?.();
     };
   }, [filterOpen]);
+
+  useEffect(() => {
+    if (!statusMenuOpen && !detailOverflowOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setStatusMenuOpen(false);
+        setDetailOverflowOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [statusMenuOpen, detailOverflowOpen]);
+
+  const selectThemeMode = (next: KatanaThemeMode) => {
+    setThemeMode(next);
+    saveKatanaThemeMode(next);
+    showSnackBar(`Theme: ${next === 'dark' ? 'Dark (Obsidian)' : next === 'light' ? 'Light (Daylight)' : 'Sepia (Warm Paper)'}`);
+  };
 
   const cycleThemeMode = () => {
     setThemeMode((prev) => {
@@ -1421,7 +1441,9 @@ export function MangaPage() {
         showBack={isCoupleUser}
         genres={homeData?.genres ?? []}
         themeMode={themeMode}
+        syncedRecentSearches={syncedRecentSearches}
         onCycleTheme={cycleThemeMode}
+        onSelectTheme={selectThemeMode}
         onBack={() => navigate('/dashboard')}
         onSelectNav={handleNav}
         onSubmitSearch={(q, by) => {
@@ -1835,7 +1857,7 @@ export function MangaPage() {
                                     )}
                                   </div>
                                 )}
-                                {!compactCard && detail.chapters.length > 0 && (
+                                {detail.chapters.length > 0 && (
                                   <button
                                     type="button"
                                     className="bare-button"
@@ -1844,8 +1866,9 @@ export function MangaPage() {
                                     disabled={batchProgress != null}
                                     onClick={() => void downloadNextUnread(detail, readSet, 3)}
                                     style={{
-                                      height: 38,
-                                      padding: '0 12px',
+                                      height: compactCard ? 44 : 38,
+                                      minWidth: compactCard ? 44 : undefined,
+                                      padding: compactCard ? '0 10px' : '0 12px',
                                       borderRadius: 8,
                                       background: KatanaColors.surfaceAlt,
                                       border: `1px solid ${KatanaColors.borderStrong}`,
@@ -1861,7 +1884,9 @@ export function MangaPage() {
                                     }}
                                   >
                                     <Icon name="download" size={16} color={KatanaColors.link} />
-                                    <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
+                                    {!compactCard && (
+                                      <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
+                                    )}
                                   </button>
                                 )}
                                 {!compactCard && userName && (
@@ -2833,6 +2858,26 @@ export function MangaPage() {
                                             NEW
                                           </span>
                                         )}
+                                        {isDownloading && (
+                                          <span
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: 4,
+                                              padding: '1px 6px',
+                                              borderRadius: 4,
+                                              background: withAlpha(KatanaColors.accent, 0.2),
+                                              color: KatanaColors.accentSoft,
+                                              fontFamily: Fonts.body,
+                                              fontSize: 10,
+                                              fontWeight: 800,
+                                              flexShrink: 0,
+                                            }}
+                                          >
+                                            <Icon name="hourglass_top" size={11} color={KatanaColors.accent} />
+                                            SAVING…
+                                          </span>
+                                        )}
                                         {isLastRead && (
                                           <span
                                             style={{
@@ -2944,10 +2989,25 @@ export function MangaPage() {
                                     <button
                                       type="button"
                                       className="bare-button"
-                                      title={isOffline ? 'Saved offline' : 'Download chapter'}
-                                      aria-label={isOffline ? `${chapterDisplayTitle(c)} saved offline` : `Download ${chapterDisplayTitle(c)}`}
+                                      disabled={isDownloading}
+                                      title={isOffline ? 'Saved offline' : isDownloading ? 'Downloading chapter…' : 'Download chapter'}
+                                      aria-label={
+                                        isOffline
+                                          ? `${chapterDisplayTitle(c)} saved offline`
+                                          : isDownloading
+                                            ? `Downloading ${chapterDisplayTitle(c)}`
+                                            : `Download ${chapterDisplayTitle(c)}`
+                                      }
                                       onClick={() => void downloadChapter(detail, c)}
-                                      style={{ width: 40, height: 40, borderRadius: 8, display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                                      style={{
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 8,
+                                        display: 'grid',
+                                        placeItems: 'center',
+                                        flexShrink: 0,
+                                        opacity: isDownloading ? 0.7 : 1,
+                                      }}
                                     >
                                       <Icon
                                         name={isOffline ? 'download_done' : isDownloading ? 'hourglass_top' : 'download'}

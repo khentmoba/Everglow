@@ -252,11 +252,13 @@ function NavItem({
   label,
   icon,
   active,
+  compact = false,
   onClick,
 }: {
   label: string;
   icon: string;
   active: boolean;
+  compact?: boolean;
   onClick: () => void;
 }) {
   const [hover, setHover] = useState(false);
@@ -270,8 +272,8 @@ function NavItem({
       onMouseLeave={() => setHover(false)}
       style={{
         flexShrink: 0,
-        margin: '2px 2px',
-        padding: '8px 12px',
+        margin: compact ? '2px 1px' : '2px 2px',
+        padding: compact ? '7px 8px' : '8px 12px',
         borderRadius: 99,
         background: active ? withAlpha(KatanaColors.accent, 0.14) : hover ? KatanaColors.surfaceAlt : 'transparent',
         boxShadow: active ? `inset 0 0 0 1px ${withAlpha(KatanaColors.accent, 0.45)}` : undefined,
@@ -279,11 +281,11 @@ function NavItem({
         transition: 'background 160ms ease',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Icon name={icon} size={15} color={highlight ? KatanaColors.accentSoft : KatanaColors.textLight} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 4 : 6 }}>
+        <Icon name={icon} size={compact ? 14 : 15} color={highlight ? KatanaColors.accentSoft : KatanaColors.textLight} />
         <span
           style={{
-            ...bodyText(13, active ? 700 : 600, highlight ? KatanaColors.text : KatanaColors.textMuted, 1.2),
+            ...bodyText(compact ? 12 : 13, active ? 700 : 600, highlight ? KatanaColors.text : KatanaColors.textMuted, 1.2),
             whiteSpace: 'nowrap',
           }}
         >
@@ -298,12 +300,14 @@ function GenresDropdown({
   genres,
   active,
   iconOnly = false,
+  compact = false,
   onSelectGenre,
   onOpenGenresPage,
 }: {
   genres: KatanaGenre[];
   active: boolean;
   iconOnly?: boolean;
+  compact?: boolean;
   onSelectGenre: (genre: KatanaGenre) => void;
   onOpenGenresPage: () => void;
 }) {
@@ -377,6 +381,7 @@ function GenresDropdown({
           label="Genres"
           icon="local_offer"
           active={active}
+          compact={compact}
           onClick={() => {
             if (genres.length === 0) {
               setOpen(false);
@@ -459,7 +464,9 @@ export function KatanaHeader({
   showBack = true,
   genres = [],
   themeMode = 'dark',
+  syncedRecentSearches,
   onCycleTheme,
+  onSelectTheme,
   onBack,
   onSelectNav,
   onSubmitSearch,
@@ -472,7 +479,9 @@ export function KatanaHeader({
   showBack?: boolean;
   genres?: KatanaGenre[];
   themeMode?: KatanaThemeMode;
+  syncedRecentSearches?: string[];
   onCycleTheme?: () => void;
+  onSelectTheme?: (mode: KatanaThemeMode) => void;
   onBack: () => void;
   onSelectNav: (nav: KatanaNavKey) => void;
   onSubmitSearch: (q: string, searchBy: 'm_name' | 'author') => void;
@@ -486,10 +495,34 @@ export function KatanaHeader({
   const [searched, setSearched] = useState(false);
   const [focused, setFocused] = useState(false);
   const [phoneSearchOpen, setPhoneSearchOpen] = useState(false);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentMangaSearches());
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (syncedRecentSearches && syncedRecentSearches.length > 0) {
+      setRecentSearches(syncedRecentSearches);
+    }
+  }, [syncedRecentSearches]);
+
+  useEffect(() => {
+    if (!themeMenuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!themeMenuRef.current?.contains(e.target as Node | null)) setThemeMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setThemeMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [themeMenuOpen]);
 
   const phoneCompact = width < KATANA_BREAKPOINTS.tablet;
   const tabletOrDesktop = width >= KATANA_BREAKPOINTS.tablet;
@@ -531,7 +564,7 @@ export function KatanaHeader({
   const submit = (override?: string) => {
     const q = (override ?? queryText).trim();
     if (q.length < 2) return;
-    setRecentSearches(pushRecentMangaSearch(q));
+    setRecentSearches(pushRecentMangaSearch(q, userName));
     setSuggestions([]);
     setSearched(false);
     setFocused(false);
@@ -613,6 +646,11 @@ export function KatanaHeader({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
         <input
           ref={searchInputRef}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={focused && queryText.trim().length >= 2 && (searching || searched)}
+          aria-controls="katana-search-listbox"
+          aria-activedescendant={highlightIdx >= 0 && suggestions[highlightIdx] ? `katana-suggestion-${highlightIdx}` : undefined}
           value={queryText}
           onFocus={() => setFocused(true)}
           onChange={(e) => setQueryText(e.target.value)}
@@ -709,30 +747,99 @@ export function KatanaHeader({
         ? { icon: 'auto_stories', label: 'Sepia' }
         : { icon: 'dark_mode', label: 'Dark' };
 
-  const themeButton = onCycleTheme ? (
-    <button
-      type="button"
-      className="bare-button"
-      onClick={onCycleTheme}
-      title={`Theme: ${themeMeta.label} (tap to switch Dark / Light / Sepia)`}
-      aria-label={`Switch theme (current: ${themeMeta.label})`}
-      style={{
-        height: desktop ? 36 : 44,
-        minWidth: desktop ? 36 : 44,
-        padding: desktop ? '0 10px' : '0 9px',
-        borderRadius: 10,
-        background: KatanaColors.surfaceAlt,
-        border: `1px solid ${KatanaColors.borderStrong}`,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 5,
-        flexShrink: 0,
-      }}
-    >
-      <Icon name={themeMeta.icon} size={17} color={KatanaColors.accentSoft} />
-      {desktop && <span style={bodyText(12, 600, KatanaColors.textMuted, 1)}>{themeMeta.label}</span>}
-    </button>
+  const themeOptions: Array<{ id: KatanaThemeMode; icon: string; label: string }> = [
+    { id: 'dark', icon: 'dark_mode', label: 'Dark' },
+    { id: 'sepia', icon: 'auto_stories', label: 'Sepia' },
+    { id: 'light', icon: 'light_mode', label: 'Light' },
+  ];
+
+  const themeButton = onSelectTheme || onCycleTheme ? (
+    <div ref={themeMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        className="bare-button"
+        onClick={() => {
+          if (onSelectTheme) {
+            setThemeMenuOpen((o) => !o);
+          } else {
+            onCycleTheme?.();
+          }
+        }}
+        title={`Theme: ${themeMeta.label}`}
+        aria-label={`Choose theme (current: ${themeMeta.label})`}
+        aria-haspopup={onSelectTheme ? 'menu' : undefined}
+        aria-expanded={onSelectTheme ? themeMenuOpen : undefined}
+        style={{
+          height: desktop ? 36 : 40,
+          minWidth: desktop ? 36 : 40,
+          padding: desktop ? '0 10px' : '0 8px',
+          borderRadius: 10,
+          background: themeMenuOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+          border: `1px solid ${themeMenuOpen ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 5,
+          flexShrink: 0,
+        }}
+      >
+        <Icon name={themeMeta.icon} size={17} color={KatanaColors.accentSoft} />
+        {desktop && <span style={bodyText(12, 600, KatanaColors.textMuted, 1)}>{themeMeta.label}</span>}
+      </button>
+      {themeMenuOpen && onSelectTheme && (
+        <div
+          role="menu"
+          aria-label="Theme options"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 'calc(100% + 6px)',
+            minWidth: 138,
+            padding: 6,
+            borderRadius: 11,
+            background: KatanaColors.surface,
+            border: `1px solid ${KatanaColors.borderStrong}`,
+            boxShadow: '0 12px 28px rgba(0,0,0,0.5)',
+            zIndex: 60,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          {themeOptions.map((opt) => {
+            const activeOpt = themeMode === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={activeOpt}
+                className="bare-button"
+                onClick={() => {
+                  onSelectTheme(opt.id);
+                  setThemeMenuOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: activeOpt ? KatanaColors.chipSelectedBg : 'transparent',
+                  textAlign: 'left',
+                }}
+              >
+                <Icon name={opt.icon} size={16} color={activeOpt ? KatanaColors.accent : KatanaColors.textMuted} />
+                <span style={{ ...bodyText(12.5, activeOpt ? 700 : 600, activeOpt ? KatanaColors.text : KatanaColors.textMuted, 1.2), flex: 1 }}>
+                  {opt.label}
+                </span>
+                {activeOpt && <Icon name="check" size={15} color={KatanaColors.accent} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   ) : null;
 
   const desktopLibraryButton = (
@@ -756,7 +863,7 @@ export function KatanaHeader({
   );
 
   const nav = (key: KatanaNavKey, label: string, icon: string) => (
-    <NavItem key={key} label={label} icon={icon} active={active === key} onClick={() => onSelectNav(key)} />
+    <NavItem key={key} label={label} icon={icon} active={active === key} compact={!desktop} onClick={() => onSelectNav(key)} />
   );
 
   const showRecentDropdown = focused && queryText.trim().length < 2 && (recentSearches.length > 0 || genres.length > 0);
@@ -846,6 +953,7 @@ export function KatanaHeader({
             <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>{searchField}</div>
             {themeButton}
             {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
+            {desktopLibraryButton}
           </div>
         </div>
       )}
@@ -861,7 +969,7 @@ export function KatanaHeader({
                     type="button"
                     className="bare-button"
                     onClick={() => {
-                      clearRecentMangaSearches();
+                      clearRecentMangaSearches(userName);
                       setRecentSearches([]);
                     }}
                     style={{ ...KatanaType.small, color: KatanaColors.textLight }}
@@ -901,7 +1009,7 @@ export function KatanaHeader({
                         type="button"
                         className="bare-button"
                         aria-label={`Remove ${q} from recent searches`}
-                        onClick={() => setRecentSearches(removeRecentMangaSearch(q))}
+                        onClick={() => setRecentSearches(removeRecentMangaSearch(q, userName))}
                         style={{
                           width: 24,
                           height: 24,
@@ -969,10 +1077,11 @@ export function KatanaHeader({
             ) : suggestions.length === 0 ? (
               <div style={{ padding: 14, ...KatanaType.small }}>No matches found for “{queryText.trim()}”.</div>
             ) : (
-              <div role="listbox" aria-label="Search suggestions">
+              <div id="katana-search-listbox" role="listbox" aria-label="Search suggestions">
                 {suggestions.map((it, idx) => (
                   <button
                     key={it.slug}
+                    id={`katana-suggestion-${idx}`}
                     type="button"
                     role="option"
                     aria-selected={idx === highlightIdx}
@@ -1043,13 +1152,13 @@ export function KatanaHeader({
             <GenresDropdown
               genres={genres}
               active={active === 'genres'}
+              compact={!desktop}
               onSelectGenre={onSelectGenre}
               onOpenGenresPage={() => onSelectNav('genres')}
             />
             {nav('reading', desktop ? 'Currently Reading' : 'Reading', 'auto_stories')}
             {nav('history', 'History', 'history')}
             {nav('downloads', 'Downloads', 'download_done')}
-            {!desktop && nav('bookmarks', 'Library', 'bookmarks')}
           </div>
         </div>
       )}

@@ -23,6 +23,7 @@ import {
   chapterDisplayTitle,
   estimateUnreadCount,
   extractChapterNumber,
+  formatKatanaTime,
   formatCompactNumber,
   getPreferredMangaGenres,
   proxyKatanaImageUrl,
@@ -149,8 +150,8 @@ function FeaturedHero({
         marginBottom: 14,
       }}
     >
-      {/* Cover-derived atmospheric backdrop (blur gated behind motion preference) */}
-      {backdropUrl && allowBlur ? (
+      {/* Cover-derived atmospheric backdrop (blur disabled on phone & low-end/reduced-motion devices) */}
+      {backdropUrl && !compact && allowBlur ? (
         <img
           src={backdropUrl}
           alt=""
@@ -337,22 +338,34 @@ function FeaturedHero({
               onClick={() => onSelectManga(featured.slug)}
             />
             {!desktop && candidates.length > 1 && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginLeft: 4 }}>
                 {candidates.map((c, i) => (
                   <button
                     key={c.slug}
                     type="button"
                     className="bare-button"
                     aria-label={`Show featured title ${i + 1}: ${c.title}`}
+                    aria-pressed={i === index}
                     onClick={() => setIndex(i)}
                     style={{
-                      width: i === index ? 20 : 7,
-                      height: 7,
-                      borderRadius: 99,
-                      background: i === index ? KatanaColors.accent : KatanaColors.borderStrong,
-                      transition: 'width 180ms ease, background 180ms ease',
+                      minWidth: 24,
+                      minHeight: 24,
+                      padding: 0,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
-                  />
+                  >
+                    <span
+                      style={{
+                        width: i === index ? 20 : 7,
+                        height: 7,
+                        borderRadius: 99,
+                        background: i === index ? KatanaColors.accent : KatanaColors.borderStrong,
+                        transition: 'width 180ms ease, background 180ms ease',
+                      }}
+                    />
+                  </button>
                 ))}
               </div>
             )}
@@ -649,11 +662,14 @@ function ReleaseScheduleRail({
   const activeItems = byDay[selectedDay] ?? [];
 
   return (
-    <section aria-label="Release schedule" style={{ marginTop: 22 }}>
+    <section aria-label="Recent update schedule" style={{ marginTop: 22 }}>
       <KatanaSectionHeader
-        title="Release Schedule"
+        title="Update Schedule"
         badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
       />
+      <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
+        Grouped by each series’ most recent catalog update day.
+      </div>
       <div style={{ height: 10 }} />
       <div
         className="no-scrollbar"
@@ -1370,30 +1386,28 @@ export function MangaHome({
   const showTasteOnboarding = !tasteOnboardDismissed && tasteGenres.length === 0 && type === 'all' && data.genres.length > 0;
 
   const tasteOnboardingBanner = showTasteOnboarding ? (
-    <KatanaCard padding={14} radius={12} style={{ marginTop: 14, borderColor: withAlpha(KatanaColors.accent, 0.35) }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="auto_awesome" size={18} color={KatanaColors.accent} />
-          <div>
-            <div style={{ fontFamily: Fonts.body, fontSize: 14.5, fontWeight: 700, color: KatanaColors.text }}>
-              Tailor your Manga Celestia feed
-            </div>
-            <div style={{ ...KatanaType.small, fontSize: 12.5 }}>
-              Pick a few genres you love — Picked for You updates instantly.
-            </div>
-          </div>
+    <KatanaCard padding={compact ? 10 : 12} radius={12} style={{ marginTop: 12, borderColor: withAlpha(KatanaColors.accent, 0.35) }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+          <Icon name="auto_awesome" size={16} color={KatanaColors.accent} />
+          <span style={{ fontFamily: Fonts.body, fontSize: 13.5, fontWeight: 700, color: KatanaColors.text }}>
+            Pick a genre to personalize your feed
+          </span>
         </div>
         <button
           type="button"
           className="bare-button"
           onClick={dismissTasteOnboarding}
-          style={{ ...KatanaType.small, padding: '6px 10px', minHeight: compact ? 40 : 32 }}
+          style={{ ...KatanaType.small, padding: '4px 8px', minHeight: compact ? 36 : 28, flexShrink: 0 }}
         >
           Skip
         </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
-        {data.genres.slice(0, 10).map((g) => {
+      <div
+        className="no-scrollbar"
+        style={{ display: 'flex', flexWrap: compact ? 'nowrap' : 'wrap', overflowX: compact ? 'auto' : 'visible', gap: 6, marginTop: 8, paddingBottom: 2 }}
+      >
+        {data.genres.slice(0, 8).map((g) => {
           const picked = tasteGenres.includes(g.slug);
           return (
             <button
@@ -1406,15 +1420,17 @@ export function MangaHome({
                 dismissTasteOnboarding();
               }}
               style={{
-                minHeight: compact ? 40 : 32,
-                padding: '6px 12px',
+                minHeight: compact ? 36 : 30,
+                padding: '5px 11px',
                 borderRadius: 99,
+                flexShrink: 0,
                 background: picked ? KatanaColors.accent : KatanaColors.surfaceAlt,
                 border: `1px solid ${picked ? KatanaColors.accent : KatanaColors.borderStrong}`,
                 fontFamily: Fonts.body,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: 600,
                 color: picked ? KatanaColors.accentInk : KatanaColors.text,
+                whiteSpace: 'nowrap',
               }}
             >
               + {g.name}
@@ -1445,7 +1461,7 @@ export function MangaHome({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <Icon name="notifications_active" size={18} color={KatanaColors.accent} />
           <span style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>
-            {alertUnreadSeriesCount} alert-watched {alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new unread chapters
+            {alertUnreadSeriesCount} {alertUnreadSeriesCount === 1 ? 'series you follow has' : 'series you follow have'} new unread chapters
           </span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -1488,10 +1504,19 @@ export function MangaHome({
           ? 'My Library Updates'
           : 'Latest Updates';
 
+  const freshnessLabel = data.fetchedAt
+    ? `${data.sourceLabel ?? 'MangaKatana'} · ${data.fromCache ? 'Cached' : 'Updated'} ${formatKatanaTime(new Date(data.fetchedAt))}`
+    : data.sourceLabel;
+
   const feedSection = (
     <section>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <KatanaSectionHeader title={feedTitle} badge={feedTab === 'updates' && libraryUnreadTotal > 0 ? `${libraryUnreadTotal} unread` : undefined} />
+        <div>
+          <KatanaSectionHeader title={feedTitle} badge={feedTab === 'updates' && libraryUnreadTotal > 0 ? `${libraryUnreadTotal} unread` : undefined} />
+          {freshnessLabel && type === 'all' && (
+            <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 2 }}>{freshnessLabel}</div>
+          )}
+        </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {type === 'all' && (
             <div
