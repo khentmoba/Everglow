@@ -233,12 +233,33 @@ export function CinemaPage() {
       progressUpdatedAt: saved.progressUpdatedAt,
     };
   };
+  // Back means back: leave a tab for Home first, then leave Cinema.
+  const handleBack = () => {
+    if (currentTab !== 0 || selectedBrowseId) {
+      handleNavSelect(0);
+      return;
+    }
+    if (isCoupleUser) void navigate('/dashboard');
+    else void navigate('/');
+  };
+
   const handleLogout = async () => {
     await auth.logout();
     navigate('/');
   };
 
   const links = cinemaNavLinks(isCinemaOnlyUser);
+  const inList = (m: MediaItem) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(m));
+  const rankOf = (m: MediaItem) => {
+    const i = topTenToday.findIndex((t) => catalogKeyOf(t) === catalogKeyOf(m));
+    return i >= 0 && i < 10 ? i + 1 : null;
+  };
+  const progressOf = (m: MediaItem) => {
+    const pos = m.currentTimestamp ?? 0;
+    const dur = m.durationSeconds ?? 0;
+    if (pos <= 0 || dur <= 0) return null;
+    return Math.min(1, Math.max(0, pos / dur));
+  };
 
   return (
     <div
@@ -256,6 +277,7 @@ export function CinemaPage() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20 }}>
           <NetflixCinemaTopBar
             currentIndex={currentTab}
+            currentBrowseId={selectedBrowseId}
             links={links}
             scrolled={scrolled}
             userName={userName}
@@ -271,6 +293,19 @@ export function CinemaPage() {
       {!isDesktop && (
         <>
           <div
+            aria-hidden
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: 148,
+              height: 92,
+              zIndex: 24,
+              pointerEvents: 'none',
+              background: 'radial-gradient(130px 96px at 44px 44px, rgba(8,8,8,0.72) 0%, rgba(8,8,8,0.42) 45%, rgba(8,8,8,0) 100%)',
+            }}
+          />
+          <div
             style={{
               position: 'fixed',
               top: 'calc(10px + env(safe-area-inset-top, 0px))',
@@ -281,8 +316,8 @@ export function CinemaPage() {
             <button
               type="button"
               className="bare-button"
-              aria-label={isCoupleUser ? 'Dashboard' : 'Logout'}
-              onClick={isCoupleUser ? () => navigate('/dashboard') : () => void handleLogout()}
+              aria-label={isCoupleUser ? 'Back' : 'Logout'}
+              onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
                 width: 48,
                 height: 48,
@@ -336,7 +371,9 @@ export function CinemaPage() {
             onPlay={(item) => launchPlayer(item)}
             onRestart={(item) => launchPlayer(item, undefined, undefined, { restart: true })}
             onToggleList={(item, add) => void setListMembership(item, userName, add)}
-            isInList={(item) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(item) && w.status.toLowerCase() === 'to-watch')}
+            isInList={inList}
+            rankOf={rankOf}
+            progressOf={progressOf}
             onExploreBrowse={() => handleNavSelect(2)}
           />
         )}
@@ -376,6 +413,7 @@ export function CinemaPage() {
       {!isDesktop && (
         <NetflixBottomNav
           currentIndex={currentTab}
+          currentBrowseId={selectedBrowseId}
           items={cinemaMobileNavItems(isCinemaOnlyUser)}
           onSelect={handleNavSelect}
           onAnimeTap={() => navigate('/anime')}
@@ -416,6 +454,8 @@ function HomeTab({
   onRestart,
   onToggleList,
   isInList,
+  rankOf,
+  progressOf,
   onExploreBrowse,
 }: {
   isDesktop: boolean;
@@ -435,6 +475,8 @@ function HomeTab({
   onRestart: (m: MediaItem) => void;
   onToggleList: (m: MediaItem, add: boolean) => void;
   isInList: (m: MediaItem) => boolean;
+  rankOf: (m: MediaItem) => number | null;
+  progressOf: (m: MediaItem) => number | null;
   onExploreBrowse: () => void;
 }) {
   const emptyCatalogue =
@@ -446,6 +488,7 @@ function HomeTab({
     onRestartItem: onRestart,
     onToggleListItem: onToggleList,
     isInList,
+    progress: progressOf,
   };
 
   return (
@@ -467,6 +510,9 @@ function HomeTab({
           items={trendingGlobal.slice(0, 5)}
           isDesktop={isDesktop}
           viewportHeight={viewportHeight}
+          rankOf={rankOf}
+          inListOf={isInList}
+          onToggleList={onToggleList}
           onPlay={onPlay}
           onInfo={onTapItem}
         />
@@ -475,9 +521,7 @@ function HomeTab({
       {watchingList.length > 0 && (
         <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} {...rowProps} onTapItem={onTapContinue} />
       )}
-      {savedList.length > 0 && (
-        <NetflixRow title="Your picks" items={savedList.slice(0, 10)} {...rowProps} />
-      )}
+      {savedList.length > 0 && <NetflixRow title="My List" items={savedList.slice(0, 10)} {...rowProps} />}
 
       {emptyCatalogue && (
         <div style={{ padding: 'calc(76px + env(safe-area-inset-top, 0px)) 24px 24px', textAlign: 'center' }}>

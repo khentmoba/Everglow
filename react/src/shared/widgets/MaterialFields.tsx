@@ -476,6 +476,7 @@ export function UnderlineTextField({
       )}
       <div
         style={{
+          ...letterSpacing(floating ? 0.4 : 0.5),
           position: 'absolute',
           left,
           top: floating ? 6 : 16,
@@ -486,7 +487,6 @@ export function UnderlineTextField({
           color: accent,
           pointerEvents: 'none',
           transition: 'all 167ms cubic-bezier(0.4, 0, 0.2, 1)',
-          ...letterSpacing(floating ? 0.4 : 0.5),
         }}
       >
         {label}
@@ -497,6 +497,7 @@ export function UnderlineTextField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
+          ...letterSpacing(0.5),
           position: 'absolute',
           left,
           right: suffix ? 48 : 0,
@@ -510,7 +511,6 @@ export function UnderlineTextField({
           lineHeight: '24px',
           color: M3Scheme.onSurface,
           caretColor: AppColors.deepRose,
-          ...letterSpacing(0.5),
         }}
       />
       {suffix && <div style={{ position: 'absolute', right: 0, top: 4 }}>{suffix}</div>}

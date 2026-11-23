@@ -319,7 +319,7 @@ function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & Row
       </div>
       <div style={{ width: 10 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...ellipsis, ...text(13, NetflixColors.textPrimary, 600) }}>
+        <div className="clamp-2" style={text(13, NetflixColors.textPrimary, 600)}>
           {item.subtitle || `Episode ${item.episode ?? 1}`}
         </div>
         <div style={{ height: 2 }} />
@@ -336,7 +336,7 @@ function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & Row
           </>
         )}
       </div>
-      <IconButton icon="play_arrow" size={22} color={NetflixColors.textPrimary} label="Play" onPressed={() => onPlay(item)} />
+      <IconButton icon="play_circle_fill" size={26} color={NetflixColors.accent} label="Play" onPressed={() => onPlay(item)} />
       <IconButton
         icon="delete_outline"
         size={20}

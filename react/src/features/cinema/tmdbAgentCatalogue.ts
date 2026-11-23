@@ -214,10 +214,13 @@ export function agentTmdbResponse(urlStr: string): Record<string, unknown> | nul
     return true;
   }).map((r) => (langJa ? { ...r, original_language: 'ja', genre_ids: [16] } : r));
 
+  const language = url.searchParams.get('with_original_language');
+  const spoken = language ? filtered.filter((r) => r.original_language === language) : filtered;
+
   return {
     page,
     total_pages: 1,
-    total_results: filtered.length,
-    results: page === 1 ? filtered : [],
+    total_results: spoken.length,
+    results: page === 1 ? spoken : [],
   };
 }

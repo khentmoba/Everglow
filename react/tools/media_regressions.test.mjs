@@ -169,8 +169,8 @@ test('Cinema & Anime: hover details appear and Anime Continue Watching excludes 
     const cinemaCard = page.locator('button[aria-label^="Details for "]').first();
     await cinemaCard.hover();
     await page.waitForTimeout(360);
-    const matchVisible = await page.locator('text=/% Match/').first().isVisible();
-    assert.ok(matchVisible, 'expected Cinema hover details popover with % Match on desktop hover');
+    const matchVisible = await page.locator('text=/TMDB [0-9]+[.][0-9]/').first().isVisible();
+    assert.ok(matchVisible, 'expected Cinema hover details popover with the TMDB score on desktop hover');
 
     // Anime Continue Watching excludes watched/finished anime and shows 280x200 landscape cards.
     await page.goto(`${baseUrl}/anime?agent=1&lowend=1`, { waitUntil: 'domcontentloaded' });

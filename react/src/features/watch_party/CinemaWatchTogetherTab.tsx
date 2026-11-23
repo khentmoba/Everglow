@@ -6,6 +6,7 @@ import { boxShadow, linear, lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { showModalBottomSheet } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
+import { cinemaTopInset } from '../cinema/CinemaLibraryTab';
 import { NetflixColors, type MediaItem } from '../cinema/cinemaTypes';
 import { NetflixPosterCard } from '../cinema/NetflixUi';
 import { StartWatchPartyButton, startWatchParty } from './StartWatchParty';
@@ -13,12 +14,6 @@ import { TemporaryChatPanel } from './TemporaryChatPanel';
 import { buildCoupleRoomId } from './temporaryChatService';
 import { SheetFrame, showWatchPartyMediaPicker, type WatchPartyPickerCategory } from './WatchPartyPickerSheets';
 import { useOpenWatchPartyRoom, WatchPartyLobby } from './WatchPartyPage';
-
-/** `cinemaTopContentInset` (no safe-area top on the web). */
-function topInset(width: number, isDesktop: boolean) {
-  if (isDesktop) return 56 + 20;
-  return width < 600 ? 12 : 16;
-}
 
 export function CinemaWatchTogetherTab({
   isDesktop,
@@ -44,7 +39,7 @@ export function CinemaWatchTogetherTab({
 
   return (
     <div>
-      <div style={{ padding: `${topInset(width, isDesktop)}px ${h}px 4px`, display: 'flex', alignItems: 'flex-end' }}>
+      <div style={{ padding: `${cinemaTopInset(width)}px ${h}px 4px`, display: 'flex', alignItems: 'flex-end' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{

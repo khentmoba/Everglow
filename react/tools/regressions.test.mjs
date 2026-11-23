@@ -499,7 +499,7 @@ test('Stale Flutter session stays on Gateway instead of broken Cinema, and Cinem
     assert.equal(bounced.searchParams.get('from'), '/cinema');
 
     await page.goto(`${baseUrl}/cinema?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
-    const backBtn = page.locator('button[aria-label="Dashboard"]');
+    const backBtn = page.locator('button[aria-label="Back"]');
     await backBtn.waitFor({ state: 'visible', timeout: 10_000 });
     const parentStyle = await backBtn.evaluate((el) => el.parentElement?.getAttribute('style') ?? '');
     assert.ok(parentStyle.includes('safe-area-inset-top'), `expected safe-area-inset-top on Cinema mobile back button, got: ${parentStyle}`);

@@ -11,7 +11,7 @@ import { useValue } from '../../core/system/store';
 import { Logger } from '../../core/system/logger';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppSpacing } from '../../core/theme/layout';
-import { Align, boxShadow, insetBorder, lineHeight, linear, mixedLineHeight } from '../../core/theme/paint';
+import { Align, boxShadow, insetBorder, lineHeight, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { TextButton } from '../../shared/widgets/Dialogs';
@@ -442,6 +442,13 @@ export function CinemaEpisodeDrawer({
 
   const inWatchlist = status !== '';
   const liked = status.startsWith('watched');
+  // ✓ means "saved". Only a plain saved title can be un-saved; watching and
+  // watched titles stay in My List, so this never erases progress.
+  const toggleWatchlist = () => {
+    if (status === 'to-watch') updateStatus('');
+    else if (status === '') updateStatus('to-watch');
+    else snack('Kept in My List — your progress stays');
+  };
 
   const shareToDiscord = async (season?: number | null) => {
     if (sharing) return;
@@ -618,7 +625,7 @@ export function CinemaEpisodeDrawer({
         playLabel={hasProgress ? 'Resume' : 'Play'}
         onPlay={isFilm ? playMovie : () => playEpisode(item.currentSeason ?? 1, item.currentEpisode ?? 1)}
         inWatchlist={inWatchlist}
-        onToggleWatchlist={() => updateStatus(inWatchlist ? '' : 'to-watch')}
+        onToggleWatchlist={toggleWatchlist}
         liked={liked}
         onRate={() => updateStatus(liked ? '' : 'watched-self')}
         isUnreleased={isUnreleased}
@@ -660,33 +667,7 @@ export function CinemaEpisodeDrawer({
             Status
           </div>
           <div style={{ height: 8 }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {(isCouple
-              ? ([
-                  ['Want to Watch', 'to-watch', 'bookmark', NetflixColors.accent],
-                  ['Khent Watching', 'watching-khent', 'play_circle_filled', AppColors.cinemaOrange],
-                  ['Clair Watching', 'watching-clair', 'play_circle_filled', NetflixColors.accent],
-                  ['Both Watching', 'watching-both', 'people', AppColors.cinemaAmber],
-                  ['Khent Watched', 'watched-khent', 'person', AppColors.cinemaBlue],
-                  ['Clair Watched', 'watched-clair', 'favorite', NetflixColors.accent],
-                  ['Both Watched', 'watched-both', 'people', AppColors.cinemaGreen],
-                ] as const)
-              : ([
-                  ['Want to Watch', 'to-watch', 'bookmark', NetflixColors.accent],
-                  ['Currently Watching', 'watching-self', 'play_circle_filled', AppColors.cinemaOrange],
-                  ['Watched', 'watched-self', 'check_circle', AppColors.cinemaGreen],
-                ] as const)
-            ).map(([label, value, icon, color]) => (
-              <StatusChip
-                key={value}
-                label={label}
-                icon={icon}
-                activeColor={color}
-                selected={status === value}
-                onTap={() => updateStatus(value)}
-              />
-            ))}
-          </div>
+          <StatusControl status={status} isCouple={isCouple} onChange={updateStatus} />
         </div>
       </div>
       {isCouple && (
@@ -748,7 +729,7 @@ export function CinemaEpisodeDrawer({
             <span
               style={{ ...AppTypography.outfitHeading, fontSize: 14, lineHeight: lineHeight(14), color: NetflixColors.match }}
             >
-              {Math.round(rating * 10)}% Match
+              {`TMDB ${rating.toFixed(1)}`}
             </span>
           )}
           {year && <span style={meta}>{year}</span>}
@@ -939,7 +920,9 @@ function Hero({
   onClose: () => void;
 }) {
   const [imgState, setImgState] = useState<'loading' | 'ok' | 'error'>('loading');
-  const height = isMobile ? 280 : 440;
+  // A short laptop screen must still reach the tabs below the hero.
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 900;
+  const height = isMobile ? 280 : Math.max(320, Math.min(420, Math.round(viewportH * 0.44)));
   const placeholder = (loading: boolean) => (
     <div
       style={{
@@ -1109,20 +1092,28 @@ function Hero({
               {playLabel}
             </span>
           </button>
-          {isUnreleased && <CircleAction icon="notifications_none" tooltip="Remind Me" onTap={onRemindMe} />}
+          {isUnreleased && (
+            <CircleAction icon="notifications_none" tooltip="Remind Me" label="Remind Me" wide={!isMobile} onTap={onRemindMe} />
+          )}
           <CircleAction
             icon={inWatchlist ? 'check' : 'add'}
-            tooltip={inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
+            tooltip={inWatchlist ? 'In My List' : 'Add to My List'}
+            label="My List"
+            wide={!isMobile}
             onTap={onToggleWatchlist}
             activeColor={inWatchlist ? NetflixColors.accent : undefined}
           />
           <CircleAction
             icon={liked ? 'thumb_up_alt' : 'thumb_up_off_alt'}
             tooltip={liked ? 'Rated' : 'Rate'}
+            label="Rate"
+            wide={!isMobile}
             onTap={onRate}
             activeColor={liked ? NetflixColors.accent : undefined}
           />
-          {onShareDiscord && <CircleAction icon="share" tooltip="Share to #watch-party" onTap={onShareDiscord} />}
+          {onShareDiscord && (
+            <CircleAction icon="share" tooltip="Share to #watch-party" label="Share" wide={!isMobile} onTap={onShareDiscord} />
+          )}
           {downloadAction}
         </div>
       </div>
@@ -1135,11 +1126,16 @@ function CircleAction({
   tooltip,
   onTap,
   activeColor,
+  label,
+  wide = false,
 }: {
   icon: string;
   tooltip: string;
   onTap: () => void;
   activeColor?: string;
+  /** Desktop spells the action out beside the icon, like Netflix's labelled pills. */
+  label?: string;
+  wide?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -1148,21 +1144,29 @@ function CircleAction({
         type="button"
         className="bare-button"
         aria-label={tooltip}
+        aria-pressed={activeColor != null}
         onClick={onTap}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
+          minWidth: 44,
+          height: 44,
+          padding: wide && label ? '0 16px' : 0,
+          borderRadius: 22,
           background: hovered ? withAlpha(WHITE, 0.25) : withAlpha('#000000', 0.5),
           ...insetBorder(activeColor ?? (hovered ? WHITE : withAlpha(WHITE, 0.4)), 1.5),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 8,
         }}
       >
         <Icon name={icon} size={20} color={activeColor ?? WHITE} />
+        {wide && label && (
+          <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: activeColor ?? WHITE }}>
+            {label}
+          </span>
+        )}
       </button>
     </Tooltip>
   );
@@ -1182,8 +1186,8 @@ function MovieDownloadAction({ item }: { item: MediaItem }) {
   if (offline.isDownloaded(id)) {
     return (
       <Tooltip message="Downloaded for offline viewing">
-        <div style={{ ...circle, background: withAlpha(NetflixColors.accent, 0.2), ...insetBorder(NetflixColors.accent, 1.5) }}>
-          <Icon name="offline_pin" size={20} color={NetflixColors.accent} />
+        <div style={{ ...circle, background: withAlpha(WHITE, 0.9) }}>
+          <Icon name="offline_pin" size={20} color="#000000" />
         </div>
       </Tooltip>
     );
@@ -1333,6 +1337,90 @@ function AiringCountdown({ at, episode }: { at: number; episode?: number }) {
   );
 }
 
+/** Three intents plus, for a couple, who watched it — instead of seven chips. */
+function StatusControl({
+  status,
+  isCouple,
+  onChange,
+}: {
+  status: string;
+  isCouple: boolean;
+  onChange: (next: string) => void;
+}) {
+  const watching = status.startsWith('watching');
+  const watched = status.startsWith('watched');
+  const intent = status === 'to-watch' ? 'to-watch' : watching ? 'watching' : watched ? 'watched' : '';
+  const who = status.endsWith('-khent')
+    ? 'khent'
+    : status.endsWith('-clair')
+      ? 'clair'
+      : status.endsWith('-both')
+        ? 'both'
+        : '';
+  const applyIntent = (next: 'to-watch' | 'watching' | 'watched') => {
+    if (next === 'to-watch') return onChange(status === 'to-watch' ? '' : 'to-watch');
+    const owner = isCouple ? who || 'both' : 'self';
+    onChange(`${next}-${owner}`);
+  };
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <StatusChip
+          label="Want to Watch"
+          icon=""
+          activeColor={NetflixColors.accent}
+          selected={intent === 'to-watch'}
+          onTap={() => applyIntent('to-watch')}
+        />
+        <StatusChip
+          label="Watching"
+          icon=""
+          activeColor={AppColors.cinemaOrange}
+          selected={intent === 'watching'}
+          onTap={() => applyIntent('watching')}
+        />
+        <StatusChip
+          label="Watched"
+          icon=""
+          activeColor={AppColors.cinemaGreen}
+          selected={intent === 'watched'}
+          onTap={() => applyIntent('watched')}
+        />
+      </div>
+      {isCouple && (intent === 'watching' || intent === 'watched') && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10 }}>
+          <span
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 12.5,
+              lineHeight: lineHeight(12.5),
+              color: NetflixColors.textMuted,
+            }}
+          >
+            Who
+          </span>
+          {(
+            [
+              ['Khent', 'khent'],
+              ['Clair', 'clair'],
+              ['Both', 'both'],
+            ] as const
+          ).map(([label, value]) => (
+            <StatusChip
+              key={value}
+              label={label}
+              icon=""
+              activeColor={intent === 'watched' ? AppColors.cinemaGreen : AppColors.cinemaAmber}
+              selected={who === value}
+              onTap={() => onChange(`${intent}-${value}`)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatusChip({
   label,
   icon,
@@ -1353,17 +1441,20 @@ function StatusChip({
       aria-pressed={selected}
       onClick={onTap}
       style={{
-        padding: '10px 15px',
+        minHeight: 44,
+        padding: icon ? '10px 15px' : '10px 14px',
         borderRadius: 8,
+        boxSizing: 'border-box',
         background: selected ? withAlpha(activeColor, 0.16) : NetflixColors.surfaceElevated,
         border: `1px solid ${selected ? withAlpha(activeColor, 0.75) : NetflixColors.hairline}`,
         transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 7,
       }}
     >
-      <Icon name={icon} size={15} color={selected ? activeColor : NetflixColors.textSecondary} />
+      {icon ? <Icon name={icon} size={15} color={selected ? activeColor : NetflixColors.textSecondary} /> : null}
       <span
         style={{
           ...AppTypography.outfitHeading,
@@ -1411,7 +1502,7 @@ function ExtraTabs({
   onSelect: (i: number) => void;
   isAnimeSourced: boolean;
 }) {
-  const labels = [isAnimeSourced ? 'Voice Cast' : 'Cast', 'Reviews', 'Motchi says… 🐱'];
+  const labels = [isAnimeSourced ? 'Voice Cast' : 'Cast', 'Reviews', 'More Like This'];
   return (
     <div style={{ padding: '30px 20px 12px', display: 'flex', gap: 8 }}>
       {labels.map((label, i) => {
@@ -1433,7 +1524,7 @@ function ExtraTabs({
               transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
               ...AppTypography.outfitHeading,
               fontSize: 12.5,
-              lineHeight: i === 2 ? mixedLineHeight(12.5) : lineHeight(12.5),
+              lineHeight: lineHeight(12.5),
               color: on ? WHITE : NetflixColors.textSecondary,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -1653,7 +1744,7 @@ function SimilarGrid({ similar, loading, onTap }: { similar: MediaItem[]; loadin
 
 function SimilarCard({ item, onTap }: { item: MediaItem; onTap: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const match = item.score != null && item.score > 0 ? Math.round(item.score * 10) : 90 + (item.tmdbId % 9);
+  const match = item.score != null && item.score > 0 ? item.score.toFixed(1) : null;
   const image = TmdbImages.backdropOf(item.backdropPath, true) || TmdbImages.posterFor(item.posterPath);
   return (
     <button
@@ -1703,9 +1794,11 @@ function SimilarCard({ item, onTap }: { item: MediaItem; onTap: () => void }) {
       <div style={{ padding: '10px 10px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ ...AppTypography.outfitBold, fontSize: 12, lineHeight: lineHeight(12), color: NetflixColors.match }}>
-              {match}% Match
-            </span>
+            {match != null && (
+              <span style={{ ...AppTypography.outfitBold, fontSize: 12, lineHeight: lineHeight(12), color: NetflixColors.match }}>
+                {`TMDB ${match}`}
+              </span>
+            )}
             <div style={{ width: 6 }} />
             <span
               style={{
@@ -2071,12 +2164,12 @@ function EpisodeRow({
             style={{
               ...AppTypography.outfitWhite,
               fontSize: 12,
-              fontWeight: 600,
+              fontWeight: 500,
               lineHeight: lineHeight(12),
-              color: NetflixColors.accent,
+              color: withAlpha(WHITE, 0.55),
             }}
           >
-            Reveal details
+            Show spoilers
           </span>
         ) : (
           overview && (

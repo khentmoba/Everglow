@@ -790,7 +790,7 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
             <span style={{ flex: 1, textAlign: 'left', ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
               Create a room
             </span>
-            <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.72) }}>
+            <span style={{ ...AppTypography.outfitWhite, fontSize: 12.5, color: AppColors.petalWhite, opacity: 0.92 }}>
               No password
             </span>
           </button>

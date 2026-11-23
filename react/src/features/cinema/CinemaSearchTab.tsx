@@ -19,8 +19,9 @@ type State = {
   loadingMore: boolean;
 };
 const RESET: State = { results: [], searching: false, page: 0, hasMore: false, failed: false, loadingMore: false };
-type Filters = { moviesOnly: boolean; tvOnly: boolean; years: string[] };
-const NO_FILTERS: Filters = { moviesOnly: false, tvOnly: false, years: [] };
+type ResultType = 'all' | 'movie' | 'tv';
+type Filters = { type: ResultType; years: string[] };
+const NO_FILTERS: Filters = { type: 'all', years: [] };
 
 export function CinemaSearchTab({
   width,
@@ -105,16 +106,17 @@ export function CinemaSearchTab({
 
   const year = new Date().getFullYear();
   const chips = [
-    {
-      label: 'Movies only',
-      selected: filters.moviesOnly,
-      onTap: () => setFilters((f) => ({ ...f, moviesOnly: !f.moviesOnly, tvOnly: !f.moviesOnly ? false : f.tvOnly })),
-    },
-    {
-      label: 'TV only',
-      selected: filters.tvOnly,
-      onTap: () => setFilters((f) => ({ ...f, tvOnly: !f.tvOnly, moviesOnly: !f.tvOnly ? false : f.moviesOnly })),
-    },
+    ...(
+      [
+        ['All', 'all'],
+        ['Movies', 'movie'],
+        ['TV shows', 'tv'],
+      ] as const
+    ).map(([label, value]) => ({
+      label,
+      selected: filters.type === value,
+      onTap: () => setFilters((f) => ({ ...f, type: value })),
+    })),
     ...[0, 1, 2].map((offset) => {
       const y = String(year - offset);
       const selected = filters.years.includes(y);
@@ -128,8 +130,7 @@ export function CinemaSearchTab({
   ];
 
   let filtered = state.results;
-  if (filters.moviesOnly) filtered = filtered.filter((i) => i.mediaType === 'movie');
-  if (filters.tvOnly) filtered = filtered.filter((i) => i.mediaType === 'tv');
+  if (filters.type !== 'all') filtered = filtered.filter((i) => i.mediaType === filters.type);
   if (filters.years.length) filtered = filtered.filter((i) => filters.years.includes(i.year));
 
   const grid = (items: MediaItem[]) => (
@@ -266,7 +267,7 @@ export function CinemaSearchTab({
                 </div>
                 <div style={{ height: 12 }} />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {trendingGlobal.slice(0, 12).map((item) => (
+                  {trendingGlobal.slice(0, 6).map((item) => (
                     <SearchPill
                       key={`${item.mediaType}:${item.tmdbId}`}
                       label={item.title}
@@ -313,7 +314,19 @@ export function CinemaSearchTab({
                 </div>
               </div>
             )}
-            <div style={{ height: 10 }} />
+            {filtered.length > 0 && (
+              <div
+                style={{
+                  padding: `2px ${h}px 10px`,
+                  ...AppTypography.outfitWhite,
+                  fontSize: 13,
+                  lineHeight: lineHeight(13),
+                  color: NetflixColors.textMuted,
+                }}
+              >
+                {`${filtered.length} ${filtered.length === 1 ? 'result' : 'results'} for “${query.trim()}”`}
+              </div>
+            )}
             {grid(filtered)}
             {(state.failed || state.hasMore) && (
               <div style={{ padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

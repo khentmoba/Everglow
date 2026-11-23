@@ -32,10 +32,11 @@ function progressOf(m: MediaItem): number | null {
   return Math.min(1, Math.max(0, pos / dur));
 }
 
-/** `cinemaTopContentInset` (no safe-area top on the web). */
+/** `cinemaTopContentInset` (no safe-area top on the web).
+ * Phones clear the 48px floating back button (10 + 48 + 10) so page titles never sit under it. */
 export function cinemaTopInset(width: number) {
   if (width >= 1024) return 56 + 20;
-  return width < 600 ? 12 : 16;
+  return 68;
 }
 
 export function CinemaLibraryTab({
@@ -114,7 +115,7 @@ export function CinemaLibraryTab({
           {all.length} {all.length === 1 ? 'title' : 'titles'}
         </span>
       </div>
-      <div style={{ padding: `14px ${h}px 18px`, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div className="no-scrollbar" style={{ padding: `8px ${h}px 10px`, display: 'flex', gap: 8, overflowX: 'auto' }}>
         {(
           [
             ['all', 'All'],
@@ -149,7 +150,7 @@ export function CinemaLibraryTab({
             ) : undefined
           }
         />
-        <div style={{ height: 12 }} />
+        <div style={{ height: 6 }} />
         <DropdownField<Sort>
           label="Sort My List"
           value={sort}
@@ -161,6 +162,7 @@ export function CinemaLibraryTab({
           ]}
           onChanged={setSort}
         />
+        <div style={{ height: 6 }} />
         <ExpansionTile title="Viewing preferences">
           <CinemaViewingPreferences />
         </ExpansionTile>
@@ -265,6 +267,7 @@ function LibraryPill({ label, selected, onTap }: { label: string; selected: bool
         fontSize: 12.5,
         lineHeight: lineHeight(12.5),
         color: fg,
+        whiteSpace: 'nowrap',
       }}
     >
       {label}

@@ -97,7 +97,7 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
           alignItems: 'center',
         }}
       >
-        <Icon name="chat_bubble_outline" size={18} color={NetflixColors.accent} />
+        <Icon name="chat_bubble" variant="filled" size={20} color={NetflixColors.accent} />
         <div style={{ width: 8 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -128,7 +128,7 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
           )}
         </button>
       </div>
-      <div style={{ height: 240, position: 'relative' }}>
+      <div style={{ height: state.kind === 'error' ? 80 : 240, position: 'relative' }}>
         {state.kind === 'error' ? (
           <ChatMessageState icon="cloud_off" text="Chat is unavailable. Check your connection." />
         ) : state.kind === 'loading' ? (

@@ -428,8 +428,8 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
       await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body></body></html>' });
     });
 
-    // 1. Mismatch (70m vs 104m agent runtime): shows warning banner with 1-tap Try Everglow button.
-    await page.goto(`${baseUrl}/cinema/video/900000?type=movie&title=Moonlit%20Cinema&agent=1&hud=0`, {
+    // 1. Mismatch (70m vs 167m agent runtime): shows warning banner with 1-tap Try Everglow button.
+    await page.goto(`${baseUrl}/cinema/video/693134?type=movie&title=Dune%3A%20Part%20Two&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
     // The wrapper shell is the server that reports duration, so start on Celestia.
@@ -444,9 +444,9 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
     );
     assert.equal(await page.locator('text=may be the wrong movie').count(), 0);
 
-    // 2. Short decoy clip (3m vs 104m): auto-fails over from Celestia to Everglow.
+    // 2. Short decoy clip (3m vs 181m): auto-fails over from Celestia to Everglow.
     shellDuration = 180;
-    await page.goto(`${baseUrl}/cinema/video/900001?type=movie&title=The%20Lantern%20Trail&agent=1&hud=0`, {
+    await page.goto(`${baseUrl}/cinema/video/872585?type=movie&title=Oppenheimer&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
     await page.waitForSelector('text=Provider:', { timeout: 10_000 });

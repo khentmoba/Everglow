@@ -32,8 +32,9 @@ export function cinemaNavLinks(isCinemaOnlyUser: boolean): NetflixNavLink[] {
     { label: 'Home', tab: 0 },
     { label: 'TV Shows', tab: 2, browseOptionId: 'collection-tv' },
     { label: 'Movies', tab: 2, browseOptionId: 'collection-movies' },
-    { label: 'New & Popular', tab: 2, browseOptionId: 'collection-new' },
+    { label: 'Popular', tab: 2, browseOptionId: 'collection-new' },
     { label: 'My List', tab: 3 },
+    { label: 'Downloads', tab: 5 },
     ...(!isCinemaOnlyUser ? [{ label: 'Watch Together', tab: 4 }] : []),
     { label: 'Browse', tab: 2 },
     { label: 'Search', tab: 1 },
@@ -140,7 +141,16 @@ function NetflixHoverPreview({
   const estHeight = Math.round(width * 0.5625 + 215);
   const margin = 12;
   const left = Math.max(margin, Math.min(vw - width - margin, anchor.left + anchor.width / 2 - width / 2));
-  const top = Math.max(margin, Math.min(vh - estHeight - margin, anchor.top + anchor.height / 2 - estHeight / 2));
+  // Sit beside the tile, never on it: below when there is room, else above, so
+  // the row heading and the tile itself stay readable.
+  const below = anchor.bottom + 10;
+  const above = anchor.top - estHeight - 10;
+  const top =
+    below + estHeight <= vh - margin
+      ? below
+      : above >= margin
+        ? above
+        : Math.max(margin, Math.min(vh - estHeight - margin, anchor.top + anchor.height / 2 - estHeight / 2));
 
   const backdropPath =
     item.backdropPath || (typeof details?.backdrop_path === 'string' ? details.backdrop_path : '');
@@ -250,8 +260,8 @@ function NetflixHoverPreview({
               else onTap();
             }}
             style={{
-              width: 34,
-              height: 34,
+              width: 40,
+              height: 40,
               borderRadius: '50%',
               background: '#FFFFFF',
               display: 'flex',
@@ -274,8 +284,8 @@ function NetflixHoverPreview({
                 onToggleList(item, next);
               }}
               style={{
-                width: 34,
-                height: 34,
+                width: 40,
+                height: 40,
                 borderRadius: '50%',
                 background: 'rgba(42,42,42,0.8)',
                 border: '1.5px solid rgba(255,255,255,0.45)',
@@ -316,7 +326,7 @@ function NetflixHoverPreview({
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px' }}>
           {voteAvg > 0 && (
             <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: '#46D369' }}>
-              {`${Math.round(voteAvg * 10)}% Match`}
+              {voteAvg > 0 ? `TMDB ${voteAvg.toFixed(1)}` : ''}
             </span>
           )}
           {year && <span style={{ ...AppTypography.outfitMedium, fontSize: 12, color: NetflixColors.textSecondary }}>{year}</span>}
@@ -604,34 +614,34 @@ export function NetflixPosterCard({
 
   if (rank == null) return posterBox;
 
-  const boxWidth = (cardWidth ?? 118) + 64;
   const boxHeight = height ?? (cardWidth ?? 118) * 1.5;
-  // FittedBox(contain, bottomLeft) around Outfit 200 / w900 / height 0.8 in an
-  // 84px-wide slot. Flutter spreads the negative leading by ascent:descent
-  // (1.0 : 0.26), so the baseline sits at 200 - 92 / 1.26 inside the 160px
-  // line instead of the browser's even split.
   const digits = String(rank);
+  // Outfit Black advances at a 200px font, in px.
   const textWidth = [...digits].reduce((w, c) => w + (outfitBlackDigit[c] ?? 580) * 0.2 + 0.25, 0);
-  const scale = Math.min(84 / textWidth, boxHeight / 160);
+  // A 200px font draws ±144px of digit ink inside a 200px line box; fitting the
+  // whole line box (not the ink) keeps the glyph inside the row, so nothing clips.
+  const slotWidth = 84 + (digits.length - 1) * 68;
+  const scale = Math.min(slotWidth / textWidth, boxHeight / 200);
+  const boxWidth = (cardWidth ?? 118) + slotWidth;
   return (
     <div style={{ position: 'relative', width: boxWidth, height: boxHeight, flexShrink: 0 }}>
       <div
         aria-hidden
         style={{
           position: 'absolute',
-          left: 0,
+          left: 6,
           bottom: 0,
           width: textWidth,
-          height: 160,
+          height: 200,
           transform: `scale(${scale})`,
           transformOrigin: 'bottom left',
           fontFamily: 'Outfit, sans-serif',
           fontSize: 200,
           fontWeight: 900,
-          lineHeight: '160px',
+          lineHeight: '200px',
           letterSpacing: 0.25,
           whiteSpace: 'nowrap',
-          color: NetflixColors.textSecondary,
+          color: '#4D4D4D',
           WebkitTextStroke: '8px #000000',
           paintOrder: 'stroke fill',
           userSelect: 'none',
@@ -668,6 +678,7 @@ export function NetflixRow({
   onRestartItem,
   onToggleListItem,
   isInList,
+  progress,
   isDesktop = false,
 }: {
   title: string;
@@ -678,6 +689,8 @@ export function NetflixRow({
   onRestartItem?: (item: MediaItem) => void;
   onToggleListItem?: (item: MediaItem, add: boolean) => void;
   isInList?: (item: MediaItem) => boolean;
+  /** 0..1 resume position, drawn as the red hairline Netflix puts on a tile. */
+  progress?: (item: MediaItem) => number | null;
   isDesktop?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -723,6 +736,7 @@ export function NetflixRow({
                 rank={ranked ? idx + 1 : undefined}
                 isDesktop={isDesktop}
                 height={rowHeight}
+                progress={progress?.(item) ?? null}
                 onTap={() => onTapItem(item)}
                 onPlay={onPlayItem}
                 onRestart={onRestartItem}
@@ -785,12 +799,19 @@ export function NetflixBillboard({
   items,
   isDesktop,
   viewportHeight,
+  rankOf,
+  inListOf,
+  onToggleList,
   onPlay,
   onInfo,
 }: {
   items: MediaItem[];
   isDesktop: boolean;
   viewportHeight: number;
+  /** Real position in the Top 10 row, or null when the title is not ranked. */
+  rankOf?: (item: MediaItem) => number | null;
+  inListOf?: (item: MediaItem) => boolean;
+  onToggleList?: (item: MediaItem, add: boolean) => void;
   onPlay: (item: MediaItem) => void;
   onInfo: (item: MediaItem) => void;
 }) {
@@ -820,6 +841,8 @@ export function NetflixBillboard({
   const runtimeNum = typeof details?.runtime === 'number' ? details.runtime : null;
   const synopsis = typeof details?.overview === 'string' && details.overview ? details.overview : item.synopsis;
   const hPad = isDesktop ? 48 : 16;
+  const topTenRank = rankOf?.(item) ?? null;
+  const inList = inListOf?.(item) ?? false;
 
   return (
     <div style={{ position: 'relative', height: h, width: '100%', overflow: 'hidden', background: NetflixColors.surface }}>
@@ -863,21 +886,23 @@ export function NetflixBillboard({
 
       <div style={{ position: 'absolute', left: hPad, right: hPad, bottom: 54, maxWidth: isDesktop ? 620 : undefined }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 10px' }}>
-          <span
-            style={{
-              padding: '3px 8px',
-              background: NetflixColors.accent,
-              borderRadius: 4,
-              ...AppTypography.outfitHeading,
-              fontSize: 11,
-              color: '#FFFFFF',
-            }}
-          >
-            {`#${safeIndex + 1} in Top 10`}
-          </span>
+          {topTenRank != null && (
+            <span
+              style={{
+                padding: '3px 8px',
+                background: NetflixColors.accent,
+                borderRadius: 4,
+                ...AppTypography.outfitHeading,
+                fontSize: 11,
+                color: '#FFFFFF',
+              }}
+            >
+              {`#${topTenRank} in Top 10`}
+            </span>
+          )}
           {voteAverage > 0 && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 14, color: NetflixColors.textSecondary }}>
-              {`TMDB ${voteAverage.toFixed(1)}/10`}
+              {`TMDB ${voteAverage.toFixed(1)}`}
             </span>
           )}
           {item.year && (
@@ -923,13 +948,13 @@ export function NetflixBillboard({
           {item.title}
         </h2>
 
-        {isDesktop && synopsis && (
+        {synopsis && (
           <p
-            className="clamp-3"
+            className={isDesktop ? 'clamp-3' : 'clamp-2'}
             style={{
-              margin: '14px 0 0',
+              margin: isDesktop ? '14px 0 0' : '10px 0 0',
               ...AppTypography.outfitMuted,
-              fontSize: 14.5,
+              fontSize: isDesktop ? 14.5 : 13,
               color: NetflixColors.textSecondary,
               lineHeight: 1.4,
               textShadow: '0 0 10px rgba(0,0,0,0.6)',
@@ -939,7 +964,7 @@ export function NetflixBillboard({
           </p>
         )}
 
-        <div style={{ height: 22 }} />
+        <div style={{ height: isDesktop ? 22 : 18 }} />
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px' }}>
           <button
@@ -982,6 +1007,36 @@ export function NetflixBillboard({
             <Icon name="info_outline" size={isDesktop ? 20 : 18} color={NetflixColors.textPrimary} />
             <span>More Info</span>
           </button>
+          {onToggleList && (
+            <button
+              type="button"
+              className="bare-button"
+              aria-pressed={inList}
+              aria-label={inList ? 'In My List' : 'Add to My List'}
+              onClick={() => onToggleList(item, !inList)}
+              style={{
+                minWidth: 48,
+                minHeight: 48,
+                height: 48,
+                padding: isDesktop ? '0 20px' : 0,
+                width: isDesktop ? undefined : 48,
+                borderRadius: isDesktop ? 6 : 24,
+                boxSizing: 'border-box',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: `1.5px solid ${inList ? NetflixColors.accent : 'rgba(255,255,255,0.55)'}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                ...AppTypography.outfitHeading,
+                color: NetflixColors.textPrimary,
+                fontSize: 15,
+              }}
+            >
+              <Icon name={inList ? 'check' : 'add'} size={isDesktop ? 22 : 20} color={inList ? NetflixColors.accent : NetflixColors.textPrimary} />
+              {isDesktop && <span>My List</span>}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1028,11 +1083,13 @@ export function NetflixBillboard({
 
 export function NetflixBottomNav({
   currentIndex,
+  currentBrowseId,
   items,
   onSelect,
   onAnimeTap,
 }: {
   currentIndex: number;
+  currentBrowseId?: string | null;
   items: NetflixMobileItem[];
   onSelect: (tab: number, browseOptionId?: string) => void;
   onAnimeTap: () => void;
@@ -1053,7 +1110,10 @@ export function NetflixBottomNav({
       }}
     >
       {items.map((item) => {
-        const active = !item.isAnimeLink && item.tab === currentIndex;
+        const active =
+          !item.isAnimeLink &&
+          item.tab === currentIndex &&
+          (item.browseOptionId ? item.browseOptionId === currentBrowseId : !currentBrowseId);
         const color = active ? '#FFFFFF' : item.isAnimeLink ? NetflixColors.accent : 'rgba(255,255,255,0.55)';
         return (
           <button
@@ -1094,6 +1154,7 @@ export function NetflixBottomNav({
 
 export function NetflixCinemaTopBar({
   currentIndex,
+  currentBrowseId,
   links,
   scrolled,
   userName,
@@ -1104,6 +1165,7 @@ export function NetflixCinemaTopBar({
   onLogout,
 }: {
   currentIndex: number;
+  currentBrowseId?: string | null;
   links: NetflixNavLink[];
   scrolled: boolean;
   userName: string;
@@ -1165,7 +1227,8 @@ export function NetflixCinemaTopBar({
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 22, overflow: 'hidden' }}>
         {links.map((l) => {
-          const active = l.tab === currentIndex && !l.browseOptionId;
+          const active =
+            l.tab === currentIndex && (l.browseOptionId ? l.browseOptionId === currentBrowseId : !currentBrowseId);
           return (
             <button
               key={l.label}
