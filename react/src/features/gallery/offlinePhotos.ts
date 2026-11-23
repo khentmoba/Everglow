@@ -4,6 +4,15 @@ import { Logger } from '../../core/system/logger';
 
 const cacheName = 'everglow-offline-photos-v1';
 
+function safeUrlPath(raw: string): string {
+  try {
+    const u = new URL(raw);
+    return u.origin + u.pathname;
+  } catch {
+    return '<invalid-url>';
+  }
+}
+
 export const OfflinePhotos = {
   get supported(): boolean {
     return typeof caches !== 'undefined';
@@ -33,7 +42,7 @@ export const OfflinePhotos = {
         await cache.add(url);
         saved++;
       } catch (e) {
-        Logger.e(`Offline photos: could not keep ${url}`, e);
+        Logger.e(`Offline photos: could not keep ${safeUrlPath(url)}`, e);
       }
       onProgress?.(++done);
     }

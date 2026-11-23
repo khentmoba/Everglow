@@ -1272,9 +1272,34 @@ function AnimeFactChip({ label, icon }: { label: string; icon: string }) {
 function AiringCountdown({ at, episode }: { at: number; episode?: number }) {
   const [, tick] = useState(0);
   useEffect(() => {
-    const t = window.setInterval(() => tick((n) => n + 1), 60000);
-    return () => window.clearInterval(t);
-  }, []);
+    let t = 0;
+    const stop = () => {
+      if (!t) return;
+      window.clearInterval(t);
+      t = 0;
+    };
+    const start = () => {
+      if (t || document.hidden || at <= Math.floor(Date.now() / 1000)) return;
+      t = window.setInterval(() => {
+        tick((n) => n + 1);
+        if (at <= Math.floor(Date.now() / 1000)) stop();
+      }, 60000);
+    };
+    const onVis = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        tick((n) => n + 1);
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [at]);
   const diff = at - Math.floor(Date.now() / 1000);
   const d = Math.floor(diff / 86400);
   const h = Math.floor((diff % 86400) / 3600);
