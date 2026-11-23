@@ -3,6 +3,7 @@ import { Fonts } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import {
   estimateUnreadCount,
+  formatKatanaTime,
   isBookmarkCaughtUp,
   resolveLibraryStatus,
   type KatanaBookmark,
@@ -228,6 +229,7 @@ export function MangaLibraryCollectionView({
     >
       {filteredLibrary.map((bm) => {
         const unread = estimateUnreadCount(bm);
+        const readCount = bm.readChapterIds.length;
         const dlCount = downloadedCounts[bm.slug] ?? 0;
         const selected = selectedLibrarySlugs.has(bm.slug);
         const resumeLabel = formatResumeProgressLabel(bm);
@@ -331,7 +333,7 @@ export function MangaLibraryCollectionView({
                 )}
               </div>
               {libraryViewMode === 'grid' && (
-                <div style={{ padding: '8px 9px 10px' }}>
+                <div style={{ padding: '8px 9px 10px', paddingRight: 50 }}>
                   <div
                     className="clamp-2"
                     style={{
@@ -344,8 +346,26 @@ export function MangaLibraryCollectionView({
                   >
                     {bm.title}
                   </div>
-                  <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
-                    {resumeLabel || STATUS_LABELS[resolveLibraryStatus(bm)].label}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        ...KatanaType.small,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        color: unread > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                      }}
+                    >
+                      {readCount} / {readCount + unread}
+                    </span>
+                    {unread > 0 && (
+                      <span
+                        aria-label={`${unread} unread`}
+                        style={{ width: 6, height: 6, borderRadius: 99, background: KatanaColors.accent, flexShrink: 0 }}
+                      />
+                    )}
+                    <span style={{ ...KatanaType.small, fontSize: 11 }}>
+                      · {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
+                    </span>
                   </div>
                 </div>
               )}
@@ -362,10 +382,10 @@ export function MangaLibraryCollectionView({
                 }}
                 style={{
                   position: 'absolute',
-                  right: 7,
-                  bottom: libraryViewMode === 'grid' ? 54 : 7,
-                  width: 34,
-                  height: 34,
+                  right: 8,
+                  bottom: libraryViewMode === 'grid' ? 40 : 8,
+                  width: 44,
+                  height: 44,
                   borderRadius: 99,
                   background: KatanaColors.accent,
                   boxShadow: '0 4px 12px rgba(0,0,0,0.55)',
@@ -373,7 +393,7 @@ export function MangaLibraryCollectionView({
                   placeItems: 'center',
                 }}
               >
-                <Icon name="play_arrow" size={19} color={KatanaColors.accentInk} />
+                <Icon name="play_arrow" size={22} color={KatanaColors.accentInk} />
               </button>
             )}
           </div>

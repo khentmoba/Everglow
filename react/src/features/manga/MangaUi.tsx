@@ -2013,6 +2013,7 @@ export function KatanaPosterCard({
   const completed = manga.status === 'completed';
   const totalCh = manga.chapterCount ?? (manga.chapters.length > 0 ? manga.chapters.length : undefined);
   const verifiedOfficial = getPrimaryVerifiedOfficialLink(manga);
+  const srcInfo = manga.source ? getSourceBadgeInfo(manga.source, manga.slug) : null;
 
   return (
     <article
@@ -2090,70 +2091,6 @@ export function KatanaPosterCard({
               <Icon name="star" size={11} color={KatanaColors.accent} />
               <span>{manga.rating.toFixed(1)}</span>
             </span>
-          )}
-          {manga.source && (() => {
-            const srcInfo = getSourceBadgeInfo(manga.source, manga.slug);
-            const badgeColor =
-              manga.source === 'mangadex'
-                ? KatanaColors.teal
-                : manga.source === 'comick'
-                  ? KatanaColors.link
-                  : manga.source === 'bato'
-                    ? KatanaColors.green
-                    : KatanaColors.accentSoft;
-            return (
-              <button
-                type="button"
-                className="bare-button"
-                title={srcInfo.tooltip}
-                aria-label={`Source details: ${srcInfo.tooltip}`}
-                aria-expanded={sourceDetailOpen}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSourceDetailOpen((v) => !v);
-                }}
-                style={{
-                  padding: '2px 7px',
-                  borderRadius: 6,
-                  background: 'rgba(11, 13, 18, 0.92)',
-                  border: `1px solid ${withAlpha(badgeColor, 0.55)}`,
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  cursor: 'pointer',
-                  ...bodyText(11.5, 800, badgeColor, 1.2),
-                }}
-              >
-                <span>{srcInfo.shortLabel}</span>
-                <Icon name="info" size={11} color={badgeColor} />
-              </button>
-            );
-          })()}
-          {verifiedOfficial && (
-            <a
-              href={verifiedOfficial.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`${verifiedOfficial.name} · ${verifiedOfficial.badge}`}
-              aria-label={`${verifiedOfficial.name} · ${verifiedOfficial.badge}`}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                padding: '2px 7px',
-                borderRadius: 6,
-                background: 'rgba(6, 78, 59, 0.94)',
-                border: `1px solid ${withAlpha(KatanaColors.green, 0.72)}`,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                textDecoration: 'none',
-                ...bodyText(11, 800, '#A7F3D0', 1.2),
-              }}
-            >
-              <Icon name="verified" size={11} color="#34D399" />
-              <span>Official</span>
-            </a>
           )}
         </div>
         {sourceDetailOpen && manga.source && (() => {
@@ -2261,6 +2198,9 @@ export function KatanaPosterCard({
               }}
             >
               {chapterDisplayTitle(manga.latestChapter)}
+              {manga.latestChapter.updateAt ? (
+                <span style={{ ...bodyText(11, 600, '#94A3B8', 1.2) }}> · {formatKatanaTime(manga.latestChapter.updateAt)}</span>
+              ) : null}
             </span>
           </button>
         )}
@@ -2285,8 +2225,38 @@ export function KatanaPosterCard({
           <div className="clamp-2" style={bodyText(13.5, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.25)}>
             {manga.title}
           </div>
-          <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 12.5, lineHeight: 1.3 }}>
-            {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              flexWrap: 'wrap',
+              ...KatanaType.small,
+              fontSize: 11,
+            }}
+          >
+            <span className="clamp-2" style={{ fontSize: 12.5, lineHeight: 1.3 }}>
+              {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
+            </span>
+            {srcInfo && (
+              <button
+                type="button"
+                className="bare-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSourceDetailOpen((v) => !v);
+                }}
+                title={srcInfo.tooltip}
+                aria-label={`Where this comes from: ${srcInfo.tooltip}`}
+                aria-expanded={sourceDetailOpen}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: KatanaColors.textLight }}
+              >
+                <span style={{ ...bodyText(11, 700, KatanaColors.textLight, 1.2) }}>· {srcInfo.shortLabel}</span>
+                {verifiedOfficial && (
+                  <span style={{ ...bodyText(11, 700, KatanaColors.green, 1.2) }}>Official</span>
+                )}
+              </button>
+            )}
             {manga.follows != null && manga.follows > 0
               ? ` · ${formatCompactNumber(manga.follows)}`
               : totalCh != null && totalCh > 0

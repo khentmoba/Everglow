@@ -221,11 +221,13 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await page.waitForSelector('[aria-label^="Manga reader:"]', { timeout: 10000 });
     await page.waitForSelector('img[alt="Page 2"]', { timeout: 10000 });
 
-    // Demo resumes to page 2 and shows vertical seekbar in webtoon mode
+    // Demo resumes to page 2. One position control by default: the bottom slider.
+    // The right-edge scrubber is opt-in (Reader settings -> edge scrubber), so it must not
+    // float over the artwork or sit in the page-turn tap zone unless the reader asks for it.
     const jumpBtn = page.locator('button[aria-label*="Tap to type a page number"]');
     await jumpBtn.waitFor({ timeout: 5000 });
     assert.match(await jumpBtn.textContent(), /2 \/ 6/);
-    await page.waitForSelector('input[aria-label="Vertical page scrubber"]', { timeout: 5000 });
+    assert.equal(await page.locator('input[aria-label="Vertical page scrubber"]').count(), 0);
 
     // Direct Page Jump dialog jumps to page 5
     await jumpBtn.click();

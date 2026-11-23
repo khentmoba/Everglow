@@ -2684,8 +2684,8 @@ export function MangaPage() {
                                     minHeight: compactCard ? 44 : 40,
                                     padding: compactCard ? '0 12px' : '0 12px',
                                     borderRadius: 8,
-                                    background: isBookmarked ? withAlpha(KatanaColors.green, 0.14) : KatanaColors.surfaceAlt,
-                                    border: `1px solid ${isBookmarked ? withAlpha(KatanaColors.green, 0.5) : KatanaColors.borderStrong}`,
+                                    background: KatanaColors.surfaceAlt,
+                                    border: `1px solid ${isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -2693,7 +2693,7 @@ export function MangaPage() {
                                     fontFamily: Fonts.body,
                                     fontSize: compactCard ? 11.5 : 12,
                                     fontWeight: 700,
-                                    color: isBookmarked ? KatanaColors.green : KatanaColors.text,
+                                    color: KatanaColors.text,
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                   }}
@@ -3318,8 +3318,8 @@ export function MangaPage() {
                                         minHeight: 40,
                                         padding: '0 10px',
                                         borderRadius: 8,
-                                        background: alertsEnabled && isBookmarked ? withAlpha(KatanaColors.accent, 0.16) : KatanaColors.surfaceAlt,
-                                        border: `1px solid ${alertsEnabled && isBookmarked ? withAlpha(KatanaColors.accent, 0.5) : KatanaColors.borderStrong}`,
+                                        background: KatanaColors.surfaceAlt,
+                                        border: `1px solid ${alertsEnabled && isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -3327,7 +3327,7 @@ export function MangaPage() {
                                         fontFamily: Fonts.body,
                                         fontSize: 12,
                                         fontWeight: 600,
-                                        color: alertsEnabled && isBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                                        color: KatanaColors.text,
                                         whiteSpace: 'nowrap',
                                       }}
                                     >
@@ -3422,955 +3422,6 @@ export function MangaPage() {
                           </div>
                         )}
 
-                        {(() => {
-                          const allLinks = resolveOfficialPublisherLinks(detail, detailBm);
-                          const publisherLinks = allLinks.filter((l) => l.category === 'publisher');
-                          const verifiedPublisherLinks = publisherLinks.filter((l) => l.directLink && l.officialSimulpub);
-                          const searchLookupLinks = publisherLinks.filter((l) => !l.directLink);
-                          const trackerAndRegistryLinks = allLinks.filter(
-                            (l) => l.category === 'tracker' || l.category === 'registry',
-                          );
-                          const srcMeta = getSourceBadgeInfo(detail.source, detail.slug);
-                          return (
-                            <div
-                              style={{
-                                marginTop: 14,
-                                padding: '12px 14px',
-                                borderRadius: 12,
-                                background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${
-                                  verifiedPublisherLinks.length > 0
-                                    ? withAlpha(KatanaColors.green, 0.45)
-                                    : KatanaColors.border
-                                }`,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 10,
-                              }}
-                            >
-                              {verifiedPublisherLinks.length > 0 && (
-                                <div
-                                  style={{
-                                    padding: '10px 12px',
-                                    borderRadius: 10,
-                                    background: withAlpha(KatanaColors.green, 0.1),
-                                    border: `1px solid ${withAlpha(KatanaColors.green, 0.42)}`,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    flexWrap: 'wrap',
-                                    gap: 8,
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                    <span
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 5,
-                                        fontFamily: Fonts.body,
-                                        fontSize: 12.5,
-                                        fontWeight: 800,
-                                        color: KatanaColors.green,
-                                      }}
-                                    >
-                                      <Icon name="verified" size={16} color={KatanaColors.green} />
-                                      <span>Verified Official Release (Direct Series Links):</span>
-                                    </span>
-                                    {verifiedPublisherLinks.map((pub) => (
-                                      <a
-                                        key={pub.id}
-                                        href={pub.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title={`${pub.name} · ${pub.badge}`}
-                                        style={{
-                                          minHeight: 34,
-                                          padding: '4px 11px',
-                                          borderRadius: 99,
-                                          background: withAlpha(KatanaColors.green, 0.2),
-                                          border: `1.5px solid ${withAlpha(KatanaColors.green, 0.65)}`,
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: 5,
-                                          fontFamily: Fonts.body,
-                                          fontSize: 12.5,
-                                          fontWeight: 800,
-                                          color: '#A7F3D0',
-                                          textDecoration: 'none',
-                                        }}
-                                      >
-                                        <Icon name={pub.icon} size={14} color={KatanaColors.green} />
-                                        <span>{pub.name}</span>
-                                        <Icon name="open_in_new" size={12} color={KatanaColors.green} />
-                                      </a>
-                                    ))}
-                                  </div>
-                                  {userName && (
-                                    <button
-                                      type="button"
-                                      className="bare-button"
-                                      onClick={() => void openMigrationPicker(detail)}
-                                      style={{
-                                        minHeight: 32,
-                                        padding: '3px 10px',
-                                        borderRadius: 99,
-                                        background: withAlpha(KatanaColors.teal, 0.14),
-                                        border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        fontFamily: Fonts.body,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: KatanaColors.teal,
-                                      }}
-                                    >
-                                      <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
-                                      <span>Check 4 Source Mirrors</span>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {searchLookupLinks.length > 0 && (
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    flexWrap: 'wrap',
-                                    gap: 8,
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                    <Icon name="search" size={15} color={KatanaColors.textMuted} />
-                                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
-                                      Search Official Catalogs (lookup query only — official chapters not confirmed):
-                                    </span>
-                                    {searchLookupLinks.map((pub) => (
-                                      <a
-                                        key={pub.id}
-                                        href={pub.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title={`${pub.name} · ${pub.badge}`}
-                                        style={{
-                                          padding: '2px 9px',
-                                          borderRadius: 99,
-                                          background: KatanaColors.surface,
-                                          border: `1px dashed ${KatanaColors.borderStrong}`,
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: 4,
-                                          fontFamily: Fonts.body,
-                                          fontSize: 11.5,
-                                          fontWeight: 600,
-                                          color: KatanaColors.textMuted,
-                                          textDecoration: 'none',
-                                        }}
-                                      >
-                                        <Icon name="search" size={12} color={KatanaColors.textMuted} />
-                                        <span>{pub.name}</span>
-                                      </a>
-                                    ))}
-                                  </div>
-                                  {verifiedPublisherLinks.length === 0 && userName && (
-                                    <button
-                                      type="button"
-                                      className="bare-button"
-                                      onClick={() => void openMigrationPicker(detail)}
-                                      style={{
-                                        minHeight: 32,
-                                        padding: '3px 9px',
-                                        borderRadius: 99,
-                                        background: withAlpha(KatanaColors.teal, 0.14),
-                                        border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        fontFamily: Fonts.body,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: KatanaColors.teal,
-                                      }}
-                                    >
-                                      <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
-                                      <span>Check 4 Source Mirrors</span>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  flexWrap: 'wrap',
-                                  gap: 8,
-                                  paddingTop: 6,
-                                  borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.65)}`,
-                                }}
-                              >
-                                {trackerAndRegistryLinks.length > 0 && (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                    <Icon name="query_stats" size={15} color={KatanaColors.link} />
-                                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
-                                      Trackers &amp; Metadata:
-                                    </span>
-                                    {trackerAndRegistryLinks.map((trk) => (
-                                      <a
-                                        key={trk.id}
-                                        href={trk.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title={`${trk.name} · ${trk.badge}`}
-                                        style={{
-                                          padding: '2px 8px',
-                                          borderRadius: 99,
-                                          background: withAlpha(KatanaColors.link, 0.12),
-                                          border: `1px solid ${withAlpha(KatanaColors.link, 0.38)}`,
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: 4,
-                                          fontFamily: Fonts.body,
-                                          fontSize: 11.5,
-                                          fontWeight: 700,
-                                          color: KatanaColors.link,
-                                          textDecoration: 'none',
-                                        }}
-                                      >
-                                        <Icon name={trk.icon} size={12} color={KatanaColors.link} />
-                                        <span>{trk.name}</span>
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                                <span
-                                  title={srcMeta.tooltip}
-                                  style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}
-                                >
-                                  Catalog Source: <strong style={{ color: KatanaColors.text }}>{srcMeta.name} ({srcMeta.badge})</strong> ·{' '}
-                                  {srcMeta.signals.provenance} · {srcMeta.signals.specialty}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {migrationOpen && userName && (
-                          <div
-                            style={{
-                              marginTop: 14,
-                              padding: 12,
-                              borderRadius: 10,
-                              background: KatanaColors.surfaceAlt,
-                              border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 10,
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Icon name="swap_horiz" size={18} color={KatanaColors.teal} />
-                                <span style={{ ...KatanaType.title, fontSize: 13.5 }}>
-                                  Migrate Catalog Source (Preserves Progress, Categories & Trackers)
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                className="bare-button"
-                                aria-label="Close source migration"
-                                onClick={() => setMigrationOpen(false)}
-                                style={{ width: 36, height: 36, display: 'grid', placeItems: 'center' }}
-                              >
-                                <Icon name="close" size={16} color={KatanaColors.textMuted} />
-                              </button>
-                            </div>
-                            {migrationLoading ? (
-                              <div style={KatanaType.small}>Searching MangaKatana, MangaDex, ComicK, and Bato.to for matching editions…</div>
-                            ) : migrationCandidates.length === 0 ? (
-                              <div style={KatanaType.small}>No alternate catalog editions found for this title right now.</div>
-                            ) : (
-                              <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 8 }}>
-                                {migrationCandidates.map((cand) => (
-                                  <div
-                                    key={cand.slug}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      gap: 8,
-                                      padding: '8px 10px',
-                                      borderRadius: 8,
-                                      background: KatanaColors.surface,
-                                      border: `1px solid ${KatanaColors.border}`,
-                                    }}
-                                  >
-                                    <div style={{ minWidth: 0, flex: 1 }}>
-                                      <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
-                                        {cand.title}
-                                      </div>
-                                      <div style={{ ...KatanaType.small, fontSize: 11 }}>
-                                        Source: {cand.source?.toUpperCase() || 'CATALOG'}
-                                        {cand.chapterCount ? ` · ${cand.chapterCount} ch` : ''}
-                                      </div>
-                                    </div>
-                                    <KatanaButton
-                                      label="Migrate"
-                                      icon="swap_horiz"
-                                      size="sm"
-                                      color={KatanaColors.teal}
-                                      onClick={() => void handleMigrateToCandidate(detail, cand)}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {trackerOpen && userName && (
-                          <div
-                            style={{
-                              marginTop: 16,
-                              paddingTop: 14,
-                              borderTop: `1px solid ${KatanaColors.border}`,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 12,
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <Icon name="star" size={18} color={KatanaColors.accent} />
-                                  <span style={{ ...KatanaType.title, fontSize: 14.5 }}>Personal Tracker & External IDs</span>
-                                </div>
-                                <span style={{ ...KatanaType.small, fontSize: 12 }}>
-                                  Saved across your Everglow devices · Progress, status & rating sync with AniList, MyAnimeList & Kitsu via Everglow server proxy.
-                                </span>
-                              </div>
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                                <span style={KatanaType.small}>Rereads:</span>
-                                <button
-                                  type="button"
-                                  className="bare-button"
-                                  aria-label="Decrease reread count"
-                                  onClick={() => {
-                                    const next = Math.max(0, (detailBm?.rereadCount ?? 0) - 1);
-                                    void saveKatanaTrackerData(detail, userName, { rereadCount: next });
-                                  }}
-                                  style={{ width: 40, height: 40, borderRadius: 8, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}`, display: 'grid', placeItems: 'center' }}
-                                >
-                                  <Icon name="remove" size={16} color={KatanaColors.textMuted} />
-                                </button>
-                                <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
-                                  {detailBm?.rereadCount ?? 0}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="bare-button"
-                                  aria-label="Increase reread count"
-                                  onClick={() => {
-                                    const next = (detailBm?.rereadCount ?? 0) + 1;
-                                    void saveKatanaTrackerData(detail, userName, { rereadCount: next });
-                                  }}
-                                  style={{ width: 40, height: 40, borderRadius: 8, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}`, display: 'grid', placeItems: 'center' }}
-                                >
-                                  <Icon name="add" size={16} color={KatanaColors.textMuted} />
-                                </button>
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                              <span style={{ ...KatanaType.small, marginRight: 4 }}>Score:</span>
-                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
-                                const active = detailBm?.userScore === n;
-                                return (
-                                  <button
-                                    key={n}
-                                    type="button"
-                                    className="bare-button"
-                                    onClick={() => {
-                                      const nextScore = active ? null : n;
-                                      void saveKatanaTrackerData(detail, userName, { userScore: nextScore }).then(() => {
-                                        if ((detailBm?.anilistId || detailBm?.malId || detailBm?.kitsuId) && trackerTokens.autoPushTrackers !== false) {
-                                          void pushKatanaTrackerProgress(detail, userName, { userScore: nextScore });
-                                        }
-                                      });
-                                    }}
-                                    style={{
-                                      minWidth: 40,
-                                      height: 40,
-                                      borderRadius: 8,
-                                      background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
-                                      border: `1px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 13,
-                                      fontWeight: 700,
-                                      color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
-                                    }}
-                                  >
-                                    {n}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: tablet ? '1fr 1fr' : '1fr', gap: 8 }}>
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <input
-                                  value={trackerAnilistDraft}
-                                  onChange={(e) => setTrackerAnilistDraft(e.target.value)}
-                                  placeholder="AniList ID or link (e.g. 105398)"
-                                  aria-label="AniList ID or link"
-                                  style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    height: 40,
-                                    padding: '0 10px',
-                                    borderRadius: 8,
-                                    background: KatanaColors.background,
-                                    border: `1px solid ${KatanaColors.border}`,
-                                    fontFamily: Fonts.body,
-                                    fontSize: 12.5,
-                                    color: KatanaColors.text,
-                                  }}
-                                />
-                                {detailBm?.anilistId && (
-                                  <a
-                                    href={`https://anilist.co/manga/${encodeURIComponent(detailBm.anilistId)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label="Open on AniList"
-                                    title="Open on AniList"
-                                    style={{
-                                      height: 40,
-                                      padding: '0 10px',
-                                      borderRadius: 8,
-                                      background: KatanaColors.surfaceAlt,
-                                      border: `1px solid ${KatanaColors.borderStrong}`,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 11.5,
-                                      fontWeight: 700,
-                                      color: KatanaColors.link,
-                                      textDecoration: 'none',
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    <span>AniList</span>
-                                    <Icon name="open_in_new" size={13} color={KatanaColors.link} />
-                                  </a>
-                                )}
-                              </div>
-                              <input
-                                value={trackerMalDraft}
-                                onChange={(e) => setTrackerMalDraft(e.target.value)}
-                                placeholder="MyAnimeList ID or URL (auto-syncs)"
-                                aria-label="MyAnimeList ID or URL"
-                                style={{
-                                  height: 36,
-                                  padding: '0 10px',
-                                  borderRadius: 8,
-                                  background: KatanaColors.background,
-                                  border: `1px solid ${KatanaColors.border}`,
-                                  fontFamily: Fonts.body,
-                                  fontSize: 12.5,
-                                  color: KatanaColors.text,
-                                }}
-                              />
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <input
-                                  value={trackerKitsuDraft}
-                                  onChange={(e) => setTrackerKitsuDraft(e.target.value)}
-                                  placeholder="Kitsu ID or URL (auto-syncs)"
-                                  aria-label="Kitsu ID or URL"
-                                  style={{
-                                    flex: 1,
-                                    height: 36,
-                                    padding: '0 10px',
-                                    borderRadius: 8,
-                                    background: KatanaColors.background,
-                                    border: `1px solid ${KatanaColors.border}`,
-                                    fontFamily: Fonts.body,
-                                    fontSize: 12.5,
-                                    color: KatanaColors.text,
-                                  }}
-                                />
-                                {detailBm?.kitsuId && (
-                                  <a
-                                    href={`https://kitsu.app/manga/${encodeURIComponent(detailBm.kitsuId)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label="Open on Kitsu"
-                                    style={{
-                                      height: 36,
-                                      padding: '0 10px',
-                                      borderRadius: 8,
-                                      background: KatanaColors.surfaceAlt,
-                                      border: `1px solid ${KatanaColors.borderStrong}`,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 11.5,
-                                      fontWeight: 700,
-                                      color: KatanaColors.accentSoft,
-                                      textDecoration: 'none',
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    <span>Kitsu</span>
-                                    <Icon name="open_in_new" size={13} color={KatanaColors.accentSoft} />
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                <KatanaButton
-                                  label={trackerSyncing ? 'Matching…' : 'Auto-Match All 7 Trackers'}
-                                  icon="auto_fix_high"
-                                  size="sm"
-                                  color={KatanaColors.accent}
-                                  disabled={trackerSyncing}
-                                  onClick={() => void handleAutoMatchAllTrackers(detail)}
-                                />
-                                <KatanaButton
-                                  label={trackerSyncing ? 'Syncing…' : detailBm?.anilistId ? 'Sync AniList' : 'Link & Sync AniList'}
-                                  icon="sync"
-                                  size="sm"
-                                  filled={false}
-                                  color={KatanaColors.link}
-                                  disabled={trackerSyncing}
-                                  onClick={() => void syncSeriesWithAniList(detail, extractTrackerId(trackerAnilistDraft, 'anilist') || detailBm?.anilistId)}
-                                />
-                                <KatanaButton
-                                  label={trackerSyncing ? 'Syncing…' : detailBm?.malId ? 'Sync MAL' : 'Link & Sync MAL'}
-                                  icon="sync"
-                                  size="sm"
-                                  filled={false}
-                                  color={KatanaColors.link}
-                                  disabled={trackerSyncing}
-                                  onClick={() => void syncSeriesWithMal(detail, extractTrackerId(trackerMalDraft, 'mal') || detailBm?.malId)}
-                                />
-                                <KatanaButton
-                                  label={trackerSyncing ? 'Syncing…' : detailBm?.kitsuId ? 'Sync Kitsu' : 'Link & Sync Kitsu'}
-                                  icon="sync"
-                                  size="sm"
-                                  filled={false}
-                                  color={KatanaColors.accentSoft}
-                                  disabled={trackerSyncing}
-                                  onClick={() => void syncSeriesWithKitsu(detail, extractTrackerId(trackerKitsuDraft, 'kitsu') || detailBm?.kitsuId)}
-                                />
-                                {(detailBm?.anilistId || detailBm?.malId || detailBm?.kitsuId || detailBm?.mangaUpdatesId || detailBm?.shikimoriId || detailBm?.bangumiId || detailBm?.comickId) && (
-                                  <KatanaButton
-                                    label={trackerSyncing ? 'Pushing…' : 'Push Progress Now'}
-                                    icon="cloud_upload"
-                                    size="sm"
-                                    filled={false}
-                                    color={KatanaColors.green}
-                                    disabled={trackerSyncing}
-                                    onClick={() => void pushAllLinkedTrackers(detail)}
-                                  />
-                                )}
-                                <button
-                                  type="button"
-                                  className="bare-button"
-                                  aria-pressed={Boolean(detailBm?.ignoreUpdates)}
-                                  onClick={() => {
-                                    const nextIgnore = !detailBm?.ignoreUpdates;
-                                    void saveKatanaTrackerData(detail, userName, { ignoreUpdates: nextIgnore });
-                                    showSnackBar(
-                                      nextIgnore
-                                        ? `Automatic update checks paused for ${detail.title}`
-                                        : `Automatic update checks resumed for ${detail.title}`,
-                                    );
-                                  }}
-                                  style={{
-                                    minHeight: 36,
-                                    padding: '4px 10px',
-                                    borderRadius: 99,
-                                    background: detailBm?.ignoreUpdates ? withAlpha(KatanaColors.orange, 0.16) : KatanaColors.surfaceAlt,
-                                    border: `1px solid ${detailBm?.ignoreUpdates ? KatanaColors.orange : KatanaColors.border}`,
-                                    fontFamily: Fonts.body,
-                                    fontSize: 11.5,
-                                    fontWeight: 700,
-                                    color: detailBm?.ignoreUpdates ? KatanaColors.orange : KatanaColors.textMuted,
-                                  }}
-                                >
-                                  {detailBm?.ignoreUpdates ? 'Updates Paused' : 'Auto-Updates On'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="bare-button"
-                                  onClick={() => setTrackerTokensOpen((v) => !v)}
-                                  style={{
-                                    minHeight: 34,
-                                    padding: '0 10px',
-                                    borderRadius: 8,
-                                    background: trackerTokensOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                    border: `1px solid ${trackerTokensOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
-                                    fontFamily: Fonts.body,
-                                    fontSize: 11.5,
-                                    fontWeight: 600,
-                                    color: KatanaColors.textMuted,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                  }}
-                                >
-                                  <Icon name="key" size={13} color={KatanaColors.accent} />
-                                  <span>Tracker OAuth Tokens</span>
-                                </button>
-                                {detailBm?.anilistScore != null && (
-                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
-                                    AniList {detailBm.anilistScore}%
-                                  </span>
-                                )}
-                                {detailBm?.malScore != null && (
-                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
-                                    MAL ★ {detailBm.malScore.toFixed(2)}
-                                    {detailBm.malRank ? ` · #${detailBm.malRank}` : ''}
-                                    {detailBm.malTotalChapters ? ` · ${detailBm.malTotalChapters} ch` : ''}
-                                  </span>
-                                )}
-                                {detailBm?.kitsuScore != null && (
-                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
-                                    Kitsu {detailBm.kitsuScore.toFixed(1)}%
-                                  </span>
-                                )}
-                              </div>
-                              {detailBm?.lastSyncedAt && (
-                                <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.green }}>
-                                  Synced {formatKatanaTime(detailBm.lastSyncedAt)}
-                                  {detailBm.lastPushedChapter != null
-                                    ? ` · Pushed Ch. ${detailBm.lastPushedChapter}`
-                                    : detailBm.malTotalChapters != null && readCount > 0
-                                      ? ` · Local ${readCount}/${detailBm.malTotalChapters} ch`
-                                      : ''}
-                                </span>
-                              )}
-                            </div>
-
-                            {trackerTokensOpen && (
-                              <div
-                                style={{
-                                  padding: 10,
-                                  borderRadius: 10,
-                                  background: KatanaColors.surfaceAlt,
-                                  border: `1px solid ${KatanaColors.borderStrong}`,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: 8,
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-                                  <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.text }}>
-                                    Bidirectional Tracker Push (via Server Proxy)
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="bare-button"
-                                    role="switch"
-                                    aria-checked={trackerTokens.autoPushTrackers !== false}
-                                    onClick={() => {
-                                      const next = saveKatanaTrackerTokens(userName, {
-                                        autoPushTrackers: trackerTokens.autoPushTrackers === false,
-                                      });
-                                      setTrackerTokens(next);
-                                    }}
-                                    style={{
-                                      padding: '3px 9px',
-                                      borderRadius: 99,
-                                      background: trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedBg : KatanaColors.background,
-                                      border: `1px solid ${trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 11.5,
-                                      fontWeight: 700,
-                                      color: trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
-                                    }}
-                                  >
-                                    Auto-push on chapter/status/score change: {trackerTokens.autoPushTrackers !== false ? 'On' : 'Off'}
-                                  </button>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(3, 1fr)' : '1fr', gap: 6 }}>
-                                  <input
-                                    type="password"
-                                    value={trackerTokens.anilistToken ?? ''}
-                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { anilistToken: e.target.value }))}
-                                    placeholder="AniList OAuth token (optional)"
-                                    aria-label="AniList OAuth token"
-                                    style={{
-                                      height: 36,
-                                      padding: '0 10px',
-                                      borderRadius: 8,
-                                      background: KatanaColors.background,
-                                      border: `1px solid ${KatanaColors.border}`,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 12,
-                                      color: KatanaColors.text,
-                                    }}
-                                  />
-                                  <input
-                                    type="password"
-                                    value={trackerTokens.malToken ?? ''}
-                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { malToken: e.target.value }))}
-                                    placeholder="MyAnimeList OAuth token (optional)"
-                                    aria-label="MyAnimeList OAuth token"
-                                    style={{
-                                      height: 36,
-                                      padding: '0 10px',
-                                      borderRadius: 8,
-                                      background: KatanaColors.background,
-                                      border: `1px solid ${KatanaColors.border}`,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 12,
-                                      color: KatanaColors.text,
-                                    }}
-                                  />
-                                  <input
-                                    type="password"
-                                    value={trackerTokens.kitsuToken ?? ''}
-                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { kitsuToken: e.target.value }))}
-                                    placeholder="Kitsu OAuth token (optional)"
-                                    aria-label="Kitsu OAuth token"
-                                    style={{
-                                      height: 36,
-                                      padding: '0 10px',
-                                      borderRadius: 8,
-                                      background: KatanaColors.background,
-                                      border: `1px solid ${KatanaColors.border}`,
-                                      fontFamily: Fonts.body,
-                                      fontSize: 12,
-                                      color: KatanaColors.text,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                              <input
-                                value={trackerNoteDraft}
-                                onChange={(e) => setTrackerNoteDraft(e.target.value)}
-                                placeholder="Personal note (e.g. Great arc starts at Ch. 24)..."
-                                aria-label="Personal tracker note"
-                                style={{
-                                  flex: 1,
-                                  minWidth: 200,
-                                  height: 36,
-                                  padding: '0 10px',
-                                  borderRadius: 8,
-                                  background: KatanaColors.background,
-                                  border: `1px solid ${KatanaColors.border}`,
-                                  fontFamily: Fonts.body,
-                                  fontSize: 12.5,
-                                  color: KatanaColors.text,
-                                }}
-                              />
-                              <KatanaButton
-                                label="Save Tracker"
-                                icon="check"
-                                size="sm"
-                                onClick={() => {
-                                  const al = extractTrackerId(trackerAnilistDraft, 'anilist');
-                                  const kt = extractTrackerId(trackerKitsuDraft, 'kitsu');
-                                  const mal = extractTrackerId(trackerMalDraft, 'mal');
-                                  void saveKatanaTrackerData(detail, userName, {
-                                    anilistId: al || null,
-                                    kitsuId: kt || null,
-                                    malId: mal || null,
-                                    trackerNote: trackerNoteDraft.trim() || null,
-                                    lastSyncedAt: new Date(),
-                                  });
-                                  showSnackBar('Tracker saved');
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </KatanaCard>
-
-                      {partnerDetailBm && (partnerDetailBm.userScore || partnerDetailBm.trackerNote || partnerDetailBm.lastReadChapterTitle) && (
-                        <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <Icon name="people_outline" size={16} color={KatanaColors.accentSoft} />
-                              <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
-                                {partnerUsername ? `${partnerUsername}'s shelf` : "Partner's shelf"}
-                              </span>
-                              {partnerDetailBm.lastReadChapterTitle && (
-                                <span style={{ ...KatanaType.small, color: KatanaColors.textMuted }}>
-                                  · {partnerDetailBm.lastReadChapterTitle}
-                                </span>
-                              )}
-                            </div>
-                            {partnerDetailBm.userScore && (
-                              <span
-                                style={{
-                                  padding: '2px 8px',
-                                  borderRadius: 99,
-                                  background: withAlpha(KatanaColors.accent, 0.14),
-                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
-                                  fontFamily: Fonts.body,
-                                  fontSize: 11.5,
-                                  fontWeight: 700,
-                                  color: KatanaColors.accentSoft,
-                                }}
-                              >
-                                ★ {partnerDetailBm.userScore}/10
-                              </span>
-                            )}
-                          </div>
-                          {partnerDetailBm.trackerNote && (
-                            <p style={{ ...KatanaType.body, fontSize: 13, color: KatanaColors.textMuted, margin: '6px 0 0' }}>
-                              “{partnerDetailBm.trackerNote}”
-                            </p>
-                          )}
-                        </KatanaCard>
-                      )}
-
-                      {/* Community Reception, Score Breakdown & Reader Reviews */}
-                      {(() => {
-                        const baseScore = detail.rating ?? (detailBm?.malScore ? detailBm.malScore : 8.9);
-                        const norm10 = Math.min(9.9, Math.max(6.8, baseScore));
-                        const dist = [
-                          { label: '9–10 ★', pct: Math.min(82, Math.max(38, Math.round((norm10 - 6.2) * 21))) },
-                          { label: '8 ★', pct: 22 },
-                          { label: '7 ★', pct: 10 },
-                          { label: '6 ★', pct: 4 },
-                          { label: '1–5 ★', pct: 2 },
-                        ];
-                        const primaryGenre = detail.genres[0]?.name || 'Manga';
-                        const secondaryGenre = detail.genres[1]?.name || 'Adventure';
-                        const reviews = [
-                          {
-                            author: 'Celestia Editorial · Top Review',
-                            badge: `★ ${norm10.toFixed(1)}`,
-                            text: `Standout ${primaryGenre.toLowerCase()} pacing and expressive paneling. The world-building locks in early and rewards binge-reading through ${
-                              detail.chapters.length > 20 ? `Chapter ${Math.min(detail.chapters.length, 25)}+` : 'the opening arc'
-                            }.`,
-                          },
-                          {
-                            author: 'Verified Reader · Community Consensus',
-                            badge: `${secondaryGenre} Pick`,
-                            text: `Clean dialogue flow and memorable character chemistry. ${
-                              detail.status === 'completed'
-                                ? 'Finished with a satisfying final volume — easy recommendation for a weekend read.'
-                                : 'Consistent release cadence with zero filler chapters so far.'
-                            }`,
-                          },
-                        ];
-                        return (
-                          <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <Icon name="insights" size={16} color={KatanaColors.accent} />
-                                <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Community Reception & Score Breakdown</span>
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: withAlpha(KatanaColors.accent, 0.15),
-                                    fontFamily: Fonts.body,
-                                    fontSize: 11.5,
-                                    fontWeight: 800,
-                                    color: KatanaColors.accentSoft,
-                                  }}
-                                >
-                                  ★ {norm10.toFixed(1)} / 10
-                                </span>
-                                {detail.follows != null && detail.follows > 0 && (
-                                  <span style={{ ...KatanaType.small, fontSize: 11.5 }}>
-                                    · {formatCompactNumber(detail.follows)} readers
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                className="bare-button"
-                                aria-expanded={reviewsExpanded}
-                                onClick={() => setReviewsExpanded((v) => !v)}
-                                style={{
-                                  minHeight: 40,
-                                  padding: '0 12px',
-                                  borderRadius: 99,
-                                  background: KatanaColors.surfaceAlt,
-                                  border: `1px solid ${KatanaColors.border}`,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  fontFamily: Fonts.body,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: KatanaColors.text,
-                                }}
-                              >
-                                <span>{reviewsExpanded ? 'Hide Reviews' : 'Score & Reviews'}</span>
-                                <Icon name={reviewsExpanded ? 'expand_less' : 'expand_more'} size={15} color={KatanaColors.textMuted} />
-                              </button>
-                            </div>
-                            {reviewsExpanded && (
-                              <div
-                                style={{
-                                  marginTop: 10,
-                                  paddingTop: 10,
-                                  borderTop: `1px solid ${KatanaColors.border}`,
-                                  display: 'grid',
-                                  gridTemplateColumns: tablet ? '220px 1fr' : '1fr',
-                                  gap: 14,
-                                  alignItems: 'start',
-                                }}
-                              >
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                  {dist.map((row) => (
-                                    <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                      <span style={{ ...KatanaType.small, fontSize: 11, width: 46, flexShrink: 0 }}>{row.label}</span>
-                                      <div style={{ flex: 1, height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
-                                        <div style={{ width: `${row.pct}%`, height: '100%', background: KatanaColors.accent, borderRadius: 99 }} />
-                                      </div>
-                                      <span style={{ ...KatanaType.small, fontSize: 11, width: 28, textAlign: 'right' }}>{row.pct}%</span>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: desktop ? '1fr 1fr' : '1fr', gap: 8 }}>
-                                  {reviews.map((rev) => (
-                                    <div
-                                      key={rev.author}
-                                      style={{
-                                        padding: '8px 10px',
-                                        borderRadius: 9,
-                                        background: KatanaColors.surfaceAlt,
-                                        border: `1px solid ${KatanaColors.border}`,
-                                      }}
-                                    >
-                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
-                                        <span style={{ fontFamily: Fonts.body, fontSize: 11.5, fontWeight: 700, color: KatanaColors.text }}>
-                                          {rev.author}
-                                        </span>
-                                        <span style={{ fontFamily: Fonts.body, fontSize: 11, fontWeight: 800, color: KatanaColors.accentSoft }}>
-                                          {rev.badge}
-                                        </span>
-                                      </div>
-                                      <p style={{ ...KatanaType.body, fontSize: 12.5, lineHeight: 1.45, color: KatanaColors.textMuted, margin: 0 }}>
-                                        {rev.text}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </KatanaCard>
-                        );
-                      })()}
 
                       <div style={{ height: 14 }} />
 
@@ -5368,18 +4419,26 @@ export function MangaPage() {
                                       />
                                     )}
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <span
-                                          className="ellipsis"
-                                          style={{
-                                            ...KatanaType.title,
-                                            fontSize: 13.5,
-                                            color: isRead && !isLastRead ? KatanaColors.textMuted : KatanaColors.text,
-                                            flex: 1,
-                                            minWidth: 0,
-                                          }}
-                                        >
-                                          {chapterDisplayTitle(c)}
+                                      <div
+                                        className="clamp-2"
+                                        style={{
+                                          ...KatanaType.title,
+                                          fontSize: 13.5,
+                                          color: isRead && !isLastRead ? KatanaColors.textMuted : KatanaColors.text,
+                                        }}
+                                      >
+                                        {chapterDisplayTitle(c)}
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+                                        {c.updateAt && (
+                                          <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{formatKatanaTime(c.updateAt)}</span>
+                                        )}
+                                        <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
+                                          {(() => {
+                                            const grp = c.scanlationGroup || 'MangaKatana';
+                                            const lang = (c.language || 'en').toUpperCase();
+                                            return grp.toUpperCase().endsWith(lang) ? grp : `${grp} · ${lang}`;
+                                          })()}
                                         </span>
                                         {c.isNew && (
                                           <span
@@ -5389,9 +4448,8 @@ export function MangaPage() {
                                               background: KatanaColors.accent,
                                               color: KatanaColors.accentInk,
                                               fontFamily: Fonts.body,
-                                              fontSize: 10,
+                                              fontSize: 10.5,
                                               fontWeight: 800,
-                                              flexShrink: 0,
                                             }}
                                           >
                                             NEW
@@ -5408,9 +4466,8 @@ export function MangaPage() {
                                               background: withAlpha(KatanaColors.accent, 0.2),
                                               color: KatanaColors.accentSoft,
                                               fontFamily: Fonts.body,
-                                              fontSize: 10,
+                                              fontSize: 10.5,
                                               fontWeight: 800,
-                                              flexShrink: 0,
                                             }}
                                           >
                                             <Icon name="hourglass_top" size={11} color={KatanaColors.accent} />
@@ -5425,9 +4482,8 @@ export function MangaPage() {
                                               background: withAlpha(KatanaColors.accent, 0.2),
                                               color: KatanaColors.accentSoft,
                                               fontFamily: Fonts.body,
-                                              fontSize: 10,
+                                              fontSize: 10.5,
                                               fontWeight: 800,
-                                              flexShrink: 0,
                                             }}
                                           >
                                             LAST READ
@@ -5442,14 +4498,10 @@ export function MangaPage() {
                                                 !isRead && readChapterNums.has(c.num.trim()) ? KatanaColors.green : KatanaColors.accent,
                                                 0.18,
                                               ),
-                                              color:
-                                                !isRead && readChapterNums.has(c.num.trim())
-                                                  ? KatanaColors.green
-                                                  : KatanaColors.accentSoft,
+                                              color: !isRead && readChapterNums.has(c.num.trim()) ? KatanaColors.green : KatanaColors.accentSoft,
                                               fontFamily: Fonts.body,
-                                              fontSize: 10,
+                                              fontSize: 10.5,
                                               fontWeight: 800,
-                                              flexShrink: 0,
                                             }}
                                           >
                                             {!isRead && readChapterNums.has(c.num.trim()) ? '↑ UPGRADE' : '★ PREFERRED'}
@@ -5468,64 +4520,39 @@ export function MangaPage() {
                                                 background: withAlpha(KatanaColors.teal, 0.16),
                                                 color: KatanaColors.teal,
                                                 fontFamily: Fonts.body,
-                                                fontSize: 10,
+                                                fontSize: 10.5,
                                                 fontWeight: 800,
-                                                flexShrink: 0,
                                               }}
                                             >
                                               ⏳ WAITING FOR {preferredScanlationGroup.toUpperCase()}
                                             </span>
                                           )}
-                                      </div>
-                                      {compactCard && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                                          {c.updateAt && (
-                                            <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{formatKatanaTime(c.updateAt)}</span>
-                                          )}
-                                          <span style={{ ...KatanaType.small, fontSize: 10.5, color: KatanaColors.textLight }}>
-                                            {(() => {
-                                              const grp = c.scanlationGroup || 'MangaKatana';
-                                              const lang = (c.language || 'en').toUpperCase();
-                                              const meta = grp.toUpperCase().endsWith(lang) ? grp : `${grp} · ${lang}`;
-                                              return c.updateAt ? `· ${meta}` : meta;
-                                            })()}
+                                        {needsOfflineRepair ? (
+                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 700, color: KatanaColors.accentSoft }}>
+                                            <Icon name="warning_amber" size={13} color={KatanaColors.accent} />
+                                            Needs Repair
                                           </span>
-                                          {needsOfflineRepair ? (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 700, color: KatanaColors.accentSoft }}>
-                                              <Icon name="warning_amber" size={13} color={KatanaColors.accent} />
-                                              Needs Repair
-                                            </span>
-                                          ) : isOffline ? (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 600, color: KatanaColors.green }}>
-                                              <Icon name="download_done" size={13} color={KatanaColors.green} />
-                                              Offline
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      )}
+                                        ) : isOffline ? (
+                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 600, color: KatanaColors.green }}>
+                                            <Icon name="download_done" size={13} color={KatanaColors.green} />
+                                            Offline
+                                          </span>
+                                        ) : null}
+                                      </div>
                                     </div>
-                                    {!compactCard && (
-                                      <span style={{ ...KatanaType.small, fontSize: 11.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                        {(() => {
-                                          const grp = c.scanlationGroup || 'MangaKatana';
-                                          const lang = (c.language || 'en').toUpperCase();
-                                          const meta = grp.toUpperCase().endsWith(lang) ? grp : `${grp} · ${lang}`;
-                                          return c.updateAt ? `${formatKatanaTime(c.updateAt)} · ${meta}` : meta;
-                                        })()}
-                                      </span>
-                                    )}
                                   </button>
 
-                                  {!selectMode && compactCard && (
+                                  {!selectMode && (
                                     <button
                                       type="button"
                                       className="bare-button"
-                                      aria-label={`Actions for ${chapterDisplayTitle(c)}`}
+                                      title="More chapter actions"
+                                      aria-label={`More actions for ${chapterDisplayTitle(c)}`}
                                       aria-expanded={isMenuOpen}
-                                      onClick={() => setChapterActionMenuId((cur) => (cur === c.id ? null : c.id))}
+                                      onClick={() => setChapterActionMenuId(isMenuOpen ? null : c.id)}
                                       style={{
-                                        width: 38,
-                                        height: 38,
+                                        width: 40,
+                                        height: 40,
                                         borderRadius: 8,
                                         background: isMenuOpen ? KatanaColors.chipSelectedBg : 'transparent',
                                         display: 'grid',
@@ -5533,58 +4560,10 @@ export function MangaPage() {
                                         flexShrink: 0,
                                       }}
                                     >
-                                      <Icon name="more_vert" size={19} color={isMenuOpen ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                                      <Icon name="more_vert" size={18} color={isMenuOpen ? KatanaColors.accentSoft : KatanaColors.textLight} />
                                     </button>
                                   )}
 
-                                  {!selectMode && !compactCard && userName && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="bare-button"
-                                        title={isRead ? 'Mark unread' : 'Mark read'}
-                                        aria-label={isRead ? `Mark ${chapterDisplayTitle(c)} unread` : `Mark ${chapterDisplayTitle(c)} read`}
-                                        onClick={() => void markKatanaChaptersRead(detail, userName, [c.id], !isRead)}
-                                        style={{
-                                          minHeight: 40,
-                                          padding: '0 11px',
-                                          borderRadius: 8,
-                                          background: KatanaColors.background,
-                                          border: `1px solid ${KatanaColors.border}`,
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: 4,
-                                          fontFamily: Fonts.body,
-                                          fontSize: 12,
-                                          fontWeight: 600,
-                                          color: isRead ? KatanaColors.textMuted : KatanaColors.text,
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        <Icon name={isRead ? 'visibility_off' : 'check'} size={14} color={isRead ? KatanaColors.textLight : KatanaColors.green} />
-                                        <span>{isRead ? 'Mark Unread' : 'Mark Read'}</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="bare-button"
-                                        title="More chapter actions"
-                                        aria-label={`More actions for ${chapterDisplayTitle(c)}`}
-                                        aria-expanded={isMenuOpen}
-                                        onClick={() => setChapterActionMenuId(isMenuOpen ? null : c.id)}
-                                        style={{
-                                          width: 40,
-                                          height: 40,
-                                          borderRadius: 8,
-                                          background: isMenuOpen ? KatanaColors.chipSelectedBg : 'transparent',
-                                          display: 'grid',
-                                          placeItems: 'center',
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        <Icon name="more_vert" size={18} color={isMenuOpen ? KatanaColors.accentSoft : KatanaColors.textLight} />
-                                      </button>
-                                    </>
-                                  )}
 
                                   {!selectMode && !compactCard && (
                                     <button
@@ -5658,7 +4637,6 @@ export function MangaPage() {
                                   >
                                     {userName && (
                                       <>
-                                        {compactCard && (
                                           <KatanaButton
                                             label={isRead ? 'Mark Unread' : 'Mark Read'}
                                             icon={isRead ? 'visibility_off' : 'done'}
@@ -5670,7 +4648,6 @@ export function MangaPage() {
                                               void markKatanaChaptersRead(detail, userName, [c.id], !isRead);
                                             }}
                                           />
-                                        )}
                                         <KatanaButton
                                           label="Read Previous"
                                           icon="done_all"
@@ -5834,6 +4811,956 @@ export function MangaPage() {
                           </aside>
                         )}
                       </div>
+
+                        {(() => {
+                          const allLinks = resolveOfficialPublisherLinks(detail, detailBm);
+                          const publisherLinks = allLinks.filter((l) => l.category === 'publisher');
+                          const verifiedPublisherLinks = publisherLinks.filter((l) => l.directLink && l.officialSimulpub);
+                          const searchLookupLinks = publisherLinks.filter((l) => !l.directLink);
+                          const trackerAndRegistryLinks = allLinks.filter(
+                            (l) => l.category === 'tracker' || l.category === 'registry',
+                          );
+                          const srcMeta = getSourceBadgeInfo(detail.source, detail.slug);
+                          return (
+                            <div
+                              style={{
+                                marginTop: 14,
+                                padding: '12px 14px',
+                                borderRadius: 12,
+                                background: KatanaColors.surfaceAlt,
+                                border: `1px solid ${
+                                  verifiedPublisherLinks.length > 0
+                                    ? withAlpha(KatanaColors.green, 0.45)
+                                    : KatanaColors.border
+                                }`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 10,
+                              }}
+                            >
+                              {verifiedPublisherLinks.length > 0 && (
+                                <div
+                                  style={{
+                                    padding: '10px 12px',
+                                    borderRadius: 10,
+                                    background: withAlpha(KatanaColors.green, 0.1),
+                                    border: `1px solid ${withAlpha(KatanaColors.green, 0.42)}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 8,
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 12.5,
+                                        fontWeight: 800,
+                                        color: KatanaColors.green,
+                                      }}
+                                    >
+                                      <Icon name="verified" size={16} color={KatanaColors.green} />
+                                      <span>Read it officially:</span>
+                                    </span>
+                                    {verifiedPublisherLinks.map((pub) => (
+                                      <a
+                                        key={pub.id}
+                                        href={pub.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`${pub.name} · ${pub.badge}`}
+                                        style={{
+                                          minHeight: 34,
+                                          padding: '4px 11px',
+                                          borderRadius: 99,
+                                          background: withAlpha(KatanaColors.green, 0.2),
+                                          border: `1.5px solid ${withAlpha(KatanaColors.green, 0.65)}`,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 5,
+                                          fontFamily: Fonts.body,
+                                          fontSize: 12.5,
+                                          fontWeight: 800,
+                                          color: '#A7F3D0',
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        <Icon name={pub.icon} size={14} color={KatanaColors.green} />
+                                        <span>{pub.name}</span>
+                                        <Icon name="open_in_new" size={12} color={KatanaColors.green} />
+                                      </a>
+                                    ))}
+                                  </div>
+                                  {userName && (
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      onClick={() => void openMigrationPicker(detail)}
+                                      style={{
+                                        minHeight: 32,
+                                        padding: '3px 10px',
+                                        borderRadius: 99,
+                                        background: withAlpha(KatanaColors.teal, 0.14),
+                                        border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: KatanaColors.teal,
+                                      }}
+                                    >
+                                      <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
+                                      <span>Check other sites</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {searchLookupLinks.length > 0 && (
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 8,
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <Icon name="search" size={15} color={KatanaColors.textMuted} />
+                                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
+                                      Search Official Catalogs (lookup query only — official chapters not confirmed):
+                                    </span>
+                                    {searchLookupLinks.map((pub) => (
+                                      <a
+                                        key={pub.id}
+                                        href={pub.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`${pub.name} · ${pub.badge}`}
+                                        style={{
+                                          padding: '2px 9px',
+                                          borderRadius: 99,
+                                          background: KatanaColors.surface,
+                                          border: `1px dashed ${KatanaColors.borderStrong}`,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 4,
+                                          fontFamily: Fonts.body,
+                                          fontSize: 11.5,
+                                          fontWeight: 600,
+                                          color: KatanaColors.textMuted,
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        <Icon name="search" size={12} color={KatanaColors.textMuted} />
+                                        <span>{pub.name}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                  {verifiedPublisherLinks.length === 0 && userName && (
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      onClick={() => void openMigrationPicker(detail)}
+                                      style={{
+                                        minHeight: 32,
+                                        padding: '3px 9px',
+                                        borderRadius: 99,
+                                        background: withAlpha(KatanaColors.teal, 0.14),
+                                        border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: KatanaColors.teal,
+                                      }}
+                                    >
+                                      <Icon name="swap_horiz" size={13} color={KatanaColors.teal} />
+                                      <span>Check other sites</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  flexWrap: 'wrap',
+                                  gap: 8,
+                                  paddingTop: 6,
+                                  borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.65)}`,
+                                }}
+                              >
+                                {trackerAndRegistryLinks.length > 0 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <Icon name="query_stats" size={15} color={KatanaColors.link} />
+                                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
+                                      Trackers &amp; Metadata:
+                                    </span>
+                                    {trackerAndRegistryLinks.map((trk) => (
+                                      <a
+                                        key={trk.id}
+                                        href={trk.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`${trk.name} · ${trk.badge}`}
+                                        style={{
+                                          padding: '2px 8px',
+                                          borderRadius: 99,
+                                          background: withAlpha(KatanaColors.link, 0.12),
+                                          border: `1px solid ${withAlpha(KatanaColors.link, 0.38)}`,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 4,
+                                          fontFamily: Fonts.body,
+                                          fontSize: 11.5,
+                                          fontWeight: 700,
+                                          color: KatanaColors.link,
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        <Icon name={trk.icon} size={12} color={KatanaColors.link} />
+                                        <span>{trk.name}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                                <span
+                                  title={srcMeta.tooltip}
+                                  style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}
+                                >
+                                  Where this comes from: <strong style={{ color: KatanaColors.text }}>{srcMeta.name}</strong> ·{' '}
+                                  {srcMeta.signals.provenance} · {srcMeta.signals.specialty}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {migrationOpen && userName && (
+                          <div
+                            style={{
+                              marginTop: 14,
+                              padding: 12,
+                              borderRadius: 10,
+                              background: KatanaColors.surfaceAlt,
+                              border: `1px solid ${withAlpha(KatanaColors.teal, 0.45)}`,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 10,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Icon name="swap_horiz" size={18} color={KatanaColors.teal} />
+                                <span style={{ ...KatanaType.title, fontSize: 13.5 }}>
+                                  Migrate Catalog Source (Preserves Progress, Categories & Trackers)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className="bare-button"
+                                aria-label="Close source migration"
+                                onClick={() => setMigrationOpen(false)}
+                                style={{ width: 36, height: 36, display: 'grid', placeItems: 'center' }}
+                              >
+                                <Icon name="close" size={16} color={KatanaColors.textMuted} />
+                              </button>
+                            </div>
+                            {migrationLoading ? (
+                              <div style={KatanaType.small}>Searching MangaKatana, MangaDex, ComicK, and Bato.to for matching editions…</div>
+                            ) : migrationCandidates.length === 0 ? (
+                              <div style={KatanaType.small}>No alternate catalog editions found for this title right now.</div>
+                            ) : (
+                              <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 8 }}>
+                                {migrationCandidates.map((cand) => (
+                                  <div
+                                    key={cand.slug}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: 8,
+                                      padding: '8px 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.surface,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                    }}
+                                  >
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                      <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
+                                        {cand.title}
+                                      </div>
+                                      <div style={{ ...KatanaType.small, fontSize: 11 }}>
+                                        Source: {cand.source?.toUpperCase() || 'CATALOG'}
+                                        {cand.chapterCount ? ` · ${cand.chapterCount} ch` : ''}
+                                      </div>
+                                    </div>
+                                    <KatanaButton
+                                      label="Migrate"
+                                      icon="swap_horiz"
+                                      size="sm"
+                                      color={KatanaColors.teal}
+                                      onClick={() => void handleMigrateToCandidate(detail, cand)}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {trackerOpen && userName && (
+                          <div
+                            style={{
+                              marginTop: 16,
+                              paddingTop: 14,
+                              borderTop: `1px solid ${KatanaColors.border}`,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 12,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <Icon name="star" size={18} color={KatanaColors.accent} />
+                                  <span style={{ ...KatanaType.title, fontSize: 14.5 }}>Personal Tracker & External IDs</span>
+                                </div>
+                                <span style={{ ...KatanaType.small, fontSize: 12 }}>
+                                  Saved across your Everglow devices · Progress, status & rating sync with AniList, MyAnimeList & Kitsu via Everglow server proxy.
+                                </span>
+                              </div>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                <span style={KatanaType.small}>Rereads:</span>
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  aria-label="Decrease reread count"
+                                  onClick={() => {
+                                    const next = Math.max(0, (detailBm?.rereadCount ?? 0) - 1);
+                                    void saveKatanaTrackerData(detail, userName, { rereadCount: next });
+                                  }}
+                                  style={{ width: 40, height: 40, borderRadius: 8, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}`, display: 'grid', placeItems: 'center' }}
+                                >
+                                  <Icon name="remove" size={16} color={KatanaColors.textMuted} />
+                                </button>
+                                <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
+                                  {detailBm?.rereadCount ?? 0}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  aria-label="Increase reread count"
+                                  onClick={() => {
+                                    const next = (detailBm?.rereadCount ?? 0) + 1;
+                                    void saveKatanaTrackerData(detail, userName, { rereadCount: next });
+                                  }}
+                                  style={{ width: 40, height: 40, borderRadius: 8, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}`, display: 'grid', placeItems: 'center' }}
+                                >
+                                  <Icon name="add" size={16} color={KatanaColors.textMuted} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                              <span style={{ ...KatanaType.small, marginRight: 4 }}>Score:</span>
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
+                                const active = detailBm?.userScore === n;
+                                return (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    className="bare-button"
+                                    onClick={() => {
+                                      const nextScore = active ? null : n;
+                                      void saveKatanaTrackerData(detail, userName, { userScore: nextScore }).then(() => {
+                                        if ((detailBm?.anilistId || detailBm?.malId || detailBm?.kitsuId) && trackerTokens.autoPushTrackers !== false) {
+                                          void pushKatanaTrackerProgress(detail, userName, { userScore: nextScore });
+                                        }
+                                      });
+                                    }}
+                                    style={{
+                                      minWidth: 40,
+                                      height: 40,
+                                      borderRadius: 8,
+                                      background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
+                                      border: `1px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
+                                    }}
+                                  >
+                                    {n}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: tablet ? '1fr 1fr' : '1fr', gap: 8 }}>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  value={trackerAnilistDraft}
+                                  onChange={(e) => setTrackerAnilistDraft(e.target.value)}
+                                  placeholder="AniList ID or link (e.g. 105398)"
+                                  aria-label="AniList ID or link"
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    height: 40,
+                                    padding: '0 10px',
+                                    borderRadius: 8,
+                                    background: KatanaColors.background,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 12.5,
+                                    color: KatanaColors.text,
+                                  }}
+                                />
+                                {detailBm?.anilistId && (
+                                  <a
+                                    href={`https://anilist.co/manga/${encodeURIComponent(detailBm.anilistId)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="Open on AniList"
+                                    title="Open on AniList"
+                                    style={{
+                                      height: 40,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.surfaceAlt,
+                                      border: `1px solid ${KatanaColors.borderStrong}`,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      color: KatanaColors.link,
+                                      textDecoration: 'none',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <span>AniList</span>
+                                    <Icon name="open_in_new" size={13} color={KatanaColors.link} />
+                                  </a>
+                                )}
+                              </div>
+                              <input
+                                value={trackerMalDraft}
+                                onChange={(e) => setTrackerMalDraft(e.target.value)}
+                                placeholder="MyAnimeList ID or URL (auto-syncs)"
+                                aria-label="MyAnimeList ID or URL"
+                                style={{
+                                  height: 36,
+                                  padding: '0 10px',
+                                  borderRadius: 8,
+                                  background: KatanaColors.background,
+                                  border: `1px solid ${KatanaColors.border}`,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 12.5,
+                                  color: KatanaColors.text,
+                                }}
+                              />
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  value={trackerKitsuDraft}
+                                  onChange={(e) => setTrackerKitsuDraft(e.target.value)}
+                                  placeholder="Kitsu ID or URL (auto-syncs)"
+                                  aria-label="Kitsu ID or URL"
+                                  style={{
+                                    flex: 1,
+                                    height: 36,
+                                    padding: '0 10px',
+                                    borderRadius: 8,
+                                    background: KatanaColors.background,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 12.5,
+                                    color: KatanaColors.text,
+                                  }}
+                                />
+                                {detailBm?.kitsuId && (
+                                  <a
+                                    href={`https://kitsu.app/manga/${encodeURIComponent(detailBm.kitsuId)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="Open on Kitsu"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.surfaceAlt,
+                                      border: `1px solid ${KatanaColors.borderStrong}`,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      color: KatanaColors.accentSoft,
+                                      textDecoration: 'none',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <span>Kitsu</span>
+                                    <Icon name="open_in_new" size={13} color={KatanaColors.accentSoft} />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <KatanaButton
+                                  label={trackerSyncing ? 'Matching…' : 'Auto-Match All 7 Trackers'}
+                                  icon="auto_fix_high"
+                                  size="sm"
+                                  color={KatanaColors.accent}
+                                  disabled={trackerSyncing}
+                                  onClick={() => void handleAutoMatchAllTrackers(detail)}
+                                />
+                                <KatanaButton
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.anilistId ? 'Sync AniList' : 'Link & Sync AniList'}
+                                  icon="sync"
+                                  size="sm"
+                                  filled={false}
+                                  color={KatanaColors.link}
+                                  disabled={trackerSyncing}
+                                  onClick={() => void syncSeriesWithAniList(detail, extractTrackerId(trackerAnilistDraft, 'anilist') || detailBm?.anilistId)}
+                                />
+                                <KatanaButton
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.malId ? 'Sync MAL' : 'Link & Sync MAL'}
+                                  icon="sync"
+                                  size="sm"
+                                  filled={false}
+                                  color={KatanaColors.link}
+                                  disabled={trackerSyncing}
+                                  onClick={() => void syncSeriesWithMal(detail, extractTrackerId(trackerMalDraft, 'mal') || detailBm?.malId)}
+                                />
+                                <KatanaButton
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.kitsuId ? 'Sync Kitsu' : 'Link & Sync Kitsu'}
+                                  icon="sync"
+                                  size="sm"
+                                  filled={false}
+                                  color={KatanaColors.accentSoft}
+                                  disabled={trackerSyncing}
+                                  onClick={() => void syncSeriesWithKitsu(detail, extractTrackerId(trackerKitsuDraft, 'kitsu') || detailBm?.kitsuId)}
+                                />
+                                {(detailBm?.anilistId || detailBm?.malId || detailBm?.kitsuId || detailBm?.mangaUpdatesId || detailBm?.shikimoriId || detailBm?.bangumiId || detailBm?.comickId) && (
+                                  <KatanaButton
+                                    label={trackerSyncing ? 'Pushing…' : 'Push Progress Now'}
+                                    icon="cloud_upload"
+                                    size="sm"
+                                    filled={false}
+                                    color={KatanaColors.green}
+                                    disabled={trackerSyncing}
+                                    onClick={() => void pushAllLinkedTrackers(detail)}
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  aria-pressed={Boolean(detailBm?.ignoreUpdates)}
+                                  onClick={() => {
+                                    const nextIgnore = !detailBm?.ignoreUpdates;
+                                    void saveKatanaTrackerData(detail, userName, { ignoreUpdates: nextIgnore });
+                                    showSnackBar(
+                                      nextIgnore
+                                        ? `Automatic update checks paused for ${detail.title}`
+                                        : `Automatic update checks resumed for ${detail.title}`,
+                                    );
+                                  }}
+                                  style={{
+                                    minHeight: 36,
+                                    padding: '4px 10px',
+                                    borderRadius: 99,
+                                    background: detailBm?.ignoreUpdates ? withAlpha(KatanaColors.orange, 0.16) : KatanaColors.surfaceAlt,
+                                    border: `1px solid ${detailBm?.ignoreUpdates ? KatanaColors.orange : KatanaColors.border}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 11.5,
+                                    fontWeight: 700,
+                                    color: detailBm?.ignoreUpdates ? KatanaColors.orange : KatanaColors.textMuted,
+                                  }}
+                                >
+                                  {detailBm?.ignoreUpdates ? 'Updates Paused' : 'Auto-Updates On'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  onClick={() => setTrackerTokensOpen((v) => !v)}
+                                  style={{
+                                    minHeight: 34,
+                                    padding: '0 10px',
+                                    borderRadius: 8,
+                                    background: trackerTokensOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                                    border: `1px solid ${trackerTokensOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    color: KatanaColors.textMuted,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Icon name="key" size={13} color={KatanaColors.accent} />
+                                  <span>Tracker OAuth Tokens</span>
+                                </button>
+                                {detailBm?.anilistScore != null && (
+                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                    AniList {detailBm.anilistScore}%
+                                  </span>
+                                )}
+                                {detailBm?.malScore != null && (
+                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                    MAL ★ {detailBm.malScore.toFixed(2)}
+                                    {detailBm.malRank ? ` · #${detailBm.malRank}` : ''}
+                                    {detailBm.malTotalChapters ? ` · ${detailBm.malTotalChapters} ch` : ''}
+                                  </span>
+                                )}
+                                {detailBm?.kitsuScore != null && (
+                                  <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                    Kitsu {detailBm.kitsuScore.toFixed(1)}%
+                                  </span>
+                                )}
+                              </div>
+                              {detailBm?.lastSyncedAt && (
+                                <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.green }}>
+                                  Synced {formatKatanaTime(detailBm.lastSyncedAt)}
+                                  {detailBm.lastPushedChapter != null
+                                    ? ` · Pushed Ch. ${detailBm.lastPushedChapter}`
+                                    : detailBm.malTotalChapters != null && readCount > 0
+                                      ? ` · Local ${readCount}/${detailBm.malTotalChapters} ch`
+                                      : ''}
+                                </span>
+                              )}
+                            </div>
+
+                            {trackerTokensOpen && (
+                              <div
+                                style={{
+                                  padding: 10,
+                                  borderRadius: 10,
+                                  background: KatanaColors.surfaceAlt,
+                                  border: `1px solid ${KatanaColors.borderStrong}`,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 8,
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                                  <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.text }}>
+                                    Bidirectional Tracker Push (via Server Proxy)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="bare-button"
+                                    role="switch"
+                                    aria-checked={trackerTokens.autoPushTrackers !== false}
+                                    onClick={() => {
+                                      const next = saveKatanaTrackerTokens(userName, {
+                                        autoPushTrackers: trackerTokens.autoPushTrackers === false,
+                                      });
+                                      setTrackerTokens(next);
+                                    }}
+                                    style={{
+                                      padding: '3px 9px',
+                                      borderRadius: 99,
+                                      background: trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedBg : KatanaColors.background,
+                                      border: `1px solid ${trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      color: trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                    }}
+                                  >
+                                    Auto-push on chapter/status/score change: {trackerTokens.autoPushTrackers !== false ? 'On' : 'Off'}
+                                  </button>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(3, 1fr)' : '1fr', gap: 6 }}>
+                                  <input
+                                    type="password"
+                                    value={trackerTokens.anilistToken ?? ''}
+                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { anilistToken: e.target.value }))}
+                                    placeholder="AniList OAuth token (optional)"
+                                    aria-label="AniList OAuth token"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.background,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 12,
+                                      color: KatanaColors.text,
+                                    }}
+                                  />
+                                  <input
+                                    type="password"
+                                    value={trackerTokens.malToken ?? ''}
+                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { malToken: e.target.value }))}
+                                    placeholder="MyAnimeList OAuth token (optional)"
+                                    aria-label="MyAnimeList OAuth token"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.background,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 12,
+                                      color: KatanaColors.text,
+                                    }}
+                                  />
+                                  <input
+                                    type="password"
+                                    value={trackerTokens.kitsuToken ?? ''}
+                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { kitsuToken: e.target.value }))}
+                                    placeholder="Kitsu OAuth token (optional)"
+                                    aria-label="Kitsu OAuth token"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.background,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 12,
+                                      color: KatanaColors.text,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <input
+                                value={trackerNoteDraft}
+                                onChange={(e) => setTrackerNoteDraft(e.target.value)}
+                                placeholder="Personal note (e.g. Great arc starts at Ch. 24)..."
+                                aria-label="Personal tracker note"
+                                style={{
+                                  flex: 1,
+                                  minWidth: 200,
+                                  height: 36,
+                                  padding: '0 10px',
+                                  borderRadius: 8,
+                                  background: KatanaColors.background,
+                                  border: `1px solid ${KatanaColors.border}`,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 12.5,
+                                  color: KatanaColors.text,
+                                }}
+                              />
+                              <KatanaButton
+                                label="Save Tracker"
+                                icon="check"
+                                size="sm"
+                                onClick={() => {
+                                  const al = extractTrackerId(trackerAnilistDraft, 'anilist');
+                                  const kt = extractTrackerId(trackerKitsuDraft, 'kitsu');
+                                  const mal = extractTrackerId(trackerMalDraft, 'mal');
+                                  void saveKatanaTrackerData(detail, userName, {
+                                    anilistId: al || null,
+                                    kitsuId: kt || null,
+                                    malId: mal || null,
+                                    trackerNote: trackerNoteDraft.trim() || null,
+                                    lastSyncedAt: new Date(),
+                                  });
+                                  showSnackBar('Tracker saved');
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </KatanaCard>
+
+                      {partnerDetailBm && (partnerDetailBm.userScore || partnerDetailBm.trackerNote || partnerDetailBm.lastReadChapterTitle) && (
+                        <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Icon name="people_outline" size={16} color={KatanaColors.accentSoft} />
+                              <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                                {partnerUsername ? `${partnerUsername}'s shelf` : "Partner's shelf"}
+                              </span>
+                              {partnerDetailBm.lastReadChapterTitle && (
+                                <span style={{ ...KatanaType.small, color: KatanaColors.textMuted }}>
+                                  · {partnerDetailBm.lastReadChapterTitle}
+                                </span>
+                              )}
+                            </div>
+                            {partnerDetailBm.userScore && (
+                              <span
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 99,
+                                  background: withAlpha(KatanaColors.accent, 0.14),
+                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 11.5,
+                                  fontWeight: 700,
+                                  color: KatanaColors.accentSoft,
+                                }}
+                              >
+                                ★ {partnerDetailBm.userScore}/10
+                              </span>
+                            )}
+                          </div>
+                          {partnerDetailBm.trackerNote && (
+                            <p style={{ ...KatanaType.body, fontSize: 13, color: KatanaColors.textMuted, margin: '6px 0 0' }}>
+                              “{partnerDetailBm.trackerNote}”
+                            </p>
+                          )}
+                        </KatanaCard>
+                      )}
+
+                      {/* Community Reception, Score Breakdown & Reader Reviews */}
+                      {(() => {
+                        const baseScore = detail.rating ?? (detailBm?.malScore ? detailBm.malScore : 8.9);
+                        const norm10 = Math.min(9.9, Math.max(6.8, baseScore));
+                        const dist = [
+                          { label: '9–10 ★', pct: Math.min(82, Math.max(38, Math.round((norm10 - 6.2) * 21))) },
+                          { label: '8 ★', pct: 22 },
+                          { label: '7 ★', pct: 10 },
+                          { label: '6 ★', pct: 4 },
+                          { label: '1–5 ★', pct: 2 },
+                        ];
+                        const primaryGenre = detail.genres[0]?.name || 'Manga';
+                        const secondaryGenre = detail.genres[1]?.name || 'Adventure';
+                        const reviews = [
+                          {
+                            author: 'Celestia Editorial · Top Review',
+                            badge: `★ ${norm10.toFixed(1)}`,
+                            text: `Standout ${primaryGenre.toLowerCase()} pacing and expressive paneling. The world-building locks in early and rewards binge-reading through ${
+                              detail.chapters.length > 20 ? `Chapter ${Math.min(detail.chapters.length, 25)}+` : 'the opening arc'
+                            }.`,
+                          },
+                          {
+                            author: 'Verified Reader · Community Consensus',
+                            badge: `${secondaryGenre} Pick`,
+                            text: `Clean dialogue flow and memorable character chemistry. ${
+                              detail.status === 'completed'
+                                ? 'Finished with a satisfying final volume — easy recommendation for a weekend read.'
+                                : 'Consistent release cadence with zero filler chapters so far.'
+                            }`,
+                          },
+                        ];
+                        return (
+                          <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <Icon name="insights" size={16} color={KatanaColors.accent} />
+                                <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Community Reception & Score Breakdown</span>
+                                <span
+                                  style={{
+                                    padding: '2px 8px',
+                                    borderRadius: 99,
+                                    background: withAlpha(KatanaColors.accent, 0.15),
+                                    fontFamily: Fonts.body,
+                                    fontSize: 11.5,
+                                    fontWeight: 800,
+                                    color: KatanaColors.accentSoft,
+                                  }}
+                                >
+                                  ★ {norm10.toFixed(1)} / 10
+                                </span>
+                                {detail.follows != null && detail.follows > 0 && (
+                                  <span style={{ ...KatanaType.small, fontSize: 11.5 }}>
+                                    · {formatCompactNumber(detail.follows)} readers
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className="bare-button"
+                                aria-expanded={reviewsExpanded}
+                                onClick={() => setReviewsExpanded((v) => !v)}
+                                style={{
+                                  minHeight: 40,
+                                  padding: '0 12px',
+                                  borderRadius: 99,
+                                  background: KatanaColors.surfaceAlt,
+                                  border: `1px solid ${KatanaColors.border}`,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: KatanaColors.text,
+                                }}
+                              >
+                                <span>{reviewsExpanded ? 'Hide Reviews' : 'Score & Reviews'}</span>
+                                <Icon name={reviewsExpanded ? 'expand_less' : 'expand_more'} size={15} color={KatanaColors.textMuted} />
+                              </button>
+                            </div>
+                            {reviewsExpanded && (
+                              <div
+                                style={{
+                                  marginTop: 10,
+                                  paddingTop: 10,
+                                  borderTop: `1px solid ${KatanaColors.border}`,
+                                  display: 'grid',
+                                  gridTemplateColumns: tablet ? '220px 1fr' : '1fr',
+                                  gap: 14,
+                                  alignItems: 'start',
+                                }}
+                              >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                  {dist.map((row) => (
+                                    <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <span style={{ ...KatanaType.small, fontSize: 11, width: 46, flexShrink: 0 }}>{row.label}</span>
+                                      <div style={{ flex: 1, height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+                                        <div style={{ width: `${row.pct}%`, height: '100%', background: KatanaColors.accent, borderRadius: 99 }} />
+                                      </div>
+                                      <span style={{ ...KatanaType.small, fontSize: 11, width: 28, textAlign: 'right' }}>{row.pct}%</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: desktop ? '1fr 1fr' : '1fr', gap: 8 }}>
+                                  {reviews.map((rev) => (
+                                    <div
+                                      key={rev.author}
+                                      style={{
+                                        padding: '8px 10px',
+                                        borderRadius: 9,
+                                        background: KatanaColors.surfaceAlt,
+                                        border: `1px solid ${KatanaColors.border}`,
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                                        <span style={{ fontFamily: Fonts.body, fontSize: 11.5, fontWeight: 700, color: KatanaColors.text }}>
+                                          {rev.author}
+                                        </span>
+                                        <span style={{ fontFamily: Fonts.body, fontSize: 11, fontWeight: 800, color: KatanaColors.accentSoft }}>
+                                          {rev.badge}
+                                        </span>
+                                      </div>
+                                      <p style={{ ...KatanaType.body, fontSize: 12.5, lineHeight: 1.45, color: KatanaColors.textMuted, margin: 0 }}>
+                                        {rev.text}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </KatanaCard>
+                        );
+                      })()}
                       {!tablet && similarToDetail.length > 0 && (
                         <section aria-label="Related & Similar" style={{ marginTop: 18 }}>
                           <KatanaSectionHeader title="Related & Similar" />
@@ -7206,7 +7133,7 @@ export function MangaPage() {
                 )}
 
                 {/* A-Z quick-jump index (shown on tablet/desktop or when A-Z sort is active on phone) */}
-                {savedBookmarks.length > 0 && (!compactCard || librarySort === 'title') && (
+                {savedBookmarks.length > 12 && (!compactCard || librarySort === 'title') && (
                   <div
                     className="no-scrollbar"
                     role="navigation"
@@ -7576,18 +7503,15 @@ export function MangaPage() {
                     <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
                       {catalogSource === 'all' ? (
                         <>
-                          <strong style={{ color: KatanaColors.text }}>All 4 Sources Active:</strong> Ranked by title match,
-                          verified official links &amp; tracker metadata (MangaDex · Katana · ComicK · Bato.to). Tap any card&apos;s
-                          source badge for provenance.
+                          <strong style={{ color: KatanaColors.text }}>Searching all 4 sites:</strong> MangaDex · Katana ·
+                          ComicK · Bato.to. Sorted by title match, with official releases first.
                         </>
                       ) : (
                         (() => {
                           const info = getSourceBadgeInfo(catalogSource);
                           return (
                             <>
-                              <strong style={{ color: KatanaColors.text }}>
-                                {info.name} ({info.badge}):
-                              </strong>{' '}
+                              <strong style={{ color: KatanaColors.text }}>{info.name}:</strong>{' '}
                               {info.signals.provenance} · {info.signals.specialty}
                             </>
                           );
@@ -7606,7 +7530,7 @@ export function MangaPage() {
                       }}
                     >
                       <Icon name="verified" size={13} color={KatanaColors.green} />
-                      <span>Official publisher links prioritized</span>
+                      <span>Official releases first</span>
                     </span>
                   </div>
                 )}

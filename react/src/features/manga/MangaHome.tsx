@@ -2472,6 +2472,7 @@ export function MangaHome({
                 {m.latestChapter && (
                   <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textMuted }}>
                     {m.latestChapter.title || `Ch. ${m.latestChapter.num}`}
+                    {m.latestChapter.updateAt ? ` · ${formatKatanaTime(m.latestChapter.updateAt)}` : ''}
                   </div>
                 )}
               </button>

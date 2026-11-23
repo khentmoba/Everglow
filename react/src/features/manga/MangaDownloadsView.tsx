@@ -243,9 +243,383 @@ export function KatanaDownloadsView({
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <KatanaSectionHeader title="Downloads" badge={items.length > 0 ? String(items.length) : undefined} />
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      </div>
+      <div style={{ height: 14 }} />
+      {items.length === 0 ? (
+        <KatanaEmptyState
+          icon="download_done"
+          title="No offline chapters yet"
+          subtitle="Download chapters from any manga detail page or reader to read without a connection."
+          actionLabel="Browse Manga"
+          actionIcon="home"
+          onAction={onBrowse}
+        />
+      ) : (
+        <>
+          <KatanaCard padding={12} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="storage" size={18} color={KatanaColors.accent} />
+                <span style={KatanaType.small}>
+                  Downloads are using <strong style={{ color: KatanaColors.text }}>{storage}</strong>
+                  {quotaInfo
+                    ? ` of the ${quotaInfo.quota >= 1e9 ? `${(quotaInfo.quota / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(quotaInfo.quota / 1e6))} MB`} this browser allows`
+                    : ''}
+                </span>
+              </div>
+              <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+
+                {(
+                  [
+                    ['recent', 'Recent'],
+                    ['title', 'A–Z'],
+                    ['chapters', 'Most ch'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="bare-button"
+                    onClick={() => setSortBy(id)}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: 7,
+                      background: sortBy === id ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                      border: `1px solid ${sortBy === id ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                      fontFamily: Fonts.body,
+                      fontSize: 12,
+                      fontWeight: sortBy === id ? 700 : 500,
+                      color: sortBy === id ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {quotaInfo && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ height: 5, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(2, Math.round((quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)))}%`,
+                      height: '100%',
+                      background: KatanaColors.accent,
+                      borderRadius: 99,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
+              Downloads stay here until you remove them. If you clear this browser's site data, they go too.
+            </div>
+            <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="bare-button"
+                  disabled={verifyingCache}
+                  onClick={() => void handleVerifyCache()}
+                  title="Make sure every downloaded page is still on this device"
+                  style={{
+                    minHeight: 36,
+                    padding: '6px 12px',
+                    borderRadius: 7,
+                    background: KatanaColors.surfaceAlt,
+                    border: `1px solid ${KatanaColors.borderStrong}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontFamily: Fonts.body,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: KatanaColors.teal,
+                  }}
+                >
+                  <Icon name="fact_check" size={14} color={KatanaColors.teal} />
+                  <span>{verifyingCache ? 'Checking…' : 'Check my downloads'}</span>
+                </button>
+            </div>
+            {evictedItems.length > 0 && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: withAlpha(KatanaColors.accent, 0.14),
+                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.5)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px' }}>
+                  <Icon name="warning_amber" size={18} color={KatanaColors.accent} />
+                  <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.text, fontWeight: 600 }}>
+                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter has' : 'chapters have'} missing
+                    Cache Storage pages evicted by the browser and won&apos;t load completely offline until repaired.
+                  </span>
+                </div>
+                <KatanaButton
+                  label={repairingAll ? 'Repairing…' : `Repair All (${evictedItems.length})`}
+                  icon="build"
+                  size="sm"
+                  onClick={() => void handleRepairAllEvicted()}
+                />
+              </div>
+            )}
+            {persisted === false && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: withAlpha(KatanaColors.accent, 0.08),
+                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.3)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}
+              >
+                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, flex: '1 1 220px' }}>
+                  Your browser may remove offline chapters when the device runs low on space.
+                </span>
+                <KatanaButton label="Keep them" icon="shield" size="sm" filled={false} color={KatanaColors.accentSoft} onClick={keepOffline} />
+              </div>
+            )}
+          </KatanaCard>
+
+          {dlSelectMode && (
+            <KatanaCard padding={10} radius={10} style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                  {selectedIds.size} selected
+                </span>
+                <div style={{ display: 'inline-flex', gap: 8 }}>
+                  <KatanaButton
+                    label="Select all"
+                    size="sm"
+                    filled={false}
+                    color={KatanaColors.textMuted}
+                    onClick={() => setSelectedIds(new Set(items.map((i) => i.id)))}
+                  />
+                  <KatanaButton
+                    label={`Delete (${selectedIds.size})`}
+                    icon="delete_outline"
+                    size="sm"
+                    filled={false}
+                    color={KatanaColors.crimson}
+                    onClick={() => {
+                      if (selectedIds.size === 0) return;
+                      onDeleteMany([...selectedIds]);
+                      setSelectedIds(new Set());
+                      setDlSelectMode(false);
+                    }}
+                  />
+                </div>
+              </div>
+            </KatanaCard>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Icon name="download_done" size={16} color={KatanaColors.green} />
+            <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloaded</span>
+            <span style={{ ...KatanaType.small }}>({items.length})</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {grouped.map((chapters) => {
+              const head = chapters[0];
+              return (
+                <KatanaCard key={head.mediaId} padding={0} style={{ overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: `1px solid ${KatanaColors.border}` }}>
+                    <div
+                      onClick={() => onOpenSeries(head.mediaId)}
+                      role="link"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOpenSeries(head.mediaId);
+                        }
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer' }}
+                    >
+                      <div style={{ position: 'relative', width: 46, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                        <KatanaCoverImage url={head.coverUrl} title={head.title} iconSize={18} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="ellipsis" style={KatanaType.title}>{head.title}</div>
+                        <div style={KatanaType.small}>
+                          {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'} offline
+                          {seriesBytes(chapters) ? ` · ${seriesBytes(chapters)}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <KatanaButton label="Resume" icon="play_arrow" size="sm" onClick={() => onOpen(head)} />
+                  </div>
+                  {chapters.map((ch, idx) => {
+                    const checked = selectedIds.has(ch.id);
+                    const missingPages = ch.cacheMissingPages ?? 0;
+                    const totalPages = ch.pageUrls.length;
+                    const cachedPages = ch.verifiedCachedPages ?? Math.max(0, totalPages - missingPages);
+                    const needsRepair = missingPages > 0;
+                    return (
+                      <div
+                        key={ch.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '10px 12px',
+                          borderTop: idx > 0 ? `1px solid ${KatanaColors.border}` : undefined,
+                          background: checked
+                            ? withAlpha(KatanaColors.accent, 0.08)
+                            : needsRepair
+                              ? withAlpha(KatanaColors.accent, 0.06)
+                              : 'transparent',
+                        }}
+                      >
+                        {dlSelectMode && (
+                          <button
+                            type="button"
+                            className="bare-button"
+                            aria-label={`Select ${ch.subtitle || ch.title}`}
+                            onClick={() => toggleSelect(ch.id)}
+                            style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                          >
+                            <Icon name={checked ? 'check_box' : 'check_box_outline_blank'} size={20} color={checked ? KatanaColors.accent : KatanaColors.textLight} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="bare-button"
+                          onClick={() => (dlSelectMode ? toggleSelect(ch.id) : onOpen(ch))}
+                          style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
+                        >
+                          <Icon
+                            name={needsRepair ? 'warning_amber' : 'menu_book'}
+                            size={18}
+                            color={needsRepair ? KatanaColors.accent : KatanaColors.accentSoft}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ ...KatanaType.title, fontSize: 13.5 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
+                            <div style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span>{formattedSize(ch)}</span>
+                              {needsRepair ? (
+                                <span style={{ color: KatanaColors.accentSoft, fontWeight: 700 }}>
+                                  · Needs Repair ({cachedPages}/{totalPages} pages cached)
+                                </span>
+                              ) : totalPages > 0 ? (
+                                <span style={{ color: KatanaColors.green, fontWeight: 600 }}>
+                                  · Offline verified ({cachedPages} {cachedPages === 1 ? 'page' : 'pages'})
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </button>
+                        {!dlSelectMode && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {needsRepair && (
+                              <button
+                                type="button"
+                                className="bare-button"
+                                title="Re-download evicted pages into Cache Storage"
+                                aria-label={`Repair offline cache for ${ch.subtitle || ch.title}`}
+                                onClick={async () => {
+                                  showSnackBar(`Repairing ${ch.subtitle || ch.title}…`);
+                                  await offlineMedia.repairMangaChapter(ch.id, proxyKatanaImageUrl);
+                                  const res = await offlineMedia.verifyMangaChapterCache(ch.id);
+                                  showSnackBar(
+                                    res.isComplete
+                                      ? `Repaired ${ch.subtitle || ch.title} (${res.cachedPages}/${res.totalPages} pages cached)`
+                                      : `Could not restore all pages (${res.cachedPages}/${res.totalPages} cached) — check connection`,
+                                  );
+                                }}
+                                style={{
+                                  minHeight: 44,
+                                  padding: '0 11px',
+                                  borderRadius: 7,
+                                  background: withAlpha(KatanaColors.accent, 0.18),
+                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 11.5,
+                                  fontWeight: 800,
+                                  color: KatanaColors.accentSoft,
+                                }}
+                              >
+                                <Icon name="build" size={14} color={KatanaColors.accentSoft} />
+                                <span>Repair</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="bare-button"
+                              title="Export portable .cbz comic archive"
+                              aria-label={`Export ${ch.subtitle || ch.title} as CBZ`}
+                              onClick={async () => {
+                                const res = await offlineMedia.exportMangaChapterCbz(ch.id);
+                                if (!res) {
+                                  showSnackBar('Cached pages not available to export yet');
+                                  return;
+                                }
+                                const url = URL.createObjectURL(res.blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = res.filename;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                showSnackBar(`Exported ${res.filename}`);
+                              }}
+                              style={{
+                                minHeight: 44,
+                                padding: '0 11px',
+                                borderRadius: 7,
+                                background: KatanaColors.surfaceAlt,
+                                border: `1px solid ${KatanaColors.border}`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontFamily: Fonts.body,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                color: KatanaColors.link,
+                              }}
+                            >
+                              <Icon name="folder_zip" size={14} color={KatanaColors.link} />
+                              <span>CBZ</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="bare-button"
+                              aria-label={`Delete ${ch.subtitle || ch.title}`}
+                              onClick={() => onDelete(ch.id)}
+                              style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
+                            >
+                              <Icon name="delete_outline" size={18} color={KatanaColors.textLight} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </KatanaCard>
+              );
+            })}
+          </div>
+      <KatanaCard padding={12} radius={10} style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          <span style={{ ...KatanaType.title, fontSize: 13 }}>Add your own files</span>
+        </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <label
-            title="Import one or multiple .cbz chapter archives"
+            title="Add downloaded chapter files from this device"
             style={{
               minHeight: 40,
               padding: '6px 12px',
@@ -263,7 +637,7 @@ export function KatanaDownloadsView({
             }}
           >
             <Icon name="folder_zip" size={15} color={KatanaColors.link} />
-            <span>Import CBZ</span>
+            <span>Add files</span>
             <input
               type="file"
               multiple
@@ -297,7 +671,7 @@ export function KatanaDownloadsView({
             />
           </label>
           <label
-            title="Import an entire folder of .cbz chapter archives"
+            title="Add a whole folder of chapter files"
             style={{
               minHeight: 40,
               padding: '6px 12px',
@@ -315,7 +689,7 @@ export function KatanaDownloadsView({
             }}
           >
             <Icon name="create_new_folder" size={15} color={KatanaColors.textMuted} />
-            <span>Import Folder</span>
+            <span>Add a folder</span>
             <input
               type="file"
               multiple
@@ -401,14 +775,11 @@ export function KatanaDownloadsView({
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
               >
                 <Icon name="delete_sweep" variant="outlined" size={18} color={KatanaColors.textLight} />
-                <span style={KatanaType.small}>Clear All</span>
+                <span style={KatanaType.small}>Remove all</span>
               </button>
             </>
           )}
         </div>
-      </div>
-      <div style={{ height: 14 }} />
-      <KatanaCard padding={12} radius={10} style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           {(() => {
             const netSupported = supportsNetworkConnectionApi();
@@ -602,7 +973,7 @@ export function KatanaDownloadsView({
             {downloadQueue.length > 0 && (
               <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.textMuted }}>
-                  Up Next ({downloadQueue.length} · {estimateMangaBatchMegabytes(downloadQueue.length, false, items).label} est.) — reorder or remove
+                  Waiting to download ({downloadQueue.length} · about {estimateMangaBatchMegabytes(downloadQueue.length, false, items).label}) — reorder or remove
                 </div>
                 {downloadQueue.slice(0, 6).map((q, idx) => (
                   <div
@@ -693,7 +1064,7 @@ export function KatanaDownloadsView({
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.crimson }}>
-                Failed downloads ({failedDownloads.length})
+                Could not finish ({failedDownloads.length})
               </span>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <button
@@ -772,365 +1143,6 @@ export function KatanaDownloadsView({
           </div>
         )}
       </KatanaCard>
-      {items.length === 0 ? (
-        <KatanaEmptyState
-          icon="download_done"
-          title="No offline chapters yet"
-          subtitle="Download chapters from any manga detail page or reader to read without a connection."
-          actionLabel="Browse Manga"
-          actionIcon="home"
-          onAction={onBrowse}
-        />
-      ) : (
-        <>
-          <KatanaCard padding={12} style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Icon name="storage" size={18} color={KatanaColors.accent} />
-                <span style={KatanaType.small}>
-                  Offline storage used: <strong style={{ color: KatanaColors.text }}>{storage}</strong>
-                  {quotaInfo
-                    ? ` of ${quotaInfo.quota >= 1e9 ? `${(quotaInfo.quota / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(quotaInfo.quota / 1e6))} MB`} device budget`
-                    : ''}
-                </span>
-              </div>
-              <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="bare-button"
-                  disabled={verifyingCache}
-                  onClick={() => void handleVerifyCache()}
-                  title="Verify every downloaded chapter page in browser Cache Storage"
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: 7,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.borderStrong}`,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontFamily: Fonts.body,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: KatanaColors.teal,
-                  }}
-                >
-                  <Icon name="fact_check" size={14} color={KatanaColors.teal} />
-                  <span>{verifyingCache ? 'Verifying…' : 'Verify Cache'}</span>
-                </button>
-                {(
-                  [
-                    ['recent', 'Recent'],
-                    ['title', 'A–Z'],
-                    ['chapters', 'Most ch'],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className="bare-button"
-                    onClick={() => setSortBy(id)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: 7,
-                      background: sortBy === id ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                      border: `1px solid ${sortBy === id ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
-                      fontFamily: Fonts.body,
-                      fontSize: 12,
-                      fontWeight: sortBy === id ? 700 : 500,
-                      color: sortBy === id ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {quotaInfo && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ height: 5, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${Math.min(100, Math.max(2, Math.round((quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)))}%`,
-                      height: '100%',
-                      background: KatanaColors.accent,
-                      borderRadius: 99,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
-              Pending downloads save automatically and resume next time you open Manga Celestia. Clearing browser site data removes cached pages unless you export a portable <strong>.cbz</strong> archive.
-            </div>
-            {evictedItems.length > 0 && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: '10px 12px',
-                  borderRadius: 8,
-                  background: withAlpha(KatanaColors.accent, 0.14),
-                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.5)}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px' }}>
-                  <Icon name="warning_amber" size={18} color={KatanaColors.accent} />
-                  <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.text, fontWeight: 600 }}>
-                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter has' : 'chapters have'} missing
-                    Cache Storage pages evicted by the browser and won&apos;t load completely offline until repaired.
-                  </span>
-                </div>
-                <KatanaButton
-                  label={repairingAll ? 'Repairing…' : `Repair All (${evictedItems.length})`}
-                  icon="build"
-                  size="sm"
-                  onClick={() => void handleRepairAllEvicted()}
-                />
-              </div>
-            )}
-            {persisted === false && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  background: withAlpha(KatanaColors.accent, 0.08),
-                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.3)}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                }}
-              >
-                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, flex: '1 1 220px' }}>
-                  Your browser may remove offline chapters when the device runs low on space.
-                </span>
-                <KatanaButton label="Keep them" icon="shield" size="sm" filled={false} color={KatanaColors.accentSoft} onClick={keepOffline} />
-              </div>
-            )}
-          </KatanaCard>
-
-          {dlSelectMode && (
-            <KatanaCard padding={10} radius={10} style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
-                  {selectedIds.size} selected
-                </span>
-                <div style={{ display: 'inline-flex', gap: 8 }}>
-                  <KatanaButton
-                    label="Select all"
-                    size="sm"
-                    filled={false}
-                    color={KatanaColors.textMuted}
-                    onClick={() => setSelectedIds(new Set(items.map((i) => i.id)))}
-                  />
-                  <KatanaButton
-                    label={`Delete (${selectedIds.size})`}
-                    icon="delete_outline"
-                    size="sm"
-                    filled={false}
-                    color={KatanaColors.crimson}
-                    onClick={() => {
-                      if (selectedIds.size === 0) return;
-                      onDeleteMany([...selectedIds]);
-                      setSelectedIds(new Set());
-                      setDlSelectMode(false);
-                    }}
-                  />
-                </div>
-              </div>
-            </KatanaCard>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {grouped.map((chapters) => {
-              const head = chapters[0];
-              return (
-                <KatanaCard key={head.mediaId} padding={0} style={{ overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: `1px solid ${KatanaColors.border}` }}>
-                    <div
-                      onClick={() => onOpenSeries(head.mediaId)}
-                      role="link"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onOpenSeries(head.mediaId);
-                        }
-                      }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer' }}
-                    >
-                      <div style={{ position: 'relative', width: 46, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
-                        <KatanaCoverImage url={head.coverUrl} title={head.title} iconSize={18} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="ellipsis" style={KatanaType.title}>{head.title}</div>
-                        <div style={KatanaType.small}>
-                          {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'} offline
-                          {seriesBytes(chapters) ? ` · ${seriesBytes(chapters)}` : ''}
-                        </div>
-                      </div>
-                    </div>
-                    <KatanaButton label="Resume" icon="play_arrow" size="sm" onClick={() => onOpen(head)} />
-                  </div>
-                  {chapters.map((ch, idx) => {
-                    const checked = selectedIds.has(ch.id);
-                    const missingPages = ch.cacheMissingPages ?? 0;
-                    const totalPages = ch.pageUrls.length;
-                    const cachedPages = ch.verifiedCachedPages ?? Math.max(0, totalPages - missingPages);
-                    const needsRepair = missingPages > 0;
-                    return (
-                      <div
-                        key={ch.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: '10px 12px',
-                          borderTop: idx > 0 ? `1px solid ${KatanaColors.border}` : undefined,
-                          background: checked
-                            ? withAlpha(KatanaColors.accent, 0.08)
-                            : needsRepair
-                              ? withAlpha(KatanaColors.accent, 0.06)
-                              : 'transparent',
-                        }}
-                      >
-                        {dlSelectMode && (
-                          <button
-                            type="button"
-                            className="bare-button"
-                            aria-label={`Select ${ch.subtitle || ch.title}`}
-                            onClick={() => toggleSelect(ch.id)}
-                            style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', flexShrink: 0 }}
-                          >
-                            <Icon name={checked ? 'check_box' : 'check_box_outline_blank'} size={20} color={checked ? KatanaColors.accent : KatanaColors.textLight} />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="bare-button"
-                          onClick={() => (dlSelectMode ? toggleSelect(ch.id) : onOpen(ch))}
-                          style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
-                        >
-                          <Icon
-                            name={needsRepair ? 'warning_amber' : 'menu_book'}
-                            size={18}
-                            color={needsRepair ? KatanaColors.accent : KatanaColors.accentSoft}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ ...KatanaType.title, fontSize: 13.5 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
-                            <div style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              <span>{formattedSize(ch)}</span>
-                              {needsRepair ? (
-                                <span style={{ color: KatanaColors.accentSoft, fontWeight: 700 }}>
-                                  · Needs Repair ({cachedPages}/{totalPages} pages cached)
-                                </span>
-                              ) : totalPages > 0 ? (
-                                <span style={{ color: KatanaColors.green, fontWeight: 600 }}>
-                                  · Offline verified ({cachedPages} {cachedPages === 1 ? 'page' : 'pages'})
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </button>
-                        {!dlSelectMode && (
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {needsRepair && (
-                              <button
-                                type="button"
-                                className="bare-button"
-                                title="Re-download evicted pages into Cache Storage"
-                                aria-label={`Repair offline cache for ${ch.subtitle || ch.title}`}
-                                onClick={async () => {
-                                  showSnackBar(`Repairing ${ch.subtitle || ch.title}…`);
-                                  await offlineMedia.repairMangaChapter(ch.id, proxyKatanaImageUrl);
-                                  const res = await offlineMedia.verifyMangaChapterCache(ch.id);
-                                  showSnackBar(
-                                    res.isComplete
-                                      ? `Repaired ${ch.subtitle || ch.title} (${res.cachedPages}/${res.totalPages} pages cached)`
-                                      : `Could not restore all pages (${res.cachedPages}/${res.totalPages} cached) — check connection`,
-                                  );
-                                }}
-                                style={{
-                                  minHeight: 44,
-                                  padding: '0 11px',
-                                  borderRadius: 7,
-                                  background: withAlpha(KatanaColors.accent, 0.18),
-                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  fontFamily: Fonts.body,
-                                  fontSize: 11.5,
-                                  fontWeight: 800,
-                                  color: KatanaColors.accentSoft,
-                                }}
-                              >
-                                <Icon name="build" size={14} color={KatanaColors.accentSoft} />
-                                <span>Repair</span>
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className="bare-button"
-                              title="Export portable .cbz comic archive"
-                              aria-label={`Export ${ch.subtitle || ch.title} as CBZ`}
-                              onClick={async () => {
-                                const res = await offlineMedia.exportMangaChapterCbz(ch.id);
-                                if (!res) {
-                                  showSnackBar('Cached pages not available to export yet');
-                                  return;
-                                }
-                                const url = URL.createObjectURL(res.blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = res.filename;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                                showSnackBar(`Exported ${res.filename}`);
-                              }}
-                              style={{
-                                minHeight: 44,
-                                padding: '0 11px',
-                                borderRadius: 7,
-                                background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${KatanaColors.border}`,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                fontFamily: Fonts.body,
-                                fontSize: 11.5,
-                                fontWeight: 700,
-                                color: KatanaColors.link,
-                              }}
-                            >
-                              <Icon name="folder_zip" size={14} color={KatanaColors.link} />
-                              <span>CBZ</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="bare-button"
-                              aria-label={`Delete ${ch.subtitle || ch.title}`}
-                              onClick={() => onDelete(ch.id)}
-                              style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
-                            >
-                              <Icon name="delete_outline" size={18} color={KatanaColors.textLight} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </KatanaCard>
-              );
-            })}
-          </div>
         </>
       )}
     </div>

@@ -37,12 +37,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'MangaDex',
     searchPreferenceBonus: 8,
     signals: {
-      provenance: 'Community scanlation index (unlicensed)',
-      metadataQuality: 'Includes tracker IDs, publisher links & language tags',
-      specialty: 'Multilingual chapters & group attribution',
+      provenance: 'Fan-translated chapters',
+      metadataQuality: 'Official release links included',
+      specialty: 'Several languages to choose from',
     },
     tooltip:
-      'MangaDex (MD) — Community scanlation index · Includes official publisher links, tracker IDs & group attribution',
+      'MangaDex (MD) — fan-translated chapters, with official release links',
   },
   mangakatana: {
     id: 'mangakatana',
@@ -51,12 +51,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'MangaKatana',
     searchPreferenceBonus: 6,
     signals: {
-      provenance: 'Community chapter aggregator (unlicensed)',
+      provenance: 'Fan-uploaded chapters',
       metadataQuality: 'Standard title, author, genre & chapter timestamps',
-      specialty: 'Fast chapter feed & multi-CDN reader mirrors',
+      specialty: 'New chapters usually appear here first',
     },
     tooltip:
-      'MangaKatana (MK) — Community chapter aggregator · Fast release feed & multi-CDN reader mirrors',
+      'MangaKatana (MK) — fan-uploaded chapters, usually the fastest for new releases',
   },
   comick: {
     id: 'comick',
@@ -65,12 +65,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'ComicK',
     searchPreferenceBonus: 4,
     signals: {
-      provenance: 'Community chapter & volume index (unlicensed)',
+      provenance: 'Fan-uploaded chapters and volumes',
       metadataQuality: 'Alt-title index & volume cover metadata',
-      specialty: 'Tankobon releases & fallback chapter mirrors',
+      specialty: 'Collected volumes with their own covers',
     },
     tooltip:
-      'ComicK (CK) — Community chapter index · Alt-title catalog & volume chapters',
+      'ComicK (CK) — fan-uploaded volumes and alternative titles',
   },
   bato: {
     id: 'bato',
@@ -79,12 +79,12 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     name: 'Bato.to',
     searchPreferenceBonus: 2,
     signals: {
-      provenance: 'Community mirror catalog (unlicensed)',
+      provenance: 'Fan-uploaded chapters',
       metadataQuality: 'Basic series & chapter metadata',
-      specialty: 'Full-color webtoon & long-strip series',
+      specialty: 'Best for full-colour webtoons',
     },
     tooltip:
-      'Bato.to (BT) — Community mirror catalog · Full-color webtoon & long-strip catalog',
+      'Bato.to (BT) — fan-uploaded chapters, strong on full-colour webtoons',
   },
 };
 

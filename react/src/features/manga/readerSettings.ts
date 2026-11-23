@@ -162,7 +162,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   preloadCount: 3,
   preloadWifiOnly: false,
   webtoonTapScroll: false,
-  verticalSeekbar: 'right',
+  verticalSeekbar: 'off',
   tapZoneLayout: 'standard',
   invertTapZones: false,
   volumeKeys: true,

@@ -232,7 +232,7 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
     await page.getByRole('button', { name: 'Mine', exact: true }).click();
 
     await page.getByRole('button', { name: /Downloads/ }).first().click();
-    await page.waitForSelector('text=Offline storage used', { timeout: 5_000 });
+    await page.waitForSelector('text=Downloads are using', { timeout: 5_000 });
     await page.waitForSelector('text=/offline/i', { timeout: 5_000 });
 
     await page.locator('button:has-text("Chapter"), button:has-text("Ch.")').first().click();
@@ -247,7 +247,7 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
     await page.waitForSelector('text=2 / 3', { timeout: 5_000 });
     await page.waitForTimeout(450);
     await page.getByRole('button', { name: 'Close reader' }).click();
-    await page.waitForSelector('text=Offline storage used', { timeout: 5_000 });
+    await page.waitForSelector('text=Downloads are using', { timeout: 5_000 });
     await page.locator('button:has-text("Chapter"), button:has-text("Ch.")').first().click();
     await page.waitForSelector('text=2 / 3', { timeout: 5_000 });
 

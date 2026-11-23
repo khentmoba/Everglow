@@ -126,7 +126,24 @@ export function MangaReaderView({
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageContentRef = useRef<HTMLDivElement>(null);
+  const hudTopRef = useRef<HTMLDivElement>(null);
+  const hudBottomRef = useRef<HTMLDivElement>(null);
+  const [hudInset, setHudInset] = useState({ top: 0, bottom: 0 });
   const [osColorTick, setOsColorTick] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const top = hudTopRef.current?.offsetHeight ?? 0;
+      const bottom = hudBottomRef.current?.offsetHeight ?? 0;
+      setHudInset((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    if (hudTopRef.current) ro.observe(hudTopRef.current);
+    if (hudBottomRef.current) ro.observe(hudBottomRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia?.('(prefers-color-scheme: light)');
@@ -2396,6 +2413,9 @@ export function MangaReaderView({
         onTouchEnd={handleTouchEnd}
         style={{
           flex: 1,
+          paddingTop: showUi ? hudInset.top : 0,
+          paddingBottom: showUi ? hudInset.bottom : 0,
+          transition: motionReduced() ? 'none' : 'padding 180ms ease',
           overflowY:
             isHorizontalStrip
               ? 'hidden'
@@ -2982,7 +3002,7 @@ export function MangaReaderView({
       )}
 
       {/* Touch fast-scroll scrubber for long-strip reading (reachable even mid-scroll, with chapter tick marks) */}
-      {isWebtoon && settings.verticalSeekbar !== 'off' && pages.length > 1 && !loading && (
+      {isWebtoon && settings.verticalSeekbar !== 'off' && showUi && pages.length > 1 && !loading && (
         <div
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => {
@@ -3177,12 +3197,12 @@ export function MangaReaderView({
           style={{
             position: 'fixed',
             left: '50%',
-            top: showUi ? 'calc(68px + env(safe-area-inset-top))' : 'max(18px, env(safe-area-inset-top))',
+            bottom: showUi ? hudInset.bottom + 10 : 'max(18px, env(safe-area-inset-bottom))',
             transform: 'translateX(-50%)',
             zIndex: 100,
             padding: '6px 14px',
             borderRadius: 99,
-            background: 'rgba(14, 9, 18, 0.9)',
+            background: 'rgba(11, 13, 18, 0.94)',
             border: `1px solid ${KatanaColors.borderStrong}`,
             color: KatanaColors.text,
             fontSize: 12.5,
@@ -3238,6 +3258,7 @@ export function MangaReaderView({
 
       {/* Compact translucent top HUD bar */}
       <div
+        ref={hudTopRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
@@ -3249,7 +3270,7 @@ export function MangaReaderView({
           paddingLeft: 'max(8px, env(safe-area-inset-left))',
           paddingRight: 'max(8px, env(safe-area-inset-right))',
           paddingBottom: 8,
-          background: allowBlur ? 'rgba(9, 6, 12, 0.78)' : 'rgba(9, 6, 12, 0.94)',
+          background: allowBlur ? 'rgba(11, 13, 18, 0.82)' : 'rgba(11, 13, 18, 0.96)',
           borderBottom: `1px solid ${KatanaColors.border}`,
           ...(allowBlur ? { backdropFilter: 'blur(12px)' } : {}),
           display: 'flex',
@@ -3445,6 +3466,7 @@ export function MangaReaderView({
 
       {/* Compact translucent bottom HUD bar */}
       <div
+        ref={hudBottomRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
@@ -3456,7 +3478,7 @@ export function MangaReaderView({
           paddingLeft: 'max(12px, env(safe-area-inset-left))',
           paddingRight: 'max(12px, env(safe-area-inset-right))',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
-          background: allowBlur ? 'rgba(9, 6, 12, 0.82)' : 'rgba(9, 6, 12, 0.95)',
+          background: allowBlur ? 'rgba(11, 13, 18, 0.88)' : 'rgba(11, 13, 18, 0.97)',
           borderTop: `1px solid ${KatanaColors.border}`,
           ...(allowBlur ? { backdropFilter: 'blur(12px)' } : {}),
           display: 'flex',
@@ -3554,8 +3576,9 @@ export function MangaReaderView({
             }}
           >
             <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
-              Tap center or the bottom-right <strong style={{ color: KatanaColors.accentSoft }}>Controls</strong> pill to
-              toggle menu · Tap or swipe edges to turn pages
+              {isWebtoon
+                ? 'Tap the middle of the page to show or hide the menu · Scroll to keep reading'
+                : 'Tap the middle of the page to show or hide the menu · Tap or swipe the left and right edges to turn pages'}
             </span>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               {!isWebtoon && (
@@ -3564,7 +3587,8 @@ export function MangaReaderView({
                   className="bare-button player-focusable"
                   onClick={() => setShowTapHint((v) => !v)}
                   style={{
-                    padding: '2px 8px',
+                    minHeight: 36,
+                    padding: '6px 12px',
                     borderRadius: 6,
                     background: KatanaColors.surface,
                     border: `1px solid ${KatanaColors.borderStrong}`,
@@ -3585,7 +3609,8 @@ export function MangaReaderView({
                   setSeenOnboardingHint(true);
                 }}
                 style={{
-                  padding: '2px 8px',
+                  minHeight: 36,
+                  padding: '6px 12px',
                   borderRadius: 6,
                   background: 'transparent',
                   color: KatanaColors.textLight,
