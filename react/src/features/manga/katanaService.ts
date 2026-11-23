@@ -875,6 +875,10 @@ export function buildDemoMangaCoverDataUrl(
   const line2 = xmlEscapeSvg(words.slice(2, 5).join(' ').toUpperCase());
   const safeSub = xmlEscapeSvg(subtitle.toUpperCase());
   const safeTag = xmlEscapeSvg(tag.toUpperCase());
+  // Shrink type until it fits the cover, so no line runs off the 400px canvas.
+  const fitFont = (text: string, base: number, maxWidth: number) =>
+    Math.max(18, Math.min(base, Math.floor(maxWidth / Math.max(1, text.length) / 0.6)));
+  const tagSize = Math.max(9, Math.min(13, Math.floor(104 / Math.max(1, safeTag.length) / 0.62)));
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
   <defs>
@@ -894,10 +898,10 @@ export function buildDemoMangaCoverDataUrl(
   ${motif}
   <rect width="400" height="600" fill="url(#fade)"/>
   <rect x="38" y="38" width="116" height="28" rx="6" fill="${p.accent}"/>
-  <text x="96" y="57" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="800" letter-spacing="1.2" fill="#0B0D12">${safeTag}</text>
+  <text x="96" y="57" text-anchor="middle" font-family="sans-serif" font-size="${tagSize}" font-weight="800" letter-spacing="1.2" fill="#0B0D12">${safeTag}</text>
   <text x="38" y="458" font-family="sans-serif" font-size="14" font-weight="700" letter-spacing="2" fill="${p.accent}">${safeSub}</text>
-  <text x="38" y="502" font-family="sans-serif" font-size="34" font-weight="900" letter-spacing="0.8" fill="#F8FAFC">${line1}</text>
-  ${line2 ? `<text x="38" y="540" font-family="sans-serif" font-size="28" font-weight="800" letter-spacing="0.6" fill="${p.ink}">${line2}</text>` : ''}
+  <text x="38" y="502" font-family="sans-serif" font-size="${fitFont(line1, 34, 324)}" font-weight="900" letter-spacing="0.8" fill="#F8FAFC">${line1}</text>
+  ${line2 ? `<text x="38" y="540" font-family="sans-serif" font-size="${fitFont(line2, 28, 324)}" font-weight="800" letter-spacing="0.6" fill="${p.ink}">${line2}</text>` : ''}
 </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }

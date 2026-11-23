@@ -46,7 +46,7 @@ export const isEpisodeItem = (i: OfflineMediaItem) => i.type === 'tv' || i.type 
 const isCompleted = (i: OfflineMediaItem) => i.status === 'completed';
 const isDownloading = (i: OfflineMediaItem) => i.status === 'downloading';
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 MB';
   if (bytes < GB) return `${(bytes / MB).toFixed(1)} MB`;
   return `${(bytes / GB).toFixed(2)} GB`;

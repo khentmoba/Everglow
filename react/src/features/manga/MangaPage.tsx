@@ -2874,7 +2874,7 @@ export function MangaPage() {
                                     }}
                                   >
                                     <Icon name="download" size={16} color={KatanaColors.link} />
-                                    <span>{batchProgress ? `Saving ${batchProgress.done} of ${batchProgress.total}` : 'Save 3 chapters'}</span>
+                                    <span>{batchProgress ? `Downloading ${batchProgress.done} of ${batchProgress.total}` : 'Download 3 chapters'}</span>
                                   </button>
                                 )}
                                 {desktop && userName && (
@@ -2999,6 +2999,34 @@ export function MangaPage() {
                                         gap: 4,
                                       }}
                                     >
+                                      {compactCard && detail.summary && (
+                                        <div style={{ padding: '6px 10px 10px' }}>
+                                          <div style={{ ...KatanaType.title, fontSize: 12.5, marginBottom: 4 }}>Story</div>
+                                          <p
+                                            className={summaryOpen ? undefined : 'clamp-4'}
+                                            style={{ ...KatanaType.body, margin: 0, fontSize: 12.5, lineHeight: 1.5 }}
+                                          >
+                                            {detail.summary}
+                                          </p>
+                                          <button
+                                            type="button"
+                                            className="bare-button"
+                                            aria-expanded={summaryOpen}
+                                            onClick={() => setSummaryOpen((v) => !v)}
+                                            style={{
+                                              marginTop: 6,
+                                              minHeight: 44,
+                                              padding: '0 2px',
+                                              fontFamily: Fonts.body,
+                                              fontSize: 12.5,
+                                              fontWeight: 700,
+                                              color: KatanaColors.accentSoft,
+                                            }}
+                                          >
+                                            {summaryOpen ? 'Show less' : 'Read the full story'}
+                                          </button>
+                                        </div>
+                                      )}
                                       {compactCard && userName && (
                                         <button
                                           type="button"
@@ -3276,7 +3304,7 @@ export function MangaPage() {
                                 </div>
                               </div>
                               {compactCard && (detail.chapters.length > 0 || userName) && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                                   {detail.chapters.length > 0 && (
                                     <button
                                       type="button"
@@ -3286,7 +3314,7 @@ export function MangaPage() {
                                       onClick={() => void downloadNextUnread(detail, readSet, 3)}
                                       style={{
                                         flex: 1,
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '0 10px',
                                         borderRadius: 8,
                                         background: KatanaColors.surfaceAlt,
@@ -3304,7 +3332,7 @@ export function MangaPage() {
                                       }}
                                     >
                                       <Icon name="download" size={15} color={KatanaColors.link} />
-                                      <span>{batchProgress ? `Saving ${batchProgress.done} of ${batchProgress.total}` : 'Save 3 chapters'}</span>
+                                      <span>{batchProgress ? `${batchProgress.done} of ${batchProgress.total}` : 'Download'}</span>
                                     </button>
                                   )}
                                   {userName && (
@@ -3316,7 +3344,7 @@ export function MangaPage() {
                                       onClick={() => void toggleSeriesAlerts(detail, alertsEnabled)}
                                       style={{
                                         flex: 1,
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '0 10px',
                                         borderRadius: 8,
                                         background: KatanaColors.surfaceAlt,
@@ -3489,35 +3517,6 @@ export function MangaPage() {
                                 </div>
                               </div>
                             )}
-                        {compactCard && detail.summary && (
-                          <div style={{ marginBottom: 14 }}>
-                            <div style={{ ...KatanaType.title, fontSize: 14, marginBottom: 4 }}>About this series</div>
-                            <p
-                              className={summaryOpen ? undefined : 'clamp-2'}
-                              style={{ ...KatanaType.body, margin: 0, fontSize: 13, lineHeight: 1.5 }}
-                            >
-                              {detail.summary}
-                            </p>
-                            <button
-                              type="button"
-                              className="bare-button"
-                              aria-expanded={summaryOpen}
-                              onClick={() => setSummaryOpen((v) => !v)}
-                              style={{
-                                marginTop: 4,
-                                minHeight: 44,
-                                padding: '0 2px',
-                                fontFamily: Fonts.body,
-                                fontSize: 12.5,
-                                fontWeight: 700,
-                                color: KatanaColors.accentSoft,
-                              }}
-                            >
-                              {summaryOpen ? 'Show less' : 'More'}
-                            </button>
-                          </div>
-                        )}
-
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                           <KatanaSectionHeader
                             title="Chapters"
@@ -5840,7 +5839,7 @@ export function MangaPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                   <KatanaSectionHeader
                     title="My Library"
-                    badge={`${savedBookmarks.length} ${savedBookmarks.length === 1 ? 'series' : 'series'}`}
+                    badge={`${savedBookmarks.length} series`}
                   />
                   {compactCard ? (
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -7441,7 +7440,7 @@ export function MangaPage() {
                           const active = catalogSource === src;
                           const tip =
                             src === 'all'
-                              ? 'Search across all 4 community catalogs · Ranked by title match, metadata completeness (tracker IDs, authors, chapter count), and source preference (MD · MK · CK · BT)'
+                              ? 'Search every source at once · closest title matches first'
                               : getSourceBadgeInfo(src).tooltip;
                           return (
                             <button
@@ -7452,11 +7451,12 @@ export function MangaPage() {
                               title={tip}
                               onClick={() => setCatalogSource(src)}
                               style={{
-                                minHeight: 40,
+                                minHeight: 44,
                                 padding: '0 12px',
                                 borderRadius: 99,
                                 display: 'inline-flex',
                                 alignItems: 'center',
+                                whiteSpace: 'nowrap',
                                 background: active ? KatanaColors.chipSelectedBg : 'transparent',
                                 fontFamily: Fonts.body,
                                 fontSize: 12,
@@ -7464,7 +7464,7 @@ export function MangaPage() {
                                 color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
                               }}
                             >
-                              {label}
+                              {compactCard && src === 'all' ? 'All' : label}
                             </button>
                           );
                         })}

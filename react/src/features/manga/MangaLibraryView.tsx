@@ -363,8 +363,8 @@ export function MangaLibraryCollectionView({
                         style={{ width: 6, height: 6, borderRadius: 99, background: KatanaColors.accent, flexShrink: 0 }}
                       />
                     )}
-                    <span style={{ ...KatanaType.small, fontSize: 11 }}>
-                      · {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
+                    <span style={{ ...KatanaType.small, fontSize: 11, whiteSpace: 'nowrap' }}>
+                      {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
                     </span>
                   </div>
                 </div>

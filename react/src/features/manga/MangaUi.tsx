@@ -2260,11 +2260,12 @@ export function KatanaPosterCard({
                 )}
               </button>
             )}
-            {manga.follows != null && manga.follows > 0
-              ? ` · ${formatCompactNumber(manga.follows)} readers`
-              : totalCh != null && totalCh > 0
-                ? ` · ${totalCh} chapters`
-                : ''}
+            {manga.follows != null && manga.follows > 0 && (
+              <span style={{ whiteSpace: 'nowrap' }}>{formatCompactNumber(manga.follows)} readers</span>
+            )}
+            {!(manga.follows != null && manga.follows > 0) && totalCh != null && totalCh > 0 && (
+              <span style={{ whiteSpace: 'nowrap' }}>{totalCh} chapters</span>
+            )}
           </div>
         </button>
       </div>

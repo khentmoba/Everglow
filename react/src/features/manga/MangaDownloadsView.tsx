@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formattedSize, offlineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
+import { formatBytes, formattedSize, offlineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
 import { withAlpha } from '../../core/theme/colors';
 import { Icon } from '../../shared/widgets/Icon';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
@@ -186,11 +186,14 @@ export function KatanaDownloadsView({
       .catch(() => showSnackBar('Could not change storage protection'));
   };
 
-  // Only bytes actually on disk, so the per-series line agrees with the storage card above it.
+  // Same bytes and same formatter as the per-chapter rows, so the numbers on one
+  // screen always add up instead of showing 52.0 MB over two rows that read 49.6.
   const seriesBytes = (chapters: OfflineMediaItem[]) => {
-    const bytes = chapters.reduce((sum, c) => sum + Math.max(0, c.downloadedBytes), 0);
-    if (bytes <= 0) return '';
-    return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    const bytes = chapters.reduce(
+      (sum, c) => sum + (c.downloadedBytes > 0 ? c.downloadedBytes : c.totalBytes || 0),
+      0,
+    );
+    return bytes > 0 ? formatBytes(bytes) : '';
   };
   const seriesStillDownloading = (chapters: OfflineMediaItem[]) => chapters.filter((c) => c.downloadedBytes <= 0).length;
 
@@ -242,11 +245,11 @@ export function KatanaDownloadsView({
   );
 
   return (
-    <div>
+    <div style={{ paddingBottom: 'max(28px, env(safe-area-inset-bottom))' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <KatanaSectionHeader
           title="Downloads"
-          badge={items.length > 0 ? `${items.length} ${items.length === 1 ? 'series' : 'series'}` : undefined}
+          badge={items.length > 0 ? `${items.length} series` : undefined}
         />
       </div>
       <div style={{ height: 14 }} />

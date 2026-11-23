@@ -861,7 +861,7 @@ function ReleaseCalendarRail({
   const dueTodayCount = byDay[today]?.length ?? 0;
   const upcomingEtaLabel =
     daysAhead === 0
-      ? `${activeItems.length} ${activeItems.length === 1 ? 'series' : 'series'} expected today`
+      ? `${activeItems.length} series expected today`
       : daysAhead === 1
         ? 'Expected tomorrow'
         : `Expected in ${daysAhead}d`;
@@ -921,8 +921,8 @@ function ReleaseCalendarRail({
       </div>
       <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
         {calendarMode === 'recent'
-          ? 'Grouped by each series’ latest catalog chapter drop.'
-          : `Synced from chapter release intervals & background Smart Updates · ${upcomingEtaLabel}${dueTodayCount > 0 && selectedDay !== today ? ` (${dueTodayCount} due today)` : ''}.`}
+          ? 'Grouped by each series’ newest chapter.'
+          : `We check for new chapters in the background · ${upcomingEtaLabel}${dueTodayCount > 0 && selectedDay !== today ? ` (${dueTodayCount} due today)` : ''}.`}
       </div>
       <div style={{ height: 10 }} />
       <div
@@ -1803,8 +1803,8 @@ export function MangaHome({
             className="bare-button"
             onClick={() => setRailEditorOpen((v) => !v)}
             aria-expanded={railEditorOpen}
-            aria-label="Customize home rails"
-            title="Reorder or toggle Home rails"
+            aria-label="Choose what shows on Home"
+            title="Choose what shows on Home"
             style={{
               padding: compact ? '0 9px' : '0 12px',
               minWidth: 44,
@@ -1821,7 +1821,7 @@ export function MangaHome({
             <Icon name="reorder" size={15} color={railEditorOpen ? KatanaColors.accentSoft : KatanaColors.textMuted} />
             {!compact && (
               <span style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 600, color: KatanaColors.text }}>
-                Rails
+                Arrange
               </span>
             )}
           </button>
@@ -1857,7 +1857,7 @@ export function MangaHome({
       <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
-            Customize Home Rails Order &amp; Visibility
+            Choose what shows on Home
           </span>
           <button
             type="button"
