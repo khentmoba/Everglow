@@ -375,15 +375,21 @@ function AddPollDialog({ close }: { close: (saved: boolean | null) => void }) {
   const save = async () => {
     if (!canSave) return;
     setSaving(true);
-    await calendarPollService.create({
-      title: title.trim(),
-      description: desc.trim(),
-      createdBy: auth.currentUser ?? 'unknown',
-      createdAt: new Date(),
-      status: 'open',
-      votes: {},
-      options: dates.map((d) => ({ id: String(d.getTime()), date: d, label: `${d.getMonth() + 1}/${d.getDate()} ${jm(d)}` })),
-    });
+    try {
+      await calendarPollService.create({
+        title: title.trim(),
+        description: desc.trim(),
+        createdBy: auth.currentUser ?? 'unknown',
+        createdAt: new Date(),
+        status: 'open',
+        votes: {},
+        options: dates.map((d) => ({ id: String(d.getTime()), date: d, label: `${d.getMonth() + 1}/${d.getDate()} ${jm(d)}` })),
+      });
+    } catch {
+      setSaving(false);
+      showSnackBar('Could not create the poll — please try again.');
+      return;
+    }
     close(true);
   };
 
