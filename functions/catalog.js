@@ -6,12 +6,44 @@ const {
   getVerifiedUsername,
   requireAuth,
   enforceRateLimit,
+  readLimitedText,
   _getExternalCache,
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
 
 const COUPLE_USERS = new Set(['khentsgdz', 'clairjassen']);
+const CATALOG_MAX_BYTES = 2 * 1024 * 1024;
+const CATALOG_MAX_CACHE_BYTES = 256 * 1024;
+const SANDBOX_CSP = "default-src 'none'; sandbox";
+const _inFlight = new Map();
+
+async function fetchCatalogSingleflight(cacheKey, upstream, shouldCache) {
+  let task = _inFlight.get(cacheKey);
+  if (!task) {
+    task = (async () => {
+      const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
+      const body = await readLimitedText(response.body, CATALOG_MAX_BYTES);
+      const rawCt = (response.headers.get('content-type') || 'application/json').split(';')[0].trim().toLowerCase();
+      const contentType =
+        rawCt === 'application/json' || rawCt === 'text/plain'
+          ? `${rawCt}; charset=utf-8`
+          : 'application/json; charset=utf-8';
+      const entry = { status: response.status, contentType, body };
+      if (shouldCache(entry) && Buffer.byteLength(body, 'utf8') <= CATALOG_MAX_CACHE_BYTES) {
+        _setExternalCache(cacheKey, entry);
+      }
+      return entry;
+    })();
+    _inFlight.set(cacheKey, task);
+    try {
+      return await task;
+    } finally {
+      if (_inFlight.get(cacheKey) === task) _inFlight.delete(cacheKey);
+    }
+  }
+  return await task;
+}
 const {
   buildLastfmUpstream,
   buildTmdbUpstream,
@@ -69,22 +101,25 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
   if (cached) {
     res.status(cached.status)
       .set('Content-Type', cached.contentType)
+      .set('X-Content-Type-Options', 'nosniff')
+      .set('Content-Security-Policy', SANDBOX_CSP)
       .set('X-Cache', 'HIT')
       .send(cached.body);
     return;
   }
 
   try {
-    const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
-    const body = await response.text();
-    const contentType = response.headers.get('content-type') || 'application/json';
-    if (response.status === 200) {
-      _setExternalCache(cacheKey, { status: 200, contentType, body });
-    }
-    res.status(response.status)
-      .set('Content-Type', contentType)
+    const result = await fetchCatalogSingleflight(
+      cacheKey,
+      upstream,
+      (entry) => entry.status === 200,
+    );
+    res.status(result.status)
+      .set('Content-Type', result.contentType)
+      .set('X-Content-Type-Options', 'nosniff')
+      .set('Content-Security-Policy', SANDBOX_CSP)
       .set('X-Cache', 'MISS')
-      .send(body);
+      .send(result.body);
   } catch (e) {
     console.warn('[proxyTmdb] failed:', e.message);
     res.status(502).json({ error: 'TMDB request failed' });
@@ -127,22 +162,25 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
   if (cached) {
     res.status(cached.status)
       .set('Content-Type', cached.contentType)
+      .set('X-Content-Type-Options', 'nosniff')
+      .set('Content-Security-Policy', SANDBOX_CSP)
       .set('X-Cache', 'HIT')
       .send(cached.body);
     return;
   }
 
   try {
-    const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
-    const body = await response.text();
-    const contentType = response.headers.get('content-type') || 'application/json';
-    if (response.status === 200 && !body.includes('"error":')) {
-      _setExternalCache(cacheKey, { status: 200, contentType, body });
-    }
-    res.status(response.status)
-      .set('Content-Type', contentType)
+    const result = await fetchCatalogSingleflight(
+      cacheKey,
+      upstream,
+      (entry) => entry.status === 200 && !entry.body.includes('"error":'),
+    );
+    res.status(result.status)
+      .set('Content-Type', result.contentType)
+      .set('X-Content-Type-Options', 'nosniff')
+      .set('Content-Security-Policy', SANDBOX_CSP)
       .set('X-Cache', 'MISS')
-      .send(body);
+      .send(result.body);
   } catch (e) {
     console.warn('[proxyLastfm] failed:', e.message);
     res.status(502).json({ error: 'Last.fm request failed' });
