@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { extname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { chromium } from 'playwright-core';
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
@@ -155,4 +156,71 @@ test('notification routing covers all Flutter notification types', () => {
   const swSrc = readFileSync(new URL('../dist/sw.js', import.meta.url), 'utf8');
   assert.ok(swSrc.includes('watch_party_invite: "/watch-party"'), 'sw.js should route watch_party_invite to /watch-party');
   assert.ok(swSrc.includes('?room='), 'sw.js should deep-link watch_party_invite roomId when present');
+});
+
+/** Loads the built SW with stubbed worker globals and returns its `fetch` listener. */
+function loadServiceWorkerFetchHandler(cachePut) {
+  const listeners = new Map();
+  const source = readFileSync(join(DIST, 'sw.js'), 'utf8');
+  const origin = 'https://everglow.test';
+  runInNewContext(source, {
+    self: {
+      addEventListener: (type, fn) => listeners.set(type, fn),
+      location: { origin },
+      registration: { showNotification: async () => {} },
+      skipWaiting: async () => {},
+      clients: { claim: async () => {} },
+    },
+    caches: {
+      open: async () => ({ match: async () => undefined, put: cachePut, add: async () => {} }),
+      keys: async () => [],
+      delete: async () => true,
+      match: async () => undefined,
+    },
+    clients: { claim: async () => {}, matchAll: async () => [], openWindow: async () => {} },
+    registration: { showNotification: async () => {} },
+    importScripts: () => {
+      throw new Error('compat scripts are not available in this test');
+    },
+    firebase: {},
+    fetch: async () => new Response('poster-bytes', { status: 200, headers: { 'content-type': 'image/png' } }),
+    Request,
+    Response,
+    URL,
+    console,
+  }, { filename: 'sw.js' });
+  const handler = listeners.get('fetch');
+  assert.ok(handler, 'sw.js must register a fetch listener');
+  return handler;
+}
+
+async function requestAssetThroughServiceWorker(cachePut) {
+  const handler = loadServiceWorkerFetchHandler(cachePut);
+  let respondWith;
+  handler({
+    request: new Request('https://everglow.test/assets/poster-abc123.png'),
+    respondWith: (p) => {
+      respondWith = p;
+    },
+  });
+  assert.ok(respondWith, 'the asset branch must respond');
+  return await respondWith;
+}
+
+test('a full Cache Storage does not break the asset it failed to cache', async () => {
+  const res = await requestAssetThroughServiceWorker(async () => {
+    throw new Error('QuotaExceededError: the quota has been exceeded.');
+  });
+  assert.equal(res.status, 200, 'a failed cache write must not replace the fetched response');
+  assert.equal(await res.text(), 'poster-bytes');
+});
+
+test('a successful cache write still returns the asset', async () => {
+  const written = [];
+  const res = await requestAssetThroughServiceWorker(async (key) => {
+    written.push(key.url);
+  });
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), 'poster-bytes');
+  assert.deepEqual(written, ['https://everglow.test/assets/poster-abc123.png']);
 });
