@@ -1,6 +1,6 @@
 // Flutter's Tooltip with Everglow's theme: shows on mouse hover, fades in
 // over 150ms, sits 24px below the middle of what it describes.
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 
@@ -8,21 +8,33 @@ const desktop = !/android|iphone|ipad|ipod/i.test(navigator.userAgent);
 
 export function Tooltip({ message, children }: { message: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const showFrame = useRef(0);
+  const hideTimer = useRef(0);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const [shown, setShown] = useState(false);
+
+  useEffect(() => () => {
+    cancelAnimationFrame(showFrame.current);
+    window.clearTimeout(hideTimer.current);
+  }, []);
+
   return (
     <div
       ref={ref}
       style={{ display: 'inline-block' }}
       onPointerEnter={(e) => {
         if (e.pointerType !== 'mouse') return;
+        cancelAnimationFrame(showFrame.current);
+        window.clearTimeout(hideTimer.current);
         const r = ref.current!.getBoundingClientRect();
         setAt({ x: r.left + r.width / 2, y: r.top + r.height / 2 + 24 });
-        requestAnimationFrame(() => setShown(true));
+        showFrame.current = requestAnimationFrame(() => setShown(true));
       }}
       onPointerLeave={() => {
+        cancelAnimationFrame(showFrame.current);
         setShown(false);
-        window.setTimeout(() => setAt(null), 175);
+        window.clearTimeout(hideTimer.current);
+        hideTimer.current = window.setTimeout(() => setAt(null), 175);
       }}
     >
       {children}
