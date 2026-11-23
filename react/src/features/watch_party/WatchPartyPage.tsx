@@ -1096,7 +1096,6 @@ function WatchPartyRoomView({
   roomRef.current = room;
   const [chatOpen, setChatOpen] = useState(false);
   const [msgText, setMsgText] = useState('');
-  const [displaySeconds, setDisplaySeconds] = useState(0);
 
   const postEmbedCommand = (command: string, args: unknown[] = []) => {
     const frame = iframeRef.current;
@@ -1130,10 +1129,6 @@ function WatchPartyRoomView({
   useEffect(() => {
     if (!room) return;
     clock.observe(room.positionAt ?? room.updatedAt);
-    setDisplaySeconds(clock.expectedPosition(room));
-    if (room.state !== 'playing') return;
-    const id = window.setInterval(() => setDisplaySeconds(clock.expectedPosition(room)), 1000);
-    return () => window.clearInterval(id);
   }, [room, clock]);
 
   // Tab-close cleanup: pause room if host leaves the browser tab.
@@ -1635,9 +1630,7 @@ function WatchPartyRoomView({
                   <div style={{ ...AppTypography.outfitBold, fontSize: 13, color: AppColors.petalWhite }}>
                     {room.state === 'playing' ? 'Synced Playback: Playing' : 'Synced Playback: Paused'}
                   </div>
-                  <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: Derived.textMuted }}>
-                    {`${formatPartyTime(displaySeconds)} • Everglow Server • Updated by ${room.updatedBy === myUid ? 'you' : isHub ? 'room member' : 'partner'}`}
-                  </div>
+                  <PartyPositionLine room={room} clock={clock} myUid={myUid} isHub={isHub} />
                 </div>
                 <button
                   type="button"
@@ -1781,6 +1774,39 @@ function WatchPartyRoomView({
           </aside>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The position line is the only thing on this screen that changes every
+ * second. Keeping the tick in its own leaf stops the whole party page (and the
+ * embed around it) from re-rendering once a second during playback.
+ */
+function PartyPositionLine({
+  room,
+  clock,
+  myUid,
+  isHub,
+}: {
+  room: WatchPartyRoom;
+  clock: WatchPartyClock;
+  myUid: string;
+  isHub: boolean;
+}) {
+  const [seconds, setSeconds] = useState(() => clock.expectedPosition(room));
+  useEffect(() => {
+    setSeconds(clock.expectedPosition(room));
+    if (room.state !== 'playing') return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') setSeconds(clock.expectedPosition(room));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [room, clock]);
+  const updatedBy = room.updatedBy === myUid ? 'you' : isHub ? 'room member' : 'partner';
+  return (
+    <div style={{ ...AppTypography.outfitWhite, fontSize: 11, color: Derived.textMuted }}>
+      {`${formatPartyTime(seconds)} • Everglow Server • Updated by ${updatedBy}`}
     </div>
   );
 }

@@ -921,6 +921,9 @@ class PlayerController {
         this.clearUpNextTimer();
         return;
       }
+      // Hold the countdown while the tab is hidden so the next episode never
+      // starts playing behind whatever Clair switched to.
+      if (document.hidden) return;
       if (this.upNextLeft <= 1) {
         this.clearUpNextTimer();
         this.playNextEpisode();

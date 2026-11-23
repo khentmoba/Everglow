@@ -1460,6 +1460,9 @@ export function MangaReaderView({
     if (!autoScrolling || isWebtoon || isHorizontalStrip || activeSheet !== 'none' || pageAction != null || loading) return;
     const intervalMs = Math.max(2000, Math.round(7500 / settings.autoScrollSpeed));
     const timer = window.setInterval(() => {
+      // Auto-advance is a reading action: a hidden tab must not turn pages,
+      // save progress, or roll into the next chapter while the phone is away.
+      if (document.visibilityState !== 'visible') return;
       stepPage(1);
     }, intervalMs);
     return () => window.clearInterval(timer);
