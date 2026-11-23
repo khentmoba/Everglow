@@ -1445,7 +1445,7 @@ export function MangaHome({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <Icon name="notifications_active" size={18} color={KatanaColors.accent} />
           <span style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>
-            {alertUnreadSeriesCount} tracked {alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters waiting
+            {alertUnreadSeriesCount} alert-watched {alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new unread chapters
           </span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

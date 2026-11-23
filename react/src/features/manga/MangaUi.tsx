@@ -29,7 +29,7 @@ import {
   type KatanaThemeMode,
 } from './katanaTokens';
 
-export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'downloads' | 'bookmarks';
+export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'history' | 'downloads' | 'bookmarks';
 
 const white = '#FFFFFF';
 const ellipsis: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
@@ -297,11 +297,13 @@ function NavItem({
 function GenresDropdown({
   genres,
   active,
+  iconOnly = false,
   onSelectGenre,
   onOpenGenresPage,
 }: {
   genres: KatanaGenre[];
   active: boolean;
+  iconOnly?: boolean;
   onSelectGenre: (genre: KatanaGenre) => void;
   onOpenGenresPage: () => void;
 }) {
@@ -340,19 +342,51 @@ function GenresDropdown({
 
   return (
     <div ref={triggerRef} style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-      <NavItem
-        label="Genres"
-        icon="local_offer"
-        active={active}
-        onClick={() => {
-          if (genres.length === 0) {
-            setOpen(false);
-            onOpenGenresPage();
-          } else {
-            setOpen((o) => !o);
-          }
-        }}
-      />
+      {iconOnly ? (
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Genres"
+          title="Browse Genres"
+          aria-expanded={open}
+          onClick={() => {
+            if (genres.length === 0) {
+              setOpen(false);
+              onOpenGenresPage();
+            } else {
+              setOpen((o) => !o);
+            }
+          }}
+          style={{
+            height: 40,
+            minWidth: 40,
+            padding: '0 8px',
+            borderRadius: 10,
+            background: active || open ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+            border: `1px solid ${active || open ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="local_offer" size={18} color={active || open ? KatanaColors.accent : KatanaColors.textMuted} />
+        </button>
+      ) : (
+        <NavItem
+          label="Genres"
+          icon="local_offer"
+          active={active}
+          onClick={() => {
+            if (genres.length === 0) {
+              setOpen(false);
+              onOpenGenresPage();
+            } else {
+              setOpen((o) => !o);
+            }
+          }}
+        />
+      )}
       {open &&
         createPortal(
           <div
@@ -753,14 +787,15 @@ export function KatanaHeader({
           {desktopLibraryButton}
         </div>
       ) : phoneCompact ? (
-        <div style={{ padding: '8px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ padding: '8px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             {backButton}
-            {logo}
-            <div style={{ flex: 1 }} />
+            <div style={{ minWidth: 0, flexShrink: 1 }}>{logo}</div>
+            <div style={{ flex: 1, minWidth: 4 }} />
             <GenresDropdown
               genres={genres}
               active={active === 'genres'}
+              iconOnly
               onSelectGenre={onSelectGenre}
               onOpenGenresPage={() => onSelectNav('genres')}
             />
@@ -783,9 +818,9 @@ export function KatanaHeader({
                 });
               }}
               style={{
-                height: 44,
-                minWidth: 44,
-                padding: '0 11px',
+                height: 40,
+                minWidth: 40,
+                padding: '0 9px',
                 borderRadius: 10,
                 background: phoneSearchOpen || hasText ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                 border: `1px solid ${phoneSearchOpen || hasText ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
@@ -793,6 +828,7 @@ export function KatanaHeader({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 5,
+                flexShrink: 0,
               }}
             >
               <Icon name={phoneSearchOpen ? 'close' : 'search'} size={18} color={phoneSearchOpen || hasText ? KatanaColors.accentSoft : KatanaColors.textMuted} />
@@ -1011,6 +1047,7 @@ export function KatanaHeader({
               onOpenGenresPage={() => onSelectNav('genres')}
             />
             {nav('reading', desktop ? 'Currently Reading' : 'Reading', 'auto_stories')}
+            {nav('history', 'History', 'history')}
             {nav('downloads', 'Downloads', 'download_done')}
             {!desktop && nav('bookmarks', 'Library', 'bookmarks')}
           </div>
@@ -1056,7 +1093,12 @@ export function KatanaBottomBar({
       }}
     >
       {tabs.map((t) => {
-        const isActive = t.key === 'directory' ? isBrowseActive : active === t.key;
+        const isActive =
+          t.key === 'directory'
+            ? isBrowseActive
+            : t.key === 'reading'
+              ? active === 'reading' || active === 'history'
+              : active === t.key;
         return (
           <button
             key={t.key}

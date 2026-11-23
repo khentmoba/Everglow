@@ -309,6 +309,44 @@ export function formatKatanaTime(time?: Date): string {
   return `${katanaMonths[time.getMonth()]} ${time.getDate()}, ${time.getFullYear()}`;
 }
 
+const WEEKDAYS: KatanaWeekday[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Derives a release weekday from recent chapter dates or relative update text so Release Schedule works in production. */
+export function deriveReleaseDay(updateText?: string, recentChapters?: KatanaChapter[]): KatanaWeekday | undefined {
+  const latestDate = recentChapters?.[0]?.updateAt;
+  if (latestDate && !Number.isNaN(latestDate.getTime())) {
+    return WEEKDAYS[latestDate.getDay()];
+  }
+  const raw = (updateText ?? '').trim();
+  if (!raw) return undefined;
+  const parsedKatana = parseKatanaDate(raw);
+  if (parsedKatana) return WEEKDAYS[parsedKatana.getDay()];
+  const lower = raw.toLowerCase();
+  const now = new Date();
+  if (lower.includes('just now') || lower.includes('minute') || lower.includes('hour') || lower.includes('today')) {
+    return WEEKDAYS[now.getDay()];
+  }
+  if (lower.includes('yesterday')) {
+    const d = new Date(now.getTime() - 86_400_000);
+    return WEEKDAYS[d.getDay()];
+  }
+  const daysM = /(\d+)\s*days?\s*ago/.exec(lower);
+  if (daysM) {
+    const d = new Date(now.getTime() - Number(daysM[1]) * 86_400_000);
+    return WEEKDAYS[d.getDay()];
+  }
+  const weeksM = /(\d+)\s*weeks?\s*ago/.exec(lower);
+  if (weeksM) {
+    const d = new Date(now.getTime() - Number(weeksM[1]) * 7 * 86_400_000);
+    return WEEKDAYS[d.getDay()];
+  }
+  const fallbackTs = Date.parse(raw);
+  if (!Number.isNaN(fallbackTs)) {
+    return WEEKDAYS[new Date(fallbackTs).getDay()];
+  }
+  return undefined;
+}
+
 function parseExpandedItem(block: string): KatanaManga | null {
   const hrefM = /href="https:\/\/mangakatana\.com\/manga\/([^"/]+)"/.exec(block);
   if (!hrefM) return null;
@@ -353,13 +391,14 @@ function parseExpandedItem(block: string): KatanaManga | null {
   const demographic = genres.find((g) => ['shounen', 'seinen', 'shoujo', 'josei'].includes(g.slug))?.name;
   const parsedChCount = latestChapter ? Math.floor(extractChapterNumber(latestChapter.num || latestChapter.title)) : 0;
 
+  const updateText = dateM ? cleanText(dateM[0]) : '';
   return {
     slug,
     id: idM?.[1] ?? slug,
     title: titleM ? unescapeHtml(titleM[1].trim()) : slug,
     coverUrl: extractCover(block),
     status: statusM?.[1] ?? 'ongoing',
-    updateText: dateM ? cleanText(dateM[0]) : '',
+    updateText,
     summary: sumM ? cleanText(sumM[1]) : '',
     genres,
     latestChapter,
@@ -370,6 +409,7 @@ function parseExpandedItem(block: string): KatanaManga | null {
     chapters: [],
     chapterCount: parsedChCount > 0 ? parsedChCount : undefined,
     demographic,
+    releaseDay: deriveReleaseDay(updateText, recentChapters),
   };
 }
 
@@ -987,13 +1027,14 @@ export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | nul
     });
   }
 
+  const detailUpdateText = updateM?.[1]?.trim() ?? '';
   return {
     slug,
     id: idM?.[1] ?? slug,
     title: titleM ? unescapeHtml(titleM[1].trim()) : slug,
     coverUrl: extractCover(html),
     status: statusM?.[1] ?? 'ongoing',
-    updateText: updateM?.[1]?.trim() ?? '',
+    updateText: detailUpdateText,
     summary: sumM ? cleanText(sumM[1]) : '',
     genres,
     altNames,
@@ -1001,6 +1042,7 @@ export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | nul
     artists,
     recentChapters: chapters.slice(0, 3),
     chapters,
+    releaseDay: deriveReleaseDay(detailUpdateText, chapters.slice(0, 3)),
   };
 }
 
@@ -1905,4 +1947,185 @@ export async function importKatanaLibraryMalXml(xml: string, userName: string): 
     imported++;
   }
   return imported;
+}
+
+export interface KatanaHistoryEntry {
+  slug: string;
+  title: string;
+  coverUrl: string;
+  chapterId: string;
+  chapterTitle: string;
+  page?: number;
+  readAt: number;
+}
+
+const HISTORY_KEY_PREFIX = 'katana_history_v1_';
+const NOTIFIED_ALERTS_PREFIX = 'katana_notified_alerts_v1_';
+
+function buildDemoHistory(): KatanaHistoryEntry[] {
+  const now = Date.now();
+  return [
+    {
+      slug: 'frieren-beyond-journeys-end',
+      title: "Frieren: Beyond Journey's End",
+      coverUrl: '/images/demo/manga-frieren.svg',
+      chapterId: 'c139',
+      chapterTitle: 'Chapter 139: A Quiet Lantern',
+      page: 14,
+      readAt: now - 1000 * 60 * 38,
+    },
+    {
+      slug: 'solo-leveling-ragnarok',
+      title: 'Solo Leveling: Ragnarok',
+      coverUrl: '/images/demo/manga-solo.svg',
+      chapterId: 'c41',
+      chapterTitle: 'Chapter 41: Shadow Sovereign',
+      page: 22,
+      readAt: now - 1000 * 60 * 60 * 5,
+    },
+    {
+      slug: 'witch-hat-atelier',
+      title: 'Witch Hat Atelier',
+      coverUrl: '/images/demo/manga-witch.svg',
+      chapterId: 'c82',
+      chapterTitle: 'Chapter 82: Silver Ink',
+      page: 9,
+      readAt: now - 1000 * 60 * 60 * 28,
+    },
+    {
+      slug: 'omniscient-readers-viewpoint',
+      title: "Omniscient Reader's Viewpoint",
+      coverUrl: '/images/demo/manga-orv.svg',
+      chapterId: 'c244',
+      chapterTitle: 'Chapter 244: Constellation Banquet',
+      page: 18,
+      readAt: now - 1000 * 60 * 60 * 52,
+    },
+  ];
+}
+
+export function loadKatanaHistory(userName: string): KatanaHistoryEntry[] {
+  if (!userName) return [];
+  try {
+    const raw = localStorage.getItem(`${HISTORY_KEY_PREFIX}${userName}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return AgentMode.demo ? buildDemoHistory() : [];
+}
+
+export function recordKatanaHistory(userName: string, entry: KatanaHistoryEntry): KatanaHistoryEntry[] {
+  if (!userName || !entry.slug || !entry.chapterId) return [];
+  const existing = loadKatanaHistory(userName).filter(
+    (item) => !(item.slug === entry.slug && item.chapterId === entry.chapterId),
+  );
+  const next = [entry, ...existing].slice(0, 100);
+  try {
+    localStorage.setItem(`${HISTORY_KEY_PREFIX}${userName}`, JSON.stringify(next));
+  } catch {
+    // ignore storage errors
+  }
+  return next;
+}
+
+export function removeKatanaHistoryEntry(userName: string, slug: string, chapterId: string): KatanaHistoryEntry[] {
+  if (!userName) return [];
+  const next = loadKatanaHistory(userName).filter(
+    (item) => !(item.slug === slug && item.chapterId === chapterId),
+  );
+  try {
+    localStorage.setItem(`${HISTORY_KEY_PREFIX}${userName}`, JSON.stringify(next));
+  } catch {
+    // ignore storage errors
+  }
+  return next;
+}
+
+export function clearKatanaHistory(userName: string): void {
+  if (!userName) return;
+  try {
+    localStorage.setItem(`${HISTORY_KEY_PREFIX}${userName}`, JSON.stringify([]));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export interface KatanaAlertHit {
+  slug: string;
+  title: string;
+  coverUrl: string;
+  chapterId: string;
+  chapterTitle: string;
+}
+
+/**
+ * Checks alert-enabled bookmarks against live catalog updates.
+ * Fires a real browser Notification when permission is granted and a previously
+ * unseen chapter arrives, and returns all alert-enabled series with new unread chapters.
+ */
+export function checkKatanaChapterAlerts(
+  userName: string,
+  bookmarks: KatanaBookmark[],
+  catalog: KatanaManga[],
+): KatanaAlertHit[] {
+  if (!userName || bookmarks.length === 0 || catalog.length === 0) return [];
+  const bySlug = new Map(catalog.map((m) => [m.slug, m]));
+  let seenMap: Record<string, string> = {};
+  try {
+    const raw = localStorage.getItem(`${NOTIFIED_ALERTS_PREFIX}${userName}`);
+    if (raw) seenMap = JSON.parse(raw) as Record<string, string>;
+  } catch {
+    seenMap = {};
+  }
+
+  const hits: KatanaAlertHit[] = [];
+  let mapChanged = false;
+  const canNotify =
+    typeof window !== 'undefined' &&
+    'Notification' in window &&
+    Notification.permission === 'granted' &&
+    !AgentMode.demo;
+
+  for (const bm of bookmarks) {
+    if (!bm.notifyOnUpdate) continue;
+    const item = bySlug.get(bm.slug);
+    const latest = item?.latestChapter;
+    if (!item || !latest?.id) continue;
+    const readIds = new Set(bm.readChapterIds ?? []);
+    if (readIds.has(latest.id) || bm.lastReadChapterId === latest.id) continue;
+    hits.push({
+      slug: item.slug,
+      title: item.title,
+      coverUrl: item.coverUrl,
+      chapterId: latest.id,
+      chapterTitle: latest.title || `Chapter ${latest.num}`,
+    });
+    if (seenMap[item.slug] !== latest.id) {
+      seenMap[item.slug] = latest.id;
+      mapChanged = true;
+      if (canNotify) {
+        try {
+          new Notification(`${item.title} — New Chapter`, {
+            body: `${latest.title || `Chapter ${latest.num}`} is ready to read in Manga Celestia.`,
+            tag: `manga-update-${item.slug}`,
+          });
+        } catch {
+          // ignore notification constructor errors on restricted browsers
+        }
+      }
+    }
+  }
+
+  if (mapChanged) {
+    try {
+      localStorage.setItem(`${NOTIFIED_ALERTS_PREFIX}${userName}`, JSON.stringify(seenMap));
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return hits;
 }

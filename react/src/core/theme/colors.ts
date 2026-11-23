@@ -75,7 +75,7 @@ export function parse(color: string): Rgba {
 
 /** Flutter's `color.withValues(alpha: a)`: replaces the alpha. */
 export function withAlpha(color: string, a: number): string {
-  if (color.startsWith('var(')) {
+  if (color.startsWith('var(') || color.startsWith('color-mix(')) {
     const pct = Math.max(0, Math.min(100, Math.round(a * 10000) / 100));
     return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
   }

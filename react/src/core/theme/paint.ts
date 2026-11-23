@@ -37,8 +37,11 @@ function mix(a: Rgba, b: Rgba, t: number): Rgba {
 
 /** CSS color stops (positions 0..1) matching Flutter's unpremultiplied mixing. */
 export function stops(colors: string[], positions?: number[]): Array<[string, number]> {
-  const parsed = colors.map(parse);
   const at = positions ?? colors.map((_, i) => (colors.length === 1 ? 0 : i / (colors.length - 1)));
+  if (colors.some((c) => c.startsWith('var(') || c.startsWith('color-mix('))) {
+    return colors.map((c, i) => [c, at[i]]);
+  }
+  const parsed = colors.map(parse);
   const out: Array<[string, number]> = [];
   for (let i = 0; i < parsed.length; i++) {
     if (i > 0) {
