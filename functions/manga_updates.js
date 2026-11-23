@@ -6,7 +6,9 @@ const { sendFCMToUser } = require('./triggers.js');
 
 const COUPLE_USERS = ['khentsgdz', 'clairjassen'];
 const MANGA_HOME_URL = 'https://mangakatana.com/';
+const MANGA_FEED_URL = 'https://mangakatana.com/feed';
 const MANGADEX_API_BASE = 'https://api.mangadex.org';
+const MANGADEX_PER_RUN_CAP = 25;
 
 function isWithinQuietHours(hour, startHour, endHour) {
   if (startHour === endHour) return false;
@@ -32,6 +34,28 @@ function manilaHourAndDay(now = new Date()) {
 function parseChapterNumber(raw) {
   const m = /(\d+(?:\.\d+)?)/.exec(String(raw || ''));
   return m ? Number.parseFloat(m[1]) : Number.NaN;
+}
+
+function extractLatestChaptersFromFeedXml(xml) {
+  const out = new Map();
+  if (!xml || typeof xml !== 'string') return out;
+  const linkRe = /<link>\s*(https?:\/\/mangakatana\.com\/manga\/([^/"?<\s]+)\/c([^/"?<\s]+))\s*<\/link>/gi;
+  let match;
+  while ((match = linkRe.exec(xml)) !== null) {
+    const slug = (match[2] || '').trim();
+    const chId = (match[3] || '').trim();
+    if (!slug || !chId) continue;
+    const chNum = parseChapterNumber(chId);
+    const prev = out.get(slug);
+    if (!prev || (Number.isFinite(chNum) && chNum > prev.num)) {
+      out.set(slug, {
+        chapterId: `c${chId}`,
+        chapterNum: chId,
+        num: Number.isFinite(chNum) ? chNum : -1,
+      });
+    }
+  }
+  return out;
 }
 
 function extractLatestChaptersFromHomeHtml(html) {
@@ -76,6 +100,30 @@ function buildMangaPushPayload(updates) {
 }
 
 async function fetchMangaHomeLatest(fetchFn = common.fetchPublicUrl) {
+  const isKatanaHost = (u) => {
+    const host = u.hostname.toLowerCase();
+    return host === 'mangakatana.com' || host === 'www.mangakatana.com';
+  };
+  // Prefer structured RSS feed first; fall back to homepage HTML only if the feed returns nothing.
+  try {
+    const feedResp = await fetchFn(MANGA_FEED_URL, {
+      headers: {
+        'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
+        Accept: 'application/rss+xml,application/xml,text/xml',
+      },
+      signal: AbortSignal.timeout(10000),
+      httpsOnly: true,
+      isAllowedUrl: isKatanaHost,
+    });
+    if (feedResp.ok) {
+      const xml = await common.readLimitedText(feedResp.body, 1024 * 1024);
+      const fromFeed = extractLatestChaptersFromFeedXml(xml);
+      if (fromFeed.size > 0) return fromFeed;
+    }
+  } catch {
+    // fall back to homepage HTML below
+  }
+
   const upstream = await fetchFn(MANGA_HOME_URL, {
     headers: {
       'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
@@ -83,10 +131,7 @@ async function fetchMangaHomeLatest(fetchFn = common.fetchPublicUrl) {
     },
     signal: AbortSignal.timeout(12000),
     httpsOnly: true,
-    isAllowedUrl: (u) => {
-      const host = u.hostname.toLowerCase();
-      return host === 'mangakatana.com' || host === 'www.mangakatana.com';
-    },
+    isAllowedUrl: isKatanaHost,
   });
   if (!upstream.ok) return new Map();
   const html = await common.readLimitedText(upstream.body, 1500 * 1024);
@@ -165,8 +210,16 @@ async function runMangaUpdateCheck({
       .get();
 
     const freshUpdates = [];
+    const checkedMdRefs = [];
+    const nowMs = now.getTime();
+    // Sort stalest lastCheckedAt first so cursor-based round-robin covers every followed series across runs.
+    const sortedDocs = [...snap.docs].sort((a, b) => {
+      const ta = Number(a.data()?.lastCheckedAt || 0);
+      const tb = Number(b.data()?.lastCheckedAt || 0);
+      return ta - tb;
+    });
     let mdLookups = 0;
-    for (const docSnap of snap.docs) {
+    for (const docSnap of sortedDocs) {
       if (docSnap.id.endsWith('|__prefs__')) continue;
       const data = docSnap.data() || {};
       if (data.notifyOnUpdate === false) continue;
@@ -182,9 +235,10 @@ async function runMangaUpdateCheck({
       if (!slug) continue;
 
       let latest = hasKatanaMap ? latestBySlug.get(slug) : null;
-      if (!latest && slug.startsWith('md-') && mdLookups < 12) {
+      if (!latest && slug.startsWith('md-') && mdLookups < MANGADEX_PER_RUN_CAP) {
         mdLookups += 1;
         latest = await fetchMangaDexLatest(slug);
+        checkedMdRefs.push(docSnap.ref);
       }
       if (!latest) continue;
 
@@ -204,7 +258,16 @@ async function runMangaUpdateCheck({
       });
     }
 
-    if (freshUpdates.length === 0) continue;
+    if (checkedMdRefs.length > 0) {
+      await Promise.all(
+        checkedMdRefs.map((ref) => ref.set({ lastCheckedAt: nowMs }, { merge: true })),
+      );
+    }
+
+    if (freshUpdates.length === 0) {
+      await prefsRef.set({ lastUpdateCheckAt: nowMs }, { merge: true });
+      continue;
+    }
 
     const payload = buildMangaPushPayload(freshUpdates);
     if (!payload) continue;
@@ -219,15 +282,19 @@ async function runMangaUpdateCheck({
           {
             lastNotifiedChapter: u.chapterNum,
             latestChapterNum: u.chapterNum,
-            lastNotifiedAt: Date.now(),
+            lastNotifiedAt: nowMs,
+            lastCheckedAt: nowMs,
           },
           { merge: true },
         ),
       ),
     );
-    if (mode === 'daily_digest') {
-      await prefsRef.set({ lastPushDigestDay: dayKey }, { merge: true });
-    }
+    await prefsRef.set(
+      mode === 'daily_digest'
+        ? { lastPushDigestDay: dayKey, lastUpdateCheckAt: nowMs }
+        : { lastUpdateCheckAt: nowMs },
+      { merge: true },
+    );
   }
 
   return { checkedUsers: COUPLE_USERS.length, sentCount };
@@ -247,6 +314,7 @@ const checkMangaUpdates = onSchedule(
 module.exports = {
   checkMangaUpdates,
   runMangaUpdateCheck,
+  extractLatestChaptersFromFeedXml,
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,
   isWithinQuietHours,

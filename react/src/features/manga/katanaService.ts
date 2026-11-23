@@ -45,6 +45,10 @@ export interface KatanaChapter {
   title: string;
   updateAt?: Date;
   isNew?: boolean;
+  /** Scanlation group or publisher name when provided by the source. */
+  scanlationGroup?: string;
+  /** ISO language code (e.g. 'en', 'ja', 'ko', 'zh'). */
+  language?: string;
 }
 
 export type KatanaWeekday = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
@@ -109,6 +113,12 @@ export interface KatanaBookmark {
   notifyOnUpdate?: boolean;
   /** Per-series auto-download opt-in for new unread chapters. */
   autoDownload?: boolean;
+  /** Cloud-synced chapter number last notified via FCM (shared dedupe marker). */
+  lastNotifiedChapter?: string;
+  /** Epoch ms of last cloud FCM notification for this series. */
+  lastNotifiedAt?: number;
+  /** Epoch ms when the scheduled updater last checked this series. */
+  lastCheckedAt?: number;
   /** Set once the reader reaches the last page of the final chapter of a completed series. */
   finishedAt?: Date;
 }
@@ -591,6 +601,8 @@ function makeDemoChapters(count: number, prefix: string): KatanaChapter[] {
       title: `Chapter ${n}${i === 0 ? `: ${prefix}` : ''}`,
       updateAt: new Date(now - i * 36 * 3600 * 1000),
       isNew: i < 2,
+      scanlationGroup: i % 3 === 0 ? 'Official EN' : 'Celestia Scans',
+      language: 'en',
     };
   });
 }
@@ -1171,6 +1183,8 @@ export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | nul
       num: katanaChapterNumFromId(idHit[1]),
       title: unescapeHtml(titleHit?.[1]?.trim() ?? `Chapter ${idHit[1]}`),
       isNew: block.includes('class="new"'),
+      scanlationGroup: 'MangaKatana',
+      language: 'en',
     });
   }
 
@@ -1238,7 +1252,7 @@ const demoProgress = (
   latestChapterTitle,
   recommendedBy: '',
   recommendationNote: '',
-  readChapterIds: Array.from({ length: Math.min(chapter, 6) }, (_, i) => `c${chapter - i}`),
+  readChapterIds: Array.from({ length: chapter }, (_, i) => `c${i + 1}`),
   bookmarked: true,
   libraryStatus: finishedAt ? 'completed' : 'reading',
   finishedAt,
@@ -1307,6 +1321,9 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     lastSyncedAt: (data.lastSyncedAt as Timestamp | undefined)?.toDate?.(),
     notifyOnUpdate: typeof data.notifyOnUpdate === 'boolean' ? data.notifyOnUpdate : undefined,
     autoDownload: typeof data.autoDownload === 'boolean' ? data.autoDownload : undefined,
+    lastNotifiedChapter: typeof data.lastNotifiedChapter === 'string' ? data.lastNotifiedChapter : undefined,
+    lastNotifiedAt: typeof data.lastNotifiedAt === 'number' ? data.lastNotifiedAt : undefined,
+    lastCheckedAt: typeof data.lastCheckedAt === 'number' ? data.lastCheckedAt : undefined,
     finishedAt: (data.finishedAt as Timestamp | undefined)?.toDate?.(),
   };
 }
@@ -2583,12 +2600,26 @@ export function checkKatanaChapterAlerts(
   let mapChanged = false;
   const alertPrefs = loadKatanaAlertPrefs(userName);
   const suppressByQuietHours = alertPrefs.quietHours && isQuietHoursNow();
+  // Couple users with active cloud FCM rely on functions/manga_updates.js as the single source of truth.
+  // Local browser Notification only fires as a fallback when cloud FCM is not active on this device.
+  const isCoupleAccount = userName === 'khentsgdz' || userName === 'clairjassen';
+  let hasCloudFcm = false;
+  if (isCoupleAccount && typeof window !== 'undefined') {
+    try {
+      hasCloudFcm =
+        Boolean(localStorage.getItem('everglow_fcm_token')) ||
+        bookmarks.some((b) => Boolean(b.lastNotifiedAt || b.lastCheckedAt));
+    } catch {
+      hasCloudFcm = false;
+    }
+  }
   const canBrowserNotify =
     typeof window !== 'undefined' &&
     'Notification' in window &&
     Notification.permission === 'granted' &&
     !AgentMode.demo &&
-    !suppressByQuietHours;
+    !suppressByQuietHours &&
+    !hasCloudFcm;
 
   for (const bm of bookmarks) {
     if (bm.notifyOnUpdate === false) continue;
@@ -2605,7 +2636,10 @@ export function checkKatanaChapterAlerts(
       chapterTitle: latest.title || `Chapter ${latest.num}`,
     };
     hits.push(hit);
-    if (seenMap[item.slug] !== latest.id) {
+    const cloudAlreadyNotified =
+      Boolean(bm.lastNotifiedChapter) &&
+      (bm.lastNotifiedChapter === latest.num || bm.lastNotifiedChapter === latest.id);
+    if (!cloudAlreadyNotified && seenMap[item.slug] !== latest.id) {
       unseenHits.push(hit);
     }
   }
@@ -2682,6 +2716,7 @@ export interface MangaDexCatalogOptions {
   genreMode?: string;
   chapters?: string;
   author?: string;
+  language?: string;
 }
 
 /**
@@ -2785,6 +2820,9 @@ export async function searchMangaDexCatalog(
     if (q) params.push(`title=${encodeURIComponent(q)}`);
     if (opts.status === 'ongoing' || opts.status === 'completed') {
       params.push(`status[]=${opts.status}`);
+    }
+    if (opts.language && opts.language !== 'all') {
+      params.push(`availableTranslatedLanguage[]=${encodeURIComponent(opts.language)}`);
     }
     if (opts.demographic && opts.demographic !== 'all') {
       const mdDemo = opts.demographic.toLowerCase() === 'shoujo' ? 'shoujo' : opts.demographic.toLowerCase();

@@ -63,8 +63,8 @@ export function KatanaCard({
       style={{
         background: KatanaColors.surface,
         borderRadius: radius,
-        border: `1px solid ${KatanaColors.border}`,
-        boxShadow: boxShadow([{ color: '#00000055', blur: 18, offset: [0, 6] }]),
+        border: `1px solid ${withAlpha(KatanaColors.border, 0.55)}`,
+        boxShadow: boxShadow([{ color: '#00000044', blur: 16, offset: [0, 5] }]),
         padding,
         boxSizing: 'border-box',
         ...style,
@@ -713,7 +713,15 @@ export function KatanaHeader({
             }
           }}
           enterKeyHint="search"
-          placeholder="Search manga, manhwa, manhua..."
+          placeholder={
+            phoneCompact
+              ? searchBy === 'm_name'
+                ? 'Search titles…'
+                : searchBy === 'author'
+                  ? 'Search authors…'
+                  : 'Search themes…'
+              : 'Search manga, manhwa, manhua...'
+          }
           aria-label="Search manga, manhwa, manhua..."
           style={{
             width: '100%',
@@ -759,17 +767,17 @@ export function KatanaHeader({
         style={{
           flexShrink: 0,
           marginRight: 4,
-          padding: '5px 10px',
+          padding: phoneCompact ? '4px 7px' : '5px 10px',
           borderRadius: 7,
           background: KatanaColors.surfaceAlt,
-          border: `1px solid ${KatanaColors.borderStrong}`,
+          border: `1px solid ${withAlpha(KatanaColors.borderStrong, 0.7)}`,
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 4,
+          gap: 3,
         }}
       >
-        <span style={bodyText(12, 600, KatanaColors.textMuted, 1.1)}>
-          {searchBy === 'm_name' ? 'Title' : searchBy === 'author' ? 'Author' : 'Alt / Theme'}
+        <span style={bodyText(phoneCompact ? 11.5 : 12, 600, KatanaColors.textMuted, 1.1)}>
+          {searchBy === 'm_name' ? 'Title' : searchBy === 'author' ? 'Author' : phoneCompact ? 'Theme' : 'Alt / Theme'}
         </span>
         <Icon name="swap_vert" size={13} color={KatanaColors.textLight} />
       </button>
@@ -1727,7 +1735,7 @@ export function KatanaItemCard({
         padding: compact ? 12 : 14,
         borderRadius: 12,
         background: lit ? KatanaColors.surfaceGlow : KatanaColors.surface,
-        border: `1px solid ${lit ? KatanaColors.borderStrong : KatanaColors.border}`,
+        border: `1px solid ${lit ? KatanaColors.borderStrong : withAlpha(KatanaColors.border, 0.5)}`,
         transition: interactive ? 'background 160ms ease, border-color 160ms ease' : undefined,
         alignItems: 'flex-start',
       }}
@@ -1907,12 +1915,9 @@ export function KatanaPosterCard({
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 12,
-        background: KatanaColors.surface,
-        border: `1px solid ${lit ? KatanaColors.borderStrong : KatanaColors.border}`,
-        overflow: 'hidden',
+        background: 'transparent',
         transform: lit ? 'translateY(-3px)' : undefined,
-        boxShadow: lit ? boxShadow([{ color: '#00000080', blur: 18, offset: [0, 8] }]) : undefined,
-        transition: interactive ? 'transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease' : undefined,
+        transition: interactive ? 'transform 180ms ease' : undefined,
       }}
     >
       <div
@@ -1921,40 +1926,54 @@ export function KatanaPosterCard({
         aria-label={`Open ${manga.title}`}
         onClick={onSelect}
         onKeyDown={onActivateKey(onSelect)}
-        style={{ position: 'relative', width: '100%', aspectRatio: '2 / 3', background: KatanaColors.surfaceAlt, cursor: 'pointer', overflow: 'hidden' }}
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '2 / 3',
+          borderRadius: 11,
+          background: KatanaColors.surfaceAlt,
+          cursor: 'pointer',
+          overflow: 'hidden',
+          boxShadow: lit
+            ? boxShadow([{ color: '#00000088', blur: 20, offset: [0, 8] }])
+            : boxShadow([{ color: '#00000048', blur: 12, offset: [0, 4] }]),
+          outline: lit ? `1.5px solid ${withAlpha(KatanaColors.accent, 0.55)}` : 'none',
+          transition: interactive ? 'box-shadow 180ms ease, outline-color 180ms ease' : undefined,
+        }}
       >
         <KatanaCoverImage url={manga.coverUrl} title={manga.title} iconSize={28} />
         <div
           style={{
             position: 'absolute',
             inset: 'auto 0 0 0',
-            height: '45%',
-            background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.92)}, transparent)`,
+            height: '44%',
+            background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.9)}, transparent)`,
             pointerEvents: 'none',
           }}
         />
-        <div style={{ position: 'absolute', top: 8, left: 8, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 'calc(100% - 62px)' }}>
-          <span
-            style={{
-              padding: '2px 7px',
-              borderRadius: 6,
-              background: completed ? withAlpha(KatanaColors.green, 0.92) : withAlpha(KatanaColors.background, 0.86),
-              border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
-              ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
-            }}
-          >
-            {completed ? 'Completed' : 'Ongoing'}
-          </span>
+        <div style={{ position: 'absolute', top: 7, left: 7, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 'calc(100% - 58px)' }}>
+          {completed && (
+            <span
+              style={{
+                padding: '2px 6px',
+                borderRadius: 5,
+                background: withAlpha(KatanaColors.green, 0.92),
+                ...bodyText(9.5, 700, KatanaColors.accentInk, 1.2),
+              }}
+            >
+              Completed
+            </span>
+          )}
           {manga.rating != null && (
             <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 2,
-                padding: '2px 5px',
-                borderRadius: 6,
-                background: withAlpha(KatanaColors.background, 0.86),
-                border: `1px solid ${KatanaColors.borderStrong}`,
+                padding: '2px 6px',
+                borderRadius: 5,
+                background: withAlpha(KatanaColors.background, 0.78),
+                backdropFilter: 'blur(4px)',
                 ...bodyText(10, 700, KatanaColors.text, 1.2),
               }}
             >
@@ -1974,13 +1993,13 @@ export function KatanaPosterCard({
             }}
             style={{
               position: 'absolute',
-              left: 8,
-              right: 8,
-              bottom: 8,
+              left: 7,
+              right: 7,
+              bottom: 7,
               padding: '4px 8px',
               borderRadius: 7,
-              background: 'rgba(19, 22, 31, 0.92)',
-              border: `1px solid ${KatanaColors.borderStrong}`,
+              background: 'rgba(14, 17, 24, 0.84)',
+              backdropFilter: 'blur(4px)',
               ...bodyText(11.5, 600, KatanaColors.link, 1.2),
               ...ellipsis,
               textAlign: 'left',
@@ -1990,7 +2009,7 @@ export function KatanaPosterCard({
           </button>
         )}
       </div>
-      <div style={{ padding: '10px 10px 11px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '8px 2px 4px', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <button
           type="button"
           className="bare-button"
@@ -2047,10 +2066,12 @@ export function KatanaCompactCard({
         title={manga.title}
         onClick={onSelect}
         style={{
-          borderRadius: 9,
+          borderRadius: 10,
           padding: 0,
-          border: `1.5px solid ${lit ? KatanaColors.borderStrong : KatanaColors.border}`,
-          boxShadow: lit ? boxShadow([{ color: '#00000070', blur: 12, offset: [0, 4] }]) : undefined,
+          border: lit ? `1.5px solid ${withAlpha(KatanaColors.accent, 0.55)}` : '1px solid transparent',
+          boxShadow: lit
+            ? boxShadow([{ color: '#00000078', blur: 16, offset: [0, 6] }])
+            : boxShadow([{ color: '#00000044', blur: 10, offset: [0, 3] }]),
           transform: lit ? 'translateY(-2px)' : undefined,
           transition: interactive ? 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease' : undefined,
           overflow: 'hidden',

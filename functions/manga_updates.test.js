@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  extractLatestChaptersFromFeedXml,
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,
   isWithinQuietHours,
@@ -16,6 +17,19 @@ test('isWithinQuietHours handles overnight and daytime windows', () => {
   assert.equal(isWithinQuietHours(14, 22, 8), false);
   assert.equal(isWithinQuietHours(10, 9, 12), true);
   assert.equal(isWithinQuietHours(10, 10, 10), false);
+});
+
+test('extractLatestChaptersFromFeedXml parses RSS feed links and picks highest chapter', () => {
+  const xml = `
+    <rss><channel>
+      <item><link>https://mangakatana.com/manga/frieren.456/c135</link></item>
+      <item><link>https://mangakatana.com/manga/frieren.456/c136</link></item>
+      <item><link>https://mangakatana.com/manga/solo.123/c200.5</link></item>
+    </channel></rss>
+  `;
+  const map = extractLatestChaptersFromFeedXml(xml);
+  assert.equal(map.get('frieren.456')?.chapterNum, '136');
+  assert.equal(map.get('solo.123')?.chapterNum, '200.5');
 });
 
 test('extractLatestChaptersFromHomeHtml picks highest chapter per slug', () => {
@@ -96,7 +110,8 @@ test('runMangaUpdateCheck respects quiet hours without losing unseen chapters', 
   assert.equal(pushed[0].uid, 'khentsgdz');
   assert.equal(pushed[0].payload.data.type, 'manga_update');
   assert.equal(pushed[0].payload.data.slug, 'frieren.456');
-  assert.equal(writes.length, 1);
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|frieren.456' && w.data.lastNotifiedChapter === '135'));
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|__prefs__' && typeof w.data.lastUpdateCheckAt === 'number'));
 });
 
 test('runMangaUpdateCheck skips completed/dropped/on-hold series and supports MangaDex md- slugs', async () => {

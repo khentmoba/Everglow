@@ -192,9 +192,9 @@ function FeaturedHero({
       <div
         style={{
           position: 'relative',
-          padding: compact ? '9px 10px' : '16px 20px',
+          padding: compact ? '12px 12px' : desktop ? '20px 24px' : '16px 20px',
           display: 'flex',
-          gap: compact ? 10 : 20,
+          gap: compact ? 13 : desktop ? 24 : 20,
           alignItems: 'center',
         }}
       >
@@ -205,17 +205,16 @@ function FeaturedHero({
           onClick={() => onSelectManga(featured.slug)}
           style={{
             position: 'relative',
-            width: compact ? 64 : 122,
-            height: compact ? 92 : 176,
-            borderRadius: 10,
+            width: compact ? 104 : desktop ? 164 : 128,
+            height: compact ? 150 : desktop ? 236 : 184,
+            borderRadius: 11,
             overflow: 'hidden',
             flexShrink: 0,
-            border: `1px solid ${KatanaColors.borderStrong}`,
             background: KatanaColors.surfaceAlt,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.48)',
           }}
         >
-          <KatanaCoverImage url={featured.coverUrl} title={featured.title} iconSize={compact ? 22 : 30} />
+          <KatanaCoverImage url={featured.coverUrl} title={featured.title} iconSize={compact ? 26 : 34} />
         </button>
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: compact ? 4 : 8 }}>
@@ -517,8 +516,8 @@ function CurrentlyReadingShelf({
             <div
               key={bm.slug}
               style={{
-                width: items.length === 1 ? '100%' : compact ? 248 : 296,
-                maxWidth: items.length === 1 ? (compact ? undefined : 460) : undefined,
+                width: items.length === 1 ? '100%' : compact ? 248 : 312,
+                maxWidth: items.length === 1 ? (compact ? undefined : 640) : undefined,
                 flexShrink: items.length === 1 ? 1 : 0,
                 display: 'flex',
                 alignItems: 'center',
@@ -526,7 +525,7 @@ function CurrentlyReadingShelf({
                 padding: 8,
                 borderRadius: 11,
                 background: KatanaColors.surface,
-                border: `1px solid ${KatanaColors.border}`,
+                border: `1px solid ${withAlpha(KatanaColors.border, 0.55)}`,
               }}
             >
               <button
@@ -630,7 +629,7 @@ function todayWeekday(): KatanaWeekday {
   return WEEKDAYS[(jsDay + 6) % 7];
 }
 
-function RecentlyUpdatedDaysRail({
+function ReleaseCalendarRail({
   catalog,
   unreadBySlug,
   downloadedCounts,
@@ -644,7 +643,14 @@ function RecentlyUpdatedDaysRail({
   onSelectManga: (slug: string) => void;
 }) {
   const today = useMemo(() => todayWeekday(), []);
-  const scheduled = useMemo(() => catalog.filter((m) => m.releaseDay), [catalog]);
+  const todayIdx = WEEKDAYS.indexOf(today);
+  const [calendarMode, setCalendarMode] = useState<'upcoming' | 'recent'>('upcoming');
+  const scheduled = useMemo(() => {
+    const withDay = catalog.filter((m) => m.releaseDay);
+    return calendarMode === 'upcoming'
+      ? withDay.filter((m) => m.status.toLowerCase() !== 'completed')
+      : withDay;
+  }, [catalog, calendarMode]);
   const byDay = useMemo(() => {
     const map: Record<KatanaWeekday, KatanaManga[]> = {
       Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [],
@@ -655,22 +661,68 @@ function RecentlyUpdatedDaysRail({
     return map;
   }, [scheduled]);
   const [selectedDay, setSelectedDay] = useState<KatanaWeekday>(() => {
-    if (scheduled.some((m) => m.releaseDay === today)) return today;
-    return scheduled[0]?.releaseDay ?? today;
+    if (catalog.some((m) => m.releaseDay === today)) return today;
+    return catalog.find((m) => m.releaseDay)?.releaseDay ?? today;
   });
 
-  if (scheduled.length === 0) return null;
+  if (catalog.every((m) => !m.releaseDay)) return null;
 
   const activeItems = byDay[selectedDay] ?? [];
+  const selectedIdx = WEEKDAYS.indexOf(selectedDay);
+  const daysAhead = (selectedIdx - todayIdx + 7) % 7;
+  const upcomingEtaLabel =
+    daysAhead === 0 ? 'Expected today' : daysAhead === 1 ? 'Expected tomorrow' : `Expected in ${daysAhead}d`;
 
   return (
-    <section aria-label="Recently updated by day" style={{ marginTop: 22 }}>
-      <KatanaSectionHeader
-        title="Recently Updated by Day"
-        badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
-      />
+    <section aria-label="Release calendar" style={{ marginTop: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <KatanaSectionHeader
+          title={calendarMode === 'upcoming' ? 'Upcoming Releases' : 'Recently Updated by Day'}
+          badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
+        />
+        <div
+          role="tablist"
+          aria-label="Calendar view"
+          style={{
+            display: 'inline-flex',
+            padding: 3,
+            borderRadius: 9,
+            background: KatanaColors.surfaceAlt,
+          }}
+        >
+          {([
+            { key: 'upcoming', label: 'Upcoming' },
+            { key: 'recent', label: 'Recent' },
+          ] as const).map((m) => {
+            const active = calendarMode === m.key;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className="bare-button"
+                onClick={() => setCalendarMode(m.key)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  background: active ? KatanaColors.chipSelectedBg : 'transparent',
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: active ? 700 : 500,
+                  color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
-        Grouped by each series’ latest catalog update day (not a future release schedule).
+        {calendarMode === 'upcoming'
+          ? `Estimated weekly cadence for ongoing series · ${upcomingEtaLabel}.`
+          : 'Grouped by each series’ latest catalog update day.'}
       </div>
       <div style={{ height: 10 }} />
       <div
@@ -919,6 +971,7 @@ export function MangaHome({
   });
   const [feedUnreadOnly, setFeedUnreadOnly] = useState(false);
   const [feedAlertsOnly, setFeedAlertsOnly] = useState(false);
+  const [phoneControlsOpen, setPhoneControlsOpen] = useState(false);
   const [alertBannerDismissed, setAlertBannerDismissed] = useState(false);
 
   const dismissTasteOnboarding = () => {
@@ -1559,28 +1612,115 @@ export function MangaHome({
     ? `${data.sourceLabel ?? 'MangaKatana'} · ${data.fromCache ? 'Cached' : 'Updated'} ${formatKatanaTime(new Date(data.fetchedAt))}`
     : data.sourceLabel;
 
+  const phoneFilterActiveCount =
+    (type !== 'all' ? 1 : 0) +
+    (feedTab !== 'latest' ? 1 : 0) +
+    (feedUnreadOnly ? 1 : 0) +
+    (feedAlertsOnly ? 1 : 0);
+
   const feedSection = (
-    <section>
+    <section aria-label="Manga catalog feed">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <KatanaSectionHeader title={feedTitle} badge={feedTab === 'updates' && libraryUnreadTotal > 0 ? `${libraryUnreadTotal} unread` : undefined} />
-          {freshnessLabel && type === 'all' && (
+          {freshnessLabel && type === 'all' && !compact && (
             <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 2 }}>{freshnessLabel}</div>
           )}
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {compact ? (
+          <button
+            type="button"
+            className="bare-button"
+            aria-expanded={phoneControlsOpen}
+            onClick={() => setPhoneControlsOpen((v) => !v)}
+            style={{
+              minHeight: 36,
+              padding: '0 12px',
+              borderRadius: 99,
+              background: phoneControlsOpen || phoneFilterActiveCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+              border: `1px solid ${phoneControlsOpen || phoneFilterActiveCount > 0 ? KatanaColors.chipSelectedBorder : withAlpha(KatanaColors.borderStrong, 0.7)}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontFamily: Fonts.body,
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: phoneControlsOpen || phoneFilterActiveCount > 0 ? KatanaColors.chipSelectedText : KatanaColors.text,
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="tune" size={15} color={phoneControlsOpen || phoneFilterActiveCount > 0 ? KatanaColors.accent : KatanaColors.textMuted} />
+            <span>Sort & Filter{phoneFilterActiveCount > 0 ? ` (${phoneFilterActiveCount})` : ''}</span>
+          </button>
+        ) : (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {type === 'all' && (
+              <div
+                role="tablist"
+                aria-label="Discovery feed"
+                style={{
+                  display: 'inline-flex',
+                  padding: 3,
+                  borderRadius: 9,
+                  background: KatanaColors.surfaceAlt,
+                }}
+              >
+                {([
+                  { key: 'latest', label: 'Latest' },
+                  { key: 'new_hot', label: 'New & Hot' },
+                  { key: 'updates', label: 'My Updates' },
+                ] as const).map((t) => {
+                  const active = feedTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      className="bare-button"
+                      onClick={() => setFeedTab(t.key)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        background: active ? KatanaColors.chipSelectedBg : 'transparent',
+                        fontFamily: Fonts.body,
+                        fontSize: 12,
+                        fontWeight: active ? 700 : 500,
+                        color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {type !== 'all' && <span style={KatanaType.small}>{TYPE_META[type].eyebrow}</span>}
+            {viewToggle}
+          </div>
+        )}
+      </div>
+
+      {compact && phoneControlsOpen && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 12,
+            background: KatanaColors.surface,
+            border: `1px solid ${withAlpha(KatanaColors.borderStrong, 0.7)}`,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ ...KatanaType.small, fontWeight: 700 }}>Feed & Format</span>
+            {viewToggle}
+          </div>
+          {typeChips}
           {type === 'all' && (
-            <div
-              role="tablist"
-              aria-label="Discovery feed"
-              style={{
-                display: 'inline-flex',
-                padding: 3,
-                borderRadius: 9,
-                background: KatanaColors.surfaceAlt,
-                border: `1px solid ${KatanaColors.border}`,
-              }}
-            >
+            <div role="tablist" aria-label="Discovery feed" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {([
                 { key: 'latest', label: 'Latest' },
                 { key: 'new_hot', label: 'New & Hot' },
@@ -1596,9 +1736,11 @@ export function MangaHome({
                     className="bare-button"
                     onClick={() => setFeedTab(t.key)}
                     style={{
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      background: active ? KatanaColors.chipSelectedBg : 'transparent',
+                      minHeight: 34,
+                      padding: '4px 12px',
+                      borderRadius: 99,
+                      background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                      border: `1px solid ${active ? KatanaColors.chipSelectedBorder : 'transparent'}`,
                       fontFamily: Fonts.body,
                       fontSize: 12,
                       fontWeight: active ? 700 : 500,
@@ -1611,12 +1753,60 @@ export function MangaHome({
               })}
             </div>
           )}
-          {type !== 'all' && <span style={KatanaType.small}>{TYPE_META[type].eyebrow}</span>}
-          {viewToggle}
+          {type === 'all' && libraryBookmarks.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="bare-button"
+                aria-pressed={feedUnreadOnly}
+                onClick={() => setFeedUnreadOnly((v) => !v)}
+                style={{
+                  minHeight: 36,
+                  padding: '4px 11px',
+                  borderRadius: 99,
+                  background: feedUnreadOnly ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                  border: `1px solid ${feedUnreadOnly ? KatanaColors.chipSelectedBorder : 'transparent'}`,
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: feedUnreadOnly ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                <Icon name="mark_chat_unread" size={14} color={feedUnreadOnly ? KatanaColors.accent : KatanaColors.textLight} />
+                Unread only
+              </button>
+              <button
+                type="button"
+                className="bare-button"
+                aria-pressed={feedAlertsOnly}
+                onClick={() => setFeedAlertsOnly((v) => !v)}
+                style={{
+                  minHeight: 36,
+                  padding: '4px 11px',
+                  borderRadius: 99,
+                  background: feedAlertsOnly ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                  border: `1px solid ${feedAlertsOnly ? KatanaColors.chipSelectedBorder : 'transparent'}`,
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: feedAlertsOnly ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                <Icon name="notifications_active" size={14} color={feedAlertsOnly ? KatanaColors.accent : KatanaColors.textLight} />
+                Alerts on
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      {type === 'all' && libraryBookmarks.length > 0 && (
+      {!compact && type === 'all' && libraryBookmarks.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
           <button
             type="button"
@@ -1624,11 +1814,11 @@ export function MangaHome({
             aria-pressed={feedUnreadOnly}
             onClick={() => setFeedUnreadOnly((v) => !v)}
             style={{
-              minHeight: compact ? 38 : 30,
+              minHeight: 30,
               padding: '4px 10px',
               borderRadius: 99,
               background: feedUnreadOnly ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-              border: `1px solid ${feedUnreadOnly ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+              border: `1px solid ${feedUnreadOnly ? KatanaColors.chipSelectedBorder : 'transparent'}`,
               fontFamily: Fonts.body,
               fontSize: 12,
               fontWeight: 600,
@@ -1647,11 +1837,11 @@ export function MangaHome({
             aria-pressed={feedAlertsOnly}
             onClick={() => setFeedAlertsOnly((v) => !v)}
             style={{
-              minHeight: compact ? 38 : 30,
+              minHeight: 30,
               padding: '4px 10px',
               borderRadius: 99,
               background: feedAlertsOnly ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-              border: `1px solid ${feedAlertsOnly ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+              border: `1px solid ${feedAlertsOnly ? KatanaColors.chipSelectedBorder : 'transparent'}`,
               fontFamily: Fonts.body,
               fontSize: 12,
               fontWeight: 600,
@@ -1789,13 +1979,13 @@ export function MangaHome({
               onResumeBookmark={onResumeBookmark}
               onViewAll={() => onViewAllReading?.()}
             />
-            {typeChips}
+            {!compact && typeChips}
             {newChapterAlertBanner}
-            <div style={{ height: 10 }} />
+            <div style={{ height: compact ? 8 : 10 }} />
             {feedSection}
             {tasteOnboardingBanner}
             {type === 'all' && (
-              <RecentlyUpdatedDaysRail
+              <ReleaseCalendarRail
                 catalog={allCatalog}
                 unreadBySlug={unreadBySlug}
                 downloadedCounts={downloadedCounts}
@@ -1845,7 +2035,7 @@ export function MangaHome({
             <div style={{ flex: 7, minWidth: 0 }}>
               {feedSection}
               {type === 'all' && (
-                <RecentlyUpdatedDaysRail
+                <ReleaseCalendarRail
                   catalog={allCatalog}
                   unreadBySlug={unreadBySlug}
                   downloadedCounts={downloadedCounts}
