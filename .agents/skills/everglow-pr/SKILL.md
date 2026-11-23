@@ -66,7 +66,7 @@ Run these in order. Red locally means don't open the PR yet:
    not this change's fault, but it is still something Clair can't play.
    Merging deploys the Worker (`deploy_worker.yml`). Never run
    `wrangler deploy` by hand, not even after merge.
-7. Before opening a PR or marking it ready: write the body to a file and run
+7. Before opening a PR or marking it ready: write the body to `$(git rev-parse --git-path pr-body.md)` (never `.git/pr-body.md`, since `.git` is a file in worktrees) and run
    `node tool/ci/pr_contract.mjs --body <file>`. It is the same check CI runs.
 
 CI runs every deterministic deployment prerequisite on every PR: app
@@ -118,6 +118,8 @@ ordinary Quality success does not prove that those browser checks passed.
   ```bash
   npm --prefix react run build
   node tool/capture_proof.mjs --route "/books?agent=1&hud=0" --viewport phone --out docs/pr-proof/pr-<number>/shot.png
+  # Or capture multiple routes/viewports in one Chrome launch:
+  node tool/capture_proof.mjs --pack pack.json
   ```
   It checks that `react/dist` is fresh, serves it on a spare port, launches
   muted headless Chrome at `phone` (430x932), `tablet` (820x1180), or

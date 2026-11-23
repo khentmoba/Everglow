@@ -57,4 +57,55 @@ test('mechanical guards flag banned rules, proxy, React, and Playwright patterns
     }).length,
     0,
   );
+  assert.equal(
+    findMechanicalViolations({
+      functionsFiles: [{ path: 'functions/a.js', content: 'await auth().verifyIdToken(token);' }],
+    }).length,
+    1,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      functionsFiles: [{ path: 'functions/a.js', content: 'await auth().verifyIdToken(token, false);' }],
+    }).length,
+    1,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      functionsFiles: [{ path: 'functions/a.js', content: 'await auth().verifyIdToken(token, true);' }],
+    }).length,
+    0,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();' }],
+    }).length,
+    1,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();\nsetBoundedCache(detailCache, k, v, 50);' }],
+    }).length,
+    0,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      cinemaAnimeJs: 'const CINEMA_BUDGET_MS = 20_000;\nconst CINEMA_PICK_BUDGET_MS = 14_500;',
+      cinemaPlayerTsx: 'const LOAD_TIMEOUT = 15_000;',
+    }).length,
+    1,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      cinemaAnimeJs: 'const CINEMA_BUDGET_MS = 14500;\nconst CINEMA_PICK_BUDGET_MS = 14500;',
+      cinemaPlayerTsx: 'const LOAD_TIMEOUT_MS = 15000;',
+    }).length,
+    1,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      cinemaAnimeJs: 'const CINEMA_BUDGET_MS = 14500;\nconst CINEMA_PICK_BUDGET_MS = 14500;',
+      cinemaPlayerTsx: 'const LOAD_TIMEOUT = 15000;',
+    }).length,
+    0,
+  );
 });

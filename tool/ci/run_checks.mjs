@@ -126,8 +126,11 @@ const OUTLINE_NONE_BASELINE_MAX = 44;
 export function findMechanicalViolations({
   rules = '',
   mediaProxyFiles = [],
+  functionsFiles = [],
   reactFiles = [],
   testToolFiles = [],
+  cinemaAnimeJs = '',
+  cinemaPlayerTsx = '',
   outlineNoneMax = OUTLINE_NONE_BASELINE_MAX,
 } = {}) {
   const errors = [];
@@ -142,6 +145,15 @@ export function findMechanicalViolations({
       errors.push(`${path}: raw fetch() in media_proxy_*.js (use fetchPublicUrl or add // ci:raw-fetch-allow).`);
     }
   }
+  for (const { path, content } of functionsFiles) {
+    if (content.includes('ci:skip-revocation-check')) continue;
+    for (const m of content.matchAll(/\.verifyIdToken\s*\(([^)]*)\)/g)) {
+      if (!/,\s*true\s*$/.test(m[1])) {
+        errors.push(`${path}: verifyIdToken() without checkRevoked=true (pass literal true as 2nd arg or // ci:skip-revocation-check).`);
+        break;
+      }
+    }
+  }
   const outlineNoneFiles = [];
   for (const { path, content } of reactFiles) {
     if (/postMessage\([^)]*['"]\*['"]/.test(content) && !content.includes('ci:postmessage-wildcard')) {
@@ -152,6 +164,14 @@ export function findMechanicalViolations({
     }
     if (/\boutline\s*:\s*['"]?none\b/.test(content) && !content.includes('ci:outline-none')) {
       outlineNoneFiles.push(path);
+    }
+    if (
+      path.startsWith('react/src/features/') &&
+      /^const\s+\w*Cache\s*=\s*new\s+Map\b/m.test(content) &&
+      !content.includes('setBoundedCache') &&
+      !content.includes('ci:unbounded-cache')
+    ) {
+      errors.push(`${path}: module-level *Cache Map without setBoundedCache() (use react/src/core/utils/boundedCache.ts or // ci:unbounded-cache).`);
     }
   }
   if (outlineNoneFiles.length > outlineNoneMax) {
@@ -164,16 +184,35 @@ export function findMechanicalViolations({
       errors.push(`${path}: 2-arg waitForFunction(fn, { timeout }) ignores timeout; pass null as 2nd arg.`);
     }
   }
+  if (cinemaAnimeJs && cinemaPlayerTsx) {
+    const parseMs = (src, name) => {
+      const m = new RegExp(`const\\s+${name}\\s*=\\s*(\\d[\\d_]*)\\s*;`).exec(src);
+      return m ? Number(m[1].replace(/_/g, '')) : NaN;
+    };
+    const loadTimeout = parseMs(cinemaPlayerTsx, 'LOAD_TIMEOUT');
+    if (!Number.isFinite(loadTimeout)) {
+      errors.push('react/src/features/cinema/VideoPlayerPage.tsx: LOAD_TIMEOUT constant not found or not a plain ms literal.');
+    }
+    for (const name of ['CINEMA_BUDGET_MS', 'CINEMA_PICK_BUDGET_MS']) {
+      const budget = parseMs(cinemaAnimeJs, name);
+      if (!Number.isFinite(budget)) {
+        errors.push(`cloudflare/src/anime.js: ${name} constant not found or not a plain ms literal.`);
+      } else if (Number.isFinite(loadTimeout) && budget >= loadTimeout) {
+        errors.push(`cloudflare/src/anime.js: ${name} (${budget}ms) must stay below VideoPlayerPage.tsx LOAD_TIMEOUT (${loadTimeout}ms).`);
+      }
+    }
+  }
   return errors;
 }
 
 function checkMechanicalGuards() {
   const rules = readFileSync('firestore.rules', 'utf8');
-  const mediaProxyFiles = existsSync('functions')
+  const functionsFiles = existsSync('functions')
     ? readdirSync('functions')
-        .filter((n) => /^media_proxy_.*\.js$/.test(n) && !n.endsWith('.test.js'))
+        .filter((n) => n.endsWith('.js') && !n.endsWith('.test.js'))
         .map((n) => ({ path: `functions/${n}`, content: readFileSync(join('functions', n), 'utf8') }))
     : [];
+  const mediaProxyFiles = functionsFiles.filter((f) => /^functions\/media_proxy_.*\.js$/.test(f.path));
   const reactFiles = walk('react/src', ['.ts', '.tsx']).map((p) => ({
     path: p.replace(/\\/g, '/'),
     content: readFileSync(p, 'utf8'),
@@ -182,10 +221,22 @@ function checkMechanicalGuards() {
     .map((p) => p.replace(/\\/g, '/'))
     .filter((p) => p !== 'tool/ci/run_checks.mjs' && p !== 'tool/ci/run_checks.test.mjs')
     .map((p) => ({ path: p, content: readFileSync(p, 'utf8') }));
-  const errors = findMechanicalViolations({ rules, mediaProxyFiles, reactFiles, testToolFiles });
+  const cinemaAnimeJs = existsSync('cloudflare/src/anime.js') ? readFileSync('cloudflare/src/anime.js', 'utf8') : '';
+  const cinemaPlayerTsx = existsSync('react/src/features/cinema/VideoPlayerPage.tsx')
+    ? readFileSync('react/src/features/cinema/VideoPlayerPage.tsx', 'utf8')
+    : '';
+  const errors = findMechanicalViolations({
+    rules,
+    mediaProxyFiles,
+    functionsFiles,
+    reactFiles,
+    testToolFiles,
+    cinemaAnimeJs,
+    cinemaPlayerTsx,
+  });
   assert.equal(errors.length, 0, errors.join('\n'));
   console.log(
-    `[mechanical] OK: firestore.rules, ${mediaProxyFiles.length} media proxies, ${reactFiles.length} React files, and ${testToolFiles.length} tool scripts clean.`,
+    `[mechanical] OK: firestore.rules, ${functionsFiles.length} functions files, ${reactFiles.length} React files, and ${testToolFiles.length} tool scripts clean.`,
   );
 }
 

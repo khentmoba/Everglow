@@ -1,16 +1,17 @@
 // Unified local verification entrypoint for Everglow.
-// Checks node_modules, then runs react, functions, cloudflare, and tool/ci checks.
-// Usage: node tool/ci/verify_all.mjs [--quick]
+// Checks node_modules (or installs them with --install), then runs react, functions, cloudflare, and tool/ci checks.
+// Usage: node tool/ci/verify_all.mjs [--quick] [--install]
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const args = new Set(process.argv.slice(2));
 if (args.has('--help') || args.has('-h')) {
-  console.log('Usage: node tool/ci/verify_all.mjs [--quick]\n  --quick  Skip headless browser tests (react test + agent_smoke)');
+  console.log('Usage: node tool/ci/verify_all.mjs [--quick] [--install]\n  --quick    Skip headless browser tests (react test + agent_smoke)\n  --install  Run npm ci for any package missing node_modules before checking');
   process.exit(0);
 }
 const quick = args.has('--quick');
+const autoInstall = args.has('--install');
 const npmCmd = process.platform === 'win32' ? 'cmd.exe' : 'npm';
 const npmArgs = (...a) => (process.platform === 'win32' ? ['/d', '/s', '/c', 'npm', ...a] : a);
 
@@ -18,11 +19,21 @@ const missingDeps = ['react', 'functions', 'cloudflare'].filter(
   (dir) => !existsSync(resolve(dir, 'node_modules')),
 );
 if (missingDeps.length > 0) {
-  console.error(
-    `[verify_all] missing node_modules in: ${missingDeps.join(', ')}.\n` +
-      `Run: ${missingDeps.map((d) => `npm --prefix ${d} ci`).join(' && ')}`,
-  );
-  process.exit(1);
+  if (!autoInstall) {
+    console.error(
+      `[verify_all] missing node_modules in: ${missingDeps.join(', ')}.\n` +
+        `Run: node tool/ci/verify_all.mjs --install (or ${missingDeps.map((d) => `npm --prefix ${d} ci`).join(' && ')})`,
+    );
+    process.exit(1);
+  }
+  for (const dir of missingDeps) {
+    console.log(`\n=== install ${dir} ===`);
+    const res = spawnSync(npmCmd, npmArgs('--prefix', dir, 'ci'), { stdio: 'inherit' });
+    if (res.status !== 0) {
+      console.error(`\n[verify_all] FAILED at: install ${dir}`);
+      process.exit(res.status ?? 1);
+    }
+  }
 }
 
 const steps = [
