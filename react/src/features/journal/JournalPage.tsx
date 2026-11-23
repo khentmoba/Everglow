@@ -62,15 +62,15 @@ export function JournalPage() {
 
   // Searching walks every entry, so wait for the typing to settle instead of
   // rescanning the collection on each keystroke.
+  const searchTerm = query.trim();
   useEffect(() => {
-    const term = query.trim();
-    if (term === '') {
+    if (searchTerm === '') {
       setSearch(null);
       return;
     }
-    const t = window.setTimeout(() => setSearch((s) => ({ run: (s?.run ?? 0) + 1, term })), 320);
+    const t = window.setTimeout(() => setSearch((s) => ({ run: (s?.run ?? 0) + 1, term: searchTerm })), 320);
     return () => window.clearTimeout(t);
-  }, [query]);
+  }, [searchTerm]);
 
   const noMatch = <EverglowEmptyState icon="search_off" title="No matching entries" subtitle="Try adjusting filters or search" />;
 

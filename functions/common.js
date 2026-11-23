@@ -357,7 +357,6 @@ module.exports = {
   clientIp,
   checkDailyCap,
   phtDayKey,
-  PHT_OFFSET_MS,
   _todayDayKey,
   getVerifiedUsername,
   isPrivateIpv4,
