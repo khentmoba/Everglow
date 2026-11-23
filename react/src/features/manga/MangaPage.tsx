@@ -2587,7 +2587,7 @@ export function MangaPage() {
                               </div>
                             )}
 
-                            {detail.altNames.length > 0 && (
+                            {detail.altNames.length > 0 && !compactCard && (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
                                 {detail.altNames.slice(0, compactCard ? 2 : 4).map((alt) => (
                                   <span
@@ -2610,7 +2610,16 @@ export function MangaPage() {
                             )}
 
                             {detail.genres.length > 0 && (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                              <div
+                                className={compactCard ? 'no-scrollbar' : undefined}
+                                style={{
+                                  display: 'flex',
+                                  flexWrap: compactCard ? 'nowrap' : 'wrap',
+                                  overflowX: compactCard ? 'auto' : undefined,
+                                  gap: 6,
+                                  marginTop: 10,
+                                }}
+                              >
                                 {detail.genres.map((g) => (
                                   <button
                                     key={g.slug}
@@ -3525,7 +3534,7 @@ export function MangaPage() {
                             badge={`${detail.chapters.length} ${detail.chapters.length === 1 ? 'chapter' : 'chapters'}`}
                           />
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            {!compactCard && detail.chapters.length > 0 && (
+                            {chapterToolsOpen && (
                               <button
                                 type="button"
                                 className="bare-button"
@@ -3612,7 +3621,7 @@ export function MangaPage() {
                               <Icon name="swap_vert" size={15} color={KatanaColors.textMuted} />
                               <span>{chapterSortAsc ? 'Oldest' : 'Newest'}</span>
                             </button>
-                            {compactCard && detail.chapters.length > 0 && (
+                            {detail.chapters.length > 0 && (
                               <button
                                 type="button"
                                 className="bare-button"
@@ -3637,7 +3646,7 @@ export function MangaPage() {
                                 <span>{activeChapterFilterCount > 0 ? `Tools (${activeChapterFilterCount})` : 'Tools'}</span>
                               </button>
                             )}
-                            {!compactCard && detail.chapters.length >= 10 && (
+                            {chapterToolsOpen && detail.chapters.length >= 10 && (
                               <button
                                 type="button"
                                 className="bare-button"
@@ -3661,7 +3670,7 @@ export function MangaPage() {
                                 <span>Volumes</span>
                               </button>
                             )}
-                            {!compactCard && detail.chapters.length > 0 && (
+                            {chapterToolsOpen && (
                               <button
                                 type="button"
                                 className="bare-button"
@@ -3687,7 +3696,7 @@ export function MangaPage() {
                                 <span>{selectMode ? 'Done' : 'Select'}</span>
                               </button>
                             )}
-                            {!compactCard && userName && detail.chapters.length > 0 && !selectMode && (
+                            {chapterToolsOpen && userName && detail.chapters.length > 0 && !selectMode && (
                               <button
                                 type="button"
                                 className="bare-button"
@@ -3845,9 +3854,9 @@ export function MangaPage() {
                           </div>
                         )}
 
-                        {hasChapterMetaFilters && (!compactCard || chapterToolsOpen) && (
+                        {hasChapterMetaFilters && chapterToolsOpen && (
                           <div
-                            aria-label="Chapter language and scanlation group filters"
+                            aria-label="Chapter language and edition filters"
                             style={{
                               marginTop: 8,
                               display: 'flex',
@@ -3858,7 +3867,7 @@ export function MangaPage() {
                           >
                             {availableChapterLangs.length > 1 && (
                               <>
-                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700 }}>Lang:</span>
+                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700 }}>Language:</span>
                                 {(['all', ...availableChapterLangs] as const).map((lang) => {
                                   const active = chapterLangFilter === lang;
                                   return (
@@ -3888,7 +3897,7 @@ export function MangaPage() {
                             )}
                             {availableChapterGroups.length >= 1 && (
                               <>
-                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, marginLeft: availableChapterLangs.length > 1 ? 6 : 0 }}>Version:</span>
+                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, marginLeft: availableChapterLangs.length > 1 ? 6 : 0 }}>Edition:</span>
                                 {(['all', ...availableChapterGroups] as const).map((grp) => {
                                   const active = chapterGroupFilter === grp;
                                   const isPreferred = grp !== 'all' && preferredScanlationGroup === grp;
@@ -3926,8 +3935,8 @@ export function MangaPage() {
                                         setPreferredScanlationGroup(nextPref);
                                         showSnackBar(
                                           nextPref
-                                            ? `Preferred scanlation group set to ${nextPref}`
-                                            : 'Cleared preferred scanlation group',
+                                            ? `${nextPref} is now the edition we use`
+                                            : 'Edition preference cleared',
                                         );
                                       }}
                                       style={{
@@ -3942,7 +3951,7 @@ export function MangaPage() {
                                         color: preferredScanlationGroup === chapterGroupFilter ? KatanaColors.accentSoft : KatanaColors.text,
                                       }}
                                     >
-                                      {preferredScanlationGroup === chapterGroupFilter ? '★ Preferred' : '★ Prefer Group'}
+                                      {preferredScanlationGroup === chapterGroupFilter ? '★ Always use' : '★ Always use this one'}
                                     </button>
                                     <button
                                       type="button"
@@ -3952,7 +3961,7 @@ export function MangaPage() {
                                         setBlockedScanlationGroups((prev) => Array.from(new Set([...prev, targetGrp])));
                                         if (preferredScanlationGroup === targetGrp) setPreferredScanlationGroup('');
                                         setChapterGroupFilter('all');
-                                        showSnackBar(`Blocked scanlation group ${targetGrp}`);
+                                        showSnackBar(`Hid chapters from ${targetGrp}`);
                                       }}
                                       style={{
                                         minHeight: 40,
@@ -3996,7 +4005,7 @@ export function MangaPage() {
                                       color: waitForPreferredHours > 0 ? KatanaColors.teal : KatanaColors.textMuted,
                                     }}
                                   >
-                                    {waitForPreferredHours > 0 ? `⏳ Wait 24h for ${preferredScanlationGroup}: On` : '⏳ Wait 24h for Preferred'}
+                                    {waitForPreferredHours > 0 ? `⏳ Wait a day for ${preferredScanlationGroup}: On` : '⏳ Wait a day for your edition'}
                                   </button>
                                 )}
                                 {blockedScanlationGroups.map((bGrp) => (
@@ -4732,7 +4741,7 @@ export function MangaPage() {
                                             showSnackBar(
                                               nextPref
                                                 ? `Preferred group set to ${nextPref}`
-                                                : 'Cleared preferred scanlation group',
+                                                : 'Edition preference cleared',
                                             );
                                           }}
                                         />

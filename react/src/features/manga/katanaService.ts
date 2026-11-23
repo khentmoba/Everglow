@@ -3638,7 +3638,8 @@ const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
 
 const DEFAULT_USER_PREFS: KatanaUserPrefs = {
   alertPrefs: DEFAULT_ALERT_PREFS,
-  wifiOnlyDownloads: false,
+  // Clair reads on mobile data; never spend it on an automatic download.
+  wifiOnlyDownloads: true,
   autoDownloadNext: 0,
   autoDownloadCategories: [],
   preferredGenres: [],
