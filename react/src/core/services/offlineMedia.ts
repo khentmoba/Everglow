@@ -769,6 +769,243 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
   revokeBlobUrls(urls: Iterable<string>) {
     for (const url of urls) revokeObjectUrl(url);
   }
+
+  /**
+   * Exports a downloaded manga chapter as a portable, standards-compliant `.cbz` (ZIP archive)
+   * containing `001.jpg..NNN.jpg` plus a `comicinfo.json` manifest so pages are never trapped
+   * inside browser Cache Storage.
+   */
+  async exportMangaChapterCbz(itemId: string): Promise<{ blob: Blob; filename: string } | null> {
+    this.init();
+    const item = this.value[itemId];
+    if (!item || item.type !== 'manga') return null;
+    const files: Array<{ name: string; data: Uint8Array }> = [];
+    const totalPages = Math.max(item.pageUrls.length, item.downloadedPages ?? 0);
+    for (let i = 1; i <= totalPages; i++) {
+      let bytes: Uint8Array | null = null;
+      try {
+        const cache = await caches.open(MANGA_CACHE);
+        const res = await cache.match(cacheKey(`${itemId}_p_${i}`, true));
+        if (res) {
+          const buf = await res.arrayBuffer();
+          if (buf.byteLength > 0) bytes = new Uint8Array(buf);
+        }
+      } catch {
+        bytes = null;
+      }
+      if (!bytes && item.pageUrls[i - 1]) {
+        try {
+          const rawUrl = item.pageUrls[i - 1];
+          const res = await fetch(rawUrl.startsWith('assets/') ? `/${rawUrl}` : rawUrl);
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength > 0) bytes = new Uint8Array(buf);
+          }
+        } catch {
+          bytes = null;
+        }
+      }
+      if (bytes && bytes.byteLength > 0) {
+        files.push({ name: `${String(i).padStart(3, '0')}.jpg`, data: bytes });
+      }
+    }
+    if (files.length === 0) return null;
+    const manifest = JSON.stringify(
+      {
+        format: 'mangacelestia-cbz-v1',
+        id: item.id,
+        slug: item.mediaId,
+        title: item.title,
+        subtitle: item.subtitle,
+        chapterId: item.chapterId ?? '1',
+        coverUrl: item.coverUrl,
+        pageCount: files.length,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    );
+    files.push({ name: 'comicinfo.json', data: new TextEncoder().encode(manifest) });
+    const safeSlug = (item.mediaId || 'manga').replace(/[^a-z0-9_-]+/gi, '-');
+    const safeCh = (item.chapterId || 'ch1').replace(/[^a-z0-9._-]+/gi, '-');
+    return {
+      blob: buildStoreZipBlob(files),
+      filename: `${safeSlug}-${safeCh}.cbz`,
+    };
+  }
+
+  /**
+   * Imports a `.cbz` / `.zip` chapter archive back into `everglow-offline-manga-v1` Cache Storage
+   * and registers the offline chapter item so exported chapters can be restored on any device.
+   */
+  async importMangaChapterCbz(file: File): Promise<OfflineMediaItem | null> {
+    this.init();
+    try {
+      const buf = await file.arrayBuffer();
+      const entries = parseStoreZipEntries(buf);
+      if (entries.length === 0) return null;
+      const manifestEntry = entries.find((e) => e.name.toLowerCase().endsWith('comicinfo.json'));
+      let meta: {
+        slug?: string;
+        title?: string;
+        subtitle?: string;
+        chapterId?: string;
+        coverUrl?: string;
+      } = {};
+      if (manifestEntry) {
+        try {
+          meta = JSON.parse(new TextDecoder().decode(manifestEntry.data));
+        } catch {
+          meta = {};
+        }
+      }
+      const imageEntries = entries
+        .filter((e) => /\.(jpe?g|png|webp)$/i.test(e.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (imageEntries.length === 0) return null;
+      const baseName = file.name.replace(/\.(cbz|zip)$/i, '');
+      const slug = (meta.slug || baseName.split('-ch')[0] || 'imported-manga')
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-');
+      const chapterId = meta.chapterId || 'c1';
+      const id = OfflineIds.mangaChapterId(slug, chapterId);
+      let totalBytes = 0;
+      const pageUrls: string[] = [];
+      for (let i = 0; i < imageEntries.length; i++) {
+        const img = imageEntries[i];
+        const mime = img.name.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : img.name.toLowerCase().endsWith('.webp')
+            ? 'image/webp'
+            : 'image/jpeg';
+        const pageKey = `${id}_p_${i + 1}`;
+        await saveBlob(pageKey, new Blob([img.data as BlobPart], { type: mime }), true, mime);
+        totalBytes += img.data.byteLength;
+        pageUrls.push(cacheKey(pageKey, true));
+      }
+      const restored: OfflineMediaItem = {
+        id,
+        type: 'manga',
+        mediaId: slug,
+        title: meta.title || baseName,
+        subtitle: meta.subtitle || `Chapter ${chapterId.replace(/^c/i, '')}`,
+        chapterId,
+        coverUrl: meta.coverUrl || '',
+        status: 'completed',
+        progress: 1,
+        totalBytes,
+        downloadedBytes: totalBytes,
+        downloadedAt: new Date().toISOString(),
+        pageUrls,
+        downloadedPages: imageEntries.length,
+        blobKey: id,
+      };
+      this.put(restored);
+      this.save();
+      return restored;
+    } catch (e) {
+      Logger.e('OfflineMediaService: failed to import CBZ archive', e);
+      return null;
+    }
+  }
+}
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function buildStoreZipBlob(files: Array<{ name: string; data: Uint8Array }>): Blob {
+  const enc = new TextEncoder();
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = enc.encode(file.name);
+    const crc = crc32(file.data);
+    const size = file.data.byteLength;
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 0, true); // store (uncompressed)
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    localParts.push(local, file.data);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+    centralParts.push(central);
+
+    offset += local.byteLength + size;
+  }
+
+  const centralSize = centralParts.reduce((s, p) => s + p.byteLength, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+
+  return new Blob([...localParts, ...centralParts, eocd] as BlobPart[], { type: 'application/vnd.comicbook+zip' });
+}
+
+function parseStoreZipEntries(buf: ArrayBuffer): Array<{ name: string; data: Uint8Array }> {
+  const view = new DataView(buf);
+  const dec = new TextDecoder();
+  const out: Array<{ name: string; data: Uint8Array }> = [];
+  let pos = 0;
+  while (pos + 30 <= buf.byteLength) {
+    const sig = view.getUint32(pos, true);
+    if (sig !== 0x04034b50) break;
+    const method = view.getUint16(pos + 8, true);
+    const compSize = view.getUint32(pos + 18, true);
+    const nameLen = view.getUint16(pos + 26, true);
+    const extraLen = view.getUint16(pos + 28, true);
+    const nameStart = pos + 30;
+    const dataStart = nameStart + nameLen + extraLen;
+    if (dataStart + compSize > buf.byteLength) break;
+    const name = dec.decode(new Uint8Array(buf, nameStart, nameLen));
+    if (method === 0 && compSize > 0) {
+      out.push({ name, data: new Uint8Array(buf.slice(dataStart, dataStart + compSize)) });
+    }
+    pos = dataStart + compSize;
+  }
+  return out;
 }
 
 export const offlineMedia = new OfflineMediaService();

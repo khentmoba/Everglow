@@ -381,4 +381,73 @@ test('runMangaUpdateCheck batch-resolves multiple MangaDex md- slugs and persist
   assert.equal(singleMdCalls, 0, 'batch map should satisfy both md- slugs without individual probes');
   assert.equal(pushed.length, 2);
   assert.ok(writes.some((w) => w.id === 'khentsgdz|__prefs__' && typeof w.data.updateCursorSlug === 'string'));
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|__prefs__' && w.data.sourceHealth?.fallbackActive === true));
+});
+
+test('runMangaUpdateCheck skips bookmarks with ignoreUpdates=true or in excludeUpdateCategories', async () => {
+  const pushed = [];
+  const fakeDb = {
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            alertPrefs: {
+              frequency: 'instant',
+              quietHours: false,
+              excludeUpdateCategories: ['Backlog'],
+            },
+          }),
+        }),
+        set: async () => {},
+      }),
+      where: function () {
+        return this;
+      },
+      get: async () => ({
+        docs: [
+          {
+            id: 'khentsgdz|ignored.1',
+            data: () => ({
+              slug: 'ignored.1',
+              title: 'Ignored Series',
+              bookmarked: true,
+              ignoreUpdates: true,
+              lastNotifiedChapter: '10',
+            }),
+            ref: { set: async () => {} },
+          },
+          {
+            id: 'khentsgdz|cat.2',
+            data: () => ({
+              slug: 'cat.2',
+              title: 'Backlog Series',
+              bookmarked: true,
+              categories: ['Backlog'],
+              lastNotifiedChapter: '10',
+            }),
+            ref: { set: async () => {} },
+          },
+        ],
+      }),
+    }),
+  };
+
+  await runMangaUpdateCheck({
+    db: fakeDb,
+    sendPush: async (uid, payload) => {
+      pushed.push({ uid, payload });
+      return true;
+    },
+    fetchLatest: async () =>
+      new Map([
+        ['ignored.1', { chapterId: 'c11', chapterNum: '11', num: 11 }],
+        ['cat.2', { chapterId: 'c11', chapterNum: '11', num: 11 }],
+      ]),
+    fetchMangaDexLatest: async () => null,
+    fetchKatanaSeriesLatest: async () => null,
+    now: new Date('2026-11-23T06:00:00Z'),
+  });
+
+  assert.equal(pushed.length, 0);
 });

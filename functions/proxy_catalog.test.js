@@ -212,4 +212,34 @@ test('proxyCatalog supports POST base=tracker_sync for bidirectional tracker upd
   assert.equal(res.body.ok, true);
   assert.equal(res.body.synced, true);
   assert.equal(calledUrl, 'https://graphql.anilist.co');
+
+  // Also verify MangaUpdates / Shikimori / Bangumi / ComicK alphanumeric mediaIds
+  const muRes = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; },
+    json(b) { this.body = b; },
+  };
+  await proxyCatalog(
+    {
+      method: 'POST',
+      query: { base: 'tracker_sync' },
+      body: {
+        provider: 'mangaupdates',
+        mediaId: 'mu-105398',
+        status: 'reading',
+        progress: 42,
+        score: 9,
+      },
+      headers: {},
+      get: () => '',
+      ip: '203.0.113.10',
+    },
+    muRes,
+  );
+  assert.equal(muRes.code, 200);
+  assert.equal(muRes.body.ok, true);
+  assert.equal(muRes.body.provider, 'mangaupdates');
 });

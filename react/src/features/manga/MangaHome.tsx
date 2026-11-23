@@ -287,10 +287,11 @@ function FeaturedHero({
             style={{ textAlign: 'left' }}
           >
             <h1
-              className={compact ? 'ellipsis' : 'clamp-2'}
+              className="clamp-2"
               style={{
                 ...KatanaType.display,
-                fontSize: compact ? 16 : 25,
+                fontSize: compact ? 17 : 25,
+                lineHeight: 1.2,
                 margin: 0,
               }}
             >
@@ -590,7 +591,7 @@ function CurrentlyReadingShelf({
                   <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text }}>
+                  <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text, lineHeight: 1.25 }}>
                     {bm.title}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
@@ -1007,8 +1008,16 @@ export function MangaHome({
 
   const featuredCandidates = useMemo(() => {
     const pool = data.hot.length > 0 ? data.hot : data.latest;
-    return pool.slice(0, 4);
-  }, [data.hot, data.latest]);
+    const readingSet = new Set(currentlyReading.map((b) => b.slug));
+    // Prioritize in-progress series and ongoing hot titles before completed titles so the Hero Spotlight feels live.
+    const sorted = [...pool].sort((a, b) => {
+      const aActive = readingSet.has(a.slug) ? 2 : a.status.toLowerCase() !== 'completed' ? 1 : 0;
+      const bActive = readingSet.has(b.slug) ? 2 : b.status.toLowerCase() !== 'completed' ? 1 : 0;
+      if (bActive !== aActive) return bActive - aActive;
+      return (b.follows ?? 0) - (a.follows ?? 0) || (b.rating ?? 0) - (a.rating ?? 0);
+    });
+    return sorted.slice(0, 4);
+  }, [data.hot, data.latest, currentlyReading]);
 
   const [tasteOnboardDismissed, setTasteOnboardDismissed] = useState<boolean>(() => {
     try {
@@ -1050,6 +1059,7 @@ export function MangaHome({
     const droppedGenres = new Set<string>();
     const ratedGenreSource = new Map<string, { title: string; score: number }>();
     const readingGenreSource = new Map<string, string>();
+    const trackerGenreSource = new Map<string, string>();
 
     for (const bm of libraryBookmarks) {
       const m = allCatalog.find((x) => x.slug === bm.slug);
@@ -1057,6 +1067,11 @@ export function MangaHome({
       if (bm.libraryStatus === 'dropped') {
         m.genres.forEach((g) => droppedGenres.add(g.slug));
         continue;
+      }
+      if (bm.anilistId || bm.malId || bm.kitsuId || bm.mangaUpdatesId || bm.shikimoriId || bm.bangumiId) {
+        m.genres.forEach((g) => {
+          if (!trackerGenreSource.has(g.slug)) trackerGenreSource.set(g.slug, bm.title);
+        });
       }
       if (bm.userScore != null && bm.userScore >= 8) {
         for (const g of m.genres) {
@@ -1082,14 +1097,17 @@ export function MangaHome({
     const scored = pool.map((m) => {
       const explicitMatches = m.genres.filter((g) => explicitSet.has(g.slug));
       const ratedMatch = m.genres.find((g) => ratedGenreSource.has(g.slug));
+      const trackerMatch = m.genres.find((g) => trackerGenreSource.has(g.slug));
       const historyMatch = m.genres.find((g) => readingGenreSource.has(g.slug));
       const droppedPenalty = m.genres.filter((g) => droppedGenres.has(g.slug)).length * 1.5;
       const novelBonus = latestLeadSlugs.has(m.slug) ? 0 : 1.5;
       const ratedBonus = ratedMatch ? (ratedGenreSource.get(ratedMatch.slug)!.score / 10) * 3.5 : 0;
+      const trackerBonus = trackerMatch ? 2.4 : 0;
       const popularityBonus = m.follows && m.follows > 0 ? Math.min(2.2, Math.log10(m.follows + 1) * 0.42) : 0;
       const score =
         explicitMatches.length * 3 +
         ratedBonus +
+        trackerBonus +
         (historyMatch ? 2 : 0) +
         (m.rating ? m.rating / 5 : 0) +
         popularityBonus +
@@ -1106,6 +1124,8 @@ export function MangaHome({
         } else {
           reason = `Matches your ${ratedMatch.name} favorites`;
         }
+      } else if (trackerMatch) {
+        reason = `From your AniList & tracker watchlist (${trackerMatch.name})`;
       } else if (explicitMatches.length > 0) {
         reason = `Matches ${explicitMatches.slice(0, 2).map((g) => g.name).join(' · ')}`;
       } else if (historyMatch) {
@@ -1315,7 +1335,7 @@ export function MangaHome({
           title="Pick a random title"
           style={{
             flexShrink: 0,
-            padding: compact ? 0 : '0 14px',
+            padding: compact ? '0 10px' : '0 14px',
             minWidth: 44,
             height: 44,
             borderRadius: 99,
@@ -1327,8 +1347,8 @@ export function MangaHome({
             gap: 5,
           }}
         >
-          <Icon name="casino" size={16} color={KatanaColors.textMuted} />
-          {!compact && <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>}
+          <Icon name="casino" size={15} color={KatanaColors.accentSoft} />
+          <span style={{ fontFamily: Fonts.body, fontSize: compact ? 12 : 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>
         </button>
       )}
     </div>

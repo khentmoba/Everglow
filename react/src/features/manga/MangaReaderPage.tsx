@@ -94,12 +94,12 @@ interface ChapterSegment {
 
 const FIT_ORDER: FitMode[] = ['smart-fit', 'fit-width', 'fit-height', 'fit-screen', 'stretch', 'original'];
 const FIT_SHORT_LABEL: Record<FitMode, string> = {
-  'smart-fit': 'Smart Fit',
-  'fit-width': 'Fit Width',
-  'fit-height': 'Fit Height',
-  'fit-screen': 'Fit Screen',
+  'smart-fit': 'Smart',
+  'fit-width': 'Width',
+  'fit-height': 'Height',
+  'fit-screen': 'Fit',
   stretch: 'Stretch',
-  original: 'Original',
+  original: '1:1',
 };
 
 const MAX_PREFETCH_CACHE = 16;
@@ -2146,7 +2146,8 @@ export function MangaReaderView({
     return parts.length > 0 ? parts.join(' ') : undefined;
   }, [settings.warmTint, settings.contrast, settings.grayscale, settings.invertColors]);
 
-  const isCompactPhone = viewportWidth < 400;
+  const isCompactPhone = viewportWidth < 480;
+  const isTabletOrWide = viewportWidth >= 768;
   const showZoneGuide = !isWebtoon && (showTapHint || (settings.showTapZonesOverlay && settings.tapZoneLayout !== 'disabled'));
   const currentBookmarked = pages.length > 0 && isPageBookmarked(chapterId, pageIdx);
 
@@ -3131,6 +3132,68 @@ export function MangaReaderView({
           <span>{modeMeta.shortLabel}</span>
         </button>
 
+        {isTabletOrWide && !isWebtoon && (
+          <button
+            type="button"
+            className="bare-button player-focusable"
+            aria-label={isDouble ? 'Switch to single page view' : 'Switch to 2-page spread view'}
+            aria-pressed={isDouble}
+            title={isDouble ? '2-Page Spread active (tap for 1-Page)' : 'Enable 2-Page Spread on tablet'}
+            onClick={() => {
+              const nextMode = isDouble
+                ? isRtl
+                  ? 'paged-rtl'
+                  : 'paged-ltr'
+                : isRtl
+                  ? 'double-rtl'
+                  : 'double-ltr';
+              updateSettings({ readingMode: nextMode });
+            }}
+            style={{
+              minHeight: 40,
+              padding: '0 10px',
+              borderRadius: 10,
+              background: isDouble ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+              border: `1px solid ${isDouble ? KatanaColors.accent : KatanaColors.border}`,
+              color: isDouble ? KatanaColors.accentSoft : KatanaColors.textMuted,
+              fontSize: 12,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="auto_stories" size={16} color={isDouble ? KatanaColors.accent : KatanaColors.textMuted} />
+            <span>{isDouble ? '2P Spread' : '2P'}</span>
+          </button>
+        )}
+
+        {isCompactPhone && (
+          <button
+            type="button"
+            className="bare-button player-focusable"
+            aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
+            onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              display: 'grid',
+              placeItems: 'center',
+              background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+              border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
+              flexShrink: 0,
+            }}
+          >
+            <Icon
+              name={currentBookmarked ? 'bookmark' : 'bookmark_border'}
+              size={19}
+              color={currentBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted}
+            />
+          </button>
+        )}
+
         {canFullscreen && (
           <button
             type="button"
@@ -3295,28 +3358,29 @@ export function MangaReaderView({
             {!isCompactPhone && <span>Prev</span>}
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: isCompactPhone ? 4 : 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isCompactPhone ? 8 : 6 }}>
             <button
               type="button"
               className="bare-button player-focusable"
               aria-label={`Image scaling: ${FIT_SHORT_LABEL[settings.fitMode]}. Tap to switch`}
               onClick={cycleFitMode}
               style={{
-                minHeight: 40,
-                padding: isCompactPhone ? '0 8px' : '0 9px',
+                minHeight: 42,
+                padding: isCompactPhone ? '0 12px' : '0 11px',
                 borderRadius: 10,
                 background: KatanaColors.surfaceAlt,
                 border: `1px solid ${KatanaColors.border}`,
                 color: KatanaColors.textMuted,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: 600,
+                whiteSpace: 'nowrap',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
+                gap: 5,
               }}
             >
               <Icon name="fit_screen" size={16} color={KatanaColors.textMuted} />
-              {!isCompactPhone && <span>{FIT_SHORT_LABEL[settings.fitMode]}</span>}
+              <span>{FIT_SHORT_LABEL[settings.fitMode]}</span>
             </button>
 
             <button
@@ -3325,8 +3389,8 @@ export function MangaReaderView({
               aria-label={autoScrolling ? 'Pause auto-read' : 'Start auto-read'}
               onClick={() => setAutoScrolling((a) => !a)}
               style={{
-                width: 42,
-                height: 40,
+                width: 44,
+                height: 42,
                 borderRadius: 10,
                 background: autoScrolling ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${autoScrolling ? KatanaColors.accent : KatanaColors.border}`,
@@ -3341,27 +3405,29 @@ export function MangaReaderView({
               />
             </button>
 
-            <button
-              type="button"
-              className="bare-button player-focusable"
-              aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
-              onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
-              style={{
-                width: 42,
-                height: 40,
-                borderRadius: 10,
-                background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
-                border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon
-                name={currentBookmarked ? 'bookmark' : 'bookmark_border'}
-                size={19}
-                color={currentBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted}
-              />
-            </button>
+            {!isCompactPhone && (
+              <button
+                type="button"
+                className="bare-button player-focusable"
+                aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
+                onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
+                style={{
+                  width: 44,
+                  height: 42,
+                  borderRadius: 10,
+                  background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                  border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <Icon
+                  name={currentBookmarked ? 'bookmark' : 'bookmark_border'}
+                  size={19}
+                  color={currentBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted}
+                />
+              </button>
+            )}
 
             <button
               type="button"
@@ -3369,8 +3435,8 @@ export function MangaReaderView({
               aria-label="Quick brightness and display"
               onClick={() => setActiveSheet('quick-display')}
               style={{
-                width: 42,
-                height: 40,
+                width: 44,
+                height: 42,
                 borderRadius: 10,
                 background: activeSheet === 'quick-display' ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${activeSheet === 'quick-display' ? KatanaColors.accent : KatanaColors.border}`,
@@ -3381,23 +3447,25 @@ export function MangaReaderView({
               <Icon name="brightness_6" size={19} color={KatanaColors.textMuted} />
             </button>
 
-            <button
-              type="button"
-              className="bare-button player-focusable"
-              aria-label="Open chapters and bookmarks"
-              onClick={() => setActiveSheet('chapters')}
-              style={{
-                width: 42,
-                height: 40,
-                borderRadius: 10,
-                background: KatanaColors.surfaceAlt,
-                border: `1px solid ${KatanaColors.border}`,
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon name="format_list_numbered" size={19} color={KatanaColors.textMuted} />
-            </button>
+            {!isCompactPhone && (
+              <button
+                type="button"
+                className="bare-button player-focusable"
+                aria-label="Open chapters and bookmarks"
+                onClick={() => setActiveSheet('chapters')}
+                style={{
+                  width: 44,
+                  height: 42,
+                  borderRadius: 10,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <Icon name="format_list_numbered" size={19} color={KatanaColors.textMuted} />
+              </button>
+            )}
           </div>
 
           <button

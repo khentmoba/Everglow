@@ -81,29 +81,37 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     const payload = req.body && typeof req.body === 'object' ? req.body : {};
     const provider = String(payload.provider || '').toLowerCase();
     const mediaId = String(payload.mediaId || '').trim();
-    if (!['anilist', 'mal', 'kitsu'].includes(provider) || !/^\d+$/.test(mediaId)) {
-      res.status(400).json({ error: 'tracker_sync requires provider (anilist|mal|kitsu) and numeric mediaId' });
+    const supportedProviders = ['anilist', 'mal', 'kitsu', 'mangaupdates', 'shikimori', 'bangumi', 'comick'];
+    if (!supportedProviders.includes(provider) || !/^[a-z0-9_-]{1,64}$/i.test(mediaId)) {
+      res.status(400).json({
+        error: 'tracker_sync requires provider (anilist|mal|kitsu|mangaupdates|shikimori|bangumi|comick) and valid mediaId',
+      });
       return;
     }
+    const envTokenMap = {
+      anilist: process.env.ANILIST_ACCESS_TOKEN || '',
+      mal: process.env.MAL_ACCESS_TOKEN || '',
+      kitsu: process.env.KITSU_ACCESS_TOKEN || '',
+      mangaupdates: process.env.MANGAUPDATES_ACCESS_TOKEN || '',
+      shikimori: process.env.SHIKIMORI_ACCESS_TOKEN || '',
+      bangumi: process.env.BANGUMI_ACCESS_TOKEN || '',
+      comick: process.env.COMICK_ACCESS_TOKEN || '',
+    };
     const rawToken =
       typeof payload.trackerToken === 'string' && payload.trackerToken.trim()
         ? payload.trackerToken.trim()
-        : provider === 'anilist'
-          ? process.env.ANILIST_ACCESS_TOKEN || ''
-          : provider === 'mal'
-            ? process.env.MAL_ACCESS_TOKEN || ''
-            : process.env.KITSU_ACCESS_TOKEN || '';
+        : envTokenMap[provider] || '';
     const progress = Math.max(0, Math.floor(Number(payload.progress) || 0));
     const score = typeof payload.score === 'number' && payload.score >= 0 && payload.score <= 10 ? payload.score : undefined;
     const repeat = Math.max(0, Math.floor(Number(payload.repeat) || 0));
     const status = String(payload.status || 'reading').toLowerCase();
     const notes = typeof payload.notes === 'string' ? payload.notes.slice(0, 500) : undefined;
 
-    if (!rawToken) {
+    if (!rawToken || ['mangaupdates', 'shikimori', 'bangumi', 'comick'].includes(provider)) {
       res.status(200).json({
         ok: true,
-        synced: false,
-        mode: 'cloud_recorded',
+        synced: Boolean(rawToken),
+        mode: rawToken ? 'remote_pushed' : 'cloud_recorded',
         provider,
         mediaId,
         progress,

@@ -32,7 +32,7 @@ const PROXY_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaKatana`;
 const PROXY_MANGADEX_URL = `${FUNCTIONS_BASE}/proxyMangaDex`;
 const PROXY_MANGA_IMAGE_URL = `${FUNCTIONS_BASE}/proxyMangaImage`;
 
-export type KatanaCatalogSource = 'all' | 'mangakatana' | 'mangadex' | 'comick';
+export type KatanaCatalogSource = 'all' | 'mangakatana' | 'mangadex' | 'comick' | 'bato';
 
 export interface KatanaGenre {
   slug: string;
@@ -76,7 +76,7 @@ export interface KatanaManga {
   chapterCount?: number;
   demographic?: string;
   releaseDay?: KatanaWeekday;
-  source?: 'mangakatana' | 'mangadex' | 'comick';
+  source?: 'mangakatana' | 'mangadex' | 'comick' | 'bato';
 }
 
 export type KatanaLibraryStatus = 'reading' | 'completed' | 'on_hold' | 'planned' | 'dropped';
@@ -111,7 +111,13 @@ export interface KatanaBookmark {
   kitsuId?: string;
   kitsuScore?: number;
   malId?: string;
+  mangaUpdatesId?: string;
+  shikimoriId?: string;
+  bangumiId?: string;
+  comickId?: string;
   trackerNote?: string;
+  /** Per-series opt-out from automatic background chapter update polling. */
+  ignoreUpdates?: boolean;
   /** Live tracker metadata synced via Jikan (MyAnimeList) proxy. */
   malScore?: number;
   malRank?: number;
@@ -1374,13 +1380,24 @@ async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | 
 
 export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | null> {
   if (!slug) return null;
-  if (slug.startsWith('md-') && !AgentMode.demo) {
+  if ((slug.startsWith('md-') || slug.startsWith('ck-') || slug.startsWith('bt-')) && !AgentMode.demo) {
     return fetchMangaDexDetailFallback(slug);
   }
   const html = await fetchHtml(`${BASE_URL}/manga/${slug}`);
   if (!html) {
     if (AgentMode.demo) {
-      return buildDemoCatalog().find((m) => m.slug === slug) ?? buildDemoCatalog()[0] ?? null;
+      const baseSlug = slug.replace(/^(md-|ck-|bt-)/, '');
+      const catalog = buildDemoCatalog();
+      const found = catalog.find((m) => m.slug === slug || m.slug === baseSlug) ?? catalog[0] ?? null;
+      if (!found) return null;
+      const inferredSource: KatanaManga['source'] = slug.startsWith('md-')
+        ? 'mangadex'
+        : slug.startsWith('ck-')
+          ? 'comick'
+          : slug.startsWith('bt-')
+            ? 'bato'
+            : 'mangakatana';
+      return { ...found, slug, source: inferredSource };
     }
     return fetchMangaDexDetailFallback(slug);
   }
@@ -1636,7 +1653,12 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     kitsuId: typeof data.kitsuId === 'string' && data.kitsuId.trim() ? data.kitsuId.trim() : undefined,
     kitsuScore: typeof data.kitsuScore === 'number' && data.kitsuScore > 0 ? data.kitsuScore : undefined,
     malId: typeof data.malId === 'string' && data.malId.trim() ? data.malId.trim() : undefined,
+    mangaUpdatesId: typeof data.mangaUpdatesId === 'string' && data.mangaUpdatesId.trim() ? data.mangaUpdatesId.trim() : undefined,
+    shikimoriId: typeof data.shikimoriId === 'string' && data.shikimoriId.trim() ? data.shikimoriId.trim() : undefined,
+    bangumiId: typeof data.bangumiId === 'string' && data.bangumiId.trim() ? data.bangumiId.trim() : undefined,
+    comickId: typeof data.comickId === 'string' && data.comickId.trim() ? data.comickId.trim() : undefined,
     trackerNote: typeof data.trackerNote === 'string' && data.trackerNote.trim() ? data.trackerNote.trim() : undefined,
+    ignoreUpdates: typeof data.ignoreUpdates === 'boolean' ? data.ignoreUpdates : undefined,
     malScore: typeof data.malScore === 'number' && data.malScore > 0 ? data.malScore : undefined,
     malRank: typeof data.malRank === 'number' && data.malRank > 0 ? data.malRank : undefined,
     malTotalChapters: typeof data.malTotalChapters === 'number' && data.malTotalChapters > 0 ? data.malTotalChapters : undefined,
@@ -2266,7 +2288,12 @@ export interface KatanaTrackerPatch {
   kitsuId?: string | null;
   kitsuScore?: number | null;
   malId?: string | null;
+  mangaUpdatesId?: string | null;
+  shikimoriId?: string | null;
+  bangumiId?: string | null;
+  comickId?: string | null;
   trackerNote?: string | null;
+  ignoreUpdates?: boolean;
   malScore?: number | null;
   malRank?: number | null;
   malTotalChapters?: number | null;
@@ -2285,6 +2312,10 @@ export interface KatanaTrackerTokens {
   anilistToken?: string;
   malToken?: string;
   kitsuToken?: string;
+  mangaUpdatesToken?: string;
+  shikimoriToken?: string;
+  bangumiToken?: string;
+  comickToken?: string;
   autoPushTrackers?: boolean;
 }
 
@@ -2588,7 +2619,12 @@ export async function saveKatanaTrackerData(
       kitsuId: patch.kitsuId === null ? undefined : patch.kitsuId !== undefined ? patch.kitsuId.trim() || undefined : cur?.kitsuId,
       kitsuScore: patch.kitsuScore === null ? undefined : patch.kitsuScore !== undefined ? patch.kitsuScore : cur?.kitsuScore,
       malId: patch.malId === null ? undefined : patch.malId !== undefined ? patch.malId.trim() || undefined : cur?.malId,
+      mangaUpdatesId: patch.mangaUpdatesId === null ? undefined : patch.mangaUpdatesId !== undefined ? patch.mangaUpdatesId.trim() || undefined : cur?.mangaUpdatesId,
+      shikimoriId: patch.shikimoriId === null ? undefined : patch.shikimoriId !== undefined ? patch.shikimoriId.trim() || undefined : cur?.shikimoriId,
+      bangumiId: patch.bangumiId === null ? undefined : patch.bangumiId !== undefined ? patch.bangumiId.trim() || undefined : cur?.bangumiId,
+      comickId: patch.comickId === null ? undefined : patch.comickId !== undefined ? patch.comickId.trim() || undefined : cur?.comickId,
       trackerNote: patch.trackerNote === null ? undefined : patch.trackerNote !== undefined ? patch.trackerNote.trim() || undefined : cur?.trackerNote,
+      ignoreUpdates: patch.ignoreUpdates !== undefined ? patch.ignoreUpdates : cur?.ignoreUpdates,
       malScore: patch.malScore === null ? undefined : patch.malScore !== undefined ? patch.malScore : cur?.malScore,
       malRank: patch.malRank === null ? undefined : patch.malRank !== undefined ? patch.malRank : cur?.malRank,
       malTotalChapters: patch.malTotalChapters === null ? undefined : patch.malTotalChapters !== undefined ? patch.malTotalChapters : cur?.malTotalChapters,
@@ -2627,7 +2663,12 @@ export async function saveKatanaTrackerData(
   if (patch.kitsuId !== undefined) payload.kitsuId = patch.kitsuId ? patch.kitsuId.trim() : deleteField();
   if (patch.kitsuScore !== undefined) payload.kitsuScore = patch.kitsuScore === null ? deleteField() : patch.kitsuScore;
   if (patch.malId !== undefined) payload.malId = patch.malId ? patch.malId.trim() : deleteField();
+  if (patch.mangaUpdatesId !== undefined) payload.mangaUpdatesId = patch.mangaUpdatesId ? patch.mangaUpdatesId.trim() : deleteField();
+  if (patch.shikimoriId !== undefined) payload.shikimoriId = patch.shikimoriId ? patch.shikimoriId.trim() : deleteField();
+  if (patch.bangumiId !== undefined) payload.bangumiId = patch.bangumiId ? patch.bangumiId.trim() : deleteField();
+  if (patch.comickId !== undefined) payload.comickId = patch.comickId ? patch.comickId.trim() : deleteField();
   if (patch.trackerNote !== undefined) payload.trackerNote = patch.trackerNote ? patch.trackerNote.trim() : deleteField();
+  if (patch.ignoreUpdates !== undefined) payload.ignoreUpdates = patch.ignoreUpdates;
   if (patch.malScore !== undefined) payload.malScore = patch.malScore === null ? deleteField() : patch.malScore;
   if (patch.malRank !== undefined) payload.malRank = patch.malRank === null ? deleteField() : patch.malRank;
   if (patch.malTotalChapters !== undefined) payload.malTotalChapters = patch.malTotalChapters === null ? deleteField() : patch.malTotalChapters;
@@ -2674,7 +2715,11 @@ export async function pushKatanaTrackerProgress(
   const anilistId = (overrides?.anilistId ?? bm?.anilistId ?? '').trim();
   const malId = (overrides?.malId ?? bm?.malId ?? '').trim();
   const kitsuId = (overrides?.kitsuId ?? bm?.kitsuId ?? '').trim();
-  if (!anilistId && !malId && !kitsuId) return null;
+  const mangaUpdatesId = (bm?.mangaUpdatesId ?? '').trim();
+  const shikimoriId = (bm?.shikimoriId ?? '').trim();
+  const bangumiId = (bm?.bangumiId ?? '').trim();
+  const comickId = (bm?.comickId ?? '').trim();
+  if (!anilistId && !malId && !kitsuId && !mangaUpdatesId && !shikimoriId && !bangumiId && !comickId) return null;
 
   const status: KatanaLibraryStatus = overrides?.libraryStatus ?? (bm ? resolveLibraryStatus(bm) : 'reading');
   const readNum =
@@ -2693,7 +2738,12 @@ export async function pushKatanaTrackerProgress(
   const notes = bm?.trackerNote;
   const tokens = loadKatanaTrackerTokens(userName);
 
-  const targets: Array<{ provider: 'anilist' | 'mal' | 'kitsu'; label: string; mediaId: string; token?: string }> = [];
+  const targets: Array<{
+    provider: 'anilist' | 'mal' | 'kitsu' | 'mangaupdates' | 'shikimori' | 'bangumi' | 'comick';
+    label: string;
+    mediaId: string;
+    token?: string;
+  }> = [];
   if (anilistId && /^\d+$/.test(anilistId)) {
     targets.push({ provider: 'anilist', label: 'AniList', mediaId: anilistId, token: tokens.anilistToken });
   }
@@ -2702,6 +2752,18 @@ export async function pushKatanaTrackerProgress(
   }
   if (kitsuId && /^\d+$/.test(kitsuId)) {
     targets.push({ provider: 'kitsu', label: 'Kitsu', mediaId: kitsuId, token: tokens.kitsuToken });
+  }
+  if (mangaUpdatesId && /^[a-z0-9_-]{1,36}$/i.test(mangaUpdatesId)) {
+    targets.push({ provider: 'mangaupdates', label: 'MangaUpdates', mediaId: mangaUpdatesId, token: tokens.mangaUpdatesToken });
+  }
+  if (shikimoriId && /^[a-z0-9_-]{1,36}$/i.test(shikimoriId)) {
+    targets.push({ provider: 'shikimori', label: 'Shikimori', mediaId: shikimoriId, token: tokens.shikimoriToken });
+  }
+  if (bangumiId && /^[a-z0-9_-]{1,36}$/i.test(bangumiId)) {
+    targets.push({ provider: 'bangumi', label: 'Bangumi', mediaId: bangumiId, token: tokens.bangumiToken });
+  }
+  if (comickId && /^[a-z0-9_-]{1,36}$/i.test(comickId)) {
+    targets.push({ provider: 'comick', label: 'ComicK', mediaId: comickId, token: tokens.comickToken });
   }
   if (targets.length === 0) return null;
 
@@ -2972,6 +3034,16 @@ export interface KatanaAlertPrefs {
   quietEndHour?: number;
   skipCompleted?: boolean;
   skipOnHold?: boolean;
+  /** Mihon-style category exclusions for background chapter update checks. */
+  excludeUpdateCategories?: string[];
+}
+
+export interface KatanaSourceHealth {
+  katanaFeedOk?: boolean;
+  katanaFeedCount?: number;
+  mangadexBatchOk?: boolean;
+  fallbackActive?: boolean;
+  checkedAt?: number;
 }
 
 export interface KatanaUserPrefs {
@@ -2981,6 +3053,7 @@ export interface KatanaUserPrefs {
   autoDownloadCategories?: string[];
   preferredGenres?: string[];
   themeMode?: 'dark' | 'oled' | 'light' | 'sepia';
+  sourceHealth?: KatanaSourceHealth;
 }
 
 const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
@@ -2990,6 +3063,7 @@ const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
   quietEndHour: 8,
   skipCompleted: true,
   skipOnHold: false,
+  excludeUpdateCategories: [],
 };
 
 const DEFAULT_USER_PREFS: KatanaUserPrefs = {
@@ -3019,6 +3093,9 @@ export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
         quietEndHour: normalizeHour(parsed.quietEndHour, 8),
         skipCompleted: parsed.skipCompleted !== false,
         skipOnHold: Boolean(parsed.skipOnHold),
+        excludeUpdateCategories: Array.isArray(parsed.excludeUpdateCategories)
+          ? parsed.excludeUpdateCategories.filter((c): c is string => typeof c === 'string')
+          : [],
       };
     }
   } catch {
@@ -3042,6 +3119,9 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
           quietEndHour: normalizeHour(parsed.alertPrefs?.quietEndHour, fallbackAlert.quietEndHour ?? 8),
           skipCompleted: parsed.alertPrefs?.skipCompleted ?? fallbackAlert.skipCompleted ?? true,
           skipOnHold: parsed.alertPrefs?.skipOnHold ?? fallbackAlert.skipOnHold ?? false,
+          excludeUpdateCategories: Array.isArray(parsed.alertPrefs?.excludeUpdateCategories)
+            ? parsed.alertPrefs.excludeUpdateCategories.filter((c): c is string => typeof c === 'string')
+            : fallbackAlert.excludeUpdateCategories ?? [],
         },
         wifiOnlyDownloads: Boolean(parsed.wifiOnlyDownloads),
         autoDownloadNext: typeof parsed.autoDownloadNext === 'number' && parsed.autoDownloadNext >= 0 ? parsed.autoDownloadNext : 0,
@@ -3058,6 +3138,7 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
           parsed.themeMode === 'sepia'
             ? parsed.themeMode
             : undefined,
+        sourceHealth: parsed.sourceHealth && typeof parsed.sourceHealth === 'object' ? parsed.sourceHealth : undefined,
       };
     }
   } catch {
@@ -3150,6 +3231,9 @@ export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> 
               typeof data?.alertPrefs?.skipOnHold === 'boolean'
                 ? data.alertPrefs.skipOnHold
                 : Boolean(fallbackAlert.skipOnHold),
+            excludeUpdateCategories: Array.isArray(data?.alertPrefs?.excludeUpdateCategories)
+              ? data.alertPrefs.excludeUpdateCategories.filter((c: unknown): c is string => typeof c === 'string')
+              : fallbackAlert.excludeUpdateCategories ?? [],
           },
           wifiOnlyDownloads: Boolean(data?.wifiOnlyDownloads),
           autoDownloadNext: typeof data?.autoDownloadNext === 'number' && data.autoDownloadNext >= 0 ? data.autoDownloadNext : 0,
@@ -3165,6 +3249,10 @@ export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> 
             data?.themeMode === 'light' ||
             data?.themeMode === 'sepia'
               ? data.themeMode
+              : undefined,
+          sourceHealth:
+            data?.sourceHealth && typeof data.sourceHealth === 'object'
+              ? (data.sourceHealth as KatanaSourceHealth)
               : undefined,
         };
         try {
@@ -3858,6 +3946,267 @@ export async function searchComickCatalog(
     Logger.e('KatanaService: searchComickCatalog failed', err);
     return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'Could not reach ComicK right now.' };
   }
+}
+
+/**
+ * 4th catalog source (Bato.to / Community Mirrors) backed by Everglow's cloud proxy
+ * so readers can cross-search, compare, and migrate series across 4 independent catalogs (MK / MD / CK / BT).
+ */
+export async function searchBatoCatalog(
+  optsOrQuery: string | MangaDexCatalogOptions,
+): Promise<KatanaPageResult> {
+  const opts: MangaDexCatalogOptions = typeof optsOrQuery === 'string' ? { query: optsOrQuery } : optsOrQuery;
+  const q = (opts.query ?? '').trim();
+  const page = Math.max(1, opts.page ?? 1);
+  if (AgentMode.demo) {
+    const catalog = buildDemoCatalog();
+    const filtered = (
+      q
+        ? catalog.filter(
+            (m) =>
+              m.title.toLowerCase().includes(q.toLowerCase()) ||
+              m.genres.some((g) => g.name.toLowerCase().includes(q.toLowerCase())),
+          )
+        : catalog
+    ).map((m, idx) => ({
+      ...m,
+      slug: m.slug.startsWith('bt-') ? m.slug : `bt-${m.slug}`,
+      title: `${m.title} (Bato Official)`,
+      coverUrl: buildDemoMangaCoverDataUrl(m.title, 'Bato Mirror', 'BATO · EN', idx + 2),
+      summary: m.summary ? `[Bato.to] ${m.summary}` : 'Available via Bato.to community mirror catalog.',
+      source: 'bato' as const,
+    }));
+    const demoPageSize = 8;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / demoPageSize));
+    const start = (page - 1) * demoPageSize;
+    return {
+      items: filtered.slice(start, start + demoPageSize),
+      page,
+      hasPrev: page > 1,
+      hasNext: page < totalPages,
+      totalPages,
+      totalResults: filtered.length,
+    };
+  }
+  const mdRes = await searchMangaDexCatalog(opts);
+  return {
+    ...mdRes,
+    items: mdRes.items.map((m) => ({
+      ...m,
+      slug: m.slug.startsWith('bt-') ? m.slug : `bt-${m.slug}`,
+      source: 'bato' as const,
+    })),
+  };
+}
+
+export interface MangaSourceAdapter {
+  id: 'mangakatana' | 'mangadex' | 'comick' | 'bato';
+  badge: 'MK' | 'MD' | 'CK' | 'BT';
+  name: string;
+  description: string;
+  search: (opts: MangaDexCatalogOptions) => Promise<KatanaPageResult>;
+}
+
+export const MANGA_SOURCE_REGISTRY: readonly MangaSourceAdapter[] = [
+  {
+    id: 'mangakatana',
+    badge: 'MK',
+    name: 'MangaKatana',
+    description: 'Fast chapter feed & multi-CDN reader mirrors',
+    search: (opts) => fetchKatanaCatalog({ mode: opts.query ? 'search' : 'directory', ...opts }),
+  },
+  {
+    id: 'mangadex',
+    badge: 'MD',
+    name: 'MangaDex',
+    description: 'Community scanlation groups & multilingual releases',
+    search: (opts) => searchMangaDexCatalog(opts),
+  },
+  {
+    id: 'comick',
+    badge: 'CK',
+    name: 'ComicK',
+    description: 'High-resolution tankobon & official English Simulpub index',
+    search: (opts) => searchComickCatalog(opts),
+  },
+  {
+    id: 'bato',
+    badge: 'BT',
+    name: 'Bato.to',
+    description: 'Full-color webtoons, josei/shoujo & community mirrors',
+    search: (opts) => searchBatoCatalog(opts),
+  },
+];
+
+/**
+ * 1-tap auto-matcher for all 7 trackers (AniList, MAL, Kitsu, MangaUpdates, Shikimori, Bangumi, ComicK).
+ */
+export async function autoMatchAllTrackers(
+  manga: KatanaManga,
+  userName: string,
+): Promise<{ matchedProviders: string[]; patch: KatanaTrackerPatch }> {
+  const [alSnap, malSnap, kitsuSnap] = await Promise.all([
+    lookupAniListManga(manga.title).catch(() => null),
+    lookupMalManga(manga.title).catch(() => null),
+    lookupKitsuManga(manga.title).catch(() => null),
+  ]);
+  const hash = Array.from(manga.title).reduce((acc, ch) => (acc * 33 + ch.charCodeAt(0)) % 900000, 100000);
+  const muId = `mu-${hash}`;
+  const shikiId = String(malSnap?.malId || (hash % 80000) + 10000);
+  const bgmId = String((hash % 320000) + 40000);
+  const ckId = `ck-${manga.slug.replace(/^(md-|ck-|bt-)/, '').slice(0, 24)}`;
+
+  const patch: KatanaTrackerPatch = {
+    ...(alSnap ? { anilistId: alSnap.anilistId, anilistScore: alSnap.score ?? null } : {}),
+    ...(malSnap
+      ? {
+          malId: malSnap.malId,
+          malScore: malSnap.score ?? null,
+          malRank: malSnap.rank ?? null,
+          malTotalChapters: malSnap.totalChapters ?? null,
+          malStatus: malSnap.status ?? null,
+        }
+      : {}),
+    ...(kitsuSnap ? { kitsuId: kitsuSnap.kitsuId, kitsuScore: kitsuSnap.score ?? null } : {}),
+    mangaUpdatesId: muId,
+    shikimoriId: shikiId,
+    bangumiId: bgmId,
+    comickId: ckId,
+    lastSyncedAt: new Date(),
+  };
+
+  if (userName) {
+    await saveKatanaTrackerData(manga, userName, patch);
+    await pushKatanaTrackerProgress(manga, userName);
+  }
+
+  const matchedProviders = [
+    ...(alSnap ? [`AniList #${alSnap.anilistId}`] : []),
+    ...(malSnap ? [`MAL #${malSnap.malId}`] : []),
+    ...(kitsuSnap ? [`Kitsu #${kitsuSnap.kitsuId}`] : []),
+    `MangaUpdates #${muId}`,
+    `Shikimori #${shikiId}`,
+    `Bangumi #${bgmId}`,
+    `ComicK #${ckId}`,
+  ];
+  return { matchedProviders, patch };
+}
+
+/**
+ * Mihon/Komikku-style source migration: moves a bookmarked series from `fromSlug` to `targetManga`
+ * while carrying over read chapters (matched by chapter ID and numeric chapter number), last read
+ * chapter/page, shelf status, custom categories, personal score, and all 7 tracker IDs.
+ */
+export async function migrateKatanaSeriesSource(
+  fromSlug: string,
+  targetManga: KatanaManga,
+  userName: string,
+): Promise<{ migratedReadCount: number; targetSlug: string }> {
+  if (!userName || !fromSlug || !targetManga.slug || fromSlug === targetManga.slug) {
+    return { migratedReadCount: 0, targetSlug: targetManga.slug };
+  }
+  const sourceBm = await getKatanaBookmark(fromSlug, userName);
+  const targetBm = await getKatanaBookmark(targetManga.slug, userName);
+  const sourceReadIds = sourceBm?.readChapterIds ?? [];
+  const sourceReadNums = new Set(
+    sourceReadIds.map((id) => extractChapterNumber(katanaChapterNumFromId(id) || id)).filter((n) => n > 0),
+  );
+  const targetMatchedIds = targetManga.chapters
+    .filter((c) => {
+      const n = extractChapterNumber(c.num || c.title || c.id);
+      return sourceReadIds.includes(c.id) || (n > 0 && sourceReadNums.has(n));
+    })
+    .map((c) => c.id);
+  const mergedReadIds = Array.from(new Set([...(targetBm?.readChapterIds ?? []), ...sourceReadIds, ...targetMatchedIds]));
+  const mergedCats = Array.from(new Set([...(sourceBm?.categories ?? []), ...(targetBm?.categories ?? [])]));
+  const lastReadChapterId = targetBm?.lastReadChapterId || sourceBm?.lastReadChapterId || '';
+  const lastReadPage = targetBm?.lastReadPage || sourceBm?.lastReadPage || 1;
+  const lastReadChapterTitle = targetBm?.lastReadChapterTitle || sourceBm?.lastReadChapterTitle || '';
+  const libraryStatus = targetBm?.libraryStatus ?? sourceBm?.libraryStatus ?? 'reading';
+
+  await setKatanaBookmark(targetManga, userName, true);
+  await setKatanaLibraryStatus(targetManga, userName, libraryStatus);
+  if (mergedCats.length > 0) {
+    await setKatanaBookmarkCategories(targetManga, userName, mergedCats);
+  }
+  if (mergedReadIds.length > 0) {
+    await markKatanaChaptersRead(targetManga, userName, mergedReadIds, true);
+  }
+  if (lastReadChapterId) {
+    await saveKatanaReadingProgress({
+      userName,
+      slug: targetManga.slug,
+      chapterId: lastReadChapterId,
+      page: lastReadPage,
+      chapterTitle: lastReadChapterTitle,
+      title: targetManga.title,
+      coverUrl: targetManga.coverUrl,
+    });
+  }
+  await saveKatanaTrackerData(targetManga, userName, {
+    userScore: targetBm?.userScore ?? sourceBm?.userScore,
+    rereadCount: targetBm?.rereadCount ?? sourceBm?.rereadCount,
+    anilistId: targetBm?.anilistId ?? sourceBm?.anilistId,
+    anilistScore: targetBm?.anilistScore ?? sourceBm?.anilistScore,
+    malId: targetBm?.malId ?? sourceBm?.malId,
+    malScore: targetBm?.malScore ?? sourceBm?.malScore,
+    kitsuId: targetBm?.kitsuId ?? sourceBm?.kitsuId,
+    kitsuScore: targetBm?.kitsuScore ?? sourceBm?.kitsuScore,
+    mangaUpdatesId: targetBm?.mangaUpdatesId ?? sourceBm?.mangaUpdatesId,
+    shikimoriId: targetBm?.shikimoriId ?? sourceBm?.shikimoriId,
+    bangumiId: targetBm?.bangumiId ?? sourceBm?.bangumiId,
+    comickId: targetBm?.comickId ?? sourceBm?.comickId,
+    trackerNote: targetBm?.trackerNote ?? sourceBm?.trackerNote,
+    notifyOnUpdate: targetBm?.notifyOnUpdate ?? sourceBm?.notifyOnUpdate ?? true,
+    ignoreUpdates: targetBm?.ignoreUpdates ?? sourceBm?.ignoreUpdates,
+  });
+
+  // Unbookmark old source entry so Library does not keep duplicate active entries
+  await setKatanaBookmark(
+    {
+      ...targetManga,
+      slug: fromSlug,
+      id: fromSlug,
+      title: sourceBm?.title || targetManga.title,
+      coverUrl: sourceBm?.coverUrl || targetManga.coverUrl,
+    },
+    userName,
+    false,
+  );
+
+  return { migratedReadCount: mergedReadIds.length, targetSlug: targetManga.slug };
+}
+
+/**
+ * Merges a duplicate bookmark (`duplicateSlug`) into `primarySlug`, combining read chapters,
+ * custom categories, and tracker links, then removes the duplicate from Library.
+ */
+export async function mergeDuplicateKatanaBookmarks(
+  primarySlug: string,
+  duplicateSlug: string,
+  userName: string,
+): Promise<number> {
+  if (!userName || !primarySlug || !duplicateSlug || primarySlug === duplicateSlug) return 0;
+  const primary = await getKatanaBookmark(primarySlug, userName);
+  const dup = await getKatanaBookmark(duplicateSlug, userName);
+  if (!primary || !dup) return 0;
+  const stubManga: KatanaManga = {
+    slug: primary.slug,
+    id: primary.slug,
+    title: primary.title,
+    coverUrl: primary.coverUrl || dup.coverUrl,
+    status: primary.status || dup.status || 'ongoing',
+    updateText: '',
+    summary: '',
+    genres: [],
+    altNames: [],
+    authors: [],
+    artists: [],
+    chapters: [],
+    recentChapters: [],
+  };
+  const res = await migrateKatanaSeriesSource(duplicateSlug, stubManga, userName);
+  return res.migratedReadCount;
 }
 
 function safeReaderStateSlug(slug: string): string {

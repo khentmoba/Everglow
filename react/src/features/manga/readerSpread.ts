@@ -333,8 +333,8 @@ export function inferSeriesReadingFormat(
 /**
  * Resolves `auto-rtl` / `auto-ltr` into:
  * - `'webtoon'` when series metadata indicates manhwa/manhua/webtoon OR tall strips (`medianAspect < 0.56`)
- * - `'double-rtl'` / `'double-ltr'` on landscape tablets/desktop (`width >= 820 && width > height`)
- * - `'paged-rtl'` / `'paged-ltr'` on portrait phones.
+ * - `'double-rtl'` / `'double-ltr'` on tablets/desktop (`width >= 820 && (width > height || allowPortraitTabletSpread)`)
+ * - `'paged-rtl'` / `'paged-ltr'` on phones.
  */
 export function resolveEffectiveReadingMode(
   mode: ReadingMode,
@@ -342,15 +342,16 @@ export function resolveEffectiveReadingMode(
   viewportHeight: number,
   medianAspect?: number,
   seriesFormat?: SeriesReadingFormat,
+  allowPortraitTabletSpread = false,
 ): ReadingMode {
   if (mode === 'auto-rtl' || mode === 'auto-ltr') {
     if (seriesFormat === 'webtoon' || (typeof medianAspect === 'number' && medianAspect > 0 && medianAspect < 0.56)) {
       return 'webtoon';
     }
-    const isLandscapeTablet = viewportWidth >= 820 && viewportWidth > viewportHeight;
-    if (seriesFormat === 'comic') return isLandscapeTablet ? 'double-ltr' : 'paged-ltr';
-    if (mode === 'auto-rtl') return isLandscapeTablet ? 'double-rtl' : 'paged-rtl';
-    return isLandscapeTablet ? 'double-ltr' : 'paged-ltr';
+    const isTabletSpread = viewportWidth >= 820 && (viewportWidth > viewportHeight || allowPortraitTabletSpread);
+    if (seriesFormat === 'comic') return isTabletSpread ? 'double-ltr' : 'paged-ltr';
+    if (mode === 'auto-rtl') return isTabletSpread ? 'double-rtl' : 'paged-rtl';
+    return isTabletSpread ? 'double-ltr' : 'paged-ltr';
   }
   return mode;
 }

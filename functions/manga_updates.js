@@ -338,6 +338,13 @@ async function runMangaUpdateCheck({
 
     const skipCompleted = prefs.alertPrefs?.skipCompleted !== false;
     const skipOnHold = Boolean(prefs.alertPrefs?.skipOnHold);
+    const excludedCategories = new Set(
+      Array.isArray(prefs.alertPrefs?.excludeUpdateCategories)
+        ? prefs.alertPrefs.excludeUpdateCategories.map((c) => String(c).trim()).filter(Boolean)
+        : Array.isArray(prefs.excludeUpdateCategories)
+          ? prefs.excludeUpdateCategories.map((c) => String(c).trim()).filter(Boolean)
+          : [],
+    );
 
     const snap = await db
       .collection('katana_bookmarks')
@@ -370,13 +377,30 @@ async function runMangaUpdateCheck({
       .filter((s) => s.startsWith('md-'));
     const mdBatchMap = mdFollowedSlugs.length > 1 ? await fetchMangaDexBatch(mdFollowedSlugs) : new Map();
 
+    // When primary RSS/HTML feed returns 0 items (markup shift), widen direct per-series fallback budget automatically.
+    const effectiveKatanaCap = hasKatanaMap ? KATANA_SERIES_PER_RUN_CAP : Math.max(KATANA_SERIES_PER_RUN_CAP * 2, 20);
+    const sourceHealth = {
+      katanaFeedOk: Boolean(hasKatanaMap),
+      katanaFeedCount: latestBySlug ? latestBySlug.size : 0,
+      mangadexBatchOk: mdFollowedSlugs.length <= 1 || Boolean(mdBatchMap && mdBatchMap.size > 0),
+      fallbackActive: !hasKatanaMap,
+      checkedAt: nowMs,
+    };
+
     let mdLookups = 0;
     let katanaLookups = 0;
     let lastProbedSlug = cursorSlug;
     for (const docSnap of sortedDocs) {
       if (docSnap.id.endsWith('|__prefs__')) continue;
       const data = docSnap.data() || {};
-      if (data.notifyOnUpdate === false) continue;
+      if (data.notifyOnUpdate === false || data.ignoreUpdates === true) continue;
+      if (
+        excludedCategories.size > 0 &&
+        Array.isArray(data.categories) &&
+        data.categories.some((c) => excludedCategories.has(String(c).trim()))
+      ) {
+        continue;
+      }
       const readingStatus = typeof data.libraryStatus === 'string'
         ? data.libraryStatus
         : typeof data.readingStatus === 'string'
@@ -402,7 +426,7 @@ async function runMangaUpdateCheck({
         latest = await fetchMangaDexLatest(slug);
         checkedSeriesUpdates.push({ ref: docSnap.ref, data });
         fromSeriesPage = true;
-      } else if (!latest && canLookup && !slug.startsWith('md-') && katanaLookups < KATANA_SERIES_PER_RUN_CAP) {
+      } else if (!latest && canLookup && !slug.startsWith('md-') && katanaLookups < effectiveKatanaCap) {
         // Followed series that missed the latest-updates feed: read its own page (stalest first).
         katanaLookups += 1;
         lastProbedSlug = slug;
@@ -469,6 +493,7 @@ async function runMangaUpdateCheck({
       await prefsRef.set(
         {
           lastUpdateCheckAt: nowMs,
+          sourceHealth,
           ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
         },
         { merge: true },
@@ -519,10 +544,12 @@ async function runMangaUpdateCheck({
         ? {
             lastPushDigestDay: dayKey,
             lastUpdateCheckAt: nowMs,
+            sourceHealth,
             ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
           }
         : {
             lastUpdateCheckAt: nowMs,
+            sourceHealth,
             ...(lastProbedSlug ? { updateCursorSlug: lastProbedSlug } : {}),
           },
       { merge: true },
