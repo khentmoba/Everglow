@@ -2487,7 +2487,7 @@ export function MangaReaderView({
                     setReloadNonce((n) => n + 1);
                   }}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '0 14px',
                     borderRadius: 99,
                     background: server === srv.value ? KatanaColors.accent : KatanaColors.surfaceAlt,
@@ -2555,7 +2555,7 @@ export function MangaReaderView({
                     setReloadNonce((n) => n + 1);
                   }}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '0 14px',
                     borderRadius: 99,
                     background: server === srv.value ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
@@ -3344,7 +3344,7 @@ export function MangaReaderView({
                 }}
               >
                 <Icon name="cloud_done" size={10} color={KatanaColors.accentSoft} />
-                {!isCompactPhone && <span>Synced</span>}
+                <span>Synced</span>
               </span>
             )}
             {incognitoSession && (
@@ -3374,7 +3374,7 @@ export function MangaReaderView({
           title={`Reading mode: ${resolvedModeAriaLabel}`}
           onClick={cycleMode}
           style={{
-            minHeight: 40,
+            minHeight: 44,
             padding: isCompactPhone ? '0 8px' : '0 10px',
             borderRadius: 10,
             background: KatanaColors.surfaceAlt,
@@ -3410,7 +3410,7 @@ export function MangaReaderView({
               updateSettings({ readingMode: nextMode });
             }}
             style={{
-              minHeight: 40,
+              minHeight: 44,
               padding: '0 10px',
               borderRadius: 10,
               background: isDouble ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
@@ -3593,7 +3593,7 @@ export function MangaReaderView({
                   className="bare-button player-focusable"
                   onClick={() => setShowTapHint((v) => !v)}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 14px',
                     borderRadius: 8,
                     background: KatanaColors.surface,
@@ -3638,7 +3638,7 @@ export function MangaReaderView({
               onClick={() => setActiveSheet('jump')}
               style={{
                 minWidth: 62,
-                minHeight: 34,
+                minHeight: 44,
                 padding: '0 8px',
                 borderRadius: 8,
                 background: KatanaColors.surfaceAlt,
@@ -3676,7 +3676,7 @@ export function MangaReaderView({
                   color: KatanaColors.accentSoft,
                 }}
               >
-                RTL
+                Right to left
               </span>
             )}
           </div>
@@ -3725,7 +3725,7 @@ export function MangaReaderView({
               onClick={() => setAutoScrolling((a) => !a)}
               style={{
                 width: 44,
-                height: 42,
+                height: 44,
                 borderRadius: 10,
                 background: autoScrolling ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${autoScrolling ? KatanaColors.accent : KatanaColors.border}`,
@@ -3747,7 +3747,7 @@ export function MangaReaderView({
               onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
               style={{
                 width: 44,
-                height: 42,
+                height: 44,
                 borderRadius: 10,
                 background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
@@ -3769,7 +3769,7 @@ export function MangaReaderView({
               onClick={() => setActiveSheet('quick-display')}
               style={{
                 width: 44,
-                height: 42,
+                height: 44,
                 borderRadius: 10,
                 background: activeSheet === 'quick-display' ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${activeSheet === 'quick-display' ? KatanaColors.accent : KatanaColors.border}`,
@@ -3788,7 +3788,7 @@ export function MangaReaderView({
                 onClick={() => setActiveSheet('chapters')}
                 style={{
                   width: 44,
-                  height: 42,
+                  height: 44,
                   borderRadius: 10,
                   background: KatanaColors.surfaceAlt,
                   border: `1px solid ${KatanaColors.border}`,

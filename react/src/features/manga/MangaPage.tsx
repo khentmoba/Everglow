@@ -2898,7 +2898,7 @@ export function MangaPage() {
                                     onClick={() => void toggleSeriesAlerts(detail, alertsEnabled)}
                                     style={{
                                       width: 38,
-                                      height: 38,
+                                      height: 44,
                                       borderRadius: 8,
                                       background: alertsEnabled && isBookmarked ? withAlpha(KatanaColors.accent, 0.16) : KatanaColors.surfaceAlt,
                                       border: `1px solid ${alertsEnabled && isBookmarked ? withAlpha(KatanaColors.accent, 0.5) : KatanaColors.borderStrong}`,
@@ -2922,7 +2922,7 @@ export function MangaPage() {
                                     onClick={() => void shareSeriesLink(detail)}
                                     style={{
                                       width: 38,
-                                      height: 38,
+                                      height: 44,
                                       borderRadius: 8,
                                       background: KatanaColors.surfaceAlt,
                                       border: `1px solid ${KatanaColors.borderStrong}`,
@@ -3080,7 +3080,7 @@ export function MangaPage() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 8,
-                                            minHeight: 40,
+                                            minHeight: 44,
                                             padding: '9px 10px',
                                             borderRadius: 7,
                                             color: KatanaColors.text,
@@ -3111,7 +3111,7 @@ export function MangaPage() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 8,
-                                            minHeight: 40,
+                                            minHeight: 44,
                                             padding: '9px 10px',
                                             borderRadius: 7,
                                             color: KatanaColors.text,
@@ -3751,7 +3751,7 @@ export function MangaPage() {
                               onClick={() => void handleLoadPreview(detail)}
                               aria-expanded={previewPages?.slug === detail.slug}
                               style={{
-                                minHeight: 40,
+                                minHeight: 44,
                                 padding: '5px 10px',
                                 borderRadius: 8,
                                 background: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBg : KatanaColors.surface,
@@ -3775,7 +3775,7 @@ export function MangaPage() {
                                 aria-pressed={chapterGrouped}
                                 onClick={() => setChapterGrouped((v) => !v)}
                                 style={{
-                                  minHeight: 40,
+                                  minHeight: 44,
                                   padding: '5px 10px',
                                   borderRadius: 8,
                                   background: chapterGrouped ? KatanaColors.chipSelectedBg : KatanaColors.surface,
@@ -3801,7 +3801,7 @@ export function MangaPage() {
                                 setSelectedChapterIds(new Set());
                               }}
                               style={{
-                                minHeight: 40,
+                                minHeight: 44,
                                 padding: '5px 10px',
                                 borderRadius: 8,
                                 background: selectMode ? KatanaColors.chipSelectedBg : KatanaColors.surface,
@@ -3833,7 +3833,7 @@ export function MangaPage() {
                                   showSnackBar(allRead ? 'Marked all chapters unread' : 'Marked all chapters read');
                                 }}
                                 style={{
-                                  minHeight: 40,
+                                  minHeight: 44,
                                   padding: '5px 10px',
                                   borderRadius: 8,
                                   background: KatanaColors.surface,
@@ -3878,7 +3878,7 @@ export function MangaPage() {
                                       aria-pressed={active}
                                       onClick={() => setChapterLangFilter(lang)}
                                       style={{
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '4px 10px',
                                         borderRadius: 99,
                                         background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -3909,7 +3909,7 @@ export function MangaPage() {
                                       aria-pressed={active}
                                       onClick={() => setChapterGroupFilter(grp)}
                                       style={{
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '4px 10px',
                                         borderRadius: 99,
                                         background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -3940,7 +3940,7 @@ export function MangaPage() {
                                         );
                                       }}
                                       style={{
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '4px 10px',
                                         borderRadius: 99,
                                         background: preferredScanlationGroup === chapterGroupFilter ? withAlpha(KatanaColors.accent, 0.18) : KatanaColors.surface,
@@ -3964,7 +3964,7 @@ export function MangaPage() {
                                         showSnackBar(`Hid chapters from ${targetGrp}`);
                                       }}
                                       style={{
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '4px 10px',
                                         borderRadius: 99,
                                         background: withAlpha(KatanaColors.crimson, 0.14),
@@ -3994,7 +3994,7 @@ export function MangaPage() {
                                       );
                                     }}
                                     style={{
-                                      minHeight: 40,
+                                      minHeight: 44,
                                       padding: '4px 10px',
                                       borderRadius: 99,
                                       background: waitForPreferredHours > 0 ? withAlpha(KatanaColors.teal, 0.16) : KatanaColors.surfaceAlt,
@@ -4019,7 +4019,7 @@ export function MangaPage() {
                                       showSnackBar(`Unblocked ${bGrp}`);
                                     }}
                                     style={{
-                                      minHeight: 40,
+                                      minHeight: 44,
                                       padding: '4px 10px',
                                       borderRadius: 99,
                                       background: withAlpha(KatanaColors.crimson, 0.12),
@@ -4322,7 +4322,7 @@ export function MangaPage() {
                               alignItems: 'center',
                               gap: 8,
                               padding: '0 12px',
-                              height: 38,
+                              height: 44,
                               borderRadius: 9,
                               background: KatanaColors.background,
                               border: `1px solid ${KatanaColors.border}`,
@@ -4476,13 +4476,11 @@ export function MangaPage() {
                                         {c.updateAt && (
                                           <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{formatKatanaTime(c.updateAt)}</span>
                                         )}
-                                        <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
-                                          {(() => {
-                                            const grp = c.scanlationGroup || 'MangaKatana';
-                                            const lang = (c.language || 'en').toUpperCase();
-                                            return grp.toUpperCase().endsWith(lang) ? grp : `${grp} · ${lang}`;
-                                          })()}
-                                        </span>
+                                        {availableChapterGroups.length > 1 && (
+                                          <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
+                                            {/official/i.test(c.scanlationGroup || '') ? 'Official' : 'Fan edition'}
+                                          </span>
+                                        )}
                                         {c.isNew && !isLastRead && !isRead && (
                                           <span
                                             style={{
@@ -6599,7 +6597,7 @@ export function MangaPage() {
                                 setAlertPrefs(next);
                                 saveKatanaAlertPrefs(userName, next);
                               }}
-                              style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.accentSoft, minHeight: 40, padding: '2px 6px' }}
+                              style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.accentSoft, minHeight: 44, padding: '2px 6px' }}
                             >
                               {`${String(alertPrefs.quietStartHour ?? 22).padStart(2, '0')}:00`}
                             </button>
@@ -6615,7 +6613,7 @@ export function MangaPage() {
                                 setAlertPrefs(next);
                                 saveKatanaAlertPrefs(userName, next);
                               }}
-                              style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.accentSoft, minHeight: 40, padding: '2px 6px' }}
+                              style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.accentSoft, minHeight: 44, padding: '2px 6px' }}
                             >
                               {`${String(alertPrefs.quietEndHour ?? 8).padStart(2, '0')}:00`}
                             </button>
@@ -7442,10 +7440,10 @@ export function MangaPage() {
                         {(
                           [
                             ['all', 'All Sources'],
-                            ['mangakatana', 'MangaKatana'],
-                            ['mangadex', 'MangaDex'],
-                            ['comick', 'ComicK'],
-                            ['bato', 'Bato.to'],
+                            ['mangakatana', 'Newest'],
+                            ['mangadex', 'Official'],
+                            ['comick', 'Full colour'],
+                            ['bato', 'More volumes'],
                           ] as const
                         ).map(([src, label]) => {
                           const active = catalogSource === src;
@@ -7487,7 +7485,7 @@ export function MangaPage() {
                         className="bare-button"
                         onClick={() => setFilterOpen((o) => !o)}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 14px',
                           borderRadius: 99,
                           background: filterOpen || activeFilterCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -7558,10 +7556,7 @@ export function MangaPage() {
                         (() => {
                           const info = getSourceBadgeInfo(catalogSource);
                           return (
-                            <>
-                              <strong style={{ color: KatanaColors.text }}>{info.shortLabel}:</strong>{' '}
-                              {info.signals.provenance} · {info.signals.specialty}
-                            </>
+                            <>{info.signals.specialty}.</>
                           );
                         })()
                       )}
@@ -7883,7 +7878,7 @@ export function MangaPage() {
                       type="button"
                       className="bare-button"
                       onClick={clearCatalogFilters}
-                      style={{ ...KatanaType.link, minHeight: 40, padding: '0 10px', fontSize: 12.5, display: 'inline-flex', alignItems: 'center' }}
+                      style={{ ...KatanaType.link, minHeight: 44, padding: '0 10px', fontSize: 12.5, display: 'inline-flex', alignItems: 'center' }}
                     >
                       Clear all
                     </button>

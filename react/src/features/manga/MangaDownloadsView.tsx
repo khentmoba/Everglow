@@ -281,7 +281,7 @@ export function KatanaDownloadsView({
                 <div style={{ height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
                   <div
                     style={{
-                      width: `${Math.min(100, Math.max(1, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100))}%`,
+                      width: `clamp(6px, ${Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)}%, 100%)`,
                       height: '100%',
                       background: KatanaColors.accent,
                       borderRadius: 99,
@@ -289,7 +289,11 @@ export function KatanaDownloadsView({
                   />
                 </div>
                 <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 5 }}>
-                  {Math.max(1, Math.round((quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100))}% of your allowance used
+                  {(() => {
+                    const pct = (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100;
+                    if (pct < 1) return 'Less than 1% of your allowance used';
+                    return `${Math.round(pct)}% of your allowance used`;
+                  })()}
                 </div>
               </div>
             )}
@@ -304,7 +308,7 @@ export function KatanaDownloadsView({
                   onClick={() => void handleVerifyCache()}
                   title="Make sure every downloaded page is still on this device"
                   style={{
-                    minHeight: 36,
+                    minHeight: 44,
                     padding: '6px 12px',
                     borderRadius: 7,
                     background: KatanaColors.surfaceAlt,
@@ -628,7 +632,7 @@ export function KatanaDownloadsView({
               ))}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="katana-downloads-list">
             {grouped.map((chapters) => {
               const head = chapters[0];
               return (
@@ -794,7 +798,7 @@ export function KatanaDownloadsView({
                               }}
                             >
                               <Icon name="folder_zip" size={14} color={KatanaColors.link} />
-                              <span>Save a copy</span>
+                              <span>Export as file</span>
                             </button>
                             <button
                               type="button"
@@ -995,7 +999,7 @@ export function KatanaDownloadsView({
                   </div>
                   {!netSupported && (
                     <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
-                      Safari / iOS hides cellular status. Pick your default rule for unverified connections below:
+                      On this device we can't always tell Wi-Fi from mobile data. So when it's unclear:
                     </span>
                   )}
                 </div>
@@ -1048,13 +1052,13 @@ export function KatanaDownloadsView({
             }}
           >
             <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
-              iOS / unverified connection rule:
+              When we can't tell:
             </span>
             <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
               {([
-                { id: 'allow' as const, label: 'Assume Wi-Fi (Allow)' },
-                { id: 'ask' as const, label: 'Ask First' },
-                { id: 'block' as const, label: 'Block (Cellular Safe)' },
+                { id: 'allow' as const, label: 'Download anyway' },
+                { id: 'ask' as const, label: 'Ask me first' },
+                { id: 'block' as const, label: 'Wait for Wi-Fi' },
               ]).map((opt) => {
                 const active = unknownWifiPolicy === opt.id;
                 return (
@@ -1065,7 +1069,7 @@ export function KatanaDownloadsView({
                     aria-pressed={active}
                     onClick={() => onChangeUnknownWifiPolicy(opt.id)}
                     style={{
-                      minHeight: 36,
+                      minHeight: 44,
                       padding: '4px 10px',
                       borderRadius: 99,
                       background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
