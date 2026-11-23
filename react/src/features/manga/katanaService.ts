@@ -137,6 +137,10 @@ export interface KatanaBookmark {
   /** Mihon Smart Updates predicted next check timestamp (epoch ms) and cadence in hours. */
   nextCheckAt?: number;
   cadenceHours?: number;
+  /** Observed or user-pinned release schedule weekday and interval (ms) between chapter drops. */
+  releaseDay?: KatanaWeekday;
+  releaseIntervalMs?: number;
+  nextReleaseAt?: number;
   /** Bidirectional tracker push state (AniList / MAL / Kitsu). */
   lastPushedAt?: Date;
   lastPushedChapter?: number;
@@ -380,6 +384,76 @@ export function formatKatanaTime(time?: Date): string {
 
 const WEEKDAYS: KatanaWeekday[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/**
+ * Computes a series' release weekday, median release interval (ms), and next expected release timestamp
+ * from dated chapters (or falls back to bookmark telemetry / updateText).
+ */
+export function computeSeriesReleaseSchedule(
+  chapters?: KatanaChapter[],
+  updateText?: string,
+  bm?: Pick<KatanaBookmark, 'releaseDay' | 'releaseIntervalMs' | 'nextCheckAt' | 'lastNotifiedAt' | 'cadenceHours'>,
+): {
+  releaseDay?: KatanaWeekday;
+  releaseIntervalMs?: number;
+  nextReleaseAt?: number;
+  verified: boolean;
+} {
+  if (bm?.releaseDay && bm?.releaseIntervalMs && bm.releaseIntervalMs > 0) {
+    const baseTs = bm.lastNotifiedAt && bm.lastNotifiedAt > 0 ? bm.lastNotifiedAt : Date.now();
+    const nextReleaseAt = bm.nextCheckAt && bm.nextCheckAt > Date.now() ? bm.nextCheckAt : baseTs + bm.releaseIntervalMs;
+    return {
+      releaseDay: bm.releaseDay,
+      releaseIntervalMs: bm.releaseIntervalMs,
+      nextReleaseAt,
+      verified: true,
+    };
+  }
+  const dated = (chapters ?? [])
+    .map((c) => c.updateAt?.getTime() ?? Number.NaN)
+    .filter((t) => Number.isFinite(t) && t > 0)
+    .sort((a, b) => b - a);
+  if (dated.length >= 2) {
+    const diffs: number[] = [];
+    for (let i = 0; i < Math.min(dated.length - 1, 8); i++) {
+      const d = dated[i] - dated[i + 1];
+      if (d >= 12 * 3600_000 && d <= 45 * 86_400_000) diffs.push(d);
+    }
+    if (diffs.length > 0) {
+      diffs.sort((a, b) => a - b);
+      const medianMs = diffs[Math.floor(diffs.length / 2)];
+      const nextReleaseAt = dated[0] + medianMs;
+      const targetDay = WEEKDAYS[new Date(nextReleaseAt).getDay()];
+      return {
+        releaseDay: bm?.releaseDay ?? targetDay,
+        releaseIntervalMs: medianMs,
+        nextReleaseAt,
+        verified: true,
+      };
+    }
+  }
+  if (bm?.nextCheckAt && bm.nextCheckAt > 0) {
+    const day = bm.releaseDay ?? WEEKDAYS[new Date(bm.nextCheckAt).getDay()];
+    const intervalMs =
+      bm.releaseIntervalMs && bm.releaseIntervalMs > 0
+        ? bm.releaseIntervalMs
+        : bm.cadenceHours && bm.cadenceHours > 0
+          ? bm.cadenceHours * 3600_000
+          : 7 * 86_400_000;
+    return {
+      releaseDay: day,
+      releaseIntervalMs: intervalMs,
+      nextReleaseAt: bm.nextCheckAt,
+      verified: true,
+    };
+  }
+  const inferredDay = bm?.releaseDay ?? deriveReleaseDay(updateText, chapters);
+  return {
+    releaseDay: inferredDay,
+    releaseIntervalMs: bm?.releaseIntervalMs,
+    nextReleaseAt: undefined,
+    verified: Boolean(bm?.releaseDay),
+  };
+}
 /** Derives a release weekday from recent chapter dates or relative update text so Release Schedule works in production. */
 export function deriveReleaseDay(updateText?: string, recentChapters?: KatanaChapter[]): KatanaWeekday | undefined {
   const latestDate = recentChapters?.[0]?.updateAt;
@@ -1510,24 +1584,35 @@ const demoProgress = (
   finishedAt?: Date,
   latestChapterTitle = '',
   lastReadAt?: Date,
-): KatanaBookmark => ({
-  slug,
-  title,
-  coverUrl,
-  status: finishedAt ? 'completed' : 'ongoing',
-  addedAt: new Date(2026, 1, 14),
-  lastReadAt: lastReadAt ?? finishedAt ?? new Date(2026, 2, 10),
-  lastReadChapterId: `c${chapter}`,
-  lastReadPage: 1,
-  lastReadChapterTitle: `Chapter ${chapter}`,
-  latestChapterTitle,
-  recommendedBy: '',
-  recommendationNote: '',
-  readChapterIds: Array.from({ length: chapter }, (_, i) => `c${i + 1}`),
-  bookmarked: true,
-  libraryStatus: finishedAt ? 'completed' : 'reading',
-  finishedAt,
-});
+  releaseDay?: KatanaWeekday,
+  nextOffsetHours = 4,
+): KatanaBookmark => {
+  const todayDay = WEEKDAYS[new Date().getDay()];
+  const assignedDay = finishedAt ? undefined : releaseDay ?? todayDay;
+  return {
+    slug,
+    title,
+    coverUrl,
+    status: finishedAt ? 'completed' : 'ongoing',
+    addedAt: new Date(2026, 1, 14),
+    lastReadAt: lastReadAt ?? finishedAt ?? new Date(2026, 2, 10),
+    lastReadChapterId: `c${chapter}`,
+    lastReadPage: 1,
+    lastReadChapterTitle: `Chapter ${chapter}`,
+    latestChapterTitle,
+    recommendedBy: '',
+    recommendationNote: '',
+    readChapterIds: Array.from({ length: chapter }, (_, i) => `c${i + 1}`),
+    bookmarked: true,
+    libraryStatus: finishedAt ? 'completed' : 'reading',
+    releaseDay: assignedDay,
+    releaseIntervalMs: finishedAt ? undefined : 7 * 86_400_000,
+    cadenceHours: finishedAt ? undefined : 168,
+    nextCheckAt: finishedAt ? undefined : Date.now() + nextOffsetHours * 3600_000,
+    nextReleaseAt: finishedAt ? undefined : Date.now() + nextOffsetHours * 3600_000,
+    finishedAt,
+  };
+};
 
 // Agent mode keeps bookmarks in memory, per user, seeded with made-up reading progress.
 const demoBookmarks = new Map<string, KatanaBookmark[]>([
@@ -1671,6 +1756,24 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     lastCheckedAt: typeof data.lastCheckedAt === 'number' ? data.lastCheckedAt : undefined,
     nextCheckAt: typeof data.nextCheckAt === 'number' ? data.nextCheckAt : undefined,
     cadenceHours: typeof data.cadenceHours === 'number' ? data.cadenceHours : undefined,
+    releaseDay:
+      data.releaseDay === 'Mon' ||
+      data.releaseDay === 'Tue' ||
+      data.releaseDay === 'Wed' ||
+      data.releaseDay === 'Thu' ||
+      data.releaseDay === 'Fri' ||
+      data.releaseDay === 'Sat' ||
+      data.releaseDay === 'Sun'
+        ? data.releaseDay
+        : undefined,
+    releaseIntervalMs:
+      typeof data.releaseIntervalMs === 'number' && data.releaseIntervalMs > 0 ? data.releaseIntervalMs : undefined,
+    nextReleaseAt:
+      typeof data.nextReleaseAt === 'number' && data.nextReleaseAt > 0
+        ? data.nextReleaseAt
+        : typeof data.nextCheckAt === 'number' && data.nextCheckAt > 0
+          ? data.nextCheckAt
+          : undefined,
     lastPushedAt: (data.lastPushedAt as Timestamp | undefined)?.toDate?.(),
     lastPushedChapter: typeof data.lastPushedChapter === 'number' ? data.lastPushedChapter : undefined,
     lastPushedStatus:

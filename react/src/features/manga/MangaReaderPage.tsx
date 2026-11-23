@@ -61,8 +61,10 @@ import {
   DOUBLE_TAP_WINDOW_MS,
   findSpreadIndexForPage,
   isWideAspect,
+  loadPersistedSeriesFormat,
   resolveEffectiveReadingMode,
   resolveTapZoneAction,
+  savePersistedSeriesFormat,
   setLruEntry,
   SINGLE_TAP_DELAY_MS,
   WIDE_ASPECT_THRESHOLD,
@@ -136,6 +138,9 @@ export function MangaReaderView({
   }, []);
 
   const seriesDefaultAspect = useMemo(() => loadSeriesDefaultAspect(params.slug), [params.slug]);
+  const [persistedFormat, setPersistedFormat] = useState<SeriesReadingFormat | undefined>(() =>
+    loadPersistedSeriesFormat(params.slug),
+  );
   const [liveMedianAspect, setLiveMedianAspect] = useState<number | undefined>(undefined);
 
   // Settings & expanded per-series overrides (with per-reading-mode fit memory)
@@ -144,6 +149,7 @@ export function MangaReaderView({
     loadSeriesReaderOverride(params.slug),
   );
   const rawReadingMode = seriesOverride?.readingMode ?? globalSettings.readingMode;
+  const effectiveSeriesFormat = persistedFormat ?? params.seriesFormat;
   const effectiveMode = useMemo(
     () =>
       resolveEffectiveReadingMode(
@@ -151,9 +157,9 @@ export function MangaReaderView({
         viewportWidth,
         viewportHeight,
         liveMedianAspect ?? seriesDefaultAspect,
-        params.seriesFormat,
+        effectiveSeriesFormat,
       ),
-    [rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect, params.seriesFormat],
+    [rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect, effectiveSeriesFormat],
   );
   const fitBucket = getFitModeBucket(effectiveMode);
   const settings: ReaderSettings = useMemo(() => {
@@ -2068,9 +2074,18 @@ export function MangaReaderView({
       if (segChapterId === chapterId) {
         chapterAspectsRef.current[idx] = ratio;
         const measured = Object.values(chapterAspectsRef.current);
-        if (measured.length >= 2 && measured.length <= 5) {
+        if (measured.length >= 1 && measured.length <= 5) {
           const sorted = [...measured].sort((a, b) => a - b);
-          setLiveMedianAspect(sorted[Math.floor(sorted.length / 2)]);
+          const median = sorted[Math.floor(sorted.length / 2)];
+          setLiveMedianAspect(median);
+          if (median > 0 && median < 0.56) {
+            savePersistedSeriesFormat(params.slug, 'webtoon');
+            setPersistedFormat('webtoon');
+          } else if (measured.length >= 2 && !loadPersistedSeriesFormat(params.slug)) {
+            const fmt = params.seriesFormat ?? 'manga';
+            savePersistedSeriesFormat(params.slug, fmt);
+            setPersistedFormat(fmt);
+          }
         }
         window.clearTimeout(aspectSaveTimerRef.current);
         aspectSaveTimerRef.current = window.setTimeout(() => {

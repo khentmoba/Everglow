@@ -44,9 +44,16 @@ export function saveKatanaThemeMode(mode: KatanaThemeMode): void {
   }
 }
 
-/** Shared cover-grid column density across Home, Browse, and Library. */
+/** Shared cover-grid column density across Home, Browse, and Library (2 large-art columns on <480px phones, 3 in compact library mode). */
 export function getKatanaGridColumns(width: number, compact = false): number {
-  const base = width >= KATANA_BREAKPOINTS.desktop ? 5 : width >= KATANA_BREAKPOINTS.tablet ? 4 : 3;
+  const base =
+    width >= KATANA_BREAKPOINTS.desktop
+      ? 5
+      : width >= KATANA_BREAKPOINTS.tablet
+        ? 4
+        : width >= 480
+          ? 3
+          : 2;
   return compact ? base + 1 : base;
 }
 

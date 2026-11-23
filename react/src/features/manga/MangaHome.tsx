@@ -21,6 +21,7 @@ import {
 } from './MangaUi';
 import {
   chapterDisplayTitle,
+  computeSeriesReleaseSchedule,
   estimateUnreadCount,
   extractChapterNumber,
   formatKatanaTime,
@@ -67,16 +68,18 @@ function TypeChip({
       style={{
         flexShrink: 0,
         minHeight: 44,
-        padding: compact ? '0 10px' : '0 14px',
+        padding: compact ? '0 9px' : '0 14px',
         borderRadius: 99,
         background: selected ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
         border: `1px solid ${selected ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
         display: 'inline-flex',
         alignItems: 'center',
-        gap: compact ? 3.5 : 6,
+        gap: compact ? 3 : 6,
       }}
     >
-      <Icon name={icon} size={compact ? 14 : 15} color={selected ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+      {(!compact || selected) && (
+        <Icon name={icon} size={compact ? 13 : 15} color={selected ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+      )}
       <span
         style={{
           fontFamily: Fonts.body,
@@ -337,6 +340,55 @@ function FeaturedHero({
             >
               {featured.summary}
             </p>
+          )}
+
+          {!compact && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+                padding: '7px 10px',
+                borderRadius: 10,
+                background: withAlpha(KatanaColors.background, 0.55),
+                border: `1px solid ${withAlpha(KatanaColors.borderStrong, 0.65)}`,
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontFamily: Fonts.body,
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: KatanaColors.accentSoft,
+                }}
+              >
+                <Icon name="event_repeat" size={14} color={KatanaColors.accent} />
+                {bm?.releaseDay || featured.releaseDay
+                  ? `Releases ${bm?.releaseDay || featured.releaseDay}s`
+                  : completed
+                    ? 'Completed Series'
+                    : 'Weekly Serialization'}
+              </span>
+              {bm?.lastReadChapterId && (
+                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text }}>
+                  · Your progress: <strong>{bm.lastReadChapterTitle || bm.lastReadChapterId}</strong>
+                </span>
+              )}
+              {featured.latestChapter && (
+                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link }}>
+                  · Latest: <strong>{chapterDisplayTitle(featured.latestChapter)}</strong>
+                </span>
+              )}
+              {featured.demographic && (
+                <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textMuted }}>
+                  · {featured.demographic}
+                </span>
+              )}
+            </div>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
@@ -663,14 +715,25 @@ function todayWeekday(): KatanaWeekday {
   return WEEKDAYS[(jsDay + 6) % 7];
 }
 
+type ScheduledCalendarEntry = {
+  manga: KatanaManga;
+  releaseDay: KatanaWeekday;
+  verified: boolean;
+  followed: boolean;
+  nextReleaseAt?: number;
+  intervalDays?: number;
+};
+
 function ReleaseCalendarRail({
   catalog,
+  bookmarks = [],
   unreadBySlug,
   downloadedCounts,
   compact,
   onSelectManga,
 }: {
   catalog: KatanaManga[];
+  bookmarks?: KatanaBookmark[];
   unreadBySlug: Record<string, number>;
   downloadedCounts: Record<string, number>;
   compact: boolean;
@@ -678,40 +741,118 @@ function ReleaseCalendarRail({
 }) {
   const today = useMemo(() => todayWeekday(), []);
   const todayIdx = WEEKDAYS.indexOf(today);
-  const [calendarMode, setCalendarMode] = useState<'upcoming' | 'recent'>('upcoming');
+  const [calendarMode, setCalendarMode] = useState<'upcoming' | 'followed' | 'recent'>('upcoming');
+
+  const allEntries = useMemo((): ScheduledCalendarEntry[] => {
+    const bmBySlug = new Map(bookmarks.filter((b) => b.bookmarked).map((b) => [b.slug, b]));
+    const out: ScheduledCalendarEntry[] = [];
+    const seen = new Set<string>();
+
+    for (const m of catalog) {
+      const bm = bmBySlug.get(m.slug);
+      const sched = computeSeriesReleaseSchedule(m.recentChapters.length > 0 ? m.recentChapters : m.chapters, m.updateText, bm);
+      const day = sched.releaseDay ?? m.releaseDay;
+      if (!day) continue;
+      seen.add(m.slug);
+      out.push({
+        manga: { ...m, releaseDay: day },
+        releaseDay: day,
+        verified: sched.verified,
+        followed: Boolean(bm),
+        nextReleaseAt: sched.nextReleaseAt,
+        intervalDays: sched.releaseIntervalMs ? Math.max(1, Math.round(sched.releaseIntervalMs / 86_400_000)) : undefined,
+      });
+    }
+
+    // Also include followed ongoing bookmarks with stored schedule telemetry that aren't in the current catalog slice.
+    for (const bm of bmBySlug.values()) {
+      if (seen.has(bm.slug)) continue;
+      const sched = computeSeriesReleaseSchedule(undefined, undefined, bm);
+      if (!sched.releaseDay) continue;
+      seen.add(bm.slug);
+      out.push({
+        manga: {
+          slug: bm.slug,
+          id: bm.slug,
+          title: bm.title,
+          coverUrl: bm.coverUrl,
+          status: bm.status || 'ongoing',
+          updateText: bm.cadenceHours ? `Every ${Math.max(1, Math.round(bm.cadenceHours / 24))}d` : 'Tracked schedule',
+          summary: '',
+          genres: [],
+          latestChapter: bm.latestChapterTitle
+            ? { id: bm.latestChapterId || 'c1', num: String(bm.latestChapterNum || ''), title: bm.latestChapterTitle }
+            : undefined,
+          recentChapters: [],
+          altNames: [],
+          authors: [],
+          artists: [],
+          chapters: [],
+          releaseDay: sched.releaseDay,
+        },
+        releaseDay: sched.releaseDay,
+        verified: sched.verified,
+        followed: true,
+        nextReleaseAt: sched.nextReleaseAt,
+        intervalDays: sched.releaseIntervalMs ? Math.max(1, Math.round(sched.releaseIntervalMs / 86_400_000)) : 7,
+      });
+    }
+    return out;
+  }, [catalog, bookmarks]);
+
   const scheduled = useMemo(() => {
-    const withDay = catalog.filter((m) => m.releaseDay);
-    return calendarMode === 'upcoming'
-      ? withDay.filter((m) => m.status.toLowerCase() !== 'completed')
-      : withDay;
-  }, [catalog, calendarMode]);
+    if (calendarMode === 'followed') {
+      const followed = allEntries.filter((e) => e.followed && e.manga.status.toLowerCase() !== 'completed');
+      return followed.length > 0 ? followed : allEntries.filter((e) => e.manga.status.toLowerCase() !== 'completed');
+    }
+    if (calendarMode === 'upcoming') {
+      return allEntries.filter((e) => e.manga.status.toLowerCase() !== 'completed');
+    }
+    return allEntries;
+  }, [allEntries, calendarMode]);
+
   const byDay = useMemo(() => {
-    const map: Record<KatanaWeekday, KatanaManga[]> = {
+    const map: Record<KatanaWeekday, ScheduledCalendarEntry[]> = {
       Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [],
     };
-    for (const m of scheduled) {
-      if (m.releaseDay) map[m.releaseDay].push(m);
+    for (const entry of scheduled) {
+      map[entry.releaseDay].push(entry);
+    }
+    for (const day of WEEKDAYS) {
+      map[day].sort((a, b) => Number(b.followed) - Number(a.followed) || Number(b.verified) - Number(a.verified));
     }
     return map;
   }, [scheduled]);
+
   const [selectedDay, setSelectedDay] = useState<KatanaWeekday>(() => {
-    if (catalog.some((m) => m.releaseDay === today)) return today;
+    if (catalog.some((m) => m.releaseDay === today) || bookmarks.some((b) => b.releaseDay === today)) return today;
     return catalog.find((m) => m.releaseDay)?.releaseDay ?? today;
   });
 
-  if (catalog.every((m) => !m.releaseDay)) return null;
+  if (allEntries.length === 0) return null;
 
   const activeItems = byDay[selectedDay] ?? [];
   const selectedIdx = WEEKDAYS.indexOf(selectedDay);
   const daysAhead = (selectedIdx - todayIdx + 7) % 7;
+  const dueTodayCount = byDay[today]?.length ?? 0;
   const upcomingEtaLabel =
-    daysAhead === 0 ? 'Expected today' : daysAhead === 1 ? 'Expected tomorrow' : `Expected in ${daysAhead}d`;
+    daysAhead === 0
+      ? `${activeItems.length} ${activeItems.length === 1 ? 'series' : 'series'} expected today`
+      : daysAhead === 1
+        ? 'Expected tomorrow'
+        : `Expected in ${daysAhead}d`;
 
   return (
     <section aria-label="Release calendar" style={{ marginTop: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <KatanaSectionHeader
-          title={calendarMode === 'upcoming' ? 'Upcoming Releases' : 'Recently Updated by Day'}
+          title={
+            calendarMode === 'followed'
+              ? 'My Release Schedule'
+              : calendarMode === 'upcoming'
+                ? 'Daily Release Schedule'
+                : 'Recently Updated by Day'
+          }
           badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
         />
         <div
@@ -725,7 +866,8 @@ function ReleaseCalendarRail({
           }}
         >
           {([
-            { key: 'upcoming', label: 'Upcoming' },
+            { key: 'upcoming', label: 'Daily Schedule' },
+            { key: 'followed', label: 'Following' },
             { key: 'recent', label: 'Recent' },
           ] as const).map((m) => {
             const active = calendarMode === m.key;
@@ -754,9 +896,9 @@ function ReleaseCalendarRail({
         </div>
       </div>
       <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
-        {calendarMode === 'upcoming'
-          ? `Estimated weekly cadence for ongoing series · ${upcomingEtaLabel}.`
-          : 'Grouped by each series’ latest catalog update day.'}
+        {calendarMode === 'recent'
+          ? 'Grouped by each series’ latest catalog chapter drop.'
+          : `Synced from chapter release intervals & background Smart Updates · ${upcomingEtaLabel}${dueTodayCount > 0 && selectedDay !== today ? ` (${dueTodayCount} due today)` : ''}.`}
       </div>
       <div style={{ height: 10 }} />
       <div
@@ -856,9 +998,11 @@ function ReleaseCalendarRail({
             gap: 8,
           }}
         >
-          {activeItems.slice(0, 6).map((m) => {
+          {activeItems.slice(0, 6).map((entry) => {
+            const m = entry.manga;
             const unread = unreadBySlug[m.slug] ?? 0;
             const dl = downloadedCounts[m.slug] ?? 0;
+            const isDueToday = selectedDay === today && calendarMode !== 'recent';
             return (
               <button
                 key={m.slug}
@@ -872,7 +1016,7 @@ function ReleaseCalendarRail({
                   padding: 8,
                   borderRadius: 11,
                   background: KatanaColors.surface,
-                  border: `1px solid ${KatanaColors.border}`,
+                  border: `1px solid ${isDueToday && entry.followed ? KatanaColors.accent : KatanaColors.border}`,
                   textAlign: 'left',
                   minHeight: 68,
                 }}
@@ -885,12 +1029,43 @@ function ReleaseCalendarRail({
                     {m.title}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {isDueToday && (
+                      <span
+                        style={{
+                          padding: '1px 6px',
+                          borderRadius: 5,
+                          background: withAlpha(KatanaColors.green, 0.16),
+                          border: `1px solid ${withAlpha(KatanaColors.green, 0.45)}`,
+                          fontFamily: Fonts.body,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: KatanaColors.green,
+                        }}
+                      >
+                        EXPECTED TODAY
+                      </span>
+                    )}
+                    {entry.followed && (
+                      <span
+                        style={{
+                          padding: '1px 6px',
+                          borderRadius: 5,
+                          background: withAlpha(KatanaColors.accent, 0.16),
+                          fontFamily: Fonts.body,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: KatanaColors.accentSoft,
+                        }}
+                      >
+                        {entry.intervalDays ? `Every ${entry.intervalDays}d` : 'Following'}
+                      </span>
+                    )}
                     {m.latestChapter && (
                       <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.link, fontWeight: 600 }}>
                         {chapterDisplayTitle(m.latestChapter)}
                       </span>
                     )}
-                    {m.updateText && (
+                    {m.updateText && !isDueToday && (
                       <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{m.updateText}</span>
                     )}
                   </div>
@@ -1335,7 +1510,7 @@ export function MangaHome({
           title="Pick a random title"
           style={{
             flexShrink: 0,
-            padding: compact ? '0 10px' : '0 14px',
+            padding: compact ? '0 9px' : '0 14px',
             minWidth: 44,
             height: 44,
             borderRadius: 99,
@@ -1344,10 +1519,10 @@ export function MangaHome({
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 5,
+            gap: compact ? 4 : 5,
           }}
         >
-          <Icon name="casino" size={15} color={KatanaColors.accentSoft} />
+          <Icon name="casino" size={compact ? 14 : 15} color={KatanaColors.accentSoft} />
           <span style={{ fontFamily: Fonts.body, fontSize: compact ? 12 : 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>
         </button>
       )}
@@ -2229,6 +2404,7 @@ export function MangaHome({
             {type === 'all' && (
               <ReleaseCalendarRail
                 catalog={allCatalog}
+                bookmarks={libraryBookmarks}
                 unreadBySlug={unreadBySlug}
                 downloadedCounts={downloadedCounts}
                 compact={compact}
@@ -2279,6 +2455,7 @@ export function MangaHome({
               {type === 'all' && (
                 <ReleaseCalendarRail
                   catalog={allCatalog}
+                  bookmarks={libraryBookmarks}
                   unreadBySlug={unreadBySlug}
                   downloadedCounts={downloadedCounts}
                   compact={false}

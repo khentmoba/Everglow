@@ -810,6 +810,7 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       }
     }
     if (files.length === 0) return null;
+    const chapterNumber = (item.chapterId ?? '1').replace(/^c/i, '');
     const manifest = JSON.stringify(
       {
         format: 'mangacelestia-cbz-v1',
@@ -825,6 +826,18 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       null,
       2,
     );
+    const comicInfoXml = [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<ComicInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">',
+      `  <Series>${escapeXmlText(item.title || item.mediaId)}</Series>`,
+      `  <Title>${escapeXmlText(item.subtitle || `Chapter ${chapterNumber}`)}</Title>`,
+      `  <Number>${escapeXmlText(chapterNumber)}</Number>`,
+      `  <PageCount>${files.length}</PageCount>`,
+      '  <Manga>Yes</Manga>',
+      `  <Web>${escapeXmlText(item.mediaId)}</Web>`,
+      '</ComicInfo>',
+    ].join('\n');
+    files.push({ name: 'ComicInfo.xml', data: new TextEncoder().encode(comicInfoXml) });
     files.push({ name: 'comicinfo.json', data: new TextEncoder().encode(manifest) });
     const safeSlug = (item.mediaId || 'manga').replace(/[^a-z0-9_-]+/gi, '-');
     const safeCh = (item.chapterId || 'ch1').replace(/[^a-z0-9._-]+/gi, '-');
@@ -835,16 +848,18 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
   }
 
   /**
-   * Imports a `.cbz` / `.zip` chapter archive back into `everglow-offline-manga-v1` Cache Storage
-   * and registers the offline chapter item so exported chapters can be restored on any device.
+   * Imports a `.cbz` / `.zip` chapter archive (both stored method 0 and DEFLATE method 8,
+   * with `ComicInfo.xml` or `comicinfo.json` metadata) into `everglow-offline-manga-v1`
+   * Cache Storage and registers the offline chapter item.
    */
   async importMangaChapterCbz(file: File): Promise<OfflineMediaItem | null> {
     this.init();
     try {
       const buf = await file.arrayBuffer();
-      const entries = parseStoreZipEntries(buf);
+      const entries = await parseZipEntries(buf);
       if (entries.length === 0) return null;
       const manifestEntry = entries.find((e) => e.name.toLowerCase().endsWith('comicinfo.json'));
+      const xmlEntry = entries.find((e) => e.name.toLowerCase().endsWith('comicinfo.xml'));
       let meta: {
         slug?: string;
         title?: string;
@@ -858,6 +873,8 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
         } catch {
           meta = {};
         }
+      } else if (xmlEntry) {
+        meta = parseComicInfoXml(new TextDecoder().decode(xmlEntry.data));
       }
       const imageEntries = entries
         .filter((e) => /\.(jpe?g|png|webp)$/i.test(e.name))
@@ -984,10 +1001,112 @@ function buildStoreZipBlob(files: Array<{ name: string; data: Uint8Array }>): Bl
   return new Blob([...localParts, ...centralParts, eocd] as BlobPart[], { type: 'application/vnd.comicbook+zip' });
 }
 
-function parseStoreZipEntries(buf: ArrayBuffer): Array<{ name: string; data: Uint8Array }> {
+function escapeXmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function unescapeXmlText(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function parseComicInfoXml(xml: string): {
+  slug?: string;
+  title?: string;
+  subtitle?: string;
+  chapterId?: string;
+} {
+  const tag = (name: string): string | undefined => {
+    const m = new RegExp(`<${name}[^>]*>([\\s\\S]*?)<\\/${name}>`, 'i').exec(xml);
+    return m ? unescapeXmlText(m[1].trim()) : undefined;
+  };
+  const series = tag('Series');
+  const title = tag('Title');
+  const num = tag('Number');
+  const web = tag('Web');
+  return {
+    slug: web && !/^https?:\/\//i.test(web) ? web : series?.toLowerCase().replace(/[^a-z0-9_-]+/g, '-'),
+    title: series || title,
+    subtitle: title || (num ? `Chapter ${num}` : undefined),
+    chapterId: num ? (num.startsWith('c') ? num : `c${num}`) : undefined,
+  };
+}
+
+async function inflateDeflateRaw(compressed: Uint8Array): Promise<Uint8Array | null> {
+  if (typeof DecompressionStream === 'undefined') return null;
+  try {
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    void writer.write(compressed as unknown as BufferSource);
+    void writer.close();
+    const ab = await new Response(ds.readable).arrayBuffer();
+    return new Uint8Array(ab);
+  } catch {
+    return null;
+  }
+}
+
+async function decodeZipEntryPayload(
+  buf: ArrayBuffer,
+  method: number,
+  dataStart: number,
+  compSize: number,
+): Promise<Uint8Array | null> {
+  if (compSize <= 0 || dataStart < 0 || dataStart + compSize > buf.byteLength) return null;
+  const slice = new Uint8Array(buf.slice(dataStart, dataStart + compSize));
+  if (method === 0) return slice;
+  if (method === 8) return inflateDeflateRaw(slice);
+  return null;
+}
+
+async function parseZipEntries(buf: ArrayBuffer): Promise<Array<{ name: string; data: Uint8Array }>> {
   const view = new DataView(buf);
   const dec = new TextDecoder();
   const out: Array<{ name: string; data: Uint8Array }> = [];
+
+  // Prefer Central Directory when present (handles DEFLATE + streaming data descriptors).
+  const minEocdOffset = Math.max(0, buf.byteLength - 65557);
+  let eocdPos = -1;
+  for (let p = buf.byteLength - 22; p >= minEocdOffset; p--) {
+    if (view.getUint32(p, true) === 0x06054b50) {
+      eocdPos = p;
+      break;
+    }
+  }
+  if (eocdPos >= 0) {
+    const totalEntries = view.getUint16(eocdPos + 10, true);
+    let cdPos = view.getUint32(eocdPos + 16, true);
+    for (let i = 0; i < totalEntries && cdPos + 46 <= buf.byteLength; i++) {
+      if (view.getUint32(cdPos, true) !== 0x02014b50) break;
+      const method = view.getUint16(cdPos + 10, true);
+      const compSize = view.getUint32(cdPos + 20, true);
+      const nameLen = view.getUint16(cdPos + 28, true);
+      const extraLen = view.getUint16(cdPos + 30, true);
+      const commentLen = view.getUint16(cdPos + 32, true);
+      const localOffset = view.getUint32(cdPos + 42, true);
+      const name = dec.decode(new Uint8Array(buf, cdPos + 46, nameLen));
+      if (localOffset + 30 <= buf.byteLength && view.getUint32(localOffset, true) === 0x04034b50) {
+        const localNameLen = view.getUint16(localOffset + 26, true);
+        const localExtraLen = view.getUint16(localOffset + 28, true);
+        const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+        const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize);
+        if (decoded) out.push({ name, data: decoded });
+      }
+      cdPos += 46 + nameLen + extraLen + commentLen;
+    }
+    if (out.length > 0) return out;
+  }
+
+  // Fallback: walk Local File Headers sequentially.
   let pos = 0;
   while (pos + 30 <= buf.byteLength) {
     const sig = view.getUint32(pos, true);
@@ -1000,9 +1119,8 @@ function parseStoreZipEntries(buf: ArrayBuffer): Array<{ name: string; data: Uin
     const dataStart = nameStart + nameLen + extraLen;
     if (dataStart + compSize > buf.byteLength) break;
     const name = dec.decode(new Uint8Array(buf, nameStart, nameLen));
-    if (method === 0 && compSize > 0) {
-      out.push({ name, data: new Uint8Array(buf.slice(dataStart, dataStart + compSize)) });
-    }
+    const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize);
+    if (decoded) out.push({ name, data: decoded });
     pos = dataStart + compSize;
   }
   return out;

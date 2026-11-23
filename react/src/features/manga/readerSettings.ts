@@ -125,10 +125,10 @@ export interface PageBookmark {
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   readingMode: 'auto-rtl',
-  fitMode: 'fit-screen',
+  fitMode: 'smart-fit',
   fitByMode: {
     webtoon: 'fit-width',
-    single: 'fit-screen',
+    single: 'smart-fit',
     double: 'fit-screen',
     strip: 'fit-height',
   },

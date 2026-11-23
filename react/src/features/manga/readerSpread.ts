@@ -308,23 +308,51 @@ export function computePinchAnchoredPan(
 
 export type SeriesReadingFormat = 'webtoon' | 'manga' | 'comic';
 
-/** Infers reading direction/format from series genres/tags so manhwa opens as webtoon and manga opens RTL. */
+const PERSISTED_SERIES_FORMAT_PREFIX = 'katana.series.format.v1.';
+
+export function loadPersistedSeriesFormat(slug?: string): SeriesReadingFormat | undefined {
+  if (!slug || typeof localStorage === 'undefined') return undefined;
+  try {
+    const raw = localStorage.getItem(`${PERSISTED_SERIES_FORMAT_PREFIX}${slug}`);
+    if (raw === 'webtoon' || raw === 'manga' || raw === 'comic') return raw;
+  } catch {
+    // ignore storage errors
+  }
+  return undefined;
+}
+
+export function savePersistedSeriesFormat(slug: string, format: SeriesReadingFormat): void {
+  if (!slug || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(`${PERSISTED_SERIES_FORMAT_PREFIX}${slug}`, format);
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+/** Infers reading direction/format from persisted format, series genres/tags, altNames, or Korean/Chinese scripts so manhwa opens as webtoon and manga opens RTL. */
 export function inferSeriesReadingFormat(
   genres?: readonly string[],
   title?: string,
   demographic?: string,
+  altNames?: readonly string[],
+  slug?: string,
 ): SeriesReadingFormat {
-  const tokens = [
-    ...(genres ?? []),
-    demographic ?? '',
-    title ?? '',
-  ]
-    .join(' ')
-    .toLowerCase();
-  if (/\b(manhwa|manhua|webtoon|long\s*strip|web\s*comic)\b/.test(tokens)) {
+  const persisted = loadPersistedSeriesFormat(slug);
+  if (persisted) return persisted;
+  const rawText = [...(genres ?? []), ...(altNames ?? []), demographic ?? '', title ?? '', slug ?? ''].join(' ');
+  const tokens = rawText.toLowerCase();
+  // Hangul script or explicit Korean/Chinese/webtoon/long-strip indicators
+  if (
+    /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/.test(rawText) ||
+    /\b(manhwa|manhua|webtoon|long\s*strip|web\s*comic|korean|full\s*color|vertical\s*scroll|murim|cultivation)\b/.test(tokens) ||
+    /\b[a-z]+-ui\b/.test(tokens)
+  ) {
+    if (slug) savePersistedSeriesFormat(slug, 'webtoon');
     return 'webtoon';
   }
   if (/\b(comic|western|graphic\s*novel)\b/.test(tokens)) {
+    if (slug) savePersistedSeriesFormat(slug, 'comic');
     return 'comic';
   }
   return 'manga';
