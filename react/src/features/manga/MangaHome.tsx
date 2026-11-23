@@ -336,7 +336,7 @@ function FeaturedHero({
               onClick={() => onSelectManga(featured.slug)}
             />
             {!desktop && candidates.length > 1 && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginLeft: 4 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 0, marginLeft: 2 }}>
                 {candidates.map((c, i) => (
                   <button
                     key={c.slug}
@@ -346,8 +346,9 @@ function FeaturedHero({
                     aria-pressed={i === index}
                     onClick={() => setIndex(i)}
                     style={{
-                      minWidth: 24,
-                      minHeight: 24,
+                      minWidth: 40,
+                      minHeight: 40,
+                      margin: '0 -4px',
                       padding: 0,
                       display: 'inline-flex',
                       alignItems: 'center',

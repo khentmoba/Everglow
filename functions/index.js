@@ -52,6 +52,8 @@ const { motchiStats } = require('./motchi_stats.js');
 exports.motchiStats = motchiStats;
 const { sweepApiUsageAnomalies } = require('./usage_alerts.js');
 exports.sweepApiUsageAnomalies = sweepApiUsageAnomalies;
+const { checkMangaUpdates } = require('./manga_updates.js');
+exports.checkMangaUpdates = checkMangaUpdates;
 const {
   motchiDailyDigest,
   motchiNightRecap,

@@ -50,6 +50,7 @@ import {
   importKatanaLibraryMalXml,
   isBookmarkCaughtUp,
   loadKatanaAlertPrefs,
+  loadKatanaUserPrefs,
   loadKatanaAutoDownloadCount,
   loadKatanaCustomCategories,
   loadKatanaHiddenCategories,
@@ -124,6 +125,43 @@ function loadWifiOnlyDownloads(): boolean {
   } catch {
     return false;
   }
+}
+
+const PENDING_DL_QUEUE_KEY = 'katana_pending_dl_queue_v1';
+
+interface PersistedQueueEntry {
+  manga: KatanaManga;
+  chapter: KatanaChapter;
+}
+
+function loadPendingDownloadQueue(): PersistedQueueEntry[] {
+  try {
+    const raw = localStorage.getItem(PENDING_DL_QUEUE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (x): x is PersistedQueueEntry =>
+        Boolean(x && x.manga && typeof x.manga.slug === 'string' && x.chapter && typeof x.chapter.id === 'string'),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function savePendingDownloadQueue(items: PersistedQueueEntry[]): void {
+  try {
+    if (items.length === 0) localStorage.removeItem(PENDING_DL_QUEUE_KEY);
+    else localStorage.setItem(PENDING_DL_QUEUE_KEY, JSON.stringify(items.slice(0, 60)));
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+function supportsNetworkConnectionApi(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator as Navigator & { connection?: { type?: string; saveData?: boolean } };
+  return Boolean(nav.connection);
 }
 
 function isOnMeteredCellular(): boolean {
@@ -344,6 +382,9 @@ export function MangaPage() {
   const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => loadKatanaHiddenCategories(currentUser ?? ''));
   const [showHiddenCategories, setShowHiddenCategories] = useState(false);
   const [autoDownloadNext, setAutoDownloadNext] = useState<number>(() => loadKatanaAutoDownloadCount());
+  const [autoDownloadCategories, setAutoDownloadCategories] = useState<string[]>(
+    () => loadKatanaUserPrefs(currentUser ?? '').autoDownloadCategories ?? [],
+  );
   const [libraryStatsOpen, setLibraryStatsOpen] = useState(false);
   const [alertPrefs, setAlertPrefs] = useState<KatanaAlertPrefs>(() => loadKatanaAlertPrefs(currentUser ?? ''));
   const [previewPages, setPreviewPages] = useState<{ slug: string; chapterId: string; chapterTitle: string; urls: string[] } | null>(null);
@@ -352,6 +393,8 @@ export function MangaPage() {
   const [downloadQueue, setDownloadQueue] = useState<Array<{ manga: KatanaManga; chapter: KatanaChapter }>>([]);
   const downloadQueueRef = useRef<Array<{ manga: KatanaManga; chapter: KatanaChapter }>>([]);
   const filterSheetRef = useRef<HTMLDivElement>(null);
+  const libraryToolsSheetRef = useRef<HTMLDivElement>(null);
+  const detailActionsRef = useRef<HTMLDivElement>(null);
 
   const userName = currentUser ?? '';
   const syncedCategories = useSource(() => watchKatanaCustomCategories(userName), [userName], localCategories);
@@ -366,6 +409,7 @@ export function MangaPage() {
     setAlertPrefs(syncedUserPrefs.alertPrefs);
     setDownloadWifiOnly(syncedUserPrefs.wifiOnlyDownloads);
     setAutoDownloadNext(syncedUserPrefs.autoDownloadNext);
+    setAutoDownloadCategories(syncedUserPrefs.autoDownloadCategories ?? []);
     if (syncedUserPrefs.themeMode) {
       setThemeMode(syncedUserPrefs.themeMode);
       saveKatanaThemeMode(syncedUserPrefs.themeMode);
@@ -423,6 +467,44 @@ export function MangaPage() {
     };
   }, [filterOpen]);
 
+  // Library Tools sheet accessibility: Escape-to-close + Tab focus trap + focus restoration.
+  useEffect(() => {
+    if (!libraryToolsOpen) return;
+    const prevFocused = document.activeElement as HTMLElement | null;
+    const sheet = libraryToolsSheetRef.current;
+    const focusables = () =>
+      Array.from(
+        sheet?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    focusables()[0]?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setLibraryToolsOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const nodes = focusables();
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      prevFocused?.focus?.();
+    };
+  }, [libraryToolsOpen]);
+
   useEffect(() => {
     if (!statusMenuOpen && !detailOverflowOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -431,8 +513,18 @@ export function MangaPage() {
         setDetailOverflowOpen(false);
       }
     };
+    const onPointerDown = (e: PointerEvent) => {
+      if (detailActionsRef.current && !detailActionsRef.current.contains(e.target as Node)) {
+        setStatusMenuOpen(false);
+        setDetailOverflowOpen(false);
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onPointerDown);
+    };
   }, [statusMenuOpen, detailOverflowOpen]);
 
   const themeLabel = (mode: KatanaThemeMode) =>
@@ -475,6 +567,14 @@ export function MangaPage() {
     saveKatanaAutoDownloadCount(count);
     if (userName) saveKatanaUserPrefs(userName, { autoDownloadNext: count });
     showSnackBar(count === 0 ? 'Auto-download turned off' : `Auto-download next ${count} unread chapters enabled`);
+  };
+
+  const toggleAutoDownloadCategory = (category: string) => {
+    setAutoDownloadCategories((prev) => {
+      const next = prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category];
+      if (userName) saveKatanaUserPrefs(userName, { autoDownloadCategories: next });
+      return next;
+    });
   };
 
   const syncSeriesWithMal = async (manga: KatanaManga, explicitMalId?: string) => {
@@ -613,13 +713,24 @@ export function MangaPage() {
     setCatLoading(true);
     setCatError(undefined);
     if (catalogSource === 'mangadex' && (catalogMode === 'search' || catalogMode === 'directory')) {
-      searchMangaDexCatalog(searchQuery).then((items) => {
+      searchMangaDexCatalog({
+        query: searchQuery,
+        page: catPage,
+        status: statusFilter,
+        demographic: demographicFilter,
+        orderBy,
+        include: includeGenres,
+        exclude: excludeGenres,
+        genreMode,
+        chapters: minChapters,
+        author: authorFilter,
+      }).then((res) => {
         if (!alive) return;
-        setCatItems(items);
-        setCatHasNext(false);
-        setCatTotalPages(1);
-        setCatTotalResults(items.length);
-        setCatError(undefined);
+        setCatItems(res.items);
+        setCatHasNext(res.hasNext);
+        setCatTotalPages(res.totalPages);
+        setCatTotalResults(res.totalResults);
+        setCatError(res.error);
         setCatLoading(false);
       });
       return () => {
@@ -1169,6 +1280,7 @@ export function MangaPage() {
     cur.splice(target, 0, moved);
     downloadQueueRef.current = cur;
     setDownloadQueue(cur);
+    savePendingDownloadQueue(cur);
   }, []);
 
   const removeDownloadQueueItem = useCallback((index: number) => {
@@ -1177,7 +1289,55 @@ export function MangaPage() {
     cur.splice(index, 1);
     downloadQueueRef.current = cur;
     setDownloadQueue(cur);
+    savePendingDownloadQueue(cur);
   }, []);
+
+  const runDownloadQueue = useCallback(
+    async (initialQueue: PersistedQueueEntry[]) => {
+      const pending = initialQueue.filter(
+        (item) => !offlineMedia.isDownloaded(OfflineIds.mangaChapterId(item.manga.slug, item.chapter.id)),
+      );
+      if (pending.length === 0) {
+        savePendingDownloadQueue([]);
+        return;
+      }
+      downloadCancelRef.current = false;
+      downloadQueueRef.current = pending;
+      setDownloadQueue(pending);
+      savePendingDownloadQueue(pending);
+      const total = pending.length;
+      setBatchProgress({ done: 0, total, currentTitle: chapterDisplayTitle(pending[0].chapter) });
+      let saved = 0;
+      while (downloadQueueRef.current.length > 0) {
+        if (downloadCancelRef.current) break;
+        const [nextItem, ...rest] = downloadQueueRef.current;
+        downloadQueueRef.current = rest;
+        setDownloadQueue(rest);
+        savePendingDownloadQueue([nextItem, ...rest]);
+        setBatchProgress({ done: saved, total: saved + 1 + rest.length, currentTitle: chapterDisplayTitle(nextItem.chapter) });
+        await downloadChapter(nextItem.manga, nextItem.chapter, true);
+        saved += 1;
+        savePendingDownloadQueue(downloadQueueRef.current);
+        setBatchProgress({
+          done: saved,
+          total: saved + downloadQueueRef.current.length,
+          currentTitle: downloadQueueRef.current[0] ? chapterDisplayTitle(downloadQueueRef.current[0].chapter) : undefined,
+        });
+      }
+      const wasCancelled = downloadCancelRef.current;
+      downloadCancelRef.current = false;
+      downloadQueueRef.current = [];
+      setDownloadQueue([]);
+      savePendingDownloadQueue([]);
+      setBatchProgress(null);
+      showSnackBar(
+        wasCancelled
+          ? `Stopped after saving ${saved} of ${total} chapters`
+          : `Saved ${saved} ${saved === 1 ? 'chapter' : 'chapters'} offline`,
+      );
+    },
+    [downloadChapter],
+  );
 
   const downloadBatchChapters = useCallback(
     async (manga: KatanaManga, chapters: KatanaChapter[]) => {
@@ -1190,40 +1350,21 @@ export function MangaPage() {
         showSnackBar('Selected chapters are already saved offline');
         return;
       }
-      downloadCancelRef.current = false;
-      const initialQueue = targets.map((chapter) => ({ manga, chapter }));
-      downloadQueueRef.current = initialQueue;
-      setDownloadQueue(initialQueue);
-      const total = initialQueue.length;
-      setBatchProgress({ done: 0, total, currentTitle: chapterDisplayTitle(initialQueue[0].chapter) });
-      let saved = 0;
-      while (downloadQueueRef.current.length > 0) {
-        if (downloadCancelRef.current) break;
-        const [nextItem, ...rest] = downloadQueueRef.current;
-        downloadQueueRef.current = rest;
-        setDownloadQueue(rest);
-        setBatchProgress({ done: saved, total: saved + 1 + rest.length, currentTitle: chapterDisplayTitle(nextItem.chapter) });
-        await downloadChapter(nextItem.manga, nextItem.chapter, true);
-        saved += 1;
-        setBatchProgress({
-          done: saved,
-          total: saved + downloadQueueRef.current.length,
-          currentTitle: downloadQueueRef.current[0] ? chapterDisplayTitle(downloadQueueRef.current[0].chapter) : undefined,
-        });
-      }
-      const wasCancelled = downloadCancelRef.current;
-      downloadCancelRef.current = false;
-      downloadQueueRef.current = [];
-      setDownloadQueue([]);
-      setBatchProgress(null);
-      showSnackBar(
-        wasCancelled
-          ? `Stopped after saving ${saved} of ${total} chapters`
-          : `Saved ${saved} ${saved === 1 ? 'chapter' : 'chapters'} offline`,
-      );
+      await runDownloadQueue(targets.map((chapter) => ({ manga, chapter })));
     },
-    [downloadChapter, downloadWifiOnly],
+    [downloadWifiOnly, runDownloadQueue],
   );
+
+  // Resume any unfinished queued downloads saved before a tab close or reload.
+  const resumedQueueRef = useRef(false);
+  useEffect(() => {
+    if (resumedQueueRef.current || batchProgress != null) return;
+    resumedQueueRef.current = true;
+    const saved = loadPendingDownloadQueue();
+    if (saved.length === 0) return;
+    if (downloadWifiOnly && isOnMeteredCellular()) return;
+    void runDownloadQueue(saved);
+  }, [batchProgress, downloadWifiOnly, runDownloadQueue]);
 
   const autoDownloadedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1231,6 +1372,10 @@ export function MangaPage() {
     if (downloadWifiOnly && isOnMeteredCellular()) return;
     const bm = bookmarks.find((b) => b.slug === detail.slug);
     if (!bm?.bookmarked) return;
+    if (autoDownloadCategories.length > 0) {
+      const bmCats = bm.categories ?? [];
+      if (!bmCats.some((c) => autoDownloadCategories.includes(c))) return;
+    }
     if (autoDownloadedRef.current.has(detail.slug)) return;
     const readIds = new Set(bm.readChapterIds ?? []);
     const oldestFirst = [...detail.chapters].reverse();
@@ -1240,7 +1385,7 @@ export function MangaPage() {
     if (targets.length === 0) return;
     autoDownloadedRef.current.add(detail.slug);
     void downloadBatchChapters(detail, targets);
-  }, [detail, autoDownloadNext, batchProgress, downloadWifiOnly, bookmarks, downloadBatchChapters]);
+  }, [detail, autoDownloadNext, autoDownloadCategories, batchProgress, downloadWifiOnly, bookmarks, downloadBatchChapters]);
 
   const downloadNextUnread = useCallback(
     async (manga: KatanaManga, readIds: Set<string>, count: number) => {
@@ -1881,9 +2026,10 @@ export function MangaPage() {
                                 />
                               )}
                               <div
+                                ref={detailActionsRef}
                                 style={{
                                   display: 'flex',
-                                  gap: compactCard ? 4 : 6,
+                                  gap: compactCard ? 6 : 6,
                                   alignItems: 'center',
                                   flexWrap: compactCard ? 'nowrap' : 'wrap',
                                   position: 'relative',
@@ -1898,10 +2044,10 @@ export function MangaPage() {
                                   aria-pressed={isBookmarked}
                                   onClick={() => void setKatanaBookmark(detail, userName, !isBookmarked)}
                                   style={{
-                                    flex: compactCard ? '1 1 0' : undefined,
+                                    flex: compactCard ? '0 0 auto' : undefined,
                                     minWidth: 0,
                                     height: 38,
-                                    padding: compactCard ? '0 6px' : '0 12px',
+                                    padding: compactCard ? '0 10px' : '0 12px',
                                     borderRadius: 8,
                                     background: isBookmarked ? withAlpha(KatanaColors.green, 0.14) : KatanaColors.surfaceAlt,
                                     border: `1px solid ${isBookmarked ? withAlpha(KatanaColors.green, 0.5) : KatanaColors.borderStrong}`,
@@ -1921,7 +2067,7 @@ export function MangaPage() {
                                   <span className="ellipsis">{isBookmarked ? 'Saved' : 'Save'}</span>
                                 </button>
                                 {userName && (
-                                  <div style={{ position: 'relative', flex: compactCard ? '1 1 0' : undefined, minWidth: 0 }}>
+                                  <div style={{ position: 'relative', flex: compactCard ? '1 1 auto' : undefined, minWidth: 0 }}>
                                     <button
                                       type="button"
                                       className="bare-button"
@@ -1935,27 +2081,29 @@ export function MangaPage() {
                                         width: compactCard ? '100%' : undefined,
                                         minWidth: 0,
                                         height: 38,
-                                        padding: compactCard ? '0 6px' : '0 12px',
+                                        padding: compactCard ? '0 8px' : '0 12px',
                                         borderRadius: 8,
                                         background: statusMenuOpen || isBookmarked ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                                         border: `1px solid ${statusMenuOpen || isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: 3,
+                                        gap: 4,
                                         fontFamily: Fonts.body,
-                                        fontSize: compactCard ? 11.5 : 12,
+                                        fontSize: compactCard ? 12 : 12,
                                         fontWeight: 600,
                                         color: KatanaColors.text,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                       }}
                                     >
-                                      <Icon
-                                        name={currentStatus ? STATUS_LABELS[currentStatus].icon : 'shelves'}
-                                        size={14}
-                                        color={currentStatus ? STATUS_LABELS[currentStatus].color : KatanaColors.textMuted}
-                                      />
+                                      {!compactCard && (
+                                        <Icon
+                                          name={currentStatus ? STATUS_LABELS[currentStatus].icon : 'shelves'}
+                                          size={14}
+                                          color={currentStatus ? STATUS_LABELS[currentStatus].color : KatanaColors.textMuted}
+                                        />
+                                      )}
                                       <span className="ellipsis">
                                         {isBookmarked && currentStatus
                                           ? compactCard
@@ -2063,7 +2211,7 @@ export function MangaPage() {
                                     )}
                                   </div>
                                 )}
-                                {detail.chapters.length > 0 && (
+                                {!compactCard && detail.chapters.length > 0 && (
                                   <button
                                     type="button"
                                     className="bare-button"
@@ -2073,8 +2221,7 @@ export function MangaPage() {
                                     onClick={() => void downloadNextUnread(detail, readSet, 3)}
                                     style={{
                                       height: 38,
-                                      width: compactCard ? 36 : undefined,
-                                      padding: compactCard ? 0 : '0 12px',
+                                      padding: '0 12px',
                                       borderRadius: 8,
                                       background: KatanaColors.surfaceAlt,
                                       border: `1px solid ${KatanaColors.borderStrong}`,
@@ -2091,9 +2238,7 @@ export function MangaPage() {
                                     }}
                                   >
                                     <Icon name="download" size={16} color={KatanaColors.link} />
-                                    {!compactCard && (
-                                      <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
-                                    )}
+                                    <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
                                   </button>
                                 )}
                                 {!compactCard && userName && (
@@ -3264,11 +3409,14 @@ export function MangaPage() {
                                           </span>
                                         )}
                                       </div>
-                                      {compactCard && (c.updateAt || isOffline) && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                                      {compactCard && (c.updateAt || isOffline || true) && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                                           {c.updateAt && (
                                             <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{formatKatanaTime(c.updateAt)}</span>
                                           )}
+                                          <span style={{ ...KatanaType.small, fontSize: 10.5, color: KatanaColors.textLight }}>
+                                            {c.updateAt ? '· MangaKatana' : 'MangaKatana'}
+                                          </span>
                                           {isOffline && (
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: Fonts.body, fontSize: 11, fontWeight: 600, color: KatanaColors.green }}>
                                               <Icon name="download_done" size={13} color={KatanaColors.green} />
@@ -3278,9 +3426,9 @@ export function MangaPage() {
                                         </div>
                                       )}
                                     </div>
-                                    {!compactCard && c.updateAt && (
+                                    {!compactCard && (
                                       <span style={{ ...KatanaType.small, fontSize: 11.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                        {formatKatanaTime(c.updateAt)}
+                                        {c.updateAt ? `${formatKatanaTime(c.updateAt)} · MangaKatana` : 'MangaKatana'}
                                       </span>
                                     )}
                                   </button>
@@ -3779,6 +3927,7 @@ export function MangaPage() {
                     }}
                   >
                     <div
+                      ref={libraryToolsSheetRef}
                       style={{
                         width: '100%',
                         maxWidth: 540,
@@ -4947,11 +5096,32 @@ export function MangaPage() {
                       size="sm"
                       filled={false}
                       color={KatanaColors.textMuted}
-                      onClick={() => {
-                        clearKatanaHistory(userName);
-                        setHistoryEntries([]);
-                        showSnackBar('Cleared reading history');
-                      }}
+                      onClick={() =>
+                        void showDialog<void>((close) => (
+                          <AlertDialog
+                            background={KatanaColors.surface}
+                            title={<div style={KatanaType.title}>Clear Reading History</div>}
+                            content={<div style={KatanaType.small}>Remove all entries from your reading history? Your saved library bookmarks stay intact.</div>}
+                            actions={[
+                              <TextButton key="cancel" onPressed={() => close(null)} color={KatanaColors.textMuted}>
+                                Cancel
+                              </TextButton>,
+                              <TextButton
+                                key="clear"
+                                color="#FF453A"
+                                onPressed={() => {
+                                  close(null);
+                                  clearKatanaHistory(userName);
+                                  setHistoryEntries([]);
+                                  showSnackBar('Cleared reading history');
+                                }}
+                              >
+                                Clear History
+                              </TextButton>,
+                            ]}
+                          />
+                        ))
+                      }
                     />
                   ) : tab === 'reading' && isCoupleUser && partnerUsername ? (
                     <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
@@ -5150,6 +5320,9 @@ export function MangaPage() {
                 onToggleWifiOnly={toggleDownloadWifiOnly}
                 autoDownloadNext={autoDownloadNext}
                 onChangeAutoDownloadNext={updateAutoDownloadNext}
+                autoDownloadCategories={autoDownloadCategories}
+                allCategories={customCategories}
+                onToggleAutoDownloadCategory={toggleAutoDownloadCategory}
                 batchProgress={batchProgress}
                 downloadQueue={downloadQueue}
                 onMoveQueueItem={moveDownloadQueueItem}
@@ -5590,6 +5763,9 @@ function KatanaDownloadsView({
   onToggleWifiOnly,
   autoDownloadNext,
   onChangeAutoDownloadNext,
+  autoDownloadCategories,
+  allCategories,
+  onToggleAutoDownloadCategory,
   batchProgress,
   downloadQueue,
   onMoveQueueItem,
@@ -5608,6 +5784,9 @@ function KatanaDownloadsView({
   onToggleWifiOnly: () => void;
   autoDownloadNext: number;
   onChangeAutoDownloadNext: (count: number) => void;
+  autoDownloadCategories: string[];
+  allCategories: string[];
+  onToggleAutoDownloadCategory: (category: string) => void;
   batchProgress: { done: number; total: number; currentTitle?: string } | null;
   downloadQueue: Array<{ manga: KatanaManga; chapter: KatanaChapter }>;
   onMoveQueueItem: (index: number, delta: -1 | 1) => void;
@@ -5712,11 +5891,18 @@ function KatanaDownloadsView({
       <div style={{ height: 14 }} />
       <KatanaCard padding={12} radius={10} style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="wifi" size={18} color={wifiOnly ? KatanaColors.green : KatanaColors.textMuted} />
-            <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 600 }}>
-              Wi-Fi only — {wifiOnly ? 'On' : 'Off'}
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="wifi" size={18} color={wifiOnly ? KatanaColors.green : KatanaColors.textMuted} />
+              <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 600 }}>
+                Wi-Fi only — {wifiOnly ? 'On' : 'Off'}
+              </span>
+            </div>
+            {!supportsNetworkConnectionApi() && (
+              <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
+                Your browser (e.g. iOS Safari) does not expose Wi-Fi vs. cellular status to web apps; this setting applies automatically on supported browsers.
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -5795,6 +5981,38 @@ function KatanaDownloadsView({
             })}
           </div>
         </div>
+        {autoDownloadNext > 0 && allCategories.length > 0 && (
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
+              Categories ({autoDownloadCategories.length === 0 ? 'All followed' : `${autoDownloadCategories.length} selected`}):
+            </span>
+            {allCategories.map((cat) => {
+              const active = autoDownloadCategories.includes(cat);
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  className="bare-button"
+                  aria-pressed={active}
+                  onClick={() => onToggleAutoDownloadCategory(cat)}
+                  style={{
+                    minHeight: 30,
+                    padding: '3px 9px',
+                    borderRadius: 99,
+                    background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                    border: `1px solid ${active ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                    fontFamily: Fonts.body,
+                    fontSize: 11.5,
+                    fontWeight: active ? 700 : 500,
+                    color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                  }}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {batchProgress && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}` }}>
             {downloadQueue.length > 0 && (
@@ -5824,9 +6042,9 @@ function KatanaDownloadsView({
                       aria-label={`Move ${chapterDisplayTitle(q.chapter)} up`}
                       disabled={idx === 0}
                       onClick={() => onMoveQueueItem(idx, -1)}
-                      style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
+                      style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
                     >
-                      <Icon name="arrow_upward" size={15} color={KatanaColors.textMuted} />
+                      <Icon name="arrow_upward" size={16} color={KatanaColors.textMuted} />
                     </button>
                     <button
                       type="button"
@@ -5834,18 +6052,18 @@ function KatanaDownloadsView({
                       aria-label={`Move ${chapterDisplayTitle(q.chapter)} down`}
                       disabled={idx === downloadQueue.length - 1}
                       onClick={() => onMoveQueueItem(idx, 1)}
-                      style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', opacity: idx === downloadQueue.length - 1 ? 0.35 : 1 }}
+                      style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', opacity: idx === downloadQueue.length - 1 ? 0.35 : 1 }}
                     >
-                      <Icon name="arrow_downward" size={15} color={KatanaColors.textMuted} />
+                      <Icon name="arrow_downward" size={16} color={KatanaColors.textMuted} />
                     </button>
                     <button
                       type="button"
                       className="bare-button"
                       aria-label={`Remove ${chapterDisplayTitle(q.chapter)} from queue`}
                       onClick={() => onRemoveQueueItem(idx)}
-                      style={{ width: 28, height: 28, display: 'grid', placeItems: 'center' }}
+                      style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}
                     >
-                      <Icon name="close" size={15} color={KatanaColors.crimson} />
+                      <Icon name="close" size={16} color={KatanaColors.crimson} />
                     </button>
                   </div>
                 ))}
@@ -5953,7 +6171,7 @@ function KatanaDownloadsView({
               </div>
             )}
             <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
-              Queued downloads run while Manga Celestia stays open in your browser.
+              Pending downloads save automatically and resume next time you open Manga Celestia.
             </div>
           </KatanaCard>
 

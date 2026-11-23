@@ -804,6 +804,8 @@ export async function fetchKatanaHome(): Promise<KatanaHomeData> {
         sourceLabel: 'MangaKatana',
       };
     }
+    const mdFallback = await buildMangaDexHomeFallback();
+    if (mdFallback) return mdFallback;
     const cached = loadHomeCache();
     if (cached) {
       return { ...cached, error: 'Live catalog refresh failed — showing your last cached list.' };
@@ -816,16 +818,59 @@ export async function fetchKatanaHome(): Promise<KatanaHomeData> {
   const hot = hotIdx >= 0 ? items(blocksOfClass(html, 'item', hotIdx)) : [];
   const hotUpdateIdx = html.indexOf('id="hot_update"');
   const hotUpdateEnd = hotUpdateIdx >= 0 ? html.indexOf('id="wrap_content"', hotUpdateIdx) : -1;
+  const hotUpdates = hotUpdateIdx >= 0 ? items(blocksOfClass(html, 'item', hotUpdateIdx, hotUpdateEnd)) : [];
+  const parsedGenres = parseGenres(html);
+  if (latest.length === 0 && hot.length === 0 && !AgentMode.demo) {
+    const mdFallback = await buildMangaDexHomeFallback();
+    if (mdFallback) {
+      return {
+        ...mdFallback,
+        genres: parsedGenres.length > 0 ? parsedGenres : mdFallback.genres,
+      };
+    }
+    const cached = loadHomeCache();
+    if (cached) {
+      return { ...cached, error: 'Primary catalog returned empty — showing your last cached list.' };
+    }
+  }
   const result: KatanaHomeData = {
-    hotUpdates: hotUpdateIdx >= 0 ? items(blocksOfClass(html, 'item', hotUpdateIdx, hotUpdateEnd)) : [],
+    hotUpdates,
     latest,
     hot,
-    genres: parseGenres(html),
+    genres: parsedGenres,
     fetchedAt: Date.now(),
     sourceLabel: 'MangaKatana',
   };
   saveHomeCache(result);
   return result;
+}
+
+async function buildMangaDexHomeFallback(): Promise<KatanaHomeData | null> {
+  try {
+    const [popularRes, latestRes] = await Promise.all([
+      searchMangaDexCatalog({ orderBy: 'popular', page: 1 }),
+      searchMangaDexCatalog({ orderBy: 'latest', page: 1 }),
+    ]);
+    if (popularRes.items.length === 0 && latestRes.items.length === 0) return null;
+    const hot = popularRes.items.length > 0 ? popularRes.items : latestRes.items;
+    const latest = latestRes.items.length > 0 ? latestRes.items : popularRes.items;
+    const genreMap = new Map<string, KatanaGenre>();
+    for (const m of [...hot, ...latest]) {
+      for (const g of m.genres) {
+        if (!genreMap.has(g.slug)) genreMap.set(g.slug, g);
+      }
+    }
+    return {
+      hotUpdates: hot.slice(0, 8),
+      latest,
+      hot,
+      genres: [...genreMap.values()],
+      fetchedAt: Date.now(),
+      sourceLabel: 'MangaDex (Fallback)',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchKatanaCatalog(opts: {
@@ -2171,6 +2216,7 @@ export interface KatanaUserPrefs {
   alertPrefs: KatanaAlertPrefs;
   wifiOnlyDownloads: boolean;
   autoDownloadNext: number;
+  autoDownloadCategories?: string[];
   themeMode?: 'dark' | 'oled' | 'light' | 'sepia';
 }
 
@@ -2183,6 +2229,7 @@ const DEFAULT_USER_PREFS: KatanaUserPrefs = {
   alertPrefs: DEFAULT_ALERT_PREFS,
   wifiOnlyDownloads: false,
   autoDownloadNext: 0,
+  autoDownloadCategories: [],
 };
 
 export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
@@ -2215,6 +2262,9 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
         },
         wifiOnlyDownloads: Boolean(parsed.wifiOnlyDownloads),
         autoDownloadNext: typeof parsed.autoDownloadNext === 'number' && parsed.autoDownloadNext >= 0 ? parsed.autoDownloadNext : 0,
+        autoDownloadCategories: Array.isArray(parsed.autoDownloadCategories)
+          ? parsed.autoDownloadCategories.filter((c): c is string => typeof c === 'string')
+          : [],
         themeMode:
           parsed.themeMode === 'dark' ||
           parsed.themeMode === 'oled' ||
@@ -2256,6 +2306,7 @@ export function saveKatanaUserPrefs(userName: string, partial: Partial<KatanaUse
         alertPrefs: next.alertPrefs,
         wifiOnlyDownloads: next.wifiOnlyDownloads,
         autoDownloadNext: next.autoDownloadNext,
+        autoDownloadCategories: next.autoDownloadCategories ?? [],
         ...(next.themeMode ? { themeMode: next.themeMode } : {}),
         updatedAt: Timestamp.now(),
       },
@@ -2292,6 +2343,9 @@ export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> 
           },
           wifiOnlyDownloads: Boolean(data?.wifiOnlyDownloads),
           autoDownloadNext: typeof data?.autoDownloadNext === 'number' && data.autoDownloadNext >= 0 ? data.autoDownloadNext : 0,
+          autoDownloadCategories: Array.isArray(data?.autoDownloadCategories)
+            ? data.autoDownloadCategories.filter((c: unknown): c is string => typeof c === 'string')
+            : [],
           themeMode:
             data?.themeMode === 'dark' ||
             data?.themeMode === 'oled' ||
@@ -2588,28 +2642,101 @@ export function checkKatanaChapterAlerts(
   return hits;
 }
 
+export interface MangaDexCatalogOptions {
+  query?: string;
+  page?: number;
+  status?: 'all' | 'ongoing' | 'completed';
+  demographic?: string;
+  orderBy?: string;
+  include?: string[];
+  exclude?: string[];
+  genreMode?: string;
+  chapters?: string;
+  author?: string;
+}
+
 /**
  * Secondary catalog source backed by our Cloud Function MangaDex proxy
- * so readers can browse/search MangaDex without direct third-party client calls.
+ * so readers can browse/search MangaDex with pagination and filters.
  */
-export async function searchMangaDexCatalog(queryText: string): Promise<KatanaManga[]> {
-  const q = queryText.trim();
+export async function searchMangaDexCatalog(
+  optsOrQuery: string | MangaDexCatalogOptions,
+): Promise<KatanaPageResult> {
+  const opts: MangaDexCatalogOptions = typeof optsOrQuery === 'string' ? { query: optsOrQuery } : optsOrQuery;
+  const q = (opts.query ?? '').trim();
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = 24;
+
+  const applySharedFilters = (list: KatanaManga[]): KatanaManga[] => {
+    let out = [...list];
+    if (opts.status && opts.status !== 'all') {
+      out = out.filter((m) => m.status.toLowerCase() === opts.status);
+    }
+    if (opts.demographic && opts.demographic !== 'all') {
+      const target = opts.demographic.toLowerCase();
+      out = out.filter(
+        (m) =>
+          (m.demographic ?? '').toLowerCase() === target ||
+          m.genres.some((g) => g.slug === target || g.name.toLowerCase() === target),
+      );
+    }
+    if (opts.include && opts.include.length > 0) {
+      const inc = opts.include.map((s) => s.toLowerCase());
+      out = out.filter((m) => {
+        const slugs = m.genres.map((g) => g.slug);
+        return opts.genreMode === 'or' ? inc.some((s) => slugs.includes(s)) : inc.every((s) => slugs.includes(s));
+      });
+    }
+    if (opts.exclude && opts.exclude.length > 0) {
+      const exc = new Set(opts.exclude.map((s) => s.toLowerCase()));
+      out = out.filter((m) => !m.genres.some((g) => exc.has(g.slug)));
+    }
+    if (opts.chapters) {
+      const minCh = Number(opts.chapters) || 0;
+      if (minCh > 1) {
+        out = out.filter((m) => {
+          const chCount = m.chapterCount ?? (m.latestChapter ? Number.parseFloat(m.latestChapter.num) || 0 : m.chapters.length);
+          return chCount >= minCh;
+        });
+      }
+    }
+    if (opts.author && opts.author.trim()) {
+      const aq = opts.author.trim().toLowerCase();
+      out = out.filter((m) => m.authors.some((a) => a.toLowerCase().includes(aq)));
+    }
+    if (opts.orderBy === 'az') out.sort((a, b) => a.title.localeCompare(b.title));
+    return out;
+  };
+
   if (AgentMode.demo) {
-    const demoHome = await fetchKatanaHome();
-    const pool = [...demoHome.hot, ...demoHome.latest];
-    const filtered = q
-      ? pool.filter(
-          (m) =>
-            m.title.toLowerCase().includes(q.toLowerCase()) ||
-            m.genres.some((g) => g.name.toLowerCase().includes(q.toLowerCase())),
-        )
-      : pool;
-    return filtered.slice(0, 12).map((m) => ({
+    const catalog = buildDemoCatalog();
+    const filtered = applySharedFilters(
+      q
+        ? catalog.filter(
+            (m) =>
+              m.title.toLowerCase().includes(q.toLowerCase()) ||
+              m.genres.some((g) => g.name.toLowerCase().includes(q.toLowerCase())),
+          )
+        : catalog,
+    ).map((m) => ({
       ...m,
       summary: m.summary ? `[MangaDex] ${m.summary}` : 'Available via MangaDex catalog source.',
     }));
+    const demoPageSize = 8;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / demoPageSize));
+    const start = (page - 1) * demoPageSize;
+    return {
+      items: filtered.slice(start, start + demoPageSize),
+      page,
+      hasPrev: page > 1,
+      hasNext: page < totalPages,
+      totalPages,
+      totalResults: filtered.length,
+    };
   }
-  if (!ConnectivityService.isOnline) return [];
+  if (!ConnectivityService.isOnline) {
+    return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'You are offline.' };
+  }
   try {
     const headers: Record<string, string> = { Accept: 'application/json' };
     try {
@@ -2618,15 +2745,41 @@ export async function searchMangaDexCatalog(queryText: string): Promise<KatanaMa
     } catch {
       // continue unsigned if guest
     }
-    const mdPath = q
-      ? `/manga?title=${encodeURIComponent(q)}&limit=18&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&order[relevance]=desc`
-      : `/manga?limit=18&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&order[followedCount]=desc`;
+    const params: string[] = [
+      `limit=${pageSize}`,
+      `offset=${(page - 1) * pageSize}`,
+      'includes[]=cover_art',
+      'includes[]=author',
+      'contentRating[]=safe',
+      'contentRating[]=suggestive',
+    ];
+    if (q) params.push(`title=${encodeURIComponent(q)}`);
+    if (opts.status === 'ongoing' || opts.status === 'completed') {
+      params.push(`status[]=${opts.status}`);
+    }
+    if (opts.demographic && opts.demographic !== 'all') {
+      const mdDemo = opts.demographic.toLowerCase() === 'shoujo' ? 'shoujo' : opts.demographic.toLowerCase();
+      if (['shounen', 'seinen', 'shoujo', 'josei'].includes(mdDemo)) {
+        params.push(`publicationDemographic[]=${mdDemo}`);
+      }
+    }
+    if (opts.orderBy === 'az') params.push('order[title]=asc');
+    else if (opts.orderBy === 'new') params.push('order[createdAt]=desc');
+    else if (opts.orderBy === 'rating') params.push('order[rating]=desc');
+    else if (opts.orderBy === 'latest') params.push('order[latestUploadedChapter]=desc');
+    else if (q) params.push('order[relevance]=desc');
+    else params.push('order[followedCount]=desc');
+
+    const mdPath = `/manga?${params.join('&')}`;
     const resp = await fetch(`${PROXY_MANGADEX_URL}?path=${encodeURIComponent(mdPath)}`, {
       headers,
       signal: AbortSignal.timeout(10000),
     });
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'MangaDex catalog is temporarily unavailable.' };
+    }
     const json = (await resp.json()) as {
+      total?: number;
       data?: Array<{
         id: string;
         attributes?: {
@@ -2634,14 +2787,15 @@ export async function searchMangaDexCatalog(queryText: string): Promise<KatanaMa
           altTitles?: Array<Record<string, string>>;
           description?: Record<string, string>;
           status?: string;
+          publicationDemographic?: string | null;
           lastChapter?: string | null;
           tags?: Array<{ id?: string; attributes?: { name?: Record<string, string> } }>;
         };
-        relationships?: Array<{ type?: string; attributes?: { fileName?: string } }>;
+        relationships?: Array<{ type?: string; attributes?: { fileName?: string; name?: string } }>;
       }>;
     };
-    const items = json.data ?? [];
-    return items.map((entry) => {
+    const rawItems = json.data ?? [];
+    const mapped = rawItems.map((entry) => {
       const attrs = entry.attributes ?? {};
       const titleObj = attrs.title ?? {};
       const title = titleObj.en || titleObj['ja-ro'] || Object.values(titleObj)[0] || 'Untitled';
@@ -2650,6 +2804,9 @@ export async function searchMangaDexCatalog(queryText: string): Promise<KatanaMa
       const coverUrl = fileName
         ? `${PROXY_MANGA_IMAGE_URL}?url=${encodeURIComponent(`https://uploads.mangadex.org/covers/${entry.id}/${fileName}.512.jpg`)}`
         : '';
+      const authors = (entry.relationships ?? [])
+        .filter((r) => r.type === 'author' && r.attributes?.name)
+        .map((r) => r.attributes!.name!);
       const slug = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -2657,7 +2814,7 @@ export async function searchMangaDexCatalog(queryText: string): Promise<KatanaMa
       const genres: KatanaGenre[] = (attrs.tags ?? [])
         .map((t) => t.attributes?.name?.en || '')
         .filter(Boolean)
-        .slice(0, 5)
+        .slice(0, 6)
         .map((name) => ({
           slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           name,
@@ -2675,18 +2832,30 @@ export async function searchMangaDexCatalog(queryText: string): Promise<KatanaMa
         coverUrl,
         summary: attrs.description?.en || '',
         status,
+        demographic: attrs.publicationDemographic || undefined,
         updateText: '',
         genres,
         latestChapter: lastCh ? { id: `c${lastCh}`, num: lastCh, title: `Chapter ${lastCh}` } : undefined,
         recentChapters: [],
-        authors: [],
+        authors,
         artists: [],
         altNames: (attrs.altTitles ?? []).flatMap((o) => Object.values(o)).slice(0, 4),
         chapters: [],
       } satisfies KatanaManga;
     });
+    const filtered = applySharedFilters(mapped);
+    const total = typeof json.total === 'number' ? Math.min(json.total, 9600) : filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    return {
+      items: filtered,
+      page,
+      hasPrev: page > 1,
+      hasNext: page < totalPages && rawItems.length >= pageSize,
+      totalPages,
+      totalResults: total,
+    };
   } catch (err) {
     Logger.e('KatanaService: searchMangaDexCatalog failed', err);
-    return [];
+    return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'Could not reach MangaDex right now.' };
   }
 }

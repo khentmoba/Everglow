@@ -374,12 +374,12 @@ function GenresDropdown({
             flexShrink: 0,
           }}
         >
-          <Icon name="local_offer" size={18} color={active || open ? KatanaColors.accent : KatanaColors.textMuted} />
+          <Icon name="category" size={18} color={active || open ? KatanaColors.accent : KatanaColors.textMuted} />
         </button>
       ) : (
         <NavItem
           label="Genres"
-          icon="local_offer"
+          icon="category"
           active={active}
           compact={compact}
           onClick={() => {
