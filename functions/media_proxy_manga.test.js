@@ -142,3 +142,56 @@ test('resolveRasterImageStream handles magic bytes split across chunks and forwa
   await reader.cancel('stop');
   assert.equal(cancelled, true);
 });
+
+test('resolveMangaApiUrl rejects traversal, scheme, and backslash paths', () => {
+  assert.equal(
+    manga.resolveMangaApiUrl('https://api.mangadex.org', '/manga?title=frieren'),
+    'https://api.mangadex.org/manga?title=frieren',
+  );
+  assert.throws(() => manga.resolveMangaApiUrl('https://api.mangadex.org', '../secret'), /Invalid path/);
+  assert.throws(() => manga.resolveMangaApiUrl('https://api.mangadex.org', 'https://evil.test/x'), /Invalid path/);
+  assert.throws(() => manga.resolveMangaApiUrl('https://api.mangadex.org', 'foo\\bar'), /Invalid path/);
+  assert.throws(() => manga.resolveMangaApiUrl('https://api.mangadex.org', '//evil.test/x'), /Invalid path/);
+});
+
+test('proxyMangaDex caches 200 responses in memory with private Cache-Control', async (t) => {
+  t.mock.method(common.getAdmin(), 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'u-manga',
+      username: 'clairjassen',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  let fetches = 0;
+  t.mock.method(common, 'fetchPublicUrl', async () => {
+    fetches += 1;
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new ReadableStream({
+        start(c) { c.enqueue(Buffer.from('{"data":[]}')); c.close(); },
+      }),
+    };
+  });
+  const req = {
+    method: 'GET',
+    headers: { authorization: 'Bearer test-token' },
+    get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer test-token' : ''),
+    ip: '8.8.8.8',
+    query: { path: `manga?title=cache-test-${Date.now()}` },
+  };
+  const res1 = makeRes();
+  await manga.proxyMangaDex(req, res1);
+  assert.equal(res1.code, 200);
+  assert.equal(res1.headers['Cache-Control'], 'private, max-age=60');
+  assert.equal(res1.headers['X-Cache'], 'MISS');
+  assert.equal(fetches, 1);
+
+  const res2 = makeRes();
+  await manga.proxyMangaDex(req, res2);
+  assert.equal(res2.code, 200);
+  assert.equal(res2.headers['Cache-Control'], 'private, max-age=60');
+  assert.equal(res2.headers['X-Cache'], 'HIT');
+  assert.equal(fetches, 1);
+});

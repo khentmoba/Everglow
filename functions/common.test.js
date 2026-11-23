@@ -17,9 +17,11 @@ function response(statusCode, headers = {}, body = 'ok') {
 }
 
 function mockGet(module, implementation) {
-  return test.mock.method(module, 'get', (url, options, callback) => {
+  return test.mock.method(module, 'request', (url, options, callback) => {
     const request = new EventEmitter();
-    implementation(url, options, callback);
+    request.end = () => {
+      implementation(url, options, callback);
+    };
     return request;
   });
 }
@@ -147,4 +149,32 @@ test('requireAuth checks token revocation and applyCors caches preflight for 24h
   const res = { headers: {}, set(k, v) { this.headers[k] = v; return this; } };
   applyCors({ get: () => 'https://everglow-1c6db.web.app', headers: {} }, res, 'GET, OPTIONS');
   assert.equal(res.headers['Access-Control-Max-Age'], '86400');
+});
+
+test('fetchPublicUrl forwards HEAD method and rejects disallowed methods', async (t) => {
+  t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }]);
+  let seenMethod = null;
+  mockGet(https, (_url, options, callback) => {
+    seenMethod = options.method;
+    callback(response(200, { 'content-length': '1234' }, ''));
+  });
+  const res = await fetchPublicUrl('https://public.test/stream.m3u8', { method: 'HEAD', httpsOnly: true });
+  assert.equal(seenMethod, 'HEAD');
+  assert.equal(res.status, 200);
+  await assert.rejects(
+    fetchPublicUrl('https://public.test/stream.m3u8', { method: 'POST', httpsOnly: true }),
+    /Only GET and HEAD/,
+  );
+});
+
+test('external cache refreshes LRU recency on hit', () => {
+  const { _getExternalCache, _setExternalCache } = require('./common.js');
+  _setExternalCache('lru:hot', 'keep-me');
+  for (let i = 0; i < 199; i++) {
+    _setExternalCache(`lru:fill:${i}`, i);
+  }
+  assert.equal(_getExternalCache('lru:hot', 60_000), 'keep-me');
+  _setExternalCache('lru:overflow', 'new');
+  assert.equal(_getExternalCache('lru:hot', 60_000), 'keep-me');
+  assert.equal(_getExternalCache('lru:fill:0', 60_000), null);
 });

@@ -1554,7 +1554,7 @@ export function PageActionSheet({
       return;
     }
     try {
-      const res = await fetch(fetchUrl);
+      const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(15_000) });
       if (!res.ok) throw new Error('fetch failed');
       const blob = await res.blob();
       const mime = blob.type.toLowerCase();

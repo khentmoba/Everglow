@@ -3,19 +3,26 @@
 const { createHash } = require('node:crypto');
 
 async function exec_add_to_watchlist(ctx, args) {
-    const mediaType = args.media_type || 'movie';
-    const providedId = args.tmdb_id || args.tmdbId || args.tmdbId === 0 ? Number(args.tmdb_id || args.tmdbId) : null;
-    if (providedId) {
-      const detailKey = `tmdb:detail:${mediaType}:${providedId}`;
+    const rawMediaType = String(args.media_type || 'movie').toLowerCase();
+    const mediaType = ['movie', 'tv', 'multi'].includes(rawMediaType) ? rawMediaType : 'movie';
+    const rawId = args.tmdb_id ?? args.tmdbId;
+    const providedId = rawId !== undefined && rawId !== null && rawId !== '' ? Number(rawId) : null;
+    if (providedId !== null) {
+      if (!Number.isInteger(providedId) || providedId <= 0) {
+        return JSON.stringify({ error: 'Invalid TMDB ID' });
+      }
+      const detailType = mediaType === 'tv' ? 'tv' : 'movie';
+      const detailKey = `tmdb:detail:${detailType}:${providedId}`;
       let detail;
       const cachedDetail = ctx.cacheGet(detailKey, ctx.cacheTTLs.tmdb);
       if (cachedDetail) {
         detail = cachedDetail;
       } else {
         const detailRes = await fetch(
-          `https://api.themoviedb.org/3/${mediaType === 'tv' ? 'tv' : 'movie'}/${providedId}?api_key=${ctx.getTmdbKey()}`
+          `https://api.themoviedb.org/3/${detailType}/${providedId}?api_key=${ctx.getTmdbKey()}`,
+          { signal: AbortSignal.timeout(10000) },
         );
-        if (!detailRes.ok) return JSON.stringify({ error: `TMDB ID ${providedId} not found for ${mediaType}` });
+        if (!detailRes.ok) return JSON.stringify({ error: `TMDB ID ${providedId} not found for ${detailType}` });
         detail = await detailRes.json();
         ctx.cacheSet(detailKey, detail);
       }
@@ -24,7 +31,7 @@ async function exec_add_to_watchlist(ctx, args) {
       await ctx.db.collection('our_cinema').add({
         tmdbId: providedId,
         title,
-        mediaType,
+        mediaType: detailType,
         posterPath: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : null,
         addedBy: ctx.callerUid,
         addedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
@@ -41,8 +48,10 @@ async function exec_add_to_watchlist(ctx, args) {
       tmdbData = cachedTmdb;
     } else {
       const tmdbRes = await fetch(
-        `https://api.themoviedb.org/3/search/${mediaType === 'multi' ? 'multi' : mediaType}?query=${encodeURIComponent(queryRaw)}&api_key=${ctx.getTmdbKey()}`
+        `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(queryRaw)}&api_key=${ctx.getTmdbKey()}`,
+        { signal: AbortSignal.timeout(10000) },
       );
+      if (!tmdbRes.ok) return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
       tmdbData = await tmdbRes.json();
       ctx.cacheSet(tmdbCacheKey, tmdbData);
     }
@@ -84,8 +93,8 @@ async function exec_add_to_watchlist(ctx, args) {
 }
 
 async function exec_search_movies(ctx, args) {
-    const mediaType = args.media_type || 'multi';
-    const endpoint = mediaType === 'multi' ? 'multi' : args.media_type;
+    const rawMediaType = String(args.media_type || 'multi').toLowerCase();
+    const endpoint = ['movie', 'tv', 'multi'].includes(rawMediaType) ? rawMediaType : 'multi';
     const cacheKey = `tmdb:search:${endpoint}:${String(args.query || '').toLowerCase().trim()}`;
     let tmdbData;
     const cached = ctx.cacheGet(cacheKey, ctx.cacheTTLs.tmdb);
@@ -93,16 +102,18 @@ async function exec_search_movies(ctx, args) {
       tmdbData = cached;
     } else {
       const tmdbRes = await fetch(
-        `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(args.query)}&api_key=${ctx.getTmdbKey()}`
+        `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(args.query)}&api_key=${ctx.getTmdbKey()}`,
+        { signal: AbortSignal.timeout(10000) },
       );
+      if (!tmdbRes.ok) return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
       tmdbData = await tmdbRes.json();
       ctx.cacheSet(cacheKey, tmdbData);
     }
-    const results = (tmdbData.results || [])              .slice(0, 8).map(r => ({
+    const results = (tmdbData.results || []).slice(0, 8).map(r => ({
       id: r.id,
       title: r.title || r.name,
       year: (r.release_date || r.first_air_date || '').slice(0, 4),
-      mediaType: r.media_type || args.media_type || 'movie',
+      mediaType: r.media_type || (endpoint === 'multi' ? 'movie' : endpoint),
       overview: (r.overview || '').slice(0, 400),
     }));
     return JSON.stringify({ results });
@@ -110,19 +121,25 @@ async function exec_search_movies(ctx, args) {
 
 async function exec_get_watchlist(ctx, args) {
     const limit = Math.min(args.limit || 15, 40);
+    const usernames = ['khentsgdz', 'clairjassen'];
+    const snapshots = await Promise.all(
+      usernames.map((username) =>
+        ctx.db.collection('our_cinema')
+          .where('userId', '==', username)
+          .orderBy('addedAt', 'desc')
+          .limit(limit)
+          .get(),
+      ),
+    );
     const parts = [];
-    for (const username of ['khentsgdz', 'clairjassen']) {
-      const snapshot = await ctx.db.collection('our_cinema')
-        .where('userId', '==', username)
-        .orderBy('addedAt', 'desc')
-        .limit(limit)
-        .get();
+    snapshots.forEach((snapshot, idx) => {
+      const username = usernames[idx];
       const items = snapshot.docs.map(d => {
         const x = d.data();
         return `${x.title || 'Unknown'} (${x.mediaType || 'movie'}) - ${x.status || 'plan to watch'}`;
       });
       if (items.length) parts.push(`${username}'s watchlist:\n${items.join('\n')}`);
-    }
+    });
     return JSON.stringify({ watchlist: parts.length ? parts.join('\n\n') : 'Watchlist is empty' });
 }
 
@@ -290,8 +307,10 @@ async function exec_search_books(ctx, args) {
       searchData = cachedBooks;
     } else {
       const searchRes = await fetch(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(args.query)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(args.query)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`,
+        { signal: AbortSignal.timeout(10000) },
       );
+      if (!searchRes.ok) return JSON.stringify({ error: `Book search failed (HTTP ${searchRes.status})` });
       searchData = await searchRes.json();
       ctx.cacheSet(bKey, searchData);
     }
@@ -316,8 +335,10 @@ async function exec_add_book_to_our_books(ctx, args) {
       searchData = cachedAb;
     } else {
       const searchRes = await fetch(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(queryRaw)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(queryRaw)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`,
+        { signal: AbortSignal.timeout(10000) },
       );
+      if (!searchRes.ok) return JSON.stringify({ error: `Book search failed (HTTP ${searchRes.status})` });
       searchData = await searchRes.json();
       ctx.cacheSet(abKey, searchData);
     }

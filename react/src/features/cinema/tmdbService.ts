@@ -187,6 +187,8 @@ function getCachedTmdb(key: string): Record<string, unknown> | null {
     tmdbCache.delete(key);
     return null;
   }
+  tmdbCache.delete(key);
+  tmdbCache.set(key, entry);
   return entry.data;
 }
 

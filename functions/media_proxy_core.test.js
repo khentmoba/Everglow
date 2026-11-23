@@ -100,10 +100,14 @@ test('Gallery delete rejects other-bucket project URLs and non-gallery paths', (
   );
 });
 
-test('Gallery delete rejects garbage input', () => {
+test('Gallery delete rejects garbage input and malformed percent encoding', () => {
   assert.throws(() => resolveGalleryDeletePath(''));
   assert.throws(() => resolveGalleryDeletePath(null));
   assert.throws(() => resolveGalleryDeletePath('not a url'));
+  assert.throws(
+    () => resolveGalleryDeletePath('https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.firebasestorage.app/o/gallery%E0%A4%A'),
+    /Invalid imageUrl/,
+  );
 });
 
 test('Katana server cookie forwards only s_r=sv2/sv3 to mangakatana', () => {

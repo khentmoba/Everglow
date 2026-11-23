@@ -83,8 +83,12 @@ async function isPublicDnsHost(hostname) {
   }
 }
 
-async function fetchPublicUrl(target, { headers, signal, httpsOnly = false, isAllowedUrl } = {}) {
+async function fetchPublicUrl(target, { method = 'GET', headers, signal, httpsOnly = false, isAllowedUrl } = {}) {
   const { Readable } = require('node:stream');
+  const upperMethod = String(method || 'GET').toUpperCase();
+  if (upperMethod !== 'GET' && upperMethod !== 'HEAD') {
+    throw new Error('Only GET and HEAD methods are allowed');
+  }
   const reqHeaders = headers ? { ...headers } : {};
   let url = new URL(target);
   for (let hop = 0; hop <= 5; hop++) {
@@ -113,7 +117,8 @@ async function fetchPublicUrl(target, { headers, signal, httpsOnly = false, isAl
     }
     const transport = url.protocol === 'https:' ? https : http;
     const incoming = await new Promise((resolve, reject) => {
-      const request = transport.get(url, {
+      const request = transport.request(url, {
+        method: upperMethod,
         headers: reqHeaders, signal,
         agent: url.protocol === 'https:' ? _httpsAgent : _httpAgent,
         lookup: (_host, options, callback) => {
@@ -121,6 +126,7 @@ async function fetchPublicUrl(target, { headers, signal, httpsOnly = false, isAl
         },
       }, resolve);
       request.on('error', reject);
+      request.end();
     });
     if ([301, 302, 303, 307, 308].includes(incoming.statusCode)) {
       incoming.destroy();
@@ -217,9 +223,12 @@ function _getExternalCache(key, ttlMs) {
     _externalCache.delete(key);
     return null;
   }
+  _externalCache.delete(key);
+  _externalCache.set(key, entry);
   return entry.data;
 }
 function _setExternalCache(key, data) {
+  _externalCache.delete(key);
   _externalCache.set(key, { data, ts: Date.now() });
   if (_externalCache.size > 200) {
     const oldest = _externalCache.keys().next().value;

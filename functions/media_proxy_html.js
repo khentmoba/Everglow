@@ -221,8 +221,8 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     res.status(status);
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.set('X-Content-Type-Options', 'nosniff');
-    res.set('Content-Security-Policy', 'sandbox');
-    res.set('Cache-Control', body.length > 0 ? 'public, max-age=60' : 'no-store');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.set('Cache-Control', body.length > 0 ? 'private, max-age=60' : 'no-store');
     res.send(body);
   } catch (e) {
     console.warn(`proxyFetchHtml failed (${targetUrl}):`, e.message);

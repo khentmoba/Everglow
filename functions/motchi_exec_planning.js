@@ -248,13 +248,19 @@ async function exec_plan_date_night(ctx, args) {
     const [ideaSnap, watchSnap, fetchedWeather] = await Promise.all([
       ctx.db.collection('date_ideas').limit(100).get(),
       ctx.db.collection('our_cinema').limit(5).get(),
-      weatherText ? Promise.resolve(null) : fetch(`https://wttr.in/${encodeURIComponent(location)}?format=%C+%t+%h+%w`, {
-        headers: { 'User-Agent': 'curl/8.5.0' },
-      }),
+      weatherText
+        ? Promise.resolve(null)
+        : fetch(`https://wttr.in/${encodeURIComponent(location)}?format=%C+%t+%h+%w`, {
+            headers: { 'User-Agent': 'curl/8.5.0' },
+            signal: AbortSignal.timeout(8000),
+          }).catch(() => null),
     ]);
-    if (!weatherText && fetchedWeather) {
-      weatherText = (await fetchedWeather.text()).trim();
-      ctx.cacheSet(pKey, weatherText);
+    if (!weatherText && fetchedWeather && fetchedWeather.ok) {
+      const trimmed = (await fetchedWeather.text().catch(() => '')).trim();
+      if (trimmed) {
+        weatherText = trimmed;
+        ctx.cacheSet(pKey, weatherText);
+      }
     }
     weatherText = weatherText || 'Weather unavailable';
     const allIdeas = ideaSnap.docs
@@ -293,12 +299,18 @@ async function exec_get_weather(ctx, args) {
     if (cachedWeather) return JSON.stringify({ location: args.location, weather: cachedWeather });
     const weatherRes = await fetch(
       `https://wttr.in/${encodeURIComponent(args.location)}?format=%C+%t+%h+%w`,
-      { headers: { 'User-Agent': 'curl/8.5.0' } }
+      {
+        headers: { 'User-Agent': 'curl/8.5.0' },
+        signal: AbortSignal.timeout(8000),
+      },
     );
+    if (!weatherRes.ok) {
+      return JSON.stringify({ location: args.location, weather: 'Weather unavailable', error: `Weather service returned HTTP ${weatherRes.status}` });
+    }
     const weatherText = await weatherRes.text();
     const trimmed = weatherText.trim();
-    ctx.cacheSet(wKey, trimmed);
-    return JSON.stringify({ location: args.location, weather: trimmed });
+    if (trimmed) ctx.cacheSet(wKey, trimmed);
+    return JSON.stringify({ location: args.location, weather: trimmed || 'Weather unavailable' });
 }
 
 async function exec_list_reminders(ctx, _args) {

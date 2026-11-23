@@ -107,7 +107,7 @@ test('proxyFetchHtml returns text/plain with sandbox CSP and readLimitedText enf
   );
   assert.equal(res.code, 200);
   assert.equal(res.headers['Content-Type'], 'text/plain; charset=utf-8');
-  assert.equal(res.headers['Content-Security-Policy'], 'sandbox');
+  assert.equal(res.headers['Content-Security-Policy'], "default-src 'none'; sandbox");
   assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
 
   const oversized = new ReadableStream({

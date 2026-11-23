@@ -1032,7 +1032,7 @@ test('dispatcher retries a transient throw once, then succeeds', async () => {
   global.fetch = async () => {
     calls += 1;
     if (calls === 1) throw new Error('502 Bad Gateway');
-    return { text: async () => 'Sunny +27C' };
+    return { ok: true, status: 200, text: async () => 'Sunny +27C' };
   };
   try {
     const out = JSON.parse(await executeToolCall(ctx, 'get_weather', { location: 'Retryville' }));
