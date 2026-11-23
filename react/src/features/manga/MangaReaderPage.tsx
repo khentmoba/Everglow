@@ -152,6 +152,24 @@ export function MangaReaderView({
     return resolveBackgroundTheme(settings.background);
   }, [settings.background, osColorTick]);
 
+  // Keep document root background aligned with the reader surface to prevent couple-plum overscroll flashes.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById('root');
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+    const prevRootBg = root?.style.backgroundColor ?? '';
+    html.style.backgroundColor = bgTheme.bg;
+    body.style.backgroundColor = bgTheme.bg;
+    if (root) root.style.backgroundColor = bgTheme.bg;
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
+      if (root) root.style.backgroundColor = prevRootBg;
+    };
+  }, [bgTheme.bg]);
+
   // Chapter, pages, bookmarks & finished-read state
   const [chapterId, setChapterId] = useState(params.chapterId);
   const [segments, setSegments] = useState<ChapterSegment[]>([]);

@@ -279,7 +279,9 @@ function RootLayout() {
       <div
         style={{
           position: 'fixed',
-          top: 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px)',
+          top: location.pathname.startsWith('/manga') && !location.pathname.startsWith('/manga/reader')
+            ? 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 64px)'
+            : 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px)',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1350,

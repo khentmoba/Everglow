@@ -272,9 +272,12 @@ function NavItem({
       onMouseLeave={() => setHover(false)}
       style={{
         flexShrink: 0,
-        margin: compact ? '2px 1px' : '2px 2px',
-        padding: compact ? '7px 8px' : '8px 12px',
+        margin: compact ? '0 1px' : '0 2px',
+        minHeight: 40,
+        padding: compact ? '0 9px' : '0 12px',
         borderRadius: 99,
+        display: 'inline-flex',
+        alignItems: 'center',
         background: active ? withAlpha(KatanaColors.accent, 0.14) : hover ? KatanaColors.surfaceAlt : 'transparent',
         boxShadow: active ? `inset 0 0 0 1px ${withAlpha(KatanaColors.accent, 0.45)}` : undefined,
         position: 'relative',
