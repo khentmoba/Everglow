@@ -1,12 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { withAlpha } from '../../core/theme/colors';
-import { Align, linear, lineHeight } from '../../core/theme/paint';
+import { lineHeight } from '../../core/theme/paint';
 import { Fonts } from '../../core/theme/typography';
 import { Icon } from '../../shared/widgets/Icon';
 import {
   KatanaButton,
   KatanaCard,
   KatanaCompactCard,
+  KatanaCoverBadges,
   KatanaCoverImage,
   KatanaEmptyState,
   KatanaErrorBanner,
@@ -14,11 +15,34 @@ import {
   KatanaPagination,
   KatanaPosterCard,
   KatanaSectionHeader,
+  KatanaSkeletonGrid,
+  KatanaSkeletonList,
 } from './MangaUi';
-import { chapterDisplayTitle, type KatanaBookmark, type KatanaGenre, type KatanaHomeData, type KatanaManga } from './katanaService';
+import {
+  chapterDisplayTitle,
+  estimateUnreadCount,
+  extractChapterNumber,
+  formatCompactNumber,
+  getPreferredMangaGenres,
+  proxyKatanaImageUrl,
+  setPreferredMangaGenres,
+  type KatanaBookmark,
+  type KatanaGenre,
+  type KatanaHomeData,
+  type KatanaManga,
+  type KatanaWeekday,
+} from './katanaService';
 import { KATANA_BREAKPOINTS, KatanaColors, KatanaType } from './katanaTokens';
 
 export type MangaType = 'all' | 'manga' | 'manhwa' | 'manhua';
+type FeedTab = 'latest' | 'new_hot' | 'schedule';
+
+const WEEKDAYS: KatanaWeekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function todayWeekday(): KatanaWeekday {
+  const jsDay = new Date().getDay(); // 0=Sun..6=Sat
+  return WEEKDAYS[(jsDay + 6) % 7];
+}
 
 const TYPE_META: Record<MangaType, { label: string; eyebrow: string; icon: string }> = {
   all: { label: 'All', eyebrow: 'Manga · Manhwa · Manhua', icon: 'apps' },
@@ -26,11 +50,6 @@ const TYPE_META: Record<MangaType, { label: string; eyebrow: string; icon: strin
   manhwa: { label: 'Manhwa', eyebrow: 'Korean Webtoon', icon: 'view_day' },
   manhua: { label: 'Manhua', eyebrow: 'Chinese', icon: 'history_edu' },
 };
-
-function parseChapterNumber(raw: string): number {
-  const m = /(\d+(?:\.\d+)?)/.exec(raw);
-  return m ? Number(m[1]) : 0;
-}
 
 function TypeChip({ label, icon, selected, onClick }: { label: string; icon: string; selected: boolean; onClick: () => void }) {
   return (
@@ -40,25 +59,23 @@ function TypeChip({ label, icon, selected, onClick }: { label: string; icon: str
       onClick={onClick}
       style={{
         flexShrink: 0,
-        padding: '8px 14px',
+        padding: '7px 13px',
         borderRadius: 99,
-        background: selected
-          ? linear([KatanaColors.accentSoft, KatanaColors.accent], { begin: Align.topLeft, end: Align.bottomRight })
-          : KatanaColors.surfaceAlt,
-        border: `1px solid ${selected ? KatanaColors.accent : KatanaColors.border}`,
+        background: selected ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+        border: `1px solid ${selected ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
       }}
     >
-      <Icon name={icon} size={15} color={selected ? KatanaColors.accentInk : KatanaColors.textMuted} />
+      <Icon name={icon} size={15} color={selected ? KatanaColors.accentSoft : KatanaColors.textMuted} />
       <span
         style={{
           fontFamily: Fonts.body,
-          fontWeight: 700,
+          fontWeight: selected ? 700 : 600,
           fontSize: 13,
           lineHeight: lineHeight(13, 1.2),
-          color: selected ? KatanaColors.accentInk : KatanaColors.text,
+          color: selected ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
           whiteSpace: 'nowrap',
         }}
       >
@@ -88,6 +105,7 @@ function FeaturedHero({
   const featured = candidates[index % candidates.length];
   const bm = bookmarks.find((b) => b.slug === featured.slug);
   const completed = featured.status === 'completed';
+  const backdropUrl = featured.coverUrl ? proxyKatanaImageUrl(featured.coverUrl) : '';
 
   return (
     <section
@@ -96,17 +114,47 @@ function FeaturedHero({
         position: 'relative',
         borderRadius: 16,
         overflow: 'hidden',
-        background: linear([KatanaColors.surfaceGlow, KatanaColors.surface], { begin: Align.topLeft, end: Align.bottomRight }),
+        background: KatanaColors.surface,
         border: `1px solid ${KatanaColors.borderStrong}`,
-        marginBottom: 18,
+        marginBottom: 14,
       }}
     >
+      {/* Cover-derived atmospheric blurred backdrop */}
+      {backdropUrl && (
+        <img
+          src={backdropUrl}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: 'blur(28px) saturate(1.2) brightness(0.42)',
+            transform: 'scale(1.18)',
+            opacity: 0.72,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(100deg, rgba(11, 13, 18, 0.92) 0%, rgba(19, 22, 31, 0.80) 56%, rgba(11, 13, 18, 0.72) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+
       <div
         style={{
           position: 'relative',
-          padding: compact ? 14 : 22,
+          padding: compact ? 14 : '16px 20px',
           display: 'flex',
-          gap: compact ? 14 : 22,
+          gap: compact ? 14 : 20,
           alignItems: 'center',
         }}
       >
@@ -117,40 +165,41 @@ function FeaturedHero({
           onClick={() => onSelectManga(featured.slug)}
           style={{
             position: 'relative',
-            width: compact ? 104 : 148,
-            height: compact ? 150 : 212,
+            width: compact ? 96 : 122,
+            height: compact ? 138 : 176,
             borderRadius: 10,
             overflow: 'hidden',
             flexShrink: 0,
             border: `1px solid ${KatanaColors.borderStrong}`,
             background: KatanaColors.surfaceAlt,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
           }}
         >
-          <KatanaCoverImage url={featured.coverUrl} iconSize={32} />
+          <KatanaCoverImage url={featured.coverUrl} title={featured.title} iconSize={30} />
         </button>
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: compact ? 6 : 10 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: compact ? 6 : 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span
               style={{
-                padding: '2px 9px',
-                borderRadius: 99,
-                background: withAlpha(KatanaColors.accent, 0.16),
-                border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
+                padding: '2px 8px',
+                borderRadius: 6,
+                background: KatanaColors.chipSelectedBg,
+                border: `1px solid ${KatanaColors.chipSelectedBorder}`,
                 fontFamily: Fonts.body,
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: 700,
-                color: KatanaColors.accentSoft,
-                letterSpacing: 0.4,
+                color: KatanaColors.chipSelectedText,
+                letterSpacing: 0.5,
               }}
             >
-              FEATURED
+              SPOTLIGHT
             </span>
             <span
               style={{
                 padding: '2px 8px',
-                borderRadius: 99,
-                background: withAlpha(completed ? KatanaColors.green : KatanaColors.teal, 0.14),
+                borderRadius: 6,
+                background: withAlpha(completed ? KatanaColors.green : KatanaColors.teal, 0.16),
                 fontFamily: Fonts.body,
                 fontSize: 11,
                 fontWeight: 600,
@@ -159,8 +208,21 @@ function FeaturedHero({
             >
               {completed ? 'Completed' : 'Ongoing'}
             </span>
-            {featured.latestChapter && (
+            {featured.rating != null && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Icon name="star" size={13} color={KatanaColors.accent} />
+                <span style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
+                  {featured.rating.toFixed(1)}
+                </span>
+              </span>
+            )}
+            {featured.follows != null && featured.follows > 0 && (
               <span style={{ ...KatanaType.small, fontSize: 12 }}>
+                {formatCompactNumber(featured.follows)} readers
+              </span>
+            )}
+            {featured.latestChapter && (
+              <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.link }}>
                 {chapterDisplayTitle(featured.latestChapter)}
               </span>
             )}
@@ -176,7 +238,7 @@ function FeaturedHero({
               className="clamp-2"
               style={{
                 ...KatanaType.display,
-                fontSize: compact ? 20 : 28,
+                fontSize: compact ? 19 : 25,
                 margin: 0,
               }}
             >
@@ -195,8 +257,8 @@ function FeaturedHero({
                   style={{
                     padding: '3px 9px',
                     borderRadius: 6,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.border}`,
+                    background: 'rgba(27, 32, 44, 0.85)',
+                    border: `1px solid ${KatanaColors.borderStrong}`,
                     fontFamily: Fonts.body,
                     fontSize: 11.5,
                     fontWeight: 600,
@@ -210,16 +272,16 @@ function FeaturedHero({
           )}
 
           {!compact && featured.summary && (
-            <p className="clamp-2" style={{ ...KatanaType.body, margin: 0, maxWidth: 640 }}>
+            <p className="clamp-2" style={{ ...KatanaType.body, fontSize: 13.5, margin: 0, maxWidth: 680 }}>
               {featured.summary}
             </p>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
             <KatanaButton
               label={bm?.lastReadChapterId ? `Continue ${bm.lastReadChapterTitle || ''}`.trim() : 'Start Reading'}
               icon="play_arrow"
-              size={compact ? 'sm' : 'md'}
+              size="sm"
               onClick={() => {
                 const target = bm?.lastReadChapterId || featured.chapters[featured.chapters.length - 1]?.id || 'fc';
                 onOpenChapter(featured, target);
@@ -229,12 +291,12 @@ function FeaturedHero({
               label="Details"
               icon="info"
               filled={false}
-              color={KatanaColors.textMuted}
-              size={compact ? 'sm' : 'md'}
+              color={KatanaColors.text}
+              size="sm"
               onClick={() => onSelectManga(featured.slug)}
             />
             {candidates.length > 1 && (
-              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
                 {candidates.map((c, i) => (
                   <button
                     key={c.slug}
@@ -263,11 +325,15 @@ function FeaturedHero({
 function CurrentlyReadingShelf({
   items,
   catalog,
+  downloadedCounts,
+  compact,
   onSelectManga,
   onViewAll,
 }: {
   items: KatanaBookmark[];
   catalog: KatanaManga[];
+  downloadedCounts?: Record<string, number>;
+  compact: boolean;
   onSelectManga: (slug: string) => void;
   onViewAll: () => void;
 }) {
@@ -275,7 +341,7 @@ function CurrentlyReadingShelf({
   const catalogMap = new Map(catalog.map((m) => [m.slug, m]));
 
   return (
-    <section style={{ marginBottom: 18 }}>
+    <section style={{ marginBottom: 14 }}>
       <KatanaSectionHeader
         title="Currently Reading"
         badge={String(items.length)}
@@ -285,30 +351,31 @@ function CurrentlyReadingShelf({
             className="bare-button"
             onClick={onViewAll}
             style={{
-              padding: '5px 11px',
+              padding: '4px 10px',
               borderRadius: 99,
               background: KatanaColors.surfaceAlt,
-              border: `1px solid ${KatanaColors.borderStrong}`,
+              border: `1px solid ${KatanaColors.border}`,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 3,
             }}
           >
-            <span style={KatanaType.accent}>View all</span>
-            <Icon name="chevron_right" size={16} color={KatanaColors.accentSoft} />
+            <span style={{ ...KatanaType.link, fontSize: 12 }}>View all</span>
+            <Icon name="chevron_right" size={15} color={KatanaColors.link} />
           </button>
         }
       />
-      <div style={{ height: 10 }} />
-      <div className="no-scrollbar" style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
+      <div style={{ height: 8 }} />
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
         {items.slice(0, 10).map((bm) => {
           const matched = catalogMap.get(bm.slug);
-          const currentNum = parseChapterNumber(bm.lastReadChapterTitle || bm.lastReadChapterId);
-          const latestNum = parseChapterNumber(
+          const currentNum = extractChapterNumber(bm.lastReadChapterTitle || bm.lastReadChapterId);
+          const latestNum = extractChapterNumber(
             bm.latestChapterTitle || matched?.latestChapter?.title || matched?.latestChapter?.num || '',
           );
           const pct = latestNum > 0 && currentNum > 0 ? Math.min(100, Math.round((currentNum / latestNum) * 100)) : 0;
-          const unread = latestNum > currentNum ? Math.max(0, Math.floor(latestNum - currentNum)) : 0;
+          const unread = estimateUnreadCount(bm, latestNum || undefined);
+          const dlCount = downloadedCounts?.[bm.slug] ?? 0;
 
           return (
             <button
@@ -317,85 +384,68 @@ function CurrentlyReadingShelf({
               className="bare-button"
               onClick={() => onSelectManga(bm.slug)}
               style={{
-                width: 124,
+                width: compact ? 232 : 254,
                 flexShrink: 0,
                 textAlign: 'left',
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 10,
+                padding: 8,
+                borderRadius: 11,
+                background: KatanaColors.surface,
+                border: `1px solid ${KatanaColors.border}`,
               }}
             >
               <div
                 style={{
                   position: 'relative',
-                  width: 124,
-                  height: 174,
-                  borderRadius: 10,
+                  width: 48,
+                  height: 68,
+                  borderRadius: 7,
                   overflow: 'hidden',
+                  flexShrink: 0,
                   border: `1px solid ${KatanaColors.borderStrong}`,
                   background: KatanaColors.surfaceAlt,
                 }}
               >
-                <KatanaCoverImage url={bm.coverUrl} iconSize={24} />
-                {unread > 0 && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      padding: '2px 6px',
-                      borderRadius: 6,
-                      background: KatanaColors.crimson,
-                      color: '#FFFFFF',
-                      fontFamily: Fonts.body,
-                      fontSize: 10,
-                      fontWeight: 800,
-                    }}
-                  >
-                    +{unread} new
+                <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={18} />
+                <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text }}>
+                  {bm.title}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                  <span style={{ ...KatanaType.link, fontSize: 11.5 }}>
+                    {bm.lastReadChapterTitle || 'Resume'}
                   </span>
-                )}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    padding: '18px 8px 8px',
-                    background: 'linear-gradient(to top, rgba(11, 13, 18, 0.94), transparent)',
-                  }}
-                >
-                  {bm.lastReadChapterTitle && (
-                    <div
-                      className="ellipsis"
+                  {unread > 0 && (
+                    <span
                       style={{
+                        padding: '1px 5px',
+                        borderRadius: 4,
+                        background: withAlpha(KatanaColors.accent, 0.18),
                         fontFamily: Fonts.body,
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: 700,
                         color: KatanaColors.accentSoft,
                       }}
                     >
-                      {bm.lastReadChapterTitle}
-                      {latestNum > 0 ? ` / ${latestNum}` : ''}
-                    </div>
-                  )}
-                  {pct > 0 && (
-                    <div
-                      style={{
-                        height: 4,
-                        borderRadius: 99,
-                        background: 'rgba(255,255,255,0.18)',
-                        marginTop: 5,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div style={{ width: `${pct}%`, height: '100%', background: KatanaColors.accent, borderRadius: 99 }} />
-                    </div>
+                      +{unread} new
+                    </span>
                   )}
                 </div>
-              </div>
-              <div style={{ height: 7 }} />
-              <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 600, color: KatanaColors.text, lineHeight: 1.25 }}>
-                {bm.title || bm.slug.replace(/-/g, ' ')}
+                {pct > 0 && (
+                  <div style={{ height: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden', marginTop: 7 }}>
+                    <div
+                      style={{
+                        width: `${pct}%`,
+                        height: '100%',
+                        background: KatanaColors.accent,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </button>
           );
@@ -409,6 +459,7 @@ export function MangaHome({
   width,
   data,
   currentlyReading = [],
+  downloadedCounts = {},
   type,
   typeItems,
   typeLoading,
@@ -425,6 +476,7 @@ export function MangaHome({
   width: number;
   data: KatanaHomeData;
   currentlyReading?: KatanaBookmark[];
+  downloadedCounts?: Record<string, number>;
   type: MangaType;
   typeItems: KatanaManga[];
   typeLoading: boolean;
@@ -442,6 +494,10 @@ export function MangaHome({
   const tablet = width >= KATANA_BREAKPOINTS.tablet;
   const compact = width < KATANA_BREAKPOINTS.tablet;
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => (width >= KATANA_BREAKPOINTS.tablet ? 'grid' : 'list'));
+  const [feedTab, setFeedTab] = useState<FeedTab>('latest');
+  const [selectedDay, setSelectedDay] = useState<KatanaWeekday>(() => todayWeekday());
+  const [tasteGenres, setTasteGenres] = useState<string[]>(() => getPreferredMangaGenres());
+  const [tasteEditorOpen, setTasteEditorOpen] = useState(false);
 
   const effectiveView = compact ? 'list' : viewMode;
   const allCatalog = useMemo(() => {
@@ -457,30 +513,77 @@ export function MangaHome({
     return pool.slice(0, 4);
   }, [data.hot, data.latest]);
 
+  const toggleTasteGenre = (slug: string) => {
+    setTasteGenres((prev) => {
+      const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug];
+      return setPreferredMangaGenres(next);
+    });
+  };
+
+  // Explainable recommendations: every card carries a concrete "why" label.
   const recommended = useMemo(() => {
     if (allCatalog.length === 0) return [];
     const readingSlugs = new Set(currentlyReading.map((b) => b.slug));
-    const preferredGenres = new Set<string>();
+    const readingGenreSource = new Map<string, string>();
     for (const bm of currentlyReading) {
       const m = allCatalog.find((x) => x.slug === bm.slug);
-      m?.genres.forEach((g) => preferredGenres.add(g.slug));
+      m?.genres.forEach((g) => {
+        if (!readingGenreSource.has(g.slug)) readingGenreSource.set(g.slug, bm.title);
+      });
     }
+    const explicitSet = new Set(tasteGenres);
     const candidates = allCatalog.filter((m) => !readingSlugs.has(m.slug));
-    if (preferredGenres.size === 0) return candidates.slice(0, 8);
-    return [...candidates]
-      .sort((a, b) => {
-        const aScore = a.genres.filter((g) => preferredGenres.has(g.slug)).length;
-        const bScore = b.genres.filter((g) => preferredGenres.has(g.slug)).length;
-        return bScore - aScore;
-      })
-      .slice(0, 8);
-  }, [allCatalog, currentlyReading]);
+
+    const scored = candidates.map((m) => {
+      const explicitMatches = m.genres.filter((g) => explicitSet.has(g.slug));
+      const historyMatch = m.genres.find((g) => readingGenreSource.has(g.slug));
+      const score = explicitMatches.length * 3 + (historyMatch ? 2 : 0) + (m.rating ? m.rating / 5 : 0);
+      let reason = '';
+      if (explicitMatches.length > 0) {
+        reason = `Matches ${explicitMatches.slice(0, 2).map((g) => g.name).join(' · ')}`;
+      } else if (historyMatch) {
+        const src = readingGenreSource.get(historyMatch.slug)!;
+        reason = `Because you read ${src}`;
+      } else if (m.rating != null) {
+        reason = `Top rated · ${m.rating.toFixed(1)}`;
+      }
+      return { manga: m, score, reason };
+    });
+
+    return scored.sort((a, b) => b.score - a.score).slice(0, 8);
+  }, [allCatalog, currentlyReading, tasteGenres]);
+
+  const newAndHotItems = useMemo(() => {
+    const seen = new Set<string>();
+    const combined = [...data.hotUpdates, ...data.hot].filter((m) => {
+      if (seen.has(m.slug)) return false;
+      seen.add(m.slug);
+      return true;
+    });
+    return combined.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  }, [data.hotUpdates, data.hot]);
+
+  const scheduleItems = useMemo(() => {
+    const byDay = allCatalog.filter((m, idx) => {
+      const day = m.releaseDay ?? WEEKDAYS[idx % WEEKDAYS.length];
+      return day === selectedDay;
+    });
+    return byDay.length > 0 ? byDay : allCatalog.slice(0, 4);
+  }, [allCatalog, selectedDay]);
 
   const openRandomPick = () => {
     if (allCatalog.length === 0) return;
     const pick = allCatalog[Math.floor(Math.random() * allCatalog.length)];
     onSelectManga(pick.slug);
   };
+
+  const unreadBySlug = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const bm of currentlyReading) {
+      map[bm.slug] = estimateUnreadCount(bm);
+    }
+    return map;
+  }, [currentlyReading]);
 
   const renderFeedItems = (items: KatanaManga[]) => {
     if (effectiveView === 'grid') {
@@ -491,6 +594,8 @@ export function MangaHome({
             <KatanaPosterCard
               key={m.slug}
               manga={m}
+              unreadCount={unreadBySlug[m.slug]}
+              downloadedCount={downloadedCounts[m.slug]}
               onSelect={() => onSelectManga(m.slug)}
               onOpenChapter={onOpenChapter}
             />
@@ -505,6 +610,8 @@ export function MangaHome({
             key={m.slug}
             manga={m}
             compact={compact}
+            unreadCount={unreadBySlug[m.slug]}
+            downloadedCount={downloadedCounts[m.slug]}
             onSelectManga={onSelectManga}
             onSelectGenre={onSelectGenre}
             onOpenChapter={onOpenChapter}
@@ -537,12 +644,13 @@ export function MangaHome({
               width: 30,
               height: 26,
               borderRadius: 6,
-              background: active ? KatanaColors.accent : 'transparent',
+              background: active ? KatanaColors.chipSelectedBg : 'transparent',
+              border: active ? `1px solid ${KatanaColors.chipSelectedBorder}` : '1px solid transparent',
               display: 'grid',
               placeItems: 'center',
             }}
           >
-            <Icon name={mode === 'grid' ? 'grid_view' : 'view_agenda'} size={16} color={active ? KatanaColors.accentInk : KatanaColors.textMuted} />
+            <Icon name={mode === 'grid' ? 'grid_view' : 'view_agenda'} size={16} color={active ? KatanaColors.chipSelectedText : KatanaColors.textMuted} />
           </button>
         );
       })}
@@ -550,17 +658,33 @@ export function MangaHome({
   );
 
   const typeChips = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 8, flex: 1, minWidth: 0 }}>
-        {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (
-          <TypeChip
-            key={t}
-            label={TYPE_META[t].label}
-            icon={TYPE_META[t].icon}
-            selected={type === t}
-            onClick={() => onSelectType(t)}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 8, paddingRight: compact ? 22 : 0 }}>
+          {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (
+            <TypeChip
+              key={t}
+              label={TYPE_META[t].label}
+              icon={TYPE_META[t].icon}
+              selected={type === t}
+              onClick={() => onSelectType(t)}
+            />
+          ))}
+        </div>
+        {compact && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: 24,
+              background: `linear-gradient(to right, transparent, ${KatanaColors.background})`,
+              pointerEvents: 'none',
+            }}
           />
-        ))}
+        )}
       </div>
       {allCatalog.length > 0 && (
         <button
@@ -579,7 +703,7 @@ export function MangaHome({
             gap: 5,
           }}
         >
-          <Icon name="casino" size={15} color={KatanaColors.accentSoft} />
+          <Icon name="casino" size={15} color={KatanaColors.textMuted} />
           <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>
         </button>
       )}
@@ -588,15 +712,87 @@ export function MangaHome({
 
   const recommendedRail =
     type === 'all' && recommended.length > 0 ? (
-      <section style={{ marginBottom: 18 }}>
+      <section style={{ marginTop: 22 }}>
         <KatanaSectionHeader
-          title={currentlyReading.length > 0 ? 'Recommended for You' : 'Trending Now'}
-          trailing={<Icon name="auto_awesome" size={18} color={KatanaColors.accentSoft} />}
+          title={tasteGenres.length > 0 || currentlyReading.length > 0 ? 'Recommended for You' : 'Trending Now'}
+          badge={tasteGenres.length > 0 ? `${tasteGenres.length} tastes` : undefined}
+          trailing={
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => setTasteEditorOpen((v) => !v)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: 99,
+                background: tasteEditorOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                border: `1px solid ${tasteEditorOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <Icon name="tune" size={14} color={KatanaColors.textMuted} />
+              <span style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 600, color: KatanaColors.text }}>
+                Personalize
+              </span>
+            </button>
+          }
         />
+        {tasteEditorOpen && data.genres.length > 0 && (
+          <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ ...KatanaType.small, color: KatanaColors.textMuted }}>
+                Pick genres you enjoy — recommendations update immediately:
+              </span>
+              {tasteGenres.length > 0 && (
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={() => setTasteGenres(setPreferredMangaGenres([]))}
+                  style={{ ...KatanaType.small, color: KatanaColors.link }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {data.genres.slice(0, 14).map((g) => {
+                const picked = tasteGenres.includes(g.slug);
+                return (
+                  <button
+                    key={g.slug}
+                    type="button"
+                    className="bare-button"
+                    onClick={() => toggleTasteGenre(g.slug)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 99,
+                      background: picked ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                      border: `1px solid ${picked ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                      fontFamily: Fonts.body,
+                      fontSize: 12,
+                      fontWeight: picked ? 700 : 500,
+                      color: picked ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                    }}
+                  >
+                    {picked ? `✓ ${g.name}` : g.name}
+                  </button>
+                );
+              })}
+            </div>
+          </KatanaCard>
+        )}
         <div style={{ height: 10 }} />
-        <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, paddingBottom: 4 }}>
-          {recommended.map((m) => (
-            <KatanaCompactCard key={m.slug} manga={m} width={tablet ? 124 : 108} onSelect={() => onSelectManga(m.slug)} onOpenChapter={onOpenChapter} />
+        <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 14, paddingBottom: 4 }}>
+          {recommended.map(({ manga, reason }) => (
+            <KatanaCompactCard
+              key={manga.slug}
+              manga={manga}
+              width={tablet ? 156 : 124}
+              reason={reason}
+              onSelect={() => onSelectManga(manga.slug)}
+              onOpenChapter={onOpenChapter}
+            />
           ))}
         </div>
       </section>
@@ -640,17 +836,25 @@ export function MangaHome({
                   {i + 1}
                 </span>
                 <div style={{ position: 'relative', width: 42, height: 60, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surface }}>
-                  <KatanaCoverImage url={m.coverUrl} iconSize={16} />
+                  <KatanaCoverImage url={m.coverUrl} title={m.title} iconSize={16} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text, lineHeight: 1.25 }}>
                     {m.title}
                   </div>
-                  {m.latestChapter && (
-                    <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link, marginTop: 2 }}>
-                      {chapterDisplayTitle(m.latestChapter)}
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    {m.rating != null && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontFamily: Fonts.body, fontSize: 11, fontWeight: 700, color: KatanaColors.textMuted }}>
+                        <Icon name="star" size={11} color={KatanaColors.accent} />
+                        {m.rating.toFixed(1)}
+                      </span>
+                    )}
+                    {m.latestChapter && (
+                      <span className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link }}>
+                        {chapterDisplayTitle(m.latestChapter)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             ))}
@@ -658,7 +862,7 @@ export function MangaHome({
         ) : (
           <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, paddingBottom: 4 }}>
             {data.hot.map((m) => (
-              <KatanaCompactCard key={m.slug} manga={m} width={104} onSelect={() => onSelectManga(m.slug)} onOpenChapter={onOpenChapter} />
+              <KatanaCompactCard key={m.slug} manga={m} width={124} onSelect={() => onSelectManga(m.slug)} onOpenChapter={onOpenChapter} />
             ))}
           </div>
         )}
@@ -693,24 +897,111 @@ export function MangaHome({
       </KatanaCard>
     ) : null;
 
-  const feedItems = type === 'all' ? data.latest : typeItems;
+  const activeFeedItems =
+    type !== 'all'
+      ? typeItems
+      : feedTab === 'new_hot'
+        ? newAndHotItems
+        : feedTab === 'schedule'
+          ? scheduleItems
+          : data.latest;
+
+  const feedTitle =
+    type !== 'all'
+      ? TYPE_META[type].label
+      : feedTab === 'new_hot'
+        ? 'New & Hot'
+        : feedTab === 'schedule'
+          ? `Weekly Releases · ${selectedDay}`
+          : 'Latest Updates';
+
   const feedSection = (
     <section>
-      <KatanaSectionHeader
-        title={type === 'all' ? 'Latest Updates' : TYPE_META[type].label}
-        trailing={
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            {type !== 'all' && <span style={KatanaType.small}>{TYPE_META[type].eyebrow}</span>}
-            {viewToggle}
-          </div>
-        }
-      />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <KatanaSectionHeader title={feedTitle} />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {type === 'all' && (
+            <div
+              role="tablist"
+              aria-label="Discovery feed"
+              style={{
+                display: 'inline-flex',
+                padding: 3,
+                borderRadius: 9,
+                background: KatanaColors.surfaceAlt,
+                border: `1px solid ${KatanaColors.border}`,
+              }}
+            >
+              {([
+                { key: 'latest', label: 'Latest' },
+                { key: 'new_hot', label: 'New & Hot' },
+                { key: 'schedule', label: 'Daily' },
+              ] as const).map((t) => {
+                const active = feedTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className="bare-button"
+                    onClick={() => setFeedTab(t.key)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      background: active ? KatanaColors.chipSelectedBg : 'transparent',
+                      fontFamily: Fonts.body,
+                      fontSize: 12,
+                      fontWeight: active ? 700 : 500,
+                      color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {type !== 'all' && <span style={KatanaType.small}>{TYPE_META[type].eyebrow}</span>}
+          {viewToggle}
+        </div>
+      </div>
+
+      {type === 'all' && feedTab === 'schedule' && (
+        <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 10 }}>
+          {WEEKDAYS.map((day) => {
+            const active = selectedDay === day;
+            const isToday = day === todayWeekday();
+            return (
+              <button
+                key={day}
+                type="button"
+                className="bare-button"
+                onClick={() => setSelectedDay(day)}
+                style={{
+                  flexShrink: 0,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
+                  border: `1px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
+                }}
+              >
+                {day}
+                {isToday ? ' •' : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ height: 12 }} />
       {type !== 'all' && typeLoading && typeItems.length === 0 ? (
-        <div style={{ padding: '48px 0', display: 'grid', placeItems: 'center' }}>
-          <div className="spin" style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${KatanaColors.accent}`, borderRightColor: 'transparent', boxSizing: 'border-box' }} />
-        </div>
-      ) : feedItems.length === 0 ? (
+        effectiveView === 'grid' ? <KatanaSkeletonGrid count={desktop ? 8 : 6} columns={desktop ? 4 : 3} /> : <KatanaSkeletonList count={4} />
+      ) : activeFeedItems.length === 0 ? (
         <KatanaEmptyState
           icon="menu_book"
           title={type === 'all' ? 'Catalog unavailable right now' : `No ${TYPE_META[type].label} titles found`}
@@ -724,9 +1015,9 @@ export function MangaHome({
           onAction={onRetryHome}
         />
       ) : (
-        renderFeedItems(feedItems)
+        renderFeedItems(activeFeedItems)
       )}
-      {type !== 'all' && feedItems.length > 0 && (
+      {type !== 'all' && activeFeedItems.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <KatanaPagination page={typePage} hasPrev={typePage > 1} hasNext={typeHasNext} onPageChange={onTypePage} />
         </div>
@@ -752,11 +1043,18 @@ export function MangaHome({
                 onSelectGenre={onSelectGenre}
               />
             )}
-            <CurrentlyReadingShelf items={currentlyReading} catalog={allCatalog} onSelectManga={onSelectManga} onViewAll={() => onViewAllReading?.()} />
+            <CurrentlyReadingShelf
+              items={currentlyReading}
+              catalog={allCatalog}
+              downloadedCounts={downloadedCounts}
+              compact={compact}
+              onSelectManga={onSelectManga}
+              onViewAll={() => onViewAllReading?.()}
+            />
             {typeChips}
-            <div style={{ height: 16 }} />
-            {recommendedRail}
+            <div style={{ height: 14 }} />
             {feedSection}
+            {recommendedRail}
             {type === 'all' && hotCard && <div style={{ marginTop: 20 }}>{hotCard}</div>}
             {genresCard && <div style={{ marginTop: 18 }}>{genresCard}</div>}
           </>,
@@ -766,7 +1064,7 @@ export function MangaHome({
   }
 
   return (
-    <div style={{ padding: '18px 16px 48px' }}>
+    <div style={{ padding: '16px 16px 48px' }}>
       {center(
         <>
           {data.error && <KatanaErrorBanner message={data.error} onRetry={onRetryHome} />}
@@ -780,12 +1078,21 @@ export function MangaHome({
               onSelectGenre={onSelectGenre}
             />
           )}
-          <CurrentlyReadingShelf items={currentlyReading} catalog={allCatalog} onSelectManga={onSelectManga} onViewAll={() => onViewAllReading?.()} />
+          <CurrentlyReadingShelf
+            items={currentlyReading}
+            catalog={allCatalog}
+            downloadedCounts={downloadedCounts}
+            compact={false}
+            onSelectManga={onSelectManga}
+            onViewAll={() => onViewAllReading?.()}
+          />
           {typeChips}
-          <div style={{ height: 16 }} />
-          {recommendedRail}
+          <div style={{ height: 14 }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
-            <div style={{ flex: 7, minWidth: 0 }}>{feedSection}</div>
+            <div style={{ flex: 7, minWidth: 0 }}>
+              {feedSection}
+              {recommendedRail}
+            </div>
             <aside style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
               {type === 'all' && hotCard}
               {genresCard}

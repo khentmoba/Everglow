@@ -11,6 +11,7 @@ import {
   chapterDisplayTitle,
   clearRecentMangaSearches,
   fetchKatanaSuggestions,
+  formatCompactNumber,
   formatKatanaTime,
   getRecentMangaSearches,
   katanaCdnFallback,
@@ -71,7 +72,7 @@ export function KatanaSectionHeader({
   title,
   badge,
   trailing,
-  underline = KatanaColors.accent,
+  underline = KatanaColors.borderStrong,
 }: {
   title: string;
   badge?: string;
@@ -83,11 +84,13 @@ export function KatanaSectionHeader({
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <div
         style={{
-          width: 4,
-          height: 20,
+          width: 3,
+          height: 19,
           flexShrink: 0,
           borderRadius: 4,
-          background: linear([underline, KatanaColors.accentSoft], { begin: Align.topCenter, end: Align.bottomCenter }),
+          background: underline === KatanaColors.borderStrong
+            ? linear([KatanaColors.textMuted, KatanaColors.borderStrong], { begin: Align.topCenter, end: Align.bottomCenter })
+            : linear([underline, withAlpha(underline, 0.45)], { begin: Align.topCenter, end: Align.bottomCenter }),
         }}
       />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -98,9 +101,9 @@ export function KatanaSectionHeader({
               flexShrink: 0,
               padding: '2px 9px',
               borderRadius: 99,
-              background: withAlpha(KatanaColors.accent, 0.14),
-              border: `1px solid ${withAlpha(KatanaColors.accent, 0.35)}`,
-              ...bodyText(11, 700, KatanaColors.accentSoft, 1.2),
+              background: KatanaColors.surfaceAlt,
+              border: `1px solid ${KatanaColors.borderStrong}`,
+              ...bodyText(11, 700, KatanaColors.textMuted, 1.2),
               letterSpacing: 0.4,
             }}
           >
@@ -1007,12 +1010,13 @@ export function KatanaBottomBar({
 
 export function KatanaCoverImage({
   url,
+  title,
   emptyIcon = 'menu_book',
-  errorIcon = 'broken_image',
   iconSize = 32,
   fill = KatanaColors.surfaceAlt,
 }: {
   url: string;
+  title?: string;
   emptyIcon?: string;
   errorIcon?: string;
   iconSize?: number;
@@ -1028,9 +1032,43 @@ export function KatanaCoverImage({
 
   const resolved = url ? proxyKatanaImageUrl(katanaCdnFallback(url, step)) : '';
   if (!resolved || failed) {
+    const initial = (title ?? '').trim().charAt(0).toUpperCase();
     return (
-      <div style={{ position: 'absolute', inset: 0, background: fill, display: 'grid', placeItems: 'center' }}>
-        <Icon name={url ? errorIcon : emptyIcon} size={iconSize} color={KatanaColors.textLight} />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `linear-gradient(155deg, ${KatanaColors.surfaceGlow} 0%, ${fill} 55%, ${KatanaColors.background} 100%)`,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+          padding: 6,
+          textAlign: 'center',
+        }}
+      >
+        {initial ? (
+          <div
+            style={{
+              width: Math.max(30, iconSize + 8),
+              height: Math.max(30, iconSize + 8),
+              borderRadius: 10,
+              background: withAlpha(KatanaColors.borderStrong, 0.55),
+              border: `1px solid ${KatanaColors.borderStrong}`,
+              display: 'grid',
+              placeItems: 'center',
+              fontFamily: Fonts.display,
+              fontWeight: 700,
+              fontSize: Math.max(15, Math.round(iconSize * 0.65)),
+              color: KatanaColors.textMuted,
+            }}
+          >
+            {initial}
+          </div>
+        ) : (
+          <Icon name={emptyIcon} size={iconSize} color={KatanaColors.textLight} />
+        )}
       </div>
     );
   }
@@ -1045,6 +1083,116 @@ export function KatanaCoverImage({
       }}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
     />
+  );
+}
+
+/** Skeleton placeholders so loading states preserve page layout instead of a bare spinner. */
+export function KatanaSkeletonGrid({ count = 6, columns = 3 }: { count?: number; columns?: number }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 14 }} aria-busy="true" aria-label="Loading catalog">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            borderRadius: 12,
+            background: KatanaColors.surface,
+            border: `1px solid ${KatanaColors.border}`,
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ width: '100%', aspectRatio: '2 / 3', background: KatanaColors.surfaceAlt }} />
+          <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ height: 13, width: '82%', borderRadius: 4, background: KatanaColors.surfaceGlow }} />
+            <div style={{ height: 10, width: '54%', borderRadius: 4, background: KatanaColors.surfaceAlt }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function KatanaSkeletonList({ count = 4 }: { count?: number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-busy="true" aria-label="Loading list">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            gap: 12,
+            padding: 12,
+            borderRadius: 12,
+            background: KatanaColors.surface,
+            border: `1px solid ${KatanaColors.border}`,
+          }}
+        >
+          <div style={{ width: 88, height: 126, borderRadius: 8, background: KatanaColors.surfaceAlt, flexShrink: 0 }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+            <div style={{ height: 15, width: '70%', borderRadius: 4, background: KatanaColors.surfaceGlow }} />
+            <div style={{ height: 11, width: '42%', borderRadius: 4, background: KatanaColors.surfaceAlt }} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ height: 20, width: 54, borderRadius: 6, background: KatanaColors.surfaceAlt }} />
+              <div style={{ height: 20, width: 64, borderRadius: 6, background: KatanaColors.surfaceAlt }} />
+            </div>
+            <div style={{ height: 28, width: '100%', borderRadius: 7, background: KatanaColors.surfaceAlt, marginTop: 4 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function KatanaCoverBadges({
+  unreadCount,
+  downloadedCount,
+}: {
+  unreadCount?: number;
+  downloadedCount?: number;
+}) {
+  if (!unreadCount && !downloadedCount) return null;
+  return (
+    <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', zIndex: 2 }}>
+      {unreadCount != null && unreadCount > 0 && (
+        <span
+          title={`${unreadCount} unread chapters`}
+          style={{
+            padding: '2px 6px',
+            borderRadius: 6,
+            background: KatanaColors.accent,
+            color: KatanaColors.accentInk,
+            fontFamily: Fonts.body,
+            fontSize: 10,
+            fontWeight: 800,
+            lineHeight: 1.2,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+          }}
+        >
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      )}
+      {downloadedCount != null && downloadedCount > 0 && (
+        <span
+          title={`${downloadedCount} downloaded chapters`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '2px 5px',
+            borderRadius: 6,
+            background: KatanaColors.green,
+            color: KatanaColors.accentInk,
+            fontFamily: Fonts.body,
+            fontSize: 10,
+            fontWeight: 800,
+            lineHeight: 1.2,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+          }}
+        >
+          <Icon name="download_done" size={11} color={KatanaColors.accentInk} />
+          <span>{downloadedCount}</span>
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1066,27 +1214,44 @@ export function KatanaBreadcrumb({ items, onHome }: { items: string[]; onHome: (
   );
 }
 
-function ItemCover({ url, width, height, status }: { url: string; width: number; height: number; status: string }) {
+function ItemCover({
+  url,
+  title,
+  width,
+  height,
+  status,
+  unreadCount,
+  downloadedCount,
+}: {
+  url: string;
+  title?: string;
+  width: number;
+  height: number;
+  status: string;
+  unreadCount?: number;
+  downloadedCount?: number;
+}) {
   const completed = status === 'completed';
   return (
     <div style={{ border: `1px solid ${KatanaColors.borderStrong}`, borderRadius: 9, flexShrink: 0, overflow: 'hidden' }}>
       <div style={{ position: 'relative', width, height, background: KatanaColors.surfaceAlt }}>
-        <KatanaCoverImage url={url} emptyIcon="menu_book" errorIcon="broken_image" iconSize={26} fill={KatanaColors.surfaceAlt} />
+        <KatanaCoverImage url={url} title={title} emptyIcon="menu_book" iconSize={26} fill={KatanaColors.surfaceAlt} />
         <div
           style={{
             position: 'absolute',
             left: 6,
             top: 6,
             padding: '2px 7px',
-            background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.82)',
-            border: `1px solid ${completed ? KatanaColors.green : withAlpha(KatanaColors.accent, 0.55)}`,
+            background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.84)',
+            border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
             borderRadius: 6,
-            ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.accentSoft, 1.2),
+            ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
             whiteSpace: 'nowrap',
           }}
         >
           {completed ? 'Completed' : 'Ongoing'}
         </div>
+        <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
       </div>
     </div>
   );
@@ -1096,6 +1261,8 @@ export function KatanaItemCard({
   manga,
   compact,
   dense = false,
+  unreadCount,
+  downloadedCount,
   onSelectManga,
   onSelectGenre,
   onOpenChapter,
@@ -1103,6 +1270,8 @@ export function KatanaItemCard({
   manga: KatanaManga;
   compact: boolean;
   dense?: boolean;
+  unreadCount?: number;
+  downloadedCount?: number;
   onSelectManga: (slug: string) => void;
   onSelectGenre?: (genre: KatanaGenre) => void;
   onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
@@ -1116,6 +1285,7 @@ export function KatanaItemCard({
   const coverH = compact ? 132 : 162;
   const genres = manga.genres.slice(0, compact ? 3 : 5);
   const chapters = manga.recentChapters.slice(0, 2);
+  const totalCh = manga.chapterCount ?? (manga.chapters.length > 0 ? manga.chapters.length : undefined);
 
   return (
     <article
@@ -1139,7 +1309,15 @@ export function KatanaItemCard({
         onClick={() => onSelectManga(manga.slug)}
         style={{ flexShrink: 0, textAlign: 'left' }}
       >
-        <ItemCover url={manga.coverUrl} width={coverW} height={coverH} status={manga.status} />
+        <ItemCover
+          url={manga.coverUrl}
+          title={manga.title}
+          width={coverW}
+          height={coverH}
+          status={manga.status}
+          unreadCount={unreadCount}
+          downloadedCount={downloadedCount}
+        />
       </button>
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1154,22 +1332,26 @@ export function KatanaItemCard({
           </div>
         </button>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 14, rowGap: 4, alignItems: 'center', marginTop: 5 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 12, rowGap: 4, alignItems: 'center', marginTop: 5 }}>
+          {manga.rating != null && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Icon name="star" size={13} color={KatanaColors.accent} />
+              <span style={bodyText(12, 700, KatanaColors.text, 1.2)}>{manga.rating.toFixed(1)}</span>
+            </span>
+          )}
+          {manga.follows != null && manga.follows > 0 && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Icon name="bookmark_border" size={13} color={KatanaColors.textLight} />
+              <span style={KatanaType.small}>{formatCompactNumber(manga.follows)}</span>
+            </span>
+          )}
+          {totalCh != null && totalCh > 0 && (
+            <span style={KatanaType.small}>{totalCh} ch</span>
+          )}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <Icon name="schedule" size={13} color={KatanaColors.textLight} />
             <span style={KatanaType.small}>{manga.updateText || 'Recently updated'}</span>
           </span>
-          {manga.latestChapter && (
-            <button
-              type="button"
-              className="bare-button"
-              onClick={() => onOpenChapter?.(manga, 'fc')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              <Icon name="double_arrow" size={13} color={KatanaColors.link} />
-              <span style={KatanaType.link}>Ch. 1</span>
-            </button>
-          )}
         </div>
 
         {genres.length > 0 && (
@@ -1269,10 +1451,14 @@ export function KatanaItemCard({
 /** Responsive poster card for tablet & desktop discovery grids. */
 export function KatanaPosterCard({
   manga,
+  unreadCount,
+  downloadedCount,
   onSelect,
   onOpenChapter,
 }: {
   manga: KatanaManga;
+  unreadCount?: number;
+  downloadedCount?: number;
   onSelect: () => void;
   onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
@@ -1281,6 +1467,7 @@ export function KatanaPosterCard({
   const interactive = !reduceAmbientMotion(viewport);
   const lit = interactive && hovered;
   const completed = manga.status === 'completed';
+  const totalCh = manga.chapterCount ?? (manga.chapters.length > 0 ? manga.chapters.length : undefined);
 
   return (
     <article
@@ -1291,7 +1478,7 @@ export function KatanaPosterCard({
         flexDirection: 'column',
         borderRadius: 12,
         background: KatanaColors.surface,
-        border: `1px solid ${lit ? KatanaColors.accent : KatanaColors.border}`,
+        border: `1px solid ${lit ? KatanaColors.borderStrong : KatanaColors.border}`,
         overflow: 'hidden',
         transform: lit ? 'translateY(-3px)' : undefined,
         boxShadow: lit ? boxShadow([{ color: '#00000080', blur: 18, offset: [0, 8] }]) : undefined,
@@ -1306,7 +1493,7 @@ export function KatanaPosterCard({
         onKeyDown={onActivateKey(onSelect)}
         style={{ position: 'relative', width: '100%', aspectRatio: '2 / 3', background: KatanaColors.surfaceAlt, cursor: 'pointer', overflow: 'hidden' }}
       >
-        <KatanaCoverImage url={manga.coverUrl} iconSize={28} />
+        <KatanaCoverImage url={manga.coverUrl} title={manga.title} iconSize={28} />
         <div
           style={{
             position: 'absolute',
@@ -1323,13 +1510,35 @@ export function KatanaPosterCard({
             left: 8,
             padding: '2px 7px',
             borderRadius: 6,
-            background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.82)',
-            border: `1px solid ${completed ? KatanaColors.green : withAlpha(KatanaColors.accent, 0.5)}`,
-            ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.accentSoft, 1.2),
+            background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.84)',
+            border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
+            ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
           }}
         >
           {completed ? 'Completed' : 'Ongoing'}
         </span>
+        {unreadCount || downloadedCount ? (
+          <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
+        ) : manga.rating != null ? (
+          <span
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              padding: '2px 6px',
+              borderRadius: 6,
+              background: 'rgba(11, 13, 18, 0.86)',
+              border: `1px solid ${KatanaColors.borderStrong}`,
+              ...bodyText(10.5, 700, KatanaColors.text, 1.2),
+            }}
+          >
+            <Icon name="star" size={11} color={KatanaColors.accent} />
+            <span>{manga.rating.toFixed(1)}</span>
+          </span>
+        ) : null}
         {manga.latestChapter && (
           <button
             type="button"
@@ -1345,9 +1554,9 @@ export function KatanaPosterCard({
               bottom: 8,
               padding: '4px 8px',
               borderRadius: 7,
-              background: 'rgba(19, 22, 31, 0.9)',
+              background: 'rgba(19, 22, 31, 0.92)',
               border: `1px solid ${KatanaColors.borderStrong}`,
-              ...bodyText(11.5, 700, KatanaColors.accentSoft, 1.2),
+              ...bodyText(11.5, 600, KatanaColors.link, 1.2),
               ...ellipsis,
               textAlign: 'left',
             }}
@@ -1360,6 +1569,7 @@ export function KatanaPosterCard({
         <button
           type="button"
           className="bare-button"
+          title={manga.title}
           onClick={onSelect}
           style={{ textAlign: 'left', width: '100%' }}
         >
@@ -1367,8 +1577,14 @@ export function KatanaPosterCard({
             {manga.title}
           </div>
         </button>
-        <div style={{ ...KatanaType.small, fontSize: 11.5, ...ellipsis }}>
-          {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || manga.updateText || 'Manga'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...KatanaType.small, fontSize: 11.5, ...ellipsis }}>
+          <span style={ellipsis}>{manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}</span>
+          {manga.follows != null && manga.follows > 0 && (
+            <span style={{ flexShrink: 0, color: KatanaColors.textMuted }}>· {formatCompactNumber(manga.follows)}</span>
+          )}
+          {totalCh != null && totalCh > 0 && !manga.follows && (
+            <span style={{ flexShrink: 0, color: KatanaColors.textMuted }}>· {totalCh} ch</span>
+          )}
         </div>
       </div>
     </article>
@@ -1378,11 +1594,13 @@ export function KatanaPosterCard({
 export function KatanaCompactCard({
   manga,
   width,
+  reason,
   onSelect,
   onOpenChapter,
 }: {
   manga: KatanaManga;
   width: number;
+  reason?: string;
   onSelect: () => void;
   onOpenChapter?: (manga: KatanaManga, chapterId: string) => void;
 }) {
@@ -1402,12 +1620,13 @@ export function KatanaCompactCard({
         type="button"
         className="bare-button"
         aria-label={`Open ${manga.title}`}
+        title={manga.title}
         onClick={onSelect}
         style={{
           borderRadius: 9,
           padding: 0,
-          border: `1.5px solid ${lit ? KatanaColors.accent : KatanaColors.borderStrong}`,
-          boxShadow: lit ? boxShadow([{ color: withAlpha(KatanaColors.accent, 0.35), blur: 12 }]) : undefined,
+          border: `1.5px solid ${lit ? KatanaColors.borderStrong : KatanaColors.border}`,
+          boxShadow: lit ? boxShadow([{ color: '#00000070', blur: 12, offset: [0, 4] }]) : undefined,
           transform: lit ? 'translateY(-2px)' : undefined,
           transition: interactive ? 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease' : undefined,
           overflow: 'hidden',
@@ -1417,18 +1636,45 @@ export function KatanaCompactCard({
           background: KatanaColors.surfaceAlt,
         }}
       >
-        <KatanaCoverImage url={manga.coverUrl} emptyIcon="menu_book" errorIcon="broken_image" iconSize={24} fill={KatanaColors.surfaceAlt} />
+        <KatanaCoverImage url={manga.coverUrl} title={manga.title} emptyIcon="menu_book" iconSize={24} fill={KatanaColors.surfaceAlt} />
+        {manga.rating != null && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '2px 5px',
+              borderRadius: 5,
+              background: 'rgba(11, 13, 18, 0.86)',
+              ...bodyText(10, 700, KatanaColors.text, 1.15),
+            }}
+          >
+            <Icon name="star" size={10} color={KatanaColors.accent} />
+            <span>{manga.rating.toFixed(1)}</span>
+          </span>
+        )}
       </button>
       <div style={{ height: 7 }} />
-      <button type="button" className="bare-button" onClick={onSelect} style={{ textAlign: 'left' }}>
+      <button type="button" className="bare-button" title={manga.title} onClick={onSelect} style={{ textAlign: 'left' }}>
         <div className="clamp-2" style={bodyText(13, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.25)}>
           {manga.title}
         </div>
       </button>
+      {reason && (
+        <div style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textMuted, marginTop: 2, ...ellipsis }} title={reason}>
+          {reason}
+        </div>
+      )}
       <div style={{ height: 3 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: completed ? KatanaColors.green : KatanaColors.accent }} />
+        <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: completed ? KatanaColors.green : KatanaColors.textMuted }} />
         <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{completed ? 'Completed' : 'Ongoing'}</span>
+        {manga.follows != null && manga.follows > 0 && (
+          <span style={{ ...KatanaType.small, fontSize: 11, marginLeft: 'auto' }}>{formatCompactNumber(manga.follows)}</span>
+        )}
       </div>
       {manga.latestChapter && (
         <button
