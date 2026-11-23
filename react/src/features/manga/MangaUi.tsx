@@ -100,13 +100,14 @@ export function KatanaSectionHeader({
             : linear([underline, withAlpha(underline, 0.45)], { begin: Align.topCenter, end: Align.bottomCenter }),
         }}
       />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: width < 380 ? 'wrap' : 'nowrap' }}>
         <span aria-hidden="true" style={{ color: KatanaColors.accent, fontSize: 12, lineHeight: 1, flexShrink: 0 }}>✦</span>
-        <h2 style={{ ...KatanaType.section, margin: 0, ...ellipsis, minWidth: 0 }}>{title}</h2>
+        <h2 style={{ ...KatanaType.section, margin: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>{title}</h2>
         <span
           aria-hidden="true"
           style={{
             flex: '0 1 42px',
+            minWidth: 0,
             height: 1,
             background: linear([withAlpha(KatanaColors.accent, 0.55), withAlpha(KatanaColors.accent, 0)], {
               begin: Align.centerLeft,

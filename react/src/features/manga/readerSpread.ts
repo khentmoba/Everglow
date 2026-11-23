@@ -113,6 +113,14 @@ export function resolveTapZoneAction(
   return (invert ? !forward : forward) ? 'next' : 'prev';
 }
 
+function normalizedChapterKey(ch: KatanaChapter | undefined): string {
+  if (!ch) return '';
+  const raw = (ch.num || '').trim();
+  if (!raw) return '';
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? String(n) : raw.toLowerCase();
+}
+
 /**
  * Katana chapter lists are ordered newest-first (index 0 is latest chapter,
  * index length - 1 is Chapter 1).
@@ -121,21 +129,107 @@ export function adjacentChapter(
   chapters: KatanaChapter[],
   currentId: string,
   direction: 'prev' | 'next',
-  options?: { skipRead?: boolean; readIds?: ReadonlySet<string> },
+  options?: {
+    skipRead?: boolean;
+    readIds?: ReadonlySet<string>;
+    skipDuplicate?: boolean;
+    allowedIds?: ReadonlySet<string>;
+  },
 ): KatanaChapter | null {
   const idx = chapters.findIndex((c) => c.id === currentId);
   if (idx < 0) return null;
+  const currentNumKey = normalizedChapterKey(chapters[idx]);
   const step = direction === 'next' ? -1 : 1;
   let cursor = idx + step;
   while (cursor >= 0 && cursor < chapters.length) {
     const candidate = chapters[cursor];
-    if (!options?.skipRead || !options.readIds?.has(candidate.id)) {
+    const isDuplicate =
+      Boolean(options?.skipDuplicate) &&
+      currentNumKey !== '' &&
+      normalizedChapterKey(candidate) === currentNumKey;
+    const isFilteredOut =
+      options?.allowedIds != null &&
+      options.allowedIds.size > 0 &&
+      !options.allowedIds.has(candidate.id);
+    const isRead = Boolean(options?.skipRead) && Boolean(options?.readIds?.has(candidate.id));
+    if (!isDuplicate && !isFilteredOut && !isRead) {
       return candidate;
     }
     cursor += step;
   }
   const immediate = chapters[idx + step];
   return immediate ?? null;
+}
+
+export interface GuidedPanelRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Builds ordered panel rectangles in normalized [0, 1] coordinates for guided panel-by-panel zoom.
+ * Uses detected panel boxes when available, or a reading-order manga quadrant grid with gentle overlap
+ * so speech bubbles near panel borders remain readable on small screens.
+ */
+export function buildGuidedPanels(
+  aspectRatio: number,
+  isRtl: boolean,
+  detectedPanels?: GuidedPanelRect[],
+): GuidedPanelRect[] {
+  if (detectedPanels && detectedPanels.length >= 2) {
+    return [...detectedPanels].sort((a, b) => {
+      const rowDiff = Math.abs(a.y - b.y);
+      if (rowDiff > 0.14) return a.y - b.y;
+      return isRtl ? b.x - a.x : a.x - b.x;
+    });
+  }
+  const cols = 2;
+  const rows = aspectRatio >= 1.25 ? 2 : 3;
+  const overlapX = 0.06;
+  const overlapY = 0.05;
+  const baseW = 1 / cols;
+  const baseH = 1 / rows;
+  const panels: GuidedPanelRect[] = [];
+  for (let r = 0; r < rows; r++) {
+    const colOrder = isRtl ? [1, 0] : [0, 1];
+    for (const c of colOrder) {
+      const x0 = Math.max(0, c * baseW - overlapX / 2);
+      const y0 = Math.max(0, r * baseH - overlapY / 2);
+      const x1 = Math.min(1, (c + 1) * baseW + overlapX / 2);
+      const y1 = Math.min(1, (r + 1) * baseH + overlapY / 2);
+      panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    }
+  }
+  return panels;
+}
+
+/**
+ * Computes zoom and clamped pan offsets to center a guided panel rect inside the reader viewport.
+ */
+export function computeGuidedPanelTransform(
+  panel: GuidedPanelRect,
+  stageWidth: number,
+  stageHeight: number,
+  contentWidth: number,
+  contentHeight: number,
+): { zoom: number; pan: { x: number; y: number } } {
+  if (stageWidth <= 0 || stageHeight <= 0 || contentWidth <= 0 || contentHeight <= 0) {
+    return { zoom: 1.8, pan: { x: 0, y: 0 } };
+  }
+  const panelPxW = Math.max(1, panel.w * contentWidth);
+  const panelPxH = Math.max(1, panel.h * contentHeight);
+  const fitZoom = Math.min((stageWidth * 0.94) / panelPxW, (stageHeight * 0.88) / panelPxH);
+  const zoom = Number(Math.min(2.6, Math.max(1.45, fitZoom)).toFixed(2));
+  const centerX = panel.x + panel.w / 2;
+  const centerY = panel.y + panel.h / 2;
+  const rawPanX = (0.5 - centerX) * contentWidth * zoom;
+  const rawPanY = (0.5 - centerY) * contentHeight * zoom;
+  return {
+    zoom,
+    pan: clampZoomPan(rawPanX, rawPanY, contentWidth, contentHeight, stageWidth, stageHeight, zoom),
+  };
 }
 
 export const WIDE_ASPECT_THRESHOLD = 1.32;

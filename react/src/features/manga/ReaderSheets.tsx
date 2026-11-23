@@ -607,6 +607,8 @@ export function ReaderSettingsSheet({
   settings,
   hasSeriesOverride,
   server,
+  sleepTimerEndAt,
+  onSetSleepTimer,
   onUpdateSettings,
   onToggleSeriesOverride,
   onChangeServer,
@@ -615,6 +617,8 @@ export function ReaderSettingsSheet({
   settings: ReaderSettings;
   hasSeriesOverride: boolean;
   server: string;
+  sleepTimerEndAt?: number | null;
+  onSetSleepTimer?: (minutes: number) => void;
   onUpdateSettings: (patch: Partial<ReaderSettings>) => void;
   onToggleSeriesOverride: (enabled: boolean) => void;
   onChangeServer: (server: string) => void;
@@ -959,10 +963,28 @@ export function ReaderSettingsSheet({
                   </>
                 )}
                 <ToggleRow
+                  label="Guided panel-by-panel zoom"
+                  hint="Step through manga panels one by one in reading order (ideal on phone)"
+                  checked={settings.guidedPanelZoom}
+                  onChange={(v) => onUpdateSettings({ guidedPanelZoom: v })}
+                />
+                <ToggleRow
                   label="Skip finished chapters"
                   hint="Jump past chapters you already completed"
                   checked={settings.skipReadChapters}
                   onChange={(v) => onUpdateSettings({ skipReadChapters: v })}
+                />
+                <ToggleRow
+                  label="Skip duplicate chapters"
+                  hint="Avoid re-reading the same chapter number from another scanlation group"
+                  checked={settings.skipDuplicateChapters}
+                  onChange={(v) => onUpdateSettings({ skipDuplicateChapters: v })}
+                />
+                <ToggleRow
+                  label="Skip filtered chapters"
+                  hint="Respect language and scanlation group filters from the series page"
+                  checked={settings.skipFilteredChapters}
+                  onChange={(v) => onUpdateSettings({ skipFilteredChapters: v })}
                 />
                 <ToggleRow
                   label="Data-saver preloading"
@@ -1477,12 +1499,66 @@ export function ReaderSettingsSheet({
                   onChange={(v) => onUpdateSettings({ autoHideChrome: v })}
                 />
                 <ToggleRow
+                  label="Volume-key page turning"
+                  hint="Use hardware volume buttons to turn pages without touching the screen"
+                  checked={settings.volumeKeys}
+                  onChange={(v) => onUpdateSettings({ volumeKeys: v })}
+                />
+                {settings.volumeKeys && (
+                  <ToggleRow
+                    label="Invert volume keys"
+                    hint="Flip Volume Up / Volume Down page direction"
+                    checked={settings.invertVolumeKeys}
+                    onChange={(v) => onUpdateSettings({ invertVolumeKeys: v })}
+                  />
+                )}
+                <ToggleRow
                   label="Subtle haptic feedback"
                   hint="Gentle tap vibration on page turns and bookmarks (mobile)"
                   checked={settings.haptics}
                   onChange={(v) => onUpdateSettings({ haptics: v })}
                 />
               </div>
+
+              {onSetSleepTimer && (
+                <>
+                  <SectionLabel>
+                    Sleep Timer
+                    {sleepTimerEndAt && sleepTimerEndAt > Date.now()
+                      ? ` (${Math.max(1, Math.ceil((sleepTimerEndAt - Date.now()) / 60000))}m left)`
+                      : ''}
+                  </SectionLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                    {([0, 15, 30, 45, 60] as const).map((mins) => {
+                      const remainingMins =
+                        sleepTimerEndAt && sleepTimerEndAt > Date.now()
+                          ? Math.ceil((sleepTimerEndAt - Date.now()) / 60000)
+                          : 0;
+                      const active = mins === 0 ? remainingMins === 0 : Math.abs(remainingMins - mins) <= 2;
+                      return (
+                        <button
+                          key={mins}
+                          type="button"
+                          className="bare-button player-focusable"
+                          onClick={() => onSetSleepTimer(mins)}
+                          style={{
+                            minHeight: 40,
+                            borderRadius: 10,
+                            background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                            border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                            color: active ? KatanaColors.accentSoft : KatanaColors.text,
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            textAlign: 'center',
+                          }}
+                        >
+                          {mins === 0 ? 'Off' : `${mins}m`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
               <SectionLabel>Keyboard Shortcuts</SectionLabel>
               <div
@@ -1522,6 +1598,7 @@ export function PageActionSheet({
   imageUrl,
   isBookmarked,
   onToggleBookmark,
+  onSetAsCover,
   onReloadPage,
   onOpenSettings,
   onClose,
@@ -1532,6 +1609,7 @@ export function PageActionSheet({
   imageUrl: string;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
+  onSetAsCover?: () => void;
   onReloadPage: () => void;
   onOpenSettings: () => void;
   onClose: () => void;
@@ -1621,6 +1699,19 @@ export function PageActionSheet({
             icon: 'share',
             label: 'Share Page',
             onClick: handleShare,
+          },
+        ]
+      : []),
+    ...(onSetAsCover
+      ? [
+          {
+            icon: 'image',
+            label: 'Set as Series Cover',
+            onClick: () => {
+              onSetAsCover();
+              setStatusMsg('Updated series cover');
+              window.setTimeout(onClose, 450);
+            },
           },
         ]
       : []),

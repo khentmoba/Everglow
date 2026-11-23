@@ -7,7 +7,7 @@ import { AppColors, Derived } from './colors';
 const fallback = "'Everglow Emoji', 'Everglow Symbols', 'Noto Sans Symbols 2'";
 
 export const Fonts = {
-  display: `'Cormorant Garamond', ${fallback}, serif`,
+  display: `'Cormorant Garamond', 'Georgia', 'Times New Roman', ${fallback}, serif`,
   body: `'Outfit', ${fallback}, sans-serif`,
   hand: `'Caveat', ${fallback}, 'Outfit', sans-serif`,
   script: `'Dancing Script', ${fallback}, 'Outfit', sans-serif`,

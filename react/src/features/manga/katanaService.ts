@@ -3133,3 +3133,122 @@ export async function searchMangaDexCatalog(
     return { items: [], page, hasPrev: page > 1, hasNext: false, totalPages: 1, totalResults: 0, error: 'Could not reach MangaDex right now.' };
   }
 }
+
+function safeReaderStateSlug(slug: string): string {
+  return slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96);
+}
+
+/**
+ * Syncs global Manga Celestia reader preferences across Clair's phone/tablet via `reader_state`.
+ */
+export async function hydrateMangaReaderGlobalSettings<T extends object>(userName: string): Promise<Partial<T> | null> {
+  if (!userName || AgentMode.demo) return null;
+  try {
+    const snap = await getDoc(doc(db, 'reader_state', `${userName}__manga_reader_v1`));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return data?.settings && typeof data.settings === 'object' ? (data.settings as Partial<T>) : null;
+  } catch (err) {
+    Logger.e('KatanaService: hydrateMangaReaderGlobalSettings failed', err);
+    return null;
+  }
+}
+
+export async function syncMangaReaderGlobalSettings<T extends object>(userName: string, settings: T): Promise<void> {
+  if (!userName || AgentMode.demo) return;
+  try {
+    await setDoc(
+      doc(db, 'reader_state', `${userName}__manga_reader_v1`),
+      { userName, kind: 'manga_reader_global', settings, updatedAt: Date.now() },
+      { merge: true },
+    );
+  } catch (err) {
+    Logger.e('KatanaService: syncMangaReaderGlobalSettings failed', err);
+  }
+}
+
+export interface SyncedMangaSeriesReaderState {
+  override?: Record<string, unknown> | null;
+  resume?: { chapterId: string; pageIdx: number; offsetRatio: number } | null;
+  bookmarks?: Array<{ chapterId: string; chapterTitle: string; pageIdx: number; createdAt: number }>;
+  updatedAt?: number;
+}
+
+export async function hydrateMangaReaderSeriesState(
+  userName: string,
+  slug: string,
+): Promise<SyncedMangaSeriesReaderState | null> {
+  if (!userName || !slug || AgentMode.demo) return null;
+  try {
+    const snap = await getDoc(doc(db, 'reader_state', `${userName}__manga_s_${safeReaderStateSlug(slug)}`));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return {
+      override: data?.override && typeof data.override === 'object' ? (data.override as Record<string, unknown>) : null,
+      resume: data?.resume && typeof data.resume === 'object' ? (data.resume as SyncedMangaSeriesReaderState['resume']) : null,
+      bookmarks: Array.isArray(data?.bookmarks) ? (data.bookmarks as SyncedMangaSeriesReaderState['bookmarks']) : undefined,
+      updatedAt: typeof data?.updatedAt === 'number' ? data.updatedAt : undefined,
+    };
+  } catch (err) {
+    Logger.e('KatanaService: hydrateMangaReaderSeriesState failed', err);
+    return null;
+  }
+}
+
+export async function syncMangaReaderSeriesState(
+  userName: string,
+  slug: string,
+  patch: SyncedMangaSeriesReaderState,
+): Promise<void> {
+  if (!userName || !slug || AgentMode.demo) return;
+  try {
+    await setDoc(
+      doc(db, 'reader_state', `${userName}__manga_s_${safeReaderStateSlug(slug)}`),
+      { userName, kind: 'manga_reader_series', slug, ...patch, updatedAt: Date.now() },
+      { merge: true },
+    );
+  } catch (err) {
+    Logger.e('KatanaService: syncMangaReaderSeriesState failed', err);
+  }
+}
+
+export async function setKatanaSeriesCover(
+  slug: string,
+  title: string,
+  coverUrl: string,
+  userName: string,
+): Promise<void> {
+  if (!slug || !coverUrl || !userName) return;
+  if (AgentMode.demo) {
+    const list = demoBookmarks.get(userName) ?? [];
+    const idx = list.findIndex((b) => b.slug === slug);
+    const next =
+      idx >= 0
+        ? list.map((b, i) => (i === idx ? { ...b, coverUrl } : b))
+        : [
+            {
+              slug,
+              title,
+              coverUrl,
+              status: '',
+              latestChapterTitle: '',
+              recommendedBy: '',
+              recommendationNote: '',
+              bookmarked: true,
+              readingStatus: 'reading' as const,
+              addedAt: new Date(),
+              lastReadAt: new Date(),
+              lastReadChapterId: '',
+              lastReadPage: 0,
+              lastReadChapterTitle: '',
+              readChapterIds: [],
+            },
+            ...list,
+          ];
+    demoBookmarks.set(userName, next);
+    demoChanges.emit();
+    return;
+  }
+  const ref = doc(db, 'katana_bookmarks', `${userName}|${slug}`);
+  await setDoc(ref, { slug, title, coverUrl, userName }, { merge: true });
+}

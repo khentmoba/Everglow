@@ -13,6 +13,7 @@ import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import { MangaHome, type MangaType } from './MangaHome';
 import { MangaReaderView, type MangaReaderParams } from './MangaReaderPage';
+import { saveSeriesChapterFilter } from './readerSettings';
 import {
   KatanaBottomBar,
   KatanaBreadcrumb,
@@ -418,6 +419,19 @@ export function MangaPage() {
   const [chapterToolsOpen, setChapterToolsOpen] = useState(false);
   const [chapterLangFilter, setChapterLangFilter] = useState<string>('all');
   const [chapterGroupFilter, setChapterGroupFilter] = useState<string>('all');
+
+  useEffect(() => {
+    if (!detail?.slug) return;
+    saveSeriesChapterFilter(
+      detail.slug,
+      chapterLangFilter !== 'all' || chapterGroupFilter !== 'all'
+        ? {
+            lang: chapterLangFilter !== 'all' ? chapterLangFilter : undefined,
+            group: chapterGroupFilter !== 'all' ? chapterGroupFilter : undefined,
+          }
+        : null,
+    );
+  }, [detail?.slug, chapterLangFilter, chapterGroupFilter]);
   const [chapterSearch, setChapterSearch] = useState('');
   const [chapterWindow, setChapterWindow] = useState(40);
   const [catalogSource, setCatalogSource] = useState<KatanaCatalogSource>('mangakatana');
@@ -3134,23 +3148,73 @@ export function MangaPage() {
                             </div>
                           </div>
 
-                          {desktop && detail.summary && (
+                          {desktop && (
                             <div
                               style={{
-                                width: 340,
-                                flexShrink: 0,
+                                flex: '0 0 42%',
+                                maxWidth: 480,
+                                minWidth: 320,
                                 borderLeft: `1px solid ${KatanaColors.border}`,
-                                paddingLeft: 20,
+                                paddingLeft: 22,
                                 alignSelf: 'stretch',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: 8,
+                                gap: 12,
                               }}
                             >
-                              <div style={{ ...KatanaType.title, fontSize: 14, color: KatanaColors.textMuted, letterSpacing: 0.3 }}>
-                                SYNOPSIS
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                  gap: 8,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    padding: '8px 10px',
+                                    borderRadius: 10,
+                                    background: KatanaColors.surfaceAlt,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                  }}
+                                >
+                                  <div style={{ ...KatanaType.small, fontSize: 10.5, color: KatanaColors.textMuted }}>CHAPTERS</div>
+                                  <div style={{ ...KatanaType.title, fontSize: 16, marginTop: 2 }}>{detail.chapters.length}</div>
+                                </div>
+                                <div
+                                  style={{
+                                    padding: '8px 10px',
+                                    borderRadius: 10,
+                                    background: KatanaColors.surfaceAlt,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                  }}
+                                >
+                                  <div style={{ ...KatanaType.small, fontSize: 10.5, color: KatanaColors.textMuted }}>PROGRESS</div>
+                                  <div style={{ ...KatanaType.title, fontSize: 16, marginTop: 2, color: readCount > 0 ? KatanaColors.accent : KatanaColors.text }}>
+                                    {detail.chapters.length > 0 ? `${Math.round((readCount / detail.chapters.length) * 100)}%` : '0%'}
+                                  </div>
+                                </div>
+                                <div
+                                  style={{
+                                    padding: '8px 10px',
+                                    borderRadius: 10,
+                                    background: KatanaColors.surfaceAlt,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                  }}
+                                >
+                                  <div style={{ ...KatanaType.small, fontSize: 10.5, color: KatanaColors.textMuted }}>UNREAD</div>
+                                  <div style={{ ...KatanaType.title, fontSize: 16, marginTop: 2, color: unreadCount > 0 ? KatanaColors.link : KatanaColors.text }}>
+                                    {unreadCount}
+                                  </div>
+                                </div>
                               </div>
-                              <p style={{ ...KatanaType.body, margin: 0, fontSize: 13.5 }}>{detail.summary}</p>
+                              {detail.summary && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  <div style={{ ...KatanaType.title, fontSize: 13, color: KatanaColors.textMuted, letterSpacing: 0.4 }}>
+                                    SYNOPSIS
+                                  </div>
+                                  <p style={{ ...KatanaType.body, margin: 0, fontSize: 13.5, lineHeight: 1.58 }}>{detail.summary}</p>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

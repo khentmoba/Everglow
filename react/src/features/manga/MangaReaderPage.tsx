@@ -10,7 +10,12 @@ import { canPop } from '../../shared/widgets/MaterialFields';
 import {
   chapterDisplayTitle,
   fetchKatanaChapterPages,
+  hydrateMangaReaderGlobalSettings,
+  hydrateMangaReaderSeriesState,
   saveKatanaReadingProgress,
+  setKatanaSeriesCover,
+  syncMangaReaderGlobalSettings,
+  syncMangaReaderSeriesState,
   type KatanaChapter,
 } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
@@ -22,6 +27,7 @@ import {
   loadGlobalReaderSettings,
   loadPageBookmarks,
   loadResumeAnchor,
+  loadSeriesChapterFilter,
   loadSeriesDefaultAspect,
   loadSeriesReaderOverride,
   markReaderHintSeen,
@@ -43,8 +49,10 @@ import {
 import { ChapterDrawerSheet, PageActionSheet, PageJumpDialog, QuickDisplayPopover, ReaderSettingsSheet } from './ReaderSheets';
 import {
   adjacentChapter,
+  buildGuidedPanels,
   buildSpreads,
   clampZoomPan,
+  computeGuidedPanelTransform,
   computePinchAnchoredPan,
   computeTapAnchoredPan,
   detectChapterGap,
@@ -215,6 +223,10 @@ export function MangaReaderView({
   // Zoom & pan
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [guidedPanelIdx, setGuidedPanelIdx] = useState(0);
+  const [sleepTimerEndAt, setSleepTimerEndAt] = useState<number | null>(null);
+  const [sleepTimerExpired, setSleepTimerExpired] = useState(false);
+  const cloudResumeTimerRef = useRef(0);
   const pinchStartRef = useRef<{ dist: number; scale: number; pan: { x: number; y: number } } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -288,14 +300,86 @@ export function MangaReaderView({
   );
   const pages = activeSegment?.pages ?? [];
 
+  const seriesChapterFilter = useMemo(
+    () => (settings.skipFilteredChapters ? loadSeriesChapterFilter(params.slug) : null),
+    [params.slug, settings.skipFilteredChapters],
+  );
+  const allowedChapterIds = useMemo(() => {
+    if (!seriesChapterFilter) return undefined;
+    const set = new Set<string>();
+    for (const c of params.chapters) {
+      if (seriesChapterFilter.lang && (c.language || '').trim().toLowerCase() !== seriesChapterFilter.lang) continue;
+      if (seriesChapterFilter.group && (c.scanlationGroup || '').trim() !== seriesChapterFilter.group) continue;
+      set.add(c.id);
+    }
+    return set.size > 0 ? set : undefined;
+  }, [params.chapters, seriesChapterFilter]);
+
+  const chapterNavOpts = useMemo(
+    () => ({
+      skipRead: settings.skipReadChapters,
+      readIds,
+      skipDuplicate: settings.skipDuplicateChapters,
+      allowedIds: allowedChapterIds,
+    }),
+    [settings.skipReadChapters, settings.skipDuplicateChapters, readIds, allowedChapterIds],
+  );
+
   const prevChapter = useMemo(
-    () => adjacentChapter(params.chapters, chapterId, 'prev', { skipRead: settings.skipReadChapters, readIds }),
-    [params.chapters, chapterId, settings.skipReadChapters, readIds],
+    () => adjacentChapter(params.chapters, chapterId, 'prev', chapterNavOpts),
+    [params.chapters, chapterId, chapterNavOpts],
   );
   const nextChapter = useMemo(
-    () => adjacentChapter(params.chapters, chapterId, 'next', { skipRead: settings.skipReadChapters, readIds }),
-    [params.chapters, chapterId, settings.skipReadChapters, readIds],
+    () => adjacentChapter(params.chapters, chapterId, 'next', chapterNavOpts),
+    [params.chapters, chapterId, chapterNavOpts],
   );
+
+  // Hydrate global reader settings & per-series state (override, resume anchor, bookmarks) from Firestore
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    void hydrateMangaReaderGlobalSettings<ReaderSettings>(currentUser).then((remote) => {
+      if (!alive || !remote) return;
+      setGlobalSettings((prev) => {
+        const merged = { ...prev, ...remote };
+        saveGlobalReaderSettings(merged);
+        return merged;
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser || !params.slug) return;
+    let alive = true;
+    void hydrateMangaReaderSeriesState(currentUser, params.slug).then((remote) => {
+      if (!alive || !remote) return;
+      if (remote.override && Object.keys(remote.override).length > 0) {
+        const nextOverride = remote.override as SeriesReaderOverride;
+        setSeriesOverride(nextOverride);
+        saveSeriesReaderOverride(params.slug, nextOverride);
+      }
+      if (remote.bookmarks && remote.bookmarks.length > 0) {
+        setPageBookmarks((prev) => {
+          const seen = new Set(prev.map((b) => `${b.chapterId}:${b.pageIdx}`));
+          const merged = [...prev];
+          for (const b of remote.bookmarks!) {
+            if (!seen.has(`${b.chapterId}:${b.pageIdx}`)) merged.push(b);
+          }
+          savePageBookmarks(params.slug, merged);
+          return merged;
+        });
+      }
+      if (remote.resume && remote.resume.chapterId) {
+        saveResumeAnchor(params.slug, remote.resume);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [currentUser, params.slug]);
 
   const spreads = useMemo(
     () =>
@@ -365,12 +449,15 @@ export function MangaReaderView({
               ...prev,
             ];
         savePageBookmarks(params.slug, next);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { bookmarks: next });
+        }
         triggerHaptic(10);
         flashToast(exists ? `Removed bookmark (Page ${targetPageIdx + 1})` : `Bookmarked Page ${targetPageIdx + 1}`, true);
         return next;
       });
     },
-    [chapterById, params.slug, flashToast, triggerHaptic],
+    [chapterById, params.slug, currentUser, flashToast, triggerHaptic],
   );
 
   const updateSettings = useCallback(
@@ -379,12 +466,25 @@ export function MangaReaderView({
         const nextOverride: SeriesReaderOverride = { ...seriesOverride, ...patch };
         setSeriesOverride(nextOverride);
         saveSeriesReaderOverride(params.slug, nextOverride);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { override: nextOverride });
+        }
       } else {
         setGlobalSettings((prev) => {
           const next = { ...prev, ...patch };
           saveGlobalReaderSettings(next);
+          if (currentUser) {
+            void syncMangaReaderGlobalSettings(currentUser, next);
+          }
           return next;
         });
+      }
+      if (patch.guidedPanelZoom === false) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        setGuidedPanelIdx(0);
+      } else if (patch.guidedPanelZoom === true) {
+        setGuidedPanelIdx(0);
       }
       if (patch.readingMode) {
         setAutoScrolling(false);
@@ -401,7 +501,7 @@ export function MangaReaderView({
         }
       }
     },
-    [seriesOverride, params.slug, flashToast, chapterId, pageIdx],
+    [seriesOverride, params.slug, currentUser, flashToast, chapterId, pageIdx],
   );
 
   const toggleSeriesOverride = useCallback(
@@ -410,14 +510,20 @@ export function MangaReaderView({
         const next: SeriesReaderOverride = { ...settings };
         setSeriesOverride(next);
         saveSeriesReaderOverride(params.slug, next);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { override: next });
+        }
         flashToast('Saved custom settings for this series', true);
       } else {
         setSeriesOverride(null);
         saveSeriesReaderOverride(params.slug, null);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { override: null });
+        }
         flashToast('Using global reader settings', true);
       }
     },
-    [settings, params.slug, flashToast],
+    [settings, params.slug, currentUser, flashToast],
   );
 
   const markChapterFinished = useCallback((finishedChapterId: string) => {
@@ -427,7 +533,14 @@ export function MangaReaderView({
   const writeProgressNow = useCallback(
     (targetChapterId: string, page: number, totalPages: number, offsetRatio = 0, allowMarkFinished = true) => {
       const safePage = Math.max(1, page);
-      saveResumeAnchor(params.slug, { chapterId: targetChapterId, pageIdx: safePage - 1, offsetRatio });
+      const resumeAnchor = { chapterId: targetChapterId, pageIdx: safePage - 1, offsetRatio };
+      saveResumeAnchor(params.slug, resumeAnchor);
+      if (currentUser) {
+        window.clearTimeout(cloudResumeTimerRef.current);
+        cloudResumeTimerRef.current = window.setTimeout(() => {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { resume: resumeAnchor });
+        }, 1200);
+      }
       // Mark chapter finished only on active reading advance to the true final page
       if (allowMarkFinished && totalPages > 0 && safePage >= totalPages) {
         markChapterFinished(targetChapterId);
@@ -876,7 +989,7 @@ export function MangaReaderView({
 
   // Screen Wake Lock with visibilitychange AND silent release-event re-acquisition
   useEffect(() => {
-    if (!settings.keepAwake) return;
+    if (!settings.keepAwake || sleepTimerExpired) return;
     let alive = true;
     type WakeSentinel = {
       release: () => Promise<void>;
@@ -912,7 +1025,37 @@ export function MangaReaderView({
       document.removeEventListener('visibilitychange', onVis);
       void sentinel?.release().catch(() => {});
     };
-  }, [settings.keepAwake]);
+  }, [settings.keepAwake, sleepTimerExpired]);
+
+  // Sleep timer: stops auto-scroll, releases wake lock, and dims screen gently when expired
+  useEffect(() => {
+    if (!sleepTimerEndAt) return;
+    const check = () => {
+      if (Date.now() >= sleepTimerEndAt) {
+        setAutoScrolling(false);
+        setSleepTimerExpired(true);
+        setSleepTimerEndAt(null);
+      }
+    };
+    check();
+    const id = window.setInterval(check, 5000);
+    return () => window.clearInterval(id);
+  }, [sleepTimerEndAt]);
+
+  const handleSetSleepTimer = useCallback(
+    (minutes: number) => {
+      if (minutes <= 0) {
+        setSleepTimerEndAt(null);
+        setSleepTimerExpired(false);
+        flashToast('Sleep timer off', true);
+      } else {
+        setSleepTimerEndAt(Date.now() + minutes * 60000);
+        setSleepTimerExpired(false);
+        flashToast(`Sleep timer set for ${minutes} min`, true);
+      }
+    },
+    [flashToast],
+  );
 
   // Screen Orientation Lock
   useEffect(() => {
@@ -974,10 +1117,7 @@ export function MangaReaderView({
       return;
     }
     const lastSeg = segmentsRef.current[segmentsRef.current.length - 1];
-    const following = adjacentChapter(params.chapters, lastSeg.chapter.id, 'next', {
-      skipRead: settings.skipReadChapters,
-      readIds,
-    });
+    const following = adjacentChapter(params.chapters, lastSeg.chapter.id, 'next', chapterNavOpts);
     if (!following || segmentsRef.current.some((s) => s.chapter.id === following.id)) return;
     const myEpoch = navEpochRef.current;
     appendingNextRef.current = true;
@@ -1069,10 +1209,7 @@ export function MangaReaderView({
   const prependPrevChapterSegment = useCallback(async () => {
     if (prependingPrevRef.current || !isWebtoon || !settings.seamlessNextChapter || segmentsRef.current.length === 0) return;
     const firstSeg = segmentsRef.current[0];
-    const preceding = adjacentChapter(params.chapters, firstSeg.chapter.id, 'prev', {
-      skipRead: settings.skipReadChapters,
-      readIds,
-    });
+    const preceding = adjacentChapter(params.chapters, firstSeg.chapter.id, 'prev', chapterNavOpts);
     if (!preceding || segmentsRef.current.some((s) => s.chapter.id === preceding.id)) return;
     const myEpoch = navEpochRef.current;
     prependingPrevRef.current = true;
@@ -1240,6 +1377,28 @@ export function MangaReaderView({
     [spreads, prevChapter, nextChapter, chapterId, markChapterFinished, flashToast, navigateToChapter, settings.einkFlash, settings.keepZoomAcrossPages, triggerHaptic],
   );
 
+  const guidedActive = settings.guidedPanelZoom && !isWebtoon && !isHorizontalStrip && pages.length > 0;
+  const currentPageAspect = aspectMapRef.current.get(`${chapterId}:${pageIdx}`) ?? 0.7;
+  const guidedPanels = useMemo(
+    () => (guidedActive ? buildGuidedPanels(currentPageAspect, isRtl) : []),
+    [guidedActive, currentPageAspect, isRtl],
+  );
+
+  useEffect(() => {
+    if (!guidedActive || guidedPanels.length === 0) return;
+    const clampedIdx = Math.min(Math.max(0, guidedPanelIdx), guidedPanels.length - 1);
+    const panel = guidedPanels[clampedIdx];
+    const stageEl = scrollRef.current;
+    const contentEl = stageContentRef.current;
+    const stageW = stageEl?.clientWidth || viewportWidth;
+    const stageH = stageEl?.clientHeight || viewportHeight;
+    const contentW = contentEl?.clientWidth || stageW;
+    const contentH = contentEl?.clientHeight || stageH;
+    const next = computeGuidedPanelTransform(panel, stageW, stageH, contentW, contentH);
+    setZoom(next.zoom);
+    setPan(next.pan);
+  }, [guidedActive, guidedPanels, guidedPanelIdx, pageIdx, viewportWidth, viewportHeight]);
+
   // `delta = +1` always advances forward in reading order (page 1 -> page 2) in both RTL and LTR;
   // arrow keys map physical left/right to `isRtl ? +1 : -1` and `isRtl ? -1 : +1`.
   const stepPage = useCallback(
@@ -1259,9 +1418,18 @@ export function MangaReaderView({
         el.scrollBy({ left: sign * Math.round(el.clientWidth * 0.85), behavior });
         return;
       }
+      if (guidedActive && guidedPanels.length > 1) {
+        const nextPanel = guidedPanelIdx + delta;
+        if (nextPanel >= 0 && nextPanel < guidedPanels.length) {
+          triggerHaptic(5);
+          setGuidedPanelIdx(nextPanel);
+          return;
+        }
+        setGuidedPanelIdx(delta > 0 ? 0 : guidedPanels.length - 1);
+      }
       goToSpread(safeSpreadIdx + delta, delta > 0 ? 'next' : 'prev');
     },
-    [isWebtoon, isHorizontalStrip, isRtl, goToSpread, safeSpreadIdx],
+    [isWebtoon, isHorizontalStrip, isRtl, guidedActive, guidedPanels.length, guidedPanelIdx, triggerHaptic, goToSpread, safeSpreadIdx],
   );
 
   const jumpToPage = useCallback(
@@ -1370,16 +1538,24 @@ export function MangaReaderView({
           stepPage(e.shiftKey ? -1 : 1);
           break;
         case 'PageDown':
-        case 'AudioVolumeDown':
-        case 'VolumeDown':
           e.preventDefault();
           stepPage(1);
           break;
         case 'PageUp':
-        case 'AudioVolumeUp':
-        case 'VolumeUp':
           e.preventDefault();
           stepPage(-1);
+          break;
+        case 'AudioVolumeDown':
+        case 'VolumeDown':
+          if (!settings.volumeKeys) break;
+          e.preventDefault();
+          stepPage(settings.invertVolumeKeys ? -1 : 1);
+          break;
+        case 'AudioVolumeUp':
+        case 'VolumeUp':
+          if (!settings.volumeKeys) break;
+          e.preventDefault();
+          stepPage(settings.invertVolumeKeys ? 1 : -1);
           break;
         case 'ArrowDown':
         case 'j':
@@ -1475,6 +1651,8 @@ export function MangaReaderView({
     chapterId,
     pageIdx,
     pages.length,
+    settings.volumeKeys,
+    settings.invertVolumeKeys,
   ]);
 
   // Auto-advance timer for paged & spread modes (reuses autoScrolling toggle)
@@ -1600,8 +1778,8 @@ export function MangaReaderView({
       return;
     }
 
-    // Instant 0ms side-zone page turns in paged/spread modes (no 265ms wait on every page flip!)
-    if (zoom === 1 && !isWebtoon && !isHorizontalStrip) {
+    // Instant 0ms side-zone page/panel turns in paged/spread modes (no 265ms wait on every turn!)
+    if ((zoom === 1 || guidedActive) && !isWebtoon && !isHorizontalStrip) {
       const action = resolveTapZoneAction(xRatio, yRatio, settings.tapZoneLayout, isRtl, settings.invertTapZones);
       if (action === 'next' || action === 'prev') {
         lastTapRef.current = null;
@@ -2201,10 +2379,7 @@ export function MangaReaderView({
                 <div style={{ ...KatanaType.body, color: KatanaColors.accentSoft }}>Loading next chapter…</div>
               ) : (() => {
                   const lastSegCh = segments[segments.length - 1]?.chapter ?? activeChapter;
-                  const upcoming = adjacentChapter(params.chapters, lastSegCh.id, 'next', {
-                    skipRead: settings.skipReadChapters,
-                    readIds,
-                  });
+                  const upcoming = adjacentChapter(params.chapters, lastSegCh.id, 'next', chapterNavOpts);
                   return upcoming ? (
                     <button
                       type="button"
@@ -3118,11 +3293,70 @@ export function MangaReaderView({
         />
       )}
 
+      {guidedActive && guidedPanels.length > 1 && (
+        <button
+          type="button"
+          className="bare-button"
+          aria-label={`Guided panel ${guidedPanelIdx + 1} of ${guidedPanels.length}. Tap to exit guided panel zoom.`}
+          onClick={() => updateSettings({ guidedPanelZoom: false })}
+          style={{
+            position: 'fixed',
+            bottom: showUi ? 124 : 18,
+            left: 16,
+            zIndex: 92,
+            padding: '5px 11px',
+            borderRadius: 99,
+            background: 'rgba(12, 13, 19, 0.84)',
+            border: `1px solid ${KatanaColors.accent}`,
+            color: KatanaColors.accentSoft,
+            fontSize: 11.5,
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <Icon name="center_focus_strong" size={14} color={KatanaColors.accent} />
+          <span>Panel {Math.min(guidedPanelIdx + 1, guidedPanels.length)}/{guidedPanels.length}</span>
+        </button>
+      )}
+
+      {sleepTimerExpired && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sleep timer ended"
+          onClick={() => setSleepTimerExpired(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 145,
+            background: 'rgba(6, 7, 11, 0.92)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            padding: 24,
+            textAlign: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <Icon name="bedtime" size={38} color={KatanaColors.accent} />
+          <div style={{ ...KatanaType.title, fontSize: 20 }}>Sleep timer ended</div>
+          <div style={{ ...KatanaType.body, maxWidth: 320 }}>
+            Auto-scroll paused and screen wake lock released. Tap anywhere to keep reading.
+          </div>
+        </div>
+      )}
+
       {activeSheet === 'settings' && (
         <ReaderSettingsSheet
           settings={settings}
           hasSeriesOverride={seriesOverride != null}
           server={server}
+          sleepTimerEndAt={sleepTimerEndAt}
+          onSetSleepTimer={handleSetSleepTimer}
           onUpdateSettings={updateSettings}
           onToggleSeriesOverride={toggleSeriesOverride}
           onChangeServer={(nextServer) => {
@@ -3151,6 +3385,14 @@ export function MangaReaderView({
           imageUrl={pageAction.url}
           isBookmarked={isPageBookmarked(chapterId, pageAction.pageNumber - 1)}
           onToggleBookmark={() => togglePageBookmark(chapterId, pageAction.pageNumber - 1)}
+          onSetAsCover={
+            currentUser
+              ? () => {
+                  void setKatanaSeriesCover(params.slug, params.mangaTitle, pageAction.url, currentUser);
+                  flashToast('Updated series cover', true);
+                }
+              : undefined
+          }
           onReloadPage={() =>
             setPageReloadTokens((prev) => ({ ...prev, [pageAction.key]: (prev[pageAction.key] ?? 0) + 1 }))
           }

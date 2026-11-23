@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import {
   adjacentChapter,
+  buildGuidedPanels,
   buildSpreads,
   clampZoomPan,
+  computeGuidedPanelTransform,
   computePinchAnchoredPan,
   computeTapAnchoredPan,
   detectChapterGap,
@@ -87,6 +89,32 @@ test('buildSpreads pairs double-page spreads with cover offset and keeps wide sp
   ]);
   assert.equal(findSpreadIndexForPage(spreads, 2), 1);
   assert.equal(findSpreadIndexForPage(spreads, 3), 2);
+});
+
+test('buildGuidedPanels orders panels in RTL/LTR reading order and computeGuidedPanelTransform zooms safely', () => {
+  const rtl = buildGuidedPanels(0.7, true);
+  const ltr = buildGuidedPanels(0.7, false);
+  assert.equal(rtl.length, 6);
+  assert.ok(rtl[0].x > rtl[1].x, 'RTL starts on right column');
+  assert.ok(ltr[0].x < ltr[1].x, 'LTR starts on left column');
+  const tf = computeGuidedPanelTransform(rtl[0], 430, 932, 430, 620);
+  assert.ok(tf.zoom >= 1.45 && tf.zoom <= 2.6, `zoom in bounds: ${tf.zoom}`);
+  assert.ok(tf.pan.x < 0, 'right-side panel pans left');
+});
+
+test('adjacentChapter skips duplicate chapter numbers and filtered-out chapters', () => {
+  const list = [
+    { id: 'c3-a', num: '3', title: 'Chapter 3 (Group A)' },
+    { id: 'c2-b', num: '2', title: 'Chapter 2 (Group B)' },
+    { id: 'c2-a', num: '2', title: 'Chapter 2 (Group A)' },
+    { id: 'c1-a', num: '1', title: 'Chapter 1 (Group A)' },
+  ];
+  const nextNoDup = adjacentChapter(list, 'c2-a', 'next', { skipDuplicate: true });
+  assert.equal(nextNoDup?.id, 'c3-a');
+  const nextFiltered = adjacentChapter(list, 'c1-a', 'next', {
+    allowedIds: new Set(['c1-a', 'c2-b', 'c3-a']),
+  });
+  assert.equal(nextFiltered?.id, 'c2-b');
 });
 
 test('buildSpreads splits wide pages in reading order when splitWidePages is enabled', () => {

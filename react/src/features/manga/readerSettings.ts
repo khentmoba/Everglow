@@ -47,6 +47,7 @@ export interface ReaderSettings {
   maxWidthPct: number;
   doubleTapZoom: number;
   keepZoomAcrossPages: boolean;
+  guidedPanelZoom: boolean;
   autoScrollSpeed: number;
   preloadCount: number;
   preloadWifiOnly: boolean;
@@ -54,6 +55,8 @@ export interface ReaderSettings {
   verticalSeekbar: VerticalSeekbarSide;
   tapZoneLayout: TapZoneLayout;
   invertTapZones: boolean;
+  volumeKeys: boolean;
+  invertVolumeKeys: boolean;
   showTapZonesOverlay: boolean;
   confirmChapterSwipe: boolean;
   showPageIndicator: boolean;
@@ -70,9 +73,16 @@ export interface ReaderSettings {
   alwaysShowChapterDivider: boolean;
   cropBorders: boolean;
   skipReadChapters: boolean;
+  skipDuplicateChapters: boolean;
+  skipFilteredChapters: boolean;
   dataSaver: boolean;
   haptics: boolean;
   einkFlash: boolean;
+}
+
+export interface SeriesChapterFilter {
+  lang?: string;
+  group?: string;
 }
 
 export type SeriesReaderOverride = Partial<ReaderSettings>;
@@ -110,6 +120,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   maxWidthPct: 85,
   doubleTapZoom: 2,
   keepZoomAcrossPages: false,
+  guidedPanelZoom: false,
   autoScrollSpeed: 1,
   preloadCount: 3,
   preloadWifiOnly: false,
@@ -117,6 +128,8 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   verticalSeekbar: 'right',
   tapZoneLayout: 'standard',
   invertTapZones: false,
+  volumeKeys: true,
+  invertVolumeKeys: false,
   showTapZonesOverlay: false,
   confirmChapterSwipe: false,
   showPageIndicator: true,
@@ -133,6 +146,8 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   alwaysShowChapterDivider: true,
   cropBorders: false,
   skipReadChapters: false,
+  skipDuplicateChapters: true,
+  skipFilteredChapters: false,
   dataSaver: false,
   haptics: true,
   einkFlash: false,
@@ -244,6 +259,7 @@ const SERIES_PREFIX = 'katana_reader_series_v3_';
 const RESUME_PREFIX = 'katana_reader_resume_v1_';
 const ASPECTS_PREFIX = 'katana_reader_aspects_v1_';
 const BOOKMARKS_PREFIX = 'katana_reader_page_bm_v1_';
+const CHAPTER_FILTER_PREFIX = 'katana_reader_ch_filter_v1_';
 const HINT_SEEN_KEY = 'katana_reader_hint_seen_v1';
 
 const VALID_MODES = new Set<string>(READING_MODE_ORDER);
@@ -325,6 +341,10 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.keepZoomAcrossPages === 'boolean'
           ? parsed.keepZoomAcrossPages
           : DEFAULT_READER_SETTINGS.keepZoomAcrossPages,
+      guidedPanelZoom:
+        typeof parsed.guidedPanelZoom === 'boolean'
+          ? parsed.guidedPanelZoom
+          : DEFAULT_READER_SETTINGS.guidedPanelZoom,
       autoScrollSpeed:
         typeof parsed.autoScrollSpeed === 'number' && Number.isFinite(parsed.autoScrollSpeed)
           ? clamp(parsed.autoScrollSpeed, 0.5, 3)
@@ -345,6 +365,12 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         : DEFAULT_READER_SETTINGS.tapZoneLayout,
       invertTapZones:
         typeof parsed.invertTapZones === 'boolean' ? parsed.invertTapZones : DEFAULT_READER_SETTINGS.invertTapZones,
+      volumeKeys:
+        typeof parsed.volumeKeys === 'boolean' ? parsed.volumeKeys : DEFAULT_READER_SETTINGS.volumeKeys,
+      invertVolumeKeys:
+        typeof parsed.invertVolumeKeys === 'boolean'
+          ? parsed.invertVolumeKeys
+          : DEFAULT_READER_SETTINGS.invertVolumeKeys,
       showTapZonesOverlay:
         typeof parsed.showTapZonesOverlay === 'boolean'
           ? parsed.showTapZonesOverlay
@@ -396,6 +422,14 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.skipReadChapters === 'boolean'
           ? parsed.skipReadChapters
           : DEFAULT_READER_SETTINGS.skipReadChapters,
+      skipDuplicateChapters:
+        typeof parsed.skipDuplicateChapters === 'boolean'
+          ? parsed.skipDuplicateChapters
+          : DEFAULT_READER_SETTINGS.skipDuplicateChapters,
+      skipFilteredChapters:
+        typeof parsed.skipFilteredChapters === 'boolean'
+          ? parsed.skipFilteredChapters
+          : DEFAULT_READER_SETTINGS.skipFilteredChapters,
       dataSaver: typeof parsed.dataSaver === 'boolean' ? parsed.dataSaver : DEFAULT_READER_SETTINGS.dataSaver,
       haptics: typeof parsed.haptics === 'boolean' ? parsed.haptics : DEFAULT_READER_SETTINGS.haptics,
       einkFlash: typeof parsed.einkFlash === 'boolean' ? parsed.einkFlash : DEFAULT_READER_SETTINGS.einkFlash,
@@ -580,6 +614,30 @@ export function loadPageBookmarks(slug: string): PageBookmark[] {
 export function savePageBookmarks(slug: string, bookmarks: PageBookmark[]): void {
   if (!slug) return;
   Prefs.set(BOOKMARKS_PREFIX + slug, JSON.stringify(bookmarks.slice(0, 50)));
+}
+
+export function loadSeriesChapterFilter(slug: string): SeriesChapterFilter | null {
+  if (!slug) return null;
+  const raw = Prefs.getString(CHAPTER_FILTER_PREFIX + slug);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as SeriesChapterFilter;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const lang = typeof parsed.lang === 'string' && parsed.lang.trim() ? parsed.lang.trim() : undefined;
+    const group = typeof parsed.group === 'string' && parsed.group.trim() ? parsed.group.trim() : undefined;
+    return lang || group ? { lang, group } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSeriesChapterFilter(slug: string, filter: SeriesChapterFilter | null): void {
+  if (!slug) return;
+  if (!filter || (!filter.lang && !filter.group)) {
+    Prefs.remove(CHAPTER_FILTER_PREFIX + slug);
+    return;
+  }
+  Prefs.set(CHAPTER_FILTER_PREFIX + slug, JSON.stringify({ lang: filter.lang, group: filter.group }));
 }
 
 export function hasSeenReaderHint(): boolean {

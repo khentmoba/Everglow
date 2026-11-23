@@ -263,8 +263,18 @@ function FeaturedHero({
               </span>
             )}
             {featured.latestChapter && (
-              <span className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link }}>
-                {chapterDisplayTitle(featured.latestChapter)}
+              <span
+                className="ellipsis"
+                style={{
+                  ...KatanaType.small,
+                  fontSize: 11.5,
+                  color: KatanaColors.link,
+                  flexShrink: compact ? 0 : 1,
+                }}
+              >
+                {compact && featured.latestChapter.num
+                  ? `Ch. ${featured.latestChapter.num}`
+                  : chapterDisplayTitle(featured.latestChapter)}
               </span>
             )}
           </div>
@@ -313,7 +323,7 @@ function FeaturedHero({
           )}
 
           {!compact && featured.summary && (
-            <p className="clamp-2" style={{ ...KatanaType.body, fontSize: 13.5, margin: 0, maxWidth: 680 }}>
+            <p className="clamp-3" style={{ ...KatanaType.body, fontSize: 13.5, margin: 0, lineHeight: 1.55 }}>
               {featured.summary}
             </p>
           )}
@@ -375,10 +385,10 @@ function FeaturedHero({
         {desktop && candidates.length > 1 && (
           <div
             style={{
-              width: 280,
+              width: 340,
               flexShrink: 0,
               borderLeft: `1px solid ${withAlpha(KatanaColors.borderStrong, 0.7)}`,
-              paddingLeft: 16,
+              paddingLeft: 18,
               display: 'flex',
               flexDirection: 'column',
               gap: 6,
