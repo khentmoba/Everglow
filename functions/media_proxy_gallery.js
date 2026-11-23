@@ -6,6 +6,16 @@ const { streamMediaBody } = require('./stream_media_body');
 
 const RASTER_IMAGE_RE = /^image\/(jpeg|jpg|png|webp|gif|heic|heif|avif)(?:;|$)/i;
 
+/** Object path only — drops the signed `?token=` capability from log lines. */
+function safeUrlPath(raw) {
+  try {
+    const u = new URL(String(raw));
+    return u.origin + u.pathname;
+  } catch {
+    return '<invalid-url>';
+  }
+}
+
 const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
 
@@ -74,7 +84,9 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
       res.send(buffer);
     }
   } catch (e) {
-    console.warn(`proxyGalleryImage failed (${targetUrl}):`, e.message);
+    // A Storage download URL carries a bearer token. Never log the raw URL —
+    // anyone with log access could paste it into a browser and see her photos.
+    console.warn('proxyGalleryImage failed for', safeUrlPath(targetUrl), e.message);
     if (res.headersSent || res.destroyed) {
       if (!res.destroyed) res.destroy(e);
       return;
@@ -113,28 +125,41 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
   const db = admin.firestore();
   const bucket = admin.storage().bucket();
   const snap = await db.collection('gallery').limit(2000).get();
-  let deleted = 0;
 
-  const workerCount = 20;
+  const result = await deleteGalleryDocs(snap.docs, bucket.file.bind(bucket));
+  res.json(result);
+});
+
+/**
+ * Deletes gallery docs in parallel. A single failed doc delete must not abort
+ * the whole batch — otherwise Khent gets a 500 with no partial count and a
+ * retry re-scans everything that already succeeded.
+ */
+async function deleteGalleryDocs(docs, deleteFile, workerCount = 20) {
   let cursor = 0;
+  let deleted = 0;
+  let failed = 0;
   async function worker() {
-    while (cursor < snap.docs.length) {
-      const doc = snap.docs[cursor++];
+    while (cursor < docs.length) {
+      const doc = docs[cursor++];
       const d = doc.data();
       if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
         try {
           const path = resolveGalleryDeletePath(d.imageUrl);
-          if (path) await bucket.file(path).delete();
-        } catch (_) { }
+          if (path) await deleteFile(path);
+        } catch (_) { /* A missing file must not strand its Firestore doc. */ }
       }
-      await doc.ref.delete();
-      deleted++;
+      try {
+        await doc.ref.delete();
+        deleted++;
+      } catch (e) {
+        failed++;
+      }
     }
   }
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-
-  res.json({ deleted });
-});
+  await Promise.allSettled(Array.from({ length: workerCount }, () => worker()));
+  return { deleted, failed };
+}
 
 const deleteGalleryPhoto = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
@@ -176,4 +201,4 @@ const deleteGalleryPhoto = cappedHttps(10, async (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { proxyGalleryImage, cleanupGallery, deleteGalleryPhoto };
+module.exports = { proxyGalleryImage, cleanupGallery, deleteGalleryPhoto, deleteGalleryDocs, safeUrlPath };

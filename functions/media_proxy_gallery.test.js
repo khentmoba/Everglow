@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core');
-const { proxyGalleryImage } = require('./media_proxy_gallery');
+const { proxyGalleryImage, deleteGalleryDocs, safeUrlPath } = require('./media_proxy_gallery');
 const good = 'https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.firebasestorage.app/o/gallery%2Fdemo.jpg?alt=media&token=demo';
 const bad = [
   'https://attacker.invalid/?firebasestorage.googleapis.com=everglow-1c6db',
@@ -52,4 +52,41 @@ test('gallery proxy rejects malicious URLs before fetch and forbids redirects', 
   assert.match(res.headers['Cache-Control'], /^private,/);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].opts.redirect, 'error');
+});
+
+test('gallery proxy logs only the object path, never the signed token', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (...args) => warnings.push(args.map(String).join(' ')));
+  t.mock.method(global, 'fetch', async () => { throw new Error('upstream down'); });
+  const req = { method: 'GET', query: { url: good }, headers: {}, get: () => '', ip: '203.0.113.4' };
+  const res = response();
+  await proxyGalleryImage(req, res);
+  assert.equal(res.code, 502);
+  const logged = warnings.join(' ');
+  assert.ok(logged.includes('/o/gallery%2Fdemo.jpg'), `expected object path in log, got: ${logged}`);
+  assert.ok(!logged.includes('token=demo'), `must not log the capability token: ${logged}`);
+  assert.equal(safeUrlPath('not a url'), '<invalid-url>');
+});
+
+test('deleteGalleryDocs keeps going after one failed Firestore delete', async () => {
+  const removed = [];
+  const docs = [
+    { data: () => ({}), ref: { delete: async () => { removed.push('a'); } } },
+    { data: () => ({}), ref: { delete: async () => { throw new Error('deadline exceeded'); } } },
+    { data: () => ({}), ref: { delete: async () => { removed.push('c'); } } },
+  ];
+  const result = await deleteGalleryDocs(docs, async () => {}, 2);
+  assert.deepEqual(removed.sort(), ['a', 'c']);
+  assert.deepEqual(result, { deleted: 2, failed: 1 });
+});
+
+test('deleteGalleryDocs removes the doc even when its Storage file is missing', async () => {
+  let docDeleted = false;
+  const docs = [{
+    data: () => ({ imageUrl: good }),
+    ref: { delete: async () => { docDeleted = true; } },
+  }];
+  const result = await deleteGalleryDocs(docs, async () => { throw new Error('404 not found'); });
+  assert.equal(docDeleted, true);
+  assert.deepEqual(result, { deleted: 1, failed: 0 });
 });
