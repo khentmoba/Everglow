@@ -1220,7 +1220,7 @@ export function ReaderSettingsSheet({
                 />
                 <ToggleRow
                   label="Crop scan borders"
-                  hint="Detects and trims uniform white or black scan margins"
+                  hint="Trims fixed outer scan margins (4%) so panels fill more of the screen"
                   checked={settings.cropBorders}
                   onChange={(v) => onUpdateSettings({ cropBorders: v })}
                 />

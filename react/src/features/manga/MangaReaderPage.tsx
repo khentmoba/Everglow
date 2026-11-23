@@ -1370,10 +1370,14 @@ export function MangaReaderView({
           stepPage(e.shiftKey ? -1 : 1);
           break;
         case 'PageDown':
+        case 'AudioVolumeDown':
+        case 'VolumeDown':
           e.preventDefault();
           stepPage(1);
           break;
         case 'PageUp':
+        case 'AudioVolumeUp':
+        case 'VolumeUp':
           e.preventDefault();
           stepPage(-1);
           break;

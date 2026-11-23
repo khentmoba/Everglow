@@ -32,7 +32,11 @@ function manilaHourAndDay(now = new Date()) {
 }
 
 function parseChapterNumber(raw) {
-  const m = /(\d+(?:\.\d+)?)/.exec(String(raw || ''));
+  const s = String(raw || '').trim();
+  if (!s) return Number.NaN;
+  const explicit = /(?:ch(?:apter|\.)?\s*|#|c)(\d+(?:\.\d+)?)/i.exec(s);
+  if (explicit) return Number.parseFloat(explicit[1]);
+  const m = /(\d+(?:\.\d+)?)/.exec(s);
   return m ? Number.parseFloat(m[1]) : Number.NaN;
 }
 
@@ -318,4 +322,5 @@ module.exports = {
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,
   isWithinQuietHours,
+  parseChapterNumber,
 };

@@ -7,8 +7,16 @@ const {
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,
   isWithinQuietHours,
+  parseChapterNumber,
   runMangaUpdateCheck,
 } = require('./manga_updates.js');
+
+test('parseChapterNumber prioritizes explicit chapter tokens over season/volume numbers', () => {
+  assert.equal(parseChapterNumber('Season 2 #1'), 1);
+  assert.equal(parseChapterNumber('Vol. 3 Ch. 14.5'), 14.5);
+  assert.equal(parseChapterNumber('c108'), 108);
+  assert.equal(parseChapterNumber('210.5'), 210.5);
+});
 
 test('isWithinQuietHours handles overnight and daytime windows', () => {
   assert.equal(isWithinQuietHours(23, 22, 8), true);

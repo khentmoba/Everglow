@@ -39,6 +39,7 @@ import {
   estimateUnreadCount,
   exportKatanaLibraryJson,
   exportKatanaLibraryMalXml,
+  extractChapterNumber,
   fetchKatanaByType,
   fetchKatanaCatalog,
   fetchKatanaChapterPages,
@@ -74,6 +75,7 @@ import {
   setKatanaBookmark,
   setKatanaBookmarkCategories,
   setKatanaLibraryStatus,
+  syncKatanaBookmarkLatest,
   watchKatanaBookmarks,
   watchKatanaCustomCategories,
   watchKatanaHistory,
@@ -480,10 +482,10 @@ export function MangaPage() {
   const userName = currentUser ?? '';
   const syncedCategories = useSource(() => watchKatanaCustomCategories(userName), [userName], localCategories);
   const syncedRecentSearches = useSource(() => watchKatanaRecentSearches(userName), [userName], []);
-  const syncedHistory = useSource(() => watchKatanaHistory(userName), [userName], []);
+  const syncedHistory = useSource<KatanaHistoryEntry[] | null>(() => watchKatanaHistory(userName), [userName], null);
   const syncedUserPrefs = useSource(() => watchKatanaUserPrefs(userName), [userName], null);
   useEffect(() => {
-    if (syncedHistory.length > 0) setHistoryEntries(syncedHistory);
+    if (syncedHistory !== null) setHistoryEntries(syncedHistory);
   }, [syncedHistory]);
   useEffect(() => {
     if (!syncedUserPrefs) return;
@@ -734,12 +736,45 @@ export function MangaPage() {
   };
   const bookmarks = useSource(() => watchKatanaBookmarks(userName), [userName], []);
 
-  // Check alert-enabled series against latest home catalog updates and dispatch real browser notifications when permitted.
+  // Check alert-enabled series against latest home catalog updates and keep bookmark latestChapterNum fresh.
   useEffect(() => {
     if (!userName || !homeData || bookmarks.length === 0) return;
     const catalog = [...homeData.latest, ...homeData.hot, ...homeData.hotUpdates];
     checkKatanaChapterAlerts(userName, bookmarks, catalog);
+    const updates = catalog
+      .filter((m) => m.latestChapter)
+      .map((m) => ({
+        slug: m.slug,
+        latestChapterTitle: m.latestChapter!.title || `Chapter ${m.latestChapter!.num}`,
+        latestChapterNum: extractChapterNumber(m.latestChapter!.title || m.latestChapter!.num || m.latestChapter!.id),
+        latestChapterId: m.latestChapter!.id,
+      }));
+    if (updates.length > 0) void syncKatanaBookmarkLatest(userName, bookmarks, updates);
   }, [userName, homeData, bookmarks]);
+
+  useEffect(() => {
+    if (!userName || !detail || detail.chapters.length === 0 || bookmarks.length === 0) return;
+    const newest = detail.chapters[0];
+    if (!newest) return;
+    void syncKatanaBookmarkLatest(userName, bookmarks, [
+      {
+        slug: detail.slug,
+        latestChapterTitle: newest.title || `Chapter ${newest.num}`,
+        latestChapterNum: extractChapterNumber(newest.title || newest.num || newest.id),
+        latestChapterId: newest.id,
+      },
+    ]);
+  }, [userName, detail, bookmarks]);
+
+  const readChapterIdsBySlug = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    for (const bm of bookmarks) {
+      const set = new Set<string>(bm.readChapterIds);
+      if (bm.lastReadChapterId) set.add(bm.lastReadChapterId);
+      map[bm.slug] = set;
+    }
+    return map;
+  }, [bookmarks]);
   const partnerBookmarks = useSource(
     () => (isCoupleUser && partnerUsername ? watchKatanaBookmarks(partnerUsername) : null),
     [isCoupleUser, partnerUsername],
@@ -2473,8 +2508,8 @@ export function MangaPage() {
                                   style={{
                                     flex: compactCard ? '0 0 auto' : undefined,
                                     minWidth: 0,
-                                    height: 38,
-                                    padding: compactCard ? '0 10px' : '0 12px',
+                                    minHeight: compactCard ? 44 : 40,
+                                    padding: compactCard ? '0 12px' : '0 12px',
                                     borderRadius: 8,
                                     background: isBookmarked ? withAlpha(KatanaColors.green, 0.14) : KatanaColors.surfaceAlt,
                                     border: `1px solid ${isBookmarked ? withAlpha(KatanaColors.green, 0.5) : KatanaColors.borderStrong}`,
@@ -2507,8 +2542,8 @@ export function MangaPage() {
                                       style={{
                                         width: compactCard ? '100%' : undefined,
                                         minWidth: 0,
-                                        height: 38,
-                                        padding: compactCard ? '0 8px' : '0 12px',
+                                        minHeight: compactCard ? 44 : 40,
+                                        padding: compactCard ? '0 10px' : '0 12px',
                                         borderRadius: 8,
                                         background: statusMenuOpen || isBookmarked ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                                         border: `1px solid ${statusMenuOpen || isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
@@ -2730,8 +2765,8 @@ export function MangaPage() {
                                       setTrackerOpen((v) => !v);
                                     }}
                                     style={{
-                                      minHeight: 38,
-                                      padding: '0 11px',
+                                      minHeight: 40,
+                                      padding: '0 12px',
                                       borderRadius: 8,
                                       background: trackerOpen || detailBm?.userScore ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                                       border: `1px solid ${trackerOpen || detailBm?.userScore ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
@@ -2759,8 +2794,8 @@ export function MangaPage() {
                                       setDetailOverflowOpen((v) => !v);
                                     }}
                                     style={{
-                                      width: compactCard ? 36 : 38,
-                                      height: 38,
+                                      width: compactCard ? 44 : 40,
+                                      height: compactCard ? 44 : 40,
                                       borderRadius: 8,
                                       background: detailOverflowOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                                       border: `1px solid ${KatanaColors.borderStrong}`,
@@ -6276,6 +6311,7 @@ export function MangaPage() {
               <KatanaDownloadsView
                 items={offline.mangaItems}
                 storage={offline.formattedMangaStorage}
+                readChapterIdsBySlug={readChapterIdsBySlug}
                 wifiOnly={downloadWifiOnly}
                 onToggleWifiOnly={toggleDownloadWifiOnly}
                 autoDownloadNext={autoDownloadNext}
@@ -6907,6 +6943,7 @@ export function MangaPage() {
 function KatanaDownloadsView({
   items,
   storage,
+  readChapterIdsBySlug,
   wifiOnly,
   onToggleWifiOnly,
   autoDownloadNext,
@@ -6932,6 +6969,7 @@ function KatanaDownloadsView({
 }: {
   items: OfflineMediaItem[];
   storage: string;
+  readChapterIdsBySlug: Record<string, Set<string>>;
   wifiOnly: boolean;
   onToggleWifiOnly: () => void;
   autoDownloadNext: number;
@@ -7002,12 +7040,41 @@ function KatanaDownloadsView({
     });
   };
 
+  const readDownloadIds = useMemo(
+    () => items.filter((it) => it.chapterId && readChapterIdsBySlug[it.mediaId]?.has(it.chapterId)).map((it) => it.id),
+    [items, readChapterIdsBySlug],
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <KatanaSectionHeader title="Downloads" badge={items.length > 0 ? String(items.length) : undefined} />
         {items.length > 0 && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {readDownloadIds.length > 0 && (
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => onDeleteMany(readDownloadIds)}
+                style={{
+                  minHeight: 40,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  background: withAlpha(KatanaColors.accent, 0.14),
+                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.4)}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: KatanaColors.accentSoft,
+                }}
+              >
+                <Icon name="cleaning_services" size={15} color={KatanaColors.accentSoft} />
+                <span>Delete read ({readDownloadIds.length})</span>
+              </button>
+            )}
             <button
               type="button"
               className="bare-button"
@@ -7016,6 +7083,7 @@ function KatanaDownloadsView({
                 setSelectedIds(new Set());
               }}
               style={{
+                minHeight: 40,
                 padding: '6px 11px',
                 borderRadius: 8,
                 background: dlSelectMode ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -7171,6 +7239,9 @@ function KatanaDownloadsView({
         )}
         {batchProgress && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}` }}>
+            <div style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted, marginBottom: 8 }}>
+              Keep this tab open while downloading — browser tabs pause downloads in the background.
+            </div>
             {downloadQueue.length > 0 && (
               <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>

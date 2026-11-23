@@ -101,7 +101,19 @@ export function KatanaSectionHeader({
         }}
       />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span aria-hidden="true" style={{ color: KatanaColors.accent, fontSize: 12, lineHeight: 1, flexShrink: 0 }}>✦</span>
         <h2 style={{ ...KatanaType.section, margin: 0, ...ellipsis, minWidth: 0 }}>{title}</h2>
+        <span
+          aria-hidden="true"
+          style={{
+            flex: '0 1 42px',
+            height: 1,
+            background: linear([withAlpha(KatanaColors.accent, 0.55), withAlpha(KatanaColors.accent, 0)], {
+              begin: Align.centerLeft,
+              end: Align.centerRight,
+            }),
+          }}
+        />
         {badge && width >= 430 && (
           <span
             style={{
@@ -657,7 +669,7 @@ export function KatanaHeader({
       >
         <Icon name="auto_stories" size={narrow ? 17 : 19} color={KatanaColors.accentInk} />
       </div>
-      <span style={{ fontFamily: Fonts.body, fontWeight: 800, fontSize: logoFont, letterSpacing: -0.45, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
+      <span style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: logoFont + 3, letterSpacing: 0.2, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
         Manga<span style={{ color: KatanaColors.accent }}>Celestia</span>
       </span>
     </button>

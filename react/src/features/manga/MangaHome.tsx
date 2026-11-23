@@ -1133,9 +1133,18 @@ export function MangaHome({
       .map((x) => x.manga);
   }, [allCatalog, libraryBookmarks]);
 
+  const liveLatestBySlug = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of allCatalog) {
+      const n = extractChapterNumber(m.latestChapter?.title || m.latestChapter?.num || m.latestChapter?.id);
+      if (n > 0) map[m.slug] = Math.max(map[m.slug] ?? 0, n);
+    }
+    return map;
+  }, [allCatalog]);
+
   const libraryUnreadTotal = useMemo(() => {
-    return libraryBookmarks.reduce((acc, bm) => acc + estimateUnreadCount(bm), 0);
-  }, [libraryBookmarks]);
+    return libraryBookmarks.reduce((acc, bm) => acc + estimateUnreadCount(bm, liveLatestBySlug[bm.slug]), 0);
+  }, [libraryBookmarks, liveLatestBySlug]);
 
   const openRandomPick = () => {
     if (allCatalog.length === 0) return;
@@ -1146,10 +1155,10 @@ export function MangaHome({
   const unreadBySlug = useMemo(() => {
     const map: Record<string, number> = {};
     for (const bm of currentlyReading) {
-      map[bm.slug] = estimateUnreadCount(bm);
+      map[bm.slug] = estimateUnreadCount(bm, liveLatestBySlug[bm.slug]);
     }
     return map;
-  }, [currentlyReading]);
+  }, [currentlyReading, liveLatestBySlug]);
 
   const renderFeedItems = (items: KatanaManga[]) => {
     if (effectiveView === 'grid') {
@@ -1599,6 +1608,120 @@ export function MangaHome({
       </div>
     ) : null;
 
+  const trendingRankedRail = useMemo(() => {
+    const source = data.hotUpdates.length >= 4 ? data.hotUpdates : data.hot;
+    const items = source.slice(0, 10);
+    if (type !== 'all' || items.length < 3) return null;
+    return (
+      <section aria-label="Trending this week" style={{ marginTop: 20 }}>
+        <KatanaSectionHeader title="Trending This Week" badge={`Top ${items.length}`} />
+        <div
+          className="no-scrollbar"
+          style={{
+            display: 'flex',
+            gap: 12,
+            overflowX: 'auto',
+            paddingTop: 10,
+            paddingBottom: 4,
+          }}
+        >
+          {items.map((m, idx) => {
+            const rank = idx + 1;
+            const rankBg =
+              rank === 1
+                ? KatanaColors.accent
+                : rank === 2
+                  ? '#CBD5E1'
+                  : rank === 3
+                    ? '#D97706'
+                    : withAlpha(KatanaColors.background, 0.88);
+            const rankFg = rank <= 3 ? KatanaColors.accentInk : KatanaColors.text;
+            return (
+              <button
+                key={`rank-${m.slug}`}
+                type="button"
+                className="bare-button katana-card-hover"
+                onClick={() => onSelectManga(m.slug)}
+                style={{
+                  width: compact ? 118 : 138,
+                  flexShrink: 0,
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 3', borderRadius: 10, overflow: 'hidden', background: KatanaColors.surfaceAlt }}>
+                  <KatanaCoverImage url={m.coverUrl} title={m.title} />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 6,
+                      left: 6,
+                      minWidth: 26,
+                      height: 24,
+                      padding: '0 7px',
+                      borderRadius: 7,
+                      background: rankBg,
+                      color: rankFg,
+                      fontFamily: Fonts.display,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+                    }}
+                  >
+                    #{rank}
+                  </span>
+                  {unreadBySlug[m.slug] > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 6,
+                        right: 6,
+                        padding: '2px 6px',
+                        borderRadius: 6,
+                        background: KatanaColors.accent,
+                        color: KatanaColors.accentInk,
+                        fontFamily: Fonts.body,
+                        fontSize: 10.5,
+                        fontWeight: 800,
+                      }}
+                    >
+                      +{unreadBySlug[m.slug]}
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    fontFamily: Fonts.body,
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: KatanaColors.text,
+                    lineHeight: 1.25,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {m.title}
+                </div>
+                {m.latestChapter && (
+                  <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textMuted }}>
+                    {m.latestChapter.title || `Ch. ${m.latestChapter.num}`}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }, [data.hotUpdates, data.hot, type, compact, onSelectManga, unreadBySlug]);
+
   const feedTitle =
     type !== 'all'
       ? TYPE_META[type].label
@@ -1715,10 +1838,9 @@ export function MangaHome({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ ...KatanaType.small, fontWeight: 700 }}>Feed & Format</span>
+            <span style={{ ...KatanaType.small, fontWeight: 700 }}>Feed & View</span>
             {viewToggle}
           </div>
-          {typeChips}
           {type === 'all' && (
             <div role="tablist" aria-label="Discovery feed" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {([
@@ -1979,11 +2101,11 @@ export function MangaHome({
               onResumeBookmark={onResumeBookmark}
               onViewAll={() => onViewAllReading?.()}
             />
-            {!compact && typeChips}
-            {newChapterAlertBanner}
-            {tasteOnboardingBanner}
+            {typeChips}
+            {newChapterAlertBanner ?? tasteOnboardingBanner}
             <div style={{ height: compact ? 8 : 10 }} />
             {feedSection}
+            {trendingRankedRail}
             {type === 'all' && (
               <ReleaseCalendarRail
                 catalog={allCatalog}
@@ -2028,12 +2150,12 @@ export function MangaHome({
             onViewAll={() => onViewAllReading?.()}
           />
           {typeChips}
-          {newChapterAlertBanner}
-          {tasteOnboardingBanner}
+          {newChapterAlertBanner ?? tasteOnboardingBanner}
           <div style={{ height: 14 }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
             <div style={{ flex: 7, minWidth: 0 }}>
               {feedSection}
+              {trendingRankedRail}
               {type === 'all' && (
                 <ReleaseCalendarRail
                   catalog={allCatalog}

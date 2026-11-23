@@ -207,12 +207,12 @@ export function getSeriesVisualAccent(title: string, genres?: readonly string[])
 
 export const KatanaType = {
   display: {
-    fontFamily: Fonts.body,
-    fontWeight: 800,
+    fontFamily: Fonts.display,
+    fontWeight: 700,
     color: KatanaColors.text,
-    fontSize: 28,
-    letterSpacing: -0.5,
-    lineHeight: lineHeight(28, 1.12),
+    fontSize: 32,
+    letterSpacing: -0.2,
+    lineHeight: lineHeight(32, 1.08),
   },
   title: {
     fontFamily: Fonts.body,
@@ -222,20 +222,20 @@ export const KatanaType = {
     lineHeight: lineHeight(16, 1.25),
   },
   heading: {
-    fontFamily: Fonts.body,
+    fontFamily: Fonts.display,
     fontWeight: 700,
     color: KatanaColors.text,
-    fontSize: 22,
-    letterSpacing: -0.2,
-    lineHeight: lineHeight(22, 1.2),
+    fontSize: 25,
+    letterSpacing: 0.1,
+    lineHeight: lineHeight(25, 1.15),
   },
   section: {
-    fontFamily: Fonts.body,
+    fontFamily: Fonts.display,
     fontWeight: 700,
     color: KatanaColors.text,
-    fontSize: 18,
-    letterSpacing: -0.15,
-    lineHeight: lineHeight(18, 1.2),
+    fontSize: 21,
+    letterSpacing: 0.15,
+    lineHeight: lineHeight(21, 1.18),
   },
   body: {
     fontFamily: Fonts.body,

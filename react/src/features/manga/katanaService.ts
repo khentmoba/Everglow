@@ -89,6 +89,9 @@ export interface KatanaBookmark {
   lastReadPage: number;
   lastReadChapterTitle: string;
   latestChapterTitle: string;
+  /** Numeric latest chapter (populated by cloud FCM updater or live catalog/detail sync). */
+  latestChapterNum?: number;
+  latestChapterId?: string;
   recommendedBy: string;
   recommendationNote: string;
   readChapterIds: string[];
@@ -132,8 +135,8 @@ export function resolveLibraryStatus(bm: KatanaBookmark): KatanaLibraryStatus {
 
 export function extractChapterNumber(raw?: string): number {
   if (!raw) return 0;
-  // Prefer explicit chapter token (Ch. 12.5, Chapter 42, c108) before falling back to first number.
-  const explicit = /(?:ch(?:apter|\.)?\s*|c)(\d+(?:\.\d+)?)/i.exec(raw);
+  // Prefer explicit chapter token (Ch. 12.5, Chapter 42, #1, c108) before falling back to first number.
+  const explicit = /(?:ch(?:apter|\.)?\s*|#|c)(\d+(?:\.\d+)?)/i.exec(raw);
   if (explicit) return Number.parseFloat(explicit[1]) || 0;
   const m = /(\d+(?:\.\d+)?)/.exec(raw);
   return m ? Number.parseFloat(m[1]) || 0 : 0;
@@ -151,7 +154,10 @@ export function estimateUnreadCount(
     if (bm.lastReadChapterId) readSet.add(bm.lastReadChapterId);
     return knownChapters.reduce((acc, c) => acc + (readSet.has(c.id) ? 0 : 1), 0);
   }
-  const latestNum = knownLatestNum ?? extractChapterNumber(bm.latestChapterTitle);
+  const latestNum =
+    (typeof knownLatestNum === 'number' && knownLatestNum > 0 ? knownLatestNum : undefined) ??
+    (typeof bm.latestChapterNum === 'number' && bm.latestChapterNum > 0 ? bm.latestChapterNum : undefined) ??
+    extractChapterNumber(bm.latestChapterTitle);
   const readNum =
     extractChapterNumber(bm.lastReadChapterTitle) ||
     extractChapterNumber(katanaChapterNumFromId(bm.lastReadChapterId));
@@ -172,7 +178,10 @@ export function isBookmarkCaughtUp(
   if (knownChapters && knownChapters.length > 0) {
     return estimateUnreadCount(bm, knownLatestNum, knownChapters) === 0;
   }
-  const latestNum = knownLatestNum ?? extractChapterNumber(bm.latestChapterTitle);
+  const latestNum =
+    (typeof knownLatestNum === 'number' && knownLatestNum > 0 ? knownLatestNum : undefined) ??
+    (typeof bm.latestChapterNum === 'number' && bm.latestChapterNum > 0 ? bm.latestChapterNum : undefined) ??
+    extractChapterNumber(bm.latestChapterTitle);
   if (latestNum <= 0) return false;
   return estimateUnreadCount(bm, latestNum) === 0;
 }
@@ -1121,14 +1130,138 @@ export async function fetchKatanaSuggestions(queryText: string, searchBy = 'm_na
   return res.items.slice(0, 8);
 }
 
+async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | null> {
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch {
+      // continue unsigned if guest
+    }
+    const isMdSlug = slug.startsWith('md-');
+    let mangaId = isMdSlug ? slug.slice(3) : '';
+    let mangaData: {
+      id?: string;
+      attributes?: {
+        title?: Record<string, string>;
+        description?: Record<string, string>;
+        status?: string;
+        tags?: Array<{ id?: string; attributes?: { name?: Record<string, string> } }>;
+      };
+      relationships?: Array<{ type?: string; attributes?: { fileName?: string; name?: string } }>;
+    } | undefined;
+
+    if (mangaId) {
+      const resp = await fetch(
+        `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist`)}`,
+        { headers, signal: AbortSignal.timeout(10_000) },
+      );
+      if (resp.ok) {
+        const json = (await resp.json()) as { data?: typeof mangaData };
+        mangaData = json.data;
+      }
+    } else {
+      const guessTitle = slug.replace(/\.\d+$/, '').replace(/[-_]+/g, ' ').trim();
+      if (!guessTitle) return null;
+      const resp = await fetch(
+        `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga?title=${encodeURIComponent(guessTitle)}&limit=1&includes[]=cover_art&includes[]=author&includes[]=artist&contentRating[]=safe&contentRating[]=suggestive`)}`,
+        { headers, signal: AbortSignal.timeout(10_000) },
+      );
+      if (resp.ok) {
+        const json = (await resp.json()) as { data?: Array<typeof mangaData> };
+        mangaData = json.data?.[0];
+        mangaId = mangaData?.id ?? '';
+      }
+    }
+    if (!mangaData || !mangaId) return null;
+
+    const attrs = mangaData.attributes ?? {};
+    const titleObj = attrs.title ?? {};
+    const title = titleObj.en ?? titleObj['ja-ro'] ?? Object.values(titleObj)[0] ?? slug;
+    const descObj = attrs.description ?? {};
+    const summary = descObj.en ?? Object.values(descObj)[0] ?? '';
+    const coverFile = mangaData.relationships?.find((r) => r.type === 'cover_art')?.attributes?.fileName;
+    const coverUrl = coverFile
+      ? `${PROXY_MANGA_IMAGE_URL}?url=${encodeURIComponent(`https://uploads.mangadex.org/covers/${mangaId}/${coverFile}.512.jpg`)}`
+      : '';
+    const authors = (mangaData.relationships ?? [])
+      .filter((r) => r.type === 'author' && r.attributes?.name)
+      .map((r) => r.attributes!.name!);
+    const artists = (mangaData.relationships ?? [])
+      .filter((r) => r.type === 'artist' && r.attributes?.name)
+      .map((r) => r.attributes!.name!);
+    const genres: KatanaGenre[] = (attrs.tags ?? [])
+      .map((t) => {
+        const name = t.attributes?.name?.en ?? '';
+        return name ? { slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, count: 0, description: '' } : null;
+      })
+      .filter((g): g is KatanaGenre => g !== null);
+
+    const feedResp = await fetch(
+      `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga/${mangaId}/feed?translatedLanguage[]=en&order[chapter]=desc&limit=100&includes[]=scanlation_group`)}`,
+      { headers, signal: AbortSignal.timeout(10_000) },
+    );
+    const chapters: KatanaChapter[] = [];
+    if (feedResp.ok) {
+      const feedJson = (await feedResp.json()) as {
+        data?: Array<{
+          id?: string;
+          attributes?: { chapter?: string; title?: string; publishAt?: string; translatedLanguage?: string };
+          relationships?: Array<{ type?: string; attributes?: { name?: string } }>;
+        }>;
+      };
+      const seenNums = new Set<string>();
+      for (const ch of feedJson.data ?? []) {
+        const num = ch.attributes?.chapter ?? '';
+        if (!num || seenNums.has(num)) continue;
+        seenNums.add(num);
+        const groupName = ch.relationships?.find((r) => r.type === 'scanlation_group')?.attributes?.name;
+        chapters.push({
+          id: `c${num}`,
+          num,
+          title: ch.attributes?.title ? `Chapter ${num}: ${ch.attributes.title}` : `Chapter ${num}`,
+          updateAt: ch.attributes?.publishAt ? new Date(ch.attributes.publishAt) : undefined,
+          scanlationGroup: groupName,
+          language: ch.attributes?.translatedLanguage ?? 'en',
+        });
+      }
+    }
+
+    return {
+      slug,
+      id: mangaId,
+      title,
+      altNames: [],
+      coverUrl,
+      status: attrs.status === 'completed' ? 'completed' : 'ongoing',
+      updateText: chapters[0]?.updateAt ? formatKatanaTime(chapters[0].updateAt) : '',
+      summary,
+      authors,
+      artists,
+      genres,
+      chapters,
+      recentChapters: chapters.slice(0, 3),
+      latestChapter: chapters[0],
+      updateAt: chapters[0]?.updateAt,
+    };
+  } catch (err) {
+    Logger.e('KatanaService: fetchMangaDexDetailFallback failed', err);
+    return null;
+  }
+}
+
 export async function fetchKatanaDetail(slug: string): Promise<KatanaManga | null> {
   if (!slug) return null;
+  if (slug.startsWith('md-') && !AgentMode.demo) {
+    return fetchMangaDexDetailFallback(slug);
+  }
   const html = await fetchHtml(`${BASE_URL}/manga/${slug}`);
   if (!html) {
     if (AgentMode.demo) {
       return buildDemoCatalog().find((m) => m.slug === slug) ?? buildDemoCatalog()[0] ?? null;
     }
-    return null;
+    return fetchMangaDexDetailFallback(slug);
   }
   const idM = /data-id="(\d+)"/.exec(html);
   const titleM = /<h1 class="heading">([^<]+)<\/h1>/.exec(html);
@@ -1295,6 +1428,13 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     lastReadPage: Number(data.lastReadPage ?? 0) || 0,
     lastReadChapterTitle: String(data.lastReadChapterTitle ?? ''),
     latestChapterTitle: String(data.latestChapterTitle ?? ''),
+    latestChapterNum:
+      typeof data.latestChapterNum === 'number' && Number.isFinite(data.latestChapterNum)
+        ? data.latestChapterNum
+        : typeof data.latestChapterNum === 'string' && Number.isFinite(Number.parseFloat(data.latestChapterNum))
+          ? Number.parseFloat(data.latestChapterNum)
+          : undefined,
+    latestChapterId: typeof data.latestChapterId === 'string' && data.latestChapterId.trim() ? data.latestChapterId.trim() : undefined,
     recommendedBy: String(data.recommendedBy ?? ''),
     recommendationNote: String(data.recommendationNote ?? ''),
     readChapterIds: Array.isArray(data.readChapterIds) ? data.readChapterIds.map(String) : [],
@@ -1361,6 +1501,69 @@ async function getKatanaBookmark(slug: string, userName: string): Promise<Katana
   }
 }
 
+/**
+ * Refresh stored latest chapter metadata on existing bookmarks when live catalog/detail
+ * data reports a newer chapter so "+N new" badges stay truthful without spamming writes.
+ */
+export async function syncKatanaBookmarkLatest(
+  userName: string,
+  bookmarks: KatanaBookmark[],
+  updates: Array<{ slug: string; latestChapterTitle: string; latestChapterNum?: number; latestChapterId?: string }>,
+): Promise<void> {
+  if (!userName || bookmarks.length === 0 || updates.length === 0) return;
+  const bmBySlug = new Map(bookmarks.map((b) => [b.slug, b]));
+  const changed: Array<{ bm: KatanaBookmark; title: string; num: number; id?: string }> = [];
+  for (const u of updates) {
+    const bm = bmBySlug.get(u.slug);
+    if (!bm) continue;
+    const nextNum =
+      typeof u.latestChapterNum === 'number' && u.latestChapterNum > 0
+        ? u.latestChapterNum
+        : extractChapterNumber(u.latestChapterTitle) || extractChapterNumber(u.latestChapterId);
+    const curNum = bm.latestChapterNum ?? extractChapterNumber(bm.latestChapterTitle);
+    if (nextNum > 0 && (nextNum > curNum + 0.001 || (u.latestChapterTitle && u.latestChapterTitle !== bm.latestChapterTitle && nextNum >= curNum))) {
+      changed.push({ bm, title: u.latestChapterTitle || `Chapter ${nextNum}`, num: nextNum, id: u.latestChapterId });
+    }
+  }
+  if (changed.length === 0) return;
+
+  if (AgentMode.demo) {
+    const list = [...(demoBookmarks.get(userName) ?? [])];
+    let mutated = false;
+    for (const c of changed) {
+      const idx = list.findIndex((b) => b.slug === c.bm.slug);
+      if (idx >= 0) {
+        list[idx] = {
+          ...list[idx],
+          latestChapterTitle: c.title,
+          latestChapterNum: c.num,
+          latestChapterId: c.id ?? list[idx].latestChapterId,
+        };
+        mutated = true;
+      }
+    }
+    if (mutated) {
+      demoBookmarks.set(userName, list);
+      demoChanges.emit();
+    }
+    return;
+  }
+
+  await Promise.all(
+    changed.slice(0, 12).map((c) =>
+      setDoc(
+        doc(db, 'katana_bookmarks', `${userName}|${c.bm.slug}`),
+        {
+          latestChapterTitle: c.title,
+          latestChapterNum: c.num,
+          ...(c.id ? { latestChapterId: c.id } : {}),
+        },
+        { merge: true },
+      ).catch((err) => Logger.e('KatanaService: syncKatanaBookmarkLatest failed', err)),
+    ),
+  );
+}
+
 export async function setKatanaBookmark(manga: KatanaManga, userName: string, bookmarked: boolean): Promise<void> {
   if (!userName || !manga.slug) return;
   if (AgentMode.demo) {
@@ -1392,6 +1595,7 @@ export async function setKatanaBookmark(manga: KatanaManga, userName: string, bo
     demoChanges.emit();
     return;
   }
+  const latestNum = extractChapterNumber(manga.latestChapter?.title || manga.latestChapter?.num || manga.latestChapter?.id);
   await setDoc(
     doc(db, 'katana_bookmarks', `${userName}|${manga.slug}`),
     bookmarked
@@ -1403,6 +1607,9 @@ export async function setKatanaBookmark(manga: KatanaManga, userName: string, bo
           userName,
           bookmarked: true,
           notifyOnUpdate: true,
+          ...(manga.latestChapter?.title ? { latestChapterTitle: manga.latestChapter.title } : {}),
+          ...(latestNum > 0 ? { latestChapterNum: latestNum } : {}),
+          ...(manga.latestChapter?.id ? { latestChapterId: manga.latestChapter.id } : {}),
           addedAt: Timestamp.now(),
         }
       : { bookmarked: false, userName },
