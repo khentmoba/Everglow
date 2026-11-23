@@ -143,7 +143,7 @@ function ToggleRow({
           borderRadius: 99,
           padding: 2,
           flexShrink: 0,
-          background: checked ? KatanaColors.accent : '#2B2032',
+          background: checked ? KatanaColors.accent : KatanaColors.switchOff,
           display: 'flex',
           alignItems: 'center',
           justifyContent: checked ? 'flex-end' : 'flex-start',

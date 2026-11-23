@@ -4,6 +4,7 @@ import { Fonts } from '../../core/theme/typography';
 
 export const KATANA_BREAKPOINTS = {
   tablet: 720,
+  tabletWide: 800,
   desktop: 960,
 } as const;
 
@@ -35,6 +36,7 @@ export const KatanaColors = {
   crimson: '#F43F5E',
   teal: '#2DD4BF',
   headerDark: '#0E1118',
+  switchOff: '#272E3F',
 } as const;
 
 export const KatanaType = {

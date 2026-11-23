@@ -132,6 +132,8 @@ export interface KatanaPageResult {
   page: number;
   hasNext: boolean;
   hasPrev: boolean;
+  totalPages?: number;
+  totalResults?: number;
   error?: string;
 }
 
@@ -283,7 +285,7 @@ export function formatKatanaTime(time?: Date): string {
   if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
   const days = Math.trunc(hours / 24);
   if (days < 7) return days === 1 ? '1 day ago' : `${days} days ago`;
-  return `${katanaMonths[time.getMonth()]}-${String(time.getDate()).padStart(2, '0')}-${time.getFullYear()}`;
+  return `${katanaMonths[time.getMonth()]} ${time.getDate()}, ${time.getFullYear()}`;
 }
 
 function parseExpandedItem(block: string): KatanaManga | null {
@@ -408,6 +410,16 @@ export function pushRecentMangaSearch(q: string): string[] {
     localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
   } catch {
     // ignore storage quota
+  }
+  return next;
+}
+
+export function removeRecentMangaSearch(q: string): string[] {
+  const next = getRecentMangaSearches().filter((s) => s.toLowerCase() !== q.toLowerCase());
+  try {
+    localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
   }
   return next;
 }
@@ -841,7 +853,8 @@ export async function fetchKatanaCatalog(opts: {
       if (opts.orderBy === 'az') demo.sort((a, b) => a.title.localeCompare(b.title));
       else if (opts.orderBy === 'numc') demo.sort((a, b) => (b.chapterCount ?? b.chapters.length) - (a.chapterCount ?? a.chapters.length));
       else if (opts.orderBy === 'new') demo.sort((a, b) => (a.chapterCount ?? a.chapters.length) - (b.chapterCount ?? b.chapters.length));
-      return { items: applyClientFilters(demo), page, hasNext: false, hasPrev: page > 1 };
+      const filtered = applyClientFilters(demo);
+      return { items: filtered, page, hasNext: false, hasPrev: page > 1, totalPages: 1, totalResults: filtered.length };
     }
     return { items: [], page, hasNext: false, hasPrev: page > 1, error: 'Could not load catalog right now.' };
   }
@@ -853,11 +866,17 @@ export async function fetchKatanaCatalog(opts: {
           return start >= 0 ? blocksOfClass(html, 'item', start, end) : [];
         })()
       : blocksOfClass(html, 'item');
+  const parsedItems = applyClientFilters(items(blocks));
+  const hasNext = html.includes('class="next page-numbers"');
+  const pageNums = [...html.matchAll(/class="page-numbers"[^>]*>(\d+)</g)].map((m) => Number(m[1])).filter((n) => n > 0);
+  const maxListedPage = pageNums.length > 0 ? Math.max(...pageNums, page) : hasNext ? undefined : page;
   return {
-    items: applyClientFilters(items(blocks)),
+    items: parsedItems,
     page,
-    hasNext: html.includes('class="next page-numbers"'),
+    hasNext,
     hasPrev: page > 1 && html.includes('class="prev page-numbers"'),
+    totalPages: maxListedPage,
+    totalResults: !hasNext && page === 1 ? parsedItems.length : undefined,
   };
 }
 

@@ -17,6 +17,7 @@ import {
   katanaCdnFallback,
   proxyKatanaImageUrl,
   pushRecentMangaSearch,
+  removeRecentMangaSearch,
   type KatanaGenre,
   type KatanaManga,
 } from './katanaService';
@@ -438,9 +439,13 @@ export function KatanaHeader({
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [phoneSearchOpen, setPhoneSearchOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentMangaSearches());
   const searchWrapRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const phoneCompact = width < KATANA_BREAKPOINTS.tablet;
 
   const desktop = width >= KATANA_BREAKPOINTS.desktop;
   const narrow = width < 500;
@@ -542,6 +547,7 @@ export function KatanaHeader({
 
   const searchField = (
     <div
+      className="katana-input-shell"
       style={{
         height: desktop ? 40 : 42,
         width: '100%',
@@ -560,6 +566,7 @@ export function KatanaHeader({
       <div style={{ width: 8, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
         <input
+          ref={searchInputRef}
           value={queryText}
           onFocus={() => setFocused(true)}
           onChange={(e) => setQueryText(e.target.value)}
@@ -699,16 +706,55 @@ export function KatanaHeader({
           {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
           {desktopLibraryButton}
         </div>
-      ) : (
-        <div style={{ padding: '10px 14px 10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+      ) : phoneCompact ? (
+        <div style={{ padding: '8px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {backButton}
             {logo}
             <div style={{ flex: 1 }} />
+            <button
+              type="button"
+              className="bare-button"
+              aria-label={phoneSearchOpen ? 'Close search' : 'Search manga'}
+              aria-expanded={phoneSearchOpen}
+              onClick={() => {
+                setPhoneSearchOpen((open) => {
+                  const next = !open;
+                  if (next) {
+                    setFocused(true);
+                    window.setTimeout(() => searchInputRef.current?.focus(), 20);
+                  } else {
+                    setFocused(false);
+                  }
+                  return next;
+                });
+              }}
+              style={{
+                height: 38,
+                padding: '0 10px',
+                borderRadius: 10,
+                background: phoneSearchOpen || hasText ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                border: `1px solid ${phoneSearchOpen || hasText ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <Icon name={phoneSearchOpen ? 'close' : 'search'} size={18} color={phoneSearchOpen || hasText ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+              {!phoneSearchOpen && <span style={bodyText(12.5, 600, KatanaColors.textMuted, 1)}>Search</span>}
+            </button>
             {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
           </div>
-          <div style={{ height: 10 }} />
-          {searchField}
+          {phoneSearchOpen && <div style={{ marginTop: 8 }}>{searchField}</div>}
+        </div>
+      ) : (
+        <div style={{ padding: '10px 14px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {backButton}
+            {logo}
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>{searchField}</div>
+            {!showBack && <MediaSectionMenuButton currentRoute="/manga" />}
+          </div>
         </div>
       )}
 
@@ -733,25 +779,48 @@ export function KatanaHeader({
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {recentSearches.map((q) => (
-                    <button
+                    <div
                       key={q}
-                      type="button"
-                      className="bare-button"
-                      onClick={() => submit(q)}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 10px',
                         borderRadius: 99,
                         background: KatanaColors.surfaceAlt,
                         border: `1px solid ${KatanaColors.border}`,
-                        ...bodyText(12.5, 500, KatanaColors.text, 1.2),
+                        overflow: 'hidden',
                       }}
                     >
-                      <Icon name="history" size={13} color={KatanaColors.textLight} />
-                      <span>{q}</span>
-                    </button>
+                      <button
+                        type="button"
+                        className="bare-button"
+                        onClick={() => submit(q)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '5px 6px 5px 10px',
+                          ...bodyText(12.5, 500, KatanaColors.text, 1.2),
+                        }}
+                      >
+                        <Icon name="history" size={13} color={KatanaColors.textLight} />
+                        <span>{q}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="bare-button"
+                        aria-label={`Remove ${q} from recent searches`}
+                        onClick={() => setRecentSearches(removeRecentMangaSearch(q))}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          display: 'grid',
+                          placeItems: 'center',
+                          marginRight: 2,
+                        }}
+                      >
+                        <Icon name="close" size={13} color={KatanaColors.textLight} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1078,7 +1147,9 @@ export function KatanaCoverImage({
       alt=""
       loading="lazy"
       onError={() => {
-        if (step < 4) setStep((s) => s + 1);
+        const currentUrl = katanaCdnFallback(url, step);
+        const nextUrl = step < 4 ? katanaCdnFallback(url, step + 1) : currentUrl;
+        if (step < 4 && nextUrl !== currentUrl) setStep((s) => s + 1);
         else setFailed(true);
       }}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -1503,42 +1574,37 @@ export function KatanaPosterCard({
             pointerEvents: 'none',
           }}
         />
-        <span
-          style={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            padding: '2px 7px',
-            borderRadius: 6,
-            background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.84)',
-            border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
-            ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
-          }}
-        >
-          {completed ? 'Completed' : 'Ongoing'}
-        </span>
-        {unreadCount || downloadedCount ? (
-          <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
-        ) : manga.rating != null ? (
+        <div style={{ position: 'absolute', top: 8, left: 8, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 'calc(100% - 62px)' }}>
           <span
             style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-              padding: '2px 6px',
+              padding: '2px 7px',
               borderRadius: 6,
-              background: 'rgba(11, 13, 18, 0.86)',
-              border: `1px solid ${KatanaColors.borderStrong}`,
-              ...bodyText(10.5, 700, KatanaColors.text, 1.2),
+              background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.84)',
+              border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
+              ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
             }}
           >
-            <Icon name="star" size={11} color={KatanaColors.accent} />
-            <span>{manga.rating.toFixed(1)}</span>
+            {completed ? 'Completed' : 'Ongoing'}
           </span>
-        ) : null}
+          {manga.rating != null && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                padding: '2px 5px',
+                borderRadius: 6,
+                background: 'rgba(11, 13, 18, 0.86)',
+                border: `1px solid ${KatanaColors.borderStrong}`,
+                ...bodyText(10, 700, KatanaColors.text, 1.2),
+              }}
+            >
+              <Icon name="star" size={10} color={KatanaColors.accent} />
+              <span>{manga.rating.toFixed(1)}</span>
+            </span>
+          )}
+        </div>
+        <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
         {manga.latestChapter && (
           <button
             type="button"
@@ -1694,17 +1760,34 @@ export function KatanaPagination({
   page,
   hasPrev,
   hasNext,
+  totalPages,
+  totalResults,
   onPageChange,
 }: {
   page: number;
   hasPrev: boolean;
   hasNext: boolean;
+  totalPages?: number;
+  totalResults?: number;
   onPageChange: (next: number) => void;
 }) {
+  const pageLabel = totalPages && totalPages > 1
+    ? `Page ${page} of ${totalPages}`
+    : !hasNext && page > 1
+      ? `Page ${page} · Last page`
+      : !hasNext && totalResults != null
+        ? `${totalResults} ${totalResults === 1 ? 'result' : 'results'}`
+        : `Page ${page}`;
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <KatanaButton label="Previous" icon="chevron_left" filled={false} disabled={!hasPrev} onClick={() => hasPrev && onPageChange(page - 1)} />
-      <span style={KatanaType.small}>Page {page}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <span style={{ ...KatanaType.small, color: KatanaColors.textMuted, fontWeight: 600 }}>{pageLabel}</span>
+        {totalResults != null && totalPages && totalPages > 1 && (
+          <span style={{ ...KatanaType.small, fontSize: 11 }}>{totalResults} total</span>
+        )}
+      </div>
       <KatanaButton label="Next" icon="chevron_right" filled={false} disabled={!hasNext} onClick={() => hasNext && onPageChange(page + 1)} />
     </div>
   );

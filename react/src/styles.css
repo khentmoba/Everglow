@@ -99,6 +99,7 @@ body {
 }
 .bare-button:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; border-radius: 6px; }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; }
+.katana-input-shell:focus-within { border-color: #F59E0B !important; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.32); }
 .player-focusable:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
 
