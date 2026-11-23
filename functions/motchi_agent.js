@@ -1,6 +1,7 @@
 'use strict';
 
 const { createHash } = require('node:crypto');
+const { phtDayKey } = require('./common.js');
 
 const DEFAULT_PREFERENCES = {
   nudges: 'daily', digests: true, quietStart: 22, quietEnd: 8,
@@ -77,7 +78,7 @@ function allowsPush(data, type, now = Date.now()) {
       : hour >= prefs.quietStart || hour < prefs.quietEnd;
   if (quiet && type !== 'night_recap') return false;
   if (/digest|recap/.test(type)) {
-    return prefs.digests && data?.lastDigests?.[type] !== new Date(now + 8 * 3600000).toISOString().slice(0, 10);
+    return prefs.digests && data?.lastDigests?.[type] !== phtDayKey(new Date(now));
   }
   if (prefs.nudges === 'off') return false;
   const interval = prefs.nudges === 'weekly' ? 7 * 86400000 : 86400000;
@@ -88,7 +89,7 @@ function allowsPush(data, type, now = Date.now()) {
 
 function pushReservation(type, now = Date.now()) {
   return /digest|recap/.test(type)
-    ? { lastDigests: { [type]: new Date(now + 8 * 3600000).toISOString().slice(0, 10) } }
+    ? { lastDigests: { [type]: phtDayKey(new Date(now)) } }
     : { lastNudgeAt: now, lastNudges: { [type]: now } };
 }
 

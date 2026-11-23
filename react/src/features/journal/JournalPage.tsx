@@ -154,7 +154,7 @@ export function JournalPage() {
                 {!searching && <MemoryCapsule />}
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   {searching ? (
-                    search && (
+                    search ? (
                       <SearchResults
                         key={search.run}
                         term={search.term}
@@ -162,6 +162,10 @@ export function JournalPage() {
                         noMatch={noMatch}
                         onRetry={() => setSearch({ run: search.run + 1, term: search.term })}
                       />
+                    ) : (
+                      <div style={{ padding: 20 }}>
+                        <EverglowSkeleton height={120} radius={16} />
+                      </div>
                     )
                   ) : entries.length === 0 ? (
                     noMatch
