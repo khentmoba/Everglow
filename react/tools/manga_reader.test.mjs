@@ -249,7 +249,7 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await page.waitForSelector('input[aria-label="Quick brightness"]', { timeout: 5000 });
     await page.keyboard.press('Escape');
 
-    // Settings sheet: switch to Manga RTL & enable Crop Scan Borders without breaking images
+    // Settings sheet: switch to right-to-left paging & enable Crop Scan Borders without breaking images
     await page.click('button[aria-label="Reader settings"]');
     // Last match: preset cards share the label, the Reading Mode grid comes after them.
     await page.locator('[role="dialog"][aria-label="Reader settings"] button[aria-label="Reading mode: Manga, right to left"]').last().click();
@@ -298,9 +298,9 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await resetPill.click();
     await resetPill.waitFor({ state: 'detached', timeout: 3000 });
 
-    // Continuous Horizontal Strip (Strip RTL) mode renders all pages horizontally
+    // Continuous Horizontal Strip mode renders all pages horizontally
     await page.click('button[aria-label="Reader settings"]');
-    await page.click('button:has-text("Strip RTL")');
+    await page.locator('[role="dialog"][aria-label="Reader settings"] button[aria-label="Reading mode: Strip, right to left"]').last().click();
     await page.click('button[aria-label="Close Reader Settings"]');
     await page.waitForSelector('img[alt="Page 1"]', { timeout: 5000 });
 

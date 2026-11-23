@@ -681,7 +681,7 @@ export function KatanaHeader({
     <div
       className="katana-input-shell"
       style={{
-        height: desktop ? 40 : 42,
+        height: 44,
         width: '100%',
         maxWidth: 620,
         boxSizing: 'border-box',
@@ -845,8 +845,8 @@ export function KatanaHeader({
         aria-haspopup={onSelectTheme ? 'menu' : undefined}
         aria-expanded={onSelectTheme ? themeMenuOpen : undefined}
         style={{
-          height: desktop ? 36 : 40,
-          minWidth: desktop ? 36 : 40,
+          height: 44,
+          minWidth: 44,
           padding: desktop ? '0 10px' : '0 8px',
           borderRadius: 10,
           background: themeMenuOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -1643,7 +1643,8 @@ export function KatanaCoverBadges({
     <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', zIndex: 2 }}>
       {unreadCount != null && unreadCount > 0 && (
         <span
-          title={`${unreadCount} unread chapters`}
+          title={`${unreadCount} new ${unreadCount === 1 ? 'chapter' : 'chapters'}`}
+          aria-label={`${unreadCount} new ${unreadCount === 1 ? 'chapter' : 'chapters'}`}
           style={{
             padding: '2px 7px',
             borderRadius: 6,
@@ -1662,7 +1663,8 @@ export function KatanaCoverBadges({
       )}
       {downloadedCount != null && downloadedCount > 0 && (
         <span
-          title={`${downloadedCount} downloaded chapters`}
+          title={`${downloadedCount} ${downloadedCount === 1 ? 'chapter' : 'chapters'} offline`}
+          aria-label={`${downloadedCount} ${downloadedCount === 1 ? 'chapter' : 'chapters'} offline`}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

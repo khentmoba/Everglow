@@ -3415,7 +3415,7 @@ export function MangaPage() {
                           )}
                         </div>
 
-                        {!desktop && detail.summary && (
+                        {tablet && detail.summary && (
                           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${KatanaColors.border}` }}>
                             <div style={{ ...KatanaType.title, fontSize: 15, marginBottom: 6 }}>Synopsis</div>
                             <p style={{ ...KatanaType.body, margin: 0 }}>{detail.summary}</p>
@@ -3489,7 +3489,10 @@ export function MangaPage() {
                               </div>
                             )}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                          <KatanaSectionHeader title="Chapters" badge={String(detail.chapters.length)} />
+                          <KatanaSectionHeader
+                            title="Chapters"
+                            badge={`${detail.chapters.length} ${detail.chapters.length === 1 ? 'chapter' : 'chapters'}`}
+                          />
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             {!compactCard && detail.chapters.length > 0 && (
                               <button
@@ -4440,7 +4443,7 @@ export function MangaPage() {
                                             return grp.toUpperCase().endsWith(lang) ? grp : `${grp} · ${lang}`;
                                           })()}
                                         </span>
-                                        {c.isNew && (
+                                        {c.isNew && !isLastRead && !isRead && (
                                           <span
                                             style={{
                                               padding: '1px 6px',
@@ -4448,7 +4451,7 @@ export function MangaPage() {
                                               background: KatanaColors.accent,
                                               color: KatanaColors.accentInk,
                                               fontFamily: Fonts.body,
-                                              fontSize: 10.5,
+                                              fontSize: 11,
                                               fontWeight: 800,
                                             }}
                                           >
@@ -4811,6 +4814,13 @@ export function MangaPage() {
                           </aside>
                         )}
                       </div>
+
+                        {compactCard && detail.summary && (
+                          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${KatanaColors.border}` }}>
+                            <div style={{ ...KatanaType.title, fontSize: 15, marginBottom: 6 }}>Synopsis</div>
+                            <p style={{ ...KatanaType.body, margin: 0 }}>{detail.summary}</p>
+                          </div>
+                        )}
 
                         {(() => {
                           const allLinks = resolveOfficialPublisherLinks(detail, detailBm);
@@ -5805,7 +5815,10 @@ export function MangaPage() {
               <div>
                 <KatanaBreadcrumb items={['Library']} onHome={() => handleNav('home')} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                  <KatanaSectionHeader title="My Library" badge={String(savedBookmarks.length)} />
+                  <KatanaSectionHeader
+                    title="My Library"
+                    badge={`${savedBookmarks.length} ${savedBookmarks.length === 1 ? 'series' : 'series'}`}
+                  />
                   {compactCard ? (
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <button

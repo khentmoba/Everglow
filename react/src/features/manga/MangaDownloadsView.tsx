@@ -242,7 +242,10 @@ export function KatanaDownloadsView({
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <KatanaSectionHeader title="Downloads" badge={items.length > 0 ? String(items.length) : undefined} />
+        <KatanaSectionHeader
+          title="Downloads"
+          badge={items.length > 0 ? `${items.length} ${items.length === 1 ? 'series' : 'series'}` : undefined}
+        />
       </div>
       <div style={{ height: 14 }} />
       {items.length === 0 ? (
@@ -267,47 +270,21 @@ export function KatanaDownloadsView({
                     : ''}
                 </span>
               </div>
-              <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
-
-                {(
-                  [
-                    ['recent', 'Recent'],
-                    ['title', 'A–Z'],
-                    ['chapters', 'Most chapters'],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className="bare-button"
-                    onClick={() => setSortBy(id)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: 7,
-                      background: sortBy === id ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                      border: `1px solid ${sortBy === id ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
-                      fontFamily: Fonts.body,
-                      fontSize: 12,
-                      fontWeight: sortBy === id ? 700 : 500,
-                      color: sortBy === id ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
             </div>
             {quotaInfo && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ height: 5, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+              <div style={{ marginTop: 10 }}>
+                <div style={{ height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
                   <div
                     style={{
-                      width: `${Math.min(100, Math.max(2, Math.round((quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)))}%`,
+                      width: `${Math.min(100, Math.max(1, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100))}%`,
                       height: '100%',
                       background: KatanaColors.accent,
                       borderRadius: 99,
                     }}
                   />
+                </div>
+                <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 5 }}>
+                  {Math.max(1, Math.round((quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100))}% of your allowance used
                 </div>
               </div>
             )}
@@ -358,8 +335,8 @@ export function KatanaDownloadsView({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px' }}>
                   <Icon name="warning_amber" size={18} color={KatanaColors.accent} />
                   <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.text, fontWeight: 600 }}>
-                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter has' : 'chapters have'} missing
-                    Cache Storage pages evicted by the browser and won&apos;t load completely offline until repaired.
+                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter is' : 'chapters are'} missing some
+                    pages. Repair to read offline again.
                   </span>
                 </div>
                 <KatanaButton
@@ -609,10 +586,42 @@ export function KatanaDownloadsView({
           </div>
         )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Icon name="download_done" size={16} color={KatanaColors.green} />
-            <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloaded</span>
-            <span style={{ ...KatanaType.small }}>({items.length})</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="download_done" size={16} color={KatanaColors.green} />
+              <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloaded</span>
+              <span style={{ ...KatanaType.small }}>{items.length} series</span>
+            </div>
+            <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+              {(
+                [
+                  ['recent', 'Recent'],
+                  ['title', 'A–Z'],
+                  ['chapters', 'Most chapters'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="bare-button"
+                  aria-pressed={sortBy === id}
+                  onClick={() => setSortBy(id)}
+                  style={{
+                    minHeight: 44,
+                    padding: '0 12px',
+                    borderRadius: 8,
+                    background: sortBy === id ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                    border: `1px solid ${sortBy === id ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                    fontFamily: Fonts.body,
+                    fontSize: 12.5,
+                    fontWeight: sortBy === id ? 700 : 500,
+                    color: sortBy === id ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {grouped.map((chapters) => {
@@ -1084,7 +1093,7 @@ export function KatanaDownloadsView({
               Auto-download next unread
             </span>
             <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.textLight }}>
-              (~{estimateMangaBatchMegabytes(1, false, items).perChapterMb} MB/ch est.)
+              (about {estimateMangaBatchMegabytes(1, false, items).perChapterMb} MB per chapter)
             </span>
           </div>
           <div style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap' }}>

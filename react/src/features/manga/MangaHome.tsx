@@ -566,7 +566,7 @@ function CurrentlyReadingShelf({
     <section style={{ marginBottom: 14 }}>
       <KatanaSectionHeader
         title="Currently Reading"
-        badge={String(items.length)}
+        badge={`${items.length} series`}
         trailing={
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             {compact && items.length > 1 && (

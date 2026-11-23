@@ -50,7 +50,6 @@ import {
   saveSeriesReaderOverride,
   SCROLL_HIDE_THRESHOLD,
   SERVER_OPTIONS,
-  type FitMode,
   type PageBookmark,
   type ReaderSettings,
   type SeriesReaderOverride,
@@ -100,16 +99,6 @@ interface ChapterSegment {
   chapter: KatanaChapter;
   pages: string[];
 }
-
-const FIT_ORDER: FitMode[] = ['smart-fit', 'fit-width', 'fit-height', 'fit-screen', 'stretch', 'original'];
-const FIT_SHORT_LABEL: Record<FitMode, string> = {
-  'smart-fit': 'Smart',
-  'fit-width': 'Width',
-  'fit-height': 'Height',
-  'fit-screen': 'Fit',
-  stretch: 'Stretch',
-  original: '1:1',
-};
 
 const MAX_PREFETCH_CACHE = 16;
 const MAX_ASPECT_CACHE = 240;
@@ -1770,13 +1759,6 @@ export function MangaReaderView({
     const next = READING_MODE_ORDER[(idx + 1) % READING_MODE_ORDER.length];
     updateSettings({ readingMode: next });
   }, [settings.readingMode, updateSettings]);
-
-  const cycleFitMode = useCallback(() => {
-    const idx = FIT_ORDER.indexOf(settings.fitMode);
-    const next = FIT_ORDER[(idx + 1) % FIT_ORDER.length];
-    updateSettings({ fitMode: next });
-    flashToast(FIT_SHORT_LABEL[next], true);
-  }, [settings.fitMode, updateSettings, flashToast]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -3715,30 +3697,6 @@ export function MangaReaderView({
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: isCompactPhone ? 8 : 6 }}>
-            <button
-              type="button"
-              className="bare-button player-focusable"
-              aria-label={`Image scaling: ${FIT_SHORT_LABEL[settings.fitMode]}. Tap to switch`}
-              onClick={cycleFitMode}
-              style={{
-                minHeight: 42,
-                padding: isCompactPhone ? '0 12px' : '0 11px',
-                borderRadius: 10,
-                background: KatanaColors.surfaceAlt,
-                border: `1px solid ${KatanaColors.border}`,
-                color: KatanaColors.textMuted,
-                fontSize: 12,
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <Icon name="fit_screen" size={16} color={KatanaColors.textMuted} />
-              <span>{FIT_SHORT_LABEL[settings.fitMode]}</span>
-            </button>
-
             <button
               type="button"
               className="bare-button player-focusable"
