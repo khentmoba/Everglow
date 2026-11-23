@@ -484,12 +484,12 @@ export function KatanaHeader({
   onSelectTheme?: (mode: KatanaThemeMode) => void;
   onBack: () => void;
   onSelectNav: (nav: KatanaNavKey) => void;
-  onSubmitSearch: (q: string, searchBy: 'm_name' | 'author') => void;
+  onSubmitSearch: (q: string, searchBy: 'm_name' | 'author' | 'alt_theme') => void;
   onSelectManga: (slug: string) => void;
   onSelectGenre: (genre: KatanaGenre) => void;
 }) {
   const [queryText, setQueryText] = useState('');
-  const [searchBy, setSearchBy] = useState<'m_name' | 'author'>('m_name');
+  const [searchBy, setSearchBy] = useState<'m_name' | 'author' | 'alt_theme'>('m_name');
   const [suggestions, setSuggestions] = useState<KatanaManga[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -710,8 +710,16 @@ export function KatanaHeader({
       <button
         type="button"
         className="bare-button"
-        onClick={() => setSearchBy((s) => (s === 'm_name' ? 'author' : 'm_name'))}
-        title={searchBy === 'm_name' ? 'Searching by title — click for author' : 'Searching by author — click for title'}
+        onClick={() =>
+          setSearchBy((s) => (s === 'm_name' ? 'author' : s === 'author' ? 'alt_theme' : 'm_name'))
+        }
+        title={
+          searchBy === 'm_name'
+            ? 'Searching by title — click for author'
+            : searchBy === 'author'
+              ? 'Searching by author — click for alt names & themes'
+              : 'Searching by alt names & themes — click for title'
+        }
         style={{
           flexShrink: 0,
           marginRight: 4,
@@ -724,7 +732,9 @@ export function KatanaHeader({
           gap: 4,
         }}
       >
-        <span style={bodyText(12, 600, KatanaColors.textMuted, 1.1)}>{searchBy === 'm_name' ? 'Title' : 'Author'}</span>
+        <span style={bodyText(12, 600, KatanaColors.textMuted, 1.1)}>
+          {searchBy === 'm_name' ? 'Title' : searchBy === 'author' ? 'Author' : 'Alt / Theme'}
+        </span>
         <Icon name="swap_vert" size={13} color={KatanaColors.textLight} />
       </button>
       <button
@@ -1538,7 +1548,7 @@ function ItemCover({
             left: 6,
             top: 6,
             padding: '2px 7px',
-            background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.84)',
+            background: completed ? withAlpha(KatanaColors.green, 0.92) : withAlpha(KatanaColors.background, 0.86),
             border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
             borderRadius: 6,
             ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
@@ -1795,7 +1805,7 @@ export function KatanaPosterCard({
             position: 'absolute',
             inset: 'auto 0 0 0',
             height: '45%',
-            background: 'linear-gradient(to top, rgba(11, 13, 18, 0.92), transparent)',
+            background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.92)}, transparent)`,
             pointerEvents: 'none',
           }}
         />
@@ -1804,7 +1814,7 @@ export function KatanaPosterCard({
             style={{
               padding: '2px 7px',
               borderRadius: 6,
-              background: completed ? withAlpha(KatanaColors.green, 0.92) : 'rgba(11, 13, 18, 0.84)',
+              background: completed ? withAlpha(KatanaColors.green, 0.92) : withAlpha(KatanaColors.background, 0.86),
               border: `1px solid ${completed ? KatanaColors.green : KatanaColors.borderStrong}`,
               ...bodyText(10, 700, completed ? KatanaColors.accentInk : KatanaColors.text, 1.2),
             }}
@@ -1819,7 +1829,7 @@ export function KatanaPosterCard({
                 gap: 2,
                 padding: '2px 5px',
                 borderRadius: 6,
-                background: 'rgba(11, 13, 18, 0.86)',
+                background: withAlpha(KatanaColors.background, 0.86),
                 border: `1px solid ${KatanaColors.borderStrong}`,
                 ...bodyText(10, 700, KatanaColors.text, 1.2),
               }}
@@ -1938,7 +1948,7 @@ export function KatanaCompactCard({
               gap: 2,
               padding: '2px 5px',
               borderRadius: 5,
-              background: 'rgba(11, 13, 18, 0.86)',
+              background: withAlpha(KatanaColors.background, 0.86),
               ...bodyText(10, 700, KatanaColors.text, 1.15),
             }}
           >

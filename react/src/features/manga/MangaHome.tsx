@@ -174,8 +174,7 @@ function FeaturedHero({
           style={{
             position: 'absolute',
             inset: 0,
-            background:
-              'radial-gradient(circle at 18% 24%, rgba(245, 158, 11, 0.16) 0%, rgba(35, 42, 58, 0.36) 45%, rgba(11, 13, 18, 0.96) 100%)',
+            background: `radial-gradient(circle at 18% 24%, ${withAlpha(KatanaColors.accent, 0.16)} 0%, ${withAlpha(KatanaColors.surfaceAlt, 0.42)} 45%, ${withAlpha(KatanaColors.background, 0.96)} 100%)`,
             pointerEvents: 'none',
           }}
         />
@@ -185,8 +184,7 @@ function FeaturedHero({
         style={{
           position: 'absolute',
           inset: 0,
-          background:
-            'linear-gradient(100deg, rgba(11, 13, 18, 0.92) 0%, rgba(19, 22, 31, 0.80) 56%, rgba(11, 13, 18, 0.72) 100%)',
+          background: `linear-gradient(100deg, ${withAlpha(KatanaColors.background, 0.92)} 0%, ${withAlpha(KatanaColors.surface, 0.82)} 56%, ${withAlpha(KatanaColors.background, 0.72)} 100%)`,
           pointerEvents: 'none',
         }}
       />
@@ -194,9 +192,9 @@ function FeaturedHero({
       <div
         style={{
           position: 'relative',
-          padding: compact ? 14 : '16px 20px',
+          padding: compact ? 11 : '16px 20px',
           display: 'flex',
-          gap: compact ? 14 : 20,
+          gap: compact ? 12 : 20,
           alignItems: 'center',
         }}
       >
@@ -207,14 +205,14 @@ function FeaturedHero({
           onClick={() => onSelectManga(featured.slug)}
           style={{
             position: 'relative',
-            width: compact ? 96 : 122,
-            height: compact ? 138 : 176,
+            width: compact ? 84 : 122,
+            height: compact ? 120 : 176,
             borderRadius: 10,
             overflow: 'hidden',
             flexShrink: 0,
             border: `1px solid ${KatanaColors.borderStrong}`,
             background: KatanaColors.surfaceAlt,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
           }}
         >
           <KatanaCoverImage url={featured.coverUrl} title={featured.title} iconSize={30} />
@@ -299,7 +297,7 @@ function FeaturedHero({
                   style={{
                     padding: '3px 9px',
                     borderRadius: 6,
-                    background: 'rgba(27, 32, 44, 0.85)',
+                    background: withAlpha(KatanaColors.surfaceAlt, 0.88),
                     border: `1px solid ${KatanaColors.borderStrong}`,
                     fontFamily: Fonts.body,
                     fontSize: 11.5,
@@ -402,7 +400,7 @@ function FeaturedHero({
                     padding: '5px 7px',
                     borderRadius: 8,
                     textAlign: 'left',
-                    background: active ? 'rgba(37, 48, 71, 0.82)' : 'rgba(11, 13, 18, 0.42)',
+                    background: active ? withAlpha(KatanaColors.surfaceGlow, 0.86) : withAlpha(KatanaColors.background, 0.45),
                     border: `1px solid ${active ? KatanaColors.chipSelectedBorder : 'transparent'}`,
                   }}
                 >
@@ -516,8 +514,9 @@ function CurrentlyReadingShelf({
             <div
               key={bm.slug}
               style={{
-                width: compact ? 248 : 296,
-                flexShrink: 0,
+                width: items.length === 1 ? '100%' : compact ? 248 : 296,
+                maxWidth: items.length === 1 ? (compact ? undefined : 460) : undefined,
+                flexShrink: items.length === 1 ? 1 : 0,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
@@ -662,9 +661,9 @@ function ReleaseScheduleRail({
   const activeItems = byDay[selectedDay] ?? [];
 
   return (
-    <section aria-label="Recent update schedule" style={{ marginTop: 22 }}>
+    <section aria-label="Recent update days" style={{ marginTop: 22 }}>
       <KatanaSectionHeader
-        title="Update Schedule"
+        title="Recent Update Days"
         badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
       />
       <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
@@ -758,7 +757,7 @@ function ReleaseScheduleRail({
             color: KatanaColors.textMuted,
           }}
         >
-          No tracked releases scheduled for {selectedDay}. Tap another day to preview upcoming drops.
+          No series updated on {selectedDay} recently. Tap another day to see recent drops.
         </div>
       ) : (
         <div
@@ -1446,50 +1445,54 @@ export function MangaHome({
       <div
         role="status"
         style={{
-          marginTop: 12,
-          padding: '10px 12px',
-          borderRadius: 11,
+          marginTop: 8,
+          padding: compact ? '6px 10px' : '8px 12px',
+          borderRadius: 10,
           background: withAlpha(KatanaColors.accent, 0.12),
           border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 10,
-          flexWrap: 'wrap',
+          gap: 8,
+          flexWrap: 'nowrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <Icon name="notifications_active" size={18} color={KatanaColors.accent} />
-          <span style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 600, color: KatanaColors.text }}>
-            {alertUnreadSeriesCount} {alertUnreadSeriesCount === 1 ? 'series you follow has' : 'series you follow have'} new unread chapters
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, flex: 1 }}>
+          <Icon name="notifications_active" size={16} color={KatanaColors.accent} />
+          <span className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: compact ? 12.5 : 13, fontWeight: 600, color: KatanaColors.text }}>
+            {alertUnreadSeriesCount} followed {alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters
           </span>
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <button
             type="button"
             className="bare-button"
-            onClick={() => setFeedTab('updates')}
+            onClick={() => {
+              setAlertBannerDismissed(true);
+              setFeedTab('updates');
+            }}
             style={{
-              minHeight: compact ? 40 : 32,
-              padding: '5px 11px',
+              minHeight: compact ? 34 : 32,
+              padding: '4px 10px',
               borderRadius: 8,
               background: KatanaColors.accent,
               color: KatanaColors.accentInk,
               fontFamily: Fonts.body,
               fontSize: 12,
               fontWeight: 700,
+              whiteSpace: 'nowrap',
             }}
           >
-            View Updates
+            View
           </button>
           <button
             type="button"
             className="bare-button"
             aria-label="Dismiss chapter alerts banner"
             onClick={() => setAlertBannerDismissed(true)}
-            style={{ width: 36, height: 36, display: 'grid', placeItems: 'center' }}
+            style={{ width: 32, height: 32, display: 'grid', placeItems: 'center' }}
           >
-            <Icon name="close" size={16} color={KatanaColors.textMuted} />
+            <Icon name="close" size={15} color={KatanaColors.textMuted} />
           </button>
         </div>
       </div>
@@ -1739,9 +1742,9 @@ export function MangaHome({
             />
             {typeChips}
             {newChapterAlertBanner}
-            {tasteOnboardingBanner}
-            <div style={{ height: 14 }} />
+            <div style={{ height: 10 }} />
             {feedSection}
+            {tasteOnboardingBanner}
             {type === 'all' && (
               <ReleaseScheduleRail
                 catalog={allCatalog}

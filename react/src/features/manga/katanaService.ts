@@ -900,7 +900,10 @@ export async function fetchKatanaCatalog(opts: {
       url = `${BASE_URL}/author/${opts.key ?? ''}${pagePath}`;
       break;
     case 'search': {
-      const params = new URLSearchParams({ search: opts.query ?? '', search_by: opts.searchBy ?? 'm_name' });
+      const urlSlugMatch = /\/manga\/([a-z0-9._-]+)/i.exec(opts.query ?? '');
+      const effectiveQuery = urlSlugMatch ? urlSlugMatch[1].replace(/[-_.]+/g, ' ') : (opts.query ?? '');
+      const upstreamSearchBy = opts.searchBy === 'author' ? 'author' : 'm_name';
+      const params = new URLSearchParams({ search: effectiveQuery, search_by: upstreamSearchBy });
       url = `${BASE_URL}${pagePath}?${params.toString()}`;
       break;
     }
@@ -919,6 +922,30 @@ export async function fetchKatanaCatalog(opts: {
     });
     url += `?${params.toString()}`;
   }
+  const matchesSearch = (m: KatanaManga, rawQuery: string, searchBy?: string): boolean => {
+    const trimmed = rawQuery.trim();
+    const urlSlugMatch = /\/manga\/([a-z0-9._-]+)/i.exec(trimmed);
+    if (urlSlugMatch && m.slug.toLowerCase() === urlSlugMatch[1].toLowerCase()) return true;
+    const q = (urlSlugMatch ? urlSlugMatch[1].replace(/[-_.]+/g, ' ') : trimmed).toLowerCase();
+    if (!q) return true;
+    if (searchBy === 'author') {
+      return m.authors.some((a) => a.toLowerCase().includes(q));
+    }
+    if (searchBy === 'alt_theme') {
+      return (
+        m.title.toLowerCase().includes(q) ||
+        m.altNames.some((a) => a.toLowerCase().includes(q)) ||
+        m.genres.some((g) => g.name.toLowerCase().includes(q) || g.slug.toLowerCase().includes(q)) ||
+        (m.summary ?? '').toLowerCase().includes(q) ||
+        m.authors.some((a) => a.toLowerCase().includes(q))
+      );
+    }
+    return (
+      m.title.toLowerCase().includes(q) ||
+      m.altNames.some((a) => a.toLowerCase().includes(q)) ||
+      m.slug.toLowerCase().includes(q)
+    );
+  };
   const html = await fetchHtml(url);
   if (!html) {
     if (AgentMode.demo) {
@@ -927,12 +954,7 @@ export async function fetchKatanaCatalog(opts: {
         demo = demo.filter((m) => m.genres.some((g) => g.slug === opts.key));
       }
       if (opts.mode === 'search' && opts.query) {
-        const q = opts.query.trim().toLowerCase();
-        demo = demo.filter((m) =>
-          opts.searchBy === 'author'
-            ? m.authors.some((a) => a.toLowerCase().includes(q))
-            : m.title.toLowerCase().includes(q) || m.altNames.some((a) => a.toLowerCase().includes(q)),
-        );
+        demo = demo.filter((m) => matchesSearch(m, opts.query!, opts.searchBy));
       }
       if (opts.include && opts.include.length > 0) {
         const inc = opts.include.map((s) => s.toLowerCase());
@@ -971,12 +993,7 @@ export async function fetchKatanaCatalog(opts: {
         pool = pool.filter((m) => m.genres.some((g) => g.slug === opts.key));
       }
       if (opts.mode === 'search' && opts.query) {
-        const q = opts.query.trim().toLowerCase();
-        pool = pool.filter((m) =>
-          opts.searchBy === 'author'
-            ? m.authors.some((a) => a.toLowerCase().includes(q))
-            : m.title.toLowerCase().includes(q) || m.altNames.some((a) => a.toLowerCase().includes(q)),
-        );
+        pool = pool.filter((m) => matchesSearch(m, opts.query!, opts.searchBy));
       }
       const filtered = applyClientFilters(pool);
       if (filtered.length > 0) {
@@ -1001,7 +1018,21 @@ export async function fetchKatanaCatalog(opts: {
           return start >= 0 ? blocksOfClass(html, 'item', start, end) : [];
         })()
       : blocksOfClass(html, 'item');
-  const parsedItems = applyClientFilters(items(blocks));
+  let parsedItems = applyClientFilters(items(blocks));
+  if (opts.mode === 'search' && opts.query && parsedItems.length === 0) {
+    const cached = loadHomeCache();
+    if (cached) {
+      const seen = new Set<string>();
+      const pool: KatanaManga[] = [];
+      for (const m of [...cached.latest, ...cached.hot, ...cached.hotUpdates]) {
+        if (!seen.has(m.slug)) {
+          seen.add(m.slug);
+          pool.push(m);
+        }
+      }
+      parsedItems = applyClientFilters(pool.filter((m) => matchesSearch(m, opts.query!, 'alt_theme')));
+    }
+  }
   const hasNext = html.includes('class="next page-numbers"');
   const pageNums = [...html.matchAll(/class="page-numbers"[^>]*>(\d+)</g)].map((m) => Number(m[1])).filter((n) => n > 0);
   const maxListedPage = pageNums.length > 0 ? Math.max(...pageNums, page) : hasNext ? undefined : page;
@@ -1244,7 +1275,7 @@ export function watchKatanaBookmarks(userName: string): Source<KatanaBookmark[]>
       (next: (s: QuerySnapshot<DocumentData>) => void, error) => onSnapshot(q, next, error),
       (snap) =>
         snap.docs
-          .filter((d) => d.data().kind !== 'categories_meta')
+          .filter((d) => !String(d.data().kind ?? '').endsWith('_meta'))
           .map((d) => bookmarkFromDoc(d.data(), d.id))
           .sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime()),
     ),
@@ -2118,8 +2149,115 @@ function buildDemoHistory(): KatanaHistoryEntry[] {
   ];
 }
 
+const HISTORY_META_SUFFIX = '|__history__';
+const ALERT_PREFS_PREFIX = 'katana_alert_prefs_v1_';
+
+export interface KatanaAlertPrefs {
+  frequency: 'instant' | 'daily';
+  quietHours: boolean;
+}
+
+const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
+  frequency: 'instant',
+  quietHours: false,
+};
+
+export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
+  if (!userName) return DEFAULT_ALERT_PREFS;
+  try {
+    const raw = localStorage.getItem(`${ALERT_PREFS_PREFIX}${userName}`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<KatanaAlertPrefs>;
+      return {
+        frequency: parsed.frequency === 'daily' ? 'daily' : 'instant',
+        quietHours: Boolean(parsed.quietHours),
+      };
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return DEFAULT_ALERT_PREFS;
+}
+
+export function saveKatanaAlertPrefs(userName: string, prefs: KatanaAlertPrefs): void {
+  if (!userName) return;
+  try {
+    localStorage.setItem(`${ALERT_PREFS_PREFIX}${userName}`, JSON.stringify(prefs));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function isQuietHoursNow(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 22 || hour < 8;
+}
+
+const demoHistoryStore = new Map<string, KatanaHistoryEntry[]>();
+const demoHistoryChanges = new Set<() => void>();
+function emitDemoHistoryChange() {
+  for (const fn of demoHistoryChanges) fn();
+}
+
+function persistKatanaHistoryToFirestore(userName: string, entries: KatanaHistoryEntry[]): void {
+  if (!userName || AgentMode.demo) return;
+  setDoc(
+    doc(db, 'katana_bookmarks', `${userName}${HISTORY_META_SUFFIX}`),
+    {
+      kind: 'history_meta',
+      userName,
+      entries: entries.slice(0, 80),
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true },
+  ).catch((err) => Logger.e('KatanaService: saveKatanaHistory failed', err));
+}
+
+export function watchKatanaHistory(userName: string): Source<KatanaHistoryEntry[]> {
+  if (!userName) {
+    return (l) => {
+      queueMicrotask(() => l.data([]));
+      return () => {};
+    };
+  }
+  if (AgentMode.demo) {
+    return (l) => {
+      const emit = () => l.data(demoHistoryStore.get(userName) ?? loadKatanaHistory(userName));
+      queueMicrotask(emit);
+      demoHistoryChanges.add(emit);
+      return () => {
+        demoHistoryChanges.delete(emit);
+      };
+    };
+  }
+  const ref = doc(db, 'katana_bookmarks', `${userName}${HISTORY_META_SUFFIX}`);
+  return withFirestoreTimeout(
+    snapshots(
+      (next: (s: DocumentSnapshot<DocumentData>) => void, error) => onSnapshot(ref, next, error),
+      (snap): KatanaHistoryEntry[] => {
+        if (!snap.exists()) return loadKatanaHistory(userName);
+        const data = snap.data();
+        if (!Array.isArray(data?.entries)) return loadKatanaHistory(userName);
+        const entries = (data.entries as KatanaHistoryEntry[])
+          .filter((e) => e && typeof e.slug === 'string' && typeof e.chapterId === 'string')
+          .slice(0, 100);
+        try {
+          localStorage.setItem(`${HISTORY_KEY_PREFIX}${userName}`, JSON.stringify(entries));
+        } catch {
+          // ignore
+        }
+        return entries;
+      },
+    ),
+    { label: `katana-history-${userName}` },
+  );
+}
+
 export function loadKatanaHistory(userName: string): KatanaHistoryEntry[] {
   if (!userName) return [];
+  if (AgentMode.demo && demoHistoryStore.has(userName)) {
+    return demoHistoryStore.get(userName) ?? [];
+  }
   try {
     const raw = localStorage.getItem(`${HISTORY_KEY_PREFIX}${userName}`);
     if (raw) {
@@ -2143,6 +2281,12 @@ export function recordKatanaHistory(userName: string, entry: KatanaHistoryEntry)
   } catch {
     // ignore storage errors
   }
+  if (AgentMode.demo) {
+    demoHistoryStore.set(userName, next);
+    emitDemoHistoryChange();
+  } else {
+    persistKatanaHistoryToFirestore(userName, next);
+  }
   return next;
 }
 
@@ -2156,6 +2300,12 @@ export function removeKatanaHistoryEntry(userName: string, slug: string, chapter
   } catch {
     // ignore storage errors
   }
+  if (AgentMode.demo) {
+    demoHistoryStore.set(userName, next);
+    emitDemoHistoryChange();
+  } else {
+    persistKatanaHistoryToFirestore(userName, next);
+  }
   return next;
 }
 
@@ -2165,6 +2315,12 @@ export function clearKatanaHistory(userName: string): void {
     localStorage.setItem(`${HISTORY_KEY_PREFIX}${userName}`, JSON.stringify([]));
   } catch {
     // ignore storage errors
+  }
+  if (AgentMode.demo) {
+    demoHistoryStore.set(userName, []);
+    emitDemoHistoryChange();
+  } else {
+    persistKatanaHistoryToFirestore(userName, []);
   }
 }
 
@@ -2198,11 +2354,15 @@ export function checkKatanaChapterAlerts(
 
   const hits: KatanaAlertHit[] = [];
   let mapChanged = false;
+  const alertPrefs = loadKatanaAlertPrefs(userName);
+  const suppressByQuietHours = alertPrefs.quietHours && isQuietHoursNow();
   const canNotify =
     typeof window !== 'undefined' &&
     'Notification' in window &&
     Notification.permission === 'granted' &&
-    !AgentMode.demo;
+    !AgentMode.demo &&
+    !suppressByQuietHours &&
+    alertPrefs.frequency === 'instant';
 
   for (const bm of bookmarks) {
     if (!bm.notifyOnUpdate) continue;
