@@ -186,7 +186,7 @@ export function KatanaButton({
       }}
     >
       {icon && <Icon name={icon} size={size === 'sm' ? 14 : 16} color={fg} />}
-      <span style={bodyText(fontSize, 700, fg, 1.2)}>{label}</span>
+      <span style={{ ...bodyText(fontSize, 700, fg, 1.2), whiteSpace: 'nowrap' }}>{label}</span>
     </button>
   );
 }

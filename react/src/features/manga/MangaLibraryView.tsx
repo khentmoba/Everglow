@@ -363,6 +363,15 @@ export function MangaLibraryCollectionView({
                         style={{ width: 6, height: 6, borderRadius: 99, background: KatanaColors.accent, flexShrink: 0 }}
                       />
                     )}
+                    {(() => {
+                      // Where she stopped inside the chapter, so the tile answers
+                      // "how far in" without opening the reader.
+                      const anchor = bm.lastReadChapterId ? loadResumeAnchor(bm.slug, bm.lastReadChapterId) : null;
+                      const pageNum = anchor ? anchor.pageIdx + 1 : bm.lastReadPage;
+                      return pageNum && pageNum > 1 ? (
+                        <span style={{ ...KatanaType.small, fontSize: 11, whiteSpace: 'nowrap' }}>p.{pageNum}</span>
+                      ) : null;
+                    })()}
                     <span style={{ ...KatanaType.small, fontSize: 11, whiteSpace: 'nowrap' }}>
                       {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
                     </span>

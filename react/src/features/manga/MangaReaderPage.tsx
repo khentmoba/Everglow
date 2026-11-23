@@ -262,6 +262,13 @@ export function MangaReaderView({
   const [toast, setToast] = useState<string | null>(null);
   const [showTapHint, setShowTapHint] = useState(false);
   const [seenOnboardingHint, setSeenOnboardingHint] = useState(() => hasSeenReaderHint());
+
+  // The tip sits over the artwork, so it steps aside on its own after a few seconds.
+  useEffect(() => {
+    if (seenOnboardingHint) return;
+    const timer = window.setTimeout(() => setSeenOnboardingHint(true), 5200);
+    return () => window.clearTimeout(timer);
+  }, [seenOnboardingHint]);
   const [evictedOfflineState, setEvictedOfflineState] = useState<{
     itemId: string;
     missingPages: number;

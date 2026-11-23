@@ -2618,7 +2618,7 @@ export function MangaPage() {
                                     className="bare-button"
                                     onClick={() => handleSelectGenre(g)}
                                     style={{
-                                      minHeight: 40,
+                                      minHeight: 44,
                                       padding: '6px 12px',
                                       borderRadius: 8,
                                       display: 'inline-flex',
@@ -2650,7 +2650,7 @@ export function MangaPage() {
                             )}
 
                             {/* Action bar: primary CTA + clean single-row secondary actions on tablet & desktop */}
-                            <div style={{ marginTop: 14, display: 'flex', flexDirection: compactCard ? 'column' : 'row', gap: 8, alignItems: compactCard ? 'stretch' : 'center', flexWrap: desktop ? 'wrap' : 'nowrap' }}>
+                            <div style={{ marginTop: 14, display: 'flex', flexDirection: compactCard ? 'column' : 'row', gap: 8, alignItems: compactCard ? 'stretch' : 'center', flexWrap: compactCard ? 'wrap' : 'nowrap' }}>
                               {detail.chapters.length > 0 && (
                                 <KatanaButton
                                   label={hasReadingProgress ? `Continue ${detailBm?.lastReadChapterTitle || ''}`.trim() : 'Start Reading'}
@@ -2668,6 +2668,8 @@ export function MangaPage() {
                                   gap: 6,
                                   alignItems: 'center',
                                   flexWrap: desktop ? 'wrap' : 'nowrap',
+                                  justifyContent: 'flex-start',
+                                  rowGap: 6,
                                   position: 'relative',
                                   width: compactCard ? '100%' : undefined,
                                   minWidth: 0,
@@ -2940,7 +2942,7 @@ export function MangaPage() {
                                       setTrackerOpen((v) => !v);
                                     }}
                                     style={{
-                                      minHeight: 40,
+                                      minHeight: 44,
                                       padding: '0 12px',
                                       borderRadius: 8,
                                       background: trackerOpen || detailBm?.userScore ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -3489,7 +3491,7 @@ export function MangaPage() {
                                       className="bare-button"
                                       onClick={cancelDownloadQueue}
                                       style={{
-                                        minHeight: 40,
+                                        minHeight: 44,
                                         padding: '0 12px',
                                         borderRadius: 8,
                                         background: withAlpha(KatanaColors.crimson, 0.14),
@@ -3530,7 +3532,7 @@ export function MangaPage() {
                                 onClick={() => void handleLoadPreview(detail)}
                                 aria-expanded={previewPages?.slug === detail.slug}
                                 style={{
-                                  minHeight: 40,
+                                  minHeight: 44,
                                   padding: '6px 12px',
                                   borderRadius: 8,
                                   background: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -3570,7 +3572,7 @@ export function MangaPage() {
                                   }, 60);
                                 }}
                                 style={{
-                                  minHeight: 40,
+                                  minHeight: 44,
                                   padding: '6px 10px',
                                   borderRadius: 8,
                                   background: withAlpha(KatanaColors.accent, 0.14),
@@ -3593,7 +3595,7 @@ export function MangaPage() {
                               className="bare-button"
                               onClick={() => setChapterSortAsc((v) => !v)}
                               style={{
-                                minHeight: 40,
+                                minHeight: 44,
                                 padding: '6px 10px',
                                 borderRadius: 8,
                                 background: KatanaColors.surfaceAlt,
@@ -3617,7 +3619,7 @@ export function MangaPage() {
                                 aria-expanded={chapterToolsOpen}
                                 onClick={() => setChapterToolsOpen((v) => !v)}
                                 style={{
-                                  minHeight: 40,
+                                  minHeight: 44,
                                   padding: '6px 10px',
                                   borderRadius: 8,
                                   background: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -4604,7 +4606,7 @@ export function MangaPage() {
                                       disabled={isDownloading}
                                       title={
                                         needsOfflineRepair
-                                          ? 'Offline cache missing evicted pages — tap to repair'
+                                          ? 'This chapter lost some pages — tap to re-download it'
                                           : isOffline
                                             ? 'Saved offline (Cache Storage verified)'
                                             : isDownloading
@@ -4613,7 +4615,7 @@ export function MangaPage() {
                                       }
                                       aria-label={
                                         needsOfflineRepair
-                                          ? `Repair offline cache for ${chapterDisplayTitle(c)}`
+                                          ? `Re-download this chapter for ${chapterDisplayTitle(c)}`
                                           : isOffline
                                             ? `${chapterDisplayTitle(c)} saved offline`
                                             : isDownloading
@@ -5722,7 +5724,7 @@ export function MangaPage() {
                                 aria-expanded={reviewsExpanded}
                                 onClick={() => setReviewsExpanded((v) => !v)}
                                 style={{
-                                  minHeight: 40,
+                                  minHeight: 44,
                                   padding: '0 12px',
                                   borderRadius: 99,
                                   background: KatanaColors.surfaceAlt,
@@ -7671,7 +7673,7 @@ export function MangaPage() {
                         className="bare-button"
                         onClick={() => applyFilterPreset(preset)}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
@@ -7702,7 +7704,7 @@ export function MangaPage() {
                         aria-label={`Remove status filter ${statusFilter}`}
                         onClick={() => updateMangaUrl({ status: null, page: '1' }, { replace: true })}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
@@ -7726,7 +7728,7 @@ export function MangaPage() {
                         aria-label={`Remove demographic filter ${demographicFilter}`}
                         onClick={() => updateMangaUrl({ demo: null, page: '1' }, { replace: true })}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
@@ -7750,7 +7752,7 @@ export function MangaPage() {
                         aria-label={`Remove language filter ${languageFilter}`}
                         onClick={() => updateMangaUrl({ lang: null, page: '1' }, { replace: true })}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
@@ -7777,7 +7779,7 @@ export function MangaPage() {
                           updateMangaUrl({ author: null, page: '1' }, { replace: true });
                         }}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
@@ -7802,7 +7804,7 @@ export function MangaPage() {
                         aria-label={`Remove included genre ${s}`}
                         onClick={() => toggleIncludeGenre(s)}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: withAlpha(KatanaColors.green, 0.15),
@@ -7827,7 +7829,7 @@ export function MangaPage() {
                         aria-label={`Remove excluded genre ${s}`}
                         onClick={() => toggleExcludeGenre(s)}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: withAlpha(KatanaColors.crimson, 0.15),
@@ -7851,7 +7853,7 @@ export function MangaPage() {
                         aria-label={`Remove minimum chapters filter ${minChapters}`}
                         onClick={() => updateMangaUrl({ minCh: null, page: '1' }, { replace: true })}
                         style={{
-                          minHeight: 40,
+                          minHeight: 44,
                           padding: '0 12px',
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
