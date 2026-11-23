@@ -83,6 +83,8 @@ export interface KatanaBookmark {
   readChapterIds: string[];
   bookmarked: boolean;
   libraryStatus?: KatanaLibraryStatus;
+  /** User-defined custom shelf/category names (Mihon-style multi-membership). */
+  categories?: string[];
   /** Set once the reader reaches the last page of the final chapter of a completed series. */
   finishedAt?: Date;
 }
@@ -1068,6 +1070,7 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
       data.libraryStatus === 'dropped'
         ? data.libraryStatus
         : undefined,
+    categories: Array.isArray(data.categories) ? data.categories.map(String).filter(Boolean) : [],
     finishedAt: (data.finishedAt as Timestamp | undefined)?.toDate?.(),
   };
 }
@@ -1180,6 +1183,7 @@ export async function saveKatanaReadingProgress(p: {
       readChapterIds,
       bookmarked: cur?.bookmarked ?? false,
       libraryStatus: p.finished ? 'completed' : cur?.libraryStatus,
+      categories: cur?.categories ?? [],
       finishedAt: cur?.finishedAt ?? (p.finished ? new Date() : undefined),
     };
     const next = [...list];
@@ -1235,6 +1239,7 @@ export async function setKatanaLibraryStatus(
       readChapterIds: cur?.readChapterIds ?? [],
       bookmarked: true,
       libraryStatus,
+      categories: cur?.categories ?? [],
       finishedAt: libraryStatus === 'completed' ? cur?.finishedAt ?? new Date() : undefined,
     };
     const next = [...list];
@@ -1292,6 +1297,7 @@ export async function markKatanaChaptersRead(
       readChapterIds,
       bookmarked: cur?.bookmarked ?? false,
       libraryStatus: cur?.libraryStatus,
+      categories: cur?.categories ?? [],
       finishedAt: cur?.finishedAt,
     };
     const next = [...list];
@@ -1356,6 +1362,83 @@ export async function clearKatanaReadingProgress(slug: string, userName: string)
       lastReadChapterTitle: '',
       readChapterIds: [],
       finishedAt: deleteField(),
+    },
+    { merge: true },
+  );
+}
+
+const CUSTOM_CATS_STORAGE_PREFIX = 'katana.customCategories.v1.';
+const DEFAULT_CUSTOM_CATEGORIES = ['Favorites', 'Binge Later'];
+
+export function loadKatanaCustomCategories(userName: string): string[] {
+  try {
+    const raw = localStorage.getItem(`${CUSTOM_CATS_STORAGE_PREFIX}${userName || 'guest'}`);
+    if (!raw) return [...DEFAULT_CUSTOM_CATEGORIES];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [...DEFAULT_CUSTOM_CATEGORIES];
+    return Array.from(new Set(parsed.map((s) => String(s).trim()).filter(Boolean)));
+  } catch {
+    return [...DEFAULT_CUSTOM_CATEGORIES];
+  }
+}
+
+export function saveKatanaCustomCategories(userName: string, categories: string[]): void {
+  try {
+    const clean = Array.from(new Set(categories.map((s) => s.trim()).filter(Boolean)));
+    localStorage.setItem(`${CUSTOM_CATS_STORAGE_PREFIX}${userName || 'guest'}`, JSON.stringify(clean));
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+export async function setKatanaBookmarkCategories(
+  manga: Pick<KatanaManga, 'slug' | 'title' | 'coverUrl' | 'status'>,
+  userName: string,
+  categories: string[],
+): Promise<void> {
+  if (!userName || !manga.slug) return;
+  const clean = Array.from(new Set(categories.map((s) => s.trim()).filter(Boolean)));
+  if (AgentMode.demo) {
+    const list = demoBookmarks.get(userName) ?? [];
+    const idx = list.findIndex((b) => b.slug === manga.slug);
+    const cur = idx >= 0 ? list[idx] : undefined;
+    const entry: KatanaBookmark = {
+      slug: manga.slug,
+      title: manga.title || cur?.title || manga.slug,
+      coverUrl: manga.coverUrl || cur?.coverUrl || '',
+      status: manga.status || cur?.status || 'ongoing',
+      addedAt: cur?.addedAt ?? new Date(),
+      lastReadAt: cur?.lastReadAt,
+      lastReadChapterId: cur?.lastReadChapterId ?? '',
+      lastReadPage: cur?.lastReadPage ?? 0,
+      lastReadChapterTitle: cur?.lastReadChapterTitle ?? '',
+      latestChapterTitle: cur?.latestChapterTitle ?? '',
+      recommendedBy: cur?.recommendedBy ?? '',
+      recommendationNote: cur?.recommendationNote ?? '',
+      readChapterIds: cur?.readChapterIds ?? [],
+      bookmarked: true,
+      libraryStatus: cur?.libraryStatus ?? 'reading',
+      categories: clean,
+      finishedAt: cur?.finishedAt,
+    };
+    const next = [...list];
+    if (idx >= 0) next[idx] = entry;
+    else next.unshift(entry);
+    demoBookmarks.set(userName, next);
+    demoChanges.emit();
+    return;
+  }
+  await setDoc(
+    doc(db, 'katana_bookmarks', `${userName}|${manga.slug}`),
+    {
+      slug: manga.slug,
+      title: manga.title,
+      coverUrl: manga.coverUrl,
+      status: manga.status,
+      userName,
+      bookmarked: true,
+      categories: clean,
+      addedAt: Timestamp.now(),
     },
     { merge: true },
   );

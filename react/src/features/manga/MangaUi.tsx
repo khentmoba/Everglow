@@ -539,7 +539,7 @@ export function KatanaHeader({
       >
         <Icon name="auto_stories" size={narrow ? 17 : 19} color={KatanaColors.accentInk} />
       </div>
-      <span style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: logoFont, letterSpacing: -0.3, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
+      <span style={{ fontFamily: Fonts.body, fontWeight: 800, fontSize: logoFont, letterSpacing: -0.45, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
         Manga<span style={{ color: KatanaColors.accent }}>Celestia</span>
       </span>
     </button>
@@ -1127,8 +1127,8 @@ export function KatanaCoverImage({
               border: `1px solid ${KatanaColors.borderStrong}`,
               display: 'grid',
               placeItems: 'center',
-              fontFamily: Fonts.display,
-              fontWeight: 700,
+              fontFamily: Fonts.body,
+              fontWeight: 800,
               fontSize: Math.max(15, Math.round(iconSize * 0.65)),
               color: KatanaColors.textMuted,
             }}

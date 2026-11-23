@@ -8,6 +8,12 @@ export const KATANA_BREAKPOINTS = {
   desktop: 960,
 } as const;
 
+/** Shared cover-grid column density across Home, Browse, and Library. */
+export function getKatanaGridColumns(width: number, compact = false): number {
+  const base = width >= 1200 ? 6 : width >= KATANA_BREAKPOINTS.desktop ? 5 : width >= KATANA_BREAKPOINTS.tablet ? 4 : 3;
+  return compact ? base + 1 : base;
+}
+
 /**
  * Community-consensus manga/manhwa/manhua palette (inspired by MangaDex, Mihon, Comick):
  * deep neutral obsidian/slate surfaces that keep cover artwork the star, paired with
@@ -41,11 +47,11 @@ export const KatanaColors = {
 
 export const KatanaType = {
   display: {
-    fontFamily: Fonts.display,
-    fontWeight: 700,
+    fontFamily: Fonts.body,
+    fontWeight: 800,
     color: KatanaColors.text,
     fontSize: 28,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
     lineHeight: lineHeight(28, 1.12),
   },
   title: {

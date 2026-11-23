@@ -31,7 +31,7 @@ import {
   type KatanaHomeData,
   type KatanaManga,
 } from './katanaService';
-import { KATANA_BREAKPOINTS, KatanaColors, KatanaType } from './katanaTokens';
+import { getKatanaGridColumns, KATANA_BREAKPOINTS, KatanaColors, KatanaType } from './katanaTokens';
 
 export type MangaType = 'all' | 'manga' | 'manhwa' | 'manhua';
 type FeedTab = 'latest' | 'new_hot' | 'updates';
@@ -43,7 +43,19 @@ const TYPE_META: Record<MangaType, { label: string; eyebrow: string; icon: strin
   manhua: { label: 'Manhua', eyebrow: 'Chinese', icon: 'history_edu' },
 };
 
-function TypeChip({ label, icon, selected, onClick }: { label: string; icon: string; selected: boolean; onClick: () => void }) {
+function TypeChip({
+  label,
+  icon,
+  selected,
+  compact,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  selected: boolean;
+  compact?: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -51,22 +63,22 @@ function TypeChip({ label, icon, selected, onClick }: { label: string; icon: str
       onClick={onClick}
       style={{
         flexShrink: 0,
-        padding: '7px 13px',
+        padding: compact ? '6px 9px' : '7px 13px',
         borderRadius: 99,
         background: selected ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
         border: `1px solid ${selected ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
+        gap: compact ? 4 : 6,
       }}
     >
-      <Icon name={icon} size={15} color={selected ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+      <Icon name={icon} size={compact ? 14 : 15} color={selected ? KatanaColors.accentSoft : KatanaColors.textMuted} />
       <span
         style={{
           fontFamily: Fonts.body,
           fontWeight: selected ? 700 : 600,
-          fontSize: 13,
-          lineHeight: lineHeight(13, 1.2),
+          fontSize: compact ? 12 : 13,
+          lineHeight: lineHeight(compact ? 12 : 13, 1.2),
           color: selected ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
           whiteSpace: 'nowrap',
         }}
@@ -401,6 +413,7 @@ function CurrentlyReadingShelf({
   downloadedCounts,
   compact,
   onSelectManga,
+  onResumeBookmark,
   onViewAll,
 }: {
   items: KatanaBookmark[];
@@ -408,6 +421,7 @@ function CurrentlyReadingShelf({
   downloadedCounts?: Record<string, number>;
   compact: boolean;
   onSelectManga: (slug: string) => void;
+  onResumeBookmark?: (bm: KatanaBookmark) => void;
   onViewAll: () => void;
 }) {
   if (items.length === 0) return null;
@@ -451,76 +465,107 @@ function CurrentlyReadingShelf({
           const dlCount = downloadedCounts?.[bm.slug] ?? 0;
 
           return (
-            <button
+            <div
               key={bm.slug}
-              type="button"
-              className="bare-button"
-              onClick={() => onSelectManga(bm.slug)}
               style={{
-                width: compact ? 232 : 284,
+                width: compact ? 248 : 296,
                 flexShrink: 0,
-                textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
+                gap: 8,
                 padding: 8,
                 borderRadius: 11,
                 background: KatanaColors.surface,
                 border: `1px solid ${KatanaColors.border}`,
               }}
             >
-              <div
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => onSelectManga(bm.slug)}
                 style={{
-                  position: 'relative',
-                  width: 48,
-                  height: 68,
-                  borderRadius: 7,
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  border: `1px solid ${KatanaColors.borderStrong}`,
-                  background: KatanaColors.surfaceAlt,
+                  flex: 1,
+                  minWidth: 0,
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
                 }}
               >
-                <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={18} />
-                <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text }}>
-                  {bm.title}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: 48,
+                    height: 68,
+                    borderRadius: 7,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    border: `1px solid ${KatanaColors.borderStrong}`,
+                    background: KatanaColors.surfaceAlt,
+                  }}
+                >
+                  <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={18} />
+                  <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                  <span style={{ ...KatanaType.link, fontSize: 11.5 }}>
-                    {bm.lastReadChapterTitle || 'Resume'}
-                  </span>
-                  {unread > 0 && (
-                    <span
-                      style={{
-                        padding: '1px 5px',
-                        borderRadius: 4,
-                        background: withAlpha(KatanaColors.accent, 0.18),
-                        fontFamily: Fonts.body,
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: KatanaColors.accentSoft,
-                      }}
-                    >
-                      +{unread} new
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text }}>
+                    {bm.title}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                    <span className="ellipsis" style={{ ...KatanaType.link, fontSize: 11.5 }}>
+                      {bm.lastReadChapterTitle || 'Resume'}
                     </span>
+                    {unread > 0 && (
+                      <span
+                        style={{
+                          padding: '1px 5px',
+                          borderRadius: 4,
+                          background: withAlpha(KatanaColors.accent, 0.18),
+                          fontFamily: Fonts.body,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: KatanaColors.accentSoft,
+                          flexShrink: 0,
+                        }}
+                      >
+                        +{unread} new
+                      </span>
+                    )}
+                  </div>
+                  {pct > 0 && (
+                    <div style={{ height: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden', marginTop: 7 }}>
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          background: KatanaColors.accent,
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
-                {pct > 0 && (
-                  <div style={{ height: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden', marginTop: 7 }}>
-                    <div
-                      style={{
-                        width: `${pct}%`,
-                        height: '100%',
-                        background: KatanaColors.accent,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </button>
+              </button>
+              {onResumeBookmark && bm.lastReadChapterId && (
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Resume ${bm.title}`}
+                  title={`Resume ${bm.lastReadChapterTitle || bm.title}`}
+                  onClick={() => onResumeBookmark(bm)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 99,
+                    flexShrink: 0,
+                    background: KatanaColors.accent,
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  <Icon name="play_arrow" size={20} color={KatanaColors.accentInk} />
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
@@ -547,6 +592,7 @@ export function MangaHome({
   onSelectManga,
   onSelectGenre,
   onOpenChapter,
+  onResumeBookmark,
   onViewAllReading,
   onRetryHome,
 }: {
@@ -568,19 +614,20 @@ export function MangaHome({
   onSelectManga: (slug: string) => void;
   onSelectGenre: (g: KatanaGenre) => void;
   onOpenChapter: (manga: KatanaManga, chapterId: string) => void;
+  onResumeBookmark?: (bm: KatanaBookmark) => void;
   onViewAllReading?: () => void;
   onRetryHome?: () => void;
 }) {
   const desktop = width >= KATANA_BREAKPOINTS.desktop;
   const tablet = width >= KATANA_BREAKPOINTS.tablet;
   const compact = width < KATANA_BREAKPOINTS.tablet;
-  const homeGridCols = desktop ? 4 : width >= KATANA_BREAKPOINTS.tabletWide ? 5 : 4;
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => (width >= KATANA_BREAKPOINTS.tablet ? 'grid' : 'list'));
+  const homeGridCols = desktop ? 4 : getKatanaGridColumns(width);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [feedTab, setFeedTab] = useState<FeedTab>('latest');
   const [tasteGenres, setTasteGenres] = useState<string[]>(() => getPreferredMangaGenres());
   const [tasteEditorOpen, setTasteEditorOpen] = useState(false);
 
-  const effectiveView = compact ? 'list' : viewMode;
+  const effectiveView = viewMode;
   const allCatalog = useMemo(() => {
     const seen = new Map<string, KatanaManga>();
     for (const m of [...data.hotUpdates, ...data.hot, ...data.latest, ...extraCatalog]) {
@@ -729,7 +776,7 @@ export function MangaHome({
     );
   };
 
-  const viewToggle = !compact && (
+  const viewToggle = (
     <div
       style={{
         display: 'inline-flex',
@@ -749,8 +796,8 @@ export function MangaHome({
             aria-label={mode === 'grid' ? 'Grid view' : 'List view'}
             onClick={() => setViewMode(mode)}
             style={{
-              width: 30,
-              height: 26,
+              width: 32,
+              height: 28,
               borderRadius: 6,
               background: active ? KatanaColors.chipSelectedBg : 'transparent',
               border: active ? `1px solid ${KatanaColors.chipSelectedBorder}` : '1px solid transparent',
@@ -766,53 +813,42 @@ export function MangaHome({
   );
 
   const typeChips = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-        <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 8, paddingRight: compact ? 22 : 0 }}>
-          {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (
-            <TypeChip
-              key={t}
-              label={TYPE_META[t].label}
-              icon={TYPE_META[t].icon}
-              selected={type === t}
-              onClick={() => onSelectType(t)}
-            />
-          ))}
-        </div>
-        {compact && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: 24,
-              background: `linear-gradient(to right, transparent, ${KatanaColors.background})`,
-              pointerEvents: 'none',
-            }}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 6 : 8 }}>
+      <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: compact ? 5 : 8, flex: 1, minWidth: 0 }}>
+        {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (
+          <TypeChip
+            key={t}
+            label={TYPE_META[t].label}
+            icon={TYPE_META[t].icon}
+            selected={type === t}
+            compact={compact}
+            onClick={() => onSelectType(t)}
           />
-        )}
+        ))}
       </div>
       {allCatalog.length > 0 && (
         <button
           type="button"
           className="bare-button"
           onClick={openRandomPick}
+          aria-label="Pick a random title"
           title="Pick a random title"
           style={{
             flexShrink: 0,
-            padding: '7px 12px',
+            padding: compact ? '6px 9px' : '7px 12px',
+            minWidth: compact ? 34 : undefined,
+            height: compact ? 32 : undefined,
             borderRadius: 99,
             background: KatanaColors.surfaceAlt,
             border: `1px solid ${KatanaColors.borderStrong}`,
             display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: 5,
           }}
         >
-          <Icon name="casino" size={15} color={KatanaColors.textMuted} />
-          <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>
+          <Icon name="casino" size={16} color={KatanaColors.textMuted} />
+          {!compact && <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>}
         </button>
       )}
     </div>
@@ -935,9 +971,9 @@ export function MangaHome({
                   style={{
                     width: 24,
                     textAlign: 'center',
-                    fontFamily: Fonts.display,
-                    fontSize: 17,
-                    fontWeight: 700,
+                    fontFamily: Fonts.body,
+                    fontSize: 16,
+                    fontWeight: 800,
                     color: i < 3 ? KatanaColors.accent : KatanaColors.textLight,
                     flexShrink: 0,
                   }}
@@ -1145,6 +1181,7 @@ export function MangaHome({
               downloadedCounts={downloadedCounts}
               compact={compact}
               onSelectManga={onSelectManga}
+              onResumeBookmark={onResumeBookmark}
               onViewAll={() => onViewAllReading?.()}
             />
             {typeChips}
@@ -1181,6 +1218,7 @@ export function MangaHome({
             downloadedCounts={downloadedCounts}
             compact={false}
             onSelectManga={onSelectManga}
+            onResumeBookmark={onResumeBookmark}
             onViewAll={() => onViewAllReading?.()}
           />
           {typeChips}
