@@ -192,9 +192,9 @@ function FeaturedHero({
       <div
         style={{
           position: 'relative',
-          padding: compact ? 11 : '16px 20px',
+          padding: compact ? '9px 10px' : '16px 20px',
           display: 'flex',
-          gap: compact ? 12 : 20,
+          gap: compact ? 10 : 20,
           alignItems: 'center',
         }}
       >
@@ -205,8 +205,8 @@ function FeaturedHero({
           onClick={() => onSelectManga(featured.slug)}
           style={{
             position: 'relative',
-            width: compact ? 84 : 122,
-            height: compact ? 120 : 176,
+            width: compact ? 64 : 122,
+            height: compact ? 92 : 176,
             borderRadius: 10,
             overflow: 'hidden',
             flexShrink: 0,
@@ -215,54 +215,56 @@ function FeaturedHero({
             boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
           }}
         >
-          <KatanaCoverImage url={featured.coverUrl} title={featured.title} iconSize={30} />
+          <KatanaCoverImage url={featured.coverUrl} title={featured.title} iconSize={compact ? 22 : 30} />
         </button>
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: compact ? 6 : 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: compact ? 4 : 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 6 : 8, flexWrap: compact ? 'nowrap' : 'wrap', overflow: 'hidden' }}>
             <span
               style={{
-                padding: '2px 8px',
+                padding: '2px 7px',
                 borderRadius: 6,
                 background: KatanaColors.chipSelectedBg,
                 border: `1px solid ${KatanaColors.chipSelectedBorder}`,
                 fontFamily: Fonts.body,
-                fontSize: 10.5,
+                fontSize: 10,
                 fontWeight: 700,
                 color: KatanaColors.chipSelectedText,
                 letterSpacing: 0.5,
+                flexShrink: 0,
               }}
             >
               SPOTLIGHT
             </span>
             <span
               style={{
-                padding: '2px 8px',
+                padding: '2px 7px',
                 borderRadius: 6,
                 background: withAlpha(completed ? KatanaColors.green : KatanaColors.teal, 0.16),
                 fontFamily: Fonts.body,
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: 600,
                 color: completed ? KatanaColors.green : KatanaColors.teal,
+                flexShrink: 0,
               }}
             >
               {completed ? 'Completed' : 'Ongoing'}
             </span>
             {featured.rating != null && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                <Icon name="star" size={13} color={KatanaColors.accent} />
-                <span style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                <Icon name="star" size={12} color={KatanaColors.accent} />
+                <span style={{ fontFamily: Fonts.body, fontSize: 11.5, fontWeight: 700, color: KatanaColors.text }}>
                   {featured.rating.toFixed(1)}
                 </span>
               </span>
             )}
-            {featured.follows != null && featured.follows > 0 && (
+            {!compact && featured.follows != null && featured.follows > 0 && (
               <span style={{ ...KatanaType.small, fontSize: 12 }}>
                 {formatCompactNumber(featured.follows)} readers
               </span>
             )}
             {featured.latestChapter && (
-              <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.link }}>
+              <span className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link }}>
                 {chapterDisplayTitle(featured.latestChapter)}
               </span>
             )}
@@ -275,10 +277,10 @@ function FeaturedHero({
             style={{ textAlign: 'left' }}
           >
             <h1
-              className="clamp-2"
+              className={compact ? 'ellipsis' : 'clamp-2'}
               style={{
                 ...KatanaType.display,
-                fontSize: compact ? 19 : 25,
+                fontSize: compact ? 16 : 25,
                 margin: 0,
               }}
             >
@@ -286,7 +288,7 @@ function FeaturedHero({
             </h1>
           </button>
 
-          {featured.genres.length > 0 && (
+          {!compact && featured.genres.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {featured.genres.slice(0, compact ? 3 : 5).map((g) => (
                 <button
@@ -628,7 +630,7 @@ function todayWeekday(): KatanaWeekday {
   return WEEKDAYS[(jsDay + 6) % 7];
 }
 
-function ReleaseScheduleRail({
+function RecentlyUpdatedDaysRail({
   catalog,
   unreadBySlug,
   downloadedCounts,
@@ -662,19 +664,19 @@ function ReleaseScheduleRail({
   const activeItems = byDay[selectedDay] ?? [];
 
   return (
-    <section aria-label="Recent update days" style={{ marginTop: 22 }}>
+    <section aria-label="Recently updated by day" style={{ marginTop: 22 }}>
       <KatanaSectionHeader
-        title="Recent Update Days"
+        title="Recently Updated by Day"
         badge={selectedDay === today ? `Today · ${activeItems.length}` : `${selectedDay} · ${activeItems.length}`}
       />
       <div style={{ ...KatanaType.small, fontSize: 11.5, marginTop: 3 }}>
-        Grouped by each series’ most recent catalog update day.
+        Grouped by each series’ latest catalog update day (not a future release schedule).
       </div>
       <div style={{ height: 10 }} />
       <div
         className="no-scrollbar"
         role="tablist"
-        aria-label="Release day"
+        aria-label="Update day"
         style={{
           display: 'flex',
           gap: 6,
@@ -860,6 +862,7 @@ export function MangaHome({
   onResumeBookmark,
   onViewAllReading,
   onRetryHome,
+  scrollContainerRef,
 }: {
   width: number;
   data: KatanaHomeData;
@@ -882,6 +885,7 @@ export function MangaHome({
   onResumeBookmark?: (bm: KatanaBookmark) => void;
   onViewAllReading?: () => void;
   onRetryHome?: () => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const desktop = width >= KATANA_BREAKPOINTS.desktop;
   const tablet = width >= KATANA_BREAKPOINTS.tablet;
@@ -1461,8 +1465,8 @@ export function MangaHome({
                 dismissTasteOnboarding();
               }}
               style={{
-                minHeight: compact ? 36 : 30,
-                padding: '5px 11px',
+                minHeight: compact ? 40 : 36,
+                padding: '6px 12px',
                 borderRadius: 99,
                 flexShrink: 0,
                 background: picked ? KatanaColors.accent : KatanaColors.surfaceAlt,
@@ -1487,9 +1491,9 @@ export function MangaHome({
       <div
         role="status"
         style={{
-          marginTop: 8,
-          padding: compact ? '6px 10px' : '8px 12px',
-          borderRadius: 10,
+          marginTop: compact ? 6 : 8,
+          padding: compact ? '4px 8px 4px 10px' : '8px 12px',
+          borderRadius: compact ? 99 : 10,
           background: withAlpha(KatanaColors.accent, 0.12),
           border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
           display: 'flex',
@@ -1499,10 +1503,12 @@ export function MangaHome({
           flexWrap: 'nowrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, flex: 1 }}>
-          <Icon name="notifications_active" size={16} color={KatanaColors.accent} />
-          <span className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: compact ? 12.5 : 13, fontWeight: 600, color: KatanaColors.text }}>
-            {alertUnreadSeriesCount} followed {alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+          <Icon name="notifications_active" size={15} color={KatanaColors.accent} />
+          <span className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: compact ? 12 : 13, fontWeight: 600, color: KatanaColors.text }}>
+            {compact
+              ? `${alertUnreadSeriesCount} new chapter ${alertUnreadSeriesCount === 1 ? 'update' : 'updates'}`
+              : `${alertUnreadSeriesCount} followed ${alertUnreadSeriesCount === 1 ? 'series has' : 'series have'} new chapters`}
           </span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1514,9 +1520,9 @@ export function MangaHome({
               setFeedTab('updates');
             }}
             style={{
-              minHeight: compact ? 34 : 32,
-              padding: '4px 10px',
-              borderRadius: 8,
+              minHeight: compact ? 30 : 32,
+              padding: compact ? '3px 10px' : '4px 10px',
+              borderRadius: compact ? 99 : 8,
               background: KatanaColors.accent,
               color: KatanaColors.accentInk,
               fontFamily: Fonts.body,
@@ -1706,13 +1712,14 @@ export function MangaHome({
     </section>
   );
 
-  const center = (child: ReactNode) => <div style={{ maxWidth: 1240, margin: '0 auto' }}>{child}</div>;
+  const center = (child: ReactNode) => <div style={{ maxWidth: 1380, margin: '0 auto' }}>{child}</div>;
 
   const [pullDistance, setPullDistance] = useState(0);
   const pullStartYRef = useRef<number | null>(null);
   const handlePullStart = (e: React.TouchEvent) => {
     if (!onRetryHome || e.touches.length !== 1) return;
-    if (typeof window !== 'undefined' && window.scrollY > 2) return;
+    const containerTop = scrollContainerRef?.current?.scrollTop ?? (typeof window !== 'undefined' ? window.scrollY : 0);
+    if (containerTop > 2) return;
     pullStartYRef.current = e.touches[0].clientY;
   };
   const handlePullMove = (e: React.TouchEvent) => {
@@ -1788,7 +1795,7 @@ export function MangaHome({
             {feedSection}
             {tasteOnboardingBanner}
             {type === 'all' && (
-              <ReleaseScheduleRail
+              <RecentlyUpdatedDaysRail
                 catalog={allCatalog}
                 unreadBySlug={unreadBySlug}
                 downloadedCounts={downloadedCounts}
@@ -1838,7 +1845,7 @@ export function MangaHome({
             <div style={{ flex: 7, minWidth: 0 }}>
               {feedSection}
               {type === 'all' && (
-                <ReleaseScheduleRail
+                <RecentlyUpdatedDaysRail
                   catalog={allCatalog}
                   unreadBySlug={unreadBySlug}
                   downloadedCounts={downloadedCounts}

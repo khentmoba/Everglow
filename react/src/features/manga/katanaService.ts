@@ -2210,6 +2210,8 @@ const USER_PREFS_PREFIX = 'katana_user_prefs_v1_';
 export interface KatanaAlertPrefs {
   frequency: 'instant' | 'daily';
   quietHours: boolean;
+  skipCompleted?: boolean;
+  skipOnHold?: boolean;
 }
 
 export interface KatanaUserPrefs {
@@ -2223,6 +2225,8 @@ export interface KatanaUserPrefs {
 const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
   frequency: 'instant',
   quietHours: false,
+  skipCompleted: true,
+  skipOnHold: false,
 };
 
 const DEFAULT_USER_PREFS: KatanaUserPrefs = {
@@ -2241,6 +2245,8 @@ export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
       return {
         frequency: parsed.frequency === 'daily' ? 'daily' : 'instant',
         quietHours: Boolean(parsed.quietHours),
+        skipCompleted: parsed.skipCompleted !== false,
+        skipOnHold: Boolean(parsed.skipOnHold),
       };
     }
   } catch {
@@ -2259,6 +2265,8 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
         alertPrefs: {
           frequency: parsed.alertPrefs?.frequency === 'daily' ? 'daily' : loadKatanaAlertPrefs(userName).frequency,
           quietHours: parsed.alertPrefs?.quietHours ?? loadKatanaAlertPrefs(userName).quietHours,
+          skipCompleted: parsed.alertPrefs?.skipCompleted ?? loadKatanaAlertPrefs(userName).skipCompleted ?? true,
+          skipOnHold: parsed.alertPrefs?.skipOnHold ?? loadKatanaAlertPrefs(userName).skipOnHold ?? false,
         },
         wifiOnlyDownloads: Boolean(parsed.wifiOnlyDownloads),
         autoDownloadNext: typeof parsed.autoDownloadNext === 'number' && parsed.autoDownloadNext >= 0 ? parsed.autoDownloadNext : 0,
@@ -2453,8 +2461,29 @@ export function loadKatanaHistory(userName: string): KatanaHistoryEntry[] {
   return AgentMode.demo ? buildDemoHistory() : [];
 }
 
+const HISTORY_PAUSED_PREFIX = 'katana_history_paused_v1_';
+
+export function isKatanaHistoryPaused(userName: string): boolean {
+  if (!userName) return false;
+  try {
+    return localStorage.getItem(`${HISTORY_PAUSED_PREFIX}${userName}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setKatanaHistoryPaused(userName: string, paused: boolean): void {
+  if (!userName) return;
+  try {
+    localStorage.setItem(`${HISTORY_PAUSED_PREFIX}${userName}`, paused ? '1' : '0');
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function recordKatanaHistory(userName: string, entry: KatanaHistoryEntry): KatanaHistoryEntry[] {
   if (!userName || !entry.slug || !entry.chapterId) return [];
+  if (isKatanaHistoryPaused(userName)) return loadKatanaHistory(userName);
   const existing = loadKatanaHistory(userName).filter(
     (item) => !(item.slug === entry.slug && item.chapterId === entry.chapterId),
   );

@@ -464,6 +464,7 @@ export function KatanaHeader({
   showBack = true,
   genres = [],
   themeMode = 'dark',
+  initialSearchBy = 'm_name',
   syncedRecentSearches,
   onCycleTheme,
   onSelectTheme,
@@ -479,6 +480,7 @@ export function KatanaHeader({
   showBack?: boolean;
   genres?: KatanaGenre[];
   themeMode?: KatanaThemeMode;
+  initialSearchBy?: 'm_name' | 'author' | 'alt_theme';
   syncedRecentSearches?: string[];
   onCycleTheme?: () => void;
   onSelectTheme?: (mode: KatanaThemeMode) => void;
@@ -489,7 +491,7 @@ export function KatanaHeader({
   onSelectGenre: (genre: KatanaGenre) => void;
 }) {
   const [queryText, setQueryText] = useState('');
-  const [searchBy, setSearchBy] = useState<'m_name' | 'author' | 'alt_theme'>('m_name');
+  const [searchBy, setSearchBy] = useState<'m_name' | 'author' | 'alt_theme'>(initialSearchBy);
   const [suggestions, setSuggestions] = useState<KatanaManga[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -501,6 +503,11 @@ export function KatanaHeader({
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const themeMenuRef = useRef<HTMLDivElement>(null);
+  const themeTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setSearchBy(initialSearchBy);
+  }, [initialSearchBy]);
 
   useEffect(() => {
     if (syncedRecentSearches && syncedRecentSearches.length > 0) {
@@ -510,17 +517,46 @@ export function KatanaHeader({
 
   useEffect(() => {
     if (!themeMenuOpen) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    const menuEl = themeMenuRef.current?.querySelector<HTMLElement>('[role="menu"]');
+    const getItems = () =>
+      Array.from(menuEl?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? []);
+    const items = getItems();
+    const checkedIdx = items.findIndex((el) => el.getAttribute('aria-checked') === 'true');
+    (items[checkedIdx >= 0 ? checkedIdx : 0] ?? items[0])?.focus();
+
     const onDown = (e: PointerEvent) => {
       if (!themeMenuRef.current?.contains(e.target as Node | null)) setThemeMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setThemeMenuOpen(false);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setThemeMenuOpen(false);
+        return;
+      }
+      const list = getItems();
+      if (list.length === 0) return;
+      const curIdx = list.indexOf(document.activeElement as HTMLButtonElement);
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const nextIdx = e.shiftKey
+          ? (curIdx <= 0 ? list.length - 1 : curIdx - 1)
+          : (curIdx + 1) % list.length;
+        list[nextIdx]?.focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        list[(curIdx + 1) % list.length]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        list[curIdx <= 0 ? list.length - 1 : curIdx - 1]?.focus();
+      }
     };
     window.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('keydown', onKey);
+      (themeTriggerRef.current ?? prevFocus)?.focus?.();
     };
   }, [themeMenuOpen]);
 
@@ -769,6 +805,7 @@ export function KatanaHeader({
   const themeButton = onSelectTheme || onCycleTheme ? (
     <div ref={themeMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
       <button
+        ref={themeTriggerRef}
         type="button"
         className="bare-button"
         onClick={() => {
@@ -898,7 +935,7 @@ export function KatanaHeader({
       }}
     >
       {desktop ? (
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
           {backButton}
           {logo}
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>{searchField}</div>
@@ -991,7 +1028,7 @@ export function KatanaHeader({
       )}
 
       {showRecentDropdown && (
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 16px 10px' }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 16px 10px' }}>
           <KatanaCard radius={10} padding={12}>
             {recentSearches.length > 0 && (
               <div style={{ marginBottom: genres.length > 0 ? 10 : 0 }}>
@@ -1043,14 +1080,14 @@ export function KatanaHeader({
                         aria-label={`Remove ${q} from recent searches`}
                         onClick={() => setRecentSearches(removeRecentMangaSearch(q, userName))}
                         style={{
-                          width: 24,
-                          height: 24,
+                          width: desktop ? 36 : 40,
+                          height: desktop ? 36 : 40,
                           display: 'grid',
                           placeItems: 'center',
                           marginRight: 2,
                         }}
                       >
-                        <Icon name="close" size={13} color={KatanaColors.textLight} />
+                        <Icon name="close" size={14} color={KatanaColors.textLight} />
                       </button>
                     </div>
                   ))}
@@ -1089,7 +1126,7 @@ export function KatanaHeader({
       )}
 
       {showSuggestionDropdown && (
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 16px 10px' }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 16px 10px' }}>
           <KatanaCard radius={10} style={{ overflow: 'hidden' }}>
             {searching ? (
               <div style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1168,7 +1205,7 @@ export function KatanaHeader({
           <div
             className="no-scrollbar"
             style={{
-              maxWidth: 1240,
+              maxWidth: 1380,
               margin: '0 auto',
               overflowX: 'auto',
               padding: '4px 12px',
@@ -1380,14 +1417,47 @@ export function KatanaCoverImage({
         />
         <div
           aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: 0.16,
-            backgroundImage: `radial-gradient(${palette.accent} 1px, transparent 1px)`,
-            backgroundSize: '11px 11px',
-            pointerEvents: 'none',
-          }}
+          style={(() => {
+            let h = 0;
+            for (let i = 0; i < cleanTitle.length; i++) h = (h * 31 + cleanTitle.charCodeAt(i)) >>> 0;
+            const variant = h % 4;
+            if (variant === 0) {
+              return {
+                position: 'absolute',
+                inset: 0,
+                opacity: 0.16,
+                backgroundImage: `radial-gradient(${palette.accent} 1px, transparent 1px)`,
+                backgroundSize: '11px 11px',
+                pointerEvents: 'none',
+              } as React.CSSProperties;
+            }
+            if (variant === 1) {
+              return {
+                position: 'absolute',
+                inset: 0,
+                opacity: 0.14,
+                backgroundImage: `repeating-linear-gradient(135deg, ${palette.accent} 0px, ${palette.accent} 1px, transparent 1px, transparent 12px)`,
+                pointerEvents: 'none',
+              } as React.CSSProperties;
+            }
+            if (variant === 2) {
+              return {
+                position: 'absolute',
+                inset: 0,
+                opacity: 0.12,
+                backgroundImage: `linear-gradient(${palette.secondary} 1px, transparent 1px), linear-gradient(90deg, ${palette.secondary} 1px, transparent 1px)`,
+                backgroundSize: '18px 18px',
+                pointerEvents: 'none',
+              } as React.CSSProperties;
+            }
+            return {
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.15,
+              backgroundImage: `repeating-linear-gradient(25deg, transparent 0px, transparent 14px, ${palette.accent} 14px, ${palette.accent} 15px)`,
+              pointerEvents: 'none',
+            } as React.CSSProperties;
+          })()}
         />
         <div
           aria-hidden="true"

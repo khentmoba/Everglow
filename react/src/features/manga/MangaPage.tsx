@@ -49,10 +49,12 @@ import {
   importKatanaLibraryJson,
   importKatanaLibraryMalXml,
   isBookmarkCaughtUp,
+  isKatanaHistoryPaused,
   loadKatanaAlertPrefs,
   loadKatanaUserPrefs,
   loadKatanaAutoDownloadCount,
   loadKatanaCustomCategories,
+  setKatanaHistoryPaused,
   loadKatanaHiddenCategories,
   loadKatanaHistory,
   lookupMalManga,
@@ -390,11 +392,14 @@ export function MangaPage() {
   const [previewPages, setPreviewPages] = useState<{ slug: string; chapterId: string; chapterTitle: string; urls: string[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [historyEntries, setHistoryEntries] = useState<KatanaHistoryEntry[]>(() => loadKatanaHistory(currentUser ?? ''));
+  const [historyPaused, setHistoryPaused] = useState<boolean>(() => isKatanaHistoryPaused(currentUser ?? ''));
+  const [historySubView, setHistorySubView] = useState<'history' | 'updates'>('history');
   const [downloadQueue, setDownloadQueue] = useState<Array<{ manga: KatanaManga; chapter: KatanaChapter }>>([]);
   const downloadQueueRef = useRef<Array<{ manga: KatanaManga; chapter: KatanaChapter }>>([]);
   const filterSheetRef = useRef<HTMLDivElement>(null);
   const libraryToolsSheetRef = useRef<HTMLDivElement>(null);
   const detailActionsRef = useRef<HTMLDivElement>(null);
+  const shelfChipsRef = useRef<HTMLDivElement>(null);
 
   const userName = currentUser ?? '';
   const syncedCategories = useSource(() => watchKatanaCustomCategories(userName), [userName], localCategories);
@@ -1750,6 +1755,7 @@ export function MangaPage() {
         showBack={isCoupleUser}
         genres={homeData?.genres ?? []}
         themeMode={themeMode}
+        initialSearchBy={searchBy}
         syncedRecentSearches={syncedRecentSearches}
         onCycleTheme={cycleThemeMode}
         onSelectTheme={selectThemeMode}
@@ -1757,7 +1763,7 @@ export function MangaPage() {
         onSelectNav={handleNav}
         onSubmitSearch={(q, by) => {
           setFilterOpen(false);
-          updateMangaUrl({ tab: 'directory', mode: 'search', q, by: by === 'author' ? 'author' : null }, { clearAll: true });
+          updateMangaUrl({ tab: 'directory', mode: 'search', q, by: by === 'm_name' ? null : by }, { clearAll: true });
         }}
         onSelectManga={openDetail}
         onSelectGenre={handleSelectGenre}
@@ -1787,11 +1793,12 @@ export function MangaPage() {
             onResumeBookmark={(bm) => void resumeBookmark(bm)}
             onViewAllReading={() => handleNav('reading')}
             onRetryHome={() => setHomeRefreshTick((n) => n + 1)}
+            scrollContainerRef={homeScrollRef}
           />
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 40px' }}>
-          <div style={{ maxWidth: 1240, margin: '0 auto' }}>
+          <div style={{ maxWidth: 1380, margin: '0 auto' }}>
             {detailSlug ? (
               detailLoading ? (
                 <KatanaSkeletonList count={3} />
@@ -2362,61 +2369,6 @@ export function MangaPage() {
                                         gap: 4,
                                       }}
                                     >
-                                      {compactCard && detail.chapters.length > 0 && (
-                                        <button
-                                          type="button"
-                                          className="bare-button"
-                                          disabled={batchProgress != null}
-                                          onClick={() => {
-                                            setDetailOverflowOpen(false);
-                                            void downloadNextUnread(detail, readSet, 3);
-                                          }}
-                                          style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 8,
-                                            padding: '10px 10px',
-                                            borderRadius: 7,
-                                            color: KatanaColors.link,
-                                            fontFamily: Fonts.body,
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            textAlign: 'left',
-                                          }}
-                                        >
-                                          <Icon name="download" size={16} color={KatanaColors.link} />
-                                          <span>Download next 3 unread</span>
-                                        </button>
-                                      )}
-                                      {compactCard && userName && (
-                                        <button
-                                          type="button"
-                                          className="bare-button"
-                                          onClick={() => {
-                                            setDetailOverflowOpen(false);
-                                            void toggleSeriesAlerts(detail, alertsEnabled);
-                                          }}
-                                          style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 8,
-                                            padding: '10px 10px',
-                                            borderRadius: 7,
-                                            color: KatanaColors.text,
-                                            fontFamily: Fonts.body,
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            textAlign: 'left',
-                                          }}
-                                        >
-                                          <Icon
-                                            name={alertsEnabled ? 'notifications_active' : 'notifications_off'}
-                                            size={16}
-                                            color={alertsEnabled ? KatanaColors.accent : KatanaColors.textMuted}
-                                          />
-                                          <span>{alertsEnabled ? 'Mute chapter alerts' : 'Enable chapter alerts'}</span>
-                                        </button>
-                                      )}
                                       {compactCard && userName && (
                                         <button
                                           type="button"
@@ -2574,6 +2526,73 @@ export function MangaPage() {
                                   )}
                                 </div>
                               </div>
+                              {compactCard && (detail.chapters.length > 0 || userName) && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                                  {detail.chapters.length > 0 && (
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      aria-label="Download next 3 unread chapters"
+                                      disabled={batchProgress != null}
+                                      onClick={() => void downloadNextUnread(detail, readSet, 3)}
+                                      style={{
+                                        flex: 1,
+                                        minHeight: 38,
+                                        padding: '0 10px',
+                                        borderRadius: 8,
+                                        background: KatanaColors.surfaceAlt,
+                                        border: `1px solid ${KatanaColors.borderStrong}`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 5,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        color: KatanaColors.link,
+                                        whiteSpace: 'nowrap',
+                                        opacity: batchProgress != null ? 0.6 : 1,
+                                      }}
+                                    >
+                                      <Icon name="download" size={15} color={KatanaColors.link} />
+                                      <span>{batchProgress ? `Saving ${batchProgress.done}/${batchProgress.total}` : 'Download 3'}</span>
+                                    </button>
+                                  )}
+                                  {userName && (
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      aria-label={alertsEnabled ? 'Mute new chapter alerts' : 'Enable new chapter alerts'}
+                                      aria-pressed={alertsEnabled}
+                                      onClick={() => void toggleSeriesAlerts(detail, alertsEnabled)}
+                                      style={{
+                                        flex: 1,
+                                        minHeight: 38,
+                                        padding: '0 10px',
+                                        borderRadius: 8,
+                                        background: alertsEnabled && isBookmarked ? withAlpha(KatanaColors.accent, 0.16) : KatanaColors.surfaceAlt,
+                                        border: `1px solid ${alertsEnabled && isBookmarked ? withAlpha(KatanaColors.accent, 0.5) : KatanaColors.borderStrong}`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 5,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        color: alertsEnabled && isBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      <Icon
+                                        name={alertsEnabled ? 'notifications_active' : 'notifications_off'}
+                                        size={15}
+                                        color={alertsEnabled && isBookmarked ? KatanaColors.accent : KatanaColors.textMuted}
+                                      />
+                                      <span>{alertsEnabled ? 'Alerts On' : 'Alerts Off'}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -2824,97 +2843,6 @@ export function MangaPage() {
 
                       <div style={{ height: 14 }} />
 
-                      {detail.chapters.length > 0 && (
-                        <div style={{ marginBottom: 14 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              className="bare-button"
-                              onClick={() => void handleLoadPreview(detail)}
-                              aria-expanded={previewPages?.slug === detail.slug}
-                              style={{
-                                minHeight: 36,
-                                padding: '6px 12px',
-                                borderRadius: 9,
-                                background: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBg : KatanaColors.surface,
-                                border: `1px solid ${previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                fontFamily: Fonts.body,
-                                fontSize: 12.5,
-                                fontWeight: 700,
-                                color: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedText : KatanaColors.text,
-                              }}
-                            >
-                              <Icon name="visibility" size={16} color={KatanaColors.accent} />
-                              <span>
-                                {previewLoading
-                                  ? 'Loading preview…'
-                                  : previewPages?.slug === detail.slug
-                                    ? 'Hide First-Chapter Preview'
-                                    : 'Preview First Pages'}
-                              </span>
-                            </button>
-                            {previewPages?.slug === detail.slug && (
-                              <KatanaButton
-                                label={`Read ${previewPages.chapterTitle}`}
-                                icon="play_arrow"
-                                size="sm"
-                                onClick={() => openChapter(detail, previewPages.chapterId, 1)}
-                              />
-                            )}
-                          </div>
-                          {previewPages?.slug === detail.slug && (
-                            <KatanaCard padding={10} radius={10} style={{ marginTop: 10 }}>
-                              <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-                                {previewPages.urls.map((imgUrl, idx) => (
-                                  <button
-                                    key={imgUrl}
-                                    type="button"
-                                    className="bare-button"
-                                    onClick={() => openChapter(detail, previewPages.chapterId, idx + 1)}
-                                    style={{
-                                      width: compactCard ? 150 : 185,
-                                      aspectRatio: '2 / 3',
-                                      borderRadius: 8,
-                                      overflow: 'hidden',
-                                      flexShrink: 0,
-                                      border: `1px solid ${KatanaColors.borderStrong}`,
-                                      background: KatanaColors.surfaceAlt,
-                                      position: 'relative',
-                                    }}
-                                  >
-                                    <img
-                                      src={proxyKatanaImageUrl(imgUrl)}
-                                      alt={`${detail.title} preview page ${idx + 1}`}
-                                      loading="lazy"
-                                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                    />
-                                    <span
-                                      style={{
-                                        position: 'absolute',
-                                        bottom: 6,
-                                        right: 6,
-                                        padding: '2px 6px',
-                                        borderRadius: 5,
-                                        background: withAlpha(KatanaColors.background, 0.86),
-                                        fontFamily: Fonts.body,
-                                        fontSize: 10.5,
-                                        fontWeight: 700,
-                                        color: KatanaColors.text,
-                                      }}
-                                    >
-                                      Page {idx + 1}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            </KatanaCard>
-                          )}
-                        </div>
-                      )}
-
                       <div
                         style={{
                           display: tablet ? 'flex' : 'block',
@@ -2980,6 +2908,37 @@ export function MangaPage() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                           <KatanaSectionHeader title="Chapters" badge={String(detail.chapters.length)} />
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            {detail.chapters.length > 0 && (
+                              <button
+                                type="button"
+                                className="bare-button"
+                                onClick={() => void handleLoadPreview(detail)}
+                                aria-expanded={previewPages?.slug === detail.slug}
+                                style={{
+                                  minHeight: 34,
+                                  padding: '6px 10px',
+                                  borderRadius: 8,
+                                  background: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                                  border: `1px solid ${previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 12.5,
+                                  fontWeight: 600,
+                                  color: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedText : KatanaColors.text,
+                                }}
+                              >
+                                <Icon name="visibility" size={14} color={KatanaColors.accent} />
+                                <span>
+                                  {previewLoading
+                                    ? 'Loading…'
+                                    : previewPages?.slug === detail.slug
+                                      ? 'Hide Preview'
+                                      : 'Preview Pages'}
+                                </span>
+                              </button>
+                            )}
                             {detailBm?.lastReadChapterId && (
                               <button
                                 type="button"
@@ -3118,6 +3077,65 @@ export function MangaPage() {
                             )}
                           </div>
                         </div>
+
+                        {previewPages?.slug === detail.slug && (
+                          <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.borderStrong}` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                              <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.text }}>
+                                First-Chapter Preview · {previewPages.chapterTitle}
+                              </span>
+                              <KatanaButton
+                                label={`Read ${previewPages.chapterTitle}`}
+                                icon="play_arrow"
+                                size="sm"
+                                onClick={() => openChapter(detail, previewPages.chapterId, 1)}
+                              />
+                            </div>
+                            <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                              {previewPages.urls.map((imgUrl, idx) => (
+                                <button
+                                  key={imgUrl}
+                                  type="button"
+                                  className="bare-button"
+                                  onClick={() => openChapter(detail, previewPages.chapterId, idx + 1)}
+                                  style={{
+                                    width: compactCard ? 150 : 185,
+                                    aspectRatio: '2 / 3',
+                                    borderRadius: 8,
+                                    overflow: 'hidden',
+                                    flexShrink: 0,
+                                    border: `1px solid ${KatanaColors.borderStrong}`,
+                                    background: KatanaColors.surface,
+                                    position: 'relative',
+                                  }}
+                                >
+                                  <img
+                                    src={proxyKatanaImageUrl(imgUrl)}
+                                    alt={`${detail.title} preview page ${idx + 1}`}
+                                    loading="lazy"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                  />
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      bottom: 6,
+                                      right: 6,
+                                      padding: '2px 6px',
+                                      borderRadius: 5,
+                                      background: withAlpha(KatanaColors.background, 0.86),
+                                      fontFamily: Fonts.body,
+                                      fontSize: 10.5,
+                                      fontWeight: 700,
+                                      color: KatanaColors.text,
+                                    }}
+                                  >
+                                    Page {idx + 1}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Batch action bar when Select mode is active */}
                         {selectMode && (
@@ -4356,6 +4374,62 @@ export function MangaPage() {
                           <Icon name="bedtime" size={14} color={alertPrefs.quietHours ? KatanaColors.accent : KatanaColors.textMuted} />
                           <span>Quiet Hours</span>
                         </button>
+                        <button
+                          type="button"
+                          className="bare-button"
+                          aria-pressed={alertPrefs.skipCompleted !== false}
+                          onClick={() => {
+                            const next = { ...alertPrefs, skipCompleted: alertPrefs.skipCompleted === false };
+                            setAlertPrefs(next);
+                            saveKatanaAlertPrefs(userName, next);
+                            showSnackBar(next.skipCompleted ? 'Skipping completed & dropped series' : 'Checking all series including completed');
+                          }}
+                          style={{
+                            minHeight: 34,
+                            padding: '5px 11px',
+                            borderRadius: 99,
+                            background: alertPrefs.skipCompleted !== false ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                            border: `1px solid ${alertPrefs.skipCompleted !== false ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontFamily: Fonts.body,
+                            fontSize: 12,
+                            fontWeight: alertPrefs.skipCompleted !== false ? 700 : 500,
+                            color: alertPrefs.skipCompleted !== false ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                          }}
+                        >
+                          <Icon name="task_alt" size={14} color={alertPrefs.skipCompleted !== false ? KatanaColors.accent : KatanaColors.textMuted} />
+                          <span>Skip Completed</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="bare-button"
+                          aria-pressed={Boolean(alertPrefs.skipOnHold)}
+                          onClick={() => {
+                            const next = { ...alertPrefs, skipOnHold: !alertPrefs.skipOnHold };
+                            setAlertPrefs(next);
+                            saveKatanaAlertPrefs(userName, next);
+                            showSnackBar(next.skipOnHold ? 'Skipping on-hold series' : 'Including on-hold series in alerts');
+                          }}
+                          style={{
+                            minHeight: 34,
+                            padding: '5px 11px',
+                            borderRadius: 99,
+                            background: alertPrefs.skipOnHold ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                            border: `1px solid ${alertPrefs.skipOnHold ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontFamily: Fonts.body,
+                            fontSize: 12,
+                            fontWeight: alertPrefs.skipOnHold ? 700 : 500,
+                            color: alertPrefs.skipOnHold ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                          }}
+                        >
+                          <Icon name="pause_circle" size={14} color={alertPrefs.skipOnHold ? KatanaColors.accent : KatanaColors.textMuted} />
+                          <span>Skip On Hold</span>
+                        </button>
                       </div>
                     </div>
                   </KatanaCard>
@@ -4631,17 +4705,18 @@ export function MangaPage() {
                 )}
 
                 {/* Status buckets */}
+                <div style={{ position: 'relative', marginTop: 14 }}>
                 <div
+                  ref={shelfChipsRef}
                   className="no-scrollbar"
                   style={{
-                    marginTop: 14,
                     display: 'flex',
                     gap: 8,
                     overflowX: 'auto',
                     paddingBottom: 2,
-                    paddingRight: 28,
-                    maskImage: 'linear-gradient(to right, black 88%, transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to right, black 88%, transparent 100%)',
+                    paddingRight: 40,
+                    maskImage: 'linear-gradient(to right, black 84%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to right, black 84%, transparent 100%)',
                   }}
                 >
                   {(['all', 'reading', 'caught_up', 'downloaded', 'on_hold', 'completed', 'planned', 'dropped'] as const).map((bucket) => {
@@ -4677,6 +4752,31 @@ export function MangaPage() {
                       </button>
                     );
                   })}
+                </div>
+                {compactCard && (
+                  <button
+                    type="button"
+                    className="bare-button"
+                    aria-label="Scroll shelves right"
+                    onClick={() => shelfChipsRef.current?.scrollBy({ left: 160, behavior: 'smooth' })}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 32,
+                      height: 32,
+                      borderRadius: 99,
+                      background: KatanaColors.surface,
+                      border: `1px solid ${KatanaColors.borderStrong}`,
+                      display: 'grid',
+                      placeItems: 'center',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                    }}
+                  >
+                    <Icon name="chevron_right" size={18} color={KatanaColors.text} />
+                  </button>
+                )}
                 </div>
 
                 {/* Search & Sort */}
@@ -4775,10 +4875,10 @@ export function MangaPage() {
                           aria-pressed={active}
                           onClick={() => setLibraryLetter(active && ch !== 'all' ? 'all' : ch)}
                           style={{
-                            minWidth: 28,
-                            height: 28,
-                            padding: ch === 'all' ? '0 9px' : '0 6px',
-                            borderRadius: 7,
+                            minWidth: compactCard ? 40 : 34,
+                            height: compactCard ? 40 : 34,
+                            padding: ch === 'all' ? '0 10px' : '0 6px',
+                            borderRadius: 8,
                             flexShrink: 0,
                             background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
                             border: `1px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
@@ -5055,25 +5155,53 @@ export function MangaPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <KatanaSectionHeader
-                      title={tab === 'history' ? 'Reading History' : 'Currently Reading'}
-                      badge={String(tab === 'history' ? historyEntries.length : currentlyReading.length)}
+                      title={
+                        tab === 'history'
+                          ? historySubView === 'updates'
+                            ? 'Chapter Updates Inbox'
+                            : 'Reading History'
+                          : 'Currently Reading'
+                      }
+                      badge={String(
+                        tab === 'history'
+                          ? historySubView === 'updates'
+                            ? savedBookmarks.filter((b) => estimateUnreadCount(b) > 0).length
+                            : historyEntries.length
+                          : currentlyReading.length,
+                      )}
                     />
                     <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
                       {(
                         [
                           ['reading', 'Reading'],
                           ['history', 'History'],
+                          ['updates', `Updates (${savedBookmarks.filter((b) => estimateUnreadCount(b) > 0).length})`],
                         ] as const
                       ).map(([k, lbl]) => {
-                        const active = tab === k;
+                        const active =
+                          k === 'reading'
+                            ? tab === 'reading'
+                            : k === 'history'
+                              ? tab === 'history' && historySubView === 'history'
+                              : tab === 'history' && historySubView === 'updates';
                         return (
                           <button
                             key={k}
                             type="button"
                             className="bare-button"
-                            onClick={() => handleNav(k)}
+                            onClick={() => {
+                              if (k === 'reading') {
+                                handleNav('reading');
+                              } else if (k === 'history') {
+                                setHistorySubView('history');
+                                if (tab !== 'history') handleNav('history');
+                              } else {
+                                setHistorySubView('updates');
+                                if (tab !== 'history') handleNav('history');
+                              }
+                            }}
                             style={{
-                              minHeight: 32,
+                              minHeight: 34,
                               padding: '4px 12px',
                               borderRadius: 99,
                               background: active ? KatanaColors.accent : 'transparent',
@@ -5089,40 +5217,72 @@ export function MangaPage() {
                       })}
                     </div>
                   </div>
-                  {tab === 'history' && historyEntries.length > 0 ? (
-                    <KatanaButton
-                      label="Clear History"
-                      icon="delete_sweep"
-                      size="sm"
-                      filled={false}
-                      color={KatanaColors.textMuted}
-                      onClick={() =>
-                        void showDialog<void>((close) => (
-                          <AlertDialog
-                            background={KatanaColors.surface}
-                            title={<div style={KatanaType.title}>Clear Reading History</div>}
-                            content={<div style={KatanaType.small}>Remove all entries from your reading history? Your saved library bookmarks stay intact.</div>}
-                            actions={[
-                              <TextButton key="cancel" onPressed={() => close(null)} color={KatanaColors.textMuted}>
-                                Cancel
-                              </TextButton>,
-                              <TextButton
-                                key="clear"
-                                color="#FF453A"
-                                onPressed={() => {
-                                  close(null);
-                                  clearKatanaHistory(userName);
-                                  setHistoryEntries([]);
-                                  showSnackBar('Cleared reading history');
-                                }}
-                              >
-                                Clear History
-                              </TextButton>,
-                            ]}
-                          />
-                        ))
-                      }
-                    />
+                  {tab === 'history' && historySubView === 'history' ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="bare-button"
+                        aria-pressed={historyPaused}
+                        onClick={() => {
+                          const next = !historyPaused;
+                          setHistoryPaused(next);
+                          setKatanaHistoryPaused(userName, next);
+                          showSnackBar(next ? 'History paused (Incognito mode)' : 'History recording resumed');
+                        }}
+                        style={{
+                          minHeight: 34,
+                          padding: '5px 11px',
+                          borderRadius: 99,
+                          background: historyPaused ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                          border: `1px solid ${historyPaused ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          fontFamily: Fonts.body,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: historyPaused ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                        }}
+                      >
+                        <Icon name={historyPaused ? 'visibility_off' : 'history_toggle_off'} size={15} color={historyPaused ? KatanaColors.accent : KatanaColors.textMuted} />
+                        <span>{historyPaused ? 'History Paused' : 'Pause History'}</span>
+                      </button>
+                      {historyEntries.length > 0 && (
+                        <KatanaButton
+                          label="Clear History"
+                          icon="delete_sweep"
+                          size="sm"
+                          filled={false}
+                          color={KatanaColors.textMuted}
+                          onClick={() =>
+                            void showDialog<void>((close) => (
+                              <AlertDialog
+                                background={KatanaColors.surface}
+                                title={<div style={KatanaType.title}>Clear Reading History</div>}
+                                content={<div style={KatanaType.small}>Remove all entries from your reading history? Your saved library bookmarks stay intact.</div>}
+                                actions={[
+                                  <TextButton key="cancel" onPressed={() => close(null)} color={KatanaColors.textMuted}>
+                                    Cancel
+                                  </TextButton>,
+                                  <TextButton
+                                    key="clear"
+                                    color="#FF453A"
+                                    onPressed={() => {
+                                      close(null);
+                                      clearKatanaHistory(userName);
+                                      setHistoryEntries([]);
+                                      showSnackBar('Cleared reading history');
+                                    }}
+                                  >
+                                    Clear History
+                                  </TextButton>,
+                                ]}
+                              />
+                            ))
+                          }
+                        />
+                      )}
+                    </div>
                   ) : tab === 'reading' && isCoupleUser && partnerUsername ? (
                     <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
                       {[false, true].map((partner) => {
@@ -5152,7 +5312,64 @@ export function MangaPage() {
                   ) : null}
                 </div>
                 <div style={{ height: 14 }} />
-                {tab === 'history' ? (
+                {tab === 'history' && historySubView === 'updates' ? (
+                  (() => {
+                    const updatedSeries = savedBookmarks
+                      .filter((b) => estimateUnreadCount(b) > 0)
+                      .sort((a, b) => estimateUnreadCount(b) - estimateUnreadCount(a) || (b.lastReadAt?.getTime() ?? b.addedAt.getTime()) - (a.lastReadAt?.getTime() ?? a.addedAt.getTime()));
+                    if (updatedSeries.length === 0) {
+                      return (
+                        <KatanaEmptyState
+                          icon="notifications_none"
+                          title="You're all caught up"
+                          subtitle="New chapters for your followed series will appear here as soon as they drop."
+                          actionLabel="Browse Manga"
+                          actionIcon="home"
+                          onAction={() => handleNav('home')}
+                        />
+                      );
+                    }
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 10 }}>
+                        {updatedSeries.map((bm) => {
+                          const unread = estimateUnreadCount(bm);
+                          return (
+                            <KatanaCard key={bm.slug} padding={compactCard ? 9 : 11}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  onClick={() => openDetail(bm.slug)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
+                                >
+                                  <div style={{ position: 'relative', width: 46, height: 66, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                                    <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={18} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div className="ellipsis" style={{ ...KatanaType.title, fontSize: compactCard ? 13.5 : 14.5 }}>{bm.title}</div>
+                                    <div className="ellipsis" style={{ ...KatanaType.accent, fontSize: 12, marginTop: 2 }}>
+                                      {unread} new {unread === 1 ? 'chapter' : 'chapters'}
+                                      {bm.latestChapterTitle ? ` · ${bm.latestChapterTitle}` : ''}
+                                    </div>
+                                    <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 11, marginTop: 2 }}>
+                                      {bm.lastReadChapterTitle ? `Last read: ${bm.lastReadChapterTitle}` : 'Not started yet'}
+                                    </div>
+                                  </div>
+                                </button>
+                                <KatanaButton
+                                  label="Read"
+                                  icon="play_arrow"
+                                  size="sm"
+                                  onClick={() => void resumeBookmark(bm)}
+                                />
+                              </div>
+                            </KatanaCard>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                ) : tab === 'history' ? (
                   historyEntries.length === 0 ? (
                     <KatanaEmptyState
                       icon="history"

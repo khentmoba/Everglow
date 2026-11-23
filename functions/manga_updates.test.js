@@ -98,3 +98,82 @@ test('runMangaUpdateCheck respects quiet hours without losing unseen chapters', 
   assert.equal(pushed[0].payload.data.slug, 'frieren.456');
   assert.equal(writes.length, 1);
 });
+
+test('runMangaUpdateCheck skips completed/dropped/on-hold series and supports MangaDex md- slugs', async () => {
+  const pushed = [];
+  const fakeDb = {
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            alertPrefs: { frequency: 'instant', quietHours: false, skipCompleted: true, skipOnHold: true },
+          }),
+        }),
+        set: async () => {},
+      }),
+      where: function () {
+        return this;
+      },
+      get: async () => ({
+        docs: [
+          {
+            id: 'khentsgdz|completed.1',
+            data: () => ({
+              slug: 'completed.1',
+              title: 'Completed Series',
+              bookmarked: true,
+              readingStatus: 'completed',
+              lastNotifiedChapter: '10',
+            }),
+            ref: { set: async () => {} },
+          },
+          {
+            id: 'khentsgdz|onhold.2',
+            data: () => ({
+              slug: 'onhold.2',
+              title: 'Paused Series',
+              bookmarked: true,
+              readingStatus: 'on_hold',
+              lastNotifiedChapter: '10',
+            }),
+            ref: { set: async () => {} },
+          },
+          {
+            id: 'khentsgdz|md-abcdef12-3456-7890-abcd-ef1234567890',
+            data: () => ({
+              slug: 'md-abcdef12-3456-7890-abcd-ef1234567890',
+              title: 'MangaDex Series',
+              bookmarked: true,
+              readingStatus: 'reading',
+              lastNotifiedChapter: '41',
+            }),
+            ref: { set: async () => {} },
+          },
+        ],
+      }),
+    }),
+  };
+
+  const res = await runMangaUpdateCheck({
+    db: fakeDb,
+    sendPush: async (uid, payload) => {
+      pushed.push({ uid, payload });
+      return true;
+    },
+    fetchLatest: async () =>
+      new Map([
+        ['completed.1', { chapterId: 'c11', chapterNum: '11', num: 11 }],
+        ['onhold.2', { chapterId: 'c11', chapterNum: '11', num: 11 }],
+      ]),
+    fetchMangaDexLatest: async (slug) =>
+      slug === 'md-abcdef12-3456-7890-abcd-ef1234567890'
+        ? { chapterId: 'md-ch-42', chapterNum: '42', num: 42 }
+        : null,
+    now: new Date('2026-11-23T06:00:00Z'),
+  });
+
+  assert.equal(res.sentCount, 2);
+  assert.equal(pushed[0].payload.data.slug, 'md-abcdef12-3456-7890-abcd-ef1234567890');
+  assert.match(pushed[0].payload.body, /42/);
+});

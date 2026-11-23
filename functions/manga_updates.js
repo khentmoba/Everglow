@@ -6,6 +6,7 @@ const { sendFCMToUser } = require('./triggers.js');
 
 const COUPLE_USERS = ['khentsgdz', 'clairjassen'];
 const MANGA_HOME_URL = 'https://mangakatana.com/';
+const MANGADEX_API_BASE = 'https://api.mangadex.org';
 
 function isWithinQuietHours(hour, startHour, endHour) {
   if (startHour === endHour) return false;
@@ -92,14 +93,48 @@ async function fetchMangaHomeLatest(fetchFn = common.fetchPublicUrl) {
   return extractLatestChaptersFromHomeHtml(html);
 }
 
+async function fetchMangaDexLatestChapter(slug, fetchFn = common.fetchPublicUrl) {
+  if (!slug || !slug.startsWith('md-')) return null;
+  const uuid = slug.slice(3).trim();
+  if (!/^[0-9a-f-]{16,64}$/i.test(uuid)) return null;
+  const url = `${MANGADEX_API_BASE}/manga/${encodeURIComponent(uuid)}/feed?translatedLanguage[]=en&order[chapter]=desc&limit=1`;
+  try {
+    const upstream = await fetchFn(url, {
+      headers: {
+        'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.mangadex.org',
+    });
+    if (!upstream.ok) return null;
+    const text = await common.readLimitedText(upstream.body, 256 * 1024);
+    const json = JSON.parse(text);
+    const item = Array.isArray(json?.data) ? json.data[0] : null;
+    const chRaw = item?.attributes?.chapter;
+    if (!item?.id || chRaw == null || String(chRaw).trim() === '') return null;
+    const chapterNum = String(chRaw).trim();
+    const num = parseChapterNumber(chapterNum);
+    return {
+      chapterId: `md-${item.id}`,
+      chapterNum,
+      num: Number.isFinite(num) ? num : -1,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function runMangaUpdateCheck({
   db = common.getDb(),
   sendPush = sendFCMToUser,
   fetchLatest = fetchMangaHomeLatest,
+  fetchMangaDexLatest = fetchMangaDexLatestChapter,
   now = new Date(),
 } = {}) {
   const latestBySlug = await fetchLatest();
-  if (!latestBySlug || latestBySlug.size === 0) return { checkedUsers: 0, sentCount: 0 };
+  const hasKatanaMap = latestBySlug && latestBySlug.size > 0;
 
   const { hour, dayKey } = manilaHourAndDay(now);
   let sentCount = 0;
@@ -120,6 +155,9 @@ async function runMangaUpdateCheck({
       : 'instant';
     if (mode === 'daily_digest' && prefs.lastPushDigestDay === dayKey) continue;
 
+    const skipCompleted = prefs.alertPrefs?.skipCompleted !== false;
+    const skipOnHold = Boolean(prefs.alertPrefs?.skipOnHold);
+
     const snap = await db
       .collection('katana_bookmarks')
       .where('userName', '==', uid)
@@ -127,13 +165,27 @@ async function runMangaUpdateCheck({
       .get();
 
     const freshUpdates = [];
+    let mdLookups = 0;
     for (const docSnap of snap.docs) {
       if (docSnap.id.endsWith('|__prefs__')) continue;
       const data = docSnap.data() || {};
       if (data.notifyOnUpdate === false) continue;
+      const readingStatus = typeof data.libraryStatus === 'string'
+        ? data.libraryStatus
+        : typeof data.readingStatus === 'string'
+          ? data.readingStatus
+          : '';
+      if (skipCompleted && (readingStatus === 'completed' || readingStatus === 'dropped')) continue;
+      if (skipOnHold && readingStatus === 'on_hold') continue;
+
       const slug = typeof data.slug === 'string' ? data.slug.trim() : '';
       if (!slug) continue;
-      const latest = latestBySlug.get(slug);
+
+      let latest = hasKatanaMap ? latestBySlug.get(slug) : null;
+      if (!latest && slug.startsWith('md-') && mdLookups < 12) {
+        mdLookups += 1;
+        latest = await fetchMangaDexLatest(slug);
+      }
       if (!latest) continue;
 
       const prevNotified = parseChapterNumber(data.lastNotifiedChapter || data.latestChapterNum || '');
