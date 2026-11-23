@@ -488,7 +488,7 @@ test('the Worker answers format=json with the resolved stream for the watch part
   try {
     globalThis.fetch = async (url) => {
       const u = String(url);
-      if (u.startsWith('https://fmov.my/api/stream/movie/603')) {
+      if (u.startsWith('https://fmov.my/api/stream/movie/603?source=core')) {
         return {
           ok: true, status: 200,
           json: async () => ({
@@ -498,6 +498,7 @@ test('the Worker answers format=json with the resolved stream for the watch part
           }),
         };
       }
+      if (u.startsWith('https://fmov.my/api/stream/')) return { ok: false, status: 404 };
       if (u.includes('index.m3u8')) {
         return { ok: true, status: 200, text: async () => `#EXTM3U\n#EXTINF:200,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n` };
       }
@@ -524,7 +525,7 @@ test('the Worker answers format=json with the resolved stream for the watch part
       body.servers.map((s) => s.label),
       ['Reel', 'Matinee', 'Marquee', 'Encore', 'Premiere'],
     );
-    assert.equal(body.current, 'cine-1');
+    assert.equal(body.current, 'cine-3', 'only the fmov core row was allowed to answer');
     assert.ok(body.servers.every((s) => s.url.includes('format=json')));
   } finally {
     globalThis.fetch = realFetch;
@@ -550,7 +551,7 @@ test('a picker pick resolves only that row, and reports which row is playing', a
     globalThis.fetch = async (url) => {
       const u = String(url);
       seen.push(u);
-      if (u.startsWith('https://fmov.my/api/stream/movie/603')) {
+      if (u.startsWith('https://fmov.my/api/stream/movie/603?source=core')) {
         return {
           ok: true,
           status: 200,
@@ -560,6 +561,7 @@ test('a picker pick resolves only that row, and reports which row is playing', a
           }),
         };
       }
+      if (u.startsWith('https://fmov.my/api/stream/')) return { ok: false, status: 404 };
       if (u.includes('index.m3u8')) {
         return { ok: true, status: 200, text: async () => `#EXTM3U
 #EXTINF:200,
@@ -570,9 +572,9 @@ test('a picker pick resolves only that row, and reports which row is playing', a
       return segOk;
     };
     const out = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY, {
-      server: 'cine-2',
+      server: 'cine-3',
     });
-    assert.equal(out.server, 'cine-2', 'the row she tapped is the row reported back');
+    assert.equal(out.server, 'cine-3', 'the row she tapped is the row reported back');
     assert.deepEqual(
       out.servers.map((s) => s.label),
       ['Reel', 'Matinee', 'Marquee', 'Encore', 'Premiere'],
@@ -597,10 +599,10 @@ test('validateAnimeParams accepts a cinema picker row and refuses anything else'
     tmdbId: '1399',
     s: '1',
     e: '2',
-    server: 'cine-5',
+    server: 'cine-4',
   });
   assert.equal(ok.error, undefined);
-  assert.equal(ok.server, 'cine-5');
+  assert.equal(ok.server, 'cine-4');
   assert.equal(ok.ep, 2);
   assert.equal(validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: '603' }).server, '');
   assert.match(

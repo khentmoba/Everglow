@@ -65,6 +65,19 @@ async function startDistServer() {
   return { server, baseUrl: `http://127.0.0.1:${server.address().port}` };
 }
 
+/** Tap one row in an already-open Switch Provider sheet (rows read "Name desc"). */
+async function pickFromSheet(page, name) {
+  await page.getByRole('button', { name: new RegExp(`^${name} `) }).first().click();
+  await page.waitForSelector('text=Switch Provider', { state: 'detached', timeout: 5_000 });
+}
+
+/** Open the Switch Provider sheet and tap one row by its name. */
+async function pickProvider(page, name) {
+  await page.getByText('Provider:').click();
+  await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
+  await pickFromSheet(page, name);
+}
+
 test('resolveEverglowPlayerKey maps media keys, accepts expanded shortcuts, and filters non-player keys', () => {
   assert.equal(resolveEverglowPlayerKey('MediaPlayPause'), ' ');
   assert.equal(resolveEverglowPlayerKey('MediaFastForward'), 'l');
@@ -120,7 +133,10 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
     await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
     const defaultBtns = page.locator('button[aria-label="Set as default source"]');
     assert.ok((await defaultBtns.count()) >= 1, 'Switch Provider sheet must render native default-source buttons');
-    await page.getByText('No ads — Everglow player').click();
+    // Everglow is the first row and the default; switching must work both ways and
+    // end on Everglow, which is the player the bridge assertions below drive.
+    await pickFromSheet(page, 'Celestia');
+    await pickProvider(page, 'Everglow');
 
     // Scroll back to top so key forwarder is active, wait for Everglow iframe, then verify bridges.
     await page.waitForFunction(
@@ -314,6 +330,10 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
 
     await page.waitForSelector('text=Provider:', { timeout: 10_000 });
 
+    // Everglow's own player draws its theater chrome, so pick Celestia first: this
+    // test covers the app-owned server switcher.
+    await pickProvider(page, 'Celestia');
+
     const layout = await page.evaluate(() => {
       const iframe = document.querySelector('iframe');
       const provCard = [...document.querySelectorAll('[role="button"]')].find((el) =>
@@ -357,7 +377,7 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
     await switchInTheater.waitFor({ state: 'visible', timeout: 5_000 });
     await switchInTheater.click();
     await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
-    await page.getByText('No ads — Everglow player').click();
+    await pickFromSheet(page, 'Everglow');
     await page.waitForFunction(
       () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),
       null,
@@ -412,6 +432,9 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
     await page.goto(`${baseUrl}/cinema/video/900000?type=movie&title=Moonlit%20Cinema&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
+    // The wrapper shell is the server that reports duration, so start on Celestia.
+    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await pickProvider(page, 'Celestia');
     await page.waitForSelector('text=may be the wrong movie', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Try Everglow' }).click();
     await page.waitForFunction(
@@ -426,6 +449,8 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
     await page.goto(`${baseUrl}/cinema/video/900001?type=movie&title=The%20Lantern%20Trail&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
+    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await pickProvider(page, 'Celestia');
     await page.waitForFunction(
       () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),
       null,

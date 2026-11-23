@@ -34,12 +34,16 @@ const MEGAPLAY_HOSTS = new Set([
 
 const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt']);
 
+// Ordered by measured reliability from Cloudflare's edge (the network the Worker
+// actually uses), best first. Row 1 is what the player opens on. Measured on a
+// fixed sweep of 6 titles (4 movies, 2 TV) run through wrangler dev --remote:
+// the count is verified, playable streams and the time is the median.
 const CINEMA_SERVERS = [
-  { id: 'cine-1', label: 'Reel', provider: 'fmov', key: 'valence' },
-  { id: 'cine-2', label: 'Matinee', provider: 'fmov', key: 'vector' },
-  { id: 'cine-3', label: 'Marquee', provider: 'fmov', key: 'core' },
-  { id: 'cine-4', label: 'Encore', provider: 'fmov', key: 'titan' },
-  { id: 'cine-5', label: 'Premiere', provider: 'vidbolt', key: '' },
+  { id: 'cine-1', label: 'Reel', provider: 'fmov', key: 'apex' }, // 6/6 · 7.6s
+  { id: 'cine-2', label: 'Matinee', provider: 'fmov', key: 'orion' }, // 6/6 · 10.8s
+  { id: 'cine-3', label: 'Marquee', provider: 'fmov', key: 'core' }, // 5/6 · 9.7s
+  { id: 'cine-4', label: 'Encore', provider: 'fmov', key: 'valence' }, // 4/6 · 9.3s
+  { id: 'cine-5', label: 'Premiere', provider: 'vidbolt', key: '' }, // 0/6 · 403 from edge
 ];
 
 const CINEMA_SERVER_IDS = new Set(CINEMA_SERVERS.map((s) => s.id));
@@ -48,8 +52,12 @@ const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
 const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
 
-const CINEMA_BUDGET_MS = 10000;
-const CINEMA_PICK_BUDGET_MS = 15000;
+// The listed lanes answer in 7-13s from the edge, so the budget has to sit above
+// the slowest of them or the automatic pick times out on a title that would play.
+// It must stay under the app's 15s iframe load timer (LOAD_TIMEOUT in
+// VideoPlayerPage), which fails over to the next provider at 15s.
+const CINEMA_BUDGET_MS = 14500;
+const CINEMA_PICK_BUDGET_MS = 14500;
 const CINEMA_PICK_PLAYLIST_MS = 12000;
 const YUME_BUDGET_MS = 12000;
 const EVERGLOW_BUDGET_MS = 12000;
@@ -1158,11 +1166,10 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
   };
 }
 
-function fmovSourceOrder(isTv) {
-  return isTv
-    ? ['vector', 'core', 'titan', 'valence']
-    : ['valence', 'vector', 'core', 'titan'];
-}
+// Reliability ranking for the automatic pick. resolveCinema races these and takes
+// the first that verifies, so the fast rows win on their own; the order is the
+// fallback queue once the top ones have missed.
+const CINEMA_SOURCE_ORDER = ['apex', 'orion', 'core', 'valence', 'vidbolt'];
 
 function cinemaServer(id) {
   return CINEMA_SERVERS.find((s) => s.id === id) || null;
@@ -1203,7 +1210,7 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   const verifyOpts = picked ? { playlistMs: CINEMA_PICK_PLAYLIST_MS } : undefined;
   const remaining = picked
     ? [picked.provider === 'fmov' ? picked.key : picked.provider]
-    : [...fmovSourceOrder(isTv), 'vidbolt'];
+    : [...CINEMA_SOURCE_ORDER];
   let timer;
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error('cinema: timed out')), budgetMs);
@@ -1396,7 +1403,7 @@ export {
   cinemaServer,
   cinemaServerId,
   cinemaServerLinks,
-  fmovSourceOrder,
+  CINEMA_SOURCE_ORDER,
   sealTarget,
   openSeal,
   sealedUrl,
