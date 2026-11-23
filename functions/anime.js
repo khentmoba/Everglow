@@ -94,7 +94,7 @@ async function verifyToken(req) {
   const token = fromHeader || String(req.query.token || '').trim();
   if (!token) return null;
   try {
-    const decoded = await getAdmin().auth().verifyIdToken(token);
+    const decoded = await getAdmin().auth().verifyIdToken(token, true);
     return await getVerifiedUsername(decoded) ? decoded : null;
   } catch (e) {
     console.warn('[proxyAnime] token verify failed:', e.message);

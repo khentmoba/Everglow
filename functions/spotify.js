@@ -19,21 +19,31 @@ function _getSpotifyCreds() {
   return { id, secret };
 }
 let _spotifyTokenCache = null;
+let _spotifyTokenInFlight = null;
 async function _getSpotifyAppToken() {
   const { id, secret } = _getSpotifyCreds();
   if (!id || !secret) return null;
   if (_spotifyTokenCache && Date.now() < _spotifyTokenCache.expiresAt - 60000) return _spotifyTokenCache.token;
+  if (_spotifyTokenInFlight) return _spotifyTokenInFlight;
   const basic = Buffer.from(id + ':' + secret).toString('base64');
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Authorization': 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=client_credentials',
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) { console.warn('[spotify] token error', res.status, await res.text().catch(()=>'')); return null; }
-  const data = await res.json();
-  _spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in * 1000) };
-  return data.access_token;
+  const task = (async () => {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Authorization': 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials',
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) { console.warn('[spotify] token error', res.status, await res.text().catch(() => '')); return null; }
+    const data = await res.json();
+    _spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in * 1000) };
+    return data.access_token;
+  })();
+  _spotifyTokenInFlight = task;
+  try {
+    return await task;
+  } finally {
+    if (_spotifyTokenInFlight === task) _spotifyTokenInFlight = null;
+  }
 }
 
 const ALLOWED_SPOTIFY_REDIRECT_ORIGINS = new Set([
@@ -55,6 +65,8 @@ function isAllowedSpotifyRedirectUri(raw) {
 
 const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'Only GET' }); return; }
   const decoded = await requireAuth(req, res);
@@ -128,6 +140,8 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
 
 const spotifyExchange = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
@@ -182,6 +196,8 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
 
 const spotifyRefresh = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
@@ -251,6 +267,8 @@ function _mapSpotifyRecentItems(items) {
 
 const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);

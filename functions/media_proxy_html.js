@@ -22,7 +22,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
-      await getAdmin().auth().verifyIdToken(idToken);
+      await getAdmin().auth().verifyIdToken(idToken, true);
     } catch (e) {
       res.status(401).json({ error: 'Invalid or expired auth token' });
       return;

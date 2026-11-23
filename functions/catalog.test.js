@@ -61,3 +61,54 @@ test('index re-exports the catalog group without renaming', () => {
   assert.equal(indexExports.proxyTmdb, catalog.proxyTmdb);
   assert.equal(indexExports.proxyLastfm, catalog.proxyLastfm);
 });
+
+test('proxyTmdb deduplicates concurrent cache misses and sets security headers', async (t) => {
+  const previousKey = process.env.TMDB_API_KEY;
+  process.env.TMDB_API_KEY = 'fake-tmdb-key';
+  t.after(() => {
+    if (previousKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousKey;
+  });
+  const admin = require('./common').getAdmin();
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'clair-uid', username: 'clairjassen', firebase: { sign_in_provider: 'custom' },
+  }));
+  let release;
+  const fetchMock = t.mock.method(globalThis, 'fetch', () => new Promise((resolve) => {
+    release = () => resolve(new Response(JSON.stringify({ results: [{ id: 1 }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }));
+  }));
+
+  const makeRes = () => {
+    const headers = {};
+    return {
+      headers,
+      set(k, v) { headers[k.toLowerCase()] = v; return this; },
+      status(code) { this.code = code; return this; },
+      send(body) { this.body = body; return this; },
+      json(body) { this.body = body; return this; },
+    };
+  };
+  const req = {
+    method: 'GET',
+    path: '/movie/singleflight-test',
+    query: {},
+    headers: {},
+    get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer fake-token' : ''),
+  };
+  const res1 = makeRes();
+  const res2 = makeRes();
+  const p1 = catalog.proxyTmdb(req, res1);
+  const p2 = catalog.proxyTmdb(req, res2);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(fetchMock.mock.callCount(), 1);
+  release();
+  await Promise.all([p1, p2]);
+  assert.equal(res1.code, 200);
+  assert.equal(res2.code, 200);
+  assert.equal(res1.headers['x-content-type-options'], 'nosniff');
+  assert.equal(res1.headers['content-security-policy'], "default-src 'none'; sandbox");
+  assert.equal(res2.headers['x-content-type-options'], 'nosniff');
+});

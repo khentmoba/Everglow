@@ -365,23 +365,58 @@ function mapAniListMedia(m: Record<string, unknown>, japaneseTitle = false): { i
 const pageCache = new Map<string, { at: number; data: AnimexMediaPage }>();
 const detailCache = new Map<number, { at: number; data: AniListDetail }>();
 const scheduleCache = new Map<number, { at: number; data: AnimexScheduleEntry[] }>();
+const aniListInFlight = new Map<string, Promise<Record<string, unknown> | null>>();
 const CACHE_TTL = 10 * 60 * 1000;
+const PAGE_CACHE_MAX = 60;
+const DETAIL_CACHE_MAX = 40;
+const SCHEDULE_CACHE_MAX = 14;
+
+function setBoundedCache<K, V>(cache: Map<K, V>, key: K, value: V, maxSize: number) {
+  cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > maxSize) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    pageCache.clear();
+    detailCache.clear();
+    scheduleCache.clear();
+  });
+}
 
 async function postAniList(queryStr: string, variables: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const body = JSON.stringify({ query: queryStr, variables });
+  const pending = aniListInFlight.get(body);
+  if (pending) return pending;
+
+  const task = (async (): Promise<Record<string, unknown> | null> => {
+    try {
+      const resp = await fetch(ANILIST_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!resp.ok) return null;
+      const json = (await resp.json()) as { data?: Record<string, unknown>; errors?: unknown };
+      if (json.errors) return null;
+      return json.data ?? null;
+    } catch (e) {
+      Logger.w(`AniList request failed: ${String(e)}`);
+      return null;
+    }
+  })();
+
+  aniListInFlight.set(body, task);
   try {
-    const resp = await fetch(ANILIST_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query: queryStr, variables }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!resp.ok) return null;
-    const json = (await resp.json()) as { data?: Record<string, unknown>; errors?: unknown };
-    if (json.errors) return null;
-    return json.data ?? null;
-  } catch (e) {
-    Logger.w(`AniList request failed: ${String(e)}`);
-    return null;
+    return await task;
+  } finally {
+    if (aniListInFlight.get(body) === task) aniListInFlight.delete(body);
   }
 }
 
@@ -517,7 +552,7 @@ export async function fetchAnimexPage(opts: {
     lastPage: typeof pageInfo.lastPage === 'number' ? pageInfo.lastPage : undefined,
     hasNextPage: pageInfo.hasNextPage === true,
   };
-  pageCache.set(key, { at: Date.now(), data: result });
+  setBoundedCache(pageCache, key, { at: Date.now(), data: result }, PAGE_CACHE_MAX);
   return result;
 }
 
@@ -659,7 +694,7 @@ export async function fetchAniListDetails(opts: { anilistId?: number; malId?: nu
     nextAiringAt: typeof nextAiring?.airingAt === 'number' ? nextAiring.airingAt : undefined,
     nextAiringEpisode: typeof nextAiring?.episode === 'number' ? nextAiring.episode : undefined,
   };
-  detailCache.set(key, { at: Date.now(), data: detail });
+  setBoundedCache(detailCache, key, { at: Date.now(), data: detail }, DETAIL_CACHE_MAX);
   return detail;
 }
 
@@ -694,7 +729,7 @@ export async function fetchAiringSchedule(weekday: number): Promise<AnimexSchedu
     });
   }
   entries.sort((a, b) => a.airingAt.getTime() - b.airingAt.getTime());
-  scheduleCache.set(weekday, { at: Date.now(), data: entries });
+  setBoundedCache(scheduleCache, weekday, { at: Date.now(), data: entries }, SCHEDULE_CACHE_MAX);
   return entries;
 }
 
