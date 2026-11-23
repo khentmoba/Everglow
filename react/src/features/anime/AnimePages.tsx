@@ -510,7 +510,7 @@ export function AnimeXBrowsePage({
         Explore anime
       </div>
 
-      <div className="no-scrollbar" style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 10, marginTop: 16, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 16 }}>
         <BrowseSelect
           value={sort}
           options={SORT_OPTIONS}
