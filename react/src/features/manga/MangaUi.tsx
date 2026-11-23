@@ -4,7 +4,7 @@ import { reduceAmbientMotion } from '../../core/system/device';
 import { useViewport } from '../../core/system/viewport';
 import { withAlpha } from '../../core/theme/colors';
 import { Align, boxShadow, linear, lineHeight } from '../../core/theme/paint';
-import { Fonts } from '../../core/theme/typography';
+import { KatanaFonts as Fonts } from './katanaTokens';
 import { Icon } from '../../shared/widgets/Icon';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
 import {
@@ -670,7 +670,7 @@ export function KatanaHeader({
       >
         <Icon name="auto_stories" size={narrow ? 17 : 19} color={KatanaColors.accentInk} />
       </div>
-      <span style={{ fontFamily: Fonts.display, fontWeight: 700, fontSize: logoFont + 3, letterSpacing: 0.2, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
+      <span style={{ fontFamily: Fonts.display, fontWeight: 400, fontSize: logoFont + 6, letterSpacing: 1.2, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
         Manga<span style={{ color: KatanaColors.accent }}>Celestia</span>
       </span>
     </button>
@@ -1495,7 +1495,7 @@ export function KatanaCoverImage({
             display: 'grid',
             placeItems: 'center',
             fontFamily: Fonts.display,
-            fontWeight: 800,
+            fontWeight: 400,
             fontSize: Math.max(12, Math.round(iconSize * 0.45)),
             color: palette.accent,
           }}
@@ -1507,7 +1507,7 @@ export function KatanaCoverImage({
             className="clamp-3"
             style={{
               position: 'relative',
-              fontFamily: Fonts.display,
+              fontFamily: Fonts.heading,
               fontWeight: 800,
               fontSize: iconSize >= 30 ? 12.5 : 10.5,
               lineHeight: 1.2,

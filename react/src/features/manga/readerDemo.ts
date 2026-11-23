@@ -49,5 +49,6 @@ export function createDemoMangaReaderParams(): MangaReaderParams {
     mangaStatus: 'ongoing',
     finalChapterId: 'c43',
     readChapterIds: ['c40', 'c41'],
+    seriesFormat: 'webtoon',
   };
 }

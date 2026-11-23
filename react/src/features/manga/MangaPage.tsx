@@ -5,7 +5,7 @@ import { displayNameFor, useAuth } from '../../core/services/auth';
 import { formattedSize, OfflineIds, offlineMedia, useOfflineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
 import { withAlpha } from '../../core/theme/colors';
-import { Fonts } from '../../core/theme/typography';
+import { KatanaFonts as Fonts } from './katanaTokens';
 import { useSource } from '../../core/utils/liveSource';
 import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
@@ -14,6 +14,7 @@ import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import { MangaHome, type MangaType } from './MangaHome';
 import { MangaReaderView, type MangaReaderParams } from './MangaReaderPage';
 import { saveSeriesChapterFilter } from './readerSettings';
+import { inferSeriesReadingFormat } from './readerSpread';
 import {
   KatanaBottomBar,
   KatanaBreadcrumb,
@@ -360,6 +361,7 @@ export function MangaPage() {
   }, [location.key, navigate, preservedQuery]);
 
   const [readerParams, setReaderParams] = useState<MangaReaderParams | null>(null);
+  const [detailRetryTick, setDetailRetryTick] = useState(0);
   const [showPartnerReading, setShowPartnerReading] = useState(false);
   const [resumingSlug, setResumingSlug] = useState<string | null>(null);
 
@@ -1036,19 +1038,21 @@ export function MangaPage() {
     setSelectMode(false);
     setSelectedChapterIds(new Set());
     setDetailOverflowOpen(false);
-    fetchKatanaDetail(detailSlug).then((d) => {
-      if (!alive) return;
-      setDetail(d);
-      setDetailLoading(false);
-      const latestId = d?.latestChapter?.id || d?.chapters?.[0]?.id;
-      if (userName && d?.slug && latestId) {
-        markKatanaAlertSeen(userName, d.slug, latestId);
-      }
-    });
+    fetchKatanaDetail(detailSlug)
+      .catch(() => null)
+      .then((d) => {
+        if (!alive) return;
+        setDetail(d);
+        setDetailLoading(false);
+        const latestId = d?.latestChapter?.id || d?.chapters?.[0]?.id;
+        if (userName && d?.slug && latestId) {
+          markKatanaAlertSeen(userName, d.slug, latestId);
+        }
+      });
     return () => {
       alive = false;
     };
-  }, [detailSlug]);
+  }, [detailSlug, detailRetryTick]);
 
   const desktop = width >= KATANA_BREAKPOINTS.desktop;
   const tablet = width >= KATANA_BREAKPOINTS.tablet;
@@ -1350,6 +1354,7 @@ export function MangaPage() {
         mangaStatus: manga.status,
         finalChapterId: manga.chapters[0]?.id ?? manga.latestChapter?.id,
         readChapterIds: bm?.readChapterIds,
+        seriesFormat: inferSeriesReadingFormat(manga.genres.map((g) => g.name), manga.title, manga.demographic),
       });
       const targetUrl = `/manga/series/${encodeURIComponent(manga.slug)}/${encodeURIComponent(chapterId)}${preservedQuery}`;
       if (`${location.pathname}${location.search}` !== targetUrl) {
@@ -1388,6 +1393,7 @@ export function MangaPage() {
         mangaStatus: detail.status,
         finalChapterId: detail.chapters[0]?.id ?? detail.latestChapter?.id,
         readChapterIds: bm?.readChapterIds,
+        seriesFormat: inferSeriesReadingFormat(detail.genres.map((g) => g.name), detail.title, detail.demographic),
       };
     });
   }, [activeRouteChapterId, detail, detailSlug]);
@@ -2355,14 +2361,19 @@ export function MangaPage() {
               detailLoading ? (
                 <KatanaSkeletonList count={3} />
               ) : !detail ? (
+                <>
                 <KatanaEmptyState
                   icon="error_outline"
                   title="Could not load this title"
-                  subtitle="The manga details could not be reached right now."
-                  actionLabel="Back to Home"
-                  actionIcon="arrow_back"
-                  onAction={closeDetail}
+                  subtitle="MangaKatana and the MangaDex backup are both unreachable right now. Check your connection and try again."
+                  actionLabel="Try again"
+                  actionIcon="refresh"
+                  onAction={() => setDetailRetryTick((n) => n + 1)}
                 />
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+                  <KatanaButton label="Back to Home" icon="arrow_back" size="sm" filled={false} color={KatanaColors.textMuted} onClick={closeDetail} />
+                </div>
+                </>
               ) : (
                 (() => {
                   const detailBm = bookmarks.find((b) => b.slug === detail.slug);
@@ -3357,7 +3368,7 @@ export function MangaPage() {
                                   <span style={{ ...KatanaType.title, fontSize: 14.5 }}>Personal Tracker & External IDs</span>
                                 </div>
                                 <span style={{ ...KatanaType.small, fontSize: 11.5 }}>
-                                  Synced across your Everglow devices · Live MAL lookup is read-only (no third-party login required).
+                                  Saved across your Everglow devices · Links and public scores only — your progress stays here and is not sent to AniList, MAL or Kitsu.
                                 </span>
                               </div>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -3425,8 +3436,8 @@ export function MangaPage() {
                                 <input
                                   value={trackerAnilistDraft}
                                   onChange={(e) => setTrackerAnilistDraft(e.target.value)}
-                                  placeholder="AniList ID — link-only (e.g. 105398)"
-                                  aria-label="AniList ID (link-only)"
+                                  placeholder="AniList ID or link (e.g. 105398)"
+                                  aria-label="AniList ID or link"
                                   style={{
                                     flex: 1,
                                     minWidth: 0,
@@ -3536,7 +3547,7 @@ export function MangaPage() {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Syncing…' : detailBm?.anilistId ? 'Sync AniList' : 'Match AniList'}
+                                  label={trackerSyncing ? 'Checking…' : detailBm?.anilistId ? 'Refresh AniList' : 'Find on AniList'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -3545,7 +3556,7 @@ export function MangaPage() {
                                   onClick={() => void syncSeriesWithAniList(detail, extractTrackerId(trackerAnilistDraft, 'anilist') || detailBm?.anilistId)}
                                 />
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Syncing…' : detailBm?.malId ? 'Sync MAL' : 'Match MAL'}
+                                  label={trackerSyncing ? 'Checking…' : detailBm?.malId ? 'Refresh MAL' : 'Find on MAL'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -3554,7 +3565,7 @@ export function MangaPage() {
                                   onClick={() => void syncSeriesWithMal(detail, extractTrackerId(trackerMalDraft, 'mal') || detailBm?.malId)}
                                 />
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Syncing…' : detailBm?.kitsuId ? 'Sync Kitsu' : 'Match Kitsu'}
+                                  label={trackerSyncing ? 'Checking…' : detailBm?.kitsuId ? 'Refresh Kitsu' : 'Find on Kitsu'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -5532,7 +5543,7 @@ export function MangaPage() {
                         ].map((m) => (
                           <div key={m.label} style={{ padding: '8px 10px', borderRadius: 9, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
                             <div style={{ ...KatanaType.small, fontSize: 11 }}>{m.label}</div>
-                            <div style={{ fontFamily: Fonts.display, fontSize: 18, fontWeight: 800, color: m.color, marginTop: 2 }}>{m.value}</div>
+                            <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 400, letterSpacing: 0.6, color: m.color, marginTop: 2 }}>{m.value}</div>
                           </div>
                         ))}
                       </div>
@@ -7306,6 +7317,36 @@ function KatanaDownloadsView({
   const [dlSelectMode, setDlSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [quotaInfo, setQuotaInfo] = useState<{ usage: number; quota: number } | null>(null);
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    navigator.storage?.persisted?.()
+      .then((v) => {
+        if (active) setPersisted(v);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const keepOffline = () => {
+    if (!navigator.storage?.persist) return;
+    navigator.storage
+      .persist()
+      .then((ok) => {
+        setPersisted(ok);
+        showSnackBar(ok ? 'Offline chapters are protected from cleanup' : 'This browser may still clear them when space runs low');
+      })
+      .catch(() => showSnackBar('Could not change storage protection'));
+  };
+
+  const seriesBytes = (chapters: OfflineMediaItem[]) => {
+    const bytes = chapters.reduce((sum, c) => sum + (c.downloadedBytes > 0 ? c.downloadedBytes : c.totalBytes || 0), 0);
+    if (bytes <= 0) return '';
+    return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  };
 
   useEffect(() => {
     let active = true;
@@ -7804,6 +7845,27 @@ function KatanaDownloadsView({
             <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
               Pending downloads save automatically and resume next time you open Manga Celestia.
             </div>
+            {persisted === false && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: withAlpha(KatanaColors.accent, 0.08),
+                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.3)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}
+              >
+                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, flex: '1 1 220px' }}>
+                  Your browser may remove offline chapters when the device runs low on space.
+                </span>
+                <KatanaButton label="Keep them" icon="shield" size="sm" filled={false} color={KatanaColors.accentSoft} onClick={keepOffline} />
+              </div>
+            )}
           </KatanaCard>
 
           {dlSelectMode && (
@@ -7863,6 +7925,7 @@ function KatanaDownloadsView({
                         <div className="ellipsis" style={KatanaType.title}>{head.title}</div>
                         <div style={KatanaType.small}>
                           {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'} offline
+                          {seriesBytes(chapters) ? ` · ${seriesBytes(chapters)}` : ''}
                         </div>
                       </div>
                     </div>

@@ -1,6 +1,20 @@
 import type { CSSProperties } from 'react';
 import { lineHeight } from '../../core/theme/paint';
-import { Fonts } from '../../core/theme/typography';
+
+/** Dedicated typography for Manga Celestia (distinct from Everglow's Cormorant Garamond + Outfit couple theme). */
+export const KatanaFonts = {
+  display: "'Bebas Neue', 'DM Sans', 'Everglow Emoji', 'Everglow Symbols', sans-serif",
+  heading: "'DM Sans', 'Everglow Emoji', 'Everglow Symbols', sans-serif",
+  body: "'DM Sans', 'Everglow Emoji', 'Everglow Symbols', sans-serif",
+} as const;
+
+/** Shared base palette hex values used by both the Manga Celestia shell and the reader canvas. */
+export const KATANA_BASE_PALETTES = {
+  dark: { bg: '#0B0D12', surface: '#13161F', fg: '#F3F5F9' },
+  oled: { bg: '#000000', surface: '#090B0F', fg: '#F6F8FC' },
+  light: { bg: '#F5F7FA', surface: '#FFFFFF', fg: '#111827' },
+  sepia: { bg: '#F4EDE1', surface: '#FBF7EF', fg: '#2A2118' },
+} as const;
 
 export const KATANA_BREAKPOINTS = {
   tablet: 720,
@@ -38,13 +52,13 @@ export function getKatanaGridColumns(width: number, compact = false): number {
 
 export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> = {
   dark: {
-    '--katana-bg': '#0B0D12',
-    '--katana-surface': '#13161F',
+    '--katana-bg': KATANA_BASE_PALETTES.dark.bg,
+    '--katana-surface': KATANA_BASE_PALETTES.dark.surface,
     '--katana-surface-alt': '#1B202C',
     '--katana-surface-glow': '#232A3A',
     '--katana-border': '#262C3B',
     '--katana-border-strong': '#384259',
-    '--katana-text': '#F3F5F9',
+    '--katana-text': KATANA_BASE_PALETTES.dark.fg,
     '--katana-text-muted': '#A8B3C7',
     '--katana-text-light': '#9AA6BE',
     '--katana-accent': '#F59E0B',
@@ -63,13 +77,13 @@ export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> 
     '--katana-switch-off': '#272E3F',
   },
   oled: {
-    '--katana-bg': '#000000',
-    '--katana-surface': '#090B0F',
+    '--katana-bg': KATANA_BASE_PALETTES.oled.bg,
+    '--katana-surface': KATANA_BASE_PALETTES.oled.surface,
     '--katana-surface-alt': '#12151C',
     '--katana-surface-glow': '#1A1F2A',
     '--katana-border': '#1E2430',
     '--katana-border-strong': '#303A4D',
-    '--katana-text': '#F6F8FC',
+    '--katana-text': KATANA_BASE_PALETTES.oled.fg,
     '--katana-text-muted': '#A6B1C4',
     '--katana-text-light': '#92A0B8',
     '--katana-accent': '#F59E0B',
@@ -88,13 +102,13 @@ export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> 
     '--katana-switch-off': '#1F2533',
   },
   light: {
-    '--katana-bg': '#F5F7FA',
-    '--katana-surface': '#FFFFFF',
+    '--katana-bg': KATANA_BASE_PALETTES.light.bg,
+    '--katana-surface': KATANA_BASE_PALETTES.light.surface,
     '--katana-surface-alt': '#EDF0F6',
     '--katana-surface-glow': '#E2E7F0',
     '--katana-border': '#D5DCE8',
     '--katana-border-strong': '#B4C0D4',
-    '--katana-text': '#111827',
+    '--katana-text': KATANA_BASE_PALETTES.light.fg,
     '--katana-text-muted': '#475569',
     '--katana-text-light': '#64748B',
     '--katana-accent': '#D97706',
@@ -113,13 +127,13 @@ export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> 
     '--katana-switch-off': '#CBD5E1',
   },
   sepia: {
-    '--katana-bg': '#F4EDE1',
-    '--katana-surface': '#FBF7EF',
+    '--katana-bg': KATANA_BASE_PALETTES.sepia.bg,
+    '--katana-surface': KATANA_BASE_PALETTES.sepia.surface,
     '--katana-surface-alt': '#ECE3D2',
     '--katana-surface-glow': '#E2D4BC',
     '--katana-border': '#D7C7AE',
     '--katana-border-strong': '#BCA584',
-    '--katana-text': '#2A2118',
+    '--katana-text': KATANA_BASE_PALETTES.sepia.fg,
     '--katana-text-muted': '#5B4A3A',
     '--katana-text-light': '#705D4B',
     '--katana-accent': '#C26A0B',
@@ -207,59 +221,59 @@ export function getSeriesVisualAccent(title: string, genres?: readonly string[])
 
 export const KatanaType = {
   display: {
-    fontFamily: Fonts.display,
-    fontWeight: 700,
+    fontFamily: KatanaFonts.display,
+    fontWeight: 400,
     color: KatanaColors.text,
-    fontSize: 32,
-    letterSpacing: -0.2,
-    lineHeight: lineHeight(32, 1.08),
+    fontSize: 34,
+    letterSpacing: 0.9,
+    lineHeight: lineHeight(34, 1.04),
   },
   title: {
-    fontFamily: Fonts.body,
+    fontFamily: KatanaFonts.body,
     fontWeight: 600,
     color: KatanaColors.text,
     fontSize: 16,
     lineHeight: lineHeight(16, 1.25),
   },
   heading: {
-    fontFamily: Fonts.display,
+    fontFamily: KatanaFonts.heading,
     fontWeight: 700,
     color: KatanaColors.text,
-    fontSize: 25,
-    letterSpacing: 0.1,
-    lineHeight: lineHeight(25, 1.15),
+    fontSize: 22,
+    letterSpacing: -0.35,
+    lineHeight: lineHeight(22, 1.18),
   },
   section: {
-    fontFamily: Fonts.display,
+    fontFamily: KatanaFonts.heading,
     fontWeight: 700,
     color: KatanaColors.text,
-    fontSize: 21,
-    letterSpacing: 0.15,
-    lineHeight: lineHeight(21, 1.18),
+    fontSize: 19,
+    letterSpacing: -0.25,
+    lineHeight: lineHeight(19, 1.2),
   },
   body: {
-    fontFamily: Fonts.body,
+    fontFamily: KatanaFonts.body,
     fontWeight: 500,
     color: KatanaColors.textMuted,
     fontSize: 14,
     lineHeight: lineHeight(14, 1.55),
   },
   small: {
-    fontFamily: Fonts.body,
+    fontFamily: KatanaFonts.body,
     fontWeight: 500,
     color: KatanaColors.textLight,
     fontSize: 13,
     lineHeight: lineHeight(13, 1.38),
   },
   link: {
-    fontFamily: Fonts.body,
+    fontFamily: KatanaFonts.body,
     fontWeight: 600,
     color: KatanaColors.link,
     fontSize: 13,
     lineHeight: lineHeight(13, 1.3),
   },
   accent: {
-    fontFamily: Fonts.body,
+    fontFamily: KatanaFonts.body,
     fontWeight: 600,
     color: KatanaColors.accentSoft,
     fontSize: 13,

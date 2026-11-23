@@ -65,6 +65,7 @@ import {
   setLruEntry,
   SINGLE_TAP_DELAY_MS,
   WIDE_ASPECT_THRESHOLD,
+  type SeriesReadingFormat,
 } from './readerSpread';
 
 export interface MangaReaderParams {
@@ -80,6 +81,8 @@ export interface MangaReaderParams {
   finalChapterId?: string;
   /** Already-read chapter IDs for chapter drawer badges & skip-read navigation. */
   readChapterIds?: string[];
+  /** Inferred content format (manga / webtoon / comic) for content-aware Auto reading mode. */
+  seriesFormat?: SeriesReadingFormat;
 }
 
 interface ChapterSegment {
@@ -140,8 +143,15 @@ export function MangaReaderView({
   );
   const rawReadingMode = seriesOverride?.readingMode ?? globalSettings.readingMode;
   const effectiveMode = useMemo(
-    () => resolveEffectiveReadingMode(rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect ?? seriesDefaultAspect),
-    [rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect],
+    () =>
+      resolveEffectiveReadingMode(
+        rawReadingMode,
+        viewportWidth,
+        viewportHeight,
+        liveMedianAspect ?? seriesDefaultAspect,
+        params.seriesFormat,
+      ),
+    [rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect, params.seriesFormat],
   );
   const fitBucket = getFitModeBucket(effectiveMode);
   const settings: ReaderSettings = useMemo(() => {
@@ -2711,7 +2721,7 @@ export function MangaReaderView({
         </div>
       )}
 
-      {/* Vertical long-strip seekbar (left or right edge) */}
+      {/* Vertical long-strip seekbar (left or right edge, HUD-bound and slim on phone) */}
       {isWebtoon && showUi && settings.verticalSeekbar !== 'off' && pages.length > 1 && !loading && (
         <div
           onClick={(e) => e.stopPropagation()}
@@ -2720,13 +2730,13 @@ export function MangaReaderView({
             top: 'calc(76px + env(safe-area-inset-top))',
             bottom: 'calc(126px + env(safe-area-inset-bottom))',
             ...(settings.verticalSeekbar === 'left'
-              ? { left: 'max(6px, env(safe-area-inset-left))' }
-              : { right: 'max(6px, env(safe-area-inset-right))' }),
+              ? { left: 'max(4px, env(safe-area-inset-left))' }
+              : { right: 'max(4px, env(safe-area-inset-right))' }),
             zIndex: 97,
-            width: 44,
+            width: viewportWidth < 600 ? 30 : 38,
             borderRadius: 99,
-            background: allowBlur ? 'rgba(9, 6, 12, 0.58)' : 'rgba(9, 6, 12, 0.88)',
-            border: `1px solid ${KatanaColors.border}`,
+            background: allowBlur ? 'rgba(11, 13, 18, 0.42)' : 'rgba(11, 13, 18, 0.72)',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
             ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
             display: 'flex',
             alignItems: 'center',

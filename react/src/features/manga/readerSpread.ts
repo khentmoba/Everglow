@@ -306,9 +306,33 @@ export function computePinchAnchoredPan(
   return clampZoomPan(nextX, nextY, stageWidth, stageHeight, stageWidth, stageHeight, nextScale);
 }
 
+export type SeriesReadingFormat = 'webtoon' | 'manga' | 'comic';
+
+/** Infers reading direction/format from series genres/tags so manhwa opens as webtoon and manga opens RTL. */
+export function inferSeriesReadingFormat(
+  genres?: readonly string[],
+  title?: string,
+  demographic?: string,
+): SeriesReadingFormat {
+  const tokens = [
+    ...(genres ?? []),
+    demographic ?? '',
+    title ?? '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  if (/\b(manhwa|manhua|webtoon|long\s*strip|web\s*comic)\b/.test(tokens)) {
+    return 'webtoon';
+  }
+  if (/\b(comic|western|graphic\s*novel)\b/.test(tokens)) {
+    return 'comic';
+  }
+  return 'manga';
+}
+
 /**
  * Resolves `auto-rtl` / `auto-ltr` into:
- * - `'webtoon'` when content-type auto-detection sees tall manhwa/webtoon strips (`medianAspect < 0.56`)
+ * - `'webtoon'` when series metadata indicates manhwa/manhua/webtoon OR tall strips (`medianAspect < 0.56`)
  * - `'double-rtl'` / `'double-ltr'` on landscape tablets/desktop (`width >= 820 && width > height`)
  * - `'paged-rtl'` / `'paged-ltr'` on portrait phones.
  */
@@ -317,12 +341,14 @@ export function resolveEffectiveReadingMode(
   viewportWidth: number,
   viewportHeight: number,
   medianAspect?: number,
+  seriesFormat?: SeriesReadingFormat,
 ): ReadingMode {
   if (mode === 'auto-rtl' || mode === 'auto-ltr') {
-    if (typeof medianAspect === 'number' && medianAspect > 0 && medianAspect < 0.56) {
+    if (seriesFormat === 'webtoon' || (typeof medianAspect === 'number' && medianAspect > 0 && medianAspect < 0.56)) {
       return 'webtoon';
     }
     const isLandscapeTablet = viewportWidth >= 820 && viewportWidth > viewportHeight;
+    if (seriesFormat === 'comic') return isLandscapeTablet ? 'double-ltr' : 'paged-ltr';
     if (mode === 'auto-rtl') return isLandscapeTablet ? 'double-rtl' : 'paged-rtl';
     return isLandscapeTablet ? 'double-ltr' : 'paged-ltr';
   }

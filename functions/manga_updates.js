@@ -9,6 +9,9 @@ const MANGA_HOME_URL = 'https://mangakatana.com/';
 const MANGA_FEED_URL = 'https://mangakatana.com/feed';
 const MANGADEX_API_BASE = 'https://api.mangadex.org';
 const MANGADEX_PER_RUN_CAP = 25;
+const KATANA_SERIES_PER_RUN_CAP = 10;
+// Per-series page reads stop here so the hourly job finishes well inside its 120s budget.
+const SERIES_LOOKUP_BUDGET_MS = 70000;
 
 function isWithinQuietHours(hour, startHour, endHour) {
   if (startHour === endHour) return false;
@@ -179,13 +182,38 @@ async function fetchMangaDexLatestChapter(slug, fetchFn = common.fetchPublicUrl)
   }
 }
 
+async function fetchKatanaSeriesLatestChapter(slug, fetchFn = common.fetchPublicUrl) {
+  if (!slug || slug.startsWith('md-') || !/^[\w.-]{1,160}$/.test(slug)) return null;
+  try {
+    const upstream = await fetchFn(`${MANGA_HOME_URL}manga/${encodeURIComponent(slug)}`, {
+      headers: {
+        'User-Agent': 'Everglow/1.0 (+https://everglow-1c6db.web.app)',
+        Accept: 'text/html',
+      },
+      signal: AbortSignal.timeout(10000),
+      httpsOnly: true,
+      isAllowedUrl: (u) => {
+        const host = u.hostname.toLowerCase();
+        return host === 'mangakatana.com' || host === 'www.mangakatana.com';
+      },
+    });
+    if (!upstream.ok) return null;
+    const html = await common.readLimitedText(upstream.body, 1500 * 1024);
+    return extractLatestChaptersFromHomeHtml(html).get(slug) || null;
+  } catch {
+    return null;
+  }
+}
+
 async function runMangaUpdateCheck({
   db = common.getDb(),
   sendPush = sendFCMToUser,
   fetchLatest = fetchMangaHomeLatest,
   fetchMangaDexLatest = fetchMangaDexLatestChapter,
+  fetchKatanaSeriesLatest = fetchKatanaSeriesLatestChapter,
   now = new Date(),
 } = {}) {
+  const lookupDeadline = Date.now() + SERIES_LOOKUP_BUDGET_MS;
   const latestBySlug = await fetchLatest();
   const hasKatanaMap = latestBySlug && latestBySlug.size > 0;
 
@@ -227,6 +255,7 @@ async function runMangaUpdateCheck({
       return ta - tb;
     });
     let mdLookups = 0;
+    let katanaLookups = 0;
     for (const docSnap of sortedDocs) {
       if (docSnap.id.endsWith('|__prefs__')) continue;
       const data = docSnap.data() || {};
@@ -243,14 +272,28 @@ async function runMangaUpdateCheck({
       if (!slug) continue;
 
       let latest = hasKatanaMap ? latestBySlug.get(slug) : null;
-      if (!latest && slug.startsWith('md-') && mdLookups < MANGADEX_PER_RUN_CAP) {
+      let fromSeriesPage = false;
+      const canLookup = Date.now() < lookupDeadline;
+      if (!latest && canLookup && slug.startsWith('md-') && mdLookups < MANGADEX_PER_RUN_CAP) {
         mdLookups += 1;
         latest = await fetchMangaDexLatest(slug);
         checkedMdRefs.push(docSnap.ref);
+        fromSeriesPage = true;
+      } else if (!latest && canLookup && !slug.startsWith('md-') && katanaLookups < KATANA_SERIES_PER_RUN_CAP) {
+        // Followed series that missed the latest-updates feed: read its own page (stalest first).
+        katanaLookups += 1;
+        latest = await fetchKatanaSeriesLatest(slug);
+        checkedMdRefs.push(docSnap.ref);
+        fromSeriesPage = true;
       }
       if (!latest) continue;
 
       const prevNotified = parseChapterNumber(data.lastNotifiedChapter || data.latestChapterNum || '');
+      if (fromSeriesPage && !Number.isFinite(prevNotified) && !data.lastNotifiedChapter) {
+        // First look at this series: remember where it is instead of announcing an old chapter.
+        await docSnap.ref.set({ latestChapterNum: latest.chapterNum }, { merge: true });
+        continue;
+      }
       if (Number.isFinite(latest.num) && Number.isFinite(prevNotified) && latest.num <= prevNotified) {
         continue;
       }
@@ -322,6 +365,7 @@ const checkMangaUpdates = onSchedule(
 module.exports = {
   checkMangaUpdates,
   runMangaUpdateCheck,
+  fetchKatanaSeriesLatestChapter,
   extractLatestChaptersFromFeedXml,
   extractLatestChaptersFromHomeHtml,
   buildMangaPushPayload,

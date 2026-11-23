@@ -1,4 +1,5 @@
 import { Prefs } from '../../core/system/prefs';
+import { KATANA_BASE_PALETTES } from './katanaTokens';
 
 export type ReadingMode =
   | 'webtoon'
@@ -118,8 +119,8 @@ export interface PageBookmark {
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
-  readingMode: 'webtoon',
-  fitMode: 'fit-width',
+  readingMode: 'auto-rtl',
+  fitMode: 'fit-screen',
   fitByMode: {
     webtoon: 'fit-width',
     single: 'fit-screen',
@@ -180,11 +181,11 @@ export const READER_BACKGROUNDS: Record<
   Exclude<ReaderBackground, 'auto'>,
   { label: string; bg: string; fg: string; swatch: string }
 > = {
-  oled: { label: 'True Black', bg: '#000000', fg: '#F3F5F9', swatch: '#000000' },
-  dark: { label: 'Katana Night', bg: '#0B0D12', fg: '#F3F5F9', swatch: '#13161F' },
+  oled: { label: 'True Black', bg: KATANA_BASE_PALETTES.oled.bg, fg: KATANA_BASE_PALETTES.oled.fg, swatch: KATANA_BASE_PALETTES.oled.bg },
+  dark: { label: 'Katana Night', bg: KATANA_BASE_PALETTES.dark.bg, fg: KATANA_BASE_PALETTES.dark.fg, swatch: KATANA_BASE_PALETTES.dark.surface },
   gray: { label: 'Slate', bg: '#1B1B22', fg: '#F3F2F7', swatch: '#2A2A35' },
-  sepia: { label: 'Warm Paper', bg: '#F2E7D3', fg: '#2C2218', swatch: '#E7D5B8' },
-  white: { label: 'Paper White', bg: '#F7F7F7', fg: '#16161A', swatch: '#FFFFFF' },
+  sepia: { label: 'Warm Paper', bg: KATANA_BASE_PALETTES.sepia.bg, fg: KATANA_BASE_PALETTES.sepia.fg, swatch: KATANA_BASE_PALETTES.sepia.surface },
+  white: { label: 'Paper White', bg: KATANA_BASE_PALETTES.light.bg, fg: KATANA_BASE_PALETTES.light.fg, swatch: KATANA_BASE_PALETTES.light.surface },
 };
 
 export function resolveBackgroundTheme(bg: ReaderBackground) {

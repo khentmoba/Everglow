@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { reduceAmbientMotion } from '../../core/system/device';
 import { withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
-import { Fonts } from '../../core/theme/typography';
+import { KatanaFonts as Fonts } from './katanaTokens';
 import { Icon } from '../../shared/widgets/Icon';
 import {
   KatanaButton,
@@ -66,7 +66,8 @@ function TypeChip({
       onClick={onClick}
       style={{
         flexShrink: 0,
-        padding: compact ? '6px 9px' : '7px 13px',
+        minHeight: 44,
+        padding: compact ? '0 12px' : '0 14px',
         borderRadius: 99,
         background: selected ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
         border: `1px solid ${selected ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
@@ -330,11 +331,18 @@ function FeaturedHero({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
             <KatanaButton
-              label={bm?.lastReadChapterId ? `Continue ${bm.lastReadChapterTitle || ''}`.trim() : 'Start Reading'}
+              label={
+                bm?.status === 'completed'
+                  ? 'Read Again'
+                  : bm?.lastReadChapterId
+                    ? `Continue ${bm.lastReadChapterTitle || ''}`.trim()
+                    : 'Start Reading'
+              }
               icon="play_arrow"
               size="sm"
               onClick={() => {
-                const target = bm?.lastReadChapterId || featured.chapters[featured.chapters.length - 1]?.id || 'fc';
+                const first = featured.chapters[featured.chapters.length - 1]?.id || 'fc';
+                const target = bm?.status === 'completed' ? first : bm?.lastReadChapterId || first;
                 onOpenChapter(featured, target);
               }}
             />
@@ -1264,9 +1272,9 @@ export function MangaHome({
           title="Pick a random title"
           style={{
             flexShrink: 0,
-            padding: compact ? '6px 9px' : '7px 12px',
-            minWidth: compact ? 34 : undefined,
-            height: compact ? 32 : undefined,
+            padding: compact ? 0 : '0 14px',
+            minWidth: 44,
+            height: 44,
             borderRadius: 99,
             background: KatanaColors.surfaceAlt,
             border: `1px solid ${KatanaColors.borderStrong}`,
@@ -1618,13 +1626,52 @@ export function MangaHome({
       </div>
     ) : null;
 
+  const [rankMode, setRankMode] = useState<'trending' | 'top'>('trending');
   const trendingRankedRail = useMemo(() => {
-    const source = data.hotUpdates.length >= 4 ? data.hotUpdates : data.hot;
-    const items = source.slice(0, 10);
+    const trendingSource = data.hotUpdates.length >= 4 ? data.hotUpdates : data.hot;
+    const topRated = allCatalog
+      .filter((m) => typeof m.rating === 'number' && m.rating > 0)
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.follows ?? 0) - (a.follows ?? 0));
+    const canRankTop = topRated.length >= 3;
+    const mode = rankMode === 'top' && canRankTop ? 'top' : 'trending';
+    const items = (mode === 'top' ? topRated : trendingSource).slice(0, 10);
     if (type !== 'all' || items.length < 3) return null;
+    const modeButton = (key: 'trending' | 'top', label: string) => (
+      <button
+        key={key}
+        type="button"
+        className="bare-button"
+        aria-pressed={mode === key}
+        onClick={() => setRankMode(key)}
+        style={{
+          minHeight: 36,
+          padding: '0 12px',
+          borderRadius: 99,
+          background: mode === key ? KatanaColors.chipSelectedBg : 'transparent',
+          border: `1px solid ${mode === key ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+          fontFamily: Fonts.body,
+          fontSize: 12.5,
+          fontWeight: 700,
+          color: mode === key ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+        }}
+      >
+        {label}
+      </button>
+    );
     return (
-      <section aria-label="Trending this week" style={{ marginTop: 20 }}>
-        <KatanaSectionHeader title="Trending This Week" badge={`Top ${items.length}`} />
+      <section aria-label={mode === 'top' ? 'Top rated' : 'Trending this week'} style={{ marginTop: 20 }}>
+        <KatanaSectionHeader
+          title={mode === 'top' ? 'Top Rated' : 'Trending This Week'}
+          badge={`Top ${items.length}`}
+          trailing={
+            canRankTop ? (
+              <div role="group" aria-label="Ranking" style={{ display: 'inline-flex', gap: 6 }}>
+                {modeButton('trending', 'Trending')}
+                {modeButton('top', 'Top Rated')}
+              </div>
+            ) : undefined
+          }
+        />
         <div
           className="no-scrollbar"
           style={{
@@ -1675,8 +1722,8 @@ export function MangaHome({
                       background: rankBg,
                       color: rankFg,
                       fontFamily: Fonts.display,
-                      fontSize: 14,
-                      fontWeight: 800,
+                      fontSize: 17,
+                      fontWeight: 400,
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1730,7 +1777,7 @@ export function MangaHome({
         </div>
       </section>
     );
-  }, [data.hotUpdates, data.hot, type, compact, onSelectManga, unreadBySlug]);
+  }, [data.hotUpdates, data.hot, allCatalog, rankMode, type, compact, onSelectManga, unreadBySlug]);
 
   const feedTitle =
     type !== 'all'

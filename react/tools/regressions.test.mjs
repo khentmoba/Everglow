@@ -241,7 +241,7 @@ test('Anime Downloads tab and Manga Genres portal, Genres grid, Reading toggle, 
       null,
       { timeout: 10_000 },
     );
-    await page.getByRole('button', { name: /Reading mode:/ }).click();
+    // Manga now opens in Auto RTL paged mode by default, so no mode switch is needed.
     await page.waitForSelector('text=1 / 3', { timeout: 5_000 });
     await page.keyboard.press('ArrowLeft');
     await page.waitForSelector('text=2 / 3', { timeout: 5_000 });

@@ -111,6 +111,7 @@ test('runMangaUpdateCheck respects quiet hours without losing unseen chapters', 
       return true;
     },
     fetchLatest: async () => new Map([['frieren.456', { chapterId: 'c135', chapterNum: '135', num: 135 }]]),
+    fetchKatanaSeriesLatest: async () => null,
     now: new Date('2026-11-23T15:00:00Z'),
   });
 
@@ -194,10 +195,54 @@ test('runMangaUpdateCheck skips completed/dropped/on-hold series and supports Ma
       slug === 'md-abcdef12-3456-7890-abcd-ef1234567890'
         ? { chapterId: 'md-ch-42', chapterNum: '42', num: 42 }
         : null,
+    fetchKatanaSeriesLatest: async () => null,
     now: new Date('2026-11-23T06:00:00Z'),
   });
 
   assert.equal(res.sentCount, 2);
   assert.equal(pushed[0].payload.data.slug, 'md-abcdef12-3456-7890-abcd-ef1234567890');
   assert.match(pushed[0].payload.body, /42/);
+});
+
+test('runMangaUpdateCheck reads a followed series page when it misses the feed, seeding silently first', async () => {
+  const writes = [];
+  const pushed = [];
+  const makeDb = (bookmark) => ({
+    collection: () => ({
+      doc: (id) => ({
+        get: async () => ({ exists: true, data: () => ({ alertPrefs: { frequency: 'instant', quietHours: false } }) }),
+        set: async (data) => writes.push({ id, data }),
+      }),
+      where: function () {
+        return this;
+      },
+      get: async () => ({
+        docs: [
+          {
+            id: 'khentsgdz|solo.99',
+            data: () => ({ slug: 'solo.99', title: 'Solo', bookmarked: true, readingStatus: 'reading', ...bookmark }),
+            ref: { set: async (data) => writes.push({ id: 'khentsgdz|solo.99', data }) },
+          },
+        ],
+      }),
+    }),
+  });
+  const opts = {
+    sendPush: async (uid, payload) => {
+      pushed.push({ uid, payload });
+      return true;
+    },
+    fetchLatest: async () => new Map(),
+    fetchMangaDexLatest: async () => null,
+    fetchKatanaSeriesLatest: async (slug) => (slug === 'solo.99' ? { chapterId: 'c12', chapterNum: '12', num: 12 } : null),
+    now: new Date('2026-11-23T06:00:00Z'),
+  };
+
+  const first = await runMangaUpdateCheck({ db: makeDb({}), ...opts });
+  assert.equal(first.sentCount, 0);
+  assert.ok(writes.some((w) => w.id === 'khentsgdz|solo.99' && w.data.latestChapterNum === '12'));
+
+  const second = await runMangaUpdateCheck({ db: makeDb({ latestChapterNum: '11' }), ...opts });
+  assert.equal(second.sentCount, 2);
+  assert.match(pushed[0].payload.body, /12/);
 });
