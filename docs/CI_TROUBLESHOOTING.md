@@ -32,10 +32,11 @@ headless Chrome, which is what the proof workflow in the `everglow-pr` skill
 does. Nothing about a PR is reachable on the internet until it merges and
 `main` deploys.
 
-`node tool/agent_smoke.mjs react/dist` runs in disposable Chrome. It visits
-every agent alias at 430px and 810px, starting with a saved Journal
-location, and checks the destination URL and rendered screen with the HUD
-collapsed. This proves navigation and initial rendering; it does not prove
+`node tool/agent_smoke.mjs react/dist` runs in disposable Chrome after verifying
+`react/dist` is fresh. It visits every agent destination (or one alias passed as
+a third argument) and checks that the React app mounts without fallback error
+screens or runtime exceptions. This proves navigation and initial rendering; it
+does not prove
 catalog availability, playback, editing, or live sync. Use Node 22+ and
 installed Chrome locally. Pass an alias as a third argument to reproduce one
 failure, then rerun the complete sweep after fixing it.

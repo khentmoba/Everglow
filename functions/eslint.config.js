@@ -41,6 +41,12 @@ module.exports = [
     },
   },
   {
+    files: ['**/*.test.js'],
+    rules: {
+      'max-len': 'off',
+    },
+  },
+  {
     files: ['motchi_chat.js'],
     rules: {
       'max-len': ['error', {

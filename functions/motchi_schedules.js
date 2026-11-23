@@ -273,7 +273,10 @@ const motchiSmartNudge = onSchedule({
           body: `Your bucket dream is around the corner — want to plan it? Motchi remembers!`,
           data: { type: 'bucket_due' },
         });
-        await logRef.set({ bucket: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+        await logRef.set(
+          { bucket: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() },
+          { merge: true },
+        );
       }
     } catch (e) { console.warn('[smartNudge] bucket', e.message); }
     try {
@@ -286,7 +289,10 @@ const motchiSmartNudge = onSchedule({
             body: 'It has been a few quiet days — want to write a little memory together?',
             data: { type: 'journal_nudge' },
           });
-          await logRef.set({ journal: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+          await logRef.set(
+            { journal: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() },
+            { merge: true },
+          );
         }
       }
     } catch (e) { console.warn('[smartNudge] journal', e.message); }
@@ -300,7 +306,10 @@ const motchiSmartNudge = onSchedule({
           body: 'Motchi sees you have plans — sleep well and enjoy tomorrow together!',
           data: { type: 'calendar_preview' },
         });
-        await logRef.set({ calendar: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+        await logRef.set(
+          { calendar: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() },
+          { merge: true },
+        );
       }
     } catch (e) { console.warn('[smartNudge] calendar', e.message); }
   } catch (e) {
@@ -506,7 +515,9 @@ const motchiMemorySweep = onSchedule({
         } catch (_) {}
       }
       if (data.pinned === true) return;
-      const last = data.lastAccessed?.toDate?.() ? data.lastAccessed.toDate().getTime() : (data.createdAt?.toDate?.()?.getTime() || now);
+      const last = data.lastAccessed?.toDate?.()
+        ? data.lastAccessed.toDate().getTime()
+        : (data.createdAt?.toDate?.()?.getTime() || now);
       const daysSince = (now - last) / (1000 * 60 * 60 * 24);
       if (daysSince <= 90) return;
       const currentConf = Number(data.confidence ?? 1);

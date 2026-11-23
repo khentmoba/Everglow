@@ -20,7 +20,7 @@ test('PR and deployment use the same backend verification and locked install', (
     assert.doesNotMatch(source, /run: npm install\s*$/m);
   }
   const {scripts} = JSON.parse(read('functions/package.json'));
-  for (const command of ['npm run lint -- --max-warnings=25', 'npm test', 'node --check index.js', 'node eval_gate.js', 'npm audit --omit=dev --audit-level=moderate']) {
+  for (const command of ['npm run lint -- --max-warnings=0', 'npm test', 'node --check index.js', 'node eval_gate.js', 'npm audit --omit=dev --audit-level=moderate']) {
     assert.ok(scripts.verify.split(' && ').includes(command), command);
   }
 });

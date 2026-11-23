@@ -30,10 +30,11 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 * Firebase & Auth: `react/src/core/services/` (`firebase.ts`, `auth.ts`, `notifications.ts`).
 * Pages & Routes: `react/src/App.tsx` wires all routes cleanly to feature modules under `react/src/features/<name>/`.
 * Looks: use `react/src/core/theme/` for colors and spacing (`colors.ts`, `paint.ts`, `typography.ts`). Use `react/src/shared/widgets/` for buttons, cards, and UI primitives. Never hardcode colors.
-* Features: small self-contained modules under `react/src/features/`, with services and React components alongside each other.
-* Helpers: `react/src/core/` holds app-wide agent mode, router memory, viewport/update services, and audio/TTS helpers.
+* Features: small self-contained modules under `react/src/features/`, with services and React components alongside each other. Motchi lives under `react/src/features/ai/`; the floating companion lives under `react/src/features/guardian/`.
+* Helpers: `react/src/core/` holds app-wide agent mode, router memory, viewport/update services, and audio/TTS helpers. Services that need logout cleanup listen to the `everglow:logout` window event instead of importing `authService` (importing `authService` from feature services causes circular-init mount crashes).
 * Shelf widgets: `react/src/shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books (posters, carousels).
 * Server: `functions/` talks to movies, music, and AI (`index.js` only wires modules together). The app never calls those sites directly.
+* Streaming Worker: `cloudflare/` hosts the HLS streaming Worker (`cloudflare/src/worker.js`, `cloudflare/src/anime.js`). `cloudflare/src/anime.js` re-exports from `functions/hls_player.js`, so any edit to `functions/hls_player.js` must also run `npm --prefix cloudflare test`.
 * Rules: `firestore.rules` decides who sees what.
 
 ## Workflow — how we ship (agreed with Khent)
@@ -45,10 +46,10 @@ or merging, and for any "is this done?" judgement.
 Three rules never bend, even if the skill is not loaded:
 
 - **Never push to `main`.** It auto-deploys live to Clair. One task, one branch.
-- **Run the checks before every PR** — `npm --prefix react run typecheck`,
+- **Run the checks before every PR** — `node tool/ci/verify_all.mjs` (or individually: `npm --prefix react run typecheck`, `npm --prefix react run lint`,
   `npm --prefix react run build`, `npm --prefix react test`,
   `node tool/ci/run_checks.mjs`, `node tool/agent_smoke.mjs react/dist`,
-  and `node --test tool/ci/*.test.mjs`.
+  and `node --test tool/ci/*.test.mjs`).
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data.
 
@@ -71,9 +72,10 @@ passcode. Aliases live in `react/src/core/agent/agentMode.ts`.
 Chrome isn't found). It covers the shell, the offline service worker
 (`react/tools/shell.test.mjs`, built by `buildServiceWorkerSource` in
 `react/vite.config.ts`), the players, and media regressions.
-`node tool/agent_smoke.mjs react/dist` visits every agent destination at
-phone and tablet widths. Pass one alias as a third argument to reproduce a
-single failure, then rerun the full sweep.
+`node tool/agent_smoke.mjs react/dist` checks `react/dist` freshness and visits
+every agent destination in disposable headless Chrome (checking mount, fallback
+text, and runtime errors). Pass one route alias as a third argument to reproduce
+a single destination, then rerun the full sweep.
 
 Record commands, pass/fail counts, and environment in the PR. When Chrome or
 another prerequisite blocks a run, name the blocker and what stays unverified.
@@ -108,7 +110,7 @@ no bump does nothing.
 
 - Claude runs Git Bash; Gemini/opencode helpers run PowerShell, where `&&`, `rg`, and `head` fail: use `;`, `git grep`, `Select-String`.
 - Write files with the Write/Edit tools, never `cat <<EOF` or script heredocs (they mangle quotes and backslashes).
-- In a fresh worktree run `npm --prefix react ci` before typecheck or tests.
+- In a fresh worktree run `npm --prefix react ci`, `npm --prefix functions ci`, and `npm --prefix cloudflare ci` before running checks or tests (or run `node tool/ci/verify_all.mjs` which checks for missing `node_modules`).
 
 ## Rules that matter
 

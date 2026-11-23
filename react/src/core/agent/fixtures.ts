@@ -427,6 +427,7 @@ export const AgentFixtures = {
 };
 
 /** Made-up welcome gift for `?agent=clair&gift=1`; its last button reports the end like a real gift. */
+// ci:postmessage-wildcard: sandboxed srcdoc demo iframe has opaque origin 'null'
 export const DEMO_WELCOME_GIFT = `<!doctype html><html><body style="margin:0;font-family:Georgia,serif;background:#fff5f5;color:#5a1f33;display:grid;place-items:center;min-height:100vh;text-align:center">
 <main style="padding:24px;max-width:420px"><p id="page">A little demo letter.</p>
 <button id="next" onclick="document.getElementById('page').textContent='The end of the demo letter.';this.remove();parent.postMessage('everglow:content-finished','*');" style="font:inherit;padding:12px 20px;border-radius:999px;border:0;background:#7a2442;color:#fff5f5">Read on</button></main>

@@ -163,7 +163,11 @@ const discordInteractions = onRequest({ invoker: 'public', maxInstances: 10 }, a
     const hostDisplay = s.startedBy === 'khentsgdz' ? 'Khent' : 'Clair';
     const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
     try {
-      await patchWebhookMessage({ webhookUrl, messageId: s.messageId, payload: buildEndedPost({ title: s.title, hostDisplay }) });
+      await patchWebhookMessage({
+        webhookUrl,
+        messageId: s.messageId,
+        payload: buildEndedPost({ title: s.title, hostDisplay }),
+      });
     } catch (e) { console.warn('[discordInteractions] edit failed:', e.message); }
     await ref.set({ active: false, status: 'ended' }, { merge: true });
     res.status(200).json({ type: 4, data: { content: `Ended: ${s.title}`, flags: 64 } });

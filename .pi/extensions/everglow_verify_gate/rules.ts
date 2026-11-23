@@ -32,12 +32,14 @@ export interface GateState {
 
 /** Files that count as "real code". Docs, proof shots and CI yml do not. */
 export const CODE_FILE =
-	/^(react\/src\/.*\.(?:ts|tsx)|react\/vite\.config\.ts|functions\/(?!.*\.md$).*\.js|tool\/(?:ci\/.*\.mjs|agent_smoke\.mjs))$/;
+	/^(react\/src\/.*\.(?:ts|tsx)|react\/vite\.config\.ts|functions\/(?!.*\.md$).*\.js|cloudflare\/src\/.*\.js|tool\/(?:ci\/.*\.mjs|agent_smoke\.mjs|capture_proof\.mjs))$/;
 
 export const VERIFY_PATTERNS: Array<[RegExp, string]> = [
 	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+typecheck\b/, "react typecheck"],
+	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+lint\b/, "react lint"],
 	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+build\b/, "react build"],
 	[/\bnode\s+(--?\S+\s+)*tool\/ci\/run_checks\.mjs\b/, "regression guard"],
+	[/\bnode\s+(--?\S+\s+)*tool\/ci\/verify_all\.mjs\b(?!.*--quick\b)/, "verify_all"],
 	[/\bnpm\s+(--prefix\s+\S+\s+)?(test|run\s+test)\b/, "npm test"],
 	[/\bnpm\s+(--prefix\s+\S+\s+)?run\s+verify\b/, "npm verify"],
 	[/\bnode\s+(--?\S+\s+)*[\w./-]*eval_gate\.js\b/, "eval_gate.js"],
@@ -89,8 +91,8 @@ export function commitBlockReason(state: GateState): string | null {
 	return (
 		`verify-gate: ${ran ? "your last code edit came after the last verification" : "this session edited code but ran no verification"}. ` +
 		`Edited: ${code.slice(0, 3).join(", ")}. ` +
-		`Re-run the checks after your final edit: npm --prefix react run typecheck; ` +
-		`npm --prefix react run build; npm --prefix react test; node tool/ci/run_checks.mjs. ` +
+		`Re-run the checks after your final edit: node tool/ci/verify_all.mjs (or npm --prefix react run typecheck; ` +
+		`npm --prefix react run lint; npm --prefix react run build; npm --prefix react test; node tool/ci/run_checks.mjs). ` +
 		`Legit exception: add "# verify-gate allow" to the command.`
 	);
 }
@@ -104,13 +106,18 @@ export function prBlockReason(state: GateState): string | null {
 	if (code.length === 0) return null;
 
 	const missing: string[] = [];
-	if (code.some((path) => path.startsWith("react/"))) {
-		for (const signal of ["react typecheck", "react build"]) {
-			if (!state.verified.has(signal)) missing.push(signal);
+	if (!state.verified.has("verify_all")) {
+		if (code.some((path) => path.startsWith("react/"))) {
+			for (const signal of ["react typecheck", "react build"]) {
+				if (!state.verified.has(signal)) missing.push(signal);
+			}
 		}
-	}
-	if (code.some((path) => path.startsWith("functions/"))) {
-		if (!state.verified.has("npm verify")) missing.push("npm run verify");
+		if (code.some((path) => path.startsWith("functions/"))) {
+			if (!state.verified.has("npm verify")) missing.push("npm run verify");
+		}
+		if (code.some((path) => path.startsWith("cloudflare/"))) {
+			if (!state.verified.has("npm test")) missing.push("npm --prefix cloudflare test");
+		}
 	}
 
 	const stale = state.lastVerifySeq < state.lastCodeEditSeq;
