@@ -472,7 +472,13 @@ const DISALLOWED_MEDIA_CT_RE =
   outHeaders['Content-Type'] = safeCt;
   outHeaders['X-Content-Type-Options'] = 'nosniff';
   outHeaders['Content-Security-Policy'] = "default-src 'none'; sandbox";
-  outHeaders['Cache-Control'] = 'public, max-age=3600';
+  // Range is forwarded upstream. Key the cache on it so a full response is
+  // never replayed for a byte-range request. A cached 206 must not be reused
+  // for a different range — that stalls or corrupts video playback.
+  outHeaders['Vary'] = 'Origin, Range';
+  outHeaders['Cache-Control'] = upstream.status === 206
+    ? 'private, no-store'
+    : 'public, max-age=3600';
   for (const h of ['accept-ranges', 'content-range', 'content-length']) {
     const v = upstream.headers.get(h);
     if (v) outHeaders[h.replace(/(^|-)([a-z])/g, (_m, a, b) => a + b.toUpperCase())] = v;

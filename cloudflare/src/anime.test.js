@@ -1198,6 +1198,8 @@ test('the Worker streams segments through with the upstream status and range', a
     const res = await handleProxyHls(new Request(signed, { headers: { Range: 'bytes=0-3' } }), { CDN_STAMP_KEY: KEY });
     assert.equal(res.status, 206);
     assert.equal(res.headers.get('content-range'), 'bytes 0-3/100');
+    assert.equal(res.headers.get('cache-control'), 'private, no-store');
+    assert.match(res.headers.get('vary'), /Range/);
     assert.equal((await res.arrayBuffer()).byteLength, 4);
   } finally {
     globalThis.fetch = realFetch;
