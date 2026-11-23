@@ -3,8 +3,51 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { getAdmin } = require('./common');
-const { getSpotifyAppToken, _mapSpotifyRecentItems } = require('./spotify');
+const { getSpotifyAppToken, proxySpotifySearch, spotifyExchange, spotifyRefresh, spotifyCurrentlyPlaying, _mapSpotifyRecentItems } = require('./spotify');
 const { createToolCtx } = require('./motchi_exec_tools');
+
+test('concurrent getSpotifyAppToken calls coalesce into one token request', async (t) => {
+  const previous = [process.env.SPOTIFY_CLIENT_ID, process.env.SPOTIFY_CLIENT_SECRET];
+  process.env.SPOTIFY_CLIENT_ID = 'fake-public-id';
+  process.env.SPOTIFY_CLIENT_SECRET = 'fake-server-secret';
+  t.after(() => {
+    for (const [i, key] of ['SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET'].entries()) {
+      if (previous[i] === undefined) delete process.env[key];
+      else process.env[key] = previous[i];
+    }
+  });
+  let resolveFetch;
+  const fetchMock = t.mock.method(globalThis, 'fetch', () => new Promise((resolve) => {
+    resolveFetch = () => resolve(new Response(JSON.stringify({ access_token: 'coalesced-token', expires_in: 1 })));
+  }));
+  const p1 = getSpotifyAppToken();
+  const p2 = getSpotifyAppToken();
+  const p3 = getSpotifyAppToken();
+  assert.equal(fetchMock.mock.callCount(), 1);
+  resolveFetch();
+  assert.deepEqual(await Promise.all([p1, p2, p3]), ['coalesced-token', 'coalesced-token', 'coalesced-token']);
+});
+
+test('Spotify private endpoints set Cache-Control: private, no-store', async () => {
+  for (const [endpoint, method] of [
+    [proxySpotifySearch, 'OPTIONS'],
+    [spotifyExchange, 'OPTIONS'],
+    [spotifyRefresh, 'OPTIONS'],
+    [spotifyCurrentlyPlaying, 'OPTIONS'],
+  ]) {
+    const headers = {};
+    const res = {
+      set(k, v) { headers[k.toLowerCase()] = v; return this; },
+      status(code) { this.code = code; return this; },
+      send() {},
+      json() {},
+    };
+    await endpoint({ method, headers: {}, get: () => '' }, res);
+    assert.equal(res.code, 204);
+    assert.equal(headers['cache-control'], 'private, no-store');
+    assert.equal(headers.vary, 'Origin, Authorization');
+  }
+});
 
 test('Motchi and Spotify share one token helper and cache', async (t) => {
   const previous = [process.env.SPOTIFY_CLIENT_ID, process.env.SPOTIFY_CLIENT_SECRET];
