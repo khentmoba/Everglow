@@ -55,6 +55,7 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
   res.set('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
   res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   res.set('Referrer-Policy', 'no-referrer');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (!['GET', 'POST'].includes(req.method)) { res.status(405).json({ error: 'GET or POST only' }); return; }

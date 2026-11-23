@@ -106,9 +106,9 @@ async function yumeSources({ animeId, episode, language, provider, signal, timeo
     if (signal.aborted) ctrl.abort();
     else signal.addEventListener('abort', onAbort, { once: true });
   }
-  let res;
+  let body;
   try {
-    res = await fetch(`${YUME_ORIGIN}/api/yume/watch/sources`, {
+    const res = await fetch(`${YUME_ORIGIN}/api/yume/watch/sources`, {
       method: 'POST',
       headers: yumeHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
       body: JSON.stringify({
@@ -122,12 +122,12 @@ async function yumeSources({ animeId, episode, language, provider, signal, timeo
       }),
       signal: ctrl.signal,
     });
+    if (!res.ok) throw new Error(`yumezone ${provider} ${res.status}`);
+    body = await res.json();
   } finally {
     clearTimeout(timer);
     if (signal) signal.removeEventListener('abort', onAbort);
   }
-  if (!res.ok) throw new Error(`yumezone ${provider} ${res.status}`);
-  const body = await res.json();
   const sealed = body && (body.ct || body.encrypted);
   if (!sealed) return body && typeof body === 'object' ? body : {};
   return yumeDecrypt(sealed, sig);

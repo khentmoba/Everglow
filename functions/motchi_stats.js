@@ -5,6 +5,8 @@ const { journeyMetrics } = require('./motchi_agent.js');
 
 const motchiStats = cappedHttps(5, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);

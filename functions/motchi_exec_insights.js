@@ -232,20 +232,19 @@ async function freeReadPage(url, timeoutMs) {
 }
 
 async function tinyfishSearch(apiKey, params) {
-  let res;
   try {
-    res = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
+    const res = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
       headers: { 'X-API-Key': apiKey },
       signal: AbortSignal.timeout(8000),
     });
+    if (res.status === 401 || res.status === 403) return { error: 'Web search API key is invalid or forbidden.' };
+    if (res.status === 402) return { error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' };
+    if (res.status === 429) return { error: 'Web search rate limit hit — try again in a minute.' };
+    if (!res.ok) return { error: `Web search failed (HTTP ${res.status}).` };
+    return { data: await res.json() };
   } catch (_) {
     return { error: 'Web search timed out — answer from what you know and say the web was slow.' };
   }
-  if (res.status === 401 || res.status === 403) return { error: 'Web search API key is invalid or forbidden.' };
-  if (res.status === 402) return { error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' };
-  if (res.status === 429) return { error: 'Web search rate limit hit — try again in a minute.' };
-  if (!res.ok) return { error: `Web search failed (HTTP ${res.status}).` };
-  return { data: await res.json() };
 }
 
 async function exec_web_search(ctx, args) {

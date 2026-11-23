@@ -15,6 +15,12 @@ const {
 } = require('./motchi_exec_planning.js');
 const common = require('./common.js');
 const { proxyFetchHtml } = require('./media_proxy_html.js');
+const { exec_web_search } = require('./motchi_exec_insights.js');
+const { motchiStats } = require('./motchi_stats.js');
+const { handleGenerateStudySet } = require('./motchi_study.js');
+const { proxyBookText, proxyBookFile } = require('./media_proxy_books.js');
+const { notifyDiscordWatch } = require('./discord_functions.js');
+const { proxyWatchStream } = require('./media_proxy_video.js');
 
 function makeCtx(overrides = {}) {
   const cache = new Map();
@@ -188,4 +194,49 @@ test('exec_plan_date_night falls back to Weather unavailable if body stream abor
   const out = JSON.parse(await exec_plan_date_night(ctx, { location: 'Manila', count: 2 }));
   assert.equal(out.weather, 'Weather unavailable');
   assert.equal(ctx._cache.size, 0);
+});
+
+test('exec_web_search returns graceful error when TinyFish json body stream times out', async (t) => {
+  const prevKey = process.env.TINYFISH_API_KEY;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  t.after(() => {
+    if (prevKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = prevKey;
+  });
+  t.mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    status: 200,
+    json: async () => {
+      const err = new Error('The operation was aborted due to timeout');
+      err.name = 'TimeoutError';
+      throw err;
+    },
+  }));
+  const ctx = makeCtx({ cacheTTLs: { web_search: 60_000, web_search_long: 60_000 } });
+  const out = JSON.parse(await exec_web_search(ctx, { query: 'manila weather', domain_type: 'news' }));
+  assert.match(out.error, /timed out/i);
+});
+
+test('auth-gated private endpoints set Cache-Control: private, no-store and Vary: Origin, Authorization', async () => {
+  const handlers = [
+    ['motchiStats', motchiStats],
+    ['handleGenerateStudySet', handleGenerateStudySet],
+    ['proxyBookText', proxyBookText],
+    ['proxyBookFile', proxyBookFile],
+    ['notifyDiscordWatch', notifyDiscordWatch],
+    ['proxyWatchStream', proxyWatchStream],
+  ];
+  for (const [name, fn] of handlers) {
+    const res = {
+      code: 200,
+      headers: {},
+      set(k, v) { this.headers[k] = v; return this; },
+      status(n) { this.code = n; return this; },
+      send(b) { this.body = b; return this; },
+      json(b) { this.body = b; return this; },
+    };
+    await fn({ method: 'OPTIONS', headers: {}, query: {}, get: () => '', ip: '203.0.113.20' }, res);
+    assert.equal(res.headers['Cache-Control'], 'private, no-store', `${name} Cache-Control`);
+    assert.equal(res.headers['Vary'], 'Origin, Authorization', `${name} Vary`);
+  }
 });

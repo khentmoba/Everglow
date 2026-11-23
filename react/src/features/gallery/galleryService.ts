@@ -119,6 +119,15 @@ async function prepareImages(file: Blob): Promise<{ full: Blob; thumb: Blob | nu
   }
 }
 
+function safeUrlPath(raw: string): string {
+  try {
+    const u = new URL(raw);
+    return u.origin + u.pathname;
+  } catch {
+    return '<invalid-url>';
+  }
+}
+
 function isObjectNotFound(e: unknown): boolean {
   const code = (e as { code?: string } | null)?.code;
   return code === 'object-not-found' || code === 'storage/object-not-found';
@@ -147,7 +156,7 @@ async function deleteStorageViaFunction(imageUrl: string): Promise<void> {
     }
     throw lastError ?? new Error('Gallery storage fallback did not run');
   } catch (e) {
-    Logger.e(`Gallery: storage cleanup via function failed for ${imageUrl}`, e);
+    Logger.e(`Gallery: storage cleanup via function failed for ${safeUrlPath(imageUrl)}`, e);
     throw e;
   }
 }
@@ -369,7 +378,7 @@ class GalleryService {
         try {
           await deleteStorageObject(url);
         } catch (err) {
-          Logger.e(`Gallery: failed to clean uploaded file ${url}`, err);
+          Logger.e(`Gallery: failed to clean uploaded file ${safeUrlPath(url)}`, err);
         }
       }
       throw e;

@@ -62,7 +62,9 @@ class AppUpdateService {
       window.removeEventListener('online', onOnline);
     };
     void this.checkNow();
-    this.pollTimer = window.setInterval(() => void this.checkNow(), POLL_INTERVAL_MS);
+    this.pollTimer = window.setInterval(() => {
+      if (!document.hidden) void this.checkNow();
+    }, POLL_INTERVAL_MS);
   }
 
   async checkNow(): Promise<void> {

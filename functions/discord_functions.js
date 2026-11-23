@@ -88,6 +88,7 @@ function isAllowedDiscordUser({ userId, env }) {
 const notifyDiscordWatch = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
   res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);

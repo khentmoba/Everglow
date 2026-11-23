@@ -144,6 +144,26 @@ test('yumeSources passes an unencrypted body through and throws on a bad status'
   }
 });
 
+test('yumeSources keeps timeout active while reading the JSON body', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (_url, init) => ({
+      ok: true,
+      status: 200,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('body aborted')), { once: true });
+        }),
+    });
+    await assert.rejects(
+      yumeSources({ animeId: 21, episode: 1, language: 'sub', provider: 'Goku', timeoutMs: 25 }),
+      /body aborted/,
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test('yumeHeaders name the site and never carry a cookie', () => {
   const headers = yumeHeaders();
   assert.equal(headers.Referer, `${YUME_ORIGIN}/`);

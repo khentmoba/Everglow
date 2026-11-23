@@ -49,8 +49,14 @@ export function repairLegacyMilestoneImageUrl(url: string): string {
 const STORAGE_URL_CACHE_MAX = 200;
 const resolvedStorageUrlCache = new Map<string, Promise<string | null>>();
 const resolvedStorageUrlStrings = new Map<string, string>();
+let storageUrlGeneration = 0;
 
 clearOnLogout(resolvedStorageUrlCache, resolvedStorageUrlStrings);
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    storageUrlGeneration += 1;
+  });
+}
 
 export function getCachedMilestoneImageUrl(path: string): string | null {
   const normalized = repairLegacyMilestoneImageUrl(path);
@@ -69,15 +75,17 @@ export function resolveMilestoneImageUrl(path: string): Promise<string | null> {
   if (known) return Promise.resolve(known);
   const cached = resolvedStorageUrlCache.get(normalized);
   if (cached) return cached;
+  const gen = storageUrlGeneration;
   const pending = loadStorage()
     .then(({ storage, mod }) => mod.getDownloadURL(mod.ref(storage, normalized)))
     .then((url) => {
+      if (gen !== storageUrlGeneration) return null;
       if (url) setBoundedCache(resolvedStorageUrlStrings, normalized, url, STORAGE_URL_CACHE_MAX);
       return url;
     })
     .catch((e: unknown) => {
       Logger.e(`Milestone photo could not load (${normalized})`, e);
-      resolvedStorageUrlCache.delete(normalized);
+      if (gen === storageUrlGeneration) resolvedStorageUrlCache.delete(normalized);
       return null;
     });
   setBoundedCache(resolvedStorageUrlCache, normalized, pending, STORAGE_URL_CACHE_MAX);

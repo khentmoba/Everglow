@@ -1,8 +1,9 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const common = require('./common');
 const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core');
-const { proxyGalleryImage, deleteGalleryDocs, safeUrlPath } = require('./media_proxy_gallery');
+const { proxyGalleryImage, cleanupGallery, deleteGalleryPhoto, deleteGalleryDocs, safeUrlPath } = require('./media_proxy_gallery');
 const good = 'https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.firebasestorage.app/o/gallery%2Fdemo.jpg?alt=media&token=demo';
 const bad = [
   'https://attacker.invalid/?firebasestorage.googleapis.com=everglow-1c6db',
@@ -89,4 +90,69 @@ test('deleteGalleryDocs removes the doc even when its Storage file is missing', 
   const result = await deleteGalleryDocs(docs, async () => { throw new Error('404 not found'); });
   assert.equal(docDeleted, true);
   assert.deepEqual(result, { deleted: 1, failed: 0 });
+});
+
+test('cleanupGallery deletes Storage objects and sets private no-store headers', async (t) => {
+  const deletedFiles = [];
+  const deletedDocs = [];
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'everglow_khentsgdz',
+      username: 'khentsgdz',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  t.mock.method(admin, 'firestore', () => ({
+    collection: (name) => {
+      if (name === 'users') {
+        return {
+          doc: () => ({ get: async () => ({ exists: true, data: () => ({ username: 'khentsgdz' }) }) }),
+        };
+      }
+      return {
+        limit: () => ({
+          get: async () => ({
+            docs: [{
+              data: () => ({ imageUrl: good }),
+              ref: { delete: async () => { deletedDocs.push('doc1'); } },
+            }],
+          }),
+        }),
+      };
+    },
+  }));
+  t.mock.method(admin, 'storage', () => ({
+    bucket: () => ({
+      file: (objectPath) => ({
+        delete: async (opts) => { deletedFiles.push({ objectPath, opts }); },
+      }),
+    }),
+  }));
+
+  const req = {
+    method: 'POST',
+    headers: { authorization: 'Bearer tok' },
+    get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer tok' : ''),
+    ip: '203.0.113.8',
+    body: { confirm: true },
+  };
+  const res = response();
+  await cleanupGallery(req, res);
+
+  assert.equal(res.code, 200);
+  assert.equal(res.headers['Cache-Control'], 'private, no-store');
+  assert.equal(res.headers['Vary'], 'Origin, Authorization');
+  assert.deepEqual(deletedFiles, [{ objectPath: 'gallery/demo.jpg', opts: { ignoreNotFound: true } }]);
+  assert.deepEqual(deletedDocs, ['doc1']);
+  assert.deepEqual(res.body, { deleted: 1, failed: 0 });
+});
+
+test('deleteGalleryPhoto sets private no-store headers', async () => {
+  const req = { method: 'OPTIONS', headers: {}, get: () => '', ip: '203.0.113.9' };
+  const res = response();
+  await deleteGalleryPhoto(req, res);
+  assert.equal(res.code, 204);
+  assert.equal(res.headers['Cache-Control'], 'private, no-store');
+  assert.equal(res.headers['Vary'], 'Origin, Authorization');
 });

@@ -97,6 +97,8 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
 
 const cleanupGallery = cappedHttps(5, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -126,7 +128,9 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
   const bucket = admin.storage().bucket();
   const snap = await db.collection('gallery').limit(2000).get();
 
-  const result = await deleteGalleryDocs(snap.docs, bucket.file.bind(bucket));
+  const result = await deleteGalleryDocs(snap.docs, (path) =>
+    bucket.file(path).delete({ ignoreNotFound: true }),
+  );
   res.json(result);
 });
 
@@ -163,6 +167,8 @@ async function deleteGalleryDocs(docs, deleteFile, workerCount = 20) {
 
 const deleteGalleryPhoto = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
