@@ -51,6 +51,7 @@ const GUARDIAN_HISTORY_LIMIT = 12;
 
 const uid = () => auth.currentUser?.uid ?? '';
 const idToken = async () => (await auth.currentUser?.getIdToken()) ?? '';
+const chatOwner = () => (AgentMode.demo ? `agent:${AgentMode.activeProfile.value}` : uid());
 const sessionsRef = () => collection(doc(db, 'ai_memories', 'shared'), 'sessions');
 
 function generateSessionId(): string {
@@ -135,7 +136,13 @@ type SseHandlers = {
 class TimeoutError extends Error {}
 
 /** `streamSseResponse` from sse_streamer_web.dart: reads `data:` lines and drains up to 4 per frame. */
-async function streamSse(body: string, timeoutMs: number, signal: AbortController, h: SseHandlers): Promise<string> {
+async function streamSse(
+  body: string,
+  timeoutMs: number,
+  signal: AbortController,
+  h: SseHandlers,
+  isCurrent: () => boolean,
+): Promise<string> {
   let full = '';
   let lineBuffer = '';
   const pending: string[] = [];
@@ -253,9 +260,11 @@ async function streamSse(body: string, timeoutMs: number, signal: AbortControlle
   };
   signal.signal.addEventListener('abort', onAbort, { once: true });
   try {
+    const token = await idToken();
+    if (!isCurrent() || signal.signal.aborted) throw new Error('Reply stopped');
     const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await idToken()}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body,
       signal: signal.signal,
     });
@@ -299,11 +308,28 @@ async function streamSse(body: string, timeoutMs: number, signal: AbortControlle
 class ConversationRepository {
   assistant: AIConversation | null = null;
   private byFeature = new Map<string, AIConversation | null>();
+  private generation = 0;
+  private owner = this.currentOwner();
+
+  private currentOwner(): string {
+    return chatOwner();
+  }
+
+  private resetWhenOwnerChanges() {
+    const owner = this.currentOwner();
+    if (owner === this.owner) return;
+    this.owner = owner;
+    this.generation++;
+    this.assistant = null;
+    this.byFeature.clear();
+  }
 
   get(feature: string): AIConversation | null {
+    this.resetWhenOwnerChanges();
     return feature === 'assistant' ? this.assistant : (this.byFeature.get(feature) ?? null);
   }
   set(feature: string, conv: AIConversation | null) {
+    this.resetWhenOwnerChanges();
     if (feature === 'assistant') this.assistant = conv;
     else this.byFeature.set(feature, conv);
   }
@@ -311,14 +337,16 @@ class ConversationRepository {
   async getOrCreate(feature: string): Promise<AIConversation> {
     const cached = this.get(feature);
     if (cached) return cached;
+    const generation = this.generation;
     const id = AgentMode.demo ? '' : uid();
     if (id === '') {
       const conv = conversation(`local_${feature}_${Date.now()}`, feature);
-      this.set(feature, conv);
+      if (generation === this.generation) this.set(feature, conv);
       return conv;
     }
     try {
       const snap = await getDoc(doc(db, 'users', id, 'ai_conversations', feature));
+      if (generation !== this.generation || uid() !== id) return conversation(feature, feature);
       if (snap.exists() && snap.data()) {
         const conv = conversationFromJson(snap.data() as Json);
         this.set(feature, conv);
@@ -327,6 +355,7 @@ class ConversationRepository {
     } catch (e) {
       Logger.d(`[AIConversationRepository] Failed to load conversation from Firestore: ${e}`);
     }
+    if (generation !== this.generation || uid() !== id) return conversation(feature, feature);
     const conv = conversation(feature, feature);
     this.set(feature, conv);
     return conv;
@@ -451,26 +480,37 @@ class ConversationRepository {
     }
   }
 
-  async clear(feature: string, archive = true): Promise<void> {
+  async clear(
+    feature: string,
+    archive = true,
+    deleteConversation: (ownerId: string, featureName: string) => Promise<void> = (ownerId, featureName) =>
+      deleteDoc(doc(db, 'users', ownerId, 'ai_conversations', featureName)),
+  ): Promise<void> {
+    this.resetWhenOwnerChanges();
+    const generation = this.generation;
+    const owner = this.owner;
+    const id = AgentMode.demo ? '' : uid();
     const conv = this.get(feature);
     const toArchive = archive && conv && conv.messages.length >= 2 ? conv : null;
     this.set(feature, conversation(feature, feature));
     if (toArchive) await this.archiveSession(toArchive);
-    const id = AgentMode.demo ? '' : uid();
-    if (id === '') return;
+    this.resetWhenOwnerChanges();
+    if (generation !== this.generation || owner !== this.owner || id === '') return;
     try {
-      await deleteDoc(doc(db, 'users', id, 'ai_conversations', feature));
+      await deleteConversation(id, feature);
     } catch (e) {
       Logger.d(`[AIConversationRepository] Failed to delete conversation: ${e}`);
     }
   }
 
   async loadAssistant(): Promise<void> {
-    if (this.assistant) return;
+    if (this.get('assistant')) return;
     await this.getOrCreate('assistant');
   }
 
   startFresh() {
+    this.generation++;
+    this.owner = this.currentOwner();
     this.assistant = null;
     this.byFeature.clear();
   }
@@ -500,16 +540,25 @@ class ConversationRepository {
     );
   }
 
-  async loadSession(sessionId: string): Promise<void> {
+  async loadSession(
+    sessionId: string,
+    readSession: (id: string) => Promise<DocumentSnapshot> = (id) => getDoc(doc(sessionsRef(), id)),
+  ): Promise<boolean> {
+    this.resetWhenOwnerChanges();
+    const generation = this.generation;
+    const owner = this.owner;
     try {
-      const snap = await getDoc(doc(sessionsRef(), sessionId));
+      const snap = await readSession(sessionId);
+      this.resetWhenOwnerChanges();
+      if (generation !== this.generation || owner !== this.owner) return false;
       if (!snap.exists() || !snap.data()) throw new Error('Requested AI session does not exist');
       const data = snap.data() as Json;
       const messages = Array.isArray(data.messages) ? (data.messages as Json[]) : [];
       const summary = typeof data.summary === 'string' ? data.summary : null;
       const parsed = messages.map((m) => messageFromJson(m));
       if (parsed.length === 0 && summary) parsed.push(aiMessage({ role: 'assistant', content: `Summary: ${summary}` }));
-      const previous = this.assistant;
+      const previous = this.get('assistant');
+      if (generation !== this.generation || owner !== this.owner) return false;
       this.assistant = {
         id: previous?.id ?? 'assistant',
         feature: 'assistant',
@@ -517,6 +566,7 @@ class ConversationRepository {
         createdAt: previous?.createdAt ?? new Date(),
         updatedAt: previous?.updatedAt ?? new Date(),
       };
+      return true;
     } catch (e) {
       Logger.e('Failed to load session', e);
       throw e;
@@ -619,7 +669,7 @@ export class AIChatService {
   readonly toolResultsNotifier = new ValueNotifier<Json[]>([]);
 
   get assistantConversation(): AIConversation | null {
-    return this.repo.assistant;
+    return this.repo.get('assistant');
   }
   get currentActionScopeId(): string | null {
     return this.actionScope;
@@ -707,6 +757,7 @@ export class AIChatService {
       temporary?: boolean;
       context?: string;
     },
+    isCurrent: () => boolean,
   ): Promise<string> {
     const maxRetries = 2;
     let receivedEvent = false;
@@ -718,6 +769,7 @@ export class AIChatService {
       onError: handlers.onError,
     };
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (!isCurrent()) throw new Error('Reply stopped');
       try {
         if (attempt > 0) this.lastError = null;
         const body = JSON.stringify({
@@ -735,12 +787,14 @@ export class AIChatService {
         const controller = new AbortController();
         this.cancellation = controller;
         const timeout = opts.artifactExpected ? 285000 : opts.enableThinking ? 185000 : 95000;
-        return await streamSse(body, timeout, controller, wrapped);
+        return await streamSse(body, timeout, controller, wrapped, isCurrent);
       } catch (e) {
+        if (!isCurrent()) throw e;
         const text = String(e);
         const transient = e instanceof TimeoutError || e instanceof TypeError || /50[23]|429/.test(text);
         if (attempt < maxRetries && transient && !receivedEvent && feature !== 'assistant') {
           await new Promise((r) => setTimeout(r, 1000 << attempt));
+          if (!isCurrent()) throw new Error('Reply stopped');
           continue;
         }
         throw e;
@@ -753,15 +807,16 @@ export class AIChatService {
     if (this.isNavigating) throw new Error('Wait for the conversation to finish opening.');
     this.isLoading = true;
     this.activeRequest++;
-    const previous = this.repo.assistant?.messages.at(-1);
+    const myRequest = this.activeRequest;
+    const requestOwner = chatOwner();
+    const isCurrent = () => myRequest === this.activeRequest && requestOwner === chatOwner();
+    const previous = this.repo.get('assistant')?.messages.at(-1);
     this.actionScope =
       o.actionScopeId ??
       (/^(yes|yep|okay|ok|sure|continue|finish|retry|try again)[.!?\s]*$/i.test(o.message.trim())
         ? previous?.actionScopeId
         : null) ??
       generateSessionId();
-    const myRequest = this.activeRequest;
-    const isCurrent = () => myRequest === this.activeRequest;
     this.lastError = null;
     this.resetDraftState();
     const imageUrls = o.imageUrls ?? [];
@@ -769,6 +824,7 @@ export class AIChatService {
     const caller = o.callerName ?? (uid() || 'unknown');
     try {
       conv = await this.repo.getOrCreate(o.feature);
+      if (!isCurrent()) return '';
       conv.messages.push(aiMessage({ role: 'user', content: o.message, imageUrls, actionScopeId: this.actionScope }));
       this.repo.set(o.feature, { ...conv });
       conv = this.repo.get(o.feature)!;
@@ -787,7 +843,7 @@ export class AIChatService {
         canvasEnabled: o.canvasEnabled ?? true,
         artifactExpected: motchiWantsArtifact(o.message),
         context: o.contextOverride ?? '',
-      });
+      }, isCurrent);
       if (!isCurrent()) return reply;
       webSources = webSourcesFromToolResults(this.toolResults);
       details = detailsFromResults(this.toolResults);
@@ -858,7 +914,8 @@ export class AIChatService {
     this.isLoading = true;
     this.activeRequest++;
     const myRequest = this.activeRequest;
-    const isCurrent = () => myRequest === this.activeRequest;
+    const requestOwner = chatOwner();
+    const isCurrent = () => myRequest === this.activeRequest && requestOwner === chatOwner();
     this.lastError = null;
     this.resetDraftState();
     this.notify();
@@ -873,7 +930,7 @@ export class AIChatService {
         sessionIdOverride: o.sessionId ?? `temp_anime_${Date.now()}`,
         temporary: true,
         context: o.contextOverride ?? '',
-      });
+      }, isCurrent);
       if (!isCurrent()) return aiMessage({ role: 'assistant', content: visibleText(reply) });
       const sources = webSourcesFromToolResults(this.toolResults);
       const details = detailsFromResults(this.toolResults);
@@ -899,7 +956,7 @@ export class AIChatService {
     if (!this.isLoading || this.activeRequest === 0) return false;
     this.activeRequest++;
     this.cancellation?.abort();
-    const conv = this.repo.assistant;
+    const conv = this.repo.get('assistant');
     const partial = visibleText(this.draftResponse).trimStart();
     const details = detailsFromResults(this.toolResults, true, this.activeTools);
     if (conv && (partial !== '' || details.steps.length > 0)) {
@@ -934,6 +991,10 @@ export class AIChatService {
     canvasEnabled?: boolean;
   }): Promise<string> {
     this.isLoading = true;
+    this.activeRequest++;
+    const myRequest = this.activeRequest;
+    const requestOwner = chatOwner();
+    const isCurrent = () => myRequest === this.activeRequest && requestOwner === chatOwner();
     this.lastError = null;
     this.resetDraftState();
     this.notify();
@@ -947,18 +1008,21 @@ export class AIChatService {
         messages,
         'study',
         caller,
-        this.streamHandlers(() => true),
+        this.streamHandlers(isCurrent),
         {
           enableThinking: o.enableThinking ?? true,
           canvasEnabled: o.canvasEnabled ?? true,
           artifactExpected: motchiWantsArtifact(o.question),
         },
+        isCurrent,
       );
+      if (!isCurrent()) return '';
       this.isLoading = false;
       this.resetDraftState();
       this.notify();
       return reply;
     } catch (e) {
+      if (!isCurrent()) return '';
       this.isLoading = false;
       this.lastError = String(e);
       this.resetDraftState();
@@ -985,6 +1049,20 @@ export class AIChatService {
     this.notify();
   }
 
+  resetForAuthChange() {
+    this.activeRequest++;
+    this.cancellation?.abort();
+    this.cancellation = null;
+    this.isLoading = false;
+    this.isNavigating = false;
+    this.lastError = null;
+    this.currentSession = null;
+    this.actionScope = null;
+    this.repo.startFresh();
+    this.resetDraftState();
+    this.notify();
+  }
+
   startFreshSession() {
     this.currentSession = null;
     this.repo.startFresh();
@@ -1001,16 +1079,22 @@ export class AIChatService {
 
   async switchSession(sessionId: string): Promise<void> {
     if (this.isLoading || this.isNavigating) throw new Error('Wait for the current chat action to finish.');
+    const request = ++this.activeRequest;
+    const requestOwner = chatOwner();
+    const isCurrent = () => request === this.activeRequest && requestOwner === chatOwner();
     this.isNavigating = true;
     this.notify();
     try {
-      await this.repo.loadSession(sessionId);
+      const loaded = await this.repo.loadSession(sessionId);
+      if (!loaded || !isCurrent()) return;
       this.currentSession = sessionId;
-      const conv = this.repo.assistant;
-      if (conv) await this.repo.save(conv);
+      const conv = this.repo.get('assistant');
+      if (conv && isCurrent()) await this.repo.save(conv);
     } finally {
-      this.isNavigating = false;
-      this.notify();
+      if (request === this.activeRequest) {
+        this.isNavigating = false;
+        this.notify();
+      }
     }
   }
 
@@ -1026,6 +1110,20 @@ export class AIChatService {
 }
 
 export const aiChat = new AIChatService();
+
+let activeAIUid = uid();
+auth.onAuthStateChanged((user) => {
+  const nextUid = user?.uid ?? '';
+  if (nextUid === activeAIUid) return;
+  activeAIUid = nextUid;
+  aiChat.resetForAuthChange();
+});
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    activeAIUid = uid();
+    aiChat.resetForAuthChange();
+  });
+}
 
 /** Re-renders when the chat service notifies (`context.watch<AIService>()`). */
 export function useAIChat(): AIChatService {
