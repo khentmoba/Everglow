@@ -4476,11 +4476,22 @@ export function MangaPage() {
                                         {c.updateAt && (
                                           <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{formatKatanaTime(c.updateAt)}</span>
                                         )}
-                                        {availableChapterGroups.length > 1 && (
-                                          <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
-                                            {/official/i.test(c.scanlationGroup || '') ? 'Official' : 'Fan edition'}
-                                          </span>
-                                        )}
+                                        {availableChapterGroups.length > 1 &&
+                                          (() => {
+                                            const edition = /official/i.test(c.scanlationGroup || '') ? 'Official' : 'Fan edition';
+                                            const prev = idx > 0 ? visibleChapters[idx - 1] : undefined;
+                                            const prevEdition = prev
+                                              ? /official/i.test(prev.scanlationGroup || '')
+                                                ? 'Official'
+                                                : 'Fan edition'
+                                              : '';
+                                            if (edition === prevEdition) return null;
+                                            return (
+                                              <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
+                                                {edition}
+                                              </span>
+                                            );
+                                          })()}
                                         {c.isNew && !isLastRead && !isRead && (
                                           <span
                                             style={{
@@ -7437,15 +7448,8 @@ export function MangaPage() {
                           border: `1px solid ${KatanaColors.border}`,
                         }}
                       >
-                        {(
-                          [
-                            ['all', 'All Sources'],
-                            ['mangakatana', 'Newest'],
-                            ['mangadex', 'Official'],
-                            ['comick', 'Full colour'],
-                            ['bato', 'More volumes'],
-                          ] as const
-                        ).map(([src, label]) => {
+                        {(['all', 'mangakatana', 'mangadex', 'comick', 'bato'] as const).map((src) => {
+                          const label = src === 'all' ? 'Everything' : getSourceBadgeInfo(src).choice;
                           const active = catalogSource === src;
                           const tip =
                             src === 'all'

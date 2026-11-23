@@ -640,7 +640,13 @@ function CurrentlyReadingShelf({
               <button
                 type="button"
                 className="bare-button"
-                onClick={() => onSelectManga(bm.slug)}
+                onClick={() => {
+                  if (onResumeBookmark && bm.lastReadChapterId) onResumeBookmark(bm);
+                  else onSelectManga(bm.slug);
+                }}
+                aria-label={
+                  onResumeBookmark && bm.lastReadChapterId ? `Continue ${bm.title}` : `Open ${bm.title}`
+                }
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -708,20 +714,21 @@ function CurrentlyReadingShelf({
                 <button
                   type="button"
                   className="bare-button"
-                  aria-label={`Resume ${bm.title}`}
-                  title={`Resume ${bm.lastReadChapterTitle || bm.title}`}
-                  onClick={() => onResumeBookmark(bm)}
+                  aria-label={`Details for ${bm.title}`}
+                  title={`About ${bm.title}`}
+                  onClick={() => onSelectManga(bm.slug)}
                   style={{
-                    width: 42,
-                    height: 42,
+                    width: 44,
+                    height: 44,
                     borderRadius: 99,
                     flexShrink: 0,
-                    background: KatanaColors.accent,
+                    background: KatanaColors.surfaceAlt,
+                    border: `1px solid ${KatanaColors.border}`,
                     display: 'grid',
                     placeItems: 'center',
                   }}
                 >
-                  <Icon name="play_arrow" size={20} color={KatanaColors.accentInk} />
+                  <Icon name="info" size={20} color={KatanaColors.textMuted} />
                 </button>
               )}
             </div>

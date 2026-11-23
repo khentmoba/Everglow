@@ -21,6 +21,8 @@ export interface SourceBadgeInfo {
   name: string;
   /** Small tie-breaker preference bonus (2–8 pts) used only after title match and metadata completeness signals. */
   searchPreferenceBonus: number;
+  /** Plain words for the browse tab: what the reader gets, never the site's brand name. */
+  choice: string;
   signals: {
     provenance: string;
     metadataQuality: string;
@@ -36,6 +38,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     shortLabel: 'MangaDex',
     name: 'MangaDex',
     searchPreferenceBonus: 8,
+    choice: 'Many languages',
     signals: {
       provenance: 'Fan-translated chapters',
       metadataQuality: 'Official release links included',
@@ -50,6 +53,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     shortLabel: 'Katana',
     name: 'MangaKatana',
     searchPreferenceBonus: 6,
+    choice: 'Newest chapters',
     signals: {
       provenance: 'Fan uploads',
       metadataQuality: 'Standard title, author, genre & chapter timestamps',
@@ -64,6 +68,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     shortLabel: 'ComicK',
     name: 'ComicK',
     searchPreferenceBonus: 4,
+    choice: 'Collected volumes',
     signals: {
       provenance: 'Fan uploads, volumes included',
       metadataQuality: 'Alt-title index & volume cover metadata',
@@ -78,6 +83,7 @@ export const SOURCE_TRUST_META: Record<NonNullable<KatanaManga['source']>, Sourc
     shortLabel: 'Bato.to',
     name: 'Bato.to',
     searchPreferenceBonus: 2,
+    choice: 'Full colour',
     signals: {
       provenance: 'Fan uploads',
       metadataQuality: 'Basic series & chapter metadata',

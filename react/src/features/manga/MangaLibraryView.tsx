@@ -132,8 +132,8 @@ export function MangaLibraryCollectionView({
                     aria-label={`Select ${bm.title}`}
                     onClick={() => onToggleSelectSlug(bm.slug)}
                     style={{
-                      width: 32,
-                      height: 32,
+                      width: 44,
+                      height: 44,
                       display: 'grid',
                       placeItems: 'center',
                       flexShrink: 0,

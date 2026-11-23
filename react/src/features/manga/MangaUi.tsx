@@ -158,7 +158,7 @@ export function KatanaButton({
   const isPrimary = color === KatanaColors.accent && filled;
   const fg = filled ? (isPrimary ? KatanaColors.accentInk : white) : color;
   const pad = size === 'sm' ? '7px 13px' : '10px 18px';
-  const minH = size === 'sm' ? 40 : 44;
+  const minH = size === 'sm' ? 44 : 48;
   const fontSize = size === 'sm' ? 12.5 : 13.5;
   return (
     <button
@@ -763,7 +763,7 @@ export function KatanaHeader({
             }}
             title="Clear"
             aria-label="Clear search"
-            style={{ width: 30, height: 30, flexShrink: 0, display: 'grid', placeItems: 'center' }}
+            style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center' }}
           >
             <Icon name="clear" size={16} color={KatanaColors.textLight} />
           </button>

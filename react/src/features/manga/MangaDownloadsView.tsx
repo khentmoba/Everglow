@@ -694,7 +694,7 @@ export function KatanaDownloadsView({
                             className="bare-button"
                             aria-label={`Select ${ch.subtitle || ch.title}`}
                             onClick={() => toggleSelect(ch.id)}
-                            style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                            style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', flexShrink: 0 }}
                           >
                             <Icon name={checked ? 'check_box' : 'check_box_outline_blank'} size={20} color={checked ? KatanaColors.accent : KatanaColors.textLight} />
                           </button>
@@ -1011,13 +1011,13 @@ export function KatanaDownloadsView({
                   className="bare-button"
                   onClick={onToggleWifiOnly}
                   style={{
-                    width: 48,
-                    height: 28,
+                    width: 56,
+                    height: 44,
                     borderRadius: 99,
-                    padding: 3,
+                    padding: '0 4px',
                     cursor: 'pointer',
-                    background: wifiOnly ? KatanaColors.green : KatanaColors.switchOff,
-                    border: `1px solid ${wifiOnly ? KatanaColors.green : KatanaColors.borderStrong}`,
+                    background: wifiOnly ? KatanaColors.accent : KatanaColors.switchOff,
+                    border: `1px solid ${wifiOnly ? KatanaColors.accent : KatanaColors.borderStrong}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: wifiOnly ? 'flex-end' : 'flex-start',
@@ -1026,8 +1026,8 @@ export function KatanaDownloadsView({
                 >
                   <span
                     style={{
-                      width: 20,
-                      height: 20,
+                      width: 34,
+                      height: 34,
                       borderRadius: 99,
                       background: '#FFFFFF',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
