@@ -1396,18 +1396,25 @@ export function KatanaCoverImage({
   const resolved = url ? proxyKatanaImageUrl(katanaCdnFallback(url, step)) : '';
   if (!resolved || failed) {
     const cleanTitle = (title ?? '').trim();
-    const initial = cleanTitle.charAt(0).toUpperCase();
+    const words = cleanTitle.split(/\s+/).filter(Boolean);
+    const monogram =
+      words.length >= 2
+        ? `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase()
+        : cleanTitle.slice(0, 2).toUpperCase();
     const palette = getSeriesVisualAccent(cleanTitle || 'manga');
+    let hash = 0;
+    for (let i = 0; i < cleanTitle.length; i++) hash = (hash * 31 + cleanTitle.charCodeAt(i)) >>> 0;
+    const motifIdx = hash % 6;
     return (
       <div
         role={cleanTitle ? 'img' : undefined}
-        aria-label={cleanTitle ? `${cleanTitle} cover artwork` : undefined}
+        aria-label={cleanTitle ? `${cleanTitle} cover artwork${failed ? ' (cover unavailable)' : ''}` : undefined}
         aria-hidden={!cleanTitle ? true : undefined}
         style={{
           position: 'absolute',
           inset: 0,
           backgroundColor: fill,
-          background: `linear-gradient(155deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
+          background: `linear-gradient(${135 + (hash % 45)}deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
@@ -1439,68 +1446,95 @@ export function KatanaCoverImage({
             background: 'rgba(0,0,0,0.38)',
           }}
         />
-        <div
+        {/* Hash-varied geometric SVG artwork motif so fallback covers never look identical */}
+        <svg
           aria-hidden="true"
-          style={(() => {
-            let h = 0;
-            for (let i = 0; i < cleanTitle.length; i++) h = (h * 31 + cleanTitle.charCodeAt(i)) >>> 0;
-            const variant = h % 4;
-            if (variant === 0) {
-              return {
-                position: 'absolute',
-                inset: 0,
-                opacity: 0.16,
-                backgroundImage: `radial-gradient(${palette.accent} 1px, transparent 1px)`,
-                backgroundSize: '11px 11px',
-                pointerEvents: 'none',
-              } as React.CSSProperties;
-            }
-            if (variant === 1) {
-              return {
-                position: 'absolute',
-                inset: 0,
-                opacity: 0.14,
-                backgroundImage: `repeating-linear-gradient(135deg, ${palette.accent} 0px, ${palette.accent} 1px, transparent 1px, transparent 12px)`,
-                pointerEvents: 'none',
-              } as React.CSSProperties;
-            }
-            if (variant === 2) {
-              return {
-                position: 'absolute',
-                inset: 0,
-                opacity: 0.12,
-                backgroundImage: `linear-gradient(${palette.secondary} 1px, transparent 1px), linear-gradient(90deg, ${palette.secondary} 1px, transparent 1px)`,
-                backgroundSize: '18px 18px',
-                pointerEvents: 'none',
-              } as React.CSSProperties;
-            }
-            return {
-              position: 'absolute',
-              inset: 0,
-              opacity: 0.15,
-              backgroundImage: `repeating-linear-gradient(25deg, transparent 0px, transparent 14px, ${palette.accent} 14px, ${palette.accent} 15px)`,
-              pointerEvents: 'none',
-            } as React.CSSProperties;
-          })()}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'relative',
-            width: Math.max(24, iconSize - 2),
-            height: Math.max(24, iconSize - 2),
-            borderRadius: 7,
-            background: withAlpha(palette.accent, 0.2),
-            border: `1px solid ${withAlpha(palette.accent, 0.5)}`,
-            display: 'grid',
-            placeItems: 'center',
-            fontFamily: Fonts.display,
-            fontWeight: 400,
-            fontSize: Math.max(12, Math.round(iconSize * 0.45)),
-            color: palette.accent,
-          }}
+          viewBox="0 0 200 300"
+          preserveAspectRatio="xMidYMid slice"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.24, pointerEvents: 'none' }}
         >
-          {initial || <Icon name={emptyIcon} size={Math.max(14, iconSize - 10)} color={palette.accent} />}
+          {motifIdx === 0 && (
+            <>
+              <polygon points="100,24 172,150 100,276 28,150" fill="none" stroke={palette.accent} strokeWidth="3" />
+              <circle cx="100" cy="150" r="46" fill={palette.secondary} fillOpacity="0.28" stroke={palette.accent} strokeWidth="2" />
+              <line x1="20" y1="260" x2="180" y2="40" stroke={palette.accent} strokeWidth="2" strokeDasharray="6 6" />
+            </>
+          )}
+          {motifIdx === 1 && (
+            <>
+              <polygon points="18,280 95,70 170,280" fill={palette.accent} fillOpacity="0.24" stroke={palette.accent} strokeWidth="2.5" />
+              <polygon points="65,280 138,105 192,280" fill={palette.secondary} fillOpacity="0.28" />
+              <circle cx="62" cy="72" r="24" fill={palette.accent} fillOpacity="0.55" />
+            </>
+          )}
+          {motifIdx === 2 && (
+            <>
+              <path d="M132,48 A62,62 0 1,0 156,162 A48,48 0 1,1 132,48 Z" fill={palette.accent} fillOpacity="0.5" />
+              <line x1="24" y1="210" x2="176" y2="210" stroke={palette.secondary} strokeWidth="2.5" />
+              <line x1="42" y1="232" x2="158" y2="232" stroke={palette.accent} strokeWidth="2" />
+            </>
+          )}
+          {motifIdx === 3 && (
+            <>
+              <rect x="28" y="34" width="144" height="106" rx="8" fill="none" stroke={palette.accent} strokeWidth="2.5" />
+              <rect x="28" y="152" width="68" height="114" rx="8" fill={palette.secondary} fillOpacity="0.22" stroke={palette.secondary} strokeWidth="2" />
+              <rect x="106" y="152" width="66" height="114" rx="8" fill={palette.accent} fillOpacity="0.22" stroke={palette.accent} strokeWidth="2" />
+            </>
+          )}
+          {motifIdx === 4 && (
+            <>
+              <polygon points="100,36 168,196 32,196" fill="none" stroke={palette.accent} strokeWidth="3" />
+              <polygon points="100,244 168,84 32,84" fill="none" stroke={palette.secondary} strokeWidth="2.5" />
+              <circle cx="100" cy="140" r="22" fill={palette.accent} fillOpacity="0.45" />
+            </>
+          )}
+          {motifIdx === 5 && (
+            <>
+              <path d="M20,220 Q100,60 180,140" fill="none" stroke={palette.accent} strokeWidth="5" strokeLinecap="round" />
+              <path d="M20,255 Q100,115 180,185" fill="none" stroke={palette.secondary} strokeWidth="3" strokeLinecap="round" />
+              <circle cx="144" cy="78" r="28" fill="none" stroke={palette.accent} strokeWidth="2.5" />
+            </>
+          )}
+        </svg>
+        <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+          <div
+            aria-hidden="true"
+            style={{
+              minWidth: Math.max(26, iconSize),
+              height: Math.max(26, iconSize),
+              padding: '0 6px',
+              borderRadius: 7,
+              background: withAlpha(palette.accent, 0.22),
+              border: `1px solid ${withAlpha(palette.accent, 0.55)}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: Fonts.display,
+              fontWeight: 400,
+              fontSize: Math.max(12, Math.round(iconSize * 0.46)),
+              letterSpacing: 0.6,
+              color: palette.accent,
+            }}
+          >
+            {monogram || <Icon name={emptyIcon} size={Math.max(14, iconSize - 10)} color={palette.accent} />}
+          </div>
+          {iconSize >= 24 && (
+            <span
+              style={{
+                padding: '2px 5px',
+                borderRadius: 4,
+                background: 'rgba(11, 13, 18, 0.78)',
+                border: `1px solid ${withAlpha(palette.accent, 0.35)}`,
+                fontFamily: Fonts.body,
+                fontSize: 9.5,
+                fontWeight: 700,
+                color: KatanaColors.textMuted,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {failed ? 'Cover offline' : 'Edition'}
+            </span>
+          )}
         </div>
         {cleanTitle ? (
           <div
@@ -1509,11 +1543,11 @@ export function KatanaCoverImage({
               position: 'relative',
               fontFamily: Fonts.heading,
               fontWeight: 800,
-              fontSize: iconSize >= 30 ? 12.5 : 10.5,
+              fontSize: iconSize >= 30 ? 12.5 : 11,
               lineHeight: 1.2,
               letterSpacing: -0.2,
               color: '#F8FAFC',
-              textShadow: '0 1px 6px rgba(0,0,0,0.55)',
+              textShadow: '0 1px 6px rgba(0,0,0,0.65)',
             }}
           >
             {cleanTitle}
@@ -1610,18 +1644,19 @@ export function KatanaCoverBadges({
         <span
           title={`${unreadCount} unread chapters`}
           style={{
-            padding: '2px 6px',
+            padding: '2px 7px',
             borderRadius: 6,
             background: KatanaColors.accent,
             color: KatanaColors.accentInk,
+            border: '1px solid rgba(11, 13, 18, 0.35)',
             fontFamily: Fonts.body,
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 800,
             lineHeight: 1.2,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.65)',
           }}
         >
-          {unreadCount > 99 ? '99+' : unreadCount}
+          +{unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}
       {downloadedCount != null && downloadedCount > 0 && (
@@ -1631,18 +1666,19 @@ export function KatanaCoverBadges({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 2,
-            padding: '2px 5px',
+            padding: '2px 6px',
             borderRadius: 6,
             background: KatanaColors.green,
             color: KatanaColors.accentInk,
+            border: '1px solid rgba(11, 13, 18, 0.35)',
             fontFamily: Fonts.body,
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 800,
             lineHeight: 1.2,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.65)',
           }}
         >
-          <Icon name="download_done" size={11} color={KatanaColors.accentInk} />
+          <Icon name="download_done" size={12} color={KatanaColors.accentInk} />
           <span>{downloadedCount}</span>
         </span>
       )}
@@ -1971,10 +2007,12 @@ export function KatanaPosterCard({
           {completed && (
             <span
               style={{
-                padding: '2px 6px',
-                borderRadius: 5,
-                background: withAlpha(KatanaColors.green, 0.92),
-                ...bodyText(9.5, 700, KatanaColors.accentInk, 1.2),
+                padding: '2px 7px',
+                borderRadius: 6,
+                background: withAlpha(KatanaColors.green, 0.96),
+                border: '1px solid rgba(11, 13, 18, 0.35)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
+                ...bodyText(12, 800, KatanaColors.accentInk, 1.2),
               }}
             >
               Completed
@@ -1985,16 +2023,32 @@ export function KatanaPosterCard({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 2,
-                padding: '2px 6px',
-                borderRadius: 5,
-                background: withAlpha(KatanaColors.background, 0.78),
-                backdropFilter: 'blur(4px)',
-                ...bodyText(10, 700, KatanaColors.text, 1.2),
+                gap: 3,
+                padding: '2px 7px',
+                borderRadius: 6,
+                background: 'rgba(11, 13, 18, 0.92)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
+                ...bodyText(12, 800, '#F8FAFC', 1.2),
               }}
             >
-              <Icon name="star" size={10} color={KatanaColors.accent} />
+              <Icon name="star" size={11} color={KatanaColors.accent} />
               <span>{manga.rating.toFixed(1)}</span>
+            </span>
+          )}
+          {manga.source && (
+            <span
+              title={manga.source === 'mangadex' ? 'Source: MangaDex' : 'Source: MangaKatana'}
+              style={{
+                padding: '2px 6px',
+                borderRadius: 6,
+                background: 'rgba(11, 13, 18, 0.9)',
+                border: `1px solid ${manga.source === 'mangadex' ? withAlpha(KatanaColors.teal, 0.55) : withAlpha(KatanaColors.accent, 0.5)}`,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                ...bodyText(11, 800, manga.source === 'mangadex' ? KatanaColors.teal : KatanaColors.accentSoft, 1.2),
+              }}
+            >
+              {manga.source === 'mangadex' ? 'MD' : 'MK'}
             </span>
           )}
         </div>
@@ -2127,14 +2181,16 @@ export function KatanaCompactCard({
               right: 6,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 2,
-              padding: '2px 5px',
-              borderRadius: 5,
-              background: withAlpha(KatanaColors.background, 0.86),
-              ...bodyText(10, 700, KatanaColors.text, 1.15),
+              gap: 3,
+              padding: '2px 6px',
+              borderRadius: 6,
+              background: 'rgba(11, 13, 18, 0.92)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
+              ...bodyText(12, 800, '#F8FAFC', 1.15),
             }}
           >
-            <Icon name="star" size={10} color={KatanaColors.accent} />
+            <Icon name="star" size={11} color={KatanaColors.accent} />
             <span>{manga.rating.toFixed(1)}</span>
           </span>
         )}

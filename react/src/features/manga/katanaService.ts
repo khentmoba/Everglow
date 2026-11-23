@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { AgentMode } from '../../core/agent/agentMode';
 import { ConnectivityService } from '../../core/network/connectivity';
+import { FCM_TOKEN_STORAGE_KEY } from '../../core/services/notifications';
 import { fetchFallbackChapterPages } from './mangaFallbackProviders';
 import { getDemoChapterPages } from './readerDemo';
 import { auth, db } from '../../core/services/firebase';
@@ -75,6 +76,7 @@ export interface KatanaManga {
   chapterCount?: number;
   demographic?: string;
   releaseDay?: KatanaWeekday;
+  source?: 'mangakatana' | 'mangadex';
 }
 
 export type KatanaLibraryStatus = 'reading' | 'completed' | 'on_hold' | 'planned' | 'dropped';
@@ -126,6 +128,15 @@ export interface KatanaBookmark {
   lastNotifiedAt?: number;
   /** Epoch ms when the scheduled updater last checked this series. */
   lastCheckedAt?: number;
+  /** Mihon Smart Updates predicted next check timestamp (epoch ms) and cadence in hours. */
+  nextCheckAt?: number;
+  cadenceHours?: number;
+  /** Bidirectional tracker push state (AniList / MAL / Kitsu). */
+  lastPushedAt?: Date;
+  lastPushedChapter?: number;
+  lastPushedStatus?: KatanaLibraryStatus;
+  lastPushedScore?: number;
+  trackerSyncState?: 'synced' | 'queued' | 'linked';
   /** Set once the reader reaches the last page of the final chapter of a completed series. */
   finishedAt?: Date;
 }
@@ -462,6 +473,7 @@ function parseExpandedItem(block: string): KatanaManga | null {
     chapterCount: parsedChCount > 0 ? parsedChCount : undefined,
     demographic,
     releaseDay: deriveReleaseDay(updateText, recentChapters),
+    source: 'mangakatana',
   };
 }
 
@@ -621,6 +633,106 @@ function makeDemoChapters(count: number, prefix: string): KatanaChapter[] {
   });
 }
 
+function xmlEscapeSvg(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Generates bespoke, high-contrast illustrated SVG cover art per demo series
+ * so every card in agent/offline mode has its own distinct editorial illustration,
+ * palette, crest, and typography instead of sharing a generic placeholder image.
+ */
+export function buildDemoMangaCoverDataUrl(
+  title: string,
+  subtitle: string,
+  tag: string,
+  variantIdx: number,
+): string {
+  const palettes = [
+    { bg0: '#090D1A', bg1: '#1A2442', accent: '#F59E0B', sub: '#38BDF8', ink: '#FEF3C7' },
+    { bg0: '#140C14', bg1: '#2C1620', accent: '#FB923C', sub: '#F87171', ink: '#FFEDD5' },
+    { bg0: '#0A131C', bg1: '#152A3C', accent: '#60A5FA', sub: '#A78BFA', ink: '#E0F2FE' },
+    { bg0: '#071714', bg1: '#10312B', accent: '#2DD4BF', sub: '#FBBF24', ink: '#CCFBF1' },
+    { bg0: '#100B1C', bg1: '#251742', accent: '#38BDF8', sub: '#F472B6', ink: '#E0F2FE' },
+    { bg0: '#16130C', bg1: '#2D2415', accent: '#FBBF24', sub: '#34D399', ink: '#FEF3C7' },
+    { bg0: '#190B10', bg1: '#36131E', accent: '#F87171', sub: '#FBBF24', ink: '#FEE2E2' },
+    { bg0: '#0D1512', bg1: '#1D332B', accent: '#34D399', sub: '#F59E0B', ink: '#D1FAE5' },
+  ];
+  const p = palettes[Math.abs(variantIdx) % palettes.length];
+  const motifs = [
+    // 0: Constellation blade & astrolabe
+    `<polygon points="200,52 218,165 200,295 182,165" fill="${p.accent}" opacity="0.88"/>
+     <polygon points="145,165 255,165 200,182" fill="${p.sub}" opacity="0.9"/>
+     <circle cx="200" cy="165" r="78" fill="none" stroke="${p.accent}" stroke-width="2.5" stroke-dasharray="8 6" opacity="0.7"/>
+     <circle cx="110" cy="88" r="3" fill="${p.ink}"/><circle cx="296" cy="108" r="4" fill="${p.accent}"/><circle cx="270" cy="64" r="2.5" fill="${p.sub}"/>`,
+    // 1: Ashen monolith gate & rising embers
+    `<path d="M110,310 L128,102 L272,102 L290,310 Z" fill="none" stroke="${p.accent}" stroke-width="6" opacity="0.85"/>
+     <path d="M148,310 L158,136 L242,136 L252,310 Z" fill="${p.accent}" opacity="0.22"/>
+     <polygon points="200,148 228,225 200,260 172,225" fill="${p.sub}" opacity="0.85"/>
+     <circle cx="160" cy="82" r="4" fill="${p.accent}"/><circle cx="238" cy="70" r="3" fill="${p.sub}"/>`,
+    // 2: Crescent paper moon & coastal reflections
+    `<path d="M235,82 A76,76 0 1,0 265,212 A60,60 0 1,1 235,82 Z" fill="${p.accent}" opacity="0.92"/>
+     <line x1="88" y1="248" x2="312" y2="248" stroke="${p.sub}" stroke-width="2.5" opacity="0.7"/>
+     <line x1="118" y1="266" x2="282" y2="266" stroke="${p.accent}" stroke-width="2" opacity="0.55"/>
+     <line x1="148" y1="284" x2="252" y2="284" stroke="${p.sub}" stroke-width="1.5" opacity="0.45"/>`,
+    // 3: Jade mountain peaks & calligraphy sword stroke
+    `<polygon points="60,310 152,138 238,310" fill="${p.sub}" opacity="0.32"/>
+     <polygon points="150,310 246,108 345,310" fill="${p.accent}" opacity="0.42"/>
+     <path d="M92,232 Q200,90 314,152" fill="none" stroke="${p.ink}" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+     <circle cx="138" cy="96" r="24" fill="${p.accent}" opacity="0.8"/>`,
+    // 4: Cyberpunk neon grid & skyline towers
+    `<rect x="92" y="132" width="38" height="178" fill="${p.sub}" opacity="0.38"/>
+     <rect x="144" y="96" width="52" height="214" fill="${p.accent}" opacity="0.48"/>
+     <rect x="210" y="118" width="44" height="192" fill="${p.sub}" opacity="0.52"/>
+     <rect x="266" y="154" width="36" height="156" fill="${p.accent}" opacity="0.32"/>
+     <line x1="60" y1="226" x2="340" y2="178" stroke="${p.ink}" stroke-width="4" opacity="0.92"/>`,
+    // 5: Botanical bookshop arch & glowing lantern
+    `<path d="M122,310 L122,158 A78,78 0 0,1 278,158 L278,310 Z" fill="none" stroke="${p.accent}" stroke-width="4" opacity="0.86"/>
+     <rect x="166" y="146" width="68" height="88" rx="6" fill="${p.accent}" opacity="0.82"/>
+     <line x1="200" y1="80" x2="200" y2="146" stroke="${p.ink}" stroke-width="2.5"/>
+     <circle cx="200" cy="190" r="16" fill="${p.ink}" opacity="0.95"/>`,
+    // 6: Crimson harbor waves & beacon
+    `<circle cx="200" cy="148" r="56" fill="${p.accent}" opacity="0.86"/>
+     <path d="M50,242 Q125,208 200,242 T350,242 L350,320 L50,320 Z" fill="${p.sub}" opacity="0.46"/>
+     <path d="M50,276 Q125,244 200,276 T350,276 L350,320 L50,320 Z" fill="${p.accent}" opacity="0.52"/>`,
+    // 7: Cloud sect alchemy seal & lotus
+    `<polygon points="200,82 284,228 116,228" fill="none" stroke="${p.accent}" stroke-width="3.5" opacity="0.85"/>
+     <polygon points="200,256 284,110 116,110" fill="none" stroke="${p.sub}" stroke-width="3.5" opacity="0.72"/>
+     <circle cx="200" cy="169" r="32" fill="${p.accent}" opacity="0.85"/>`,
+  ];
+  const motif = motifs[Math.abs(variantIdx) % motifs.length];
+  const words = title.trim().split(/\s+/);
+  const line1 = xmlEscapeSvg(words.slice(0, 2).join(' ').toUpperCase());
+  const line2 = xmlEscapeSvg(words.slice(2, 5).join(' ').toUpperCase());
+  const safeSub = xmlEscapeSvg(subtitle.toUpperCase());
+  const safeTag = xmlEscapeSvg(tag.toUpperCase());
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="${p.bg1}"/>
+      <stop offset="100%" stop-color="${p.bg0}"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${p.bg0}" stop-opacity="0.1"/>
+      <stop offset="55%" stop-color="${p.bg0}" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="${p.bg0}" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#bg)"/>
+  <rect x="0" y="0" width="10" height="600" fill="${p.accent}"/>
+  <rect x="22" y="20" width="356" height="560" rx="8" fill="none" stroke="${p.accent}" stroke-opacity="0.32" stroke-width="1.5"/>
+  ${motif}
+  <rect width="400" height="600" fill="url(#fade)"/>
+  <rect x="38" y="38" width="116" height="28" rx="6" fill="${p.accent}"/>
+  <text x="96" y="57" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="800" letter-spacing="1.2" fill="#0B0D12">${safeTag}</text>
+  <text x="38" y="458" font-family="sans-serif" font-size="14" font-weight="700" letter-spacing="2" fill="${p.accent}">${safeSub}</text>
+  <text x="38" y="502" font-family="sans-serif" font-size="34" font-weight="900" letter-spacing="0.8" fill="#F8FAFC">${line1}</text>
+  ${line2 ? `<text x="38" y="540" font-family="sans-serif" font-size="28" font-weight="800" letter-spacing="0.6" fill="${p.ink}">${line2}</text>` : ''}
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 function buildDemoCatalog(): KatanaManga[] {
   const genres = buildDemoGenres();
   const g = (...slugs: string[]) => genres.filter((x) => slugs.includes(x.slug));
@@ -646,7 +758,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-starlight-manga',
       title: 'Fictional Starlight Manga',
-      coverUrl: '/images/demo/poster-4.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Fictional Starlight Manga', 'Hoshikuzu Senki', 'MANGA · VOL 5', 0),
       status: 'ongoing',
       authors: ['Renji Takahashi'],
       altNames: ['Hoshikuzu Senki', 'Starlight Chronicles'],
@@ -664,7 +776,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-iron-sovereign',
       title: 'Iron Sovereign of the Ashen Gate',
-      coverUrl: '/images/demo/poster-1.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Iron Sovereign Ashen Gate', 'Cheolwang-ui Mun', 'MANHWA · S2', 1),
       status: 'ongoing',
       authors: ['Min-Jun Kang', 'Studio Baekho'],
       altNames: ['Ashen Gate', 'Cheolwang-ui Mun'],
@@ -682,7 +794,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-paper-moon',
       title: 'Demo Paper Moon',
-      coverUrl: '/images/demo/poster-2.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Demo Paper Moon', 'Kami no Tsuki', 'SEINEN · COMPLETE', 2),
       status: 'completed',
       authors: ['Haruka Sato'],
       altNames: ['Kami no Tsuki'],
@@ -700,7 +812,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-jade-sky-blade',
       title: 'Jade Sky Blade Pavilion',
-      coverUrl: '/images/demo/poster-3.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Jade Sky Blade Pavilion', 'Bi Tian Jian Ge', 'MANHUA · WUXIA', 3),
       status: 'ongoing',
       authors: ['Lin Wuyue'],
       altNames: ['Bi Tian Jian Ge'],
@@ -718,7 +830,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-neon-courier',
       title: 'Neon Courier 2099',
-      coverUrl: '/images/demo/poster-1.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Neon Courier 2099', 'Shinjuku Express', 'SCI-FI · MANGA', 4),
       status: 'ongoing',
       authors: ['Kenji Morita'],
       altNames: ['Shinjuku Express 99'],
@@ -736,7 +848,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-garden-of-letters',
       title: 'Demo Garden of Letters',
-      coverUrl: '/images/demo/poster-3.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Demo Garden of Letters', 'Tegami no Niwa', 'JOSEI · VOL 3', 5),
       status: 'ongoing',
       authors: ['Aoi Nishimura'],
       altNames: ['Tegami no Niwa'],
@@ -754,7 +866,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-crimson-tides',
       title: 'Crimson Tides of Busan',
-      coverUrl: '/images/demo/poster-2.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Crimson Tides of Busan', 'Bulgeun Pado', 'MANHWA · MYSTERY', 6),
       status: 'ongoing',
       authors: ['Ji-Hoon Park'],
       altNames: ['Bulgeun Pado'],
@@ -772,7 +884,7 @@ function buildDemoCatalog(): KatanaManga[] {
     {
       slug: 'demo-cloud-sect-alchemist',
       title: 'Cloud Sect Alchemist',
-      coverUrl: '/images/demo/poster-4.jpg',
+      coverUrl: buildDemoMangaCoverDataUrl('Cloud Sect Alchemist', 'Yun Zong Dan Shi', 'MANHUA · COMPLETE', 7),
       status: 'completed',
       authors: ['Chen Zihan'],
       altNames: ['Yun Zong Dan Shi'],
@@ -812,6 +924,7 @@ function buildDemoCatalog(): KatanaManga[] {
       chapterCount: s.chapterCount,
       demographic: s.demographic,
       releaseDay: s.releaseDay,
+      source: 'mangakatana',
     };
   });
 }
@@ -1401,15 +1514,47 @@ const demoBookmarks = new Map<string, KatanaBookmark[]>([
   [
     'khentsgdz',
     [
-      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 42, undefined, 'Chapter 43', new Date(2026, 2, 12, 20, 0)),
-      demoProgress('demo-paper-moon', 'Demo Paper Moon', '/images/demo/poster-2.jpg', 120, new Date(2026, 2, 1), 'Chapter 120', new Date(2026, 2, 1, 18, 0)),
+      demoProgress(
+        'demo-starlight-manga',
+        'Fictional Starlight Manga',
+        buildDemoMangaCoverDataUrl('Fictional Starlight Manga', 'Hoshikuzu Senki', 'MANGA · VOL 5', 0),
+        42,
+        undefined,
+        'Chapter 43',
+        new Date(2026, 2, 12, 20, 0),
+      ),
+      demoProgress(
+        'demo-paper-moon',
+        'Demo Paper Moon',
+        buildDemoMangaCoverDataUrl('Demo Paper Moon', 'Kami no Tsuki', 'SEINEN · COMPLETE', 2),
+        120,
+        new Date(2026, 2, 1),
+        'Chapter 120',
+        new Date(2026, 2, 1, 18, 0),
+      ),
     ],
   ],
   [
     'clairjassen',
     [
-      demoProgress('demo-starlight-manga', 'Fictional Starlight Manga', '/images/demo/poster-4.jpg', 12, undefined, 'Chapter 43', new Date(2026, 2, 11, 21, 0)),
-      demoProgress('demo-garden-of-letters', 'Demo Garden of Letters', '/images/demo/poster-3.jpg', 7, undefined, 'Chapter 28', new Date(2026, 2, 9, 15, 0)),
+      demoProgress(
+        'demo-starlight-manga',
+        'Fictional Starlight Manga',
+        buildDemoMangaCoverDataUrl('Fictional Starlight Manga', 'Hoshikuzu Senki', 'MANGA · VOL 5', 0),
+        12,
+        undefined,
+        'Chapter 43',
+        new Date(2026, 2, 11, 21, 0),
+      ),
+      demoProgress(
+        'demo-garden-of-letters',
+        'Demo Garden of Letters',
+        buildDemoMangaCoverDataUrl('Demo Garden of Letters', 'Tegami no Niwa', 'JOSEI · VOL 3', 5),
+        7,
+        undefined,
+        'Chapter 28',
+        new Date(2026, 2, 9, 15, 0),
+      ),
     ],
   ],
 ]);
@@ -1472,6 +1617,23 @@ function bookmarkFromDoc(data: DocumentData, id: string): KatanaBookmark {
     lastNotifiedChapter: typeof data.lastNotifiedChapter === 'string' ? data.lastNotifiedChapter : undefined,
     lastNotifiedAt: typeof data.lastNotifiedAt === 'number' ? data.lastNotifiedAt : undefined,
     lastCheckedAt: typeof data.lastCheckedAt === 'number' ? data.lastCheckedAt : undefined,
+    nextCheckAt: typeof data.nextCheckAt === 'number' ? data.nextCheckAt : undefined,
+    cadenceHours: typeof data.cadenceHours === 'number' ? data.cadenceHours : undefined,
+    lastPushedAt: (data.lastPushedAt as Timestamp | undefined)?.toDate?.(),
+    lastPushedChapter: typeof data.lastPushedChapter === 'number' ? data.lastPushedChapter : undefined,
+    lastPushedStatus:
+      data.lastPushedStatus === 'reading' ||
+      data.lastPushedStatus === 'completed' ||
+      data.lastPushedStatus === 'on_hold' ||
+      data.lastPushedStatus === 'planned' ||
+      data.lastPushedStatus === 'dropped'
+        ? data.lastPushedStatus
+        : undefined,
+    lastPushedScore: typeof data.lastPushedScore === 'number' ? data.lastPushedScore : undefined,
+    trackerSyncState:
+      data.trackerSyncState === 'synced' || data.trackerSyncState === 'queued' || data.trackerSyncState === 'linked'
+        ? data.trackerSyncState
+        : undefined,
     finishedAt: (data.finishedAt as Timestamp | undefined)?.toDate?.(),
   };
 }
@@ -1665,6 +1827,12 @@ export async function saveKatanaReadingProgress(p: {
     else next.unshift(entry);
     demoBookmarks.set(p.userName, next);
     demoChanges.emit();
+    if ((entry.anilistId || entry.malId || entry.kitsuId) && loadKatanaTrackerTokens(p.userName).autoPushTrackers !== false) {
+      void pushKatanaTrackerProgress(
+        { slug: entry.slug, title: entry.title, coverUrl: entry.coverUrl, status: entry.status },
+        p.userName,
+      );
+    }
     return;
   }
   const existing = await getKatanaBookmark(p.slug, p.userName);
@@ -1686,6 +1854,17 @@ export async function saveKatanaReadingProgress(p: {
     },
     { merge: true },
   );
+  if ((existing?.anilistId || existing?.malId || existing?.kitsuId) && loadKatanaTrackerTokens(p.userName).autoPushTrackers !== false) {
+    void pushKatanaTrackerProgress(
+      {
+        slug: p.slug,
+        title: p.title || existing?.title || p.slug,
+        coverUrl: p.coverUrl || existing?.coverUrl || '',
+        status: p.finished ? 'completed' : existing?.status || 'ongoing',
+      },
+      p.userName,
+    );
+  }
 }
 
 export async function setKatanaLibraryStatus(
@@ -1728,6 +1907,9 @@ export async function setKatanaLibraryStatus(
     else next.unshift(entry);
     demoBookmarks.set(userName, next);
     demoChanges.emit();
+    if ((entry.anilistId || entry.malId || entry.kitsuId) && loadKatanaTrackerTokens(userName).autoPushTrackers !== false) {
+      void pushKatanaTrackerProgress(manga, userName, { libraryStatus });
+    }
     return;
   }
   const existing = await getKatanaBookmark(manga.slug, userName);
@@ -1750,6 +1932,9 @@ export async function setKatanaLibraryStatus(
     },
     { merge: true },
   );
+  if ((existing?.anilistId || existing?.malId || existing?.kitsuId) && loadKatanaTrackerTokens(userName).autoPushTrackers !== false) {
+    void pushKatanaTrackerProgress(manga, userName, { libraryStatus });
+  }
 }
 
 export async function markKatanaChaptersRead(
@@ -2057,8 +2242,59 @@ export interface KatanaTrackerPatch {
   malTotalChapters?: number | null;
   malStatus?: string | null;
   lastSyncedAt?: Date | null;
+  lastPushedAt?: Date | null;
+  lastPushedChapter?: number | null;
+  lastPushedStatus?: KatanaLibraryStatus | null;
+  lastPushedScore?: number | null;
+  trackerSyncState?: 'synced' | 'queued' | 'linked' | null;
   notifyOnUpdate?: boolean;
   autoDownload?: boolean;
+}
+
+export interface KatanaTrackerTokens {
+  anilistToken?: string;
+  malToken?: string;
+  kitsuToken?: string;
+  autoPushTrackers?: boolean;
+}
+
+const TRACKER_TOKENS_PREFIX = 'katana_tracker_tokens_v1_';
+
+export function loadKatanaTrackerTokens(userName: string): KatanaTrackerTokens {
+  if (!userName) return { autoPushTrackers: true };
+  try {
+    const raw = localStorage.getItem(`${TRACKER_TOKENS_PREFIX}${userName}`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<KatanaTrackerTokens>;
+      return {
+        anilistToken: typeof parsed.anilistToken === 'string' ? parsed.anilistToken.trim() : undefined,
+        malToken: typeof parsed.malToken === 'string' ? parsed.malToken.trim() : undefined,
+        kitsuToken: typeof parsed.kitsuToken === 'string' ? parsed.kitsuToken.trim() : undefined,
+        autoPushTrackers: parsed.autoPushTrackers !== false,
+      };
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return { autoPushTrackers: true };
+}
+
+export function saveKatanaTrackerTokens(
+  userName: string,
+  patch: Partial<KatanaTrackerTokens>,
+): KatanaTrackerTokens {
+  const cur = loadKatanaTrackerTokens(userName);
+  const next: KatanaTrackerTokens = {
+    ...cur,
+    ...patch,
+  };
+  if (!userName) return next;
+  try {
+    localStorage.setItem(`${TRACKER_TOKENS_PREFIX}${userName}`, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+  return next;
 }
 
 export interface MalTrackerSnapshot {
@@ -2328,6 +2564,11 @@ export async function saveKatanaTrackerData(
       malTotalChapters: patch.malTotalChapters === null ? undefined : patch.malTotalChapters !== undefined ? patch.malTotalChapters : cur?.malTotalChapters,
       malStatus: patch.malStatus === null ? undefined : patch.malStatus !== undefined ? patch.malStatus : cur?.malStatus,
       lastSyncedAt: patch.lastSyncedAt === null ? undefined : patch.lastSyncedAt !== undefined ? patch.lastSyncedAt : cur?.lastSyncedAt,
+      lastPushedAt: patch.lastPushedAt === null ? undefined : patch.lastPushedAt !== undefined ? patch.lastPushedAt : cur?.lastPushedAt,
+      lastPushedChapter: patch.lastPushedChapter === null ? undefined : patch.lastPushedChapter !== undefined ? patch.lastPushedChapter : cur?.lastPushedChapter,
+      lastPushedStatus: patch.lastPushedStatus === null ? undefined : patch.lastPushedStatus !== undefined ? patch.lastPushedStatus : cur?.lastPushedStatus,
+      lastPushedScore: patch.lastPushedScore === null ? undefined : patch.lastPushedScore !== undefined ? patch.lastPushedScore : cur?.lastPushedScore,
+      trackerSyncState: patch.trackerSyncState === null ? undefined : patch.trackerSyncState !== undefined ? patch.trackerSyncState : cur?.trackerSyncState,
       notifyOnUpdate: patch.notifyOnUpdate !== undefined ? patch.notifyOnUpdate : cur?.notifyOnUpdate,
       autoDownload: patch.autoDownload !== undefined ? patch.autoDownload : cur?.autoDownload,
       finishedAt: cur?.finishedAt,
@@ -2362,9 +2603,135 @@ export async function saveKatanaTrackerData(
   if (patch.malTotalChapters !== undefined) payload.malTotalChapters = patch.malTotalChapters === null ? deleteField() : patch.malTotalChapters;
   if (patch.malStatus !== undefined) payload.malStatus = patch.malStatus ? patch.malStatus : deleteField();
   if (patch.lastSyncedAt !== undefined) payload.lastSyncedAt = patch.lastSyncedAt === null ? deleteField() : Timestamp.fromDate(patch.lastSyncedAt);
+  if (patch.lastPushedAt !== undefined) payload.lastPushedAt = patch.lastPushedAt === null ? deleteField() : Timestamp.fromDate(patch.lastPushedAt);
+  if (patch.lastPushedChapter !== undefined) payload.lastPushedChapter = patch.lastPushedChapter === null ? deleteField() : patch.lastPushedChapter;
+  if (patch.lastPushedStatus !== undefined) payload.lastPushedStatus = patch.lastPushedStatus === null ? deleteField() : patch.lastPushedStatus;
+  if (patch.lastPushedScore !== undefined) payload.lastPushedScore = patch.lastPushedScore === null ? deleteField() : patch.lastPushedScore;
+  if (patch.trackerSyncState !== undefined) payload.trackerSyncState = patch.trackerSyncState === null ? deleteField() : patch.trackerSyncState;
   if (patch.notifyOnUpdate !== undefined) payload.notifyOnUpdate = patch.notifyOnUpdate;
   if (patch.autoDownload !== undefined) payload.autoDownload = patch.autoDownload;
   await setDoc(doc(db, 'katana_bookmarks', `${userName}|${manga.slug}`), payload, { merge: true });
+}
+
+export interface TrackerPushResult {
+  pushedProviders: string[];
+  chapterProgress: number;
+  status: KatanaLibraryStatus;
+  score?: number;
+  remotePushed: boolean;
+}
+
+/**
+ * Bidirectional tracker sync: pushes reading status, chapter progress, personal score,
+ * and reread count to linked AniList, MyAnimeList, and Kitsu entries through Everglow's
+ * server-side `proxyCatalog?base=tracker_sync` helper, and records push state in Firestore.
+ */
+export async function pushKatanaTrackerProgress(
+  manga: Pick<KatanaManga, 'slug' | 'title' | 'coverUrl' | 'status'>,
+  userName: string,
+  overrides?: {
+    libraryStatus?: KatanaLibraryStatus;
+    progressChapter?: number;
+    userScore?: number | null;
+    rereadCount?: number;
+    anilistId?: string;
+    malId?: string;
+    kitsuId?: string;
+  },
+): Promise<TrackerPushResult | null> {
+  if (!userName || !manga.slug) return null;
+  const bm = await getKatanaBookmark(manga.slug, userName);
+  const anilistId = (overrides?.anilistId ?? bm?.anilistId ?? '').trim();
+  const malId = (overrides?.malId ?? bm?.malId ?? '').trim();
+  const kitsuId = (overrides?.kitsuId ?? bm?.kitsuId ?? '').trim();
+  if (!anilistId && !malId && !kitsuId) return null;
+
+  const status: KatanaLibraryStatus = overrides?.libraryStatus ?? (bm ? resolveLibraryStatus(bm) : 'reading');
+  const readNum =
+    overrides?.progressChapter ??
+    Math.max(
+      bm?.readChapterIds?.length ?? 0,
+      Math.floor(extractChapterNumber(bm?.lastReadChapterTitle || katanaChapterNumFromId(bm?.lastReadChapterId ?? ''))),
+    );
+  const score =
+    overrides?.userScore === null
+      ? undefined
+      : overrides?.userScore !== undefined
+        ? overrides.userScore
+        : bm?.userScore;
+  const repeat = overrides?.rereadCount ?? bm?.rereadCount ?? 0;
+  const notes = bm?.trackerNote;
+  const tokens = loadKatanaTrackerTokens(userName);
+
+  const targets: Array<{ provider: 'anilist' | 'mal' | 'kitsu'; label: string; mediaId: string; token?: string }> = [];
+  if (anilistId && /^\d+$/.test(anilistId)) {
+    targets.push({ provider: 'anilist', label: 'AniList', mediaId: anilistId, token: tokens.anilistToken });
+  }
+  if (malId && /^\d+$/.test(malId)) {
+    targets.push({ provider: 'mal', label: 'MAL', mediaId: malId, token: tokens.malToken });
+  }
+  if (kitsuId && /^\d+$/.test(kitsuId)) {
+    targets.push({ provider: 'kitsu', label: 'Kitsu', mediaId: kitsuId, token: tokens.kitsuToken });
+  }
+  if (targets.length === 0) return null;
+
+  let anyRemotePushed = false;
+  if (!AgentMode.demo) {
+    let idToken: string | null = null;
+    try {
+      idToken = (await auth.currentUser?.getIdToken()) ?? null;
+    } catch {
+      idToken = null;
+    }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    };
+    const results = await Promise.allSettled(
+      targets.map(async (t) => {
+        const res = await fetch(`${FUNCTIONS_BASE}/proxyCatalog?base=tracker_sync`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            provider: t.provider,
+            mediaId: t.mediaId,
+            status,
+            progress: readNum,
+            score,
+            repeat,
+            notes,
+            ...(t.token ? { trackerToken: t.token } : {}),
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
+        if (!res.ok) return false;
+        const json = (await res.json()) as { synced?: boolean; ok?: boolean };
+        return Boolean(json.synced || json.ok);
+      }),
+    );
+    anyRemotePushed = results.some((r) => r.status === 'fulfilled' && r.value);
+  } else {
+    anyRemotePushed = true;
+  }
+
+  const now = new Date();
+  await saveKatanaTrackerData(manga, userName, {
+    lastSyncedAt: now,
+    lastPushedAt: now,
+    lastPushedChapter: readNum,
+    lastPushedStatus: status,
+    lastPushedScore: score ?? null,
+    trackerSyncState: anyRemotePushed ? 'synced' : 'linked',
+  });
+
+  return {
+    pushedProviders: targets.map((t) => t.label),
+    chapterProgress: readNum,
+    status,
+    score,
+    remotePushed: anyRemotePushed,
+  };
 }
 
 export function exportKatanaLibraryJson(bookmarks: KatanaBookmark[], categories: string[]): string {
@@ -2526,7 +2893,7 @@ function buildDemoHistory(): KatanaHistoryEntry[] {
     {
       slug: 'frieren-beyond-journeys-end',
       title: "Frieren: Beyond Journey's End",
-      coverUrl: '/images/demo/manga-frieren.svg',
+      coverUrl: buildDemoMangaCoverDataUrl("Frieren Beyond Journey's End", 'Sousou no Frieren', 'MANGA · FANTASY', 0),
       chapterId: 'c139',
       chapterTitle: 'Chapter 139: A Quiet Lantern',
       page: 14,
@@ -2535,7 +2902,7 @@ function buildDemoHistory(): KatanaHistoryEntry[] {
     {
       slug: 'solo-leveling-ragnarok',
       title: 'Solo Leveling: Ragnarok',
-      coverUrl: '/images/demo/manga-solo.svg',
+      coverUrl: buildDemoMangaCoverDataUrl('Solo Leveling Ragnarok', 'Na Honjaman Level Up', 'MANHWA · ACTION', 1),
       chapterId: 'c41',
       chapterTitle: 'Chapter 41: Shadow Sovereign',
       page: 22,
@@ -2544,7 +2911,7 @@ function buildDemoHistory(): KatanaHistoryEntry[] {
     {
       slug: 'witch-hat-atelier',
       title: 'Witch Hat Atelier',
-      coverUrl: '/images/demo/manga-witch.svg',
+      coverUrl: buildDemoMangaCoverDataUrl('Witch Hat Atelier', 'Tongari Boushi no Atelier', 'SEINEN · MAGIC', 2),
       chapterId: 'c82',
       chapterTitle: 'Chapter 82: Silver Ink',
       page: 9,
@@ -2553,7 +2920,7 @@ function buildDemoHistory(): KatanaHistoryEntry[] {
     {
       slug: 'omniscient-readers-viewpoint',
       title: "Omniscient Reader's Viewpoint",
-      coverUrl: '/images/demo/manga-orv.svg',
+      coverUrl: buildDemoMangaCoverDataUrl("Omniscient Reader's Viewpoint", 'Jeonjijeok Dokja Sijeom', 'MANHWA · EPIC', 4),
       chapterId: 'c244',
       chapterTitle: 'Chapter 244: Constellation Banquet',
       page: 18,
@@ -2571,6 +2938,8 @@ const USER_PREFS_PREFIX = 'katana_user_prefs_v1_';
 export interface KatanaAlertPrefs {
   frequency: 'instant' | 'daily';
   quietHours: boolean;
+  quietStartHour?: number;
+  quietEndHour?: number;
   skipCompleted?: boolean;
   skipOnHold?: boolean;
 }
@@ -2586,6 +2955,8 @@ export interface KatanaUserPrefs {
 const DEFAULT_ALERT_PREFS: KatanaAlertPrefs = {
   frequency: 'instant',
   quietHours: false,
+  quietStartHour: 22,
+  quietEndHour: 8,
   skipCompleted: true,
   skipOnHold: false,
 };
@@ -2597,6 +2968,12 @@ const DEFAULT_USER_PREFS: KatanaUserPrefs = {
   autoDownloadCategories: [],
 };
 
+function normalizeHour(h: unknown, fallback: number): number {
+  if (typeof h !== 'number' || !Number.isFinite(h)) return fallback;
+  const rounded = Math.trunc(h) % 24;
+  return rounded < 0 ? rounded + 24 : rounded;
+}
+
 export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
   if (!userName) return DEFAULT_ALERT_PREFS;
   try {
@@ -2606,6 +2983,8 @@ export function loadKatanaAlertPrefs(userName: string): KatanaAlertPrefs {
       return {
         frequency: parsed.frequency === 'daily' ? 'daily' : 'instant',
         quietHours: Boolean(parsed.quietHours),
+        quietStartHour: normalizeHour(parsed.quietStartHour, 22),
+        quietEndHour: normalizeHour(parsed.quietEndHour, 8),
         skipCompleted: parsed.skipCompleted !== false,
         skipOnHold: Boolean(parsed.skipOnHold),
       };
@@ -2622,12 +3001,15 @@ export function loadKatanaUserPrefs(userName: string): KatanaUserPrefs {
     const raw = localStorage.getItem(`${USER_PREFS_PREFIX}${userName}`);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<KatanaUserPrefs>;
+      const fallbackAlert = loadKatanaAlertPrefs(userName);
       return {
         alertPrefs: {
-          frequency: parsed.alertPrefs?.frequency === 'daily' ? 'daily' : loadKatanaAlertPrefs(userName).frequency,
-          quietHours: parsed.alertPrefs?.quietHours ?? loadKatanaAlertPrefs(userName).quietHours,
-          skipCompleted: parsed.alertPrefs?.skipCompleted ?? loadKatanaAlertPrefs(userName).skipCompleted ?? true,
-          skipOnHold: parsed.alertPrefs?.skipOnHold ?? loadKatanaAlertPrefs(userName).skipOnHold ?? false,
+          frequency: parsed.alertPrefs?.frequency === 'daily' ? 'daily' : fallbackAlert.frequency,
+          quietHours: parsed.alertPrefs?.quietHours ?? fallbackAlert.quietHours,
+          quietStartHour: normalizeHour(parsed.alertPrefs?.quietStartHour, fallbackAlert.quietStartHour ?? 22),
+          quietEndHour: normalizeHour(parsed.alertPrefs?.quietEndHour, fallbackAlert.quietEndHour ?? 8),
+          skipCompleted: parsed.alertPrefs?.skipCompleted ?? fallbackAlert.skipCompleted ?? true,
+          skipOnHold: parsed.alertPrefs?.skipOnHold ?? fallbackAlert.skipOnHold ?? false,
         },
         wifiOnlyDownloads: Boolean(parsed.wifiOnlyDownloads),
         autoDownloadNext: typeof parsed.autoDownloadNext === 'number' && parsed.autoDownloadNext >= 0 ? parsed.autoDownloadNext : 0,
@@ -2673,6 +3055,8 @@ export function saveKatanaUserPrefs(userName: string, partial: Partial<KatanaUse
         kind: 'prefs_meta',
         userName,
         alertPrefs: next.alertPrefs,
+        quietStartHour: normalizeHour(next.alertPrefs.quietStartHour, 22),
+        quietEndHour: normalizeHour(next.alertPrefs.quietEndHour, 8),
         wifiOnlyDownloads: next.wifiOnlyDownloads,
         autoDownloadNext: next.autoDownloadNext,
         autoDownloadCategories: next.autoDownloadCategories ?? [],
@@ -2705,10 +3089,27 @@ export function watchKatanaUserPrefs(userName: string): Source<KatanaUserPrefs> 
       (snap): KatanaUserPrefs => {
         if (!snap.exists()) return loadKatanaUserPrefs(userName);
         const data = snap.data();
+        const fallbackAlert = loadKatanaAlertPrefs(userName);
         const merged: KatanaUserPrefs = {
           alertPrefs: {
             frequency: data?.alertPrefs?.frequency === 'daily' ? 'daily' : 'instant',
             quietHours: Boolean(data?.alertPrefs?.quietHours),
+            quietStartHour: normalizeHour(
+              data?.alertPrefs?.quietStartHour ?? data?.quietStartHour,
+              fallbackAlert.quietStartHour ?? 22,
+            ),
+            quietEndHour: normalizeHour(
+              data?.alertPrefs?.quietEndHour ?? data?.quietEndHour,
+              fallbackAlert.quietEndHour ?? 8,
+            ),
+            skipCompleted:
+              typeof data?.alertPrefs?.skipCompleted === 'boolean'
+                ? data.alertPrefs.skipCompleted
+                : fallbackAlert.skipCompleted !== false,
+            skipOnHold:
+              typeof data?.alertPrefs?.skipOnHold === 'boolean'
+                ? data.alertPrefs.skipOnHold
+                : Boolean(fallbackAlert.skipOnHold),
           },
           wifiOnlyDownloads: Boolean(data?.wifiOnlyDownloads),
           autoDownloadNext: typeof data?.autoDownloadNext === 'number' && data.autoDownloadNext >= 0 ? data.autoDownloadNext : 0,
@@ -2740,9 +3141,24 @@ export function saveKatanaAlertPrefs(userName: string, prefs: KatanaAlertPrefs):
   saveKatanaUserPrefs(userName, { alertPrefs: prefs });
 }
 
-function isQuietHoursNow(): boolean {
-  const hour = new Date().getHours();
-  return hour >= 22 || hour < 8;
+export function isQuietHoursNow(prefs?: Pick<KatanaAlertPrefs, 'quietStartHour' | 'quietEndHour'>, now = new Date()): boolean {
+  let hour = now.getHours();
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+    const hVal = parts.find((p) => p.type === 'hour')?.value;
+    if (hVal != null && hVal !== '') hour = Number(hVal) % 24;
+  } catch {
+    // fallback to local hour if Intl timeZone unavailable
+  }
+  const startHour = normalizeHour(prefs?.quietStartHour, 22);
+  const endHour = normalizeHour(prefs?.quietEndHour, 8);
+  if (startHour === endHour) return false;
+  if (startHour < endHour) return hour >= startHour && hour < endHour;
+  return hour >= startHour || hour < endHour;
 }
 
 const demoHistoryStore = new Map<string, KatanaHistoryEntry[]>();
@@ -2943,7 +3359,7 @@ export function checkKatanaChapterAlerts(
   const unseenHits: KatanaAlertHit[] = [];
   let mapChanged = false;
   const alertPrefs = loadKatanaAlertPrefs(userName);
-  const suppressByQuietHours = alertPrefs.quietHours && isQuietHoursNow();
+  const suppressByQuietHours = alertPrefs.quietHours && isQuietHoursNow(alertPrefs);
   // Couple users with active cloud FCM rely on functions/manga_updates.js as the single source of truth.
   // Local browser Notification only fires as a fallback when cloud FCM is not active on this device.
   const isCoupleAccount = userName === 'khentsgdz' || userName === 'clairjassen';
@@ -2951,6 +3367,7 @@ export function checkKatanaChapterAlerts(
   if (isCoupleAccount && typeof window !== 'undefined') {
     try {
       hasCloudFcm =
+        Boolean(localStorage.getItem(FCM_TOKEN_STORAGE_KEY)) ||
         Boolean(localStorage.getItem('everglow_fcm_token')) ||
         bookmarks.some((b) => Boolean(b.lastNotifiedAt || b.lastCheckedAt));
     } catch {
@@ -3126,9 +3543,13 @@ export async function searchMangaDexCatalog(
               m.genres.some((g) => g.name.toLowerCase().includes(q.toLowerCase())),
           )
         : catalog,
-    ).map((m) => ({
+    ).map((m, idx) => ({
       ...m,
+      slug: m.slug.startsWith('md-') ? m.slug : `md-${m.slug}`,
+      title: `${m.title} (MangaDex Edition)`,
+      coverUrl: buildDemoMangaCoverDataUrl(m.title, 'MangaDex Scanlation', 'MANGADEX · EN', idx + 3),
       summary: m.summary ? `[MangaDex] ${m.summary}` : 'Available via MangaDex catalog source.',
+      source: 'mangadex' as const,
     }));
     const demoPageSize = 8;
     const totalPages = Math.max(1, Math.ceil(filtered.length / demoPageSize));
@@ -3252,6 +3673,7 @@ export async function searchMangaDexCatalog(
         artists: [],
         altNames: (attrs.altTitles ?? []).flatMap((o) => Object.values(o)).slice(0, 4),
         chapters: [],
+        source: 'mangadex',
       } satisfies KatanaManga;
     });
     const filtered = applySharedFilters(mapped);

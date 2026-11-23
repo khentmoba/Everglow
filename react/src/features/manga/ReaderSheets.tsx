@@ -20,6 +20,7 @@ import {
   type ReadingMode,
   type ScrollHideSensitivity,
   type TapZoneLayout,
+  type ZoomStartPosition,
 } from './readerSettings';
 
 function useDialogFocusTrap(containerRef: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
@@ -1215,6 +1216,19 @@ export function ReaderSettingsSheet({
                 style={{ width: '100%' }}
               />
 
+              <SectionLabel>Webtoon Side Padding ({settings.webtoonSidePadding}%)</SectionLabel>
+              <input
+                type="range"
+                className="manga-range"
+                min={0}
+                max={25}
+                step={5}
+                value={settings.webtoonSidePadding}
+                aria-label="Webtoon side padding"
+                onChange={(e) => onUpdateSettings({ webtoonSidePadding: Number(e.target.value) })}
+                style={{ width: '100%' }}
+              />
+
               <SectionLabel>Orientation Lock</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {orientationOptions.map((opt) => {
@@ -1339,6 +1353,47 @@ export function ReaderSettingsSheet({
                 checked={settings.keepZoomAcrossPages}
                 onChange={(v) => onUpdateSettings({ keepZoomAcrossPages: v })}
               />
+              <div style={{ height: 6 }} />
+              <ToggleRow
+                label="Disable zoom out below 100%"
+                hint="Lock minimum scale at 1.0× (turn off to allow 0.75× page overview)"
+                checked={settings.disableZoomOut}
+                onChange={(v) => onUpdateSettings({ disableZoomOut: v })}
+              />
+
+              <SectionLabel>Zoom Start Position</SectionLabel>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {(
+                  [
+                    ['automatic', 'Auto'],
+                    ['left', 'Left'],
+                    ['center', 'Center'],
+                    ['right', 'Right'],
+                  ] as Array<[ZoomStartPosition, string]>
+                ).map(([pos, label]) => {
+                  const active = settings.zoomStartPosition === pos;
+                  return (
+                    <button
+                      key={pos}
+                      type="button"
+                      className="bare-button player-focusable"
+                      onClick={() => onUpdateSettings({ zoomStartPosition: pos })}
+                      style={{
+                        minHeight: 40,
+                        borderRadius: 10,
+                        background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                        border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                        color: active ? KatanaColors.accentSoft : KatanaColors.text,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
 
               <SectionLabel>Page Transition</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>

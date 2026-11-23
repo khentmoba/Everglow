@@ -323,8 +323,17 @@ function FeaturedHero({
             </div>
           )}
 
-          {!compact && featured.summary && (
-            <p className="clamp-3" style={{ ...KatanaType.body, fontSize: 13.5, margin: 0, lineHeight: 1.55 }}>
+          {featured.summary && (
+            <p
+              className={compact ? 'clamp-2' : 'clamp-3'}
+              style={{
+                ...KatanaType.body,
+                fontSize: compact ? 12 : 13.5,
+                margin: 0,
+                lineHeight: compact ? 1.4 : 1.55,
+                color: compact ? KatanaColors.textMuted : KatanaColors.text,
+              }}
+            >
               {featured.summary}
             </p>
           )}
@@ -1249,19 +1258,66 @@ export function MangaHome({
     </div>
   );
 
+  const typeStripRef = useRef<HTMLDivElement | null>(null);
   const typeChips = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 6 : 8 }}>
-      <div className="no-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: compact ? 5 : 8, flex: 1, minWidth: 0 }}>
-        {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (
-          <TypeChip
-            key={t}
-            label={TYPE_META[t].label}
-            icon={TYPE_META[t].icon}
-            selected={type === t}
-            compact={compact}
-            onClick={() => onSelectType(t)}
-          />
-        ))}
+      <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+        <div
+          ref={typeStripRef}
+          className="no-scrollbar"
+          style={{
+            overflowX: 'auto',
+            display: 'flex',
+            gap: compact ? 5 : 8,
+            flex: 1,
+            minWidth: 0,
+            paddingRight: compact ? 22 : 0,
+            ...(compact
+              ? {
+                  WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 22px), transparent 100%)',
+                  maskImage: 'linear-gradient(to right, #000 calc(100% - 22px), transparent 100%)',
+                }
+              : {}),
+          }}
+        >
+          {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (
+            <TypeChip
+              key={t}
+              label={TYPE_META[t].label}
+              icon={TYPE_META[t].icon}
+              selected={type === t}
+              compact={compact}
+              onClick={() => onSelectType(t)}
+            />
+          ))}
+        </div>
+        {compact && (
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Scroll format chips for Manhua and more"
+            title="More formats (Manhua)"
+            onClick={() => {
+              const el = typeStripRef.current;
+              if (!el) return;
+              const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
+              el.scrollTo({ left: atEnd ? 0 : el.scrollWidth, behavior: 'smooth' });
+            }}
+            style={{
+              flexShrink: 0,
+              width: 28,
+              height: 44,
+              marginLeft: -8,
+              zIndex: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: KatanaColors.accentSoft,
+            }}
+          >
+            <Icon name="chevron_right" size={18} color={KatanaColors.accentSoft} />
+          </button>
+        )}
       </div>
       {allCatalog.length > 0 && (
         <button

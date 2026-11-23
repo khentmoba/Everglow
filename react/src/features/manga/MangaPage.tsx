@@ -60,12 +60,14 @@ import {
   setKatanaHistoryPaused,
   loadKatanaHiddenCategories,
   loadKatanaHistory,
+  loadKatanaTrackerTokens,
   lookupAniListManga,
   lookupKitsuManga,
   lookupMalManga,
   markKatanaAlertSeen,
   markKatanaChaptersRead,
-  proxyKatanaImageUrl,
+   proxyKatanaImageUrl,
+  pushKatanaTrackerProgress,
   recordKatanaHistory,
   removeKatanaHistoryEntry,
   resolveLibraryStatus,
@@ -74,6 +76,7 @@ import {
   saveKatanaCustomCategories,
   saveKatanaHiddenCategories,
   saveKatanaTrackerData,
+  saveKatanaTrackerTokens,
   saveKatanaUserPrefs,
   searchMangaDexCatalog,
   setKatanaBookmark,
@@ -684,6 +687,15 @@ export function MangaPage() {
     });
   };
 
+  const [trackerTokensOpen, setTrackerTokensOpen] = useState(false);
+  const [trackerTokens, setTrackerTokens] = useState(() => loadKatanaTrackerTokens(userName));
+  const [katanaSourceItems, setKatanaSourceItems] = useState<KatanaManga[]>([]);
+  const [mangadexSourceItems, setMangadexSourceItems] = useState<KatanaManga[]>([]);
+
+  useEffect(() => {
+    setTrackerTokens(loadKatanaTrackerTokens(userName));
+  }, [userName]);
+
   const syncSeriesWithMal = async (manga: KatanaManga, explicitMalId?: string) => {
     if (!userName || trackerSyncing) return;
     setTrackerSyncing(true);
@@ -702,7 +714,10 @@ export function MangaPage() {
         malStatus: snap.status ?? null,
         lastSyncedAt: new Date(),
       });
-      showSnackBar(`Synced with MAL #${snap.malId}${snap.score ? ` (★ ${snap.score})` : ''}`);
+      const pushed = await pushKatanaTrackerProgress(manga, userName, { malId: snap.malId });
+      showSnackBar(
+        `2-way synced with MAL #${snap.malId}${snap.score ? ` (★ ${snap.score})` : ''}${pushed ? ` · Ch. ${pushed.chapterProgress}` : ''}`,
+      );
     } finally {
       setTrackerSyncing(false);
     }
@@ -723,7 +738,10 @@ export function MangaPage() {
         anilistScore: snap.score ?? null,
         lastSyncedAt: new Date(),
       });
-      showSnackBar(`Synced with AniList #${snap.anilistId}${snap.score ? ` (${snap.score}%)` : ''}`);
+      const pushed = await pushKatanaTrackerProgress(manga, userName, { anilistId: snap.anilistId });
+      showSnackBar(
+        `2-way synced with AniList #${snap.anilistId}${snap.score ? ` (${snap.score}%)` : ''}${pushed ? ` · Ch. ${pushed.chapterProgress}` : ''}`,
+      );
     } finally {
       setTrackerSyncing(false);
     }
@@ -744,7 +762,27 @@ export function MangaPage() {
         kitsuScore: snap.score ?? null,
         lastSyncedAt: new Date(),
       });
-      showSnackBar(`Synced with Kitsu #${snap.kitsuId}${snap.score ? ` (${snap.score}%)` : ''}`);
+      const pushed = await pushKatanaTrackerProgress(manga, userName, { kitsuId: snap.kitsuId });
+      showSnackBar(
+        `2-way synced with Kitsu #${snap.kitsuId}${snap.score ? ` (${snap.score}%)` : ''}${pushed ? ` · Ch. ${pushed.chapterProgress}` : ''}`,
+      );
+    } finally {
+      setTrackerSyncing(false);
+    }
+  };
+
+  const pushAllLinkedTrackers = async (manga: KatanaManga) => {
+    if (!userName || trackerSyncing) return;
+    setTrackerSyncing(true);
+    try {
+      const pushed = await pushKatanaTrackerProgress(manga, userName);
+      if (!pushed) {
+        showSnackBar('Link an AniList, MAL, or Kitsu ID first to push progress');
+        return;
+      }
+      showSnackBar(
+        `Pushed Ch. ${pushed.chapterProgress} (${pushed.status}${pushed.score ? ` · ★${pushed.score}` : ''}) to ${pushed.pushedProviders.join(', ')}`,
+      );
     } finally {
       setTrackerSyncing(false);
     }
@@ -926,8 +964,16 @@ export function MangaPage() {
         }),
       ]).then(([katanaRes, mdRes]) => {
         if (!alive) return;
-        const kItems = katanaRes.status === 'fulfilled' ? katanaRes.value.items : [];
-        const mItems = mdRes.status === 'fulfilled' ? mdRes.value.items : [];
+        const kItems = (katanaRes.status === 'fulfilled' ? katanaRes.value.items : []).map((m) => ({
+          ...m,
+          source: m.source ?? ('mangakatana' as const),
+        }));
+        const mItems = (mdRes.status === 'fulfilled' ? mdRes.value.items : []).map((m) => ({
+          ...m,
+          source: m.source ?? ('mangadex' as const),
+        }));
+        setKatanaSourceItems(kItems);
+        setMangadexSourceItems(mItems);
         const seen = new Set<string>();
         const merged: KatanaManga[] = [];
         const maxLen = Math.max(kItems.length, mItems.length);
@@ -2530,6 +2576,26 @@ export function MangaPage() {
                               {detail.updateText && (
                                 <span style={{ ...KatanaType.small, fontSize: 12 }}>{detail.updateText}</span>
                               )}
+                              {isBookmarked && alertsEnabled && detail.status !== 'completed' && (
+                                <span
+                                  title="Mihon Smart Updates predicted check cadence"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '2px 8px',
+                                    borderRadius: 99,
+                                    background: withAlpha(KatanaColors.accent, 0.14),
+                                    border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
+                                    ...KatanaType.small,
+                                    fontSize: 11.5,
+                                    color: KatanaColors.accentSoft,
+                                  }}
+                                >
+                                  <Icon name="hourglass_top" size={12} color={KatanaColors.accent} />
+                                  <span>Smart cadence ~{detailBm?.cadenceHours ?? 12}h</span>
+                                </span>
+                              )}
                             </div>
 
                             <h1 style={{ ...KatanaType.display, fontSize: tablet ? 28 : 21, margin: 0 }}>{detail.title}</h1>
@@ -3412,7 +3478,14 @@ export function MangaPage() {
                                     key={n}
                                     type="button"
                                     className="bare-button"
-                                    onClick={() => void saveKatanaTrackerData(detail, userName, { userScore: active ? null : n })}
+                                    onClick={() => {
+                                      const nextScore = active ? null : n;
+                                      void saveKatanaTrackerData(detail, userName, { userScore: nextScore }).then(() => {
+                                        if ((detailBm?.anilistId || detailBm?.malId || detailBm?.kitsuId) && trackerTokens.autoPushTrackers !== false) {
+                                          void pushKatanaTrackerProgress(detail, userName, { userScore: nextScore });
+                                        }
+                                      });
+                                    }}
                                     style={{
                                       minWidth: 40,
                                       height: 40,
@@ -3547,7 +3620,7 @@ export function MangaPage() {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Checking…' : detailBm?.anilistId ? 'Refresh AniList' : 'Find on AniList'}
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.anilistId ? '2-Way Sync AniList' : 'Link & Sync AniList'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -3556,7 +3629,7 @@ export function MangaPage() {
                                   onClick={() => void syncSeriesWithAniList(detail, extractTrackerId(trackerAnilistDraft, 'anilist') || detailBm?.anilistId)}
                                 />
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Checking…' : detailBm?.malId ? 'Refresh MAL' : 'Find on MAL'}
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.malId ? '2-Way Sync MAL' : 'Link & Sync MAL'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -3565,7 +3638,7 @@ export function MangaPage() {
                                   onClick={() => void syncSeriesWithMal(detail, extractTrackerId(trackerMalDraft, 'mal') || detailBm?.malId)}
                                 />
                                 <KatanaButton
-                                  label={trackerSyncing ? 'Checking…' : detailBm?.kitsuId ? 'Refresh Kitsu' : 'Find on Kitsu'}
+                                  label={trackerSyncing ? 'Syncing…' : detailBm?.kitsuId ? '2-Way Sync Kitsu' : 'Link & Sync Kitsu'}
                                   icon="sync"
                                   size="sm"
                                   filled={false}
@@ -3573,6 +3646,39 @@ export function MangaPage() {
                                   disabled={trackerSyncing}
                                   onClick={() => void syncSeriesWithKitsu(detail, extractTrackerId(trackerKitsuDraft, 'kitsu') || detailBm?.kitsuId)}
                                 />
+                                {(detailBm?.anilistId || detailBm?.malId || detailBm?.kitsuId) && (
+                                  <KatanaButton
+                                    label={trackerSyncing ? 'Pushing…' : 'Push Progress Now'}
+                                    icon="cloud_upload"
+                                    size="sm"
+                                    filled={false}
+                                    color={KatanaColors.green}
+                                    disabled={trackerSyncing}
+                                    onClick={() => void pushAllLinkedTrackers(detail)}
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  onClick={() => setTrackerTokensOpen((v) => !v)}
+                                  style={{
+                                    minHeight: 34,
+                                    padding: '0 10px',
+                                    borderRadius: 8,
+                                    background: trackerTokensOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                                    border: `1px solid ${trackerTokensOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    color: KatanaColors.textMuted,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Icon name="key" size={13} color={KatanaColors.accent} />
+                                  <span>2-Way OAuth Tokens</span>
+                                </button>
                                 {detailBm?.anilistScore != null && (
                                   <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
                                     AniList {detailBm.anilistScore}%
@@ -3592,14 +3698,113 @@ export function MangaPage() {
                                 )}
                               </div>
                               {detailBm?.lastSyncedAt && (
-                                <span style={{ ...KatanaType.small, fontSize: 11.5 }}>
-                                  Synced {formatKatanaTime(detailBm.lastSyncedAt)}
-                                  {detailBm.malTotalChapters != null && readCount > 0
-                                    ? ` · Local ${readCount}/${detailBm.malTotalChapters} ch`
-                                    : ''}
+                                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.green }}>
+                                  2-Way Synced {formatKatanaTime(detailBm.lastSyncedAt)}
+                                  {detailBm.lastPushedChapter != null
+                                    ? ` · Pushed Ch. ${detailBm.lastPushedChapter}`
+                                    : detailBm.malTotalChapters != null && readCount > 0
+                                      ? ` · Local ${readCount}/${detailBm.malTotalChapters} ch`
+                                      : ''}
                                 </span>
                               )}
                             </div>
+
+                            {trackerTokensOpen && (
+                              <div
+                                style={{
+                                  padding: 10,
+                                  borderRadius: 10,
+                                  background: KatanaColors.surfaceAlt,
+                                  border: `1px solid ${KatanaColors.borderStrong}`,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 8,
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                                  <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.text }}>
+                                    Bidirectional Tracker Push (via Server Proxy)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="bare-button"
+                                    role="switch"
+                                    aria-checked={trackerTokens.autoPushTrackers !== false}
+                                    onClick={() => {
+                                      const next = saveKatanaTrackerTokens(userName, {
+                                        autoPushTrackers: trackerTokens.autoPushTrackers === false,
+                                      });
+                                      setTrackerTokens(next);
+                                    }}
+                                    style={{
+                                      padding: '3px 9px',
+                                      borderRadius: 99,
+                                      background: trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedBg : KatanaColors.background,
+                                      border: `1px solid ${trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      color: trackerTokens.autoPushTrackers !== false ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                    }}
+                                  >
+                                    Auto-push on chapter/status/score change: {trackerTokens.autoPushTrackers !== false ? 'On' : 'Off'}
+                                  </button>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(3, 1fr)' : '1fr', gap: 6 }}>
+                                  <input
+                                    type="password"
+                                    value={trackerTokens.anilistToken ?? ''}
+                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { anilistToken: e.target.value }))}
+                                    placeholder="AniList OAuth token (optional)"
+                                    aria-label="AniList OAuth token"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.background,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 12,
+                                      color: KatanaColors.text,
+                                    }}
+                                  />
+                                  <input
+                                    type="password"
+                                    value={trackerTokens.malToken ?? ''}
+                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { malToken: e.target.value }))}
+                                    placeholder="MyAnimeList OAuth token (optional)"
+                                    aria-label="MyAnimeList OAuth token"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.background,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 12,
+                                      color: KatanaColors.text,
+                                    }}
+                                  />
+                                  <input
+                                    type="password"
+                                    value={trackerTokens.kitsuToken ?? ''}
+                                    onChange={(e) => setTrackerTokens(saveKatanaTrackerTokens(userName, { kitsuToken: e.target.value }))}
+                                    placeholder="Kitsu OAuth token (optional)"
+                                    aria-label="Kitsu OAuth token"
+                                    style={{
+                                      height: 36,
+                                      padding: '0 10px',
+                                      borderRadius: 8,
+                                      background: KatanaColors.background,
+                                      border: `1px solid ${KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 12,
+                                      color: KatanaColors.text,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
 
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                               <input
@@ -5435,7 +5640,13 @@ export function MangaPage() {
                             const next = { ...alertPrefs, quietHours: !alertPrefs.quietHours };
                             setAlertPrefs(next);
                             saveKatanaAlertPrefs(userName, next);
-                            showSnackBar(next.quietHours ? 'Quiet hours enabled (10 PM–8 AM)' : 'Quiet hours turned off');
+                            const startH = next.quietStartHour ?? 22;
+                            const endH = next.quietEndHour ?? 8;
+                            showSnackBar(
+                              next.quietHours
+                                ? `Quiet hours enabled (${startH}:00–${endH}:00 Manila)`
+                                : 'Quiet hours turned off',
+                            );
                           }}
                           style={{
                             minHeight: 34,
@@ -5455,6 +5666,54 @@ export function MangaPage() {
                           <Icon name="bedtime" size={14} color={alertPrefs.quietHours ? KatanaColors.accent : KatanaColors.textMuted} />
                           <span>Quiet Hours</span>
                         </button>
+                        {alertPrefs.quietHours && (
+                          <div
+                            role="group"
+                            aria-label="Quiet hours window (Asia/Manila)"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '2px 8px',
+                              borderRadius: 99,
+                              background: KatanaColors.surfaceAlt,
+                              border: `1px solid ${KatanaColors.borderStrong}`,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="bare-button"
+                              aria-label="Cycle quiet hours start hour"
+                              onClick={() => {
+                                const cur = alertPrefs.quietStartHour ?? 22;
+                                const nextStart = (cur + 1) % 24;
+                                const next = { ...alertPrefs, quietStartHour: nextStart };
+                                setAlertPrefs(next);
+                                saveKatanaAlertPrefs(userName, next);
+                              }}
+                              style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.accentSoft, padding: '2px 4px' }}
+                            >
+                              {`${String(alertPrefs.quietStartHour ?? 22).padStart(2, '0')}:00`}
+                            </button>
+                            <span style={{ ...KatanaType.small, fontSize: 11 }}>–</span>
+                            <button
+                              type="button"
+                              className="bare-button"
+                              aria-label="Cycle quiet hours end hour"
+                              onClick={() => {
+                                const cur = alertPrefs.quietEndHour ?? 8;
+                                const nextEnd = (cur + 1) % 24;
+                                const next = { ...alertPrefs, quietEndHour: nextEnd };
+                                setAlertPrefs(next);
+                                saveKatanaAlertPrefs(userName, next);
+                              }}
+                              style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.accentSoft, padding: '2px 4px' }}
+                            >
+                              {`${String(alertPrefs.quietEndHour ?? 8).padStart(2, '0')}:00`}
+                            </button>
+                            <span style={{ ...KatanaType.small, fontSize: 10.5, color: KatanaColors.textLight }}>PHT</span>
+                          </div>
+                        )}
                         <button
                           type="button"
                           className="bare-button"
@@ -7189,6 +7448,100 @@ export function MangaPage() {
                     actionIcon={activeFilterCount > 0 ? 'restart_alt' : 'home'}
                     onAction={() => (activeFilterCount > 0 ? clearCatalogFilters() : handleNav('home'))}
                   />
+                ) : catalogSource === 'all' && catalogMode === 'search' && (katanaSourceItems.length > 0 || mangadexSourceItems.length > 0) ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+                    {(
+                      [
+                        { key: 'mangakatana' as const, label: 'MangaKatana', items: katanaSourceItems, accent: KatanaColors.accent },
+                        { key: 'mangadex' as const, label: 'MangaDex', items: mangadexSourceItems, accent: KatanaColors.teal },
+                      ]
+                    ).map((group) => (
+                      <section key={group.key} aria-label={`${group.label} search results`}>
+                        <KatanaSectionHeader
+                          title={group.label}
+                          badge={`${group.items.length} ${group.items.length === 1 ? 'match' : 'matches'}`}
+                          trailing={
+                            <button
+                              type="button"
+                              className="bare-button"
+                              onClick={() => setCatalogSource(group.key)}
+                              style={{
+                                minHeight: 34,
+                                padding: '0 10px',
+                                borderRadius: 99,
+                                background: KatanaColors.surfaceAlt,
+                                border: `1px solid ${KatanaColors.borderStrong}`,
+                                fontFamily: Fonts.body,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                color: group.accent,
+                              }}
+                            >
+                              Only {group.label}
+                            </button>
+                          }
+                        />
+                        <div style={{ height: 10 }} />
+                        {group.items.length === 0 ? (
+                          <div
+                            style={{
+                              padding: '12px 14px',
+                              borderRadius: 10,
+                              background: KatanaColors.surface,
+                              border: `1px solid ${KatanaColors.border}`,
+                              ...KatanaType.small,
+                            }}
+                          >
+                            No matching titles on {group.label} for this query.
+                          </div>
+                        ) : effectiveCatView === 'grid' ? (
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: `repeat(${getKatanaGridColumns(width)}, minmax(0, 1fr))`,
+                              gap: compactCard ? 10 : 14,
+                            }}
+                          >
+                            {group.items.map((m) => (
+                              <KatanaPosterCard
+                                key={`${group.key}-${m.slug}`}
+                                manga={m}
+                                unreadCount={unreadBySlug[m.slug]}
+                                downloadedCount={downloadedCounts[m.slug]}
+                                onSelect={() => openDetail(m.slug)}
+                                onOpenChapter={openChapter}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {group.items.map((m) => (
+                              <KatanaItemCard
+                                key={`${group.key}-${m.slug}`}
+                                manga={m}
+                                compact={compactCard}
+                                unreadCount={unreadBySlug[m.slug]}
+                                downloadedCount={downloadedCounts[m.slug]}
+                                onSelectManga={openDetail}
+                                onSelectGenre={handleSelectGenre}
+                                onOpenChapter={openChapter}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    ))}
+                    <div style={{ marginTop: 4 }}>
+                      <KatanaPagination
+                        page={catPage}
+                        hasPrev={catPage > 1}
+                        hasNext={catHasNext}
+                        totalPages={catTotalPages}
+                        totalResults={catTotalResults}
+                        onPageChange={(p) => updateMangaUrl({ page: String(p) })}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {effectiveCatView === 'grid' ? (

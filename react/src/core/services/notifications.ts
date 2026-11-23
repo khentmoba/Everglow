@@ -7,7 +7,8 @@ import { Prefs } from '../system/prefs';
 import { app, auth, db } from './firebase';
 
 const COUPLE = new Set(['khentsgdz', 'clairjassen']);
-const TOKEN_STORAGE_KEY = 'fcm_device_token';
+export const FCM_TOKEN_STORAGE_KEY = 'fcm_device_token';
+const TOKEN_STORAGE_KEY = FCM_TOKEN_STORAGE_KEY;
 const DEFAULT_VAPID_KEY =
   'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';
 

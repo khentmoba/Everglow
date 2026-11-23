@@ -246,3 +246,53 @@ test('runMangaUpdateCheck reads a followed series page when it misses the feed, 
   assert.equal(second.sentCount, 2);
   assert.match(pushed[0].payload.body, /12/);
 });
+
+test('runMangaUpdateCheck respects custom quietStartHour/quietEndHour and predicted nextCheckAt cadence', async () => {
+  let seriesProbes = 0;
+  const fakeDb = {
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            alertPrefs: { frequency: 'instant', quietHours: false, quietStartHour: 1, quietEndHour: 6 },
+          }),
+        }),
+        set: async () => {},
+      }),
+      where: function () {
+        return this;
+      },
+      get: async () => ({
+        docs: [
+          {
+            id: 'khentsgdz|future.1',
+            data: () => ({
+              slug: 'future.1',
+              title: 'Not Due Yet',
+              bookmarked: true,
+              readingStatus: 'reading',
+              latestChapterNum: '10',
+              nextCheckAt: Date.parse('2026-11-23T12:00:00Z'),
+            }),
+            ref: { set: async () => {} },
+          },
+        ],
+      }),
+    }),
+  };
+
+  await runMangaUpdateCheck({
+    db: fakeDb,
+    sendPush: async () => true,
+    fetchLatest: async () => new Map(),
+    fetchMangaDexLatest: async () => null,
+    fetchKatanaSeriesLatest: async () => {
+      seriesProbes += 1;
+      return { chapterId: 'c11', chapterNum: '11', num: 11 };
+    },
+    now: new Date('2026-11-23T06:00:00Z'),
+  });
+
+  assert.equal(seriesProbes, 0, 'should skip direct series probe when now < nextCheckAt');
+});

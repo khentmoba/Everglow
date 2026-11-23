@@ -12,6 +12,7 @@ import {
   fetchKatanaChapterPages,
   hydrateMangaReaderGlobalSettings,
   hydrateMangaReaderSeriesState,
+  proxyKatanaImageUrl,
   saveKatanaReadingProgress,
   setKatanaSeriesCover,
   syncMangaReaderGlobalSettings,
@@ -648,15 +649,32 @@ export function MangaReaderView({
       offlineMedia.init();
       const offlineItem = offlineMedia.getItem(OfflineIds.mangaChapterId(params.slug, targetChapterId));
       if (offlineItem && offlineItem.pageUrls.length > 0) {
+        let evictedCount = 0;
+        const demoFallback =
+          AgentMode.demo && params.slug.startsWith('demo-') ? getDemoChapterPages(targetChapterId) : null;
         const resolved = await Promise.all(
           offlineItem.pageUrls.map(async (raw, i) => {
             const blobUrl = await offlineMedia.getMangaPageUrl(offlineItem.id, i + 1);
-            if (blobUrl && blobUrl.startsWith('blob:')) offlineBlobUrlsRef.current.add(blobUrl);
-            return normalizeAssetUrl(blobUrl ?? raw);
+            if (blobUrl && blobUrl.startsWith('blob:')) {
+              offlineBlobUrlsRef.current.add(blobUrl);
+              return blobUrl;
+            }
+            evictedCount += 1;
+            if (demoFallback && demoFallback[i]) return demoFallback[i];
+            const candidate = normalizeAssetUrl(blobUrl ?? raw);
+            return candidate.startsWith('http') ? proxyKatanaImageUrl(candidate) : candidate;
           }),
         );
         const filtered = resolved.filter(Boolean);
-        if (filtered.length > 0) return filtered;
+        if (filtered.length > 0) {
+          if (evictedCount > 0 && evictedCount < filtered.length) {
+            flashToast(
+              `Offline cache recovered ${filtered.length - evictedCount}/${filtered.length} pages (rest via live fallback)`,
+              true,
+            );
+          }
+          return filtered;
+        }
       }
 
       if (AgentMode.demo && params.slug.startsWith('demo-')) {
@@ -1371,6 +1389,35 @@ export function MangaReaderView({
     prependPrevChapterSegment,
   ]);
 
+  const computeZoomStartPan = useCallback(
+    (targetZoom: number): { x: number; y: number } => {
+      if (targetZoom <= 1) return { x: 0, y: 0 };
+      const stage = scrollRef.current;
+      const content = stageContentRef.current;
+      const vw = stage?.clientWidth ?? viewportWidth;
+      const vh = stage?.clientHeight ?? viewportHeight;
+      const cw = content?.offsetWidth ?? vw;
+      const ch = content?.offsetHeight ?? vh;
+      const pos = settings.zoomStartPosition;
+      const xRatio =
+        pos === 'left'
+          ? 0
+          : pos === 'right'
+            ? 1
+            : pos === 'center'
+              ? 0.5
+              : isWebtoon
+                ? 0.5
+                : isRtl
+                  ? 1
+                  : 0;
+      const rawX = (0.5 - xRatio) * Math.max(vw, cw) * (targetZoom - 1);
+      const rawY = 0.5 * Math.max(vh, ch) * (targetZoom - 1);
+      return clampZoomPan(rawX, rawY, cw, ch, vw, vh, targetZoom);
+    },
+    [viewportWidth, viewportHeight, settings.zoomStartPosition, isWebtoon, isRtl],
+  );
+
   // Paged / Spread navigation
   const goToSpread = useCallback(
     (nextSpreadIdx: number, dir: 'next' | 'prev' | 'fade') => {
@@ -1407,10 +1454,12 @@ export function MangaReaderView({
       if (!settings.keepZoomAcrossPages) {
         setZoom(1);
         setPan({ x: 0, y: 0 });
+      } else if (zoom > 1) {
+        setPan(computeZoomStartPan(zoom));
       }
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     },
-    [spreads, prevChapter, nextChapter, chapterId, markChapterFinished, flashToast, navigateToChapter, settings.einkFlash, settings.keepZoomAcrossPages, triggerHaptic],
+    [spreads, prevChapter, nextChapter, chapterId, markChapterFinished, flashToast, navigateToChapter, settings.einkFlash, settings.keepZoomAcrossPages, triggerHaptic, zoom, computeZoomStartPan],
   );
 
   const guidedActive = settings.guidedPanelZoom && !isWebtoon && !isHorizontalStrip && pages.length > 0;
@@ -1652,12 +1701,17 @@ export function MangaReaderView({
           break;
         case '+':
         case '=':
-          setZoom((z) => Math.min(3, Number((z + 0.5).toFixed(2))));
+          setZoom((z) => {
+            const next = Math.min(3, Number((z + 0.5).toFixed(2)));
+            if (z <= 1 && next > 1) setPan(computeZoomStartPan(next));
+            return next;
+          });
           break;
         case '-':
           setZoom((z) => {
-            const next = Math.max(1, Number((z - 0.5).toFixed(2)));
-            if (next === 1) setPan({ x: 0, y: 0 });
+            const minZoom = settings.disableZoomOut ? 1 : 0.75;
+            const next = Math.max(minZoom, Number((z - 0.25).toFixed(2)));
+            if (next <= 1) setPan({ x: 0, y: 0 });
             return next;
           });
           break;
@@ -1886,9 +1940,10 @@ export function MangaReaderView({
     if (e.touches.length === 2 && pinchStartRef.current) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const minScale = settings.disableZoomOut ? 1 : 0.75;
       const nextScale = Math.min(
         3,
-        Math.max(1, pinchStartRef.current.scale * (Math.hypot(dx, dy) / Math.max(1, pinchStartRef.current.dist))),
+        Math.max(minScale, pinchStartRef.current.scale * (Math.hypot(dx, dy) / Math.max(1, pinchStartRef.current.dist))),
       );
       const rounded = Number(nextScale.toFixed(2));
       setZoom(rounded);
@@ -2302,8 +2357,11 @@ export function MangaReaderView({
           <div
             ref={stageContentRef}
             style={{
-              width: zoom > 1 ? `${Math.round(zoom * 100)}%` : '100%',
+              width: zoom !== 1 ? `${Math.round(zoom * 100)}%` : '100%',
               maxWidth: zoom > 1 ? 'none' : containerMaxWidth,
+              paddingLeft: settings.webtoonSidePadding > 0 ? `${settings.webtoonSidePadding}%` : undefined,
+              paddingRight: settings.webtoonSidePadding > 0 ? `${settings.webtoonSidePadding}%` : undefined,
+              boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
               gap: settings.pageGap,
@@ -2721,10 +2779,19 @@ export function MangaReaderView({
         </div>
       )}
 
-      {/* Vertical long-strip seekbar (left or right edge, HUD-bound and slim on phone) */}
-      {isWebtoon && showUi && settings.verticalSeekbar !== 'off' && pages.length > 1 && !loading && (
+      {/* Touch fast-scroll scrubber for long-strip reading (reachable even mid-scroll, with chapter tick marks) */}
+      {isWebtoon && settings.verticalSeekbar !== 'off' && pages.length > 1 && !loading && (
         <div
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            const track = e.currentTarget.getBoundingClientRect();
+            const innerTop = track.top + 14;
+            const innerHeight = Math.max(1, track.height - 28);
+            const ratio = Math.min(1, Math.max(0, (e.clientY - innerTop) / innerHeight));
+            const targetIdx = Math.min(pages.length - 1, Math.max(0, Math.round(ratio * (pages.length - 1))));
+            jumpToPage(targetIdx);
+          }}
           style={{
             position: 'fixed',
             top: 'calc(76px + env(safe-area-inset-top))',
@@ -2733,17 +2800,48 @@ export function MangaReaderView({
               ? { left: 'max(4px, env(safe-area-inset-left))' }
               : { right: 'max(4px, env(safe-area-inset-right))' }),
             zIndex: 97,
-            width: viewportWidth < 600 ? 30 : 38,
+            width: viewportWidth < 600 ? 32 : 38,
             borderRadius: 99,
-            background: allowBlur ? 'rgba(11, 13, 18, 0.42)' : 'rgba(11, 13, 18, 0.72)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
+            background: allowBlur ? 'rgba(11, 13, 18, 0.56)' : 'rgba(11, 13, 18, 0.82)',
+            border: `1px solid ${showUi ? 'rgba(245, 158, 11, 0.36)' : 'rgba(255, 255, 255, 0.14)'}`,
             ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '10px 0',
+            opacity: showUi ? 1 : 0.48,
+            transition: 'opacity 180ms ease, border-color 180ms ease',
+            touchAction: 'none',
           }}
         >
+          {/* Chapter tick marks along the fast-scroll scrubber track */}
+          {segments.length > 1 &&
+            (() => {
+              const totalChainedPages = segments.reduce((sum, s) => sum + s.pages.length, 0);
+              let accum = 0;
+              return segments.slice(0, -1).map((seg) => {
+                accum += seg.pages.length;
+                const pct = totalChainedPages > 0 ? Math.min(96, Math.max(4, Math.round((accum / totalChainedPages) * 100))) : 50;
+                return (
+                  <span
+                    key={`tick-${seg.chapter.id}`}
+                    title={`Chapter boundary: ${chapterDisplayTitle(seg.chapter)}`}
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: `${pct}%`,
+                      left: 5,
+                      right: 5,
+                      height: 2,
+                      borderRadius: 2,
+                      background: KatanaColors.accent,
+                      opacity: 0.85,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                );
+              });
+            })()}
           <input
             type="range"
             className="manga-range manga-range--vertical"
@@ -2756,6 +2854,19 @@ export function MangaReaderView({
               writingMode: 'vertical-lr',
             }}
           />
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              fontSize: 9.5,
+              fontWeight: 800,
+              color: KatanaColors.accentSoft,
+              pointerEvents: 'none',
+            }}
+          >
+            {pageIdx + 1}
+          </span>
         </div>
       )}
 

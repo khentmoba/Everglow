@@ -12,6 +12,37 @@ const MANGADEX_PER_RUN_CAP = 25;
 const KATANA_SERIES_PER_RUN_CAP = 10;
 // Per-series page reads stop here so the hourly job finishes well inside its 120s budget.
 const SERIES_LOOKUP_BUDGET_MS = 70000;
+const HOUR_MS = 60 * 60 * 1000;
+const MIN_CADENCE_MS = 6 * HOUR_MS;
+const MAX_CADENCE_MS = 7 * 24 * HOUR_MS;
+const DEFAULT_CADENCE_MS = 12 * HOUR_MS;
+
+/**
+ * Mihon Smart Updates cadence predictor ("hourglass"):
+ * Estimates when a followed series is next due for a direct page check based on
+ * observed notification intervals (`releaseIntervalMs` or `lastNotifiedAt - prevNotifiedAt`)
+ * and how many consecutive checks saw no update (`consecutiveIdleChecks`).
+ */
+function computePredictedCadenceMs(data = {}, foundUpdate = false) {
+  const prevInterval =
+    typeof data.releaseIntervalMs === 'number' && data.releaseIntervalMs > 0
+      ? data.releaseIntervalMs
+      : typeof data.lastNotifiedAt === 'number' &&
+          typeof data.prevNotifiedAt === 'number' &&
+          data.lastNotifiedAt > data.prevNotifiedAt
+        ? data.lastNotifiedAt - data.prevNotifiedAt
+        : DEFAULT_CADENCE_MS;
+  const base = Math.min(MAX_CADENCE_MS, Math.max(MIN_CADENCE_MS, Math.round(prevInterval * 0.5)));
+  if (foundUpdate) return base;
+  const idle = typeof data.consecutiveIdleChecks === 'number' && data.consecutiveIdleChecks > 0 ? data.consecutiveIdleChecks : 0;
+  // Gently widen the check interval after repeated idle probes, capped at 24h for active series.
+  const backoff = Math.min(24 * HOUR_MS, Math.round(base * (1 + Math.min(4, idle) * 0.15)));
+  return Math.min(MAX_CADENCE_MS, Math.max(MIN_CADENCE_MS, backoff));
+}
+
+function computeNextCheckAt(data = {}, nowMs = Date.now(), foundUpdate = false) {
+  return nowMs + computePredictedCadenceMs(data, foundUpdate);
+}
 
 function isWithinQuietHours(hour, startHour, endHour) {
   if (startHour === endHour) return false;
@@ -227,8 +258,18 @@ async function runMangaUpdateCheck({
 
     if (prefs.chapterAlertsEnabled === false) continue;
     const quietEnabled = Boolean(prefs.alertPrefs?.quietHours ?? prefs.quietHoursEnabled);
-    const quietStart = typeof prefs.quietStartHour === 'number' ? prefs.quietStartHour : 22;
-    const quietEnd = typeof prefs.quietEndHour === 'number' ? prefs.quietEndHour : 8;
+    const quietStart =
+      typeof prefs.alertPrefs?.quietStartHour === 'number'
+        ? prefs.alertPrefs.quietStartHour
+        : typeof prefs.quietStartHour === 'number'
+          ? prefs.quietStartHour
+          : 22;
+    const quietEnd =
+      typeof prefs.alertPrefs?.quietEndHour === 'number'
+        ? prefs.alertPrefs.quietEndHour
+        : typeof prefs.quietEndHour === 'number'
+          ? prefs.quietEndHour
+          : 8;
     if (quietEnabled && isWithinQuietHours(hour, quietStart, quietEnd)) continue;
 
     const mode = prefs.alertPrefs?.frequency === 'daily' || prefs.chapterAlertsMode === 'daily_digest'
@@ -246,7 +287,7 @@ async function runMangaUpdateCheck({
       .get();
 
     const freshUpdates = [];
-    const checkedMdRefs = [];
+    const checkedSeriesUpdates = [];
     const nowMs = now.getTime();
     // Sort stalest lastCheckedAt first so cursor-based round-robin covers every followed series across runs.
     const sortedDocs = [...snap.docs].sort((a, b) => {
@@ -273,17 +314,19 @@ async function runMangaUpdateCheck({
 
       let latest = hasKatanaMap ? latestBySlug.get(slug) : null;
       let fromSeriesPage = false;
-      const canLookup = Date.now() < lookupDeadline;
+      // Mihon Smart Updates: only probe an individual series page when its predicted cadence window is due.
+      const dueForDirectProbe = typeof data.nextCheckAt !== 'number' || nowMs >= data.nextCheckAt;
+      const canLookup = dueForDirectProbe && Date.now() < lookupDeadline;
       if (!latest && canLookup && slug.startsWith('md-') && mdLookups < MANGADEX_PER_RUN_CAP) {
         mdLookups += 1;
         latest = await fetchMangaDexLatest(slug);
-        checkedMdRefs.push(docSnap.ref);
+        checkedSeriesUpdates.push({ ref: docSnap.ref, data });
         fromSeriesPage = true;
       } else if (!latest && canLookup && !slug.startsWith('md-') && katanaLookups < KATANA_SERIES_PER_RUN_CAP) {
         // Followed series that missed the latest-updates feed: read its own page (stalest first).
         katanaLookups += 1;
         latest = await fetchKatanaSeriesLatest(slug);
-        checkedMdRefs.push(docSnap.ref);
+        checkedSeriesUpdates.push({ ref: docSnap.ref, data });
         fromSeriesPage = true;
       }
       if (!latest) continue;
@@ -291,7 +334,16 @@ async function runMangaUpdateCheck({
       const prevNotified = parseChapterNumber(data.lastNotifiedChapter || data.latestChapterNum || '');
       if (fromSeriesPage && !Number.isFinite(prevNotified) && !data.lastNotifiedChapter) {
         // First look at this series: remember where it is instead of announcing an old chapter.
-        await docSnap.ref.set({ latestChapterNum: latest.chapterNum }, { merge: true });
+        const cadenceMs = computePredictedCadenceMs(data, false);
+        await docSnap.ref.set(
+          {
+            latestChapterNum: latest.chapterNum,
+            lastCheckedAt: nowMs,
+            nextCheckAt: nowMs + cadenceMs,
+            cadenceHours: Math.round(cadenceMs / HOUR_MS),
+          },
+          { merge: true },
+        );
         continue;
       }
       if (Number.isFinite(latest.num) && Number.isFinite(prevNotified) && latest.num <= prevNotified) {
@@ -303,15 +355,32 @@ async function runMangaUpdateCheck({
 
       freshUpdates.push({
         ref: docSnap.ref,
+        data,
         slug,
         title: data.title || slug,
         chapterNum: latest.chapterNum,
+        chapterId: latest.chapterId,
       });
     }
 
-    if (checkedMdRefs.length > 0) {
+    const freshRefs = new Set(freshUpdates.map((u) => u.ref));
+    if (checkedSeriesUpdates.length > 0) {
       await Promise.all(
-        checkedMdRefs.map((ref) => ref.set({ lastCheckedAt: nowMs }, { merge: true })),
+        checkedSeriesUpdates
+          .filter((item) => !freshRefs.has(item.ref))
+          .map(({ ref, data }) => {
+            const idleCount = (typeof data.consecutiveIdleChecks === 'number' ? data.consecutiveIdleChecks : 0) + 1;
+            const cadenceMs = computePredictedCadenceMs({ ...data, consecutiveIdleChecks: idleCount }, false);
+            return ref.set(
+              {
+                lastCheckedAt: nowMs,
+                nextCheckAt: nowMs + cadenceMs,
+                cadenceHours: Math.round(cadenceMs / HOUR_MS),
+                consecutiveIdleChecks: idleCount,
+              },
+              { merge: true },
+            );
+          }),
       );
     }
 
@@ -328,17 +397,35 @@ async function runMangaUpdateCheck({
 
     sentCount += 1;
     await Promise.all(
-      freshUpdates.map((u) =>
-        u.ref.set(
+      freshUpdates.map((u) => {
+        const prevNotifiedAt = typeof u.data?.lastNotifiedAt === 'number' ? u.data.lastNotifiedAt : undefined;
+        const observedInterval =
+          prevNotifiedAt && nowMs > prevNotifiedAt
+            ? Math.min(MAX_CADENCE_MS, Math.max(MIN_CADENCE_MS, nowMs - prevNotifiedAt))
+            : undefined;
+        const cadenceMs = computePredictedCadenceMs(
+          {
+            ...u.data,
+            ...(observedInterval ? { releaseIntervalMs: observedInterval } : {}),
+            consecutiveIdleChecks: 0,
+          },
+          true,
+        );
+        return u.ref.set(
           {
             lastNotifiedChapter: u.chapterNum,
             latestChapterNum: u.chapterNum,
+            ...(prevNotifiedAt ? { prevNotifiedAt } : {}),
+            ...(observedInterval ? { releaseIntervalMs: observedInterval } : {}),
             lastNotifiedAt: nowMs,
             lastCheckedAt: nowMs,
+            nextCheckAt: nowMs + cadenceMs,
+            cadenceHours: Math.round(cadenceMs / HOUR_MS),
+            consecutiveIdleChecks: 0,
           },
           { merge: true },
-        ),
-      ),
+        );
+      }),
     );
     await prefsRef.set(
       mode === 'daily_digest'
@@ -371,4 +458,6 @@ module.exports = {
   buildMangaPushPayload,
   isWithinQuietHours,
   parseChapterNumber,
+  computePredictedCadenceMs,
+  computeNextCheckAt,
 };

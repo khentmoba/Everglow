@@ -50,15 +50,15 @@ function resolveCatalogUpstream(baseKey, pathParam) {
 }
 
 const proxyCatalog = cappedHttps(20, async (req, res) => {
-  applyCors(req, res, 'GET, OPTIONS');
+  applyCors(req, res, 'GET, POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
   }
 
-  if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Only GET is accepted' });
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.status(405).json({ error: 'Only GET or POST is accepted' });
     return;
   }
   if (enforceRateLimit(req, res, { endpoint: 'proxyCatalog', limit: 120, windowMs: 60000 })) return;
@@ -69,6 +69,186 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
       await getAdmin().auth().verifyIdToken(idToken);
     } catch (e) {
       res.status(401).json({ error: 'Invalid or expired auth token' });
+      return;
+    }
+  }
+
+  if (req.method === 'POST') {
+    if (String(req.query.base || '').toLowerCase() !== 'tracker_sync') {
+      res.status(400).json({ error: 'POST is only supported for base=tracker_sync' });
+      return;
+    }
+    const payload = req.body && typeof req.body === 'object' ? req.body : {};
+    const provider = String(payload.provider || '').toLowerCase();
+    const mediaId = String(payload.mediaId || '').trim();
+    if (!['anilist', 'mal', 'kitsu'].includes(provider) || !/^\d+$/.test(mediaId)) {
+      res.status(400).json({ error: 'tracker_sync requires provider (anilist|mal|kitsu) and numeric mediaId' });
+      return;
+    }
+    const rawToken =
+      typeof payload.trackerToken === 'string' && payload.trackerToken.trim()
+        ? payload.trackerToken.trim()
+        : provider === 'anilist'
+          ? process.env.ANILIST_ACCESS_TOKEN || ''
+          : provider === 'mal'
+            ? process.env.MAL_ACCESS_TOKEN || ''
+            : process.env.KITSU_ACCESS_TOKEN || '';
+    const progress = Math.max(0, Math.floor(Number(payload.progress) || 0));
+    const score = typeof payload.score === 'number' && payload.score >= 0 && payload.score <= 10 ? payload.score : undefined;
+    const repeat = Math.max(0, Math.floor(Number(payload.repeat) || 0));
+    const status = String(payload.status || 'reading').toLowerCase();
+    const notes = typeof payload.notes === 'string' ? payload.notes.slice(0, 500) : undefined;
+
+    if (!rawToken) {
+      res.status(200).json({
+        ok: true,
+        synced: false,
+        mode: 'cloud_recorded',
+        provider,
+        mediaId,
+        progress,
+        status,
+        score: score ?? null,
+      });
+      return;
+    }
+
+    try {
+      if (provider === 'anilist') {
+        const alStatusMap = {
+          reading: 'CURRENT',
+          completed: 'COMPLETED',
+          on_hold: 'PAUSED',
+          planned: 'PLANNING',
+          dropped: 'DROPPED',
+        };
+        const mutation = `mutation ($mediaId: Int, $status: MediaListStatus, $scoreRaw: Int, $progress: Int, $repeat: Int, $notes: String) {
+          SaveMediaListEntry(mediaId: $mediaId, status: $status, scoreRaw: $scoreRaw, progress: $progress, repeat: $repeat, notes: $notes) {
+            id
+            status
+            progress
+            score
+            repeat
+          }
+        }`;
+        const variables = {
+          mediaId: Number.parseInt(mediaId, 10),
+          status: alStatusMap[status] || 'CURRENT',
+          progress,
+          repeat,
+          ...(score != null ? { scoreRaw: Math.round(score * 10) } : {}),
+          ...(notes != null ? { notes } : {}),
+        };
+        const upstream = await common.fetchPublicUrl('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${rawToken}`,
+            'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+          },
+          body: JSON.stringify({ query: mutation, variables }),
+          signal: AbortSignal.timeout(15000),
+          httpsOnly: true,
+          isAllowedUrl: (u) => u.protocol === 'https:' && u.hostname === 'graphql.anilist.co',
+        });
+        const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
+        res.status(upstream.ok ? 200 : upstream.status).json({
+          ok: upstream.ok,
+          synced: upstream.ok,
+          mode: 'remote_pushed',
+          provider,
+          mediaId,
+          upstream: JSON.parse(body || '{}'),
+        });
+        return;
+      }
+
+      if (provider === 'mal') {
+        const malStatusMap = {
+          reading: 'reading',
+          completed: 'completed',
+          on_hold: 'on_hold',
+          planned: 'plan_to_read',
+          dropped: 'dropped',
+        };
+        const form = new URLSearchParams();
+        form.set('status', malStatusMap[status] || 'reading');
+        form.set('num_chapters_read', String(progress));
+        form.set('num_times_reread', String(repeat));
+        if (score != null) form.set('score', String(Math.round(score)));
+        if (notes != null) form.set('comments', notes);
+        const upstream = await common.fetchPublicUrl(`https://api.myanimelist.net/v2/manga/${encodeURIComponent(mediaId)}/my_list_status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+            Authorization: `Bearer ${rawToken}`,
+            'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+          },
+          body: form.toString(),
+          signal: AbortSignal.timeout(15000),
+          httpsOnly: true,
+          isAllowedUrl: (u) => u.protocol === 'https:' && u.hostname === 'api.myanimelist.net',
+        });
+        const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
+        res.status(upstream.ok ? 200 : upstream.status).json({
+          ok: upstream.ok,
+          synced: upstream.ok,
+          mode: 'remote_pushed',
+          provider,
+          mediaId,
+          upstream: JSON.parse(body || '{}'),
+        });
+        return;
+      }
+
+      const kitsuStatusMap = {
+        reading: 'current',
+        completed: 'completed',
+        on_hold: 'on_hold',
+        planned: 'planned',
+        dropped: 'dropped',
+      };
+      const upstream = await common.fetchPublicUrl('https://kitsu.io/api/edge/library-entries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/vnd.api+json',
+          Accept: 'application/vnd.api+json',
+          Authorization: `Bearer ${rawToken}`,
+          'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+        },
+        body: JSON.stringify({
+          data: {
+            type: 'libraryEntries',
+            attributes: {
+              status: kitsuStatusMap[status] || 'current',
+              progress,
+              reconsumeCount: repeat,
+              ...(score != null && score > 0 ? { ratingTwenty: Math.max(2, Math.min(20, Math.round(score * 2))) } : {}),
+              ...(notes != null ? { notes } : {}),
+            },
+            relationships: {
+              manga: { data: { type: 'manga', id: mediaId } },
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(15000),
+        httpsOnly: true,
+        isAllowedUrl: (u) => u.protocol === 'https:' && u.hostname === 'kitsu.io',
+      });
+      const body = await common.readLimitedText(upstream.body, CATALOG_MAX_BYTES);
+      res.status(upstream.ok ? 200 : upstream.status).json({
+        ok: upstream.ok,
+        synced: upstream.ok,
+        mode: 'remote_pushed',
+        provider,
+        mediaId,
+        upstream: JSON.parse(body || '{}'),
+      });
+      return;
+    } catch (e) {
+      res.status(502).json({ error: `Tracker sync failed: ${e.message}` });
       return;
     }
   }

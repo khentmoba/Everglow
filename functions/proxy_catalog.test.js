@@ -10,7 +10,7 @@ const indexExports = require('./index.js');
 test('proxyCatalog allow-list rejects unknown base', () => {
   assert.throws(
     () => resolveCatalogUpstream('evil', 'search.json?q=x'),
-    /base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, anizip, or torrentio/,
+    /base must be openlibrary, jikan, kitsu, anilist, itunes, aniskip, opentdb, gutendex, archive, anizip, or torrentio/,
   );
 });
 
@@ -169,4 +169,47 @@ test('proxyCatalog caches 200 responses in memory and skips opentdb', async (t) 
   await call('opentdb', 'api.php?amount=5');
   await call('opentdb', 'api.php?amount=5');
   assert.equal(hits, 3);
+});
+
+test('proxyCatalog supports POST base=tracker_sync for bidirectional tracker updates', async (t) => {
+  let calledUrl = '';
+  t.mock.method(common, 'fetchPublicUrl', async (url) => {
+    calledUrl = String(url);
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ data: { SaveMediaListEntry: { id: 99, progress: 42 } } })).body,
+    };
+  });
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; },
+    json(b) { this.body = b; },
+  };
+  await proxyCatalog(
+    {
+      method: 'POST',
+      query: { base: 'tracker_sync' },
+      body: {
+        provider: 'anilist',
+        mediaId: '105398',
+        status: 'reading',
+        progress: 42,
+        score: 9,
+        trackerToken: 'test-oauth-token',
+      },
+      headers: {},
+      get: () => '',
+      ip: '203.0.113.10',
+    },
+    res,
+  );
+  assert.equal(res.code, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.synced, true);
+  assert.equal(calledUrl, 'https://graphql.anilist.co');
 });

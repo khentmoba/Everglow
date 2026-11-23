@@ -44,6 +44,8 @@ export type WidthUnit = 'px' | 'pct';
 
 export type VerticalSeekbarSide = 'off' | 'right' | 'left';
 
+export type ZoomStartPosition = 'automatic' | 'left' | 'right' | 'center';
+
 export interface ReaderSettings {
   readingMode: ReadingMode;
   fitMode: FitMode;
@@ -60,10 +62,13 @@ export interface ReaderSettings {
   grayscale: boolean;
   invertColors: boolean;
   pageGap: number;
+  webtoonSidePadding: number;
   maxWidth: number;
   widthUnit: WidthUnit;
   maxWidthPct: number;
   doubleTapZoom: number;
+  disableZoomOut: boolean;
+  zoomStartPosition: ZoomStartPosition;
   keepZoomAcrossPages: boolean;
   guidedPanelZoom: boolean;
   autoScrollSpeed: number;
@@ -139,10 +144,13 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   grayscale: false,
   invertColors: false,
   pageGap: 0,
+  webtoonSidePadding: 0,
   maxWidth: 850,
   widthUnit: 'px',
   maxWidthPct: 85,
   doubleTapZoom: 2,
+  disableZoomOut: false,
+  zoomStartPosition: 'automatic',
   keepZoomAcrossPages: false,
   guidedPanelZoom: false,
   autoScrollSpeed: 1,
@@ -295,6 +303,7 @@ const VALID_SENS = new Set<string>(['low', 'medium', 'high']);
 const VALID_ORIENT = new Set<string>(['auto', 'portrait', 'landscape']);
 const VALID_UNITS = new Set<string>(['px', 'pct']);
 const VALID_SEEKBAR = new Set<string>(['off', 'right', 'left']);
+const VALID_ZOOM_START = new Set<string>(['automatic', 'left', 'right', 'center']);
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -356,6 +365,10 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.pageGap === 'number' && Number.isFinite(parsed.pageGap)
           ? clamp(Math.round(parsed.pageGap), 0, 24)
           : DEFAULT_READER_SETTINGS.pageGap,
+      webtoonSidePadding:
+        typeof parsed.webtoonSidePadding === 'number' && Number.isFinite(parsed.webtoonSidePadding)
+          ? clamp(Math.round(parsed.webtoonSidePadding), 0, 25)
+          : DEFAULT_READER_SETTINGS.webtoonSidePadding,
       maxWidth:
         typeof parsed.maxWidth === 'number' && Number.isFinite(parsed.maxWidth)
           ? parsed.maxWidth === 0
@@ -373,6 +386,13 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.doubleTapZoom === 'number' && Number.isFinite(parsed.doubleTapZoom)
           ? clamp(parsed.doubleTapZoom, 1.5, 3)
           : DEFAULT_READER_SETTINGS.doubleTapZoom,
+      disableZoomOut:
+        typeof parsed.disableZoomOut === 'boolean'
+          ? parsed.disableZoomOut
+          : DEFAULT_READER_SETTINGS.disableZoomOut,
+      zoomStartPosition: VALID_ZOOM_START.has(String(parsed.zoomStartPosition))
+        ? (parsed.zoomStartPosition as ZoomStartPosition)
+        : DEFAULT_READER_SETTINGS.zoomStartPosition,
       keepZoomAcrossPages:
         typeof parsed.keepZoomAcrossPages === 'boolean'
           ? parsed.keepZoomAcrossPages

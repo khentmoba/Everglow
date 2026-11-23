@@ -29,6 +29,7 @@ export interface OfflineMediaItem {
   durationSeconds?: number;
   lastPositionSeconds?: number;
   pageUrls: string[];
+  downloadedPages?: number;
   blobKey?: string;
 }
 
@@ -89,6 +90,7 @@ function fromJson(json: Record<string, unknown>): OfflineMediaItem {
     durationSeconds: int(json.durationSeconds),
     lastPositionSeconds: int(json.lastPositionSeconds),
     pageUrls: Array.isArray(json.pageUrls) ? json.pageUrls.filter((u): u is string => typeof u === 'string') : [],
+    downloadedPages: int(json.downloadedPages),
     blobKey: str(json.blobKey),
   };
 }
@@ -112,6 +114,7 @@ const toJson = (i: OfflineMediaItem) => ({
   durationSeconds: i.durationSeconds ?? null,
   lastPositionSeconds: i.lastPositionSeconds ?? null,
   pageUrls: i.pageUrls,
+  downloadedPages: i.downloadedPages ?? null,
   blobKey: i.blobKey ?? null,
 });
 
@@ -189,12 +192,31 @@ async function getBlobUrl(key: string, isManga: boolean): Promise<string | null>
     const cache = await caches.open(isManga ? MANGA_CACHE : MEDIA_CACHE);
     const res = await cache.match(cacheKey(key, isManga));
     if (!res) return null;
-    const url = URL.createObjectURL(await res.blob());
+    const blob = await res.blob();
+    if (!blob || blob.size <= 0) {
+      await cache.delete(cacheKey(key, isManga)).catch(() => {});
+      return null;
+    }
+    const url = URL.createObjectURL(blob);
     objectUrls.add(url);
     return url;
   } catch (e) {
     Logger.e(`OfflineMediaStorage: could not create blob URL for ${key}`, e);
     return null;
+  }
+}
+
+async function getCachedBlobSize(key: string, isManga: boolean): Promise<number> {
+  try {
+    const cache = await caches.open(isManga ? MANGA_CACHE : MEDIA_CACHE);
+    const res = await cache.match(cacheKey(key, isManga));
+    if (!res) return 0;
+    const headerLen = Number(res.headers.get('content-length')) || 0;
+    if (headerLen > 0) return headerLen;
+    const blob = await res.blob();
+    return blob?.size ?? 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -451,6 +473,13 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyKatanaImage?url=${encodeURIComponent(raw)}`);
     this.mangaProxyMap.set(id, proxy);
     const estimated = args.pageUrls.length * 750 * 1024;
+    const priorPages = existing && existing.pageUrls.length === args.pageUrls.length ? (existing.downloadedPages ?? 0) : 0;
+    const priorProgress =
+      args.pageUrls.length > 0 && priorPages > 0
+        ? Math.min(0.98, Math.max(0.1, priorPages / args.pageUrls.length))
+        : existing && existing.progress > 0.1 && existing.progress < 1
+          ? existing.progress
+          : 0.1;
     const initial: OfflineMediaItem = {
       id,
       type: 'manga',
@@ -460,11 +489,13 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       chapterId: args.chapterId,
       coverUrl: args.coverUrl,
       status: 'downloading',
-      progress: 0.1,
-      totalBytes: estimated,
-      downloadedBytes: Math.round(estimated * 0.1),
-      downloadedAt: new Date().toISOString(),
+      progress: priorProgress,
+      totalBytes: existing && existing.totalBytes > 0 ? existing.totalBytes : estimated,
+      downloadedBytes:
+        existing && existing.downloadedBytes > 0 ? existing.downloadedBytes : Math.round(estimated * priorProgress),
+      downloadedAt: existing?.downloadedAt || new Date().toISOString(),
       pageUrls: args.pageUrls,
+      downloadedPages: priorPages,
       blobKey: id,
     };
     this.put(initial);
@@ -474,52 +505,104 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     this.activeControllers.get(id)?.abort();
     this.activeControllers.set(id, controller);
 
+    const waitBackoff = (ms: number) =>
+      new Promise<void>((resolve) => {
+        if (controller.signal.aborted) {
+          resolve();
+          return;
+        }
+        const t = setTimeout(() => {
+          controller.signal.removeEventListener('abort', onAbort);
+          resolve();
+        }, ms);
+        const onAbort = () => {
+          clearTimeout(t);
+          resolve();
+        };
+        controller.signal.addEventListener('abort', onAbort, { once: true });
+      });
+
     try {
       if (args.pageUrls.length > 0) {
+        let saved = 0;
+        let total = 0;
         try {
-          let saved = 0;
-          let total = 0;
           for (let i = 0; i < args.pageUrls.length; i++) {
             if (controller.signal.aborted || !this.value[id]) return;
             const raw = args.pageUrls[i];
             const pageKey = `${id}_p_${i + 1}`;
-            const src = raw.startsWith('http')
-              ? proxy(raw)
-              : raw.startsWith('assets/')
-                ? `/${raw}`
-                : null;
-            if (src) {
-              const pageController = new AbortController();
-              const onParentAbort = () => pageController.abort();
-              controller.signal.addEventListener('abort', onParentAbort, { once: true });
-              const timer = setTimeout(() => pageController.abort(), 15000);
-              let res: Response;
-              let blob: Blob | null = null;
-              try {
-                res = await fetch(src, { signal: pageController.signal });
-                blob = res.ok ? await res.blob() : null;
-              } finally {
-                clearTimeout(timer);
-                controller.signal.removeEventListener('abort', onParentAbort);
-              }
-              if (controller.signal.aborted || !this.value[id]) return;
-              if (blob && blob.size > 0) {
-                await saveBlob(pageKey, blob, true, 'image/jpeg');
-                saved++;
-                total += blob.size;
-              } else {
-                Logger.e(`Failed to fetch manga page ${i} (${src}): status ${res.status}`);
+            // Real resume: skip any page blob already persisted in MANGA_CACHE.
+            const cachedSize = await getCachedBlobSize(pageKey, true);
+            if (controller.signal.aborted || !this.value[id]) return;
+            if (cachedSize > 0) {
+              saved++;
+              total += cachedSize;
+            } else {
+              const src = raw.startsWith('http')
+                ? proxy(raw)
+                : raw.startsWith('assets/')
+                  ? `/${raw}`
+                  : raw.startsWith('/') || raw.startsWith('data:')
+                    ? raw
+                    : null;
+              if (src) {
+                let blob: Blob | null = null;
+                let lastStatus = 0;
+                const backoffDelays = [0, 500, 1400];
+                for (let attempt = 0; attempt < backoffDelays.length; attempt++) {
+                  if (backoffDelays[attempt] > 0) {
+                    await waitBackoff(backoffDelays[attempt]);
+                  }
+                  if (controller.signal.aborted || !this.value[id]) return;
+                  const pageController = new AbortController();
+                  const onParentAbort = () => pageController.abort();
+                  controller.signal.addEventListener('abort', onParentAbort, { once: true });
+                  const timer = setTimeout(() => pageController.abort(), 15000);
+                  try {
+                    const res = await fetch(src, { signal: pageController.signal });
+                    lastStatus = res.status;
+                    blob = res.ok ? await res.blob() : null;
+                  } catch {
+                    blob = null;
+                  } finally {
+                    clearTimeout(timer);
+                    controller.signal.removeEventListener('abort', onParentAbort);
+                  }
+                  if (blob && blob.size > 0) break;
+                }
+                if (controller.signal.aborted || !this.value[id]) return;
+                if (blob && blob.size > 0) {
+                  await saveBlob(pageKey, blob, true, 'image/jpeg');
+                  saved++;
+                  total += blob.size;
+                } else {
+                  Logger.e(`Failed to fetch manga page ${i} (${src}) after retries: status ${lastStatus}`);
+                }
               }
             }
             const progress = Math.min(1, saved / args.pageUrls.length);
-            if (!this.putIfPresent(id, { progress, downloadedBytes: total > 0 ? total : Math.round(estimated * progress) })) {
+            if (
+              !this.putIfPresent(id, {
+                progress,
+                downloadedPages: saved,
+                downloadedBytes: total > 0 ? total : Math.round(estimated * progress),
+              })
+            ) {
               return;
             }
           }
           if (controller.signal.aborted || !this.value[id]) return;
           if (saved === args.pageUrls.length && saved > 0) {
             const bytes = total > 0 ? total : estimated;
-            if (this.putIfPresent(id, { status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes })) {
+            if (
+              this.putIfPresent(id, {
+                status: 'completed',
+                progress: 1,
+                downloadedPages: saved,
+                downloadedBytes: bytes,
+                totalBytes: bytes,
+              })
+            ) {
               this.save();
             }
             return;
@@ -528,10 +611,23 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
           if (controller.signal.aborted) return;
           Logger.e(`Manga chapter download failed for ${id}`, e);
         }
+        if (controller.signal.aborted) return;
+        // Keep already-cached page blobs intact so resume/retry continues from the remaining pages!
+        const partialProgress = args.pageUrls.length > 0 ? Math.min(0.99, saved / args.pageUrls.length) : 0;
+        if (
+          this.putIfPresent(id, {
+            status: 'failed',
+            progress: partialProgress,
+            downloadedPages: saved,
+            downloadedBytes: total,
+          })
+        ) {
+          this.save();
+        }
+        return;
       }
       if (controller.signal.aborted) return;
-      for (let i = 1; i <= args.pageUrls.length; i++) await deleteBlob(`${id}_p_${i}`, true);
-      if (this.putIfPresent(id, { status: 'failed', progress: 0, downloadedBytes: 0 })) {
+      if (this.putIfPresent(id, { status: 'failed', progress: 0, downloadedPages: 0, downloadedBytes: 0 })) {
         this.save();
       }
     } finally {
