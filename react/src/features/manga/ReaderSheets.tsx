@@ -530,7 +530,7 @@ export function ChapterDrawerSheet({
                         right: 4,
                         padding: '2px 7px',
                         borderRadius: 99,
-                        background: isActive ? KatanaColors.accent : 'rgba(9, 6, 12, 0.82)',
+                        background: isActive ? KatanaColors.accent : 'rgba(11, 13, 18, 0.82)',
                         color: '#FFFFFF',
                         fontSize: 11,
                         fontWeight: 700,

@@ -142,8 +142,8 @@ export const READER_BACKGROUNDS: Record<
   Exclude<ReaderBackground, 'auto'>,
   { label: string; bg: string; fg: string; swatch: string }
 > = {
-  oled: { label: 'True Black', bg: '#000000', fg: '#FFF5F8', swatch: '#000000' },
-  dark: { label: 'Katana Night', bg: '#09060C', fg: '#FFF5F8', swatch: '#140C1C' },
+  oled: { label: 'True Black', bg: '#000000', fg: '#F3F5F9', swatch: '#000000' },
+  dark: { label: 'Katana Night', bg: '#0B0D12', fg: '#F3F5F9', swatch: '#13161F' },
   gray: { label: 'Slate', bg: '#1B1B22', fg: '#F3F2F7', swatch: '#2A2A35' },
   sepia: { label: 'Warm Paper', bg: '#F2E7D3', fg: '#2C2218', swatch: '#E7D5B8' },
   white: { label: 'Paper White', bg: '#F7F7F7', fg: '#16161A', swatch: '#FFFFFF' },

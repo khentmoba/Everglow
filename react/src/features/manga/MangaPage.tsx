@@ -374,6 +374,8 @@ export function MangaPage() {
   const [chapterSortAsc, setChapterSortAsc] = useState(false);
   const [chapterGrouped, setChapterGrouped] = useState(false);
   const [chapterToolsOpen, setChapterToolsOpen] = useState(false);
+  const [chapterLangFilter, setChapterLangFilter] = useState<string>('all');
+  const [chapterGroupFilter, setChapterGroupFilter] = useState<string>('all');
   const [chapterSearch, setChapterSearch] = useState('');
   const [chapterWindow, setChapterWindow] = useState(40);
   const [catalogSource, setCatalogSource] = useState<KatanaCatalogSource>('mangakatana');
@@ -807,6 +809,8 @@ export function MangaPage() {
     let alive = true;
     setDetailLoading(true);
     setChapterSearch('');
+    setChapterLangFilter('all');
+    setChapterGroupFilter('all');
     setChapterWindow(40);
     setSelectMode(false);
     setSelectedChapterIds(new Set());
@@ -1889,16 +1893,40 @@ export function MangaPage() {
                   const readPct = detail.chapters.length > 0 ? Math.round((readCount / detail.chapters.length) * 100) : 0;
 
                   const orderedChapters = chapterSortAsc ? [...detail.chapters].reverse() : detail.chapters;
+                  const availableChapterLangs = Array.from(
+                    new Set(
+                      detail.chapters
+                        .map((c) => (c.language || '').trim().toLowerCase())
+                        .filter(Boolean),
+                    ),
+                  );
+                  const availableChapterGroups = Array.from(
+                    new Set(
+                      detail.chapters
+                        .map((c) => (c.scanlationGroup || '').trim())
+                        .filter(Boolean),
+                    ),
+                  ).slice(0, 8);
                   const q = chapterSearch.trim().toLowerCase();
-                  const filteredChapters = q
-                    ? orderedChapters.filter(
-                        (c) =>
-                          chapterDisplayTitle(c).toLowerCase().includes(q) ||
-                          c.num.toLowerCase().includes(q) ||
-                          c.id.toLowerCase().includes(q),
-                      )
-                    : orderedChapters;
+                  const filteredChapters = orderedChapters.filter((c) => {
+                    if (chapterLangFilter !== 'all' && (c.language || '').trim().toLowerCase() !== chapterLangFilter) {
+                      return false;
+                    }
+                    if (chapterGroupFilter !== 'all' && (c.scanlationGroup || '').trim() !== chapterGroupFilter) {
+                      return false;
+                    }
+                    if (!q) return true;
+                    return (
+                      chapterDisplayTitle(c).toLowerCase().includes(q) ||
+                      c.num.toLowerCase().includes(q) ||
+                      c.id.toLowerCase().includes(q) ||
+                      (c.scanlationGroup || '').toLowerCase().includes(q)
+                    );
+                  });
                   const visibleChapters = filteredChapters.slice(0, chapterWindow);
+                  const hasChapterMetaFilters = availableChapterLangs.length > 1 || availableChapterGroups.length > 1;
+                  const activeChapterFilterCount =
+                    (chapterLangFilter !== 'all' ? 1 : 0) + (chapterGroupFilter !== 'all' ? 1 : 0);
 
                   const toggleSelectChapter = (id: string) => {
                     setSelectedChapterIds((prev) => {
@@ -3076,6 +3104,7 @@ export function MangaPage() {
                                   }, 60);
                                 }}
                                 style={{
+                                  minHeight: 40,
                                   padding: '6px 10px',
                                   borderRadius: 8,
                                   background: withAlpha(KatanaColors.accent, 0.14),
@@ -3098,6 +3127,7 @@ export function MangaPage() {
                               className="bare-button"
                               onClick={() => setChapterSortAsc((v) => !v)}
                               style={{
+                                minHeight: 40,
                                 padding: '6px 10px',
                                 borderRadius: 8,
                                 background: KatanaColors.surfaceAlt,
@@ -3121,21 +3151,22 @@ export function MangaPage() {
                                 aria-expanded={chapterToolsOpen}
                                 onClick={() => setChapterToolsOpen((v) => !v)}
                                 style={{
+                                  minHeight: 40,
                                   padding: '6px 10px',
                                   borderRadius: 8,
-                                  background: chapterToolsOpen || selectMode || chapterGrouped ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                  border: `1px solid ${chapterToolsOpen || selectMode || chapterGrouped ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                  background: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                                  border: `1px solid ${chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 4,
                                   fontFamily: Fonts.body,
                                   fontSize: 12.5,
                                   fontWeight: 600,
-                                  color: chapterToolsOpen || selectMode || chapterGrouped ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                  color: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
                                 }}
                               >
-                                <Icon name="tune" size={15} color={chapterToolsOpen || selectMode || chapterGrouped ? KatanaColors.accentSoft : KatanaColors.textMuted} />
-                                <span>Tools</span>
+                                <Icon name="tune" size={15} color={chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                                <span>{activeChapterFilterCount > 0 ? `Tools (${activeChapterFilterCount})` : 'Tools'}</span>
                               </button>
                             )}
                             {!compactCard && detail.chapters.length >= 10 && (
@@ -3243,7 +3274,7 @@ export function MangaPage() {
                               onClick={() => void handleLoadPreview(detail)}
                               aria-expanded={previewPages?.slug === detail.slug}
                               style={{
-                                minHeight: 34,
+                                minHeight: 40,
                                 padding: '5px 10px',
                                 borderRadius: 8,
                                 background: previewPages?.slug === detail.slug ? KatanaColors.chipSelectedBg : KatanaColors.surface,
@@ -3267,7 +3298,7 @@ export function MangaPage() {
                                 aria-pressed={chapterGrouped}
                                 onClick={() => setChapterGrouped((v) => !v)}
                                 style={{
-                                  minHeight: 34,
+                                  minHeight: 40,
                                   padding: '5px 10px',
                                   borderRadius: 8,
                                   background: chapterGrouped ? KatanaColors.chipSelectedBg : KatanaColors.surface,
@@ -3293,7 +3324,7 @@ export function MangaPage() {
                                 setSelectedChapterIds(new Set());
                               }}
                               style={{
-                                minHeight: 34,
+                                minHeight: 40,
                                 padding: '5px 10px',
                                 borderRadius: 8,
                                 background: selectMode ? KatanaColors.chipSelectedBg : KatanaColors.surface,
@@ -3325,7 +3356,7 @@ export function MangaPage() {
                                   showSnackBar(allRead ? 'Marked all chapters unread' : 'Marked all chapters read');
                                 }}
                                 style={{
-                                  minHeight: 34,
+                                  minHeight: 40,
                                   padding: '5px 10px',
                                   borderRadius: 8,
                                   background: KatanaColors.surface,
@@ -3342,6 +3373,80 @@ export function MangaPage() {
                                 <Icon name="done_all" size={14} color={KatanaColors.green} />
                                 <span>{readCount === detail.chapters.length ? 'Mark all unread' : 'Mark all read'}</span>
                               </button>
+                            )}
+                          </div>
+                        )}
+
+                        {hasChapterMetaFilters && (!compactCard || chapterToolsOpen) && (
+                          <div
+                            aria-label="Chapter language and scanlation group filters"
+                            style={{
+                              marginTop: 8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            {availableChapterLangs.length > 1 && (
+                              <>
+                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700 }}>Lang:</span>
+                                {(['all', ...availableChapterLangs] as const).map((lang) => {
+                                  const active = chapterLangFilter === lang;
+                                  return (
+                                    <button
+                                      key={lang}
+                                      type="button"
+                                      className="bare-button"
+                                      aria-pressed={active}
+                                      onClick={() => setChapterLangFilter(lang)}
+                                      style={{
+                                        minHeight: 40,
+                                        padding: '4px 10px',
+                                        borderRadius: 99,
+                                        background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                                        border: `1px solid ${active ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11.5,
+                                        fontWeight: active ? 700 : 600,
+                                        color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                      }}
+                                    >
+                                      {lang === 'all' ? 'All' : lang.toUpperCase()}
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            )}
+                            {availableChapterGroups.length > 1 && (
+                              <>
+                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, marginLeft: availableChapterLangs.length > 1 ? 6 : 0 }}>Group:</span>
+                                {(['all', ...availableChapterGroups] as const).map((grp) => {
+                                  const active = chapterGroupFilter === grp;
+                                  return (
+                                    <button
+                                      key={grp}
+                                      type="button"
+                                      className="bare-button"
+                                      aria-pressed={active}
+                                      onClick={() => setChapterGroupFilter(grp)}
+                                      style={{
+                                        minHeight: 40,
+                                        padding: '4px 10px',
+                                        borderRadius: 99,
+                                        background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                                        border: `1px solid ${active ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11.5,
+                                        fontWeight: active ? 700 : 600,
+                                        color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                      }}
+                                    >
+                                      {grp === 'all' ? 'All' : grp}
+                                    </button>
+                                  );
+                                })}
+                              </>
                             )}
                           </div>
                         )}
@@ -3647,8 +3752,8 @@ export function MangaPage() {
                                             style={{
                                               padding: '1px 6px',
                                               borderRadius: 4,
-                                              background: KatanaColors.crimson,
-                                              color: '#FFFFFF',
+                                              background: KatanaColors.accent,
+                                              color: KatanaColors.accentInk,
                                               fontFamily: Fonts.body,
                                               fontSize: 10,
                                               fontWeight: 800,

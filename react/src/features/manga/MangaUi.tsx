@@ -143,7 +143,7 @@ export function KatanaButton({
   const isPrimary = color === KatanaColors.accent && filled;
   const fg = filled ? (isPrimary ? KatanaColors.accentInk : white) : color;
   const pad = size === 'sm' ? '7px 13px' : '10px 18px';
-  const minH = size === 'sm' ? 38 : 44;
+  const minH = size === 'sm' ? 40 : 44;
   const fontSize = size === 'sm' ? 12.5 : 13.5;
   return (
     <button
@@ -1852,8 +1852,8 @@ export function KatanaItemCard({
                       style={{
                         padding: '1px 6px',
                         borderRadius: 4,
-                        background: KatanaColors.crimson,
-                        color: white,
+                        background: KatanaColors.accent,
+                        color: KatanaColors.accentInk,
                         fontFamily: Fonts.body,
                         fontSize: 10,
                         fontWeight: 800,
@@ -1995,40 +1995,61 @@ export function KatanaPosterCard({
               position: 'absolute',
               left: 7,
               right: 7,
-              bottom: 7,
-              padding: '4px 8px',
-              borderRadius: 7,
-              background: 'rgba(14, 17, 24, 0.84)',
-              backdropFilter: 'blur(4px)',
-              ...bodyText(11.5, 600, KatanaColors.link, 1.2),
-              ...ellipsis,
+              bottom: 0,
+              minHeight: 40,
+              padding: '0 0 7px 0',
+              display: 'flex',
+              alignItems: 'flex-end',
+              background: 'transparent',
               textAlign: 'left',
             }}
           >
-            {chapterDisplayTitle(manga.latestChapter)}
+            <span
+              style={{
+                width: '100%',
+                padding: '4px 8px',
+                borderRadius: 7,
+                background: 'rgba(14, 17, 24, 0.84)',
+                backdropFilter: 'blur(4px)',
+                ...bodyText(11.5, 600, KatanaColors.link, 1.2),
+                ...ellipsis,
+                display: 'block',
+              }}
+            >
+              {chapterDisplayTitle(manga.latestChapter)}
+            </span>
           </button>
         )}
       </div>
-      <div style={{ padding: '8px 2px 4px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <div style={{ padding: '6px 2px 2px' }}>
         <button
           type="button"
           className="bare-button"
           title={manga.title}
           onClick={onSelect}
-          style={{ textAlign: 'left', width: '100%' }}
+          style={{
+            textAlign: 'left',
+            width: '100%',
+            minHeight: 44,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            gap: 3,
+            padding: '2px 0',
+          }}
         >
           <div className="clamp-2" style={bodyText(13.5, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.25)}>
             {manga.title}
           </div>
+          <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 12.5, lineHeight: 1.3 }}>
+            {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
+            {manga.follows != null && manga.follows > 0
+              ? ` · ${formatCompactNumber(manga.follows)}`
+              : totalCh != null && totalCh > 0
+                ? ` · ${totalCh} ch`
+                : ''}
+          </div>
         </button>
-        <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 12.5, lineHeight: 1.3 }}>
-          {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
-          {manga.follows != null && manga.follows > 0
-            ? ` · ${formatCompactNumber(manga.follows)}`
-            : totalCh != null && totalCh > 0
-              ? ` · ${totalCh} ch`
-              : ''}
-        </div>
       </div>
     </article>
   );
@@ -2102,8 +2123,14 @@ export function KatanaCompactCard({
           </span>
         )}
       </button>
-      <div style={{ height: 7 }} />
-      <button type="button" className="bare-button" title={manga.title} onClick={onSelect} style={{ textAlign: 'left' }}>
+      <div style={{ height: 4 }} />
+      <button
+        type="button"
+        className="bare-button"
+        title={manga.title}
+        onClick={onSelect}
+        style={{ textAlign: 'left', width: '100%', minHeight: 40, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '2px 0' }}
+      >
         <div className="clamp-2" style={bodyText(13, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.25)}>
           {manga.title}
         </div>
@@ -2113,7 +2140,7 @@ export function KatanaCompactCard({
           {reason}
         </div>
       )}
-      <div style={{ height: 3 }} />
+      <div style={{ height: 2 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: completed ? KatanaColors.green : KatanaColors.textMuted }} />
         <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{completed ? 'Completed' : 'Ongoing'}</span>
@@ -2126,9 +2153,17 @@ export function KatanaCompactCard({
           type="button"
           className="bare-button"
           onClick={() => onOpenChapter?.(manga, manga.latestChapter!.id)}
-          style={{ textAlign: 'left', marginTop: 2, ...bodyText(12, 600, KatanaColors.link, 1.2), ...ellipsis }}
+          style={{
+            textAlign: 'left',
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%',
+            ...bodyText(12, 600, KatanaColors.link, 1.2),
+            ...ellipsis,
+          }}
         >
-          {chapterDisplayTitle(manga.latestChapter)}
+          <span style={ellipsis}>{chapterDisplayTitle(manga.latestChapter)}</span>
         </button>
       )}
     </div>

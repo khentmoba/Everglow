@@ -602,8 +602,8 @@ function CurrentlyReadingShelf({
                   title={`Resume ${bm.lastReadChapterTitle || bm.title}`}
                   onClick={() => onResumeBookmark(bm)}
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: 42,
+                    height: 42,
                     borderRadius: 99,
                     flexShrink: 0,
                     background: KatanaColors.accent,
@@ -1573,8 +1573,8 @@ export function MangaHome({
               setFeedTab('updates');
             }}
             style={{
-              minHeight: compact ? 30 : 32,
-              padding: compact ? '3px 10px' : '4px 10px',
+              minHeight: 40,
+              padding: compact ? '6px 12px' : '6px 12px',
               borderRadius: compact ? 99 : 8,
               background: KatanaColors.accent,
               color: KatanaColors.accentInk,
@@ -1591,7 +1591,7 @@ export function MangaHome({
             className="bare-button"
             aria-label="Dismiss chapter alerts banner"
             onClick={() => setAlertBannerDismissed(true)}
-            style={{ width: 32, height: 32, display: 'grid', placeItems: 'center' }}
+            style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}
           >
             <Icon name="close" size={15} color={KatanaColors.textMuted} />
           </button>
@@ -1634,7 +1634,7 @@ export function MangaHome({
             aria-expanded={phoneControlsOpen}
             onClick={() => setPhoneControlsOpen((v) => !v)}
             style={{
-              minHeight: 36,
+              minHeight: 40,
               padding: '0 12px',
               borderRadius: 99,
               background: phoneControlsOpen || phoneFilterActiveCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -1736,7 +1736,7 @@ export function MangaHome({
                     className="bare-button"
                     onClick={() => setFeedTab(t.key)}
                     style={{
-                      minHeight: 34,
+                      minHeight: 40,
                       padding: '4px 12px',
                       borderRadius: 99,
                       background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -1981,9 +1981,9 @@ export function MangaHome({
             />
             {!compact && typeChips}
             {newChapterAlertBanner}
+            {tasteOnboardingBanner}
             <div style={{ height: compact ? 8 : 10 }} />
             {feedSection}
-            {tasteOnboardingBanner}
             {type === 'all' && (
               <ReleaseCalendarRail
                 catalog={allCatalog}

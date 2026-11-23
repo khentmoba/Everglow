@@ -237,12 +237,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .manga-range::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 99px;
-  background: rgba(255, 133, 179, 0.24);
+  background: color-mix(in srgb, var(--katana-accent, #F59E0B) 28%, transparent);
 }
 .manga-range::-moz-range-track {
   height: 6px;
   border-radius: 99px;
-  background: rgba(255, 133, 179, 0.24);
+  background: color-mix(in srgb, var(--katana-accent, #F59E0B) 28%, transparent);
 }
 .manga-range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -251,16 +251,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
   height: 22px;
   margin-top: -8px;
   border-radius: 50%;
-  background: #FF2E7E;
-  border: 2px solid #FFF5F8;
+  background: var(--katana-accent, #F59E0B);
+  border: 2px solid var(--katana-accent-ink, #111318);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 .manga-range::-moz-range-thumb {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #FF2E7E;
-  border: 2px solid #FFF5F8;
+  background: var(--katana-accent, #F59E0B);
+  border: 2px solid var(--katana-accent-ink, #111318);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 .manga-range--vertical {
