@@ -727,9 +727,32 @@ function PartnerDoodleIndicator() {
   const partnerUid = auth.partnerUid;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+    if (!partnerUid) return;
+    let id = 0;
+    const sync = () => setNow(Date.now());
+    const start = () => {
+      if (id || document.hidden) return;
+      id = window.setInterval(sync, 1000);
+    };
+    const stop = () => {
+      if (!id) return;
+      clearInterval(id);
+      id = 0;
+    };
+    const onVis = () => {
+      if (document.hidden) stop();
+      else {
+        sync();
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [partnerUid]);
   const status = useSource<PresenceStatus | null>(
     () => (partnerUid ? presenceService.watchPresence(partnerUid) : null),
     [partnerUid],
