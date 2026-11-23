@@ -65,7 +65,9 @@ const everglowShell = source({
   isRecommended: true,
   sandboxSafe: true,
 });
-const cinemaOnly = [everglowShell, everglowEmbed, cineSrc];
+// Everglow first: it is the default row the player opens on, so the rest of the
+// shelf is only reached when Everglow cannot resolve the title.
+const cinemaOnly = [everglowEmbed, everglowShell, cineSrc];
 const cinemaIds = new Set(['everglow-shell', 'everglow-embed', 'flux-cinesrc']);
 const selectableNoAdsIds = new Set(['everglow-shell', 'everglow-embed', 'flux-cinesrc', 'vidcore']);
 const isSelectableNoAds = (p: VideoSourceConfig) => p.sandboxSafe || selectableNoAdsIds.has(p.id);
