@@ -74,6 +74,11 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
   return showDownloads ? all : all.filter((i) => i.tab !== 5);
 }
 
+/** Poster width per breakpoint: phone, tablet, desktop (the row height follows it). */
+export function rowCardWidth(isDesktop: boolean, vw: number): number {
+  return isDesktop ? 172 : vw >= 700 ? 168 : 124;
+}
+
 const DETAIL_CACHE_MAX = 60;
 const cinemaDetailCache = new Map<string, Record<string, unknown>>();
 clearOnLogout(cinemaDetailCache);
@@ -402,7 +407,7 @@ export function NetflixPosterCard({
   const touchOriginRef = useRef<{ x: number; y: number } | null>(null);
   const longPressedRef = useRef(false);
   const posterUrl = TmdbImages.cardFor(item.posterPath);
-  const cardWidth = compact ? undefined : rank != null ? 118 : isDesktop ? 172 : 124;
+  const cardWidth = compact ? undefined : rank != null ? 118 : rowCardWidth(isDesktop, vw);
 
   const closePreview = useCallback(() => {
     window.clearTimeout(showTimerRef.current);
@@ -694,10 +699,11 @@ export function NetflixRow({
   isDesktop?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const { width: rowViewport } = useViewport();
   if (items.length === 0) return null;
 
   const hPad = isDesktop ? 48 : 16;
-  const rowHeight = (isDesktop ? 172 : 124) * 1.5 + 6;
+  const rowHeight = rowCardWidth(isDesktop, rowViewport) * 1.5 + 6;
   const scrollBy = (dx: number) => {
     scrollerRef.current?.scrollBy({ left: dx, behavior: 'smooth' });
   };

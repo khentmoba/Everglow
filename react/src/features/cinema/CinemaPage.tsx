@@ -298,11 +298,11 @@ export function CinemaPage() {
               position: 'fixed',
               top: 0,
               left: 0,
-              width: 148,
-              height: 92,
+              width: 260,
+              height: 220,
               zIndex: 24,
               pointerEvents: 'none',
-              background: 'radial-gradient(130px 96px at 44px 44px, rgba(8,8,8,0.72) 0%, rgba(8,8,8,0.42) 45%, rgba(8,8,8,0) 100%)',
+              background: 'radial-gradient(circle 140px at 34px 34px, rgba(8,8,8,0.6) 0%, rgba(8,8,8,0.3) 45%, rgba(8,8,8,0) 100%)',
             }}
           />
           <div
