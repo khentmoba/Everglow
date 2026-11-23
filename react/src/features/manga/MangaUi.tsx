@@ -1524,7 +1524,7 @@ export function KatanaCoverImage({
               style={{
                 padding: '2px 5px',
                 borderRadius: 4,
-                background: 'rgba(11, 13, 18, 0.78)',
+                background: withAlpha(KatanaColors.background, 0.78),
                 border: `1px solid ${withAlpha(palette.accent, 0.35)}`,
                 fontFamily: Fonts.body,
                 fontSize: 9.5,
@@ -1547,7 +1547,7 @@ export function KatanaCoverImage({
               fontSize: iconSize >= 30 ? 12.5 : 11,
               lineHeight: 1.2,
               letterSpacing: -0.2,
-              color: '#F8FAFC',
+              color: KatanaColors.text,
               textShadow: '0 1px 6px rgba(0,0,0,0.65)',
             }}
           >
@@ -1649,7 +1649,7 @@ export function KatanaCoverBadges({
             borderRadius: 6,
             background: KatanaColors.accent,
             color: KatanaColors.accentInk,
-            border: '1px solid rgba(11, 13, 18, 0.35)',
+            border: `1px solid ${withAlpha(KatanaColors.background, 0.35)}`,
             fontFamily: Fonts.body,
             fontSize: 12,
             fontWeight: 800,
@@ -1671,7 +1671,7 @@ export function KatanaCoverBadges({
             borderRadius: 6,
             background: KatanaColors.green,
             color: KatanaColors.accentInk,
-            border: '1px solid rgba(11, 13, 18, 0.35)',
+            border: `1px solid ${withAlpha(KatanaColors.background, 0.35)}`,
             fontFamily: Fonts.body,
             fontSize: 12,
             fontWeight: 800,
@@ -1784,7 +1784,7 @@ function ItemCover({
               style={{
                 padding: '2px 6px',
                 borderRadius: 5,
-                background: 'rgba(11, 13, 18, 0.9)',
+                background: withAlpha(KatanaColors.background, 0.9),
                 border: `1px solid ${withAlpha(srcColor, 0.55)}`,
                 ...bodyText(10, 800, srcColor, 1.2),
               }}
@@ -2055,7 +2055,7 @@ export function KatanaPosterCard({
             position: 'absolute',
             inset: 'auto 0 0 0',
             height: '46%',
-            background: 'linear-gradient(to top, rgba(11, 13, 18, 0.94) 0%, rgba(11, 13, 18, 0.48) 54%, transparent 100%)',
+            background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.94)} 0%, ${withAlpha(KatanaColors.background, 0.48)} 54%, transparent 100%)`,
             pointerEvents: 'none',
           }}
         />
@@ -2066,7 +2066,7 @@ export function KatanaPosterCard({
                 padding: '2px 7px',
                 borderRadius: 6,
                 background: withAlpha(KatanaColors.green, 0.96),
-                border: '1px solid rgba(11, 13, 18, 0.35)',
+                border: `1px solid ${withAlpha(KatanaColors.background, 0.35)}`,
                 boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
                 ...bodyText(12, 800, KatanaColors.accentInk, 1.2),
               }}
@@ -2082,10 +2082,10 @@ export function KatanaPosterCard({
                 gap: 3,
                 padding: '2px 7px',
                 borderRadius: 6,
-                background: 'rgba(11, 13, 18, 0.92)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: withAlpha(KatanaColors.background, 0.92),
+                border: `1px solid ${withAlpha(KatanaColors.text, 0.2)}`,
                 boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
-                ...bodyText(12, 800, '#F8FAFC', 1.2),
+                ...bodyText(12, 800, KatanaColors.text, 1.2),
               }}
             >
               <Icon name="star" size={11} color={KatanaColors.accent} />
@@ -2108,7 +2108,7 @@ export function KatanaPosterCard({
                 zIndex: 4,
                 padding: '8px 10px',
                 borderRadius: 9,
-                background: 'rgba(11, 13, 18, 0.96)',
+                background: withAlpha(KatanaColors.background, 0.96),
                 border: `1px solid ${KatanaColors.borderStrong}`,
                 boxShadow: '0 8px 20px rgba(0,0,0,0.75)',
                 display: 'flex',
@@ -2117,7 +2117,7 @@ export function KatanaPosterCard({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                <span style={{ ...bodyText(12, 800, '#F8FAFC', 1.2) }}>
+                <span style={{ ...bodyText(12, 800, KatanaColors.text, 1.2) }}>
                   {srcInfo.name} ({srcInfo.badge})
                 </span>
                 <button
@@ -2128,13 +2128,13 @@ export function KatanaPosterCard({
                     e.stopPropagation();
                     setSourceDetailOpen(false);
                   }}
-                  style={{ padding: 2, color: '#94A3B8', display: 'inline-flex' }}
+                  style={{ padding: 2, color: KatanaColors.textLight, display: 'inline-flex' }}
                 >
-                  <Icon name="close" size={13} color="#94A3B8" />
+                  <Icon name="close" size={13} color={KatanaColors.textLight} />
                 </button>
               </div>
               <span style={{ ...bodyText(11, 600, '#CBD5E1', 1.3) }}>{srcInfo.signals.provenance}</span>
-              <span style={{ ...bodyText(10.5, 500, '#94A3B8', 1.3) }}>{srcInfo.signals.specialty}</span>
+              <span style={{ ...bodyText(10.5, 500, KatanaColors.textLight, 1.3) }}>{srcInfo.signals.specialty}</span>
               {verifiedOfficial && (
                 <a
                   href={verifiedOfficial.url}
@@ -2189,17 +2189,17 @@ export function KatanaPosterCard({
                 width: '100%',
                 padding: '4px 8px',
                 borderRadius: 7,
-                background: 'rgba(11, 13, 18, 0.92)',
+                background: withAlpha(KatanaColors.background, 0.92),
                 border: '1px solid rgba(255, 255, 255, 0.16)',
                 backdropFilter: 'blur(4px)',
-                ...bodyText(12, 700, '#93C5FD', 1.2),
+                ...bodyText(12, 700, KatanaColors.link, 1.2),
                 ...ellipsis,
                 display: 'block',
               }}
             >
               {chapterDisplayTitle(manga.latestChapter)}
               {manga.latestChapter.updateAt ? (
-                <span style={{ ...bodyText(11, 600, '#94A3B8', 1.2) }}> · {formatKatanaTime(manga.latestChapter.updateAt)}</span>
+                <span style={{ ...bodyText(11, 600, KatanaColors.textLight, 1.2) }}> · {formatKatanaTime(manga.latestChapter.updateAt)}</span>
               ) : null}
             </span>
           </button>
@@ -2251,7 +2251,7 @@ export function KatanaPosterCard({
                 aria-expanded={sourceDetailOpen}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: KatanaColors.textLight }}
               >
-                <span style={{ ...bodyText(11, 700, KatanaColors.textLight, 1.2) }}>· {srcInfo.shortLabel}</span>
+                <span style={{ ...bodyText(11, 700, KatanaColors.textLight, 1.2) }}>{srcInfo.shortLabel}</span>
                 {verifiedOfficial && (
                   <span style={{ ...bodyText(11, 700, KatanaColors.green, 1.2) }}>Official</span>
                 )}
@@ -2328,10 +2328,10 @@ export function KatanaCompactCard({
               gap: 3,
               padding: '2px 6px',
               borderRadius: 6,
-              background: 'rgba(11, 13, 18, 0.92)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              background: withAlpha(KatanaColors.background, 0.92),
+              border: `1px solid ${withAlpha(KatanaColors.text, 0.2)}`,
               boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
-              ...bodyText(12, 800, '#F8FAFC', 1.15),
+              ...bodyText(12, 800, KatanaColors.text, 1.15),
             }}
           >
             <Icon name="star" size={11} color={KatanaColors.accent} />

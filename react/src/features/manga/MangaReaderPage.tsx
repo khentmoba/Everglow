@@ -4,6 +4,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { useAuth } from '../../core/services/auth';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
+import { withAlpha } from '../../core/theme/colors';
 import { motionReduced, reduceAmbientMotion } from '../../core/theme/motion';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
@@ -2360,11 +2361,14 @@ export function MangaReaderView({
         inset: 0,
         zIndex: 90,
         background: settings.background === 'auto' && adaptiveBgColor ? adaptiveBgColor : bgTheme.bg,
-        transition: motionReduced() ? 'none' : 'background 260ms ease',
+        transition: motionReduced() ? 'none' : 'background 260ms ease, padding 180ms ease',
         color: bgTheme.fg,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        paddingTop: showUi ? hudInset.top : 0,
+        paddingBottom: showUi ? hudInset.bottom : 0,
+        boxSizing: 'border-box',
       }}
     >
       {/* Screen-reader live page announcement */}
@@ -2413,9 +2417,6 @@ export function MangaReaderView({
         onTouchEnd={handleTouchEnd}
         style={{
           flex: 1,
-          paddingTop: showUi ? hudInset.top : 0,
-          paddingBottom: showUi ? hudInset.bottom : 0,
-          transition: motionReduced() ? 'none' : 'padding 180ms ease',
           overflowY:
             isHorizontalStrip
               ? 'hidden'
@@ -3238,9 +3239,11 @@ export function MangaReaderView({
             minHeight: 34,
             padding: '5px 11px',
             borderRadius: 99,
-            background: allowBlur ? 'rgba(9, 6, 12, 0.78)' : 'rgba(9, 6, 12, 0.92)',
-            border: '1px solid rgba(245, 158, 11, 0.32)',
-            color: 'rgba(255, 245, 248, 0.92)',
+            background: allowBlur ? 'rgba(11, 13, 18, 0.72)' : 'rgba(11, 13, 18, 0.9)',
+            border: `1px solid ${withAlpha(KatanaColors.accent, 0.28)}`,
+            color: KatanaColors.text,
+            opacity: pageIdx === pages.length - 1 ? 0.62 : 0.92,
+            transition: motionReduced() ? 'none' : 'opacity 220ms ease',
             fontSize: 11.5,
             fontWeight: 700,
             display: 'inline-flex',
@@ -3317,7 +3320,7 @@ export function MangaReaderView({
             {params.mangaTitle}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-            <span className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>
+            <span className="ellipsis" style={{ ...KatanaType.small, lineHeight: 1.4, paddingBottom: 1, color: KatanaColors.accentSoft }}>
               {chapterDisplayTitle(activeChapter)}
             </span>
             {!incognitoSession && currentUser && (
@@ -3587,13 +3590,13 @@ export function MangaReaderView({
                   className="bare-button player-focusable"
                   onClick={() => setShowTapHint((v) => !v)}
                   style={{
-                    minHeight: 36,
-                    padding: '6px 12px',
-                    borderRadius: 6,
+                    minHeight: 40,
+                    padding: '8px 14px',
+                    borderRadius: 8,
                     background: KatanaColors.surface,
                     border: `1px solid ${KatanaColors.borderStrong}`,
                     color: KatanaColors.accentSoft,
-                    fontSize: 11,
+                    fontSize: 12.5,
                     fontWeight: 700,
                   }}
                 >
@@ -3603,7 +3606,7 @@ export function MangaReaderView({
               <button
                 type="button"
                 className="bare-button player-focusable"
-                aria-label="Dismiss controls tip"
+                aria-label="Got it, hide this tip"
                 onClick={() => {
                   markReaderHintSeen();
                   setSeenOnboardingHint(true);
@@ -3618,7 +3621,7 @@ export function MangaReaderView({
                   fontWeight: 700,
                 }}
               >
-                Dismiss
+                Got it
               </button>
             </div>
           </div>

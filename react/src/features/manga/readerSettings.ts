@@ -244,7 +244,7 @@ export const READER_PROFILES: ReaderProfilePreset[] = [
   {
     id: 'tablet-spread',
     label: 'Tablet Spread',
-    desc: 'Auto RTL • double pages • gutter',
+    desc: 'Picks right-to-left for manga, left-to-right for comics',
     patch: { readingMode: 'auto-rtl', fitMode: 'fit-screen', background: 'dark', brightness: 1, warmTint: 0, coverOffset: true, spreadGutter: 8 },
   },
 ];
@@ -268,15 +268,15 @@ export const READING_MODE_META: Record<
     isHorizontalStrip: boolean;
   }
 > = {
-  webtoon: { label: 'Webtoon (Long Strip)', shortLabel: 'Webtoon', icon: 'view_day', isRtl: false, isDouble: false, isAuto: false, isWebtoon: true, isHorizontalStrip: false },
-  'auto-rtl': { label: 'Auto Manga (RTL)', shortLabel: 'Auto RTL', icon: 'devices', isRtl: true, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
-  'auto-ltr': { label: 'Auto Comic (LTR)', shortLabel: 'Auto LTR', icon: 'devices', isRtl: false, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
-  'paged-rtl': { label: 'Manga (Right to Left)', shortLabel: 'Manga RTL', icon: 'menu_book', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'paged-ltr': { label: 'Comic (Left to Right)', shortLabel: 'Paged LTR', icon: 'auto_stories', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'double-rtl': { label: 'Spread (Right to Left)', shortLabel: 'Spread RTL', icon: 'chrome_reader_mode', isRtl: true, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'double-ltr': { label: 'Spread (Left to Right)', shortLabel: 'Spread LTR', icon: 'import_contacts', isRtl: false, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'strip-rtl': { label: 'Continuous Strip (RTL)', shortLabel: 'Strip RTL', icon: 'view_carousel', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
-  'strip-ltr': { label: 'Continuous Strip (LTR)', shortLabel: 'Strip LTR', icon: 'view_week', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
+  webtoon: { label: 'Webtoon (long strip)', shortLabel: 'Webtoon', icon: 'view_day', isRtl: false, isDouble: false, isAuto: false, isWebtoon: true, isHorizontalStrip: false },
+  'auto-rtl': { label: 'Manga, right to left', shortLabel: 'Manga RTL', icon: 'devices', isRtl: true, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
+  'auto-ltr': { label: 'Comic, left to right', shortLabel: 'Comic LTR', icon: 'devices', isRtl: false, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
+  'paged-rtl': { label: 'Manga, right to left', shortLabel: 'Manga RTL', icon: 'menu_book', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'paged-ltr': { label: 'Comic, left to right', shortLabel: 'Comic LTR', icon: 'auto_stories', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'double-rtl': { label: 'Two pages, right to left', shortLabel: '2 pages RTL', icon: 'chrome_reader_mode', isRtl: true, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'double-ltr': { label: 'Two pages, left to right', shortLabel: '2 pages LTR', icon: 'import_contacts', isRtl: false, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'strip-rtl': { label: 'Strip, right to left', shortLabel: 'Strip RTL', icon: 'view_carousel', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
+  'strip-ltr': { label: 'Strip, left to right', shortLabel: 'Strip LTR', icon: 'view_week', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
 };
 
 export const READING_MODE_ORDER: ReadingMode[] = [

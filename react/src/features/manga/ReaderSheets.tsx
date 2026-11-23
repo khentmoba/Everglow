@@ -914,6 +914,8 @@ export function ReaderSettingsSheet({
                       key={m}
                       type="button"
                       className="bare-button player-focusable"
+                      aria-label={`Reading mode: ${meta.label}`}
+                      aria-pressed={active}
                       onClick={() => onUpdateSettings({ readingMode: m })}
                       style={{
                         minHeight: 46,

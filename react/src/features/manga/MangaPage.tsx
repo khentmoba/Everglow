@@ -2166,7 +2166,7 @@ export function MangaPage() {
           : sameAuthor
             ? 'Same Creator'
             : sharedGenres > 0
-              ? `${sharedGenres} shared`
+              ? `${sharedGenres} genre${sharedGenres === 1 ? '' : 's'} in common`
               : '';
         const score = (relatedTitle ? 14 : 0) + (sameAuthor ? 10 : 0) + sharedGenres * 2 + (m.rating ? m.rating / 5 : 0);
         return { manga: m, relation, score };
@@ -3854,7 +3854,7 @@ export function MangaPage() {
                             )}
                             {availableChapterGroups.length >= 1 && (
                               <>
-                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, marginLeft: availableChapterLangs.length > 1 ? 6 : 0 }}>Group:</span>
+                                <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, marginLeft: availableChapterLangs.length > 1 ? 6 : 0 }}>Version:</span>
                                 {(['all', ...availableChapterGroups] as const).map((grp) => {
                                   const active = chapterGroupFilter === grp;
                                   const isPreferred = grp !== 'all' && preferredScanlationGroup === grp;
@@ -4551,8 +4551,8 @@ export function MangaPage() {
                                       aria-expanded={isMenuOpen}
                                       onClick={() => setChapterActionMenuId(isMenuOpen ? null : c.id)}
                                       style={{
-                                        width: 40,
-                                        height: 40,
+                                        width: 44,
+                                        height: 44,
                                         borderRadius: 8,
                                         background: isMenuOpen ? KatanaColors.chipSelectedBg : 'transparent',
                                         display: 'grid',
@@ -4590,8 +4590,8 @@ export function MangaPage() {
                                       }
                                       onClick={() => void downloadChapter(detail, c)}
                                       style={{
-                                        width: 40,
-                                        height: 40,
+                                        width: 44,
+                                        height: 44,
                                         borderRadius: 8,
                                         display: 'grid',
                                         placeItems: 'center',
@@ -4748,7 +4748,7 @@ export function MangaPage() {
                         </div>
 
                         {tablet && similarToDetail.length > 0 && (
-                          <aside style={{ width: desktop ? 340 : 240, flexShrink: 0 }}>
+                          <aside style={{ width: desktop ? 340 : 240, flexShrink: 0, position: 'sticky', top: 14, alignSelf: 'flex-start' }}>
                             <KatanaCard padding={14}>
                                 <KatanaSectionHeader title="Related & Similar" />
                                 <div style={{ height: 10 }} />

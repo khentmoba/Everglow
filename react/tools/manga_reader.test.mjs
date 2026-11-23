@@ -232,7 +232,7 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     // Direct Page Jump dialog jumps to page 5
     await jumpBtn.click();
     await page.fill('input[aria-label="Page number"]', '5');
-    await page.click('button:has-text("Go")');
+    await page.getByRole('button', { name: 'Go', exact: true }).click();
     assert.match(await jumpBtn.textContent(), /5 \/ 6/);
 
     // Bookmark current page & verify in Chapters / Pages / Saved drawer
@@ -251,7 +251,8 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
 
     // Settings sheet: switch to Manga RTL & enable Crop Scan Borders without breaking images
     await page.click('button[aria-label="Reader settings"]');
-    await page.click('button:has-text("Manga RTL")');
+    // Last match: preset cards share the label, the Reading Mode grid comes after them.
+    await page.locator('[role="dialog"][aria-label="Reader settings"] button[aria-label="Reading mode: Manga, right to left"]').last().click();
     await page.click('button[role="tab"]:has-text("Display")');
     await page.click('button[role="switch"]:has-text("Crop scan borders")');
     await page.keyboard.press('Escape');

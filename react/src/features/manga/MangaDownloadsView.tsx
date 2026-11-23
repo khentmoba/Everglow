@@ -273,7 +273,7 @@ export function KatanaDownloadsView({
                   [
                     ['recent', 'Recent'],
                     ['title', 'A–Z'],
-                    ['chapters', 'Most ch'],
+                    ['chapters', 'Most chapters'],
                   ] as const
                 ).map(([id, label]) => (
                   <button
@@ -425,6 +425,190 @@ export function KatanaDownloadsView({
             </KatanaCard>
           )}
 
+          {batchProgress && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Icon name="downloading" size={16} color={KatanaColors.accent} />
+              <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloading</span>
+            </div>
+          )}
+        {batchProgress && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}` }}>
+            <div style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted, marginBottom: 8 }}>
+              One chapter at a time, so downloads do not get throttled.
+            </div>
+            {downloadQueue.length > 0 && (
+              <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.textMuted }}>
+                  Waiting to download ({downloadQueue.length} · about {estimateMangaBatchMegabytes(downloadQueue.length, false, items).label}) — reorder or remove
+                </div>
+                {downloadQueue.slice(0, 6).map((q, idx) => (
+                  <div
+                    key={`${q.manga.slug}-${q.chapter.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '4px 8px',
+                      borderRadius: 7,
+                      background: KatanaColors.surfaceAlt,
+                      border: `1px solid ${KatanaColors.border}`,
+                    }}
+                  >
+                    <span className="ellipsis" style={{ flex: 1, minWidth: 0, ...KatanaType.small, color: KatanaColors.text }}>
+                      {q.manga.title} · {chapterDisplayTitle(q.chapter)}
+                    </span>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label={`Move ${chapterDisplayTitle(q.chapter)} up`}
+                      disabled={idx === 0}
+                      onClick={() => onMoveQueueItem(idx, -1)}
+                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
+                    >
+                      <Icon name="arrow_upward" size={16} color={KatanaColors.textMuted} />
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label={`Move ${chapterDisplayTitle(q.chapter)} down`}
+                      disabled={idx === downloadQueue.length - 1}
+                      onClick={() => onMoveQueueItem(idx, 1)}
+                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', opacity: idx === downloadQueue.length - 1 ? 0.35 : 1 }}
+                    >
+                      <Icon name="arrow_downward" size={16} color={KatanaColors.textMuted} />
+                    </button>
+                    <button
+                      type="button"
+                      className="bare-button"
+                      aria-label={`Remove ${chapterDisplayTitle(q.chapter)} from queue`}
+                      onClick={() => onRemoveQueueItem(idx)}
+                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
+                    >
+                      <Icon name="close" size={16} color={KatanaColors.crimson} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+              <span className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
+                Queue: {batchProgress.currentTitle || 'Downloading…'} ({batchProgress.done}/{batchProgress.total})
+              </span>
+              <button
+                type="button"
+                className="bare-button"
+                onClick={onCancelQueue}
+                style={{
+                  minHeight: 44,
+                  padding: '0 12px',
+                  borderRadius: 8,
+                  background: withAlpha(KatanaColors.crimson, 0.14),
+                  border: `1px solid ${withAlpha(KatanaColors.crimson, 0.4)}`,
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: KatanaColors.crimson,
+                }}
+              >
+                Cancel Queue
+              </button>
+            </div>
+            <div style={{ height: 5, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${Math.round((batchProgress.done / Math.max(1, batchProgress.total)) * 100)}%`,
+                  height: '100%',
+                  background: KatanaColors.link,
+                  borderRadius: 99,
+                  transition: 'width 180ms ease',
+                }}
+              />
+            </div>
+          </div>
+        )}
+        {failedDownloads.length > 0 && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.crimson }}>
+                Could not finish ({failedDownloads.length})
+              </span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={onRetryFailed}
+                  style={{
+                    minHeight: 40,
+                    padding: '0 12px',
+                    borderRadius: 8,
+                    background: KatanaColors.accent,
+                    color: KatanaColors.accentInk,
+                    fontFamily: Fonts.body,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Retry all
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={onClearFailed}
+                  style={{
+                    minHeight: 40,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    background: KatanaColors.surfaceAlt,
+                    border: `1px solid ${KatanaColors.border}`,
+                    color: KatanaColors.textMuted,
+                    fontFamily: Fonts.body,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+            {failedDownloads.slice(0, 6).map((f, idx) => (
+              <div
+                key={`fail-${f.manga.slug}-${f.chapter.id}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 10px',
+                  borderRadius: 8,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${withAlpha(KatanaColors.crimson, 0.35)}`,
+                }}
+              >
+                <span className="ellipsis" style={{ flex: 1, minWidth: 0, ...KatanaType.small, color: KatanaColors.text }}>
+                  {f.manga.title} · {chapterDisplayTitle(f.chapter)}
+                </span>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Retry ${chapterDisplayTitle(f.chapter)}`}
+                  onClick={() => onRetrySingleFailed(idx)}
+                  style={{
+                    minHeight: 40,
+                    padding: '0 12px',
+                    borderRadius: 8,
+                    background: withAlpha(KatanaColors.accent, 0.16),
+                    color: KatanaColors.accentSoft,
+                    fontFamily: Fonts.body,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <Icon name="download_done" size={16} color={KatanaColors.green} />
             <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloaded</span>
@@ -562,7 +746,7 @@ export function KatanaDownloadsView({
                               type="button"
                               className="bare-button"
                               title="Export portable .cbz comic archive"
-                              aria-label={`Export ${ch.subtitle || ch.title} as CBZ`}
+                              aria-label={`Save ${ch.subtitle || ch.title} as a file`}
                               onClick={async () => {
                                 const res = await offlineMedia.exportMangaChapterCbz(ch.id);
                                 if (!res) {
@@ -593,7 +777,7 @@ export function KatanaDownloadsView({
                               }}
                             >
                               <Icon name="folder_zip" size={14} color={KatanaColors.link} />
-                              <span>CBZ</span>
+                              <span>Save file</span>
                             </button>
                             <button
                               type="button"
@@ -657,15 +841,15 @@ export function KatanaDownloadsView({
                   if (imported) {
                     okCount += 1;
                     lastTitle = imported.title;
-                    lastSub = imported.subtitle || 'CBZ chapter';
+                    lastSub = imported.subtitle || 'chapter file';
                   }
                 }
                 if (okCount === 1) {
                   showSnackBar(`Imported "${lastTitle}" (${lastSub}) for offline reading`);
                 } else if (okCount > 1) {
-                  showSnackBar(`Imported ${okCount} CBZ chapters for offline reading`);
+                  showSnackBar(`Added ${okCount} chapter files for offline reading`);
                 } else {
-                  showSnackBar('Could not read those .cbz archives — check that they contain JPG/PNG/WebP pages');
+                  showSnackBar("Could not read those files — they should contain images");
                 }
               }}
             />
@@ -711,7 +895,7 @@ export function KatanaDownloadsView({
                 }
                 showSnackBar(
                   okCount > 0
-                    ? `Imported ${okCount} of ${files.length} CBZ chapters from folder`
+                    ? `Added ${okCount} of ${files.length} chapter files from that folder`
                     : 'Could not import .cbz files from that folder',
                 );
               }}
@@ -963,183 +1147,6 @@ export function KatanaDownloadsView({
                 </button>
               );
             })}
-          </div>
-        )}
-        {batchProgress && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}` }}>
-            <div style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted, marginBottom: 8 }}>
-              Pages are cached progressively with Service Worker handoff (1 chapter at a time per source to prevent IP bans; parallel across different sources).
-            </div>
-            {downloadQueue.length > 0 && (
-              <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ ...KatanaType.small, fontSize: 12, fontWeight: 700, color: KatanaColors.textMuted }}>
-                  Waiting to download ({downloadQueue.length} · about {estimateMangaBatchMegabytes(downloadQueue.length, false, items).label}) — reorder or remove
-                </div>
-                {downloadQueue.slice(0, 6).map((q, idx) => (
-                  <div
-                    key={`${q.manga.slug}-${q.chapter.id}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '4px 8px',
-                      borderRadius: 7,
-                      background: KatanaColors.surfaceAlt,
-                      border: `1px solid ${KatanaColors.border}`,
-                    }}
-                  >
-                    <span className="ellipsis" style={{ flex: 1, minWidth: 0, ...KatanaType.small, color: KatanaColors.text }}>
-                      {q.manga.title} · {chapterDisplayTitle(q.chapter)}
-                    </span>
-                    <button
-                      type="button"
-                      className="bare-button"
-                      aria-label={`Move ${chapterDisplayTitle(q.chapter)} up`}
-                      disabled={idx === 0}
-                      onClick={() => onMoveQueueItem(idx, -1)}
-                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
-                    >
-                      <Icon name="arrow_upward" size={16} color={KatanaColors.textMuted} />
-                    </button>
-                    <button
-                      type="button"
-                      className="bare-button"
-                      aria-label={`Move ${chapterDisplayTitle(q.chapter)} down`}
-                      disabled={idx === downloadQueue.length - 1}
-                      onClick={() => onMoveQueueItem(idx, 1)}
-                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', opacity: idx === downloadQueue.length - 1 ? 0.35 : 1 }}
-                    >
-                      <Icon name="arrow_downward" size={16} color={KatanaColors.textMuted} />
-                    </button>
-                    <button
-                      type="button"
-                      className="bare-button"
-                      aria-label={`Remove ${chapterDisplayTitle(q.chapter)} from queue`}
-                      onClick={() => onRemoveQueueItem(idx)}
-                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
-                    >
-                      <Icon name="close" size={16} color={KatanaColors.crimson} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-              <span className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
-                Queue: {batchProgress.currentTitle || 'Downloading…'} ({batchProgress.done}/{batchProgress.total})
-              </span>
-              <button
-                type="button"
-                className="bare-button"
-                onClick={onCancelQueue}
-                style={{
-                  minHeight: 44,
-                  padding: '0 12px',
-                  borderRadius: 8,
-                  background: withAlpha(KatanaColors.crimson, 0.14),
-                  border: `1px solid ${withAlpha(KatanaColors.crimson, 0.4)}`,
-                  fontFamily: Fonts.body,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: KatanaColors.crimson,
-                }}
-              >
-                Cancel Queue
-              </button>
-            </div>
-            <div style={{ height: 5, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
-              <div
-                style={{
-                  width: `${Math.round((batchProgress.done / Math.max(1, batchProgress.total)) * 100)}%`,
-                  height: '100%',
-                  background: KatanaColors.link,
-                  borderRadius: 99,
-                  transition: 'width 180ms ease',
-                }}
-              />
-            </div>
-          </div>
-        )}
-        {failedDownloads.length > 0 && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.crimson }}>
-                Could not finish ({failedDownloads.length})
-              </span>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <button
-                  type="button"
-                  className="bare-button"
-                  onClick={onRetryFailed}
-                  style={{
-                    minHeight: 40,
-                    padding: '0 12px',
-                    borderRadius: 8,
-                    background: KatanaColors.accent,
-                    color: KatanaColors.accentInk,
-                    fontFamily: Fonts.body,
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Retry all
-                </button>
-                <button
-                  type="button"
-                  className="bare-button"
-                  onClick={onClearFailed}
-                  style={{
-                    minHeight: 40,
-                    padding: '0 10px',
-                    borderRadius: 8,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.border}`,
-                    color: KatanaColors.textMuted,
-                    fontFamily: Fonts.body,
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-            {failedDownloads.slice(0, 6).map((f, idx) => (
-              <div
-                key={`fail-${f.manga.slug}-${f.chapter.id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '4px 10px',
-                  borderRadius: 8,
-                  background: KatanaColors.surfaceAlt,
-                  border: `1px solid ${withAlpha(KatanaColors.crimson, 0.35)}`,
-                }}
-              >
-                <span className="ellipsis" style={{ flex: 1, minWidth: 0, ...KatanaType.small, color: KatanaColors.text }}>
-                  {f.manga.title} · {chapterDisplayTitle(f.chapter)}
-                </span>
-                <button
-                  type="button"
-                  className="bare-button"
-                  aria-label={`Retry ${chapterDisplayTitle(f.chapter)}`}
-                  onClick={() => onRetrySingleFailed(idx)}
-                  style={{
-                    minHeight: 40,
-                    padding: '0 12px',
-                    borderRadius: 8,
-                    background: withAlpha(KatanaColors.accent, 0.16),
-                    color: KatanaColors.accentSoft,
-                    fontFamily: Fonts.body,
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Retry
-                </button>
-              </div>
-            ))}
           </div>
         )}
       </KatanaCard>

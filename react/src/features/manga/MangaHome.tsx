@@ -672,6 +672,7 @@ function CurrentlyReadingShelf({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                     <span className="ellipsis" style={{ ...KatanaType.link, fontSize: 11.5 }}>
                       {bm.lastReadChapterTitle || 'Resume'}
+                      {(bm.lastReadPage ?? 0) > 1 ? ` · p. ${bm.lastReadPage}` : ''}
                     </span>
                     {unread > 0 && (
                       <span
