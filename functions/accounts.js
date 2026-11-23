@@ -105,6 +105,7 @@ function serializeAccount(id, data) {
 
 const registerAccount = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS', 'Content-Type');
+  res.set('Cache-Control', 'private, no-store');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -191,6 +192,7 @@ const registerAccount = cappedHttps(10, async (req, res) => {
 
 const loginAccount = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS', 'Content-Type');
+  res.set('Cache-Control', 'private, no-store');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -315,6 +317,8 @@ const loginAccount = cappedHttps(10, async (req, res) => {
 
 const manageAccounts = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'GET, POST, OPTIONS', 'Content-Type, Authorization');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -408,6 +412,8 @@ const manageAccounts = cappedHttps(10, async (req, res) => {
 
 const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS', 'Content-Type, Authorization');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;

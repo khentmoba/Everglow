@@ -109,6 +109,7 @@ function profileForPasscode(code, env = process.env) {
 
 const verifyPasscode = cappedHttps(10, async(req,res)=>{
   applyCors(req, res, 'POST, OPTIONS', 'Content-Type');
+  res.set('Cache-Control', 'private, no-store');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
   if(req.method!=='POST'){res.status(405).json({error:'POST only'});return;}
   const ip = clientIp(req);
