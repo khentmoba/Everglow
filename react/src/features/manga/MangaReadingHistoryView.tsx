@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { withAlpha } from '../../core/theme/colors';
 import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
@@ -8,8 +9,11 @@ import {
   fetchKatanaDetail,
   formatKatanaTime,
   isBookmarkCaughtUp,
+  isKatanaIncognitoSession,
   removeKatanaHistoryEntry,
   setKatanaHistoryPaused,
+  setKatanaIncognitoSession,
+  subscribeKatanaIncognitoSession,
   type KatanaBookmark,
   type KatanaHistoryEntry,
   type KatanaManga,
@@ -79,6 +83,8 @@ export function MangaReadingHistoryView({
   onResumeBookmark: (bm: KatanaBookmark) => void;
   onRemoveFromReading: (slug: string, title: string) => void;
 }) {
+  const [incognitoSession, setIncognitoSession] = useState(() => isKatanaIncognitoSession());
+  useEffect(() => subscribeKatanaIncognitoSession(setIncognitoSession), []);
   return (
     <div>
       <KatanaBreadcrumb items={[tab === 'history' ? 'History' : 'Currently Reading']} onHome={() => onNav('home')} />
@@ -152,12 +158,44 @@ export function MangaReadingHistoryView({
             <button
               type="button"
               className="bare-button"
+              aria-pressed={incognitoSession}
+              title="One-session Incognito Reading: suppresses history, read-chapter marking, and tracker pushes until this tab closes"
+              onClick={() => {
+                const next = !incognitoSession;
+                setKatanaIncognitoSession(next);
+                showSnackBar(
+                  next
+                    ? 'Incognito session enabled — reading progress & trackers paused for this session'
+                    : 'Incognito session ended',
+                );
+              }}
+              style={{
+                minHeight: 44,
+                padding: '5px 11px',
+                borderRadius: 99,
+                background: incognitoSession ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+                border: `1px solid ${incognitoSession ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontFamily: Fonts.body,
+                fontSize: 12,
+                fontWeight: 700,
+                color: incognitoSession ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+              }}
+            >
+              <Icon name="policy" size={15} color={incognitoSession ? KatanaColors.accent : KatanaColors.textMuted} />
+              <span>{incognitoSession ? 'Incognito Session On' : 'Incognito Session'}</span>
+            </button>
+            <button
+              type="button"
+              className="bare-button"
               aria-pressed={historyPaused}
               onClick={() => {
                 const next = !historyPaused;
                 setHistoryPaused(next);
                 setKatanaHistoryPaused(userName, next);
-                showSnackBar(next ? 'History paused (Incognito mode)' : 'History recording resumed');
+                showSnackBar(next ? 'History logging paused across sessions' : 'History logging resumed');
               }}
               style={{
                 minHeight: 44,

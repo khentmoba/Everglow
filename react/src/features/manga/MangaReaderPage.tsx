@@ -12,9 +12,13 @@ import {
   fetchKatanaChapterPages,
   hydrateMangaReaderGlobalSettings,
   hydrateMangaReaderSeriesState,
+  isKatanaIncognitoSession,
+  markKatanaChaptersRead,
   proxyKatanaImageUrl,
   saveKatanaReadingProgress,
+  setKatanaIncognitoSession,
   setKatanaSeriesCover,
+  subscribeKatanaIncognitoSession,
   syncMangaReaderGlobalSettings,
   syncMangaReaderSeriesState,
   type KatanaChapter,
@@ -263,7 +267,12 @@ export function MangaReaderView({
   const [guidedPanelIdx, setGuidedPanelIdx] = useState(0);
   const [detectedPanelsByKey, setDetectedPanelsByKey] = useState<Record<string, GuidedPanelRect[]>>({});
   const [sleepTimerEndAt, setSleepTimerEndAt] = useState<number | null>(null);
+  const [sleepWaitChapterEnd, setSleepWaitChapterEnd] = useState(false);
+  const [sleepPendingChapterEnd, setSleepPendingChapterEnd] = useState(false);
   const [sleepTimerExpired, setSleepTimerExpired] = useState(false);
+  const [incognitoSession, setIncognitoSession] = useState(() => isKatanaIncognitoSession());
+
+  useEffect(() => subscribeKatanaIncognitoSession(setIncognitoSession), []);
   const cloudResumeTimerRef = useRef(0);
   const pinchStartRef = useRef<{ dist: number; scale: number; pan: { x: number; y: number } } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
@@ -499,6 +508,25 @@ export function MangaReaderView({
     [chapterById, params.slug, currentUser, flashToast, triggerHaptic],
   );
 
+  const updatePageBookmarkNote = useCallback(
+    (targetBm: PageBookmark, note: string) => {
+      setPageBookmarks((prev) => {
+        const next = prev.map((b) =>
+          b.chapterId === targetBm.chapterId && b.pageIdx === targetBm.pageIdx
+            ? { ...b, note: note || undefined }
+            : b,
+        );
+        savePageBookmarks(params.slug, next);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { bookmarks: next });
+        }
+        flashToast(note ? 'Saved Moment note' : 'Cleared Moment note', true);
+        return next;
+      });
+    },
+    [params.slug, currentUser, flashToast],
+  );
+
   const updateSettings = useCallback(
     (patch: Partial<ReaderSettings>) => {
       const normalizedPatch: Partial<ReaderSettings> = patch.fitMode
@@ -575,23 +603,57 @@ export function MangaReaderView({
     [settings, params.slug, currentUser, flashToast],
   );
 
-  const markChapterFinished = useCallback((finishedChapterId: string) => {
-    setReadIds((prev) => (prev.has(finishedChapterId) ? prev : new Set([...prev, finishedChapterId])));
-  }, []);
+  const markChapterFinished = useCallback(
+    (finishedChapterId: string) => {
+      setReadIds((prev) => (prev.has(finishedChapterId) ? prev : new Set([...prev, finishedChapterId])));
+      if (currentUser && !incognitoSession) {
+        void markKatanaChaptersRead(
+          {
+            slug: params.slug,
+            title: params.mangaTitle,
+            coverUrl: params.coverUrl ?? '',
+            status: params.mangaStatus ?? 'ongoing',
+          },
+          currentUser,
+          [finishedChapterId],
+          true,
+        );
+      }
+      if (sleepTimerEndAt === -1 || sleepPendingChapterEnd) {
+        setAutoScrolling(false);
+        setSleepTimerExpired(true);
+        setSleepTimerEndAt(null);
+        setSleepPendingChapterEnd(false);
+      }
+    },
+    [
+      currentUser,
+      incognitoSession,
+      params.slug,
+      params.mangaTitle,
+      params.coverUrl,
+      params.mangaStatus,
+      sleepTimerEndAt,
+      sleepPendingChapterEnd,
+    ],
+  );
 
   const writeProgressNow = useCallback(
     (targetChapterId: string, page: number, totalPages: number, offsetRatio = 0, allowMarkFinished = true) => {
       const safePage = Math.max(1, page);
-      const resumeAnchor = { chapterId: targetChapterId, pageIdx: safePage - 1, offsetRatio };
-      saveResumeAnchor(params.slug, resumeAnchor);
-      if (currentUser) {
-        window.clearTimeout(cloudResumeTimerRef.current);
-        cloudResumeTimerRef.current = window.setTimeout(() => {
-          void syncMangaReaderSeriesState(currentUser, params.slug, { resume: resumeAnchor });
-        }, 1200);
+      const chapterCompleted = allowMarkFinished && totalPages > 0 && safePage >= totalPages;
+      if (!incognitoSession) {
+        const resumeAnchor = { chapterId: targetChapterId, pageIdx: safePage - 1, offsetRatio };
+        saveResumeAnchor(params.slug, resumeAnchor);
+        if (currentUser) {
+          window.clearTimeout(cloudResumeTimerRef.current);
+          cloudResumeTimerRef.current = window.setTimeout(() => {
+            void syncMangaReaderSeriesState(currentUser, params.slug, { resume: resumeAnchor });
+          }, 1200);
+        }
       }
       // Mark chapter finished only on active reading advance to the true final page
-      if (allowMarkFinished && totalPages > 0 && safePage >= totalPages) {
+      if (chapterCompleted) {
         markChapterFinished(targetChapterId);
       }
       const ch = chapterById(targetChapterId);
@@ -599,13 +661,12 @@ export function MangaReaderView({
         params.mangaStatus === 'completed' &&
         !!params.finalChapterId &&
         targetChapterId === params.finalChapterId &&
-        totalPages > 0 &&
-        safePage >= totalPages;
+        chapterCompleted;
       const offlineId = OfflineIds.mangaChapterId(params.slug, targetChapterId);
-      if (offlineMedia.getItem(offlineId)) {
+      if (offlineMedia.getItem(offlineId) && !incognitoSession) {
         offlineMedia.updatePlaybackPosition(offlineId, safePage, true);
       }
-      if (!currentUser) return;
+      if (!currentUser || incognitoSession) return;
       void saveKatanaReadingProgress({
         slug: params.slug,
         userName: currentUser,
@@ -615,9 +676,20 @@ export function MangaReaderView({
         title: params.mangaTitle,
         coverUrl: params.coverUrl,
         finished,
+        chapterCompleted,
       });
     },
-    [chapterById, markChapterFinished, params.mangaStatus, params.finalChapterId, params.slug, params.mangaTitle, params.coverUrl, currentUser],
+    [
+      chapterById,
+      markChapterFinished,
+      incognitoSession,
+      params.mangaStatus,
+      params.finalChapterId,
+      params.slug,
+      params.mangaTitle,
+      params.coverUrl,
+      currentUser,
+    ],
   );
 
   const persistProgress = useCallback(
@@ -1106,29 +1178,43 @@ export function MangaReaderView({
     };
   }, [settings.keepAwake, sleepTimerExpired]);
 
-  // Sleep timer: stops auto-scroll, releases wake lock, and dims screen gently when expired
+  // Sleep timer: stops auto-scroll, releases wake lock, and dims screen gently when expired (or waits for chapter end)
   useEffect(() => {
-    if (!sleepTimerEndAt) return;
+    if (!sleepTimerEndAt || sleepTimerEndAt === -1) return;
     const check = () => {
       if (Date.now() >= sleepTimerEndAt) {
+        if (sleepWaitChapterEnd && pages.length > 0 && pageIdx < pages.length - 1) {
+          setSleepPendingChapterEnd(true);
+          setSleepTimerEndAt(-1);
+          flashToast('Sleep timer reached — will pause at end of chapter', true);
+          return;
+        }
         setAutoScrolling(false);
         setSleepTimerExpired(true);
         setSleepTimerEndAt(null);
+        setSleepPendingChapterEnd(false);
       }
     };
     check();
     const id = window.setInterval(check, 5000);
     return () => window.clearInterval(id);
-  }, [sleepTimerEndAt]);
+  }, [sleepTimerEndAt, sleepWaitChapterEnd, pages.length, pageIdx, flashToast]);
 
   const handleSetSleepTimer = useCallback(
     (minutes: number) => {
-      if (minutes <= 0) {
+      if (minutes === -1) {
+        setSleepTimerEndAt(-1);
+        setSleepPendingChapterEnd(true);
+        setSleepTimerExpired(false);
+        flashToast('Sleep timer: will pause at end of chapter', true);
+      } else if (minutes <= 0) {
         setSleepTimerEndAt(null);
+        setSleepPendingChapterEnd(false);
         setSleepTimerExpired(false);
         flashToast('Sleep timer off', true);
       } else {
         setSleepTimerEndAt(Date.now() + minutes * 60000);
+        setSleepPendingChapterEnd(false);
         setSleepTimerExpired(false);
         flashToast(`Sleep timer set for ${minutes} min`, true);
       }
@@ -3119,18 +3205,34 @@ export function MangaReaderView({
             flex: 1,
             minWidth: 0,
             minHeight: 44,
-            padding: '2px 6px',
+            padding: '2px 4px',
             borderRadius: 10,
             textAlign: 'left',
           }}
         >
-          <div className="ellipsis" style={{ ...KatanaType.title, fontSize: 14 }}>
+          <div className="ellipsis" style={{ ...KatanaType.title, fontSize: isCompactPhone ? 13.5 : 14 }}>
             {params.mangaTitle}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
             <span className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>
               {chapterDisplayTitle(activeChapter)}
             </span>
+            {incognitoSession && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  background: KatanaColors.surfaceGlow,
+                  border: `1px solid ${KatanaColors.accent}`,
+                  color: KatanaColors.accentSoft,
+                  flexShrink: 0,
+                }}
+              >
+                Incognito
+              </span>
+            )}
             <Icon name="expand_more" size={16} color={KatanaColors.accentSoft} />
           </div>
         </button>
@@ -3143,21 +3245,21 @@ export function MangaReaderView({
           onClick={cycleMode}
           style={{
             minHeight: 40,
-            padding: '0 10px',
+            padding: isCompactPhone ? '0 8px' : '0 10px',
             borderRadius: 10,
             background: KatanaColors.surfaceAlt,
             border: `1px solid ${KatanaColors.border}`,
             color: KatanaColors.accentSoft,
-            fontSize: 12,
+            fontSize: isCompactPhone ? 11.5 : 12,
             fontWeight: 600,
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
+            gap: 4,
             flexShrink: 0,
           }}
         >
-          <Icon name={effectiveMeta.icon} size={17} color={KatanaColors.accentSoft} />
-          <span>{resolvedModeShortLabel}</span>
+          <Icon name={effectiveMeta.icon} size={16} color={KatanaColors.accentSoft} />
+          <span>{isCompactPhone ? effectiveMeta.shortLabel : resolvedModeShortLabel}</span>
         </button>
 
         {isTabletOrWide && !isWebtoon && (
@@ -3197,32 +3299,7 @@ export function MangaReaderView({
           </button>
         )}
 
-        {isCompactPhone && (
-          <button
-            type="button"
-            className="bare-button player-focusable"
-            aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
-            onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 10,
-              display: 'grid',
-              placeItems: 'center',
-              background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
-              border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
-              flexShrink: 0,
-            }}
-          >
-            <Icon
-              name={currentBookmarked ? 'bookmark' : 'bookmark_border'}
-              size={19}
-              color={currentBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted}
-            />
-          </button>
-        )}
-
-        {canFullscreen && (
+        {canFullscreen && !isCompactPhone && (
           <button
             type="button"
             className="bare-button player-focusable"
@@ -3433,29 +3510,27 @@ export function MangaReaderView({
               />
             </button>
 
-            {!isCompactPhone && (
-              <button
-                type="button"
-                className="bare-button player-focusable"
-                aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
-                onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
-                style={{
-                  width: 44,
-                  height: 42,
-                  borderRadius: 10,
-                  background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
-                  border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <Icon
-                  name={currentBookmarked ? 'bookmark' : 'bookmark_border'}
-                  size={19}
-                  color={currentBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted}
-                />
-              </button>
-            )}
+            <button
+              type="button"
+              className="bare-button player-focusable"
+              aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
+              onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
+              style={{
+                width: 44,
+                height: 42,
+                borderRadius: 10,
+                background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <Icon
+                name={currentBookmarked ? 'bookmark' : 'bookmark_border'}
+                size={19}
+                color={currentBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted}
+              />
+            </button>
 
             <button
               type="button"
@@ -3540,8 +3615,22 @@ export function MangaReaderView({
           onToggleChapterRead={(id) => {
             setReadIds((prev) => {
               const next = new Set(prev);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
+              const willRead = !next.has(id);
+              if (willRead) next.add(id);
+              else next.delete(id);
+              if (currentUser && !incognitoSession) {
+                void markKatanaChaptersRead(
+                  {
+                    slug: params.slug,
+                    title: params.mangaTitle,
+                    coverUrl: params.coverUrl ?? '',
+                    status: params.mangaStatus ?? 'ongoing',
+                  },
+                  currentUser,
+                  [id],
+                  willRead,
+                );
+              }
               return next;
             });
           }}
@@ -3553,6 +3642,7 @@ export function MangaReaderView({
             }
           }}
           onRemoveBookmark={(bm) => togglePageBookmark(bm.chapterId, bm.pageIdx)}
+          onUpdateBookmarkNote={updatePageBookmarkNote}
           onClose={() => setActiveSheet('none')}
         />
       )}
@@ -3629,7 +3719,17 @@ export function MangaReaderView({
           hasSeriesOverride={seriesOverride != null}
           server={server}
           sleepTimerEndAt={sleepTimerEndAt}
+          sleepWaitChapterEnd={sleepWaitChapterEnd}
+          incognitoSession={incognitoSession}
           onSetSleepTimer={handleSetSleepTimer}
+          onToggleSleepWaitChapterEnd={(enabled) => {
+            setSleepWaitChapterEnd(enabled);
+            flashToast(enabled ? 'Sleep timer will finish current chapter first' : 'Sleep timer pauses immediately when time ends', true);
+          }}
+          onToggleIncognitoSession={(enabled) => {
+            setKatanaIncognitoSession(enabled);
+            flashToast(enabled ? 'Incognito reading session enabled' : 'Incognito reading session off', true);
+          }}
           onUpdateSettings={updateSettings}
           onToggleSeriesOverride={toggleSeriesOverride}
           onChangeServer={(nextServer) => {

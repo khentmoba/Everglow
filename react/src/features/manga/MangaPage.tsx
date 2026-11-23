@@ -28,13 +28,15 @@ import {
 } from './MangaCatalogFilterPanel';
 import { MangaReadingHistoryView } from './MangaReadingHistoryView';
 import {
+  computeTruthfulReadingStats,
+  detectSeriesMissingChapters,
   estimateMangaBatchMegabytes,
   getSourceBadgeInfo,
   rankAndMergeMultiSourceCatalog,
   resolveOfficialPublisherLinks,
 } from './mangaSearchAndTrust';
 import { MangaReaderView, type MangaReaderParams } from './MangaReaderPage';
-import { saveSeriesChapterFilter } from './readerSettings';
+import { loadPageBookmarks, loadSeriesChapterFilter, saveSeriesChapterFilter } from './readerSettings';
 import { inferSeriesReadingFormat } from './readerSpread';
 import {
   KatanaBottomBar,
@@ -374,19 +376,40 @@ export function MangaPage() {
   const [chapterToolsOpen, setChapterToolsOpen] = useState(false);
   const [chapterLangFilter, setChapterLangFilter] = useState<string>('all');
   const [chapterGroupFilter, setChapterGroupFilter] = useState<string>('all');
+  const [preferredScanlationGroup, setPreferredScanlationGroup] = useState<string>('');
+  const [blockedScanlationGroups, setBlockedScanlationGroups] = useState<string[]>([]);
+  const [waitForPreferredHours, setWaitForPreferredHours] = useState<number>(0);
+  const [multiSourceStream, setMultiSourceStream] = useState<
+    Record<
+      'mangakatana' | 'mangadex' | 'comick' | 'bato',
+      { status: 'loading' | 'ok' | 'empty' | 'error'; count: number; hasNext: boolean; error?: string }
+    >
+  >({
+    mangakatana: { status: 'empty', count: 0, hasNext: false },
+    mangadex: { status: 'empty', count: 0, hasNext: false },
+    comick: { status: 'empty', count: 0, hasNext: false },
+    bato: { status: 'empty', count: 0, hasNext: false },
+  });
 
   useEffect(() => {
     if (!detail?.slug) return;
     saveSeriesChapterFilter(
       detail.slug,
-      chapterLangFilter !== 'all' || chapterGroupFilter !== 'all'
+      chapterLangFilter !== 'all' ||
+        chapterGroupFilter !== 'all' ||
+        preferredScanlationGroup !== '' ||
+        blockedScanlationGroups.length > 0 ||
+        waitForPreferredHours > 0
         ? {
             lang: chapterLangFilter !== 'all' ? chapterLangFilter : undefined,
             group: chapterGroupFilter !== 'all' ? chapterGroupFilter : undefined,
+            preferredGroup: preferredScanlationGroup || undefined,
+            blockedGroups: blockedScanlationGroups.length > 0 ? blockedScanlationGroups : undefined,
+            waitForPreferredHours: waitForPreferredHours > 0 ? waitForPreferredHours : undefined,
           }
         : null,
     );
-  }, [detail?.slug, chapterLangFilter, chapterGroupFilter]);
+  }, [detail?.slug, chapterLangFilter, chapterGroupFilter, preferredScanlationGroup, blockedScanlationGroups, waitForPreferredHours]);
   const [chapterSearch, setChapterSearch] = useState('');
   const [chapterWindow, setChapterWindow] = useState(40);
   const [catalogSource, setCatalogSource] = useState<KatanaCatalogSource>('mangakatana');
@@ -911,9 +934,7 @@ export function MangaPage() {
   const readChapterIdsBySlug = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     for (const bm of bookmarks) {
-      const set = new Set<string>(bm.readChapterIds);
-      if (bm.lastReadChapterId) set.add(bm.lastReadChapterId);
-      map[bm.slug] = set;
+      map[bm.slug] = new Set<string>(bm.readChapterIds);
     }
     return map;
   }, [bookmarks]);
@@ -971,108 +992,137 @@ export function MangaPage() {
     setCatLoading(true);
     setCatError(undefined);
     if (catalogSource === 'all' && (catalogMode === 'search' || catalogMode === 'directory')) {
-      Promise.allSettled([
-        fetchKatanaCatalog({
-          mode: catalogMode,
-          key: genreSlug,
-          page: catPage,
-          query: searchQuery,
-          searchBy,
-          include: includeGenres,
-          exclude: excludeGenres,
-          genreMode,
-          chapters: minChapters,
-          orderBy,
-          status: statusFilter,
-          demographic: demographicFilter,
-          author: authorFilter,
-        }),
-        searchMangaDexCatalog({
-          query: searchQuery,
-          page: catPage,
-          status: statusFilter,
-          demographic: demographicFilter,
-          orderBy,
-          include: includeGenres,
-          exclude: excludeGenres,
-          genreMode,
-          chapters: minChapters,
-          author: authorFilter,
-          language: languageFilter,
-        }),
-        searchComickCatalog({
-          query: searchQuery,
-          page: catPage,
-          status: statusFilter,
-          demographic: demographicFilter,
-          orderBy,
-          include: includeGenres,
-          exclude: excludeGenres,
-          genreMode,
-          chapters: minChapters,
-          author: authorFilter,
-          language: languageFilter,
-        }),
-        searchBatoCatalog({
-          query: searchQuery,
-          page: catPage,
-          status: statusFilter,
-          demographic: demographicFilter,
-          orderBy,
-          include: includeGenres,
-          exclude: excludeGenres,
-          genreMode,
-          chapters: minChapters,
-          author: authorFilter,
-          language: languageFilter,
-        }),
-      ]).then(([katanaRes, mdRes, ckRes, btRes]) => {
+      setMultiSourceStream({
+        mangakatana: { status: 'loading', count: 0, hasNext: false },
+        mangadex: { status: 'loading', count: 0, hasNext: false },
+        comick: { status: 'loading', count: 0, hasNext: false },
+        bato: { status: 'loading', count: 0, hasNext: false },
+      });
+      setKatanaSourceItems([]);
+      setMangadexSourceItems([]);
+      setComickSourceItems([]);
+      setBatoSourceItems([]);
+
+      const buffers: Record<'mangakatana' | 'mangadex' | 'comick' | 'bato', KatanaManga[]> = {
+        mangakatana: [],
+        mangadex: [],
+        comick: [],
+        bato: [],
+      };
+      const hasNextBySrc: Record<'mangakatana' | 'mangadex' | 'comick' | 'bato', boolean> = {
+        mangakatana: false,
+        mangadex: false,
+        comick: false,
+        bato: false,
+      };
+      const errorsBySrc: Partial<Record<'mangakatana' | 'mangadex' | 'comick' | 'bato', string>> = {};
+      let settledCount = 0;
+
+      const handleSourceResolved = (
+        srcKey: 'mangakatana' | 'mangadex' | 'comick' | 'bato',
+        res: { items: KatanaManga[]; hasNext?: boolean; error?: string } | null,
+        errMsg?: string,
+      ) => {
         if (!alive) return;
-        const kItems = (katanaRes.status === 'fulfilled' ? katanaRes.value.items : []).map((m) => ({
+        settledCount += 1;
+        const tagged = (res?.items ?? []).map((m) => ({
           ...m,
-          source: m.source ?? ('mangakatana' as const),
+          source: m.source ?? srcKey,
         }));
-        const mItems = (mdRes.status === 'fulfilled' ? mdRes.value.items : []).map((m) => ({
-          ...m,
-          source: m.source ?? ('mangadex' as const),
+        buffers[srcKey] = tagged;
+        hasNextBySrc[srcKey] = Boolean(res?.hasNext);
+        const err = errMsg || res?.error;
+        if (err) errorsBySrc[srcKey] = err;
+
+        if (srcKey === 'mangakatana') setKatanaSourceItems(tagged);
+        else if (srcKey === 'mangadex') setMangadexSourceItems(tagged);
+        else if (srcKey === 'comick') setComickSourceItems(tagged);
+        else setBatoSourceItems(tagged);
+
+        setMultiSourceStream((prev) => ({
+          ...prev,
+          [srcKey]: {
+            status: tagged.length > 0 ? 'ok' : err ? 'error' : 'empty',
+            count: tagged.length,
+            hasNext: Boolean(res?.hasNext),
+            error: err,
+          },
         }));
-        const cItems = (ckRes.status === 'fulfilled' ? ckRes.value.items : []).map((m) => ({
-          ...m,
-          source: m.source ?? ('comick' as const),
-        }));
-        const bItems = (btRes.status === 'fulfilled' ? btRes.value.items : []).map((m) => ({
-          ...m,
-          source: m.source ?? ('bato' as const),
-        }));
-        setKatanaSourceItems(kItems);
-        setMangadexSourceItems(mItems);
-        setComickSourceItems(cItems);
-        setBatoSourceItems(bItems);
+
         const merged = rankAndMergeMultiSourceCatalog({
           query: searchQuery,
           orderBy,
-          katanaItems: kItems,
-          mangadexItems: mItems,
-          comickItems: cItems,
-          batoItems: bItems,
+          katanaItems: buffers.mangakatana,
+          mangadexItems: buffers.mangadex,
+          comickItems: buffers.comick,
+          batoItems: buffers.bato,
           bookmarks: bookmarksRef.current,
         });
-        const kVal = katanaRes.status === 'fulfilled' ? katanaRes.value : undefined;
-        const mVal = mdRes.status === 'fulfilled' ? mdRes.value : undefined;
-        const cVal = ckRes.status === 'fulfilled' ? ckRes.value : undefined;
-        const bVal = btRes.status === 'fulfilled' ? btRes.value : undefined;
         setCatItems(merged);
-        setCatHasNext(Boolean(kVal?.hasNext || mVal?.hasNext || cVal?.hasNext || bVal?.hasNext));
-        setCatTotalPages(Math.max(kVal?.totalPages ?? 1, mVal?.totalPages ?? 1, cVal?.totalPages ?? 1, bVal?.totalPages ?? 1));
-        setCatTotalResults(
-          (kVal?.totalResults ?? kItems.length) +
-            (mVal?.totalResults ?? mItems.length) +
-            (cVal?.totalResults ?? cItems.length) +
-            (bVal?.totalResults ?? bItems.length),
+        setCatHasNext(
+          Boolean(
+            hasNextBySrc.mangakatana || hasNextBySrc.mangadex || hasNextBySrc.comick || hasNextBySrc.bato,
+          ),
         );
-        setCatError(merged.length === 0 ? kVal?.error || mVal?.error || cVal?.error || bVal?.error : undefined);
-        setCatLoading(false);
-      });
+        // Honest pagination: never fabricate a single-source max page count across merged catalogs
+        setCatTotalPages(undefined);
+        setCatTotalResults(merged.length);
+        if (merged.length > 0 || settledCount >= 4) {
+          setCatLoading(false);
+        }
+        if (settledCount >= 4 && merged.length === 0) {
+          setCatError(
+            errorsBySrc.mangakatana || errorsBySrc.mangadex || errorsBySrc.comick || errorsBySrc.bato,
+          );
+        } else if (merged.length > 0) {
+          setCatError(undefined);
+        }
+      };
+
+      const sharedFilterOpts = {
+        query: searchQuery,
+        page: catPage,
+        status: statusFilter,
+        demographic: demographicFilter,
+        orderBy,
+        include: includeGenres,
+        exclude: excludeGenres,
+        genreMode,
+        chapters: minChapters,
+        author: authorFilter,
+        language: languageFilter,
+      };
+
+      fetchKatanaCatalog({
+        mode: catalogMode,
+        key: genreSlug,
+        page: catPage,
+        query: searchQuery,
+        searchBy,
+        include: includeGenres,
+        exclude: excludeGenres,
+        genreMode,
+        chapters: minChapters,
+        orderBy,
+        status: statusFilter,
+        demographic: demographicFilter,
+        author: authorFilter,
+      })
+        .then((res) => handleSourceResolved('mangakatana', res))
+        .catch(() => handleSourceResolved('mangakatana', null, 'MangaKatana timed out'));
+
+      searchMangaDexCatalog(sharedFilterOpts)
+        .then((res) => handleSourceResolved('mangadex', res))
+        .catch(() => handleSourceResolved('mangadex', null, 'MangaDex timed out'));
+
+      searchComickCatalog(sharedFilterOpts)
+        .then((res) => handleSourceResolved('comick', res))
+        .catch(() => handleSourceResolved('comick', null, 'ComicK timed out'));
+
+      searchBatoCatalog(sharedFilterOpts)
+        .then((res) => handleSourceResolved('bato', res))
+        .catch(() => handleSourceResolved('bato', null, 'Bato.to timed out'));
+
       return () => {
         alive = false;
       };
@@ -1207,8 +1257,12 @@ export function MangaPage() {
     let alive = true;
     setDetailLoading(true);
     setChapterSearch('');
-    setChapterLangFilter('all');
-    setChapterGroupFilter('all');
+    const savedFilter = loadSeriesChapterFilter(detailSlug);
+    setChapterLangFilter(savedFilter?.lang ?? 'all');
+    setChapterGroupFilter(savedFilter?.group ?? 'all');
+    setPreferredScanlationGroup(savedFilter?.preferredGroup ?? '');
+    setBlockedScanlationGroups(savedFilter?.blockedGroups ?? []);
+    setWaitForPreferredHours(savedFilter?.waitForPreferredHours ?? 0);
     setChapterWindow(40);
     setSelectMode(false);
     setSelectedChapterIds(new Set());
@@ -1819,22 +1873,54 @@ export function MangaPage() {
       let processed = 0;
       const failed: PersistedQueueEntry[] = [];
       const inFlight = new Set<PersistedQueueEntry>();
-      const CONCURRENCY = 2;
+      const activeSources = new Set<string>();
+      // Mihon-style rate-limit protection: 1 chapter at a time per source, up to 2 distinct sources in parallel.
+      const MAX_CROSS_SOURCE_WORKERS = 2;
+      const resolveItemSource = (m: KatanaManga): string =>
+        m.source ||
+        (m.slug.startsWith('md-')
+          ? 'mangadex'
+          : m.slug.startsWith('ck-')
+            ? 'comick'
+            : m.slug.startsWith('bt-')
+              ? 'bato'
+              : 'mangakatana');
+
+      const claimNextSourceSafeItem = (): { item: PersistedQueueEntry; source: string } | null => {
+        const q = downloadQueueRef.current;
+        for (let i = 0; i < q.length; i++) {
+          const src = resolveItemSource(q[i].manga);
+          if (!activeSources.has(src)) {
+            const [picked] = q.splice(i, 1);
+            downloadQueueRef.current = [...q];
+            activeSources.add(src);
+            return { item: picked, source: src };
+          }
+        }
+        return null;
+      };
 
       const worker = async () => {
         while (downloadQueueRef.current.length > 0) {
           if (downloadCancelRef.current) break;
-          const [nextItem, ...rest] = downloadQueueRef.current;
-          downloadQueueRef.current = rest;
+          const claimed = claimNextSourceSafeItem();
+          if (!claimed) {
+            if (inFlight.size === 0) break;
+            await new Promise((r) => window.setTimeout(r, 120));
+            continue;
+          }
+          const { item: nextItem, source: itemSource } = claimed;
+          const rest = downloadQueueRef.current;
           inFlight.add(nextItem);
           setDownloadQueue(rest);
           savePendingDownloadQueue([...inFlight, ...rest]);
           setBatchProgress({
             done: processed,
             total: processed + inFlight.size + rest.length,
-            currentTitle: chapterDisplayTitle(nextItem.chapter),
+            currentTitle: `${chapterDisplayTitle(nextItem.chapter)} (${itemSource.toUpperCase()})`,
           });
           const ok = await downloadChapter(nextItem.manga, nextItem.chapter, true);
+          activeSources.delete(itemSource);
           inFlight.delete(nextItem);
           processed += 1;
           if (ok) saved += 1;
@@ -1854,7 +1940,9 @@ export function MangaPage() {
         }
       };
 
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, () => worker()));
+      await Promise.all(
+        Array.from({ length: Math.min(MAX_CROSS_SOURCE_WORKERS, pending.length) }, () => worker()),
+      );
 
       const wasCancelled = downloadCancelRef.current;
       downloadCancelRef.current = false;
@@ -2022,15 +2110,71 @@ export function MangaPage() {
     for (const m of [...similarCatalog, ...(homeData?.hot ?? []), ...(homeData?.latest ?? []), ...catItems]) {
       if (m.slug !== detail.slug && !pool.has(m.slug)) pool.set(m.slug, m);
     }
-    return [...pool.values()]
+
+    const explicitRelations: Array<{ manga: KatanaManga; relation: string; score: number }> = [];
+    const explicitSlugs = new Set<string>();
+    const relationLabels: Record<string, string> = {
+      sequel: 'Sequel',
+      prequel: 'Prequel',
+      spin_off: 'Spin-Off',
+      side_story: 'Side Story',
+      adaptation: 'Adaptation',
+      shared_universe: 'Shared Universe',
+      same_creator: 'Same Creator',
+    };
+    for (const rel of detail.relatedWorks ?? []) {
+      if (!rel.slug || rel.slug === detail.slug) continue;
+      explicitSlugs.add(rel.slug);
+      const fromPool = pool.get(rel.slug);
+      const synthesized: KatanaManga = fromPool ?? {
+        slug: rel.slug,
+        id: rel.slug,
+        title: rel.title,
+        coverUrl: rel.coverUrl ?? detail.coverUrl,
+        status: rel.status ?? 'ongoing',
+        updateText: '',
+        summary: '',
+        genres: detail.genres.slice(0, 2),
+        recentChapters: [],
+        altNames: [],
+        authors: detail.authors,
+        artists: detail.artists,
+        chapters: [],
+        source: rel.slug.startsWith('md-') ? 'mangadex' : detail.source,
+      };
+      explicitRelations.push({
+        manga: synthesized,
+        relation: relationLabels[rel.relation] ?? 'Related Work',
+        score: 100,
+      });
+    }
+
+    const candidates = [...pool.values()]
+      .filter((m) => !explicitSlugs.has(m.slug))
       .map((m) => {
         const sameAuthor = m.authors.some((a) => authorSet.has(a.toLowerCase()));
-        const relatedTitle = titleStem.length >= 5 && m.title.toLowerCase().includes(titleStem);
+        const mLower = m.title.toLowerCase();
+        const relatedTitle = titleStem.length >= 5 && mLower.includes(titleStem);
+        const isPrequelOrSequel =
+          relatedTitle &&
+          (detail.title.includes(':') && !m.title.includes(':')
+            ? 'Prequel / Main Series'
+            : !detail.title.includes(':') && m.title.includes(':')
+              ? 'Sequel / Spin-Off'
+              : 'Franchise / Spin-Off');
         const sharedGenres = m.genres.filter((g) => genreSet.has(g.slug)).length;
-        const relation = sameAuthor ? 'Same Author' : relatedTitle ? 'Related Series' : sharedGenres > 0 ? `${sharedGenres} shared` : '';
-        const score = (sameAuthor ? 10 : 0) + (relatedTitle ? 8 : 0) + sharedGenres * 2 + (m.rating ? m.rating / 5 : 0);
+        const relation = isPrequelOrSequel
+          ? isPrequelOrSequel
+          : sameAuthor
+            ? 'Same Creator'
+            : sharedGenres > 0
+              ? `${sharedGenres} shared`
+              : '';
+        const score = (relatedTitle ? 14 : 0) + (sameAuthor ? 10 : 0) + sharedGenres * 2 + (m.rating ? m.rating / 5 : 0);
         return { manga: m, relation, score };
-      })
+      });
+
+    return [...explicitRelations, ...candidates]
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
   }, [detail, homeData, similarCatalog, catItems]);
@@ -2206,7 +2350,7 @@ export function MangaPage() {
                 <KatanaEmptyState
                   icon="error_outline"
                   title="Could not load this title"
-                  subtitle="MangaKatana and the MangaDex backup are both unreachable right now. Check your connection and try again."
+                  subtitle="MangaKatana, MangaDex, ComicK, and Bato.to are all unreachable right now. Check your connection and try again."
                   actionLabel="Try again"
                   actionIcon="refresh"
                   onAction={() => setDetailRetryTick((n) => n + 1)}
@@ -2242,26 +2386,54 @@ export function MangaPage() {
                         .filter(Boolean),
                     ),
                   ).slice(0, 8);
+                  const blockedGroupSet = new Set(blockedScanlationGroups.map((g) => g.toLowerCase()));
+                  const readChapterNums = new Set(
+                    detail.chapters
+                      .filter((ch) => readSet.has(ch.id))
+                      .map((ch) => ch.num.trim())
+                      .filter(Boolean),
+                  );
+                  const blockedChaptersCount = detail.chapters.filter(
+                    (c) => c.scanlationGroup && blockedGroupSet.has(c.scanlationGroup.trim().toLowerCase()),
+                  ).length;
+                  const chapterGapReport = detectSeriesMissingChapters(detail.chapters);
+                  const seriesSavedMoments = loadPageBookmarks(detail.slug);
+
                   const q = chapterSearch.trim().toLowerCase();
-                  const filteredChapters = orderedChapters.filter((c) => {
-                    if (chapterLangFilter !== 'all' && (c.language || '').trim().toLowerCase() !== chapterLangFilter) {
-                      return false;
-                    }
-                    if (chapterGroupFilter !== 'all' && (c.scanlationGroup || '').trim() !== chapterGroupFilter) {
-                      return false;
-                    }
-                    if (!q) return true;
-                    return (
-                      chapterDisplayTitle(c).toLowerCase().includes(q) ||
-                      c.num.toLowerCase().includes(q) ||
-                      c.id.toLowerCase().includes(q) ||
-                      (c.scanlationGroup || '').toLowerCase().includes(q)
-                    );
-                  });
+                  const filteredChapters = orderedChapters
+                    .filter((c) => {
+                      const grp = (c.scanlationGroup || '').trim();
+                      if (grp && blockedGroupSet.has(grp.toLowerCase())) return false;
+                      if (chapterLangFilter !== 'all' && (c.language || '').trim().toLowerCase() !== chapterLangFilter) {
+                        return false;
+                      }
+                      if (chapterGroupFilter !== 'all' && grp !== chapterGroupFilter) {
+                        return false;
+                      }
+                      if (!q) return true;
+                      return (
+                        chapterDisplayTitle(c).toLowerCase().includes(q) ||
+                        c.num.toLowerCase().includes(q) ||
+                        c.id.toLowerCase().includes(q) ||
+                        grp.toLowerCase().includes(q)
+                      );
+                    })
+                    .sort((a, b) => {
+                      if (!preferredScanlationGroup || a.num !== b.num) return 0;
+                      const aPref = (a.scanlationGroup || '').trim() === preferredScanlationGroup ? 1 : 0;
+                      const bPref = (b.scanlationGroup || '').trim() === preferredScanlationGroup ? 1 : 0;
+                      return bPref - aPref;
+                    });
                   const visibleChapters = filteredChapters.slice(0, chapterWindow);
-                  const hasChapterMetaFilters = availableChapterLangs.length > 1 || availableChapterGroups.length > 1;
+                  const hasChapterMetaFilters =
+                    availableChapterLangs.length > 1 ||
+                    availableChapterGroups.length >= 1 ||
+                    blockedScanlationGroups.length > 0;
                   const activeChapterFilterCount =
-                    (chapterLangFilter !== 'all' ? 1 : 0) + (chapterGroupFilter !== 'all' ? 1 : 0);
+                    (chapterLangFilter !== 'all' ? 1 : 0) +
+                    (chapterGroupFilter !== 'all' ? 1 : 0) +
+                    (preferredScanlationGroup ? 1 : 0) +
+                    blockedScanlationGroups.length;
 
                   const toggleSelectChapter = (id: string) => {
                     setSelectedChapterIds((prev) => {
@@ -2273,7 +2445,11 @@ export function MangaPage() {
                   };
 
                   const seriesAccent = detailCoverAccent;
-                  const alertsEnabled = detailBm?.notifyOnUpdate !== false;
+                  const alertsEnabled =
+                    isBookmarked &&
+                    (typeof detailBm?.notifyOnUpdate === 'boolean'
+                      ? detailBm.notifyOnUpdate
+                      : currentStatus === 'reading' || currentStatus === 'planned');
 
                   return (
                     <div>
@@ -4470,11 +4646,12 @@ export function MangaPage() {
                                 })}
                               </>
                             )}
-                            {availableChapterGroups.length > 1 && (
+                            {availableChapterGroups.length >= 1 && (
                               <>
                                 <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, marginLeft: availableChapterLangs.length > 1 ? 6 : 0 }}>Group:</span>
                                 {(['all', ...availableChapterGroups] as const).map((grp) => {
                                   const active = chapterGroupFilter === grp;
+                                  const isPreferred = grp !== 'all' && preferredScanlationGroup === grp;
                                   return (
                                     <button
                                       key={grp}
@@ -4487,19 +4664,268 @@ export function MangaPage() {
                                         padding: '4px 10px',
                                         borderRadius: 99,
                                         background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                        border: `1px solid ${active ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                        border: `1px solid ${active ? KatanaColors.chipSelectedBorder : isPreferred ? KatanaColors.accent : KatanaColors.border}`,
                                         fontFamily: Fonts.body,
                                         fontSize: 11.5,
-                                        fontWeight: active ? 700 : 600,
-                                        color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                        fontWeight: active || isPreferred ? 700 : 600,
+                                        color: active ? KatanaColors.chipSelectedText : isPreferred ? KatanaColors.accentSoft : KatanaColors.textMuted,
                                       }}
                                     >
-                                      {grp === 'all' ? 'All' : grp}
+                                      {grp === 'all' ? 'All' : isPreferred ? `★ ${grp}` : grp}
                                     </button>
                                   );
                                 })}
+                                {chapterGroupFilter !== 'all' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      aria-pressed={preferredScanlationGroup === chapterGroupFilter}
+                                      onClick={() => {
+                                        const nextPref = preferredScanlationGroup === chapterGroupFilter ? '' : chapterGroupFilter;
+                                        setPreferredScanlationGroup(nextPref);
+                                        showSnackBar(
+                                          nextPref
+                                            ? `Preferred scanlation group set to ${nextPref}`
+                                            : 'Cleared preferred scanlation group',
+                                        );
+                                      }}
+                                      style={{
+                                        minHeight: 40,
+                                        padding: '4px 10px',
+                                        borderRadius: 99,
+                                        background: preferredScanlationGroup === chapterGroupFilter ? withAlpha(KatanaColors.accent, 0.18) : KatanaColors.surface,
+                                        border: `1px solid ${preferredScanlationGroup === chapterGroupFilter ? KatanaColors.accent : KatanaColors.borderStrong}`,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        color: preferredScanlationGroup === chapterGroupFilter ? KatanaColors.accentSoft : KatanaColors.text,
+                                      }}
+                                    >
+                                      {preferredScanlationGroup === chapterGroupFilter ? '★ Preferred' : '★ Prefer Group'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="bare-button"
+                                      onClick={() => {
+                                        const targetGrp = chapterGroupFilter;
+                                        setBlockedScanlationGroups((prev) => Array.from(new Set([...prev, targetGrp])));
+                                        if (preferredScanlationGroup === targetGrp) setPreferredScanlationGroup('');
+                                        setChapterGroupFilter('all');
+                                        showSnackBar(`Blocked scanlation group ${targetGrp}`);
+                                      }}
+                                      style={{
+                                        minHeight: 40,
+                                        padding: '4px 10px',
+                                        borderRadius: 99,
+                                        background: withAlpha(KatanaColors.crimson, 0.14),
+                                        border: `1px solid ${withAlpha(KatanaColors.crimson, 0.4)}`,
+                                        fontFamily: Fonts.body,
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        color: KatanaColors.crimson,
+                                      }}
+                                    >
+                                      ⊘ Block Group
+                                    </button>
+                                  </>
+                                )}
+                                {preferredScanlationGroup && (
+                                  <button
+                                    type="button"
+                                    className="bare-button"
+                                    aria-pressed={waitForPreferredHours > 0}
+                                    onClick={() => {
+                                      const nextHrs = waitForPreferredHours > 0 ? 0 : 24;
+                                      setWaitForPreferredHours(nextHrs);
+                                      showSnackBar(
+                                        nextHrs > 0
+                                          ? `Waiting 24h for ${preferredScanlationGroup} before fallback releases`
+                                          : 'Disabled 24h preferred-group wait window',
+                                      );
+                                    }}
+                                    style={{
+                                      minHeight: 40,
+                                      padding: '4px 10px',
+                                      borderRadius: 99,
+                                      background: waitForPreferredHours > 0 ? withAlpha(KatanaColors.teal, 0.16) : KatanaColors.surfaceAlt,
+                                      border: `1px solid ${waitForPreferredHours > 0 ? KatanaColors.teal : KatanaColors.border}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      color: waitForPreferredHours > 0 ? KatanaColors.teal : KatanaColors.textMuted,
+                                    }}
+                                  >
+                                    {waitForPreferredHours > 0 ? `⏳ Wait 24h for ${preferredScanlationGroup}: On` : '⏳ Wait 24h for Preferred'}
+                                  </button>
+                                )}
+                                {blockedScanlationGroups.map((bGrp) => (
+                                  <button
+                                    key={`blocked-${bGrp}`}
+                                    type="button"
+                                    className="bare-button"
+                                    title={`Unblock ${bGrp} (${blockedChaptersCount} hidden)`}
+                                    onClick={() => {
+                                      setBlockedScanlationGroups((prev) => prev.filter((g) => g !== bGrp));
+                                      showSnackBar(`Unblocked ${bGrp}`);
+                                    }}
+                                    style={{
+                                      minHeight: 40,
+                                      padding: '4px 10px',
+                                      borderRadius: 99,
+                                      background: withAlpha(KatanaColors.crimson, 0.12),
+                                      border: `1px solid ${withAlpha(KatanaColors.crimson, 0.35)}`,
+                                      fontFamily: Fonts.body,
+                                      fontSize: 11.5,
+                                      fontWeight: 600,
+                                      color: KatanaColors.crimson,
+                                    }}
+                                  >
+                                    ⊘ {bGrp} (Unblock)
+                                  </button>
+                                ))}
                               </>
                             )}
+                          </div>
+                        )}
+
+                        {chapterGapReport.segments.length > 0 && (
+                          <div
+                            role="region"
+                            aria-label="Chapter health and missing chapters"
+                            style={{
+                              marginTop: 10,
+                              padding: '10px 12px',
+                              borderRadius: 10,
+                              background: withAlpha(KatanaColors.orange, 0.1),
+                              border: `1px solid ${withAlpha(KatanaColors.orange, 0.38)}`,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 8,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <Icon name="health_and_safety" size={16} color={KatanaColors.orange} />
+                                <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
+                                  Chapter Health · {chapterGapReport.missingNumbers.length} missing{' '}
+                                  {chapterGapReport.missingNumbers.length === 1 ? 'chapter' : 'chapters'} detected
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className="bare-button"
+                                onClick={() => {
+                                  closeDetail();
+                                  setCatalogSource('all');
+                                  updateMangaUrl(
+                                    { tab: 'directory', mode: 'search', q: detail.title, page: '1' },
+                                    { clearAll: true },
+                                  );
+                                }}
+                                style={{
+                                  minHeight: 38,
+                                  padding: '0 10px',
+                                  borderRadius: 8,
+                                  background: KatanaColors.surface,
+                                  border: `1px solid ${KatanaColors.borderStrong}`,
+                                  fontFamily: Fonts.body,
+                                  fontSize: 11.5,
+                                  fontWeight: 700,
+                                  color: KatanaColors.accentSoft,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                }}
+                              >
+                                <Icon name="troubleshoot" size={14} color={KatanaColors.accent} />
+                                <span>Check MD · CK · BT for missing chapters</span>
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {chapterGapReport.segments.slice(0, 8).map((seg) => (
+                                <button
+                                  key={`${seg.afterNum}-${seg.beforeNum}`}
+                                  type="button"
+                                  className="bare-button"
+                                  title={`Missing between Ch. ${seg.afterNum} and Ch. ${seg.beforeNum} — tap to jump`}
+                                  onClick={() => {
+                                    const targetId = seg.beforeChapterId || seg.afterChapterId;
+                                    const idx = filteredChapters.findIndex((ch) => ch.id === targetId);
+                                    if (idx >= 0 && idx >= chapterWindow) setChapterWindow(idx + 15);
+                                    window.setTimeout(() => {
+                                      const el = document.querySelector(`[data-chapter-id="${CSS.escape(targetId)}"]`);
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }, 60);
+                                  }}
+                                  style={{
+                                    minHeight: 36,
+                                    padding: '3px 9px',
+                                    borderRadius: 7,
+                                    background: KatanaColors.surface,
+                                    border: `1px solid ${withAlpha(KatanaColors.orange, 0.45)}`,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 11.5,
+                                    fontWeight: 700,
+                                    color: KatanaColors.orange,
+                                  }}
+                                >
+                                  Missing {seg.label} · Jump →
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {seriesSavedMoments.length > 0 && (
+                          <div
+                            role="region"
+                            aria-label="Saved page moments and notes"
+                            style={{
+                              marginTop: 10,
+                              padding: '10px 12px',
+                              borderRadius: 10,
+                              background: KatanaColors.surfaceAlt,
+                              border: `1px solid ${KatanaColors.borderStrong}`,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                              <Icon name="bookmarks" size={15} color={KatanaColors.accent} />
+                              <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
+                                Saved Moments &amp; Notes ({seriesSavedMoments.length})
+                              </span>
+                            </div>
+                            <div className="no-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                              {seriesSavedMoments.slice(0, 12).map((bm) => (
+                                <button
+                                  key={`${bm.chapterId}:${bm.pageIdx}`}
+                                  type="button"
+                                  className="bare-button"
+                                  onClick={() => openChapter(detail, bm.chapterId, bm.pageIdx + 1)}
+                                  style={{
+                                    minWidth: 170,
+                                    maxWidth: 240,
+                                    padding: '8px 10px',
+                                    borderRadius: 8,
+                                    background: KatanaColors.surface,
+                                    border: `1px solid ${KatanaColors.border}`,
+                                    textAlign: 'left',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 700, color: KatanaColors.text }}>
+                                    {bm.chapterTitle} · Page {bm.pageIdx + 1}
+                                  </div>
+                                  {bm.note ? (
+                                    <div className="clamp-2" style={{ marginTop: 3, fontFamily: Fonts.body, fontSize: 11.5, color: KatanaColors.accentSoft, fontStyle: 'italic' }}>
+                                      “{bm.note}”
+                                    </div>
+                                  ) : (
+                                    <div style={{ marginTop: 3, ...KatanaType.small, fontSize: 11 }}>Tap to open moment →</div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         )}
 
@@ -4851,6 +5277,49 @@ export function MangaPage() {
                                             LAST READ
                                           </span>
                                         )}
+                                        {preferredScanlationGroup && (c.scanlationGroup || '').trim() === preferredScanlationGroup && (
+                                          <span
+                                            style={{
+                                              padding: '1px 6px',
+                                              borderRadius: 4,
+                                              background: withAlpha(
+                                                !isRead && readChapterNums.has(c.num.trim()) ? KatanaColors.green : KatanaColors.accent,
+                                                0.18,
+                                              ),
+                                              color:
+                                                !isRead && readChapterNums.has(c.num.trim())
+                                                  ? KatanaColors.green
+                                                  : KatanaColors.accentSoft,
+                                              fontFamily: Fonts.body,
+                                              fontSize: 10,
+                                              fontWeight: 800,
+                                              flexShrink: 0,
+                                            }}
+                                          >
+                                            {!isRead && readChapterNums.has(c.num.trim()) ? '↑ UPGRADE' : '★ PREFERRED'}
+                                          </span>
+                                        )}
+                                        {preferredScanlationGroup &&
+                                          waitForPreferredHours > 0 &&
+                                          idx === 0 &&
+                                          (c.scanlationGroup || '').trim() !== preferredScanlationGroup &&
+                                          (!c.updateAt || Date.now() - c.updateAt.getTime() < waitForPreferredHours * 3_600_000) && (
+                                            <span
+                                              title={`Waiting up to ${waitForPreferredHours}h for ${preferredScanlationGroup} release`}
+                                              style={{
+                                                padding: '1px 6px',
+                                                borderRadius: 4,
+                                                background: withAlpha(KatanaColors.teal, 0.16),
+                                                color: KatanaColors.teal,
+                                                fontFamily: Fonts.body,
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                flexShrink: 0,
+                                              }}
+                                            >
+                                              ⏳ WAITING FOR {preferredScanlationGroup.toUpperCase()}
+                                            </span>
+                                          )}
                                       </div>
                                       {compactCard && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
@@ -5044,6 +5513,46 @@ export function MangaPage() {
                                           void downloadChapter(detail, c);
                                         }}
                                       />
+                                    )}
+                                    {c.scanlationGroup && (
+                                      <>
+                                        <KatanaButton
+                                          label={
+                                            preferredScanlationGroup === c.scanlationGroup
+                                              ? `★ Preferred (${c.scanlationGroup})`
+                                              : `★ Prefer ${c.scanlationGroup}`
+                                          }
+                                          icon="star"
+                                          size="sm"
+                                          filled={false}
+                                          color={KatanaColors.accent}
+                                          onClick={() => {
+                                            const grp = (c.scanlationGroup || '').trim();
+                                            setChapterActionMenuId(null);
+                                            const nextPref = preferredScanlationGroup === grp ? '' : grp;
+                                            setPreferredScanlationGroup(nextPref);
+                                            showSnackBar(
+                                              nextPref
+                                                ? `Preferred group set to ${nextPref}`
+                                                : 'Cleared preferred scanlation group',
+                                            );
+                                          }}
+                                        />
+                                        <KatanaButton
+                                          label={`⊘ Block ${c.scanlationGroup}`}
+                                          icon="block"
+                                          size="sm"
+                                          filled={false}
+                                          color={KatanaColors.crimson}
+                                          onClick={() => {
+                                            const grp = (c.scanlationGroup || '').trim();
+                                            setChapterActionMenuId(null);
+                                            setBlockedScanlationGroups((prev) => Array.from(new Set([...prev, grp])));
+                                            if (preferredScanlationGroup === grp) setPreferredScanlationGroup('');
+                                            showSnackBar(`Blocked chapters from ${grp}`);
+                                          }}
+                                        />
+                                      </>
                                     )}
                                   </div>
                                 )}
@@ -6018,16 +6527,7 @@ export function MangaPage() {
                   const rated = savedBookmarks.filter((b) => (b.userScore ?? 0) > 0);
                   const avgScore = rated.length > 0 ? rated.reduce((s, b) => s + (b.userScore ?? 0), 0) / rated.length : 0;
                   const completionPct = Math.round((libraryCounts.completed / Math.max(1, savedBookmarks.length)) * 100);
-                  const estHours = Math.max(1, Math.round((totalChaptersRead * 4) / 60));
-                  const nowMs = Date.now();
-                  const weekChapters = Math.max(
-                    1,
-                    historyEntries.filter((e) => nowMs - e.readAt <= 7 * 86_400_000).length || Math.min(totalChaptersRead, 14),
-                  );
-                  const uniqueDays = new Set(
-                    historyEntries.map((e) => new Date(e.readAt).toISOString().slice(0, 10)),
-                  ).size;
-                  const streakDays = Math.max(1, uniqueDays);
+                  const truthfulStats = computeTruthfulReadingStats(savedBookmarks, historyEntries);
                   const statusSegments: Array<{ key: KatanaLibraryStatus; label: string; count: number; color: string }> = [
                     { key: 'reading', label: 'Reading', count: libraryCounts.reading, color: KatanaColors.accent },
                     { key: 'completed', label: 'Completed', count: libraryCounts.completed, color: KatanaColors.green },
@@ -6037,16 +6537,19 @@ export function MangaPage() {
                   ];
                   return (
                     <KatanaCard padding={14} radius={12} style={{ marginTop: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <span style={{ ...KatanaType.title, fontSize: 14 }}>Reading Statistics & Velocity</span>
-                        <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{historyEntries.length} recent chapters logged</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+                        <span style={{ ...KatanaType.title, fontSize: 14 }}>Reading Statistics &amp; Velocity</span>
+                        <span style={{ ...KatanaType.small, fontSize: 11.5 }}>
+                          {historyEntries.length} chapters in history · {truthfulStats.activeDaysTotal} active{' '}
+                          {truthfulStats.activeDaysTotal === 1 ? 'day' : 'days'}
+                        </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: compactCard ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
                         {[
-                          { label: 'Chapters Read', value: String(totalChaptersRead), color: KatanaColors.accent },
-                          { label: 'Est. Time', value: `~${estHours}h`, color: KatanaColors.link },
-                          { label: 'Velocity', value: `${weekChapters}/wk`, color: KatanaColors.teal },
-                          { label: 'Active Streak', value: `${streakDays}d`, color: KatanaColors.accentSoft },
+                          { label: 'Chapters Read', value: String(truthfulStats.totalChaptersRead), color: KatanaColors.accent },
+                          { label: 'Est. Time', value: truthfulStats.estTimeLabel, color: KatanaColors.link },
+                          { label: 'Last 7 Days', value: `${truthfulStats.weekChapters} ch`, color: KatanaColors.teal },
+                          { label: 'Current Streak', value: `${truthfulStats.streakDays}d`, color: KatanaColors.accentSoft },
                           { label: 'Completion', value: `${completionPct}%`, color: KatanaColors.green },
                           { label: 'Avg Rating', value: rated.length > 0 ? `${avgScore.toFixed(1)}/10` : '—', color: KatanaColors.orange },
                         ].map((m) => (
@@ -6055,6 +6558,42 @@ export function MangaPage() {
                             <div style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: 400, letterSpacing: 0.6, color: m.color, marginTop: 2 }}>{m.value}</div>
                           </div>
                         ))}
+                      </div>
+                      <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 9, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ ...KatanaType.small, fontSize: 11, fontWeight: 700, color: KatanaColors.textMuted }}>
+                            28-DAY READING ACTIVITY HEATMAP
+                          </span>
+                          <span style={{ ...KatanaType.small, fontSize: 11 }}>
+                            {truthfulStats.streakDays > 0
+                              ? `${truthfulStats.streakDays}-day consecutive streak`
+                              : 'Read a chapter today to start a streak'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(14, minmax(0, 1fr))', gap: 4 }}>
+                          {truthfulStats.heatmapDays.map((cell) => {
+                            const bg =
+                              cell.count === 0
+                                ? KatanaColors.surface
+                                : cell.count === 1
+                                  ? withAlpha(KatanaColors.accent, 0.35)
+                                  : cell.count <= 3
+                                    ? withAlpha(KatanaColors.accent, 0.65)
+                                    : KatanaColors.accent;
+                            return (
+                              <div
+                                key={cell.dateKey}
+                                title={`${cell.shortLabel}: ${cell.count} ${cell.count === 1 ? 'chapter' : 'chapters'} read`}
+                                style={{
+                                  height: 16,
+                                  borderRadius: 4,
+                                  background: bg,
+                                  border: `1px solid ${cell.count > 0 ? withAlpha(KatanaColors.accent, 0.6) : KatanaColors.border}`,
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
                       <div style={{ height: 10, borderRadius: 99, overflow: 'hidden', display: 'flex', background: KatanaColors.surfaceAlt }}>
                         {statusSegments
@@ -7373,6 +7912,98 @@ export function MangaPage() {
                 )}
 
                 <div style={{ height: 14 }} />
+                {catalogSource === 'all' && (catalogMode === 'search' || catalogMode === 'directory') && (
+                  <div
+                    role="status"
+                    aria-label="Multi-source search progress"
+                    style={{
+                      marginBottom: 12,
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: KatanaColors.surface,
+                      border: `1px solid ${KatanaColors.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                  >
+                    <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
+                      PROGRESSIVE 4-SOURCE STREAM:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {(
+                        [
+                          ['mangakatana', 'MangaKatana', KatanaColors.accent],
+                          ['mangadex', 'MangaDex', KatanaColors.teal],
+                          ['comick', 'ComicK', KatanaColors.link],
+                          ['bato', 'Bato.to', KatanaColors.green],
+                        ] as const
+                      ).map(([sKey, sLabel, sColor]) => {
+                        const st = multiSourceStream[sKey];
+                        const statusText =
+                          st.status === 'loading'
+                            ? 'Searching…'
+                            : st.status === 'error'
+                              ? 'Unreachable'
+                              : `${st.count} ${st.count === 1 ? 'hit' : 'hits'}`;
+                        return (
+                          <button
+                            key={sKey}
+                            type="button"
+                            className="bare-button"
+                            onClick={() => setCatalogSource(sKey)}
+                            title={st.error || `Filter to ${sLabel}`}
+                            style={{
+                              minHeight: 36,
+                              padding: '3px 10px',
+                              borderRadius: 99,
+                              background: KatanaColors.surfaceAlt,
+                              border: `1px solid ${
+                                st.status === 'error'
+                                  ? withAlpha(KatanaColors.crimson, 0.45)
+                                  : st.status === 'ok'
+                                    ? withAlpha(sColor, 0.45)
+                                    : KatanaColors.border
+                              }`,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              fontFamily: Fonts.body,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              color:
+                                st.status === 'error'
+                                  ? KatanaColors.crimson
+                                  : st.status === 'ok'
+                                    ? KatanaColors.text
+                                    : KatanaColors.textMuted,
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 7,
+                                height: 7,
+                                borderRadius: 99,
+                                background:
+                                  st.status === 'loading'
+                                    ? KatanaColors.orange
+                                    : st.status === 'error'
+                                      ? KatanaColors.crimson
+                                      : st.status === 'ok'
+                                        ? sColor
+                                        : KatanaColors.textLight,
+                              }}
+                            />
+                            <span>{sLabel}:</span>
+                            <strong>{statusText}</strong>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 {catError && <KatanaErrorBanner message={catError} onRetry={() => setCatRefreshTick((n) => n + 1)} />}
 
                 {catLoading ? (
@@ -7394,7 +8025,7 @@ export function MangaPage() {
                     actionIcon={activeFilterCount > 0 ? 'restart_alt' : 'home'}
                     onAction={() => (activeFilterCount > 0 ? clearCatalogFilters() : handleNav('home'))}
                   />
-                ) : catalogSource === 'all' && catalogMode === 'search' && (katanaSourceItems.length > 0 || mangadexSourceItems.length > 0 || comickSourceItems.length > 0 || batoSourceItems.length > 0) ? (
+                ) : catalogSource === 'all' && catalogMode === 'search' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
                     {(
                       [
@@ -7403,11 +8034,19 @@ export function MangaPage() {
                         { key: 'comick' as const, label: 'ComicK', items: comickSourceItems, accent: KatanaColors.link },
                         { key: 'bato' as const, label: 'Bato.to', items: batoSourceItems, accent: KatanaColors.green },
                       ]
-                    ).map((group) => (
+                    ).map((group) => {
+                      const srcState = multiSourceStream[group.key];
+                      const badgeText =
+                        srcState.status === 'loading'
+                          ? 'Searching…'
+                          : srcState.status === 'error'
+                            ? 'Unreachable'
+                            : `${group.items.length} ${group.items.length === 1 ? 'match' : 'matches'}`;
+                      return (
                       <section key={group.key} aria-label={`${group.label} search results`}>
                         <KatanaSectionHeader
                           title={group.label}
-                          badge={`${group.items.length} ${group.items.length === 1 ? 'match' : 'matches'}`}
+                          badge={badgeText}
                           trailing={
                             <button
                               type="button"
@@ -7440,7 +8079,11 @@ export function MangaPage() {
                               ...KatanaType.small,
                             }}
                           >
-                            No matching titles on {group.label} for this query.
+                            {srcState.status === 'loading'
+                              ? `Searching ${group.label}…`
+                              : srcState.status === 'error'
+                                ? `${group.label} could not be reached for this query.`
+                                : `No matching titles on ${group.label} for this query.`}
                           </div>
                         ) : effectiveCatView === 'grid' ? (
                           <div
@@ -7478,7 +8121,8 @@ export function MangaPage() {
                           </div>
                         )}
                       </section>
-                    ))}
+                      );
+                    })}
                     <div style={{ marginTop: 4 }}>
                       <KatanaPagination
                         page={catPage}

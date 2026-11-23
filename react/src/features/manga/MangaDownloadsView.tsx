@@ -537,7 +537,7 @@ export function KatanaDownloadsView({
                   aria-pressed={active}
                   onClick={() => onToggleAutoDownloadCategory(cat)}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '6px 12px',
                     borderRadius: 99,
                     background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
@@ -557,7 +557,7 @@ export function KatanaDownloadsView({
         {batchProgress && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}` }}>
             <div style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted, marginBottom: 8 }}>
-              Pages are cached progressively with Service Worker handoff — already-saved pages resume automatically if interrupted.
+              Pages are cached progressively with Service Worker handoff (1 chapter at a time per source to prevent IP bans; parallel across different sources).
             </div>
             {downloadQueue.length > 0 && (
               <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -586,7 +586,7 @@ export function KatanaDownloadsView({
                       aria-label={`Move ${chapterDisplayTitle(q.chapter)} up`}
                       disabled={idx === 0}
                       onClick={() => onMoveQueueItem(idx, -1)}
-                      style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
+                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
                     >
                       <Icon name="arrow_upward" size={16} color={KatanaColors.textMuted} />
                     </button>
@@ -596,7 +596,7 @@ export function KatanaDownloadsView({
                       aria-label={`Move ${chapterDisplayTitle(q.chapter)} down`}
                       disabled={idx === downloadQueue.length - 1}
                       onClick={() => onMoveQueueItem(idx, 1)}
-                      style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', opacity: idx === downloadQueue.length - 1 ? 0.35 : 1 }}
+                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', opacity: idx === downloadQueue.length - 1 ? 0.35 : 1 }}
                     >
                       <Icon name="arrow_downward" size={16} color={KatanaColors.textMuted} />
                     </button>
@@ -605,7 +605,7 @@ export function KatanaDownloadsView({
                       className="bare-button"
                       aria-label={`Remove ${chapterDisplayTitle(q.chapter)} from queue`}
                       onClick={() => onRemoveQueueItem(idx)}
-                      style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}
+                      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
                     >
                       <Icon name="close" size={16} color={KatanaColors.crimson} />
                     </button>
@@ -622,7 +622,7 @@ export function KatanaDownloadsView({
                 className="bare-button"
                 onClick={onCancelQueue}
                 style={{
-                  minHeight: 40,
+                  minHeight: 44,
                   padding: '0 12px',
                   borderRadius: 8,
                   background: withAlpha(KatanaColors.crimson, 0.14),
@@ -945,8 +945,8 @@ export function KatanaDownloadsView({
                                 showSnackBar(`Exported ${res.filename}`);
                               }}
                               style={{
-                                minHeight: 36,
-                                padding: '0 9px',
+                                minHeight: 44,
+                                padding: '0 11px',
                                 borderRadius: 7,
                                 background: KatanaColors.surfaceAlt,
                                 border: `1px solid ${KatanaColors.border}`,
@@ -967,7 +967,7 @@ export function KatanaDownloadsView({
                               className="bare-button"
                               aria-label={`Delete ${ch.subtitle || ch.title}`}
                               onClick={() => onDelete(ch.id)}
-                              style={{ width: 36, height: 36, display: 'grid', placeItems: 'center' }}
+                              style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
                             >
                               <Icon name="delete_outline" size={18} color={KatanaColors.textLight} />
                             </button>

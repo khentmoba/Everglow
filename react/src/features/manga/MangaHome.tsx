@@ -568,23 +568,31 @@ function CurrentlyReadingShelf({
         title="Currently Reading"
         badge={String(items.length)}
         trailing={
-          <button
-            type="button"
-            className="bare-button"
-            onClick={onViewAll}
-            style={{
-              padding: '4px 10px',
-              borderRadius: 99,
-              background: KatanaColors.surfaceAlt,
-              border: `1px solid ${KatanaColors.border}`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-            }}
-          >
-            <span style={{ ...KatanaType.link, fontSize: 12 }}>View all</span>
-            <Icon name="chevron_right" size={15} color={KatanaColors.link} />
-          </button>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {compact && items.length > 1 && (
+              <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
+                Swipe →
+              </span>
+            )}
+            <button
+              type="button"
+              className="bare-button"
+              onClick={onViewAll}
+              style={{
+                minHeight: 40,
+                padding: '4px 10px',
+                borderRadius: 99,
+                background: KatanaColors.surfaceAlt,
+                border: `1px solid ${KatanaColors.border}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+              }}
+            >
+              <span style={{ ...KatanaType.link, fontSize: 12 }}>View all</span>
+              <Icon name="chevron_right" size={15} color={KatanaColors.link} />
+            </button>
+          </div>
         }
       />
       <div style={{ height: 8 }} />
@@ -592,7 +600,14 @@ function CurrentlyReadingShelf({
         className="no-scrollbar"
         style={
           compact
-            ? { display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }
+            ? {
+                display: 'flex',
+                gap: 10,
+                overflowX: 'auto',
+                paddingBottom: 2,
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch',
+              }
             : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }
         }
       >
@@ -610,8 +625,9 @@ function CurrentlyReadingShelf({
             <div
               key={bm.slug}
               style={{
-                width: compact ? (items.length === 1 ? '100%' : 248) : '100%',
+                width: compact ? (items.length === 1 ? '100%' : 'min(264px, calc(100vw - 74px))') : '100%',
                 flexShrink: compact ? (items.length === 1 ? 1 : 0) : 1,
+                scrollSnapAlign: compact ? 'start' : undefined,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
@@ -1193,7 +1209,7 @@ export function MangaHome({
     }
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
+      .slice(0, 5)
       .map((e) => e[0])
       .join(',');
   }, [tasteGenres, libraryBookmarks]);
@@ -1320,7 +1336,10 @@ export function MangaHome({
     }
 
     const explicitSet = new Set(tasteGenres);
-    const candidates = allCatalog.filter((m) => !readingSlugs.has(m.slug) && !droppedSlugs.has(m.slug));
+    const spotlightSlugs = new Set(featuredCandidates.map((m) => m.slug));
+    const candidates = allCatalog.filter(
+      (m) => !readingSlugs.has(m.slug) && !droppedSlugs.has(m.slug) && !spotlightSlugs.has(m.slug),
+    );
     const nonDuplicate = candidates.filter((m) => !latestLeadSlugs.has(m.slug));
     const pool = nonDuplicate.length >= 4 ? nonDuplicate : candidates;
 
@@ -1381,7 +1400,7 @@ export function MangaHome({
     });
 
     return scored.sort((a, b) => b.score - a.score).slice(0, 8);
-  }, [allCatalog, currentlyReading, libraryBookmarks, tasteGenres, latestLeadSlugs]);
+  }, [allCatalog, currentlyReading, libraryBookmarks, tasteGenres, latestLeadSlugs, featuredCandidates]);
 
   const distinctHot = useMemo(() => {
     const recSlugs = new Set(recommended.slice(0, 6).map((r) => r.manga.slug));
@@ -1532,8 +1551,222 @@ export function MangaHome({
     </div>
   );
 
+  const [railEditorOpen, setRailEditorOpen] = useState(false);
+  type HomeRailId = 'reading' | 'feed' | 'pick_back_up' | 'trending' | 'calendar' | 'recommended' | 'hidden_gems';
+  const DEFAULT_HOME_RAIL_ORDER: HomeRailId[] = [
+    'reading',
+    'feed',
+    'pick_back_up',
+    'trending',
+    'calendar',
+    'recommended',
+    'hidden_gems',
+  ];
+  const HOME_RAIL_LABELS: Record<HomeRailId, string> = {
+    reading: 'Currently Reading',
+    feed: 'Catalog Updates Feed',
+    pick_back_up: 'Pick Back Up',
+    trending: 'Top 10 & Trending',
+    calendar: 'Release Schedule',
+    recommended: 'Picked for You',
+    hidden_gems: 'Hidden Gems',
+  };
+  const [homeRailOrder, setHomeRailOrder] = useState<HomeRailId[]>(() => {
+    try {
+      const raw = localStorage.getItem('katana_home_rail_order_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw) as HomeRailId[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((k) => DEFAULT_HOME_RAIL_ORDER.includes(k));
+          const missing = DEFAULT_HOME_RAIL_ORDER.filter((k) => !valid.includes(k));
+          return [...valid, ...missing];
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_HOME_RAIL_ORDER;
+  });
+  const [hiddenHomeRails, setHiddenHomeRails] = useState<HomeRailId[]>(() => {
+    try {
+      const raw = localStorage.getItem('katana_home_rails_hidden_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw) as HomeRailId[];
+        if (Array.isArray(parsed)) return parsed.filter((k) => DEFAULT_HOME_RAIL_ORDER.includes(k));
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  const moveHomeRail = (railId: HomeRailId, delta: -1 | 1) => {
+    setHomeRailOrder((prev) => {
+      const idx = prev.indexOf(railId);
+      const nextIdx = idx + delta;
+      if (idx < 0 || nextIdx < 0 || nextIdx >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(idx, 1);
+      next.splice(nextIdx, 0, item);
+      try {
+        localStorage.setItem('katana_home_rail_order_v1', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const toggleHomeRailVisible = (railId: HomeRailId) => {
+    setHiddenHomeRails((prev) => {
+      const next = prev.includes(railId) ? prev.filter((k) => k !== railId) : [...prev, railId];
+      try {
+        localStorage.setItem('katana_home_rails_hidden_v1', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const pickBackUpItems = useMemo(() => {
+    if (type !== 'all') return [];
+    const nowMs = Date.now();
+    return libraryBookmarks
+      .filter((bm) => {
+        if (!bm.bookmarked && !bm.lastReadChapterId) return false;
+        if (bm.libraryStatus === 'completed' || bm.libraryStatus === 'dropped') return false;
+        if (bm.libraryStatus === 'on_hold') return true;
+        const unread = estimateUnreadCount(bm, liveLatestBySlug[bm.slug]);
+        const ageDays = bm.lastReadAt ? (nowMs - bm.lastReadAt.getTime()) / 86_400_000 : 14;
+        return unread >= 2 || (unread >= 1 && ageDays >= 3);
+      })
+      .slice(0, 8);
+  }, [libraryBookmarks, liveLatestBySlug, type]);
+
+  const pickBackUpRail =
+    type === 'all' && pickBackUpItems.length > 0 ? (
+      <section aria-label="Pick back up" style={{ marginTop: 20 }}>
+        <KatanaSectionHeader title="Pick Back Up" badge={`${pickBackUpItems.length} waiting`} />
+        <div style={{ height: 10 }} />
+        <div
+          className="no-scrollbar"
+          style={{
+            display: 'flex',
+            gap: 12,
+            overflowX: 'auto',
+            paddingBottom: 4,
+            scrollSnapType: 'x mandatory',
+          }}
+        >
+          {pickBackUpItems.map((bm) => {
+            const unread = estimateUnreadCount(bm, liveLatestBySlug[bm.slug]);
+            const reason =
+              bm.libraryStatus === 'on_hold'
+                ? unread > 0
+                  ? `On Hold · +${unread} new`
+                  : 'On Hold · Tap to resume'
+                : unread > 0
+                  ? `+${unread} unread since ${bm.lastReadChapterTitle || 'last read'}`
+                  : `Continue ${bm.lastReadChapterTitle || 'reading'}`;
+            return (
+              <div
+                key={`pickup-${bm.slug}`}
+                style={{
+                  width: compact ? 236 : 264,
+                  flexShrink: 0,
+                  scrollSnapAlign: 'start',
+                  padding: 10,
+                  borderRadius: 11,
+                  background: KatanaColors.surface,
+                  border: `1px solid ${KatanaColors.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={() => onSelectManga(bm.slug)}
+                  style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
+                >
+                  <div style={{ position: 'relative', width: 46, height: 64, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                    <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={16} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text, lineHeight: 1.25 }}>
+                      {bm.title}
+                    </div>
+                    <div className="ellipsis" style={{ marginTop: 3, fontFamily: Fonts.body, fontSize: 11.5, fontWeight: 600, color: KatanaColors.accentSoft }}>
+                      {reason}
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Resume ${bm.title}`}
+                  onClick={() => onResumeBookmark?.(bm)}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 99,
+                    background: KatanaColors.accent,
+                    color: KatanaColors.accentInk,
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="play_arrow" size={20} color={KatanaColors.accentInk} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    ) : null;
+
+  const hiddenGemsRail = useMemo(() => {
+    if (type !== 'all' || allCatalog.length < 5) return null;
+    const spotlightSet = new Set(featuredCandidates.map((m) => m.slug));
+    const readingSet = new Set(currentlyReading.map((b) => b.slug));
+    const recSet = new Set(recommended.slice(0, 4).map((r) => r.manga.slug));
+    const gems = allCatalog
+      .filter((m) => !spotlightSet.has(m.slug) && !readingSet.has(m.slug) && !recSet.has(m.slug))
+      .sort((a, b) => (b.rating ?? 8.2) - (a.rating ?? 8.2) || (a.follows ?? 9999) - (b.follows ?? 9999))
+      .slice(0, 8);
+    if (gems.length < 3) return null;
+    return (
+      <section aria-label="Hidden gems" style={{ marginTop: 20 }}>
+        <KatanaSectionHeader title="Hidden Gems" badge="High-Rated & Underrated" />
+        <div style={{ height: 10 }} />
+        <div className="no-scrollbar" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 4 }}>
+          {gems.map((m) => (
+            <KatanaCompactCard
+              key={`gem-${m.slug}`}
+              manga={m}
+              width={tablet ? 156 : 124}
+              reason={
+                m.rating != null
+                  ? `★ ${m.rating.toFixed(1)} · Cult favorite`
+                  : m.genres[0]
+                    ? `Hidden ${m.genres[0].name} gem`
+                    : 'Underrated pick'
+              }
+              onSelect={() => onSelectManga(m.slug)}
+              onOpenChapter={onOpenChapter}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }, [type, allCatalog, featuredCandidates, currentlyReading, recommended, tablet, onSelectManga, onOpenChapter]);
+
   const typeStripRef = useRef<HTMLDivElement | null>(null);
   const typeChips = (
+    <>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 5 : 8 }}>
       <div
         ref={typeStripRef}
@@ -1557,32 +1790,155 @@ export function MangaHome({
           />
         ))}
       </div>
-      {allCatalog.length > 0 && (
-        <button
-          type="button"
-          className="bare-button"
-          onClick={openRandomPick}
-          aria-label="Pick a random title"
-          title="Pick a random title"
-          style={{
-            flexShrink: 0,
-            padding: compact ? '0 9px' : '0 14px',
-            minWidth: 44,
-            height: 44,
-            borderRadius: 99,
-            background: KatanaColors.surfaceAlt,
-            border: `1px solid ${KatanaColors.borderStrong}`,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: compact ? 4 : 5,
-          }}
-        >
-          <Icon name="casino" size={compact ? 14 : 15} color={KatanaColors.accentSoft} />
-          <span style={{ fontFamily: Fonts.body, fontSize: compact ? 12 : 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>
-        </button>
-      )}
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {type === 'all' && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => setRailEditorOpen((v) => !v)}
+            aria-expanded={railEditorOpen}
+            aria-label="Customize home rails"
+            title="Reorder or toggle Home rails"
+            style={{
+              padding: compact ? '0 9px' : '0 12px',
+              minWidth: 44,
+              height: 44,
+              borderRadius: 99,
+              background: railEditorOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
+              border: `1px solid ${railEditorOpen ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+            }}
+          >
+            <Icon name="reorder" size={15} color={railEditorOpen ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+            {!compact && (
+              <span style={{ fontFamily: Fonts.body, fontSize: 12, fontWeight: 600, color: KatanaColors.text }}>
+                Rails
+              </span>
+            )}
+          </button>
+        )}
+        {allCatalog.length > 0 && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={openRandomPick}
+            aria-label="Pick a random title"
+            title="Pick a random title"
+            style={{
+              flexShrink: 0,
+              padding: compact ? '0 9px' : '0 14px',
+              minWidth: 44,
+              height: 44,
+              borderRadius: 99,
+              background: KatanaColors.surfaceAlt,
+              border: `1px solid ${KatanaColors.borderStrong}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: compact ? 4 : 5,
+            }}
+          >
+            <Icon name="casino" size={compact ? 14 : 15} color={KatanaColors.accentSoft} />
+            <span style={{ fontFamily: Fonts.body, fontSize: compact ? 12 : 12.5, fontWeight: 600, color: KatanaColors.text }}>Random</span>
+          </button>
+        )}
+      </div>
     </div>
+    {railEditorOpen && type === 'all' && (
+      <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
+            Customize Home Rails Order &amp; Visibility
+          </span>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => {
+              setHomeRailOrder(DEFAULT_HOME_RAIL_ORDER);
+              setHiddenHomeRails([]);
+              try {
+                localStorage.removeItem('katana_home_rail_order_v1');
+                localStorage.removeItem('katana_home_rails_hidden_v1');
+              } catch {
+                // ignore
+              }
+            }}
+            style={{ ...KatanaType.link, fontSize: 12, minHeight: 36, padding: '0 8px' }}
+          >
+            Reset Default
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {homeRailOrder.map((railId, idx) => {
+            const visible = !hiddenHomeRails.includes(railId);
+            return (
+              <div
+                key={railId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 8px',
+                  borderRadius: 8,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                }}
+              >
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-pressed={visible}
+                  onClick={() => toggleHomeRailVisible(railId)}
+                  style={{
+                    flex: 1,
+                    minHeight: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    textAlign: 'left',
+                    fontFamily: Fonts.body,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: visible ? KatanaColors.text : KatanaColors.textLight,
+                  }}
+                >
+                  <Icon
+                    name={visible ? 'visibility' : 'visibility_off'}
+                    size={16}
+                    color={visible ? KatanaColors.accent : KatanaColors.textLight}
+                  />
+                  <span>{HOME_RAIL_LABELS[railId]}</span>
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Move ${HOME_RAIL_LABELS[railId]} up`}
+                  disabled={idx === 0}
+                  onClick={() => moveHomeRail(railId, -1)}
+                  style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', opacity: idx === 0 ? 0.35 : 1 }}
+                >
+                  <Icon name="arrow_upward" size={16} color={KatanaColors.textMuted} />
+                </button>
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Move ${HOME_RAIL_LABELS[railId]} down`}
+                  disabled={idx === homeRailOrder.length - 1}
+                  onClick={() => moveHomeRail(railId, 1)}
+                  style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', opacity: idx === homeRailOrder.length - 1 ? 0.35 : 1 }}
+                >
+                  <Icon name="arrow_downward" size={16} color={KatanaColors.textMuted} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </KatanaCard>
+    )}
+    </>
   );
 
   const hasPersonalizedSignal = recommended.some((r) => r.reason.startsWith('Matches ') || r.reason.startsWith('Because you read '));
@@ -2469,6 +2825,41 @@ export function MangaHome({
       </div>
     ) : null;
 
+  const renderOrderedHomeRails = (isCompactLayout: boolean) => {
+    const visibleOrder = homeRailOrder.filter((id) => !hiddenHomeRails.includes(id));
+    return visibleOrder.map((railId) => {
+      switch (railId) {
+        case 'reading':
+          return null; // Rendered directly below hero above typeChips unless reordered below
+        case 'feed':
+          return <div key="rail-feed">{feedSection}</div>;
+        case 'pick_back_up':
+          return <div key="rail-pickup">{pickBackUpRail}</div>;
+        case 'trending':
+          return <div key="rail-trending">{trendingRankedRail}</div>;
+        case 'calendar':
+          return type === 'all' ? (
+            <div key="rail-calendar">
+              <ReleaseCalendarRail
+                catalog={allCatalog}
+                bookmarks={libraryBookmarks}
+                unreadBySlug={unreadBySlug}
+                downloadedCounts={downloadedCounts}
+                compact={isCompactLayout}
+                onSelectManga={onSelectManga}
+              />
+            </div>
+          ) : null;
+        case 'recommended':
+          return <div key="rail-recommended">{recommendedRail}</div>;
+        case 'hidden_gems':
+          return <div key="rail-gems">{hiddenGemsRail}</div>;
+        default:
+          return null;
+      }
+    });
+  };
+
   if (!desktop) {
     return (
       <div
@@ -2491,31 +2882,21 @@ export function MangaHome({
                 onSelectGenre={onSelectGenre}
               />
             )}
-            <CurrentlyReadingShelf
-              items={currentlyReading}
-              catalog={allCatalog}
-              downloadedCounts={downloadedCounts}
-              compact={compact}
-              onSelectManga={onSelectManga}
-              onResumeBookmark={onResumeBookmark}
-              onViewAll={() => onViewAllReading?.()}
-            />
-            {typeChips}
-            {newChapterAlertBanner ?? tasteOnboardingBanner}
-            <div style={{ height: compact ? 8 : 10 }} />
-            {feedSection}
-            {trendingRankedRail}
-            {type === 'all' && (
-              <ReleaseCalendarRail
+            {!hiddenHomeRails.includes('reading') && (
+              <CurrentlyReadingShelf
+                items={currentlyReading}
                 catalog={allCatalog}
-                bookmarks={libraryBookmarks}
-                unreadBySlug={unreadBySlug}
                 downloadedCounts={downloadedCounts}
                 compact={compact}
                 onSelectManga={onSelectManga}
+                onResumeBookmark={onResumeBookmark}
+                onViewAll={() => onViewAllReading?.()}
               />
             )}
-            {recommendedRail}
+            {typeChips}
+            {newChapterAlertBanner ?? tasteOnboardingBanner}
+            <div style={{ height: compact ? 8 : 10 }} />
+            {renderOrderedHomeRails(compact)}
             {type === 'all' && hotCard && <div style={{ marginTop: 20 }}>{hotCard}</div>}
             {genresCard && <div style={{ marginTop: 18 }}>{genresCard}</div>}
           </>,
@@ -2540,33 +2921,23 @@ export function MangaHome({
               onSelectGenre={onSelectGenre}
             />
           )}
-          <CurrentlyReadingShelf
-            items={currentlyReading}
-            catalog={allCatalog}
-            downloadedCounts={downloadedCounts}
-            compact={false}
-            onSelectManga={onSelectManga}
-            onResumeBookmark={onResumeBookmark}
-            onViewAll={() => onViewAllReading?.()}
-          />
+          {!hiddenHomeRails.includes('reading') && (
+            <CurrentlyReadingShelf
+              items={currentlyReading}
+              catalog={allCatalog}
+              downloadedCounts={downloadedCounts}
+              compact={false}
+              onSelectManga={onSelectManga}
+              onResumeBookmark={onResumeBookmark}
+              onViewAll={() => onViewAllReading?.()}
+            />
+          )}
           {typeChips}
           {newChapterAlertBanner ?? tasteOnboardingBanner}
           <div style={{ height: 14 }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
             <div style={{ flex: 7, minWidth: 0 }}>
-              {feedSection}
-              {trendingRankedRail}
-              {type === 'all' && (
-                <ReleaseCalendarRail
-                  catalog={allCatalog}
-                  bookmarks={libraryBookmarks}
-                  unreadBySlug={unreadBySlug}
-                  downloadedCounts={downloadedCounts}
-                  compact={false}
-                  onSelectManga={onSelectManga}
-                />
-              )}
-              {recommendedRail}
+              {renderOrderedHomeRails(false)}
             </div>
             <aside style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
               {type === 'all' && hotCard}

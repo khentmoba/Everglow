@@ -106,6 +106,9 @@ export interface ReaderSettings {
 export interface SeriesChapterFilter {
   lang?: string;
   group?: string;
+  preferredGroup?: string;
+  blockedGroups?: string[];
+  waitForPreferredHours?: number;
 }
 
 export type SeriesReaderOverride = Partial<ReaderSettings>;
@@ -121,6 +124,7 @@ export interface PageBookmark {
   chapterTitle: string;
   pageIdx: number;
   createdAt: number;
+  note?: string;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
@@ -683,7 +687,26 @@ export function loadSeriesChapterFilter(slug: string): SeriesChapterFilter | nul
     if (!parsed || typeof parsed !== 'object') return null;
     const lang = typeof parsed.lang === 'string' && parsed.lang.trim() ? parsed.lang.trim() : undefined;
     const group = typeof parsed.group === 'string' && parsed.group.trim() ? parsed.group.trim() : undefined;
-    return lang || group ? { lang, group } : null;
+    const preferredGroup =
+      typeof parsed.preferredGroup === 'string' && parsed.preferredGroup.trim()
+        ? parsed.preferredGroup.trim()
+        : undefined;
+    const blockedGroups = Array.isArray(parsed.blockedGroups)
+      ? Array.from(new Set(parsed.blockedGroups.map((g) => String(g).trim()).filter(Boolean)))
+      : undefined;
+    const waitForPreferredHours =
+      typeof parsed.waitForPreferredHours === 'number' && parsed.waitForPreferredHours > 0
+        ? Math.min(168, Math.round(parsed.waitForPreferredHours))
+        : undefined;
+    return lang || group || preferredGroup || (blockedGroups && blockedGroups.length > 0) || waitForPreferredHours
+      ? {
+          lang,
+          group,
+          preferredGroup,
+          ...(blockedGroups && blockedGroups.length > 0 ? { blockedGroups } : {}),
+          ...(waitForPreferredHours ? { waitForPreferredHours } : {}),
+        }
+      : null;
   } catch {
     return null;
   }
@@ -691,11 +714,27 @@ export function loadSeriesChapterFilter(slug: string): SeriesChapterFilter | nul
 
 export function saveSeriesChapterFilter(slug: string, filter: SeriesChapterFilter | null): void {
   if (!slug) return;
-  if (!filter || (!filter.lang && !filter.group)) {
+  const blocked = Array.isArray(filter?.blockedGroups)
+    ? Array.from(new Set(filter.blockedGroups.map((g) => String(g).trim()).filter(Boolean)))
+    : [];
+  const waitHrs =
+    typeof filter?.waitForPreferredHours === 'number' && filter.waitForPreferredHours > 0
+      ? Math.min(168, Math.round(filter.waitForPreferredHours))
+      : undefined;
+  if (!filter || (!filter.lang && !filter.group && !filter.preferredGroup && blocked.length === 0 && !waitHrs)) {
     Prefs.remove(CHAPTER_FILTER_PREFIX + slug);
     return;
   }
-  Prefs.set(CHAPTER_FILTER_PREFIX + slug, JSON.stringify({ lang: filter.lang, group: filter.group }));
+  Prefs.set(
+    CHAPTER_FILTER_PREFIX + slug,
+    JSON.stringify({
+      ...(filter.lang ? { lang: filter.lang } : {}),
+      ...(filter.group ? { group: filter.group } : {}),
+      ...(filter.preferredGroup ? { preferredGroup: filter.preferredGroup } : {}),
+      ...(blocked.length > 0 ? { blockedGroups: blocked } : {}),
+      ...(waitHrs ? { waitForPreferredHours: waitHrs } : {}),
+    }),
+  );
 }
 
 export interface ReaderBackupBundle {

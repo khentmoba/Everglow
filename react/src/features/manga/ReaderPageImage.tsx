@@ -285,7 +285,7 @@ export function ReaderPageImage({
     }
   }, [resolved, reloadToken, status, step]);
 
-  const shouldCrop = cropBorders || fitMode === 'smart-fit';
+  const shouldCrop = cropBorders;
   const needsCanvasSample = shouldCrop || sampleEdgeColor || detectPanels;
 
   useEffect(() => {

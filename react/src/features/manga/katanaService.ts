@@ -67,6 +67,23 @@ export interface KatanaChapter {
 
 export type KatanaWeekday = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
 
+export type KatanaRelationKind =
+  | 'sequel'
+  | 'prequel'
+  | 'side_story'
+  | 'spin_off'
+  | 'adaptation'
+  | 'shared_universe'
+  | 'same_creator';
+
+export interface KatanaRelatedWork {
+  slug: string;
+  title: string;
+  relation: KatanaRelationKind;
+  coverUrl?: string;
+  status?: string;
+}
+
 export interface KatanaManga {
   slug: string;
   id: string;
@@ -90,6 +107,7 @@ export interface KatanaManga {
   releaseDay?: KatanaWeekday;
   source?: 'mangakatana' | 'mangadex' | 'comick' | 'bato';
   externalLinks?: KatanaExternalLinks;
+  relatedWorks?: KatanaRelatedWork[];
 }
 
 export type KatanaLibraryStatus = 'reading' | 'completed' | 'on_hold' | 'planned' | 'dropped';
@@ -191,16 +209,23 @@ export function estimateUnreadCount(
   if (status === 'completed' || status === 'dropped') return 0;
   if (knownChapters && knownChapters.length > 0) {
     const readSet = new Set(bm.readChapterIds);
-    if (bm.lastReadChapterId) readSet.add(bm.lastReadChapterId);
     return knownChapters.reduce((acc, c) => acc + (readSet.has(c.id) ? 0 : 1), 0);
   }
   const latestNum =
     (typeof knownLatestNum === 'number' && knownLatestNum > 0 ? knownLatestNum : undefined) ??
     (typeof bm.latestChapterNum === 'number' && bm.latestChapterNum > 0 ? bm.latestChapterNum : undefined) ??
     extractChapterNumber(bm.latestChapterTitle);
+  const completedMax =
+    bm.readChapterIds && bm.readChapterIds.length > 0
+      ? Math.max(0, ...bm.readChapterIds.map((id) => extractChapterNumber(katanaChapterNumFromId(id) || id)))
+      : 0;
   const readNum =
-    extractChapterNumber(bm.lastReadChapterTitle) ||
-    extractChapterNumber(katanaChapterNumFromId(bm.lastReadChapterId));
+    completedMax > 0
+      ? completedMax
+      : bm.finishedAt
+        ? extractChapterNumber(bm.lastReadChapterTitle) ||
+          extractChapterNumber(katanaChapterNumFromId(bm.lastReadChapterId))
+        : 0;
   if (latestNum <= 0) return 0;
   if (readNum <= 0) return Math.max(1, Math.ceil(latestNum));
   const diff = latestNum - readNum;
@@ -1412,12 +1437,17 @@ async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | 
         links?: Record<string, string>;
         tags?: Array<{ id?: string; attributes?: { name?: Record<string, string> } }>;
       };
-      relationships?: Array<{ type?: string; attributes?: { fileName?: string; name?: string } }>;
+      relationships?: Array<{
+        id?: string;
+        type?: string;
+        related?: string;
+        attributes?: { fileName?: string; name?: string; title?: Record<string, string>; status?: string };
+      }>;
     } | undefined;
 
     if (mangaId) {
       const resp = await fetch(
-        `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist`)}`,
+        `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist&includes[]=manga`)}`,
         { headers, signal: AbortSignal.timeout(10_000) },
       );
       if (resp.ok) {
@@ -1428,7 +1458,7 @@ async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | 
       const guessTitle = slug.replace(/\.\d+$/, '').replace(/[-_]+/g, ' ').trim();
       if (!guessTitle) return null;
       const resp = await fetch(
-        `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga?title=${encodeURIComponent(guessTitle)}&limit=1&includes[]=cover_art&includes[]=author&includes[]=artist&contentRating[]=safe&contentRating[]=suggestive`)}`,
+        `${PROXY_MANGADEX_URL}?path=${encodeURIComponent(`/manga?title=${encodeURIComponent(guessTitle)}&limit=1&includes[]=cover_art&includes[]=author&includes[]=artist&includes[]=manga&contentRating[]=safe&contentRating[]=suggestive`)}`,
         { headers, signal: AbortSignal.timeout(10_000) },
       );
       if (resp.ok) {
@@ -1474,14 +1504,22 @@ async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | 
           relationships?: Array<{ type?: string; attributes?: { name?: string } }>;
         }>;
       };
-      const seenNums = new Set<string>();
+      const seenNumGroups = new Set<string>();
+      const primarySeenNums = new Set<string>();
       for (const ch of feedJson.data ?? []) {
         const num = ch.attributes?.chapter ?? '';
-        if (!num || seenNums.has(num)) continue;
-        seenNums.add(num);
+        if (!num) continue;
         const groupName = ch.relationships?.find((r) => r.type === 'scanlation_group')?.attributes?.name;
+        const groupKey = `${num}|${(groupName ?? 'default').toLowerCase()}`;
+        if (seenNumGroups.has(groupKey)) continue;
+        seenNumGroups.add(groupKey);
+        const isFirstForNum = !primarySeenNums.has(num);
+        if (isFirstForNum) primarySeenNums.add(num);
+        const chId = isFirstForNum
+          ? `c${num}`
+          : `c${num}--${(groupName ?? ch.id ?? 'alt').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18)}`;
         chapters.push({
-          id: `c${num}`,
+          id: chId,
           num,
           title: ch.attributes?.title ? `Chapter ${num}: ${ch.attributes.title}` : `Chapter ${num}`,
           updateAt: ch.attributes?.publishAt ? new Date(ch.attributes.publishAt) : undefined,
@@ -1489,6 +1527,33 @@ async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | 
           language: ch.attributes?.translatedLanguage ?? 'en',
         });
       }
+    }
+
+    const relatedWorks: KatanaRelatedWork[] = [];
+    for (const rel of mangaData.relationships ?? []) {
+      if (rel.type !== 'manga' || !rel.id) continue;
+      const relTitleObj = rel.attributes?.title ?? {};
+      const relTitle = relTitleObj.en ?? relTitleObj['ja-ro'] ?? Object.values(relTitleObj)[0];
+      if (!relTitle) continue;
+      const rawRel = (rel.related ?? '').toLowerCase();
+      const relation: KatanaRelationKind =
+        rawRel === 'sequel'
+          ? 'sequel'
+          : rawRel === 'prequel'
+            ? 'prequel'
+            : rawRel === 'spin_off'
+              ? 'spin_off'
+              : rawRel === 'adapted_from' || rawRel === 'adaptation'
+                ? 'adaptation'
+                : rawRel === 'shared_universe'
+                  ? 'shared_universe'
+                  : 'side_story';
+      relatedWorks.push({
+        slug: `md-${rel.id}`,
+        title: relTitle,
+        relation,
+        status: rel.attributes?.status,
+      });
     }
 
     const mdLinks = attrs.links ?? {};
@@ -1520,6 +1585,7 @@ async function fetchMangaDexDetailFallback(slug: string): Promise<KatanaManga | 
       updateAt: chapters[0]?.updateAt,
       source: 'mangadex',
       externalLinks,
+      ...(relatedWorks.length > 0 ? { relatedWorks } : {}),
     };
   } catch (err) {
     Logger.e('KatanaService: fetchMangaDexDetailFallback failed', err);
@@ -2221,13 +2287,20 @@ export async function saveKatanaReadingProgress(p: {
   title?: string;
   coverUrl?: string;
   finished?: boolean;
+  /** True only when the user actually finishes the chapter (final page reached or explicit completion). */
+  chapterCompleted?: boolean;
 }): Promise<void> {
   if (!p.userName || !p.slug) return;
+  if (isKatanaIncognitoSession()) return;
+  const markRead = Boolean(p.chapterCompleted || p.finished);
   if (AgentMode.demo) {
     const list = demoBookmarks.get(p.userName) ?? [];
     const idx = list.findIndex((b) => b.slug === p.slug);
     const cur = idx >= 0 ? list[idx] : undefined;
-    const readChapterIds = Array.from(new Set([...(cur?.readChapterIds ?? []), p.chapterId]));
+    const prevReadIds = cur?.readChapterIds ?? [];
+    const readChapterIds = markRead
+      ? Array.from(new Set([...prevReadIds, p.chapterId]))
+      : prevReadIds;
     const entry: KatanaBookmark = {
       slug: p.slug,
       title: p.title || cur?.title || p.slug,
@@ -2245,6 +2318,7 @@ export async function saveKatanaReadingProgress(p: {
       bookmarked: cur?.bookmarked ?? false,
       libraryStatus: p.finished ? 'completed' : cur?.libraryStatus,
       categories: cur?.categories ?? [],
+      notifyOnUpdate: typeof cur?.notifyOnUpdate === 'boolean' ? cur.notifyOnUpdate : true,
       finishedAt: cur?.finishedAt ?? (p.finished ? new Date() : undefined),
     };
     const next = [...list];
@@ -2252,7 +2326,11 @@ export async function saveKatanaReadingProgress(p: {
     else next.unshift(entry);
     demoBookmarks.set(p.userName, next);
     demoChanges.emit();
-    if ((entry.anilistId || entry.malId || entry.kitsuId) && loadKatanaTrackerTokens(p.userName).autoPushTrackers !== false) {
+    if (
+      markRead &&
+      (entry.anilistId || entry.malId || entry.kitsuId || entry.mangaUpdatesId || entry.shikimoriId || entry.bangumiId || entry.comickId) &&
+      loadKatanaTrackerTokens(p.userName).autoPushTrackers !== false
+    ) {
       void pushKatanaTrackerProgress(
         { slug: entry.slug, title: entry.title, coverUrl: entry.coverUrl, status: entry.status },
         p.userName,
@@ -2261,25 +2339,32 @@ export async function saveKatanaReadingProgress(p: {
     return;
   }
   const existing = await getKatanaBookmark(p.slug, p.userName);
-  const readChapterIds = Array.from(new Set([...(existing?.readChapterIds ?? []), p.chapterId]));
+  const prevReadIds = existing?.readChapterIds ?? [];
+  const readChapterIds = markRead
+    ? Array.from(new Set([...prevReadIds, p.chapterId]))
+    : prevReadIds;
   await setDoc(
     doc(db, 'katana_bookmarks', `${p.userName}|${p.slug}`),
     {
       slug: p.slug,
       userName: p.userName,
-      ...(existing == null ? { bookmarked: false } : {}),
+      ...(existing == null ? { bookmarked: false, notifyOnUpdate: true } : {}),
       lastReadAt: Timestamp.now(),
       lastReadChapterId: p.chapterId,
       lastReadPage: p.page,
       lastReadChapterTitle: p.chapterTitle,
-      readChapterIds,
+      ...(markRead ? { readChapterIds } : {}),
       ...(p.finished && !existing?.finishedAt ? { finishedAt: Timestamp.now(), status: 'completed' } : {}),
       ...(p.title ? { title: p.title } : {}),
       ...(p.coverUrl ? { coverUrl: p.coverUrl } : {}),
     },
     { merge: true },
   );
-  if ((existing?.anilistId || existing?.malId || existing?.kitsuId) && loadKatanaTrackerTokens(p.userName).autoPushTrackers !== false) {
+  if (
+    markRead &&
+    (existing?.anilistId || existing?.malId || existing?.kitsuId || existing?.mangaUpdatesId || existing?.shikimoriId || existing?.bangumiId || existing?.comickId) &&
+    loadKatanaTrackerTokens(p.userName).autoPushTrackers !== false
+  ) {
     void pushKatanaTrackerProgress(
       {
         slug: p.slug,
@@ -2298,6 +2383,7 @@ export async function setKatanaLibraryStatus(
   libraryStatus: KatanaLibraryStatus,
 ): Promise<void> {
   if (!userName || !manga.slug) return;
+  const defaultNotify = libraryStatus === 'reading' || libraryStatus === 'planned';
   if (AgentMode.demo) {
     const list = demoBookmarks.get(userName) ?? [];
     const idx = list.findIndex((b) => b.slug === manga.slug);
@@ -2318,6 +2404,7 @@ export async function setKatanaLibraryStatus(
       readChapterIds: cur?.readChapterIds ?? [],
       bookmarked: true,
       libraryStatus,
+      notifyOnUpdate: typeof cur?.notifyOnUpdate === 'boolean' ? cur.notifyOnUpdate : defaultNotify,
       categories: cur?.categories ?? [],
       userScore: cur?.userScore,
       rereadCount: cur?.rereadCount,
@@ -2348,6 +2435,7 @@ export async function setKatanaLibraryStatus(
       userName,
       bookmarked: true,
       libraryStatus,
+      notifyOnUpdate: typeof existing?.notifyOnUpdate === 'boolean' ? existing.notifyOnUpdate : defaultNotify,
       ...(libraryStatus === 'completed'
         ? existing?.finishedAt
           ? {}
@@ -2394,6 +2482,10 @@ export async function markKatanaChaptersRead(
       bookmarked: cur?.bookmarked ?? false,
       libraryStatus: cur?.libraryStatus,
       categories: cur?.categories ?? [],
+      notifyOnUpdate: cur?.notifyOnUpdate,
+      anilistId: cur?.anilistId,
+      malId: cur?.malId,
+      kitsuId: cur?.kitsuId,
       finishedAt: cur?.finishedAt,
     };
     const next = [...list];
@@ -2401,6 +2493,14 @@ export async function markKatanaChaptersRead(
     else next.unshift(entry);
     demoBookmarks.set(userName, next);
     demoChanges.emit();
+    if (
+      read &&
+      !isKatanaIncognitoSession() &&
+      (entry.anilistId || entry.malId || entry.kitsuId || entry.mangaUpdatesId || entry.shikimoriId || entry.bangumiId || entry.comickId) &&
+      loadKatanaTrackerTokens(userName).autoPushTrackers !== false
+    ) {
+      void pushKatanaTrackerProgress(manga, userName);
+    }
     return;
   }
   const existing = await getKatanaBookmark(manga.slug, userName);
@@ -2418,6 +2518,14 @@ export async function markKatanaChaptersRead(
     },
     { merge: true },
   );
+  if (
+    read &&
+    !isKatanaIncognitoSession() &&
+    (existing?.anilistId || existing?.malId || existing?.kitsuId || existing?.mangaUpdatesId || existing?.shikimoriId || existing?.bangumiId || existing?.comickId) &&
+    loadKatanaTrackerTokens(userName).autoPushTrackers !== false
+  ) {
+    void pushKatanaTrackerProgress(manga, userName);
+  }
 }
 
 export async function clearKatanaReadingProgress(slug: string, userName: string): Promise<void> {
@@ -3065,10 +3173,16 @@ export interface TrackerPushResult {
   remotePushed: boolean;
 }
 
+const trackerPushCoalesceMap = new Map<
+  string,
+  { chapterProgress: number; status: KatanaLibraryStatus; score?: number; at: number }
+>();
+
 /**
  * Bidirectional tracker sync: pushes reading status, chapter progress, personal score,
  * and reread count to linked AniList, MyAnimeList, and Kitsu entries through Everglow's
  * server-side `proxyCatalog?base=tracker_sync` helper, and records push state in Firestore.
+ * Coalesces identical chapter/status/score pushes within a 20-second backoff window.
  */
 export async function pushKatanaTrackerProgress(
   manga: Pick<KatanaManga, 'slug' | 'title' | 'coverUrl' | 'status'>,
@@ -3081,9 +3195,11 @@ export async function pushKatanaTrackerProgress(
     anilistId?: string;
     malId?: string;
     kitsuId?: string;
+    force?: boolean;
   },
 ): Promise<TrackerPushResult | null> {
   if (!userName || !manga.slug) return null;
+  if (isKatanaIncognitoSession() && !overrides?.force) return null;
   const bm = await getKatanaBookmark(manga.slug, userName);
   const anilistId = (overrides?.anilistId ?? bm?.anilistId ?? '').trim();
   const malId = (overrides?.malId ?? bm?.malId ?? '').trim();
@@ -3107,6 +3223,26 @@ export async function pushKatanaTrackerProgress(
       : overrides?.userScore !== undefined
         ? overrides.userScore
         : bm?.userScore;
+
+  const coalesceKey = `${userName}|${manga.slug}`;
+  const prevPush = trackerPushCoalesceMap.get(coalesceKey);
+  const nowMs = Date.now();
+  if (
+    !overrides?.force &&
+    prevPush &&
+    nowMs - prevPush.at < 20_000 &&
+    prevPush.chapterProgress === readNum &&
+    prevPush.status === status &&
+    prevPush.score === score
+  ) {
+    return null;
+  }
+  trackerPushCoalesceMap.set(coalesceKey, {
+    chapterProgress: readNum,
+    status,
+    score,
+    at: nowMs,
+  });
   const repeat = overrides?.rereadCount ?? bm?.rereadCount ?? 0;
   const notes = bm?.trackerNote;
   const tokens = loadKatanaTrackerTokens(userName);
@@ -3764,6 +3900,39 @@ export function loadKatanaHistory(userName: string): KatanaHistoryEntry[] {
 }
 
 const HISTORY_PAUSED_PREFIX = 'katana_history_paused_v1_';
+const INCOGNITO_SESSION_KEY = 'katana_incognito_session_v1';
+const incognitoListeners = new Set<(active: boolean) => void>();
+
+/**
+ * Session-scoped Incognito Reading mode (separate from persistent history pause).
+ * While active, chapter opens, page turns, read-chapter marking, and tracker pushes are suppressed.
+ */
+export function isKatanaIncognitoSession(): boolean {
+  try {
+    return typeof sessionStorage !== 'undefined' && sessionStorage.getItem(INCOGNITO_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setKatanaIncognitoSession(active: boolean): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (active) sessionStorage.setItem(INCOGNITO_SESSION_KEY, '1');
+      else sessionStorage.removeItem(INCOGNITO_SESSION_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+  for (const fn of incognitoListeners) fn(active);
+}
+
+export function subscribeKatanaIncognitoSession(listener: (active: boolean) => void): () => void {
+  incognitoListeners.add(listener);
+  return () => {
+    incognitoListeners.delete(listener);
+  };
+}
 
 export function isKatanaHistoryPaused(userName: string): boolean {
   if (!userName) return false;
@@ -3785,7 +3954,7 @@ export function setKatanaHistoryPaused(userName: string, paused: boolean): void 
 
 export function recordKatanaHistory(userName: string, entry: KatanaHistoryEntry): KatanaHistoryEntry[] {
   if (!userName || !entry.slug || !entry.chapterId) return [];
-  if (isKatanaHistoryPaused(userName)) return loadKatanaHistory(userName);
+  if (isKatanaHistoryPaused(userName) || isKatanaIncognitoSession()) return loadKatanaHistory(userName);
   const existing = loadKatanaHistory(userName).filter(
     (item) => !(item.slug === entry.slug && item.chapterId === entry.chapterId),
   );

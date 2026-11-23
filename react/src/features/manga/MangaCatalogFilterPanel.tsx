@@ -147,7 +147,7 @@ export function MangaCatalogFilterPanel({
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    height: 40,
+                    height: 44,
                     padding: '0 10px',
                     borderRadius: 8,
                     background: KatanaColors.surface,
@@ -163,7 +163,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={onSavePreset}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '0 12px',
                     borderRadius: 8,
                     background: KatanaColors.accent,
@@ -202,7 +202,7 @@ export function MangaCatalogFilterPanel({
                     className="bare-button"
                     onClick={() => onApplyPreset(preset)}
                     style={{
-                      minHeight: 40,
+                      minHeight: 44,
                       padding: '0 12px',
                       fontFamily: Fonts.body,
                       fontSize: 12.5,
@@ -222,8 +222,8 @@ export function MangaCatalogFilterPanel({
                     aria-label={`Delete preset ${preset.name}`}
                     onClick={() => onDeletePreset(preset.id)}
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       display: 'grid',
                       placeItems: 'center',
                       borderLeft: `1px solid ${KatanaColors.border}`,
@@ -250,7 +250,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={() => onUpdateUrl({ order: opt.id === 'latest' ? null : opt.id, page: '1' }, { replace: true })}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 12px',
                     borderRadius: 8,
                     display: 'inline-flex',
@@ -282,7 +282,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={() => onUpdateUrl({ status: opt.id === 'all' ? null : opt.id, page: '1' }, { replace: true })}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 12px',
                     borderRadius: 8,
                     display: 'inline-flex',
@@ -314,7 +314,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={() => onUpdateUrl({ demo: opt.id === 'all' ? null : opt.id, page: '1' }, { replace: true })}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 12px',
                     borderRadius: 8,
                     display: 'inline-flex',
@@ -346,7 +346,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={() => onUpdateUrl({ minCh: opt.id === '1' ? null : opt.id, page: '1' }, { replace: true })}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 12px',
                     borderRadius: 8,
                     display: 'inline-flex',
@@ -378,7 +378,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={() => onUpdateUrl({ gm: gm === 'and' ? null : gm, page: '1' }, { replace: true })}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 12px',
                     borderRadius: 8,
                     display: 'inline-flex',
@@ -417,7 +417,7 @@ export function MangaCatalogFilterPanel({
                   className="bare-button"
                   onClick={() => onUpdateUrl({ lang: opt.id === 'all' ? null : opt.id, page: '1' }, { replace: true })}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '8px 12px',
                     borderRadius: 8,
                     display: 'inline-flex',
@@ -453,8 +453,8 @@ export function MangaCatalogFilterPanel({
             aria-label="Filter by author"
             style={{
               flex: 1,
-              height: 40,
-              padding: authorDraft ? '0 40px 0 12px' : '0 12px',
+              height: 44,
+              padding: authorDraft ? '0 44px 0 12px' : '0 12px',
               borderRadius: 8,
               background: KatanaColors.background,
               border: `1px solid ${KatanaColors.border}`,
@@ -476,8 +476,8 @@ export function MangaCatalogFilterPanel({
               style={{
                 position: 'absolute',
                 right: 0,
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: 8,
                 display: 'grid',
                 placeItems: 'center',
@@ -525,7 +525,7 @@ export function MangaCatalogFilterPanel({
                     aria-label={`${inc ? 'Remove include' : 'Include'} ${g.name}`}
                     onClick={() => onToggleIncludeGenre(g.slug)}
                     style={{
-                      minHeight: 40,
+                      minHeight: 44,
                       padding: '0 12px',
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -548,8 +548,8 @@ export function MangaCatalogFilterPanel({
                     title={exc ? `Remove ${g.name} exclusion` : `Exclude ${g.name}`}
                     onClick={() => onToggleExcludeGenre(g.slug)}
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       display: 'grid',
                       placeItems: 'center',
                       borderLeft: `1px solid ${inc ? withAlpha(KatanaColors.green, 0.35) : exc ? withAlpha(KatanaColors.crimson, 0.35) : KatanaColors.border}`,

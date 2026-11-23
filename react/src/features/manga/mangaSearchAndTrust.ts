@@ -166,9 +166,41 @@ export function computeMangaSearchRelevance(
   return score;
 }
 
+function extractYearQualifier(title: string, slug = ''): string {
+  const m = /\b(19[7-9]\d|20[0-3]\d)\b/.exec(`${title} ${slug}`);
+  return m ? m[1] : '';
+}
+
+function normalizeAuthorToken(authors?: string[]): string {
+  if (!authors || authors.length === 0) return '';
+  return authors[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+function hasConflictingMetadata(a: KatanaManga, b: KatanaManga): boolean {
+  const authorA = normalizeAuthorToken(a.authors);
+  const authorB = normalizeAuthorToken(b.authors);
+  if (authorA && authorB && authorA !== authorB && !authorA.includes(authorB) && !authorB.includes(authorA)) {
+    return true;
+  }
+  const demoA = (a.demographic ?? '').trim().toLowerCase();
+  const demoB = (b.demographic ?? '').trim().toLowerCase();
+  if (demoA && demoB && demoA !== demoB) {
+    return true;
+  }
+  const yearA = extractYearQualifier(a.title, a.slug);
+  const yearB = extractYearQualifier(b.title, b.slug);
+  if (yearA && yearB && yearA !== yearB) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Merges and deduplicates multi-source search results (`mangakatana`, `mangadex`, `comick`, `bato`)
- * using tracker IDs (when bookmarked) and canonical titles/altNames, preserving the freshest
+ * using tracker IDs and author/year/demographic-aware canonical titles/altNames, preserving the freshest
  * latest-chapter metadata and sorting by relevance score instead of naive round-robin.
  */
 export function rankAndMergeMultiSourceCatalog(args: {
@@ -190,7 +222,6 @@ export function rankAndMergeMultiSourceCatalog(args: {
     bookmarks = [],
   } = args;
 
-  const trackerKeyByNormTitle = new Map<string, string>();
   const trackerKeyBySlug = new Map<string, string>();
   for (const bm of bookmarks) {
     const tKey =
@@ -201,8 +232,6 @@ export function rankAndMergeMultiSourceCatalog(args: {
       '';
     if (!tKey) continue;
     trackerKeyBySlug.set(bm.slug, tKey);
-    const norm = normalizeCanonicalTitle(bm.title);
-    if (norm) trackerKeyByNormTitle.set(norm, tKey);
   }
 
   const allCandidates = [...katanaItems, ...mangadexItems, ...comickItems, ...batoItems];
@@ -223,13 +252,31 @@ export function rankAndMergeMultiSourceCatalog(args: {
     if (slugSeen.has(item.slug)) continue;
     slugSeen.add(item.slug);
 
-    const normTitle = normalizeCanonicalTitle(item.title);
-    const trackerKey =
+    const ext = item.externalLinks;
+    const itemTrackerKey =
       trackerKeyBySlug.get(item.slug) ||
-      (normTitle ? trackerKeyByNormTitle.get(normTitle) : undefined);
-    const canonicalKey = trackerKey || normTitle || item.slug;
+      (ext?.anilistId && `al:${ext.anilistId}`) ||
+      (ext?.malId && `mal:${ext.malId}`) ||
+      (ext?.kitsuId && `kt:${ext.kitsuId}`) ||
+      (ext?.mangaUpdatesId && `mu:${ext.mangaUpdatesId}`) ||
+      '';
 
-    const existing = byCanonicalKey.get(canonicalKey);
+    const normTitle = normalizeCanonicalTitle(item.title);
+    const yearQual = extractYearQualifier(item.title, item.slug);
+    const baseTitleKey = normTitle ? (yearQual ? `${normTitle}:${yearQual}` : normTitle) : item.slug;
+    let canonicalKey = itemTrackerKey || baseTitleKey;
+
+    let existing = byCanonicalKey.get(canonicalKey);
+    if (existing && !itemTrackerKey && hasConflictingMetadata(existing.item, item)) {
+      const disambiguator =
+        normalizeAuthorToken(item.authors) ||
+        (item.demographic ?? '').trim().toLowerCase() ||
+        extractYearQualifier(item.title, item.slug) ||
+        item.slug;
+      canonicalKey = `${baseTitleKey}|${disambiguator}`;
+      existing = byCanonicalKey.get(canonicalKey);
+    }
+
     if (!existing) {
       byCanonicalKey.set(canonicalKey, { item, score });
       continue;
@@ -450,3 +497,153 @@ export function estimateMangaBatchMegabytes(
         : `~${megabytes} MB`;
   return { megabytes, perChapterMb, label };
 }
+
+export interface ChapterGapSegment {
+  afterNum: number;
+  beforeNum: number;
+  missingNums: number[];
+  label: string;
+  beforeChapterId: string;
+  afterChapterId: string;
+}
+
+/**
+ * Uchiyomi-style Chapter Health scan: inspects a series' chapter list for missing integer chapter
+ * numbers so the detail page can list exact gaps and offer one-tap jump or cross-source repair.
+ */
+export function detectSeriesMissingChapters(
+  chapters: ReadonlyArray<{ id: string; num: string; title: string }>,
+): { missingNumbers: number[]; segments: ChapterGapSegment[] } {
+  if (!chapters || chapters.length < 2) return { missingNumbers: [], segments: [] };
+  const byIntNum = new Map<number, string>();
+  for (const ch of chapters) {
+    const n = extractChapterNumber(ch.num || ch.title || ch.id);
+    if (Number.isFinite(n) && n >= 1 && n <= 5000 && Number.isInteger(n)) {
+      if (!byIntNum.has(n)) byIntNum.set(n, ch.id);
+    }
+  }
+  const nums = Array.from(byIntNum.keys()).sort((a, b) => a - b);
+  if (nums.length < 2) return { missingNumbers: [], segments: [] };
+
+  const missingNumbers: number[] = [];
+  const segments: ChapterGapSegment[] = [];
+  for (let i = 0; i < nums.length - 1; i++) {
+    const low = nums[i];
+    const high = nums[i + 1];
+    const gap = high - low - 1;
+    if (gap >= 1 && gap <= 25) {
+      const segMissing: number[] = [];
+      for (let m = low + 1; m < high && missingNumbers.length < 60; m++) {
+        segMissing.push(m);
+        missingNumbers.push(m);
+      }
+      if (segMissing.length > 0) {
+        const label =
+          segMissing.length === 1
+            ? `Ch. ${segMissing[0]}`
+            : `Ch. ${segMissing[0]}–${segMissing[segMissing.length - 1]} (${segMissing.length})`;
+        segments.push({
+          afterNum: low,
+          beforeNum: high,
+          missingNums: segMissing,
+          label,
+          afterChapterId: byIntNum.get(low) ?? '',
+          beforeChapterId: byIntNum.get(high) ?? '',
+        });
+      }
+    }
+  }
+  return { missingNumbers, segments };
+}
+
+export interface HeatmapDayCell {
+  dateKey: string;
+  shortLabel: string;
+  count: number;
+}
+
+/**
+ * Computes truthful reading statistics from library bookmarks and history entries:
+ * never fabricates minimums when 0 chapters have been read, computes a real consecutive-day
+ * streak ending today or yesterday, and builds a 28-day Wrapped-style reading activity heatmap.
+ */
+export function computeTruthfulReadingStats(
+  bookmarks: ReadonlyArray<Pick<KatanaBookmark, 'readChapterIds'>>,
+  historyEntries: ReadonlyArray<{ readAt: number }>,
+  nowMs = Date.now(),
+): {
+  totalChaptersRead: number;
+  estHours: number;
+  estTimeLabel: string;
+  weekChapters: number;
+  streakDays: number;
+  activeDaysTotal: number;
+  heatmapDays: HeatmapDayCell[];
+} {
+  const totalChaptersRead = bookmarks.reduce((acc, b) => acc + (b.readChapterIds?.length ?? 0), 0);
+  const totalSeconds = totalChaptersRead * 18 * 25;
+  const estHours = totalChaptersRead === 0 ? 0 : Math.round(totalSeconds / 360) / 10;
+  const estTimeLabel =
+    totalChaptersRead === 0
+      ? '0h'
+      : totalSeconds < 3600
+        ? `${Math.max(1, Math.round(totalSeconds / 60))}m`
+        : `${estHours}h`;
+
+  const sevenDaysAgo = nowMs - 7 * 86_400_000;
+  const weekChapters = historyEntries.filter((h) => Number.isFinite(h.readAt) && h.readAt >= sevenDaysAgo).length;
+
+  const toLocalDayKey = (ms: number): string => {
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const countsByDay = new Map<string, number>();
+  for (const h of historyEntries) {
+    if (!Number.isFinite(h.readAt) || h.readAt <= 0) continue;
+    const key = toLocalDayKey(h.readAt);
+    countsByDay.set(key, (countsByDay.get(key) ?? 0) + 1);
+  }
+
+  const activeDaysTotal = countsByDay.size;
+
+  // Consecutive-day streak must include today or yesterday; otherwise current streak is 0.
+  let streakDays = 0;
+  const todayKey = toLocalDayKey(nowMs);
+  const yesterdayKey = toLocalDayKey(nowMs - 86_400_000);
+  if (countsByDay.has(todayKey) || countsByDay.has(yesterdayKey)) {
+    let cursorMs = countsByDay.has(todayKey) ? nowMs : nowMs - 86_400_000;
+    while (countsByDay.has(toLocalDayKey(cursorMs))) {
+      streakDays += 1;
+      cursorMs -= 86_400_000;
+    }
+  }
+
+  // Build 28-day (4-week) Wrapped-style activity heatmap oldest -> newest (ending today)
+  const heatmapDays: HeatmapDayCell[] = [];
+  for (let offset = 27; offset >= 0; offset--) {
+    const dayMs = nowMs - offset * 86_400_000;
+    const dateKey = toLocalDayKey(dayMs);
+    const d = new Date(dayMs);
+    const shortLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    heatmapDays.push({
+      dateKey,
+      shortLabel,
+      count: countsByDay.get(dateKey) ?? 0,
+    });
+  }
+
+  return {
+    totalChaptersRead,
+    estHours,
+    estTimeLabel,
+    weekChapters,
+    streakDays,
+    activeDaysTotal,
+    heatmapDays,
+  };
+}
+

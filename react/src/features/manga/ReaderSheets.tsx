@@ -198,6 +198,7 @@ export function ChapterDrawerSheet({
   onToggleChapterRead,
   onSelectBookmark,
   onRemoveBookmark,
+  onUpdateBookmarkNote,
   onClose,
 }: {
   chapters: KatanaChapter[];
@@ -212,11 +213,14 @@ export function ChapterDrawerSheet({
   onToggleChapterRead: (chapterId: string) => void;
   onSelectBookmark: (bm: PageBookmark) => void;
   onRemoveBookmark: (bm: PageBookmark) => void;
+  onUpdateBookmarkNote?: (bm: PageBookmark, note: string) => void;
   onClose: () => void;
 }) {
   const [drawerTab, setDrawerTab] = useState<'chapters' | 'pages' | 'bookmarks'>('chapters');
   const [query, setQuery] = useState('');
   const [ascending, setAscending] = useState(false);
+  const [editingNoteKey, setEditingNoteKey] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
   const sheetRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   useDialogFocusTrap(sheetRef, onClose);
@@ -553,51 +557,144 @@ export function ChapterDrawerSheet({
                 No page bookmarks yet. Tap the bookmark icon in the bottom bar or long-press any page to save it.
               </div>
             ) : (
-              pageBookmarks.map((bm) => (
-                <div
-                  key={`${bm.chapterId}:${bm.pageIdx}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 6,
-                    padding: '6px 8px 6px 12px',
-                    borderRadius: 12,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.border}`,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="bare-button player-focusable"
-                    onClick={() => {
-                      onSelectBookmark(bm);
-                      onClose();
-                    }}
-                    style={{ flex: 1, minWidth: 0, minHeight: 40, textAlign: 'left' }}
-                  >
-                    <div className="ellipsis" style={{ fontSize: 13.5, fontWeight: 600, color: KatanaColors.text }}>
-                      {bm.chapterTitle}
-                    </div>
-                    <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>Page {bm.pageIdx + 1}</div>
-                  </button>
-                  <button
-                    type="button"
-                    className="bare-button player-focusable"
-                    aria-label={`Remove bookmark for ${bm.chapterTitle} page ${bm.pageIdx + 1}`}
-                    onClick={() => onRemoveBookmark(bm)}
+              pageBookmarks.map((bm) => {
+                const bmKey = `${bm.chapterId}:${bm.pageIdx}`;
+                const isEditing = editingNoteKey === bmKey;
+                return (
+                  <div
+                    key={bmKey}
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      display: 'grid',
-                      placeItems: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      marginBottom: 8,
+                      padding: '8px 10px 8px 12px',
+                      borderRadius: 12,
+                      background: KatanaColors.surfaceAlt,
+                      border: `1px solid ${KatanaColors.border}`,
                     }}
                   >
-                    <Icon name="delete_outline" size={19} color={KatanaColors.textLight} />
-                  </button>
-                </div>
-              ))
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="bare-button player-focusable"
+                        onClick={() => {
+                          onSelectBookmark(bm);
+                          onClose();
+                        }}
+                        style={{ flex: 1, minWidth: 0, minHeight: 42, textAlign: 'left' }}
+                      >
+                        <div className="ellipsis" style={{ fontSize: 13.5, fontWeight: 600, color: KatanaColors.text }}>
+                          {bm.chapterTitle}
+                        </div>
+                        <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>Page {bm.pageIdx + 1}</div>
+                      </button>
+                      {onUpdateBookmarkNote && (
+                        <button
+                          type="button"
+                          className="bare-button player-focusable"
+                          aria-label={`Add or edit note for ${bm.chapterTitle} page ${bm.pageIdx + 1}`}
+                          title={bm.note ? 'Edit Moment note' : 'Add personal note to this Moment'}
+                          onClick={() => {
+                            if (isEditing) {
+                              setEditingNoteKey(null);
+                            } else {
+                              setEditingNoteKey(bmKey);
+                              setNoteDraft(bm.note ?? '');
+                            }
+                          }}
+                          style={{
+                            minHeight: 40,
+                            padding: '0 10px',
+                            borderRadius: 10,
+                            background: bm.note ? KatanaColors.surfaceGlow : KatanaColors.surface,
+                            border: `1px solid ${bm.note ? KatanaColors.accent : KatanaColors.border}`,
+                            color: bm.note ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Icon name="edit_note" size={16} color={bm.note ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                          <span>{bm.note ? 'Note' : '+ Note'}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="bare-button player-focusable"
+                        aria-label={`Remove bookmark for ${bm.chapterTitle} page ${bm.pageIdx + 1}`}
+                        onClick={() => onRemoveBookmark(bm)}
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 10,
+                          display: 'grid',
+                          placeItems: 'center',
+                        }}
+                      >
+                        <Icon name="delete_outline" size={19} color={KatanaColors.textLight} />
+                      </button>
+                    </div>
+                    {bm.note && !isEditing && (
+                      <div
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 8,
+                          background: KatanaColors.surface,
+                          borderLeft: `2px solid ${KatanaColors.accent}`,
+                          fontSize: 12.5,
+                          color: KatanaColors.text,
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        “{bm.note}”
+                      </div>
+                    )}
+                    {isEditing && onUpdateBookmarkNote && (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          placeholder="Why did you love this panel or moment?"
+                          aria-label="Moment personal note"
+                          style={{
+                            flex: 1,
+                            minHeight: 38,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            border: `1px solid ${KatanaColors.accent}`,
+                            background: KatanaColors.surface,
+                            color: KatanaColors.text,
+                            fontSize: 12.5,
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="bare-button player-focusable"
+                          onClick={() => {
+                            onUpdateBookmarkNote(bm, noteDraft.trim());
+                            setEditingNoteKey(null);
+                          }}
+                          style={{
+                            minHeight: 38,
+                            padding: '0 12px',
+                            borderRadius: 8,
+                            background: KatanaColors.accent,
+                            color: KatanaColors.accentInk,
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}
@@ -611,7 +708,11 @@ export function ReaderSettingsSheet({
   hasSeriesOverride,
   server,
   sleepTimerEndAt,
+  sleepWaitChapterEnd,
+  incognitoSession,
   onSetSleepTimer,
+  onToggleSleepWaitChapterEnd,
+  onToggleIncognitoSession,
   onUpdateSettings,
   onToggleSeriesOverride,
   onChangeServer,
@@ -621,7 +722,11 @@ export function ReaderSettingsSheet({
   hasSeriesOverride: boolean;
   server: string;
   sleepTimerEndAt?: number | null;
+  sleepWaitChapterEnd?: boolean;
+  incognitoSession?: boolean;
   onSetSleepTimer?: (minutes: number) => void;
+  onToggleSleepWaitChapterEnd?: (enabled: boolean) => void;
+  onToggleIncognitoSession?: (enabled: boolean) => void;
   onUpdateSettings: (patch: Partial<ReaderSettings>) => void;
   onToggleSeriesOverride: (enabled: boolean) => void;
   onChangeServer: (server: string) => void;
@@ -1596,21 +1701,40 @@ export function ReaderSettingsSheet({
                 />
               </div>
 
+              {onToggleIncognitoSession && (
+                <>
+                  <SectionLabel>Privacy &amp; Session</SectionLabel>
+                  <ToggleRow
+                    label="Incognito reading session"
+                    hint="Suppresses reading history, read-chapter marking, and tracker pushes for this session only"
+                    checked={Boolean(incognitoSession)}
+                    onChange={onToggleIncognitoSession}
+                  />
+                </>
+              )}
+
               {onSetSleepTimer && (
                 <>
                   <SectionLabel>
                     Sleep Timer
-                    {sleepTimerEndAt && sleepTimerEndAt > Date.now()
-                      ? ` (${Math.max(1, Math.ceil((sleepTimerEndAt - Date.now()) / 60000))}m left)`
-                      : ''}
+                    {sleepTimerEndAt === -1
+                      ? ' (Stops at chapter end)'
+                      : sleepTimerEndAt && sleepTimerEndAt > Date.now()
+                        ? ` (${Math.max(1, Math.ceil((sleepTimerEndAt - Date.now()) / 60000))}m left)`
+                        : ''}
                   </SectionLabel>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-                    {([0, 15, 30, 45, 60] as const).map((mins) => {
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {([0, -1, 15, 30, 45, 60] as const).map((mins) => {
                       const remainingMins =
                         sleepTimerEndAt && sleepTimerEndAt > Date.now()
                           ? Math.ceil((sleepTimerEndAt - Date.now()) / 60000)
                           : 0;
-                      const active = mins === 0 ? remainingMins === 0 : Math.abs(remainingMins - mins) <= 2;
+                      const active =
+                        mins === -1
+                          ? sleepTimerEndAt === -1
+                          : mins === 0
+                            ? !sleepTimerEndAt || (sleepTimerEndAt !== -1 && remainingMins === 0)
+                            : sleepTimerEndAt !== -1 && Math.abs(remainingMins - mins) <= 2;
                       return (
                         <button
                           key={mins}
@@ -1618,7 +1742,7 @@ export function ReaderSettingsSheet({
                           className="bare-button player-focusable"
                           onClick={() => onSetSleepTimer(mins)}
                           style={{
-                            minHeight: 40,
+                            minHeight: 42,
                             borderRadius: 10,
                             background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                             border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
@@ -1628,11 +1752,21 @@ export function ReaderSettingsSheet({
                             textAlign: 'center',
                           }}
                         >
-                          {mins === 0 ? 'Off' : `${mins}m`}
+                          {mins === 0 ? 'Off' : mins === -1 ? 'End of Ch.' : `${mins}m`}
                         </button>
                       );
                     })}
                   </div>
+                  {onToggleSleepWaitChapterEnd && (
+                    <div style={{ marginTop: 8 }}>
+                      <ToggleRow
+                        label="Finish current chapter before sleeping"
+                        hint="When a timed sleep countdown expires, wait until you reach the last page of the chapter"
+                        checked={Boolean(sleepWaitChapterEnd)}
+                        onChange={onToggleSleepWaitChapterEnd}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
