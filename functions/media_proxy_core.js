@@ -82,7 +82,12 @@ function resolveGalleryDeletePath(imageUrl) {
   const marker = '/o/';
   const at = parsed.pathname.indexOf(marker);
   if (at < 0) throw new Error('Not a Storage download URL');
-  const objectPath = decodeURIComponent(parsed.pathname.slice(at + marker.length));
+  let objectPath;
+  try {
+    objectPath = decodeURIComponent(parsed.pathname.slice(at + marker.length));
+  } catch (err) {
+    throw new Error('Invalid imageUrl', { cause: err });
+  }
   if (!objectPath || !objectPath.startsWith('gallery/')) {
     throw new Error('Only gallery files can be deleted here');
   }

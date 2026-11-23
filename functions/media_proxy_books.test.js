@@ -22,9 +22,9 @@ test('EPUB proxy supports binary responses and older JSON clients', async (t) =>
   }));
   t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }]);
   const bytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0]);
-  t.mock.method(https, 'get', (_url, _opts, cb) => {
+  t.mock.method(https, 'request', (_url, _opts, cb) => {
     const req = new EventEmitter();
-    cb(mockHttpsResponse(200, { 'content-type': 'application/epub+zip' }, bytes));
+    req.end = () => cb(mockHttpsResponse(200, { 'content-type': 'application/epub+zip' }, bytes));
     return req;
   });
   const url = 'https://www.gutenberg.org/ebooks/1.epub.noimages';
@@ -59,10 +59,10 @@ test('book proxies block redirects to private IPs and cap candidate urls at 10',
     { address: host.endsWith('gutenberg.org') ? '8.8.8.8' : '169.254.169.254', family: 4 },
   ]);
   let requests = 0;
-  t.mock.method(https, 'get', (_url, _opts, cb) => {
+  t.mock.method(https, 'request', (_url, _opts, cb) => {
     requests++;
     const req = new EventEmitter();
-    cb(mockHttpsResponse(302, { location: 'https://metadata.internal/latest' }, ''));
+    req.end = () => cb(mockHttpsResponse(302, { location: 'https://metadata.internal/latest' }, ''));
     return req;
   });
   const urls = Array.from({ length: 15 }, (_, i) => `https://www.gutenberg.org/files/${i}/book.txt`);

@@ -181,7 +181,8 @@ async function getTrendingMovies() {
   try {
     const key = getTmdbKey();
     const res = await fetch(
-      `https://api.themoviedb.org/3/trending/movie/week?api_key=${key}`
+      `https://api.themoviedb.org/3/trending/movie/week?api_key=${key}`,
+      { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return '';
     const data = await res.json();
@@ -202,7 +203,8 @@ async function getNowPlayingMovies() {
   try {
     const key = getTmdbKey();
     const res = await fetch(
-      `https://api.themoviedb.org/3/movie/now_playing?api_key=${key}&region=PH`
+      `https://api.themoviedb.org/3/movie/now_playing?api_key=${key}&region=PH`,
+      { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return '';
     const data = await res.json();
@@ -223,7 +225,8 @@ async function getUpcomingMovies() {
   try {
     const key = getTmdbKey();
     const res = await fetch(
-      `https://api.themoviedb.org/3/movie/upcoming?api_key=${key}&region=PH`
+      `https://api.themoviedb.org/3/movie/upcoming?api_key=${key}&region=PH`,
+      { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return '';
     const data = await res.json();

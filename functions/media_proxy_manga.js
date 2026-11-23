@@ -1,10 +1,46 @@
 'use strict';
 
 const common = require('./common.js');
-const { applyCors, cappedHttps, enforceRateLimit, getAdmin, requireAuth } = common;
+const {
+  applyCors,
+  cappedHttps,
+  enforceRateLimit,
+  getAdmin,
+  requireAuth,
+  _getExternalCache,
+  _setExternalCache,
+} = common;
 const { resolveRasterImageStream, streamMediaBody } = require('./stream_media_body');
 
 const SANDBOX_CSP = "default-src 'none'; sandbox";
+const MANGA_API_CACHE_TTL_MS = 60 * 1000;
+const MANGA_API_MAX_CACHE_BYTES = 256 * 1024;
+
+function resolveMangaApiUrl(origin, pathParam) {
+  if (typeof pathParam !== 'string' || pathParam.length === 0) {
+    throw new Error('Missing ?path=<api path> query param');
+  }
+  if (/(^|\/)\.\.(\/|$)/.test(pathParam)) {
+    throw new Error('Invalid path');
+  }
+  const qIndex = pathParam.indexOf('?');
+  const rawPath = qIndex === -1 ? pathParam : pathParam.slice(0, qIndex);
+  const rawQuery = qIndex === -1 ? '' : pathParam.slice(qIndex + 1);
+  if (/^[a-z][a-z0-9+.-]*:/i.test(rawPath) || rawPath.includes('\\') || rawPath.startsWith('//')) {
+    throw new Error('Invalid path');
+  }
+  const safePath = rawPath.replace(/^\/+/, '').replace(/\.\.+/g, '');
+  if (safePath.length === 0 || safePath.length > 400) {
+    throw new Error('Invalid path');
+  }
+  const baseUrl = new URL(`${origin}/`);
+  const targetUrl = new URL(safePath, baseUrl);
+  if (targetUrl.origin !== baseUrl.origin) {
+    throw new Error('Invalid path');
+  }
+  if (rawQuery) targetUrl.search = rawQuery;
+  return targetUrl.toString();
+}
 
 function safeJsonContentType(raw) {
   const base = String(raw || 'application/json').split(';')[0].trim().toLowerCase();
@@ -309,18 +345,26 @@ const proxyComick = cappedHttps(30, async (req, res) => {
 
 
 
-  const pathParam = req.query.path;
-  if (typeof pathParam !== 'string' || pathParam.length === 0) {
-    res.status(400).json({ error: 'Missing ?path=<api path> query param' });
+  let targetUrl;
+  try {
+    targetUrl = resolveMangaApiUrl('https://api.comick.dev', req.query.path);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Invalid path' });
     return;
   }
 
-  const safePath = pathParam.replace(/^\/+/, '').replace(/\.\.+/g, '');
-  if (safePath.length === 0) {
-    res.status(400).json({ error: 'Empty path' });
+  const cacheKey = `comick:proxy:${targetUrl}`;
+  const cached = _getExternalCache(cacheKey, MANGA_API_CACHE_TTL_MS);
+  if (cached) {
+    res.status(cached.status);
+    res.set('Content-Type', cached.contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
+    res.set('Cache-Control', 'private, max-age=60');
+    res.set('X-Cache', 'HIT');
+    res.send(cached.body);
     return;
   }
-  const targetUrl = `https://api.comick.dev/${safePath}`;
 
   try {
     const upstream = await common.fetchPublicUrl(targetUrl, {
@@ -333,11 +377,16 @@ const proxyComick = cappedHttps(30, async (req, res) => {
       isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.comick.dev',
     });
     const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
+    const contentType = safeJsonContentType(upstream.headers.get('content-type'));
+    if (upstream.status === 200 && Buffer.byteLength(body, 'utf8') <= MANGA_API_MAX_CACHE_BYTES) {
+      _setExternalCache(cacheKey, { status: 200, contentType, body });
+    }
     res.status(upstream.status);
-    res.set('Content-Type', safeJsonContentType(upstream.headers.get('content-type')));
+    res.set('Content-Type', contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'public, max-age=60');
+    res.set('Cache-Control', 'private, max-age=60');
+    res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
     console.warn(`proxyComick failed (${targetUrl}):`, e.message);
@@ -367,18 +416,26 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
 
 
 
-  const pathParam = req.query.path;
-  if (typeof pathParam !== 'string' || pathParam.length === 0) {
-    res.status(400).json({ error: 'Missing ?path=<api path> query param' });
+  let targetUrl;
+  try {
+    targetUrl = resolveMangaApiUrl('https://api.mangadex.org', req.query.path);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Invalid path' });
     return;
   }
 
-  const safePath = pathParam.replace(/^\/+/, '').replace(/\.\.+/g, '');
-  if (safePath.length === 0) {
-    res.status(400).json({ error: 'Empty path' });
+  const cacheKey = `mangadex:proxy:${targetUrl}`;
+  const cached = _getExternalCache(cacheKey, MANGA_API_CACHE_TTL_MS);
+  if (cached) {
+    res.status(cached.status);
+    res.set('Content-Type', cached.contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', SANDBOX_CSP);
+    res.set('Cache-Control', 'private, max-age=60');
+    res.set('X-Cache', 'HIT');
+    res.send(cached.body);
     return;
   }
-  const targetUrl = `https://api.mangadex.org/${safePath}`;
 
   try {
     const upstream = await common.fetchPublicUrl(targetUrl, {
@@ -391,11 +448,16 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
       isAllowedUrl: (u) => u.hostname.toLowerCase() === 'api.mangadex.org',
     });
     const body = await common.readLimitedText(upstream.body, 2 * 1024 * 1024);
+    const contentType = safeJsonContentType(upstream.headers.get('content-type'));
+    if (upstream.status === 200 && Buffer.byteLength(body, 'utf8') <= MANGA_API_MAX_CACHE_BYTES) {
+      _setExternalCache(cacheKey, { status: 200, contentType, body });
+    }
     res.status(upstream.status);
-    res.set('Content-Type', safeJsonContentType(upstream.headers.get('content-type')));
+    res.set('Content-Type', contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'public, max-age=60');
+    res.set('Cache-Control', 'private, max-age=60');
+    res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
     console.warn(`proxyMangaDex failed (${targetUrl}):`, e.message);
@@ -403,4 +465,11 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
   }
 });
 
-module.exports = { proxyMangaImage, proxyMangaKakalotImage, proxyMangaKatana, proxyComick, proxyMangaDex };
+module.exports = {
+  proxyMangaImage,
+  proxyMangaKakalotImage,
+  proxyMangaKatana,
+  proxyComick,
+  proxyMangaDex,
+  resolveMangaApiUrl,
+};
