@@ -3,12 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
+import { withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint } from '../../core/theme/layout';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
-import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { Icon } from '../../shared/widgets/Icon';
 import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
+import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Logger } from '../../core/system/logger';
 import { CinemaHomeCache } from './cinemaHomeCache';
 import { CinemaSearchTab } from './CinemaSearchTab';
@@ -18,7 +19,10 @@ import { CinemaLibraryTab } from './CinemaLibraryTab';
 import { CinemaWatchTogetherTab } from '../watch_party/CinemaWatchTogetherTab';
 import { CinemaEpisodeDrawer } from './CinemaEpisodeDrawer';
 import { showCinemaPlaybackSheet } from './CinemaPlaybackSheet';
-import { NetflixColors, TOP_TEN_COUNTRY_LABEL, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
+import { CinemaHomeSkeleton } from './CinemaHomeSkeleton';
+import { NetflixColors, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
+import { DISCOVERY_SHELVES } from './cinemaShelves';
+import { useCinemaHeroTitles, useCinemaRailPlan } from './useCinemaRailPlan';
 import {
   MediaSectionMenuButton,
   NetflixBillboard,
@@ -36,27 +40,24 @@ import {
   fetchTrendingByCountry,
   fetchUpcoming,
   saveToWatchList,
+  saveWatchProgress,
   setListMembership,
   watchCinemaWatchlist,
 } from './tmdbService';
 
-interface DiscoveryShelf {
-  title: string;
-  type: 'movie' | 'tv';
-  genre?: number;
-  language?: string;
+/** "1h 4m left": the honest counterpart to the tile's progress hairline. */
+function remainingLabelOf(m: MediaItem): string | null {
+  const pos = m.currentTimestamp ?? 0;
+  const dur = m.durationSeconds ?? 0;
+  if (pos <= 0 || dur <= 0 || pos >= dur) return null;
+  const left = Math.max(1, Math.round((dur - pos) / 60));
+  const hours = Math.floor(left / 60);
+  const where =
+    m.mediaType === 'tv' && m.currentSeason != null && m.currentEpisode != null
+      ? `S${m.currentSeason} E${m.currentEpisode} · `
+      : '';
+  return `${where}${hours > 0 ? `${hours}h ${left % 60}m left` : `${left}m left`}`;
 }
-
-const DISCOVERY_SHELVES: DiscoveryShelf[] = [
-  { title: 'Top-Rated Movies', type: 'movie' },
-  { title: 'Top-Rated Series', type: 'tv' },
-  { title: 'Action & Adventure', type: 'movie', genre: 28 },
-  { title: 'Need a Laugh?', type: 'movie', genre: 35 },
-  { title: 'Romance', type: 'movie', genre: 10749 },
-  { title: 'Edge-of-Your-Seat Thrillers', type: 'movie', genre: 53 },
-  { title: 'Sci-Fi Escapes', type: 'movie', genre: 878 },
-  { title: 'Korean Dramas', type: 'tv', genre: 18, language: 'ko' },
-];
 
 export function CinemaPage() {
   const auth = useAuth();
@@ -74,6 +75,9 @@ export function CinemaPage() {
   const isCoupleUser = auth.isCoupleUser;
   const isCinemaOnlyUser = auth.isCinemaOnlyUser;
   const isDesktop = width >= AppBreakpoint.tablet;
+  // An 820px iPad is not a phone: it gets the top bar and wider rails.
+  const isTablet = !isDesktop && width >= 700;
+  const isWide = isDesktop || isTablet;
 
   const watchlist = useSource(() => watchCinemaWatchlist(userName), [userName], []);
   const watchingList = useMemo(
@@ -172,9 +176,30 @@ export function CinemaPage() {
     else void loadHome();
   }, [currentTab, loadHome]);
 
+  // Each tab keeps its own place; returning to Home lands where you left it.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [hideBack, setHideBack] = useState(false);
+  const tabScroll = useRef<Record<number, number>>({});
+  // A collection is its own page inside the Browse tab, so its offset is its own
+  // too: restoring Movies' place on a TV Shows grid landed mid-list.
+  const scrollKey = (tab: number, browse: string | null) => (tab === 2 && browse ? 200 + browse.length : tab);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = tabScroll.current[scrollKey(currentTab, selectedBrowseId)] ?? 0;
+  }, [currentTab, selectedBrowseId]);
+
+  const tabHistory = useRef<number[]>([]);
+  // True while the back control is navigating: that move must not record the tab
+  // it is leaving, or Back and the push undo each other and the trail ping-pongs.
+  const backNavigating = useRef(false);
   const handleNavSelect = useCallback(
     (tab: number, browseOptionId?: string) => {
       const clamped = Math.max(0, Math.min(5, tab));
+      if (clamped !== currentTab && !backNavigating.current) {
+        tabHistory.current = [...tabHistory.current.slice(-8), currentTab];
+      }
+      backNavigating.current = false;
       if (browseOptionId) setBrowseSeed((n) => n + 1);
       const next = new URLSearchParams(params);
       if (browseOptionId) {
@@ -189,7 +214,7 @@ export function CinemaPage() {
         setSearchParams(next);
       }
     },
-    [params, setSearchParams],
+    [currentTab, params, setSearchParams],
   );
 
   const launchPlayer = (item: MediaItem, season?: number, episode?: number, opts?: { restart?: boolean }) => {
@@ -207,14 +232,36 @@ export function CinemaPage() {
     navigate(`/cinema/video/${item.tmdbId}?${qs.toString()}`);
   };
 
-  const handleContinueTap = async (item: MediaItem) => {
+  // Tapping a Continue Watching tile resumes; the sheet lives behind the tile's ⋯.
+  const handleContinueTap = (item: MediaItem) => launchPlayer(item);
+
+  const handleContinueOptions = async (item: MediaItem) => {
     const action = await showCinemaPlaybackSheet(item);
     if (!action) return;
     if (action === 'resume') launchPlayer(item);
     else if (action === 'restart') launchPlayer(item, undefined, undefined, { restart: true });
     else if (action === 'episodes') setDrawerItem(item);
     else if (action === 'finished') void saveToWatchList(item, 'watched-self', userName);
-    else if (action === 'remove') void clearWatchProgress(item, userName);
+    else if (action === 'remove') {
+      const snapshot = watchlist.find((w) => catalogKeyOf(w) === catalogKeyOf(item));
+      void clearWatchProgress(item, userName);
+      // Removing progress is one tap, so it carries an Undo.
+      showSnackBar('Removed from Continue Watching', {
+        action: snapshot
+          ? {
+              label: 'Undo',
+              onPressed: () =>
+                void saveWatchProgress(item, userName, {
+                  season: snapshot.currentSeason,
+                  episode: snapshot.currentEpisode,
+                  timestamp: snapshot.currentTimestamp,
+                  durationSeconds: snapshot.durationSeconds,
+                  status: snapshot.status,
+                }),
+            }
+          : undefined,
+      });
+    }
   };
 
   // `_showMediaDetails`: the drawer opens with the saved status and progress.
@@ -233,12 +280,49 @@ export function CinemaPage() {
       progressUpdatedAt: saved.progressUpdatedAt,
     };
   };
+  // Back means back: the tab you came from, then Home, then out of Cinema.
+  // Every branch below moves the page, so each one flags the move as a back step.
+  const goBackTo = (tab: number) => {
+    backNavigating.current = true;
+    handleNavSelect(tab);
+  };
+  const handleBack = () => {
+    const previous = tabHistory.current.pop();
+    if (selectedBrowseId) {
+      goBackTo(2);
+      return;
+    }
+    if (previous != null && previous !== currentTab) {
+      goBackTo(previous);
+      return;
+    }
+    if (currentTab !== 0) {
+      goBackTo(0);
+      return;
+    }
+    if (isCoupleUser) void navigate('/dashboard');
+    else void navigate('/');
+  };
+
   const handleLogout = async () => {
     await auth.logout();
     navigate('/');
   };
 
   const links = cinemaNavLinks(isCinemaOnlyUser);
+  const inList = (m: MediaItem) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(m));
+  const rankOf = (m: MediaItem) => {
+    const i = topTenToday.findIndex((t) => catalogKeyOf(t) === catalogKeyOf(m));
+    return i >= 0 && i < 10 ? i + 1 : null;
+  };
+  const progressOf = (m: MediaItem) => {
+    const pos = m.currentTimestamp ?? 0;
+    const dur = m.durationSeconds ?? 0;
+    // A saved place without a stored duration has no bar: a made-up length would
+    // show a progress the app cannot honour.
+    if (pos <= 0 || dur <= 0) return null;
+    return Math.min(1, Math.max(0, pos / dur));
+  };
 
   return (
     <div
@@ -252,10 +336,11 @@ export function CinemaPage() {
       }}
     >
       <TvMediaNavHeader currentRoute="/cinema" onLogout={() => void handleLogout()} />
-      {isDesktop && (
+      {isWide && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20 }}>
           <NetflixCinemaTopBar
             currentIndex={currentTab}
+            currentBrowseId={selectedBrowseId}
             links={links}
             scrolled={scrolled}
             userName={userName}
@@ -268,7 +353,7 @@ export function CinemaPage() {
         </div>
       )}
 
-      {!isDesktop && (
+      {!isWide && (
         <>
           <div
             style={{
@@ -281,13 +366,24 @@ export function CinemaPage() {
             <button
               type="button"
               className="bare-button"
-              aria-label={isCoupleUser ? 'Dashboard' : 'Logout'}
-              onClick={isCoupleUser ? () => navigate('/dashboard') : () => void handleLogout()}
+              aria-label={
+                !isCoupleUser
+                  ? 'Logout'
+                  : currentTab === 0 && !selectedBrowseId
+                    ? 'Exit Cinema'
+                    : 'Back to Home'
+              }
+              onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
+                transition: 'opacity 200ms ease, transform 200ms ease, background 200ms ease',
+                // Readable over posters: the surface does the separating, not opacity.
+                background: scrolled ? withAlpha(NetflixColors.background, 0.86) : NetflixColors.surface,
+                opacity: hideBack ? 0 : 1,
+                transform: hideBack ? 'translateY(-8px)' : 'none',
+                pointerEvents: hideBack ? 'none' : 'auto',
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
-                background: NetflixColors.surface,
                 border: `1px solid ${NetflixColors.hairline}`,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.45)',
                 display: 'flex',
@@ -295,7 +391,13 @@ export function CinemaPage() {
                 justifyContent: 'center',
               }}
             >
-              <Icon name={isCoupleUser ? 'arrow_back' : 'logout'} size={22} color="#FFFFFF" />
+              <Icon
+                // A tab root has nothing behind it inside Cinema, so the glyph is
+                // an exit there, not a back arrow.
+                name={!isCoupleUser || (currentTab === 0 && !selectedBrowseId) ? 'logout' : 'arrow_back'}
+                size={22}
+                color="#FFFFFF"
+              />
             </button>
           </div>
           {isCinemaOnlyUser && (
@@ -314,14 +416,23 @@ export function CinemaPage() {
       )}
 
       <div
+        ref={scrollRef}
         className="no-scrollbar"
-        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 20)}
+        onScroll={(e) => {
+          const top = e.currentTarget.scrollTop;
+          setScrolled(top > 60);
+          // The control belongs to the first screen. Past it, no rail heading or
+          // poster ever has a floating button sitting on top of it.
+          setHideBack(top > 80);
+          tabScroll.current[scrollKey(currentTab, selectedBrowseId)] = top;
+        }}
         style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
       >
         {currentTab === 0 && (
           <HomeTab
             isDesktop={isDesktop}
             viewportHeight={height}
+            viewportWidth={width}
             isLoading={isLoadingHome}
             trendingGlobal={trendingGlobal}
             topTenToday={topTenToday}
@@ -332,16 +443,25 @@ export function CinemaPage() {
             savedList={savedList}
             onRefresh={loadHome}
             onTapItem={setDrawerItem}
-            onTapContinue={(item) => void handleContinueTap(item)}
+            onTapContinue={handleContinueTap}
+            onContinueOptions={(item) => void handleContinueOptions(item)}
             onPlay={(item) => launchPlayer(item)}
             onRestart={(item) => launchPlayer(item, undefined, undefined, { restart: true })}
             onToggleList={(item, add) => void setListMembership(item, userName, add)}
-            isInList={(item) => watchlist.some((w) => catalogKeyOf(w) === catalogKeyOf(item) && w.status.toLowerCase() === 'to-watch')}
+            isInList={inList}
+            rankOf={rankOf}
+            progressOf={progressOf}
             onExploreBrowse={() => handleNavSelect(2)}
           />
         )}
         {currentTab === 1 && (
-          <CinemaSearchTab width={width} height={height} trendingGlobal={trendingGlobal} onMediaTap={setDrawerItem} />
+          <CinemaSearchTab
+            width={width}
+            height={height}
+            trendingGlobal={trendingGlobal}
+            onMediaTap={setDrawerItem}
+            onBrowse={() => handleNavSelect(2)}
+          />
         )}
         {currentTab === 2 && (
           <CinemaBrowseTab
@@ -356,7 +476,6 @@ export function CinemaPage() {
             width={width}
             watchlist={watchlist}
             onMediaTap={setDrawerItem}
-            onRemoveProgress={(item) => void clearWatchProgress(item, userName)}
             onSwitchTab={handleNavSelect}
           />
         )}
@@ -373,7 +492,7 @@ export function CinemaPage() {
         <div style={{ height: 100 }} />
       </div>
 
-      {!isDesktop && (
+      {!isWide && (
         <NetflixBottomNav
           currentIndex={currentTab}
           items={cinemaMobileNavItems(isCinemaOnlyUser)}
@@ -401,6 +520,7 @@ export function CinemaPage() {
 function HomeTab({
   isDesktop,
   viewportHeight,
+  viewportWidth,
   isLoading,
   trendingGlobal,
   topTenToday,
@@ -412,14 +532,18 @@ function HomeTab({
   onRefresh,
   onTapItem,
   onTapContinue,
+  onContinueOptions,
   onPlay,
   onRestart,
   onToggleList,
   isInList,
+  rankOf,
+  progressOf,
   onExploreBrowse,
 }: {
   isDesktop: boolean;
   viewportHeight: number;
+  viewportWidth: number;
   isLoading: boolean;
   trendingGlobal: MediaItem[];
   topTenToday: MediaItem[];
@@ -431,14 +555,35 @@ function HomeTab({
   onRefresh: () => void;
   onTapItem: (m: MediaItem) => void;
   onTapContinue: (m: MediaItem) => void;
+  onContinueOptions: (m: MediaItem) => void;
   onPlay: (m: MediaItem) => void;
   onRestart: (m: MediaItem) => void;
   onToggleList: (m: MediaItem, add: boolean) => void;
   isInList: (m: MediaItem) => boolean;
+  rankOf: (m: MediaItem) => number | null;
+  progressOf: (m: MediaItem) => number | null;
   onExploreBrowse: () => void;
 }) {
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
+  // Under this many posters a rail is not a recommendation, it is a stub.
+  const heroTitles = useCinemaHeroTitles(trendingGlobal, watchingList, savedList);
+  const rails = useCinemaRailPlan(
+    {
+      watchingList,
+      savedList,
+      trendingGlobal,
+      topTenToday,
+      popularTV,
+      newlyReleased,
+      discoveryRows,
+    },
+    heroTitles,
+  );
+
+  // '#N in Top 10' is a promise about this page. Without a ranked row underneath
+  // it, the badge is a rank with nothing to hold it, so it is not printed.
+  const rankedRailOnPage = rails.some((rail) => rail.ranked);
   const rowProps = {
     isDesktop,
     onTapItem,
@@ -446,37 +591,48 @@ function HomeTab({
     onRestartItem: onRestart,
     onToggleListItem: onToggleList,
     isInList,
+    progress: progressOf,
   };
 
   return (
     <div>
       {isLoading && trendingGlobal.length === 0 ? (
-        <div
-          style={{
-            height: isDesktop ? 560 : Math.max(380, Math.min(540, Math.round(viewportHeight * 0.58))),
-            background: NetflixColors.surface,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <CircularProgress size={28} strokeWidth={2.5} color={NetflixColors.accent} />
-        </div>
+        <CinemaHomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} viewportWidth={viewportWidth} />
       ) : (
         <NetflixBillboard
-          items={trendingGlobal.slice(0, 5)}
+          items={heroTitles}
           isDesktop={isDesktop}
           viewportHeight={viewportHeight}
+          rankOf={rankedRailOnPage ? rankOf : undefined}
+          resumeOf={(m) => {
+            const saved = watchingList.find((w) => catalogKeyOf(w) === catalogKeyOf(m));
+            return saved?.currentTimestamp && saved.currentTimestamp > 0 ? saved.currentTimestamp : null;
+          }}
+          inListOf={isInList}
+          onToggleList={onToggleList}
           onPlay={onPlay}
           onInfo={onTapItem}
         />
       )}
 
       {watchingList.length > 0 && (
-        <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} {...rowProps} onTapItem={onTapContinue} />
+        <NetflixRow
+          title="Continue Watching"
+          reason="Pick up where you left off"
+          items={watchingList.slice(0, 10)}
+          {...rowProps}
+          onTapItem={onTapContinue}
+          onOptionsItem={onContinueOptions}
+          progressLabel={remainingLabelOf}
+        />
       )}
       {savedList.length > 0 && (
-        <NetflixRow title="Your picks" items={savedList.slice(0, 10)} {...rowProps} />
+        <NetflixRow
+          title="Saved for later"
+          reason="Not started yet — the rest of your list lives in My List"
+          items={savedList.slice(0, 10)}
+          {...rowProps}
+        />
       )}
 
       {emptyCatalogue && (
@@ -500,17 +656,16 @@ function HomeTab({
         </div>
       )}
 
-      <NetflixRow title="Trending Now" items={trendingGlobal} {...rowProps} />
-      <NetflixRow
-        title={`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`}
-        items={topTenToday.slice(0, 10)}
-        ranked
-        {...rowProps}
-      />
-      <NetflixRow title="Coming Soon" items={newlyReleased} {...rowProps} />
-      <NetflixRow title="Popular Series" items={popularTV} {...rowProps} />
-      {Object.entries(discoveryRows).map(([title, items]) => (
-        <NetflixRow key={title} title={title} items={items} {...rowProps} />
+      {rails.map((rail) => (
+          <NetflixRow
+            key={rail.title}
+            title={rail.title}
+            reason={rail.reason}
+            items={rail.items}
+            ranked={rail.ranked}
+            rankOf={rail.ranked ? rankOf : undefined}
+          {...rowProps}
+        />
       ))}
 
       <div style={{ padding: 16 }}>

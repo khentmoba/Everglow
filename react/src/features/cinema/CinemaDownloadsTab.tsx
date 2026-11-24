@@ -16,6 +16,7 @@ import { AlertDialog, showDialog, TextButton } from '../../shared/widgets/Dialog
 import { ElevatedButton } from '../../shared/widgets/ElevatedButton';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
+import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { cinemaTopInset } from './CinemaLibraryTab';
 import { NetflixColors } from './cinemaTypes';
 
@@ -51,7 +52,37 @@ export function CinemaDownloadsTab({ width, onBrowseCinema }: { width: number; o
         : `/cinema/video/${item.mediaId}?type=movie&title=${title}`,
     );
   };
-  const remove = (item: OfflineMediaItem) => void offlineMedia.deleteDownload(item.id);
+  const remove = (item: OfflineMediaItem) =>
+    // The bytes cannot come back, so ask first and then say what happened: an
+    // Undo here would be a dead button.
+    void showDialog<void>((close) => (
+      <AlertDialog
+        background={NetflixColors.surface}
+        title={<div style={text(17, NetflixColors.textPrimary, 700)}>{`Remove ${item.title}?`}</div>}
+        content={
+          <div style={text(14, NetflixColors.textSecondary)}>
+            This removes the download from this device. You can stream it any time, and download it again for offline.
+          </div>
+        }
+        actions={[
+          <TextButton key="keep" color={NetflixColors.textMuted} onPressed={() => close(null)} style={text(14, NetflixColors.textMuted)}>
+            Keep it
+          </TextButton>,
+          <TextButton
+            key="remove"
+            color={NetflixColors.accent}
+            onPressed={() => {
+              close(null);
+              void offlineMedia.deleteDownload(item.id);
+              showSnackBar(`Removed ${item.title} from this device · stream it any time`);
+            }}
+            style={text(14, NetflixColors.accent, 700)}
+          >
+            Remove
+          </TextButton>,
+        ]}
+      />
+    ));
 
   const shows = new Map<string, OfflineMediaItem[]>();
   const movies: OfflineMediaItem[] = [];
@@ -115,7 +146,7 @@ function Header({ count }: { count: number }) {
         title={<div style={text(17, NetflixColors.textPrimary, 700)}>Clear Cinema Downloads</div>}
         content={
           <div style={text(14, NetflixColors.textSecondary)}>
-            Are you sure you want to remove all offline movies and TV episodes from this device?
+            This removes every offline movie and episode from this device. You can stream them any time, and download again for offline.
           </div>
         }
         actions={[
@@ -163,14 +194,15 @@ function Header({ count }: { count: number }) {
           </>
         )}
       </div>
+      {/* A destructive act wears the destructive colour and says how many. */}
       {count > 0 && (
         <TextButton
-          color={NetflixColors.textMuted}
+          color={NetflixColors.accent}
           onPressed={confirmClear}
-          icon={<Icon name="delete_sweep_outlined" size={18} color={NetflixColors.textMuted} />}
-          style={text(13, NetflixColors.textMuted)}
+          icon={<Icon name="delete_sweep_outlined" size={18} color={NetflixColors.accent} />}
+          style={text(13, NetflixColors.accent, 600)}
         >
-          Clear All
+          {`Clear ${count} downloads`}
         </TextButton>
       )}
     </div>
@@ -181,9 +213,9 @@ function StorageSummary({ storage }: { storage: string }) {
   return (
     <div style={{ ...card, padding: '12px 16px', display: 'flex', alignItems: 'center' }}>
       <div
-        style={{ padding: 8, background: withAlpha(AppColors.cinemaGreen, 0.15), borderRadius: AppRadius.sm, display: 'flex' }}
+        style={{ padding: 8, background: NetflixColors.surfaceElevated, borderRadius: AppRadius.sm, display: 'flex' }}
       >
-        <Icon name="offline_pin" size={20} color={AppColors.cinemaGreen} />
+        <Icon name="offline_pin" size={20} color={NetflixColors.textPrimary} />
       </div>
       <div style={{ width: 12 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -191,7 +223,7 @@ function StorageSummary({ storage }: { storage: string }) {
         <div style={{ height: 2 }} />
         <div style={text(12, NetflixColors.textSecondary)}>Watch instantly without Wi-Fi or mobile data</div>
       </div>
-      <div style={text(13, NetflixColors.gold, 700)}>{storage}</div>
+      <div style={text(13, NetflixColors.textPrimary, 700)}>{storage}</div>
     </div>
   );
 }
@@ -301,6 +333,11 @@ function SeriesGroup({ episodes, onPlay, onDelete }: { episodes: OfflineMediaIte
   );
 }
 
+/** The chip already says "S1 E1"; the title should not say it twice. */
+function subtitleWithoutSeason(item: OfflineMediaItem): string {
+  return item.subtitle.replace(/^S\d+\s*E\d+\s*[·•-]\s*/i, '').trim();
+}
+
 function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & RowProps) {
   return (
     <div
@@ -312,15 +349,15 @@ function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & Row
           background: NetflixColors.surfaceElevated,
           borderRadius: AppRadius.xs,
           border: `1px solid ${NetflixColors.hairline}`,
-          ...text(11, NetflixColors.gold, 700),
+          ...text(11, NetflixColors.textSecondary, 700),
         }}
       >
         S{item.season ?? 1} E{item.episode ?? 1}
       </div>
       <div style={{ width: 10 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...ellipsis, ...text(13, NetflixColors.textPrimary, 600) }}>
-          {item.subtitle || `Episode ${item.episode ?? 1}`}
+        <div className="clamp-2" style={text(13, NetflixColors.textPrimary, 600)}>
+          {subtitleWithoutSeason(item) || `Episode ${item.episode ?? 1}`}
         </div>
         <div style={{ height: 2 }} />
         <div style={text(11, NetflixColors.textMuted)}>{sizeLine(item)}</div>
@@ -336,7 +373,7 @@ function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & Row
           </>
         )}
       </div>
-      <IconButton icon="play_arrow" size={22} color={NetflixColors.textPrimary} label="Play" onPressed={() => onPlay(item)} />
+      <IconButton icon="play_circle_fill" size={26} color={NetflixColors.accent} label="Play" onPressed={() => onPlay(item)} />
       <IconButton
         icon="delete_outline"
         size={20}

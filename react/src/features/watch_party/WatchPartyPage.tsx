@@ -10,6 +10,7 @@ import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
+import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { TmdbImages } from '../cinema/cinemaTypes';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
@@ -713,8 +714,11 @@ export function useOpenWatchPartyRoom() {
   return (roomId: string) => navigate(`/watch-party?room=${encodeURIComponent(roomId)}`);
 }
 
-/** `WatchPartyLobby`: the create button and room list; `embedded` drops the big header. */
-export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
+/**
+ * `WatchPartyLobby`: the create button and room list; `embedded` drops the big
+ * header, and `accent` lets the host page keep one accent (Cinema is red).
+ */
+export function WatchPartyLobby({ embedded = false, accent }: { embedded?: boolean; accent?: string }) {
   const auth = useAuth();
   const openRoom = useOpenWatchPartyRoom();
   const myUid = auth.uid ?? '';
@@ -778,9 +782,13 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
             onClick={() => setCreateOpen(true)}
             style={{
               padding: '14px 16px',
-              background: linear([AppColors.deepRose, AppColors.rosePressed]),
+              // Two primaries on one screen is one too many: a host page can pass
+              // its own accent so the lobby does not introduce a second brand.
+              background: accent ?? linear([AppColors.deepRose, AppColors.rosePressed]),
               borderRadius: AppRadius.md,
-              boxShadow: boxShadow([{ offset: [0, 6], blur: 16, color: withAlpha(AppColors.deepRose, 0.35) }]),
+              boxShadow: boxShadow([
+                { offset: [0, 6], blur: 16, color: withAlpha(accent ?? AppColors.deepRose, 0.35) },
+              ]),
               display: 'flex',
               alignItems: 'center',
               gap: 10,
@@ -790,7 +798,7 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
             <span style={{ flex: 1, textAlign: 'left', ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
               Create a room
             </span>
-            <span style={{ ...AppTypography.outfitWhite, fontSize: 11, color: withAlpha(AppColors.petalWhite, 0.72) }}>
+            <span style={{ ...AppTypography.outfitWhite, fontSize: 12.5, color: AppColors.petalWhite, opacity: 0.92 }}>
               No password
             </span>
           </button>
@@ -919,8 +927,10 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                           {hosting ? 'You are hosting' : `${room.hostName} is hosting`}
                         </div>
                       </div>
+                      {/* One row, one affordance: the LIVE badge carries the state,
+                          the arrow always means 'open this room'. */}
                       <Icon
-                        name={live ? 'play_arrow' : 'chevron_right'}
+                        name="chevron_right"
                         size={22}
                         color={live ? AppColors.roseQuartz : Derived.textMuted}
                       />
@@ -930,13 +940,37 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                       className="bare-button"
                       aria-label={`Delete ${room.name || 'Our room'}`}
                       onClick={() => {
-                        if (window.confirm(`Delete "${room.name || 'Our room'}"?`)) {
-                          void deleteWatchPartyRoom(room.id);
-                        }
+                        // The app's own dialog, not a browser prompt: this is a
+                        // surface Clair uses, and 32px was below the touch floor.
+                        void showDialog<void>((close) => (
+                          <AlertDialog
+                            title={<div style={{ ...AppTypography.outfitHeading, fontSize: 17 }}>{`Delete ${room.name || 'Our room'}?`}</div>}
+                            content={
+                              <div style={{ ...AppTypography.outfitWhite, fontSize: 14, color: Derived.textMuted }}>
+                                Everyone in the room leaves, and the chat log with it.
+                              </div>
+                            }
+                            actions={[
+                              <TextButton key="cancel" onPressed={() => close(null)}>
+                                Keep room
+                              </TextButton>,
+                              <TextButton
+                                key="delete"
+                                color={AppColors.roseQuartz}
+                                onPressed={() => {
+                                  close(null);
+                                  void deleteWatchPartyRoom(room.id);
+                                }}
+                              >
+                                Delete
+                              </TextButton>,
+                            ]}
+                          />
+                        ));
                       }}
                       style={{
-                        width: 32,
-                        height: 32,
+                        width: 44,
+                        height: 44,
                         borderRadius: '50%',
                         background: withAlpha(AppColors.petalWhite, 0.06),
                         display: 'flex',

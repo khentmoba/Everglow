@@ -19,19 +19,23 @@ type State = {
   loadingMore: boolean;
 };
 const RESET: State = { results: [], searching: false, page: 0, hasMore: false, failed: false, loadingMore: false };
-type Filters = { moviesOnly: boolean; tvOnly: boolean; years: string[] };
-const NO_FILTERS: Filters = { moviesOnly: false, tvOnly: false, years: [] };
+type ResultType = 'all' | 'movie' | 'tv';
+type Filters = { type: ResultType; years: string[] };
+const NO_FILTERS: Filters = { type: 'all', years: [] };
 
 export function CinemaSearchTab({
   width,
   height,
   trendingGlobal,
   onMediaTap,
+  onBrowse,
 }: {
   width: number;
   height: number;
   trendingGlobal: MediaItem[];
   onMediaTap: (m: MediaItem) => void;
+  /** The empty state's way out: the Browse shelves. */
+  onBrowse: () => void;
 }) {
   const isDesktop = width >= 1024;
   const h = isDesktop ? 48 : 16;
@@ -73,7 +77,9 @@ export function CinemaSearchTab({
         ...cur,
         results: [...cur.results, ...added],
         page,
-        hasMore: results.length > 0 && page < 500,
+        // TMDB pages hold 20: a short page is the last one, and a page with
+        // nothing new leaves nothing to promise.
+        hasMore: results.length >= 20 && added.length > 0 && page < 500,
         searching: false,
         loadingMore: false,
       });
@@ -105,16 +111,17 @@ export function CinemaSearchTab({
 
   const year = new Date().getFullYear();
   const chips = [
-    {
-      label: 'Movies only',
-      selected: filters.moviesOnly,
-      onTap: () => setFilters((f) => ({ ...f, moviesOnly: !f.moviesOnly, tvOnly: !f.moviesOnly ? false : f.tvOnly })),
-    },
-    {
-      label: 'TV only',
-      selected: filters.tvOnly,
-      onTap: () => setFilters((f) => ({ ...f, tvOnly: !f.tvOnly, moviesOnly: !f.tvOnly ? false : f.moviesOnly })),
-    },
+    ...(
+      [
+        ['All', 'all'],
+        ['Movies', 'movie'],
+        ['TV shows', 'tv'],
+      ] as const
+    ).map(([label, value]) => ({
+      label,
+      selected: filters.type === value,
+      onTap: () => setFilters((f) => ({ ...f, type: value })),
+    })),
     ...[0, 1, 2].map((offset) => {
       const y = String(year - offset);
       const selected = filters.years.includes(y);
@@ -128,15 +135,32 @@ export function CinemaSearchTab({
   ];
 
   let filtered = state.results;
-  if (filters.moviesOnly) filtered = filtered.filter((i) => i.mediaType === 'movie');
-  if (filters.tvOnly) filtered = filtered.filter((i) => i.mediaType === 'tv');
+  if (filters.type !== 'all') filtered = filtered.filter((i) => i.mediaType === filters.type);
   if (filters.years.length) filtered = filtered.filter((i) => filters.years.includes(i.year));
 
   const grid = (items: MediaItem[]) => (
     <div style={{ padding: `0 ${h}px`, display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 10 }}>
       {items.map((item) => (
-        <div key={`${item.mediaType}:${item.tmdbId}`} style={{ aspectRatio: '0.67' }}>
-          <NetflixPosterCard item={item} compact onTap={() => onMediaTap(item)} />
+        <div key={`${item.mediaType}:${item.tmdbId}`}>
+          <div style={{ aspectRatio: '0.67' }}>
+            <NetflixPosterCard item={item} compact onTap={() => onMediaTap(item)} />
+          </div>
+          {/* A poster alone cannot confirm a match; name it under the art. */}
+          <div
+            style={{
+              paddingTop: 6,
+              ...AppTypography.outfitWhite,
+              fontSize: 11.5,
+              lineHeight: lineHeight(11.5),
+              color: NetflixColors.textSecondary,
+              display: 'flex',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+            {item.year ? <span style={{ flexShrink: 0 }}>{`· ${item.year}`}</span> : null}
+          </div>
         </div>
       ))}
     </div>
@@ -242,6 +266,8 @@ export function CinemaSearchTab({
           {chips.map((c) => (
             <SearchPill key={c.label} label={c.label} selected={c.selected} onTap={c.onTap} />
           ))}
+          {/* Clear sits at the end of a scrolling row: give it room to show. */}
+          <div style={{ flex: `0 0 ${h}px` }} />
         </div>
       )}
 
@@ -266,7 +292,7 @@ export function CinemaSearchTab({
                 </div>
                 <div style={{ height: 12 }} />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {trendingGlobal.slice(0, 12).map((item) => (
+                  {trendingGlobal.slice(0, 6).map((item) => (
                     <SearchPill
                       key={`${item.mediaType}:${item.tmdbId}`}
                       label={item.title}
@@ -308,12 +334,48 @@ export function CinemaSearchTab({
                       color: NetflixColors.textMuted,
                     }}
                   >
-                    {state.results.length === 0 ? 'Try a different title.' : 'Clear the filters or load more titles.'}
+                    {state.results.length === 0 ? 'Try a different title, or browse the movies.' : 'Clear the filters or load more titles.'}
                   </div>
+                  <div style={{ height: 14 }} />
+                  <button
+                    type="button"
+                    className="bare-button"
+                    onClick={() => {
+                      if (state.results.length === 0) {
+                        onBrowse();
+                      } else {
+                        setFilters(NO_FILTERS);
+                      }
+                    }}
+                    style={{
+                      height: 44,
+                      padding: '0 18px',
+                      borderRadius: 22,
+                      background: NetflixColors.textPrimary,
+                      ...AppTypography.outfitHeading,
+                      fontSize: 13,
+                      lineHeight: lineHeight(13),
+                      color: NetflixColors.background,
+                    }}
+                  >
+                    {state.results.length === 0 ? 'Browse movies' : 'Clear filters'}
+                  </button>
                 </div>
               </div>
             )}
-            <div style={{ height: 10 }} />
+            {filtered.length > 0 && (
+              <div
+                style={{
+                  padding: `2px ${h}px 10px`,
+                  ...AppTypography.outfitWhite,
+                  fontSize: 13,
+                  lineHeight: lineHeight(13),
+                  color: NetflixColors.textMuted,
+                }}
+              >
+                {`${filtered.length} ${filtered.length === 1 ? 'result' : 'results'} for “${query.trim()}”`}
+              </div>
+            )}
             {grid(filtered)}
             {(state.failed || state.hasMore) && (
               <div style={{ padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -373,7 +435,8 @@ function FilledTextButton({ children, onPressed, disabled }: { children: string;
 
 function SearchPill({ label, selected, onTap }: { label: string; selected: boolean; onTap: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const bg = selected ? NetflixColors.accent : NetflixColors.surface;
+  // One selected language everywhere: a white chip (same as My List), not a red block.
+  const bg = selected ? NetflixColors.textPrimary : NetflixColors.surface;
   return (
     <button
       type="button"
@@ -390,12 +453,12 @@ function SearchPill({ label, selected, onTap }: { label: string; selected: boole
         padding: '0 13px',
         boxSizing: 'border-box',
         borderRadius: 24,
-        border: `1px solid ${selected ? NetflixColors.accent : NetflixColors.hairline}`,
+        border: `1px solid ${selected ? NetflixColors.textPrimary : NetflixColors.hairline}`,
         background: hovered ? `linear-gradient(${withAlpha('#FFFFFF', 0.08)}, ${withAlpha('#FFFFFF', 0.08)}), ${bg}` : bg,
         ...AppTypography.outfitHeading,
         fontSize: 12,
         lineHeight: lineHeight(12),
-        color: NetflixColors.textPrimary,
+        color: selected ? NetflixColors.background : NetflixColors.textPrimary,
         whiteSpace: 'nowrap',
       }}
     >

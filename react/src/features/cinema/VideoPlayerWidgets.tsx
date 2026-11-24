@@ -175,9 +175,26 @@ export function PulsingDot() {
 }
 
 /** `_CinematicLoader`: the 2200ms ring and sliding bar over the player while it starts. */
-export function CinematicLoader({ providerName }: { providerName: string }) {
+// "1:43:00" for a saved place, so the loader can say where it will start.
+function clockOf(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const sec = Math.floor(seconds % 60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    : `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+export function CinematicLoader({ providerName, resumeAt }: { providerName: string; resumeAt?: number | null }) {
   const still = motionReduced();
   const v = 0.5;
+  // A start that takes this long is not "almost there"; say what to do instead
+  // of showing the same three words forever.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setSlow(true), 9000);
+    return () => window.clearTimeout(id);
+  }, []);
   return (
     <div
       style={{
@@ -221,8 +238,16 @@ export function CinematicLoader({ providerName }: { providerName: string }) {
       </div>
       <div style={{ height: 18 }} />
       <div style={text(14, AppTypography.outfitBold, { letterSpacing: 0.4 })}>Preparing your stream</div>
+      {resumeAt && resumeAt > 30 ? (
+        <>
+          <div style={{ height: 4 }} />
+          <div style={text(12.5, AppTypography.outfitMuted)}>{`Resuming from ${clockOf(resumeAt)}`}</div>
+        </>
+      ) : null}
       <div style={{ height: 4 }} />
-      <div style={text(12, AppTypography.outfitMuted)}>via {providerName}</div>
+      <div style={text(12, AppTypography.outfitMuted)}>
+        {slow ? `via ${providerName} · taking longer than usual, try another source` : `via ${providerName}`}
+      </div>
       <div style={{ height: 16 }} />
       <div
         style={{

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AgentMode } from '../../core/agent/agentMode';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { useAuth } from '../../core/services/auth';
 import { auth as firebaseAuth } from '../../core/services/firebase';
 import { OfflineIds, useOfflineMedia } from '../../core/services/offlineMedia';
@@ -11,17 +12,17 @@ import { useValue } from '../../core/system/store';
 import { Logger } from '../../core/system/logger';
 import { AppColors, withAlpha } from '../../core/theme/colors';
 import { AppSpacing } from '../../core/theme/layout';
-import { Align, boxShadow, insetBorder, lineHeight, linear, mixedLineHeight } from '../../core/theme/paint';
+import { Align, boxShadow, insetBorder, lineHeight, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
-import { TextButton } from '../../shared/widgets/Dialogs';
+import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { fetchAniListDetails, type AniListDetail } from '../anime/animeService';
 import { cinemaPreferences } from './cinemaPreferences';
-import { NetflixColors, TmdbImages, TOP_TEN_COUNTRY_LABEL, type MediaItem } from './cinemaTypes';
+import { NetflixColors, TmdbImages, type MediaItem } from './cinemaTypes';
 import {
   cleanStalePartnerStatus,
   fetchCredits,
@@ -119,6 +120,7 @@ export function CinemaEpisodeDrawer({
   const navigate = useNavigate();
   const { w: screenW, h: screenH } = useWidth();
   const isMobile = screenW < 720;
+  const isWide = screenW >= 720;
   const isCouple = auth.isCoupleUser;
   const prefs = useValue(cinemaPreferences);
   useEffect(() => cinemaPreferences.setUser(auth.currentUser), [auth.currentUser]);
@@ -138,6 +140,17 @@ export function CinemaEpisodeDrawer({
   const [similar, setSimilar] = useState<MediaItem[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [extraTab, setExtraTab] = useState(0);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // Tab stays inside the sheet, Escape closes it, and focus goes back where it was.
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Captured before the sheet takes focus, so closing returns the reader to the
+  // poster or tile they came from instead of to <body>.
+  const openerRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null,
+  );
+  useDialogFocus(true, panelRef, onClose, openerRef);
   const requested = useRef(new Set<number>());
   const [status, setStatusState] = useState(() => resolveCoupleStatus(item));
   const statusRef = useRef(status);
@@ -301,7 +314,7 @@ export function CinemaEpisodeDrawer({
             setReviews(r);
             setLoadingReviews(false);
           });
-      }, 4000);
+      }, 600);
     } else {
       void (async () => {
         let list: MediaItem[] = [];
@@ -343,6 +356,15 @@ export function CinemaEpisodeDrawer({
     if (extraTab === i) return;
     setExtraTab(i);
     requestExtraTab(i);
+    // Bring the tab strip to the top: switching tabs should show the new tab's
+    // content, not the same slice of the hero you were already looking at.
+    window.setTimeout(() => {
+      const el = tabsRef.current;
+      if (!el) return;
+      const scroller = el.closest('[data-drawer-scroll]') as HTMLElement | null;
+      if (scroller) scroller.scrollTop = Math.max(0, el.offsetTop - 12);
+      else el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
   };
 
   const resolvePoster = (): MediaItem => {
@@ -441,7 +463,13 @@ export function CinemaEpisodeDrawer({
   };
 
   const inWatchlist = status !== '';
-  const liked = status.startsWith('watched');
+  // ✓ means "saved". Only a plain saved title can be un-saved; watching and
+  // watched titles stay in My List, so this never erases progress.
+  const toggleWatchlist = () => {
+    if (status === 'to-watch') updateStatus('');
+    else if (status === '') updateStatus('to-watch');
+    else snack('Kept in My List — your progress stays');
+  };
 
   const shareToDiscord = async (season?: number | null) => {
     if (sharing) return;
@@ -562,22 +590,15 @@ export function CinemaEpisodeDrawer({
         if (r) return r;
       }
     }
-    return isAnimeSourced ? '13+' : '16+';
+    // No certificate from TMDB means no certificate is shown. Guessing a 16+
+    // and dressing an invented advisory as a rating is a fact the product made up.
+    return null;
   })();
 
   const has = (g: string) => genreNames.includes(g);
-  const advisory =
-    has('Action') || has('Crime') || has('Thriller')
-      ? 'violence, language'
-      : has('Romance') || has('Drama')
-        ? 'romantic themes, language'
-        : has('Horror') || has('Mystery')
-          ? 'fear, violence'
-          : has('Comedy')
-            ? 'humor, suggestive dialogue'
-            : has('Animation')
-              ? 'fantasy action, mild language'
-              : 'general themes';
+  // Only what TMDB actually states: the certificate and, when it has one, its
+  // descriptor list. Nothing here is guessed from a genre.
+  const maturityLine = certification == null && genreNames.length > 0 ? 'Not rated' : null;
   const moodTags = (() => {
     const tags: string[] = [];
     if (has('Romance')) tags.push('Emotional', 'Romantic');
@@ -594,21 +615,40 @@ export function CinemaEpisodeDrawer({
   const format = isAnimeSourced ? (aniDetail?.format ?? item.format) : '';
   const airing = isAnimeSourced ? (aniDetail?.airingStatus ?? item.airingStatus) : '';
   const overview = (typeof details?.overview === 'string' ? details.overview : null) ?? item.synopsis;
+  // One counter, one meaning: totals say "Seasons" when there is more than one.
   const episodesCountStr = isFilm
     ? ''
-    : details?.number_of_episodes != null
-      ? `${String(details.number_of_episodes)} Episodes`
-      : seasons.length > 1
-        ? `${seasons.length} Seasons`
+    : seasons.length > 1
+      ? `${String(seasons.length)} Seasons${details?.number_of_episodes != null ? ` · ${String(details.number_of_episodes)} Episodes` : ''}`
+      : details?.number_of_episodes != null
+        ? `${String(details.number_of_episodes)} Episodes`
         : episodes.length
           ? `${episodes.length} Episodes`
           : item.episodeCount != null
             ? `${item.episodeCount} Episodes`
             : '';
-  const runtimeStr = isFilm && runtime != null ? `${String(runtime)}m` : '';
+  const runtimeMinutes = typeof runtime === 'number' ? runtime : null;
+  const runtimeStr =
+    isFilm && runtimeMinutes != null
+      ? runtimeMinutes >= 60
+        ? `${Math.floor(runtimeMinutes / 60)}h ${runtimeMinutes % 60}m`
+        : `${String(runtimeMinutes)}m`
+      : '';
 
   const content = (
-    <div className="no-scrollbar" style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
+    <div
+      data-drawer-scroll
+      className={isMobile ? 'no-scrollbar' : undefined}
+      style={{
+        height: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        // On a big screen the panel scrolls to the nearest section, so the fold
+        // lands between cards instead of through them.
+        scrollSnapType: isMobile ? undefined : 'y proximity',
+        scrollbarWidth: isMobile ? undefined : 'thin',
+      }}
+    >
       <Hero
         backdropUrl={backdropUrl}
         trailerKey={trailerKey}
@@ -618,15 +658,12 @@ export function CinemaEpisodeDrawer({
         playLabel={hasProgress ? 'Resume' : 'Play'}
         onPlay={isFilm ? playMovie : () => playEpisode(item.currentSeason ?? 1, item.currentEpisode ?? 1)}
         inWatchlist={inWatchlist}
-        onToggleWatchlist={() => updateStatus(inWatchlist ? '' : 'to-watch')}
-        liked={liked}
-        onRate={() => updateStatus(liked ? '' : 'watched-self')}
+        onToggleWatchlist={toggleWatchlist}
         isUnreleased={isUnreleased}
         onRemindMe={() => updateStatus('to-watch')}
         onShareDiscord={isCouple ? () => void shareToDiscord(selectedSeason) : undefined}
         onToggleMute={() => setMuted((m) => !m)}
-        downloadAction={isFilm ? <MovieDownloadAction item={item} /> : null}
-        onClose={onClose}
+        downloadAction={isFilm ? <MovieDownloadAction item={item} wide={isWide} /> : null}
       />
       <div className="drawer-fade-in">
         <div style={{ padding: '18px 24px 16px' }}>
@@ -647,52 +684,33 @@ export function CinemaEpisodeDrawer({
               <RightColumn />
             </>
           )}
-          <div style={{ height: 20 }} />
-          <div
-            style={{
-              ...AppTypography.outfitHeading,
-              fontSize: 11,
-              lineHeight: lineHeight(11),
-              letterSpacing: 1.2,
-              color: NetflixColors.textSecondary,
-            }}
-          >
-            Status
-          </div>
-          <div style={{ height: 8 }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {(isCouple
-              ? ([
-                  ['Want to Watch', 'to-watch', 'bookmark', NetflixColors.accent],
-                  ['Khent Watching', 'watching-khent', 'play_circle_filled', AppColors.cinemaOrange],
-                  ['Clair Watching', 'watching-clair', 'play_circle_filled', NetflixColors.accent],
-                  ['Both Watching', 'watching-both', 'people', AppColors.cinemaAmber],
-                  ['Khent Watched', 'watched-khent', 'person', AppColors.cinemaBlue],
-                  ['Clair Watched', 'watched-clair', 'favorite', NetflixColors.accent],
-                  ['Both Watched', 'watched-both', 'people', AppColors.cinemaGreen],
-                ] as const)
-              : ([
-                  ['Want to Watch', 'to-watch', 'bookmark', NetflixColors.accent],
-                  ['Currently Watching', 'watching-self', 'play_circle_filled', AppColors.cinemaOrange],
-                  ['Watched', 'watched-self', 'check_circle', AppColors.cinemaGreen],
-                ] as const)
-            ).map(([label, value, icon, color]) => (
-              <StatusChip
-                key={value}
-                label={label}
-                icon={icon}
-                activeColor={color}
-                selected={status === value}
-                onTap={() => updateStatus(value)}
-              />
-            ))}
-          </div>
+          {inWatchlist && (
+            <>
+              <div style={{ height: 20 }} />
+              <div
+                style={{
+                  ...AppTypography.outfitHeading,
+                  fontSize: 11,
+                  lineHeight: lineHeight(11),
+                  letterSpacing: 1.2,
+                  color: NetflixColors.textSecondary,
+                }}
+              >
+                Status
+              </div>
+              <div style={{ height: 8 }} />
+              {/* Status only appears once the title is in My List: two controls
+                  for the same fact (add, then set state) is one too many. */}
+              <StatusControl status={status} isCouple={isCouple} onChange={updateStatus} />
+            </>
+          )}
         </div>
       </div>
       {isCouple && (
         <div style={{ padding: `0 ${AppSpacing.lg}px` }}>
           <TextButton
-            icon={<Icon name="auto_awesome" size={18} color={AppColors.deepRose} />}
+            color={NetflixColors.textSecondary}
+            icon={<Icon name="auto_awesome" size={18} color={NetflixColors.textSecondary} />}
             style={{ width: '100%' }}
             onPressed={() => {
               onClose();
@@ -721,15 +739,19 @@ export function CinemaEpisodeDrawer({
           onSeasonChanged={selectSeason}
         />
       )}
-      <ExtraTabs selected={extraTab} onSelect={selectExtraTab} isAnimeSourced={isAnimeSourced} />
+      <div ref={tabsRef}>
+        <ExtraTabs selected={extraTab} onSelect={selectExtraTab} isAnimeSourced={isAnimeSourced} />
+      </div>
       {extraTab === 1 ? (
-        <Reviews reviews={reviews} loading={loadingReviews} />
+        <Reviews reviews={reviews} loading={loadingReviews} onSeeSimilar={() => selectExtraTab(2)} />
       ) : extraTab === 2 ? (
         <SimilarGrid similar={similar} loading={loadingSimilar} onTap={onShowItem} />
       ) : (
         <CastRow cast={cast} loading={loadingCast} isAnimeSourced={isAnimeSourced} />
       )}
-      <div style={{ height: 60 }} />
+      {/* A whole card of slack: the panel's edge then falls between rows rather
+          than through the last circle or poster. */}
+      <div style={{ height: isMobile ? 96 : 150 }} />
     </div>
   );
 
@@ -746,9 +768,9 @@ export function CinemaEpisodeDrawer({
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 6 }}>
           {rating != null && rating > 0 && (
             <span
-              style={{ ...AppTypography.outfitHeading, fontSize: 14, lineHeight: lineHeight(14), color: NetflixColors.match }}
+              style={{ ...AppTypography.outfitHeading, fontSize: 14, lineHeight: lineHeight(14), color: withAlpha(WHITE, 0.85) }}
             >
-              {Math.round(rating * 10)}% Match
+              {`TMDB ${rating.toFixed(1)}`}
             </span>
           )}
           {year && <span style={meta}>{year}</span>}
@@ -758,11 +780,11 @@ export function CinemaEpisodeDrawer({
         </div>
         <div style={{ height: 10 }} />
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 6 }}>
-          {certification != null && (
+          {(certification != null || maturityLine != null) && (
             <span
               style={{
                 padding: '2px 6px',
-                border: `1px solid ${withAlpha(WHITE, 0.7)}`,
+                border: `1px solid ${withAlpha(WHITE, 0.55)}`,
                 borderRadius: 3,
                 ...AppTypography.outfitHeading,
                 fontSize: 11,
@@ -771,14 +793,9 @@ export function CinemaEpisodeDrawer({
                 color: WHITE,
               }}
             >
-              {certification}
+              {certification ?? maturityLine}
             </span>
           )}
-          <span
-            style={{ ...AppTypography.outfitWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), color: withAlpha(WHITE, 0.75) }}
-          >
-            {advisory}
-          </span>
         </div>
         {topTenRank != null && (
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center' }}>
@@ -801,7 +818,7 @@ export function CinemaEpisodeDrawer({
             </div>
             <div style={{ width: 8 }} />
             <span style={{ ...AppTypography.outfitBold, fontSize: 14, lineHeight: lineHeight(14), color: WHITE }}>
-              #{topTenRank} in {TOP_TEN_COUNTRY_LABEL} Today
+              #{topTenRank} in Top 10
             </span>
           </div>
         )}
@@ -833,10 +850,6 @@ export function CinemaEpisodeDrawer({
   }
 
   function RightColumn() {
-    const castNames = cast
-      .slice(0, 4)
-      .map((c) => c.name)
-      .filter(Boolean);
     // RichText: no inherited bodyMedium height, so Outfit's own 1.26 line.
     const line = (label: string, value: ReactNode, bottom: number) => (
       <div style={{ paddingBottom: bottom, ...AppTypography.outfitWhite, fontSize: 13, lineHeight: lineHeight(13, 1.26) }}>
@@ -846,15 +859,8 @@ export function CinemaEpisodeDrawer({
     );
     return (
       <div>
-        {castNames.length > 0 &&
-          line(
-            'Cast: ',
-            <>
-              <span style={{ lineHeight: 'inherit', color: WHITE }}>{castNames.join(', ')}</span>
-              <span style={{ lineHeight: 'inherit', color: withAlpha(WHITE, 0.6), fontStyle: 'italic' }}>, more</span>
-            </>,
-            10,
-          )}
+        {/* The Cast tab below carries the same five people with their roles, so
+            the metadata line names the genres and the mood only. */}
         {genreNames.length > 0 && line('Genres: ', <span style={{ lineHeight: 'inherit', color: WHITE }}>{genreNames.join(', ')}</span>, 10)}
         {line(`This ${isFilm ? 'Movie' : 'Show'} Is: `, <span style={{ lineHeight: 'inherit', color: WHITE }}>{moodTags}</span>, 16)}
       </div>
@@ -862,42 +868,125 @@ export function CinemaEpisodeDrawer({
   }
 
   return (
-    <div className="drawer-root" style={{ position: 'fixed', inset: 0, zIndex: 1100 }}>
+    <div
+      className="drawer-root"
+      ref={panelRef}
+      tabIndex={-1}
+      // The container only receives focus so the dialog can hold it; no ring on a frame.
+      style={{ position: 'fixed', inset: 0, zIndex: 1400, outline: 'none' }} // ci:outline-none
+    >
       <div className="drawer-barrier" aria-hidden onClick={onClose} style={{ position: 'absolute', inset: 0 }} />
       <div className="drawer-slide" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {isMobile ? (
           <div
             role="dialog"
+            aria-modal="true"
             aria-label={item.title}
             style={{ height: '100%', background: NetflixColors.surface, pointerEvents: 'auto' }}
           >
             {content}
+            <CloseButton onClose={onClose} />
           </div>
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div
               role="dialog"
+              aria-modal="true"
               aria-label={item.title}
               style={{
                 pointerEvents: 'auto',
-                margin: '28px 20px',
+                // Clear of the fixed top bar, which otherwise crosses the panel's hero.
+                margin: '84px 20px 28px',
                 width: 'calc(100% - 40px)',
                 maxWidth: 880,
-                height: Math.max(0, screenH - 56),
+                // 84 above the bar + 28 below it. A shorter panel scrolls to a
+                // whole card instead of slicing one at the fade.
+                maxHeight: Math.max(0, screenH - 112),
+                alignSelf: 'center',
                 boxSizing: 'border-box',
                 background: NetflixColors.surface,
                 borderRadius: 14,
                 border: `1px solid ${withAlpha(WHITE, 0.1)}`,
                 boxShadow: boxShadow([{ color: withAlpha('#000000', 0.85), blur: 48, offset: [0, 12] }]),
                 overflow: 'hidden',
+                position: 'relative',
               }}
             >
               {content}
+              <CloseButton onClose={onClose} />
+              {/* The panel scrolls; this says so without cutting a row mid-card. */}
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 42,
+                  pointerEvents: 'none',
+                  background: linear(['rgba(20,20,20,0)', NetflixColors.surface], {
+                    begin: Align.topCenter,
+                    end: Align.bottomCenter,
+                  }),
+                }}
+              />
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+// The only way out of the sheet, pinned to the panel frame: inside the scrolled
+// hero it used to scroll away and leave a long page with no exit.
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      {/* The close floats above the scroller; a short top scrim stops a pill or
+          a poster edge sliding under the tap target and reading as part of it. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          zIndex: 4,
+          pointerEvents: 'none',
+          background: linear(['rgba(20,20,20,0.55)', 'rgba(20,20,20,0)'], {
+            begin: Align.topCenter,
+            end: Align.bottomCenter,
+          }),
+        }}
+      />
+    <button
+      type="button"
+      className="bare-button"
+      aria-label="Close"
+      onClick={onClose}
+      style={{
+        position: 'absolute',
+        // The sheet's only exit, so it clears the notch band in standalone.
+        top: 'calc(10px + env(safe-area-inset-top, 0px))',
+        right: 16,
+        zIndex: 5,
+        width: 44,
+        height: 44,
+        borderRadius: '50%',
+        boxSizing: 'border-box',
+        background: '#181818CC',
+        border: `1px solid ${withAlpha(WHITE, 0.2)}`,
+        boxShadow: boxShadow([{ color: withAlpha('#000000', 0.5), blur: 10 }]),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Icon name="close" size={20} color={WHITE} />
+    </button>
+    </>
   );
 }
 
@@ -911,14 +1000,11 @@ function Hero({
   onPlay,
   inWatchlist,
   onToggleWatchlist,
-  liked,
-  onRate,
   isUnreleased,
   onRemindMe,
   onShareDiscord,
   onToggleMute,
   downloadAction,
-  onClose,
 }: {
   backdropUrl: string;
   trailerKey: string | null;
@@ -929,17 +1015,17 @@ function Hero({
   onPlay: () => void;
   inWatchlist: boolean;
   onToggleWatchlist: () => void;
-  liked: boolean;
-  onRate: () => void;
   isUnreleased: boolean;
   onRemindMe: () => void;
   onShareDiscord?: () => void;
   onToggleMute: () => void;
   downloadAction: ReactNode;
-  onClose: () => void;
 }) {
   const [imgState, setImgState] = useState<'loading' | 'ok' | 'error'>('loading');
-  const height = isMobile ? 280 : 440;
+  // A short laptop screen must still reach the tabs below the hero.
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 900;
+  // Short enough that the tab strip and the first row of cards fit above the fold.
+  const height = isMobile ? 280 : Math.max(260, Math.min(320, Math.round(viewportH * 0.34)));
   const placeholder = (loading: boolean) => (
     <div
       style={{
@@ -1017,29 +1103,6 @@ function Hero({
           ].join(', '),
         }}
       />
-      <button
-        type="button"
-        className="bare-button"
-        aria-label="Close"
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 16,
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          boxSizing: 'border-box',
-          background: '#181818CC',
-          border: `1px solid ${withAlpha(WHITE, 0.2)}`,
-          boxShadow: boxShadow([{ color: withAlpha('#000000', 0.5), blur: 10 }]),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="close" size={20} color={WHITE} />
-      </button>
       {trailerKey && (
         <div style={{ position: 'absolute', bottom: 24, right: 20 }}>
           <Tooltip message={muted ? 'Unmute' : 'Mute'}>
@@ -1070,17 +1133,18 @@ function Hero({
         <div
           className="clamp-2"
           style={{
-            ...AppTypography.outfitBold,
-            fontSize: isMobile ? 26 : 38,
-            lineHeight: lineHeight(isMobile ? 26 : 38, 1.1),
-            color: WHITE,
+            // The serif is the identity: the same film is serif on the hero and
+            // in the player, so it cannot turn into sans here.
+            ...AppTypography.cormorantBlackWhite,
+            fontSize: isMobile ? 30 : 44,
+            lineHeight: lineHeight(isMobile ? 30 : 44, 1.1),
             textShadow: `0 2px ${(2 * (16 * 0.57735 + 0.5)).toFixed(2)}px ${withAlpha('#000000', 0.8)}`,
           }}
         >
           {cleanTitle(title)}
         </div>
         <div style={{ height: 14 }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 }}>
           <button
             type="button"
             className="bare-button"
@@ -1109,20 +1173,21 @@ function Hero({
               {playLabel}
             </span>
           </button>
-          {isUnreleased && <CircleAction icon="notifications_none" tooltip="Remind Me" onTap={onRemindMe} />}
+          {isMobile && <div style={{ width: 0 }} />}
+          {isUnreleased && (
+            <CircleAction icon="notifications_none" tooltip="Remind Me" label="Remind Me" wide={!isMobile} onTap={onRemindMe} />
+          )}
           <CircleAction
             icon={inWatchlist ? 'check' : 'add'}
-            tooltip={inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
+            tooltip={inWatchlist ? 'In My List' : 'Add to My List'}
+            label={inWatchlist ? 'In List' : 'My List'}
+            wide={!isMobile}
             onTap={onToggleWatchlist}
             activeColor={inWatchlist ? NetflixColors.accent : undefined}
           />
-          <CircleAction
-            icon={liked ? 'thumb_up_alt' : 'thumb_up_off_alt'}
-            tooltip={liked ? 'Rated' : 'Rate'}
-            onTap={onRate}
-            activeColor={liked ? NetflixColors.accent : undefined}
-          />
-          {onShareDiscord && <CircleAction icon="share" tooltip="Share to #watch-party" onTap={onShareDiscord} />}
+          {onShareDiscord && (
+            <CircleAction icon="share" tooltip="Share to #watch-party" label="Share" wide={!isMobile} onTap={onShareDiscord} />
+          )}
           {downloadAction}
         </div>
       </div>
@@ -1135,56 +1200,156 @@ function CircleAction({
   tooltip,
   onTap,
   activeColor,
+  label,
+  wide = false,
 }: {
   icon: string;
   tooltip: string;
   onTap: () => void;
   activeColor?: string;
+  /** Desktop spells the action out beside the icon, like Netflix's labelled pills. */
+  label?: string;
+  wide?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const button = (
+    <button
+      type="button"
+      className="bare-button"
+      aria-label={tooltip}
+      aria-pressed={activeColor != null}
+      onClick={onTap}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        minWidth: 44,
+        height: 44,
+        padding: wide && label ? '0 16px' : 0,
+        borderRadius: 22,
+        background: hovered ? withAlpha(WHITE, 0.25) : withAlpha('#000000', 0.5),
+        ...insetBorder(activeColor ?? (hovered ? WHITE : withAlpha(WHITE, 0.4)), 1.5),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+      }}
+    >
+      <Icon name={icon} size={20} color={activeColor ?? WHITE} />
+      {wide && label && (
+        <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: activeColor ?? WHITE }}>
+          {label}
+        </span>
+      )}
+    </button>
+  );
   return (
     <Tooltip message={tooltip}>
-      <button
-        type="button"
-        className="bare-button"
-        aria-label={tooltip}
-        onClick={onTap}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          background: hovered ? withAlpha(WHITE, 0.25) : withAlpha('#000000', 0.5),
-          ...insetBorder(activeColor ?? (hovered ? WHITE : withAlpha(WHITE, 0.4)), 1.5),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name={icon} size={20} color={activeColor ?? WHITE} />
-      </button>
+      {wide || !label ? (
+        button
+      ) : (
+        // Phones get a word under the glyph: a tooltip never opens on touch.
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          {button}
+          <span
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 11,
+              lineHeight: lineHeight(11),
+              color: withAlpha(WHITE, 0.82),
+              textAlign: 'center',
+              maxWidth: 66,
+            }}
+          >
+            {label}
+          </span>
+        </div>
+      )}
     </Tooltip>
   );
 }
 
-function MovieDownloadAction({ item }: { item: MediaItem }) {
+function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: boolean; caption?: boolean }) {
   const offline = useOfflineMedia();
   const id = OfflineIds.cinemaMovieId(item.tmdbId);
+  // A 44px target that reads like its neighbours: outlined, and labelled on wide screens.
   const circle: CSSProperties = {
-    width: 40,
-    height: 40,
-    borderRadius: '50%',
+    minWidth: 44,
+    height: 44,
+    padding: wide ? '0 16px' : 0,
+    borderRadius: 22,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   };
   if (offline.isDownloaded(id)) {
+    // A saved row is still a control: tapping it removes the download.
+    const savedButton = (
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Remove download"
+          onClick={() => {
+            // Destructive, so it asks first: a tap here frees space but loses the file.
+            void showDialog<void>((close) => (
+              <AlertDialog
+                background={NetflixColors.surface}
+                title={<div style={{ ...AppTypography.outfitBold, fontSize: 17, color: WHITE }}>Remove download?</div>}
+                content={
+                  <div style={{ ...AppTypography.outfitWhite, fontSize: 13.5, lineHeight: lineHeight(13.5, 1.4), color: NetflixColors.textSecondary }}>
+                    {`${item.title} stays in My List. You would download it again to watch offline.`}
+                  </div>
+                }
+                actions={[
+                  <TextButton key="cancel" onPressed={() => close()}>
+                    Keep
+                  </TextButton>,
+                  <TextButton
+                    key="remove"
+                    onPressed={() => {
+                      close();
+                      void offline.deleteDownload(id);
+                      showSnackBar(`Removed ${item.title} from downloads`);
+                    }}
+                  >
+                    Remove
+                  </TextButton>,
+                ]}
+              />
+            ), { zIndex: 1500 });
+          }}
+          style={{ ...circle, background: withAlpha('#000000', 0.5), ...insetBorder(withAlpha(WHITE, 0.55), 1.5) }}
+        >
+          <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
+          {wide && (
+            <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
+              Remove file
+            </span>
+          )}
+        </button>
+    );
     return (
-      <Tooltip message="Downloaded for offline viewing">
-        <div style={{ ...circle, background: withAlpha(NetflixColors.accent, 0.2), ...insetBorder(NetflixColors.accent, 1.5) }}>
-          <Icon name="offline_pin" size={20} color={NetflixColors.accent} />
-        </div>
+      <Tooltip message="Removes the download from this device">
+        {wide ? (
+          savedButton
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+            {savedButton}
+            <span
+              style={{
+                ...AppTypography.outfitWhite,
+                fontSize: 11,
+                lineHeight: lineHeight(11),
+                color: withAlpha(WHITE, 0.82),
+                textAlign: 'center',
+                maxWidth: 74,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Remove file
+            </span>
+          </div>
+        )}
       </Tooltip>
     );
   }
@@ -1195,8 +1360,7 @@ function MovieDownloadAction({ item }: { item: MediaItem }) {
       </div>
     );
   }
-  return (
-    <Tooltip message="Download movie for offline">
+  const downloadButton = (
       <button
         type="button"
         className="bare-button"
@@ -1216,7 +1380,32 @@ function MovieDownloadAction({ item }: { item: MediaItem }) {
         style={{ ...circle, background: withAlpha('#000000', 0.5), ...insetBorder(withAlpha(WHITE, 0.4), 1.5) }}
       >
         <Icon name="download_for_offline_outlined" size={20} color={WHITE} />
+        {wide && (
+          <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: WHITE }}>Download</span>
+        )}
       </button>
+  );
+  return (
+    <Tooltip message="Download movie for offline">
+      {wide ? (
+        downloadButton
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          {downloadButton}
+          <span
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 11,
+              lineHeight: lineHeight(11),
+              color: withAlpha(WHITE, 0.82),
+              textAlign: 'center',
+              maxWidth: 66,
+            }}
+          >
+            Download
+          </span>
+        </div>
+      )}
     </Tooltip>
   );
 }
@@ -1333,16 +1522,99 @@ function AiringCountdown({ at, episode }: { at: number; episode?: number }) {
   );
 }
 
+/** Three intents plus, for a couple, who watched it — instead of seven chips. */
+function StatusControl({
+  status,
+  isCouple,
+  onChange,
+}: {
+  status: string;
+  isCouple: boolean;
+  onChange: (next: string) => void;
+}) {
+  const auth = useAuth();
+  const watching = status.startsWith('watching');
+  const watched = status.startsWith('watched');
+  const intent = status === 'to-watch' ? 'to-watch' : watching ? 'watching' : watched ? 'watched' : '';
+  const who = status.endsWith('-khent')
+    ? 'khent'
+    : status.endsWith('-clair')
+      ? 'clair'
+      : status.endsWith('-both')
+        ? 'both'
+        : '';
+  const applyIntent = (next: 'to-watch' | 'watching' | 'watched') => {
+    if (next === 'to-watch') return onChange(status === 'to-watch' ? '' : 'to-watch');
+    // Never assert the partner: a fresh tap records the person who tapped it.
+    const me = auth.currentUser === 'clairjassen' ? 'clair' : 'khent';
+    const owner = isCouple ? who || me : 'self';
+    onChange(`${next}-${owner}`);
+  };
+  return (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <StatusChip
+          label="Want to Watch"
+          icon=""
+          selected={intent === 'to-watch'}
+          onTap={() => applyIntent('to-watch')}
+        />
+        <StatusChip
+          label="Watching"
+          icon=""
+          selected={intent === 'watching'}
+          onTap={() => applyIntent('watching')}
+        />
+        <StatusChip
+          label="Watched"
+          icon=""
+          selected={intent === 'watched'}
+          onTap={() => applyIntent('watched')}
+        />
+      </div>
+      {isCouple && (intent === 'watching' || intent === 'watched') && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10 }}>
+          <span
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 12.5,
+              lineHeight: lineHeight(12.5),
+              color: NetflixColors.textMuted,
+            }}
+          >
+            Who
+          </span>
+          {(
+            [
+              ['Khent', 'khent'],
+              ['Clair', 'clair'],
+              ['Both', 'both'],
+            ] as const
+          ).map(([label, value]) => (
+            <StatusChip
+              key={value}
+              label={label}
+              icon=""
+              selected={who === value}
+              onTap={() => onChange(`${intent}-${value}`)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatusChip({
   label,
   icon,
-  activeColor,
   selected,
   onTap,
 }: {
   label: string;
   icon: string;
-  activeColor: string;
+  /** Kept optional for call sites that still pass a colour; selection is white. */
+  activeColor?: string;
   selected: boolean;
   onTap: () => void;
 }) {
@@ -1353,23 +1625,27 @@ function StatusChip({
       aria-pressed={selected}
       onClick={onTap}
       style={{
-        padding: '10px 15px',
+        minHeight: 44,
+        padding: icon ? '10px 15px' : '10px 14px',
         borderRadius: 8,
-        background: selected ? withAlpha(activeColor, 0.16) : NetflixColors.surfaceElevated,
-        border: `1px solid ${selected ? withAlpha(activeColor, 0.75) : NetflixColors.hairline}`,
+        boxSizing: 'border-box',
+        // One selected language across Cinema: a white chip, like the filters.
+        background: selected ? NetflixColors.textPrimary : NetflixColors.surfaceElevated,
+        border: `1px solid ${selected ? NetflixColors.textPrimary : NetflixColors.hairline}`,
         transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 7,
       }}
     >
-      <Icon name={icon} size={15} color={selected ? activeColor : NetflixColors.textSecondary} />
+      {icon ? <Icon name={icon} size={15} color={selected ? NetflixColors.background : NetflixColors.textSecondary} /> : null}
       <span
         style={{
           ...AppTypography.outfitHeading,
           fontSize: 12.5,
           lineHeight: lineHeight(12.5),
-          color: selected ? WHITE : NetflixColors.textSecondary,
+          color: selected ? NetflixColors.background : NetflixColors.textSecondary,
         }}
       >
         {label}
@@ -1386,18 +1662,33 @@ function Spinner({ vertical, size }: { vertical: number; size: number }) {
   );
 }
 
-function EmptyLine({ text }: { text: string }) {
+function EmptyLine({ text, hint }: { text: string; hint?: string }) {
   return (
-    <div
-      style={{
-        padding: '10px 20px',
-        ...AppTypography.outfitWhite,
-        fontSize: 13,
-        lineHeight: lineHeight(13),
-        color: NetflixColors.textMuted,
-      }}
-    >
-      {text}
+    <div style={{ padding: '10px 20px' }}>
+      <div
+        style={{
+          ...AppTypography.outfitWhite,
+          fontSize: 13,
+          lineHeight: lineHeight(13),
+          color: NetflixColors.textMuted,
+        }}
+      >
+        {text}
+      </div>
+      {hint ? (
+        <div
+          style={{
+            paddingTop: 4,
+            ...AppTypography.outfitWhite,
+            fontSize: 12,
+            lineHeight: lineHeight(12),
+            color: NetflixColors.textMuted,
+            opacity: 0.8,
+          }}
+        >
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1411,9 +1702,9 @@ function ExtraTabs({
   onSelect: (i: number) => void;
   isAnimeSourced: boolean;
 }) {
-  const labels = [isAnimeSourced ? 'Voice Cast' : 'Cast', 'Reviews', 'Motchi says… 🐱'];
+  const labels = [isAnimeSourced ? 'Voice Cast' : 'Cast', 'Reviews', 'More Like This'];
   return (
-    <div style={{ padding: '30px 20px 12px', display: 'flex', gap: 8 }}>
+    <div style={{ padding: '30px 24px 12px', display: 'flex', gap: 8 }}>
       {labels.map((label, i) => {
         const on = selected === i;
         return (
@@ -1426,14 +1717,18 @@ function ExtraTabs({
             style={{
               flex: '1 1 0',
               minWidth: 0,
-              padding: '10px 0',
+              padding: '12px 0',
               borderRadius: 8,
-              background: on ? NetflixColors.accent : NetflixColors.surfaceElevated,
-              border: `1px solid ${on ? NetflixColors.accent : NetflixColors.hairline}`,
+              // A red underline marks the tab; a full red block would out-shout Play.
+              background: on ? NetflixColors.surfaceElevated : 'transparent',
+              border: `1px solid ${on ? withAlpha(WHITE, 0.28) : NetflixColors.hairline}`,
+              // Inset, so the selected tab keeps its rounded corners instead of
+              // squaring off where a border-bottom would push through.
+              boxShadow: on ? `inset 0 -2px 0 0 ${NetflixColors.accent}` : 'none',
               transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
               ...AppTypography.outfitHeading,
               fontSize: 12.5,
-              lineHeight: i === 2 ? mixedLineHeight(12.5) : lineHeight(12.5),
+              lineHeight: lineHeight(12.5),
               color: on ? WHITE : NetflixColors.textSecondary,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -1460,8 +1755,8 @@ function CastRow({ cast, loading, isAnimeSourced }: { cast: Cast[]; loading: boo
           <div key={i} style={{ width: 128, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div
               style={{
-                width: 112,
-                height: 112,
+                width: 96,
+                height: 96,
                 borderRadius: '50%',
                 overflow: 'hidden',
                 background: NetflixColors.surfaceElevated,
@@ -1527,9 +1822,12 @@ function PhotoOrInitial({ url, label, size, background }: { url: string; label: 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        ...AppTypography.cormorantBold,
-        fontSize: size,
-        color: NetflixColors.textSecondary,
+        // A hairline and a warmer initial so a missing photo reads as a choice,
+        // not as a broken image next to finished posters.
+        boxShadow: `inset 0 0 0 1px ${withAlpha(NetflixColors.textPrimary, 0.14)}`,
+        ...AppTypography.outfitBold,
+        fontSize: Math.round(size * 0.9),
+        color: withAlpha(NetflixColors.textPrimary, 0.72),
       }}
     >
       {label ? label[0].toUpperCase() : '?'}
@@ -1537,9 +1835,67 @@ function PhotoOrInitial({ url, label, size, background }: { url: string; label: 
   );
 }
 
-function Reviews({ reviews, loading }: { reviews: CinemaReview[]; loading: boolean }) {
-  if (loading) return <Spinner vertical={28} size={22} />;
-  if (!reviews.length) return <EmptyLine text="No reviews yet" />;
+function Reviews({
+  reviews,
+  loading,
+  onSeeSimilar,
+}: {
+  reviews: CinemaReview[];
+  loading: boolean;
+  /** The empty state points at More Like This; give it something to tap. */
+  onSeeSimilar?: () => void;
+}) {
+  if (loading)
+    return (
+      <div style={{ padding: '4px 20px' }} aria-busy="true">
+        <div
+          style={{ ...AppTypography.outfitWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), color: NetflixColors.textMuted }}
+        >
+          Loading reviews…
+        </div>
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            style={{
+              marginTop: 10,
+              height: 76,
+              borderRadius: 12,
+              background: NetflixColors.surfaceElevated,
+              opacity: i === 0 ? 0.9 : 0.5,
+            }}
+          />
+        ))}
+      </div>
+    );
+  // Say why it is empty and where to go next, not just that it is.
+  if (!reviews.length)
+    return (
+      <div>
+        <EmptyLine text="No reviews yet" hint="Reviews come from TMDB, and nobody has written one for this yet." />
+        {onSeeSimilar && (
+          <div style={{ padding: '4px 20px 8px' }}>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={onSeeSimilar}
+              style={{
+                minHeight: 44,
+                padding: '0 16px',
+                borderRadius: 8,
+                ...AppTypography.outfitHeading,
+                fontSize: 13,
+                lineHeight: lineHeight(13),
+                color: NetflixColors.textPrimary,
+                border: `1px solid ${NetflixColors.hairline}`,
+                background: NetflixColors.surfaceElevated,
+              }}
+            >
+              See More Like This
+            </button>
+          </div>
+        )}
+      </div>
+    );
   return (
     <div style={{ padding: '0 20px' }}>
       {reviews.map((r, i) => {
@@ -1653,7 +2009,7 @@ function SimilarGrid({ similar, loading, onTap }: { similar: MediaItem[]; loadin
 
 function SimilarCard({ item, onTap }: { item: MediaItem; onTap: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const match = item.score != null && item.score > 0 ? Math.round(item.score * 10) : 90 + (item.tmdbId % 9);
+  const match = item.score != null && item.score > 0 ? item.score.toFixed(1) : null;
   const image = TmdbImages.backdropOf(item.backdropPath, true) || TmdbImages.posterFor(item.posterPath);
   return (
     <button
@@ -1703,23 +2059,12 @@ function SimilarCard({ item, onTap }: { item: MediaItem; onTap: () => void }) {
       <div style={{ padding: '10px 10px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ ...AppTypography.outfitBold, fontSize: 12, lineHeight: lineHeight(12), color: NetflixColors.match }}>
-              {match}% Match
-            </span>
-            <div style={{ width: 6 }} />
-            <span
-              style={{
-                padding: '1px 4px',
-                border: `1px solid ${withAlpha(WHITE, 0.5)}`,
-                borderRadius: 2,
-                ...AppTypography.outfitBold,
-                fontSize: 9,
-                lineHeight: lineHeight(9),
-                color: WHITE,
-              }}
-            >
-              {item.isAnime ? '13+' : '16+'}
-            </span>
+            {match != null && (
+              <span style={{ ...AppTypography.outfitBold, fontSize: 12, lineHeight: lineHeight(12), color: withAlpha(WHITE, 0.85) }}>
+                {`TMDB ${match}`}
+              </span>
+            )}
+
           </div>
           <div
             style={{
@@ -2022,6 +2367,27 @@ function EpisodeRow({
             <Icon name="play_arrow" size={20} color={WHITE} />
           </div>
         )}
+        {progress >= 0.99 && (
+          // A finished episode says so on its own thumbnail, so "have I seen
+          // this?" never needs memory.
+          <div
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              background: withAlpha('#000000', 0.72),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            aria-label="Watched"
+          >
+            <Icon name="check" size={13} color={WHITE} />
+          </div>
+        )}
         {progress > 0 && (
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
             <LinearProgress value={progress} height={3.5} color={NetflixColors.accent} background={withAlpha(WHITE, 0.24)} />
@@ -2044,7 +2410,7 @@ function EpisodeRow({
               textOverflow: 'ellipsis',
             }}
           >
-            {hidden ? `Episode ${num}` : name}
+            {name}
           </div>
           {duration && (
             <span
@@ -2061,7 +2427,22 @@ function EpisodeRow({
           )}
         </div>
         <div style={{ height: 5 }} />
-        {hidden ? (
+        {/* A spoiler guard that hides the whole synopsis leaves eight rows that
+            look empty; one line is the setup, not the twist. */}
+        {overview && (
+          <div
+            className={hidden ? 'clamp-1' : expanded ? 'clamp-4' : 'clamp-2'}
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 12.5,
+              lineHeight: lineHeight(12.5, 1.4),
+              color: NetflixColors.textSecondary,
+            }}
+          >
+            {overview}
+          </div>
+        )}
+        {hidden && (overview?.length ?? 0) > 110 && (
           <span
             role="button"
             onClick={(e) => {
@@ -2073,25 +2454,12 @@ function EpisodeRow({
               fontSize: 12,
               fontWeight: 600,
               lineHeight: lineHeight(12),
-              color: NetflixColors.accent,
+              color: withAlpha(WHITE, 0.75),
+              textDecoration: 'underline',
             }}
           >
-            Reveal details
+            Show full synopsis
           </span>
-        ) : (
-          overview && (
-            <div
-              className={expanded ? 'clamp-4' : 'clamp-2'}
-              style={{
-                ...AppTypography.outfitWhite,
-                fontSize: 12.5,
-                lineHeight: lineHeight(12.5, 1.4),
-                color: NetflixColors.textSecondary,
-              }}
-            >
-              {overview}
-            </div>
-          )
         )}
       </div>
     </div>

@@ -73,7 +73,8 @@ async function pickFromSheet(page, name) {
 
 /** Open the Switch Provider sheet and tap one row by its name. */
 async function pickProvider(page, name) {
-  await page.getByText('Provider:').click();
+  // One control changes the source, and it lives in the top bar.
+  await page.getByRole('button', { name: /^Source/ }).first().click();
   await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
   await pickFromSheet(page, name);
 }
@@ -121,7 +122,7 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
       waitUntil: 'domcontentloaded',
     });
 
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
     const epBtn = page.locator('button[aria-expanded]').first();
     await epBtn.waitFor({ state: 'visible', timeout: 10_000 });
     assert.equal(await epBtn.getAttribute('aria-expanded'), 'false');
@@ -129,7 +130,8 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
     assert.equal(await epBtn.getAttribute('aria-expanded'), 'true');
 
     // Open Switch Provider sheet, verify native default-source buttons, and pick Everglow (everglow-embed).
-    await page.getByText('Provider:').click();
+    // One control changes the source, and it lives in the top bar.
+  await page.getByRole('button', { name: /^Source/ }).first().click();
     await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
     const defaultBtns = page.locator('button[aria-label="Set as default source"]');
     assert.ok((await defaultBtns.count()) >= 1, 'Switch Provider sheet must render native default-source buttons');
@@ -328,7 +330,7 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
       waitUntil: 'domcontentloaded',
     });
 
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
 
     // Everglow's own player draws its theater chrome, so pick Celestia first: this
     // test covers the app-owned server switcher.
@@ -336,11 +338,9 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
 
     const layout = await page.evaluate(() => {
       const iframe = document.querySelector('iframe');
-      const provCard = [...document.querySelectorAll('[role="button"]')].find((el) =>
-        el.textContent?.includes('Provider:'),
-      );
+      const provCard = document.querySelector('[data-testid="player-source"]');
       const topServers = [...document.querySelectorAll('button')].find(
-        (b) => b.textContent?.includes('Servers'),
+        (b) => b.textContent?.includes('Source'),
       );
       const bodyText = document.body.innerText;
       return {
@@ -355,14 +355,13 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
     assert.ok(layout.iframeRect, 'movie iframe should mount');
     assert.ok(layout.iframeRect.top <= 64, `portrait player should sit directly under header, got top=${layout.iframeRect.top}`);
     assert.ok(layout.provRect && layout.provRect.bottom < 420, `provider card should sit immediately below video, got ${JSON.stringify(layout.provRect)}`);
-    assert.ok(layout.topServersRect && layout.topServersRect.width > 0, 'top bar Servers button should be visible on phone portrait');
+    assert.ok(layout.topServersRect && layout.topServersRect.width > 0, 'top bar Source button should be visible on phone portrait');
     assert.equal(layout.hasHideSpoilers, false, 'movie page should not show TV-only Hide spoilers chip');
     assert.equal(layout.hasAutoplayNext, false, 'movie page should not show TV-only Autoplay next episode chip');
 
-    // Landscape phone: top-bar Servers button stays visible above the fold and opens Switch Provider.
     await page.setViewportSize({ width: 844, height: 390 });
     await page.waitForTimeout(100);
-    const landscapeServers = page.getByRole('button', { name: /Servers/ }).first();
+    const landscapeServers = page.getByRole('button', { name: /Source/ }).first();
     await landscapeServers.waitFor({ state: 'visible', timeout: 5_000 });
     const box = await landscapeServers.boundingBox();
     assert.ok(box && box.y >= 0 && box.y + box.height <= 60, `landscape top-bar Servers button should be in header, got ${JSON.stringify(box)}`);
@@ -428,12 +427,12 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
       await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body></body></html>' });
     });
 
-    // 1. Mismatch (70m vs 104m agent runtime): shows warning banner with 1-tap Try Everglow button.
-    await page.goto(`${baseUrl}/cinema/video/900000?type=movie&title=Moonlit%20Cinema&agent=1&hud=0`, {
+    // 1. Mismatch (70m vs 167m agent runtime): shows warning banner with 1-tap Try Everglow button.
+    await page.goto(`${baseUrl}/cinema/video/693134?type=movie&title=Dune%3A%20Part%20Two&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
     // The wrapper shell is the server that reports duration, so start on Celestia.
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
     await pickProvider(page, 'Celestia');
     await page.waitForSelector('text=may be the wrong movie', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Try Everglow' }).click();
@@ -444,12 +443,12 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
     );
     assert.equal(await page.locator('text=may be the wrong movie').count(), 0);
 
-    // 2. Short decoy clip (3m vs 104m): auto-fails over from Celestia to Everglow.
+    // 2. Short decoy clip (3m vs 181m): auto-fails over from Celestia to Everglow.
     shellDuration = 180;
-    await page.goto(`${baseUrl}/cinema/video/900001?type=movie&title=The%20Lantern%20Trail&agent=1&hud=0`, {
+    await page.goto(`${baseUrl}/cinema/video/872585?type=movie&title=Oppenheimer&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
     await pickProvider(page, 'Celestia');
     await page.waitForFunction(
       () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),

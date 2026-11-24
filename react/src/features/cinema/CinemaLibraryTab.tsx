@@ -32,23 +32,23 @@ function progressOf(m: MediaItem): number | null {
   return Math.min(1, Math.max(0, pos / dur));
 }
 
-/** `cinemaTopContentInset` (no safe-area top on the web). */
+/** `cinemaTopContentInset` (no safe-area top on the web).
+ * Phones clear the 48px floating back button (10 + 48 + 10) so page titles never sit under it. */
 export function cinemaTopInset(width: number) {
-  if (width >= 1024) return 56 + 20;
-  return width < 600 ? 12 : 16;
+  // Tablets and desktops carry the top bar (56px); phones carry the floating button.
+  if (width >= 700) return 56 + 20;
+  return 68;
 }
 
 export function CinemaLibraryTab({
   width,
   watchlist,
   onMediaTap,
-  onRemoveProgress,
   onSwitchTab,
 }: {
   width: number;
   watchlist: MediaItem[];
   onMediaTap: (m: MediaItem) => void;
-  onRemoveProgress?: (m: MediaItem) => void;
   onSwitchTab: (tab: number) => void;
 }) {
   const auth = useAuth();
@@ -114,12 +114,15 @@ export function CinemaLibraryTab({
           {all.length} {all.length === 1 ? 'title' : 'titles'}
         </span>
       </div>
-      <div style={{ padding: `14px ${h}px 18px`, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div
+        className="no-scrollbar"
+        style={{ padding: `8px ${h}px 10px`, paddingRight: h + 16, display: 'flex', gap: 8, overflowX: 'auto' }}
+      >
         {(
           [
             ['all', 'All'],
             ['watching', 'Watching'],
-            ['toWatch', 'To Watch'],
+            ['toWatch', 'Want to Watch'],
             ['watched', 'Watched'],
             ['reminders', 'Reminders'],
           ] as const
@@ -149,7 +152,7 @@ export function CinemaLibraryTab({
             ) : undefined
           }
         />
-        <div style={{ height: 12 }} />
+        <div style={{ height: 6 }} />
         <DropdownField<Sort>
           label="Sort My List"
           value={sort}
@@ -161,6 +164,7 @@ export function CinemaLibraryTab({
           ]}
           onChanged={setSort}
         />
+        <div style={{ height: 6 }} />
         <ExpansionTile title="Viewing preferences">
           <CinemaViewingPreferences />
         </ExpansionTile>
@@ -185,13 +189,12 @@ export function CinemaLibraryTab({
           {visible.map((m) => {
             const watching = isCurrentlyWatching(m);
             return (
-              <div key={m.id || `${m.mediaType}:${m.tmdbId}`} style={{ position: 'relative', aspectRatio: '0.67' }}>
-                <NetflixPosterCard item={m} compact progress={watching ? progressOf(m) : null} onTap={() => onMediaTap(m)} />
-                {onRemoveProgress && watching && (
-                  <div style={{ position: 'absolute', top: 6, right: 6 }}>
-                    <NetflixRemoveBadge onTap={() => onRemoveProgress(m)} />
-                  </div>
-                )}
+              <div key={m.id || `${m.mediaType}:${m.tmdbId}`} style={{ position: 'relative' }}>
+                {/* No remove badge here: "remove from Continue Watching" lives in the
+                    tile menu on Home, where the progress it clears is visible. */}
+                <div style={{ aspectRatio: '0.67' }}>
+                  <NetflixPosterCard item={m} compact caption progress={watching ? progressOf(m) : null} onTap={() => onMediaTap(m)} />
+                </div>
               </div>
             );
           })}
@@ -221,18 +224,30 @@ export function NetflixRemoveBadge({
           onTap();
         }}
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           boxSizing: 'border-box',
           borderRadius: '50%',
-          background: 'rgba(8,8,8,0.8)',
-          border: `1px solid ${NetflixColors.textSecondary}`,
+          background: 'transparent',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name="close" size={20} color={NetflixColors.textPrimary} />
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: 'rgba(8,8,8,0.72)',
+            border: '1px solid rgba(245,245,245,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="close" size={15} color={NetflixColors.textPrimary} />
+        </span>
       </button>
     </Tooltip>
   );
@@ -265,6 +280,7 @@ function LibraryPill({ label, selected, onTap }: { label: string; selected: bool
         fontSize: 12.5,
         lineHeight: lineHeight(12.5),
         color: fg,
+        whiteSpace: 'nowrap',
       }}
     >
       {label}

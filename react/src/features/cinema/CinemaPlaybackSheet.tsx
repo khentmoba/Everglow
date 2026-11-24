@@ -2,6 +2,7 @@ import { AppColors, Derived, withAlpha } from '../../core/theme/colors';
 import { AppTypography } from '../../core/theme/typography';
 import { showModalBottomSheet } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
+import { NetflixColors } from './cinemaTypes';
 import { resumeSecondsOf, type MediaItem } from './cinemaTypes';
 
 export type CinemaPlaybackAction = 'resume' | 'restart' | 'episodes' | 'finished' | 'remove';
@@ -27,7 +28,7 @@ export function showCinemaPlaybackSheet(item: MediaItem): Promise<CinemaPlayback
     alignItems: 'center',
     gap: 12,
     textAlign: 'left' as const,
-    background: withAlpha(AppColors.petalWhite, 0.04),
+    background: withAlpha(NetflixColors.textPrimary, 0.04),
     border: `1px solid ${Derived.border}`,
   };
 
@@ -36,7 +37,7 @@ export function showCinemaPlaybackSheet(item: MediaItem): Promise<CinemaPlayback
       style={{
         maxWidth: 520,
         margin: '0 auto',
-        background: AppColors.inkDeep,
+        background: NetflixColors.surface,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         borderTop: `1px solid ${Derived.border}`,
@@ -46,13 +47,13 @@ export function showCinemaPlaybackSheet(item: MediaItem): Promise<CinemaPlayback
         gap: 10,
       }}
     >
-      <div style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, background: withAlpha(AppColors.moonlight, 0.3) }} />
-      <div style={{ ...AppTypography.outfitHeading, fontSize: 16.5, color: AppColors.petalWhite, marginBottom: 2 }}>
+      <div style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, background: withAlpha(NetflixColors.textSecondary, 0.4) }} />
+      <div style={{ ...AppTypography.outfitHeading, fontSize: 16.5, color: NetflixColors.textPrimary, marginBottom: 2 }}>
         {item.title}
       </div>
 
       <button type="button" className="bare-button" onClick={() => close('resume')} style={rowStyle}>
-        <Icon name="play_arrow" size={22} color={AppColors.blushGold} />
+        <Icon name="play_arrow" size={22} color={NetflixColors.textPrimary} />
         <div style={{ flex: 1 }}>
           <div style={{ ...AppTypography.outfitBold, fontSize: 14, color: AppColors.petalWhite }}>
             {seconds > 0 ? `Resume at ${position}` : 'Continue watching'}
