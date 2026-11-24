@@ -61,8 +61,12 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
     '.void-scans.com',
     '.rizzcomic.com',
     '.comick.io',
+    '.comick.pictures',
+    '.comick.dev',
     '.bato.to',
+    '.bato.si',
     '.img.bato.to',
+    '.mbimg.org',
     '.mangasee123.com',
     '.scans-hot.xyz',
     '.mangakatana.com',
@@ -114,7 +118,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
       if (!res.destroyed) res.destroy(e);
       return;
     }
-    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+    res.status(502).json({ error: 'Upstream fetch failed' });
   }
 });
 
@@ -228,7 +232,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     res.send(body);
   } catch (e) {
     console.warn(`proxyFetchHtml failed (${targetUrl}):`, e.message);
-    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+    res.status(502).json({ error: 'Upstream fetch failed' });
   }
 });
 

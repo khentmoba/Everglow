@@ -264,6 +264,54 @@ async function deleteItemBlobs(item: OfflineMediaItem) {
 
 // --- Service ------------------------------------------------------------------
 
+const FUNCTIONS_BASE = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
+
+export function defaultMangaPageProxy(raw: string): string {
+  if (!raw) return '';
+  let u = raw;
+  if (u.toLowerCase().includes('mangakatana')) u = u.replace(/\.avif(?=$|[?&#])/gi, '.webp');
+  if (
+    u.includes('proxyMangaKatana') ||
+    u.includes('proxyMangaImage') ||
+    u.includes('proxyScanlation')
+  ) {
+    return u;
+  }
+  try {
+    const host = new URL(u).host.toLowerCase();
+    if (
+      host === 'mangakatana.com' ||
+      host.endsWith('.mangakatana.com') ||
+      host.endsWith('.mangakakalot.com') ||
+      host.endsWith('.mkklcdnv6temp.com') ||
+      host.endsWith('.catmanga.org')
+    ) {
+      return `${FUNCTIONS_BASE}/proxyMangaKatana?url=${encodeURIComponent(u)}`;
+    }
+    if (
+      host === 'uploads.mangadex.org' ||
+      host.endsWith('.mangadex.org') ||
+      host.endsWith('.mangadex.network')
+    ) {
+      return `${FUNCTIONS_BASE}/proxyMangaImage?url=${encodeURIComponent(u)}`;
+    }
+    if (
+      host.endsWith('.comick.io') ||
+      host.endsWith('.comick.pictures') ||
+      host.endsWith('.comick.dev') ||
+      host.endsWith('.bato.to') ||
+      host.endsWith('.bato.si') ||
+      host.endsWith('.img.bato.to') ||
+      host.endsWith('.mbimg.org')
+    ) {
+      return `${FUNCTIONS_BASE}/proxyScanlation?url=${encodeURIComponent(u)}`;
+    }
+    return u;
+  } catch {
+    return u;
+  }
+}
+
 const PREFS_KEY = 'everglow_offline_media_items_v1';
 const DEMO_SOURCE = 'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4';
 
@@ -504,8 +552,7 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     const id = OfflineIds.mangaChapterId(args.slug, args.chapterId);
     const existing = this.value[id];
     if (existing && isCompleted(existing) && !args.forceRepair && (existing.cacheMissingPages ?? 0) === 0) return;
-    const proxy = args.proxy ?? this.mangaProxyMap.get(id) ?? ((raw: string) =>
-      `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyKatanaImage?url=${encodeURIComponent(raw)}`);
+    const proxy = args.proxy ?? this.mangaProxyMap.get(id) ?? defaultMangaPageProxy;
     this.mangaProxyMap.set(id, proxy);
     const estimated = args.pageUrls.length * 750 * 1024;
     const priorPages = existing && existing.pageUrls.length === args.pageUrls.length ? (existing.downloadedPages ?? 0) : 0;
@@ -578,6 +625,7 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       if (args.pageUrls.length > 0) {
         let saved = 0;
         let total = 0;
+        let storageFull = false;
         try {
           for (let i = 0; i < args.pageUrls.length; i++) {
             if (controller.signal.aborted || !this.value[id]) return;
@@ -624,14 +672,21 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
                 }
                 if (controller.signal.aborted || !this.value[id]) return;
                 if (blob && blob.size > 0) {
-                  await saveBlob(pageKey, blob, true, 'image/jpeg');
-                  saved++;
-                  total += blob.size;
+                  const mime = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+                  const stored = await saveBlob(pageKey, blob, true, mime);
+                  if (stored) {
+                    saved++;
+                    total += blob.size;
+                  } else {
+                    Logger.e(`Failed to cache manga page ${i} (${pageKey}) — storage quota may be full`);
+                    storageFull = true;
+                  }
                 } else {
                   Logger.e(`Failed to fetch manga page ${i} (${src}) after retries: status ${lastStatus}`);
                 }
               }
             }
+            if (storageFull) break;
             const progress = Math.min(1, saved / args.pageUrls.length);
             if (
               !this.putIfPresent(id, {
@@ -1045,19 +1100,66 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
         .replace(/[^a-z0-9_-]+/g, '-');
       const chapterId = meta.chapterId || 'c1';
       const id = OfflineIds.mangaChapterId(slug, chapterId);
-      let totalBytes = 0;
-      const pageUrls: string[] = [];
-      for (let i = 0; i < imageEntries.length; i++) {
-        const img = imageEntries[i];
-        const mime = img.name.toLowerCase().endsWith('.png')
+      const existing = this.value[id];
+      const prepared = imageEntries.map((img) => ({
+        img,
+        mime: img.name.toLowerCase().endsWith('.png')
           ? 'image/png'
           : img.name.toLowerCase().endsWith('.webp')
             ? 'image/webp'
-            : 'image/jpeg';
-        const pageKey = `${id}_p_${i + 1}`;
-        await saveBlob(pageKey, new Blob([img.data as BlobPart], { type: mime }), true, mime);
-        totalBytes += img.data.byteLength;
-        pageUrls.push(cacheKey(pageKey, true));
+            : 'image/jpeg',
+      }));
+      let totalBytes = 0;
+      const pageUrls: string[] = [];
+      if (existing) {
+        // Stage into temporary keys first so a quota failure never damages the existing chapter.
+        for (let i = 0; i < prepared.length; i++) {
+          const { img, mime } = prepared[i];
+          const tmpKey = `${id}_tmp_p_${i + 1}`;
+          const stored = await saveBlob(tmpKey, new Blob([img.data as BlobPart], { type: mime }), true, mime);
+          if (!stored) {
+            for (let j = 1; j <= i; j++) {
+              await deleteBlob(`${id}_tmp_p_${j}`, true);
+            }
+            Logger.e(`OfflineMediaService: failed to stage CBZ page ${i + 1} for ${id}`);
+            return null;
+          }
+        }
+        const prevCount = existing.pageUrls?.length ?? 0;
+        for (let i = prepared.length + 1; i <= prevCount; i++) {
+          await deleteBlob(`${id}_p_${i}`, true);
+        }
+        for (let i = 0; i < prepared.length; i++) {
+          const { img, mime } = prepared[i];
+          const pageKey = `${id}_p_${i + 1}`;
+          const stored = await saveBlob(pageKey, new Blob([img.data as BlobPart], { type: mime }), true, mime);
+          await deleteBlob(`${id}_tmp_p_${i + 1}`, true);
+          if (!stored) {
+            for (let j = i + 2; j <= prepared.length; j++) {
+              await deleteBlob(`${id}_tmp_p_${j}`, true);
+            }
+            this.putIfPresent(id, { status: 'failed', cacheMissingPages: prepared.length - i });
+            Logger.e(`OfflineMediaService: failed to commit CBZ page ${i + 1} for ${id}`);
+            return null;
+          }
+          totalBytes += img.data.byteLength;
+          pageUrls.push(cacheKey(pageKey, true));
+        }
+      } else {
+        for (let i = 0; i < prepared.length; i++) {
+          const { img, mime } = prepared[i];
+          const pageKey = `${id}_p_${i + 1}`;
+          const stored = await saveBlob(pageKey, new Blob([img.data as BlobPart], { type: mime }), true, mime);
+          if (!stored) {
+            for (let j = 1; j <= i; j++) {
+              await deleteBlob(`${id}_p_${j}`, true);
+            }
+            Logger.e(`OfflineMediaService: failed to cache CBZ page ${i + 1} for ${id}`);
+            return null;
+          }
+          totalBytes += img.data.byteLength;
+          pageUrls.push(cacheKey(pageKey, true));
+        }
       }
       const restored: OfflineMediaItem = {
         id,
@@ -1200,17 +1302,53 @@ function parseComicInfoXml(xml: string): {
   };
 }
 
-async function inflateDeflateRaw(compressed: Uint8Array): Promise<Uint8Array | null> {
-  if (typeof DecompressionStream === 'undefined') return null;
+const MAX_CBZ_ENTRIES = 500;
+const MAX_CBZ_ENTRY_BYTES = 25 * 1024 * 1024;
+const MAX_CBZ_TOTAL_BYTES = 250 * 1024 * 1024;
+
+async function inflateDeflateRaw(compressed: Uint8Array, maxBytes: number): Promise<Uint8Array | null> {
+  if (typeof DecompressionStream === 'undefined' || maxBytes <= 0) return null;
   try {
     const ds = new DecompressionStream('deflate-raw');
     const writer = ds.writable.getWriter();
-    void writer.write(compressed as unknown as BufferSource);
-    void writer.close();
-    const ab = await new Response(ds.readable).arrayBuffer();
-    return new Uint8Array(ab);
-  } catch {
+    const writePromise = writer
+      .write(compressed as unknown as BufferSource)
+      .then(() => writer.close())
+      .catch(() => {});
+    const reader = ds.readable.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel().catch(() => {});
+          throw new ZipLimitError('ZIP entry exceeds size limit');
+        }
+        chunks.push(value);
+      }
+    } finally {
+      await writePromise;
+    }
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return out;
+  } catch (e) {
+    if (e instanceof ZipLimitError) throw e;
     return null;
+  }
+}
+
+class ZipLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ZipLimitError';
   }
 }
 
@@ -1219,18 +1357,32 @@ async function decodeZipEntryPayload(
   method: number,
   dataStart: number,
   compSize: number,
+  maxBytes: number,
 ): Promise<Uint8Array | null> {
   if (compSize <= 0 || dataStart < 0 || dataStart + compSize > buf.byteLength) return null;
-  const slice = new Uint8Array(buf.slice(dataStart, dataStart + compSize));
-  if (method === 0) return slice;
-  if (method === 8) return inflateDeflateRaw(slice);
+  if (maxBytes <= 0) throw new ZipLimitError('ZIP archive exceeds size limit');
+  if (method === 0) {
+    if (compSize > maxBytes) throw new ZipLimitError('ZIP entry exceeds size limit');
+    return new Uint8Array(buf.slice(dataStart, dataStart + compSize));
+  }
+  if (method === 8) {
+    const slice = new Uint8Array(buf.slice(dataStart, dataStart + compSize));
+    return inflateDeflateRaw(slice, maxBytes);
+  }
   return null;
 }
 
-async function parseZipEntries(buf: ArrayBuffer): Promise<Array<{ name: string; data: Uint8Array }>> {
+export async function parseZipEntries(
+  buf: ArrayBuffer,
+  limits?: { maxEntries?: number; maxEntryBytes?: number; maxTotalBytes?: number },
+): Promise<Array<{ name: string; data: Uint8Array }>> {
+  const maxEntries = limits?.maxEntries ?? MAX_CBZ_ENTRIES;
+  const maxEntryBytes = limits?.maxEntryBytes ?? MAX_CBZ_ENTRY_BYTES;
+  const maxTotalBytes = limits?.maxTotalBytes ?? MAX_CBZ_TOTAL_BYTES;
   const view = new DataView(buf);
   const dec = new TextDecoder();
   const out: Array<{ name: string; data: Uint8Array }> = [];
+  let totalDecodedBytes = 0;
 
   // Prefer Central Directory when present (handles DEFLATE + streaming data descriptors).
   const minEocdOffset = Math.max(0, buf.byteLength - 65557);
@@ -1242,25 +1394,41 @@ async function parseZipEntries(buf: ArrayBuffer): Promise<Array<{ name: string; 
     }
   }
   if (eocdPos >= 0) {
-    const totalEntries = view.getUint16(eocdPos + 10, true);
+    const rawTotalEntries = view.getUint16(eocdPos + 10, true);
+    if (rawTotalEntries > maxEntries) {
+      throw new ZipLimitError(`ZIP archive exceeds max entry limit (${maxEntries})`);
+    }
     let cdPos = view.getUint32(eocdPos + 16, true);
-    for (let i = 0; i < totalEntries && cdPos + 46 <= buf.byteLength; i++) {
+    for (let i = 0; i < rawTotalEntries && cdPos + 46 <= buf.byteLength; i++) {
       if (view.getUint32(cdPos, true) !== 0x02014b50) break;
       const method = view.getUint16(cdPos + 10, true);
       const compSize = view.getUint32(cdPos + 20, true);
+      const uncompSize = view.getUint32(cdPos + 24, true);
       const nameLen = view.getUint16(cdPos + 28, true);
       const extraLen = view.getUint16(cdPos + 30, true);
       const commentLen = view.getUint16(cdPos + 32, true);
       const localOffset = view.getUint32(cdPos + 42, true);
+      const nextCdPos = cdPos + 46 + nameLen + extraLen + commentLen;
+      if (cdPos + 46 + nameLen > buf.byteLength || nextCdPos > buf.byteLength) break;
       const name = dec.decode(new Uint8Array(buf, cdPos + 46, nameLen));
-      if (localOffset + 30 <= buf.byteLength && view.getUint32(localOffset, true) === 0x04034b50) {
+      const remainingBudget = Math.min(maxEntryBytes, maxTotalBytes - totalDecodedBytes);
+      if (remainingBudget <= 0 || uncompSize > remainingBudget) {
+        throw new ZipLimitError('ZIP archive exceeds size limit');
+      }
+      if (
+        localOffset + 30 <= buf.byteLength &&
+        view.getUint32(localOffset, true) === 0x04034b50
+      ) {
         const localNameLen = view.getUint16(localOffset + 26, true);
         const localExtraLen = view.getUint16(localOffset + 28, true);
         const dataStart = localOffset + 30 + localNameLen + localExtraLen;
-        const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize);
-        if (decoded) out.push({ name, data: decoded });
+        const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize, remainingBudget);
+        if (decoded) {
+          totalDecodedBytes += decoded.byteLength;
+          out.push({ name, data: decoded });
+        }
       }
-      cdPos += 46 + nameLen + extraLen + commentLen;
+      cdPos = nextCdPos;
     }
     if (out.length > 0) return out;
   }
@@ -1270,16 +1438,27 @@ async function parseZipEntries(buf: ArrayBuffer): Promise<Array<{ name: string; 
   while (pos + 30 <= buf.byteLength) {
     const sig = view.getUint32(pos, true);
     if (sig !== 0x04034b50) break;
+    if (out.length >= maxEntries) {
+      throw new ZipLimitError(`ZIP archive exceeds max entry limit (${maxEntries})`);
+    }
     const method = view.getUint16(pos + 8, true);
     const compSize = view.getUint32(pos + 18, true);
+    const uncompSize = view.getUint32(pos + 22, true);
     const nameLen = view.getUint16(pos + 26, true);
     const extraLen = view.getUint16(pos + 28, true);
     const nameStart = pos + 30;
     const dataStart = nameStart + nameLen + extraLen;
     if (dataStart + compSize > buf.byteLength) break;
     const name = dec.decode(new Uint8Array(buf, nameStart, nameLen));
-    const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize);
-    if (decoded) out.push({ name, data: decoded });
+    const remainingBudget = Math.min(maxEntryBytes, maxTotalBytes - totalDecodedBytes);
+    if (remainingBudget <= 0 || uncompSize > remainingBudget) {
+      throw new ZipLimitError('ZIP archive exceeds size limit');
+    }
+    const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize, remainingBudget);
+    if (decoded) {
+      totalDecodedBytes += decoded.byteLength;
+      out.push({ name, data: decoded });
+    }
     pos = dataStart + compSize;
   }
   return out;

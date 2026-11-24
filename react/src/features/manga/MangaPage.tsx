@@ -6344,7 +6344,7 @@ export function MangaPage() {
                             a.href = url;
                             a.download = `mangacelestia-backup-${new Date().toISOString().slice(0, 10)}.json`;
                             a.click();
-                            URL.revokeObjectURL(url);
+                            window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
                             showSnackBar('Library JSON backup downloaded');
                           }}
                         />
@@ -6363,7 +6363,7 @@ export function MangaPage() {
                             a.href = url;
                             a.download = `mangacelestia-mal-${new Date().toISOString().slice(0, 10)}.xml`;
                             a.click();
-                            URL.revokeObjectURL(url);
+                            window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
                             showSnackBar('MAL / AniList XML exported');
                           }}
                         />

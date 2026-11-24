@@ -137,7 +137,7 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     res.send(body);
   } catch (e) {
     console.warn(`proxyCatalog failed (${targetUrl}):`, e.message);
-    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+    res.status(502).json({ error: 'Upstream fetch failed' });
   }
 });
 

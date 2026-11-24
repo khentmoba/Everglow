@@ -33,7 +33,8 @@ const { loginAccount, communityWatchPartyAccess } = require('./accounts.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
 const { proxyLastfmImage } = require('./media_proxy_music.js');
 const common = require('./common.js');
-const { proxyFetchHtml } = require('./media_proxy_html.js');
+const { proxyScanlation, proxyFetchHtml } = require('./media_proxy_html.js');
+const { spotifyExchange } = require('./spotify.js');
 const { proxyComick, proxyMangaDex, resolveMangaApiUrl } = require('./media_proxy_manga.js');
 const { resolveCatalogUpstream } = require('./media_proxy_catalog.js');
 const { parseStudySet } = require('./motchi_study.js');
@@ -687,5 +688,109 @@ test('motchi_exec_tools bounds _idempotencyCache to IDEMPOTENCY_MAX_ENTRIES', as
     );
   } finally {
     clearIdempotencyCache();
+  }
+});
+
+test('proxyScanlation allows ComicK cover hosts and sanitizes upstream fetch errors', async (t) => {
+  let fetchedUrl = '';
+  t.mock.method(common, 'fetchPublicUrl', async (url) => {
+    fetchedUrl = url;
+    throw new Error('ECONNREFUSED 10.0.0.5:443 internal-detail');
+  });
+  const res = {
+    code: 200,
+    headers: {},
+    headersSent: false,
+    destroyed: false,
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await proxyScanlation(
+    {
+      method: 'GET',
+      headers: {},
+      get: () => '',
+      ip: '203.0.113.55',
+      query: { url: 'https://meo.comick.pictures/cover-123.jpg' },
+    },
+    res,
+  );
+  assert.equal(fetchedUrl, 'https://meo.comick.pictures/cover-123.jpg');
+  assert.equal(res.code, 502);
+  assert.equal(res.body.error, 'Upstream fetch failed');
+  assert.ok(!String(res.body.error).includes('10.0.0.5'));
+});
+
+test('spotifyExchange sanitizes upstream error bodies and rejects missing access_token', async (t) => {
+  const prevClientId = process.env.SPOTIFY_CLIENT_ID;
+  process.env.SPOTIFY_CLIENT_ID = 'test-client-id';
+  const origFetch = globalThis.fetch;
+  const authInstance = common.getAdmin().auth();
+  t.mock.method(authInstance, 'verifyIdToken', async () => ({
+    uid: 'khent-uid',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  const makeRes = () => ({
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  });
+  try {
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 400,
+      text: async () => '{"error":"invalid_grant","error_description":"sensitive-upstream-detail"}',
+    });
+    const res1 = makeRes();
+    await spotifyExchange(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer tok' },
+        get: () => 'Bearer tok',
+        ip: '203.0.113.56',
+        body: {
+          code: 'abc',
+          redirectUri: 'https://everglow-1c6db.web.app/spotify/callback',
+          codeVerifier: 'verifier-123',
+        },
+      },
+      res1,
+    );
+    assert.equal(res1.code, 400);
+    assert.equal(res1.body.error, 'Spotify token exchange failed');
+    assert.ok(!String(res1.body.error).includes('sensitive-upstream-detail'));
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      text: async () => '{"expires_in":3600}',
+    });
+    const res2 = makeRes();
+    await spotifyExchange(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer tok' },
+        get: () => 'Bearer tok',
+        ip: '203.0.113.57',
+        body: {
+          code: 'abc',
+          redirectUri: 'https://everglow-1c6db.web.app/spotify/callback',
+          codeVerifier: 'verifier-123',
+        },
+      },
+      res2,
+    );
+    assert.equal(res2.code, 502);
+    assert.equal(res2.body.error, 'Invalid Spotify token response');
+  } finally {
+    globalThis.fetch = origFetch;
+    if (prevClientId === undefined) delete process.env.SPOTIFY_CLIENT_ID;
+    else process.env.SPOTIFY_CLIENT_ID = prevClientId;
   }
 });
