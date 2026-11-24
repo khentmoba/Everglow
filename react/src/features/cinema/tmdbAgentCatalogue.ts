@@ -116,18 +116,6 @@ const DEMO: DemoTitle[] = [
     genres: [878, 12], score: 7.8, votes: 12000, popularity: 195, runtime: 155,
   },
   {
-    tmdbId: 76600, mediaType: 'movie', title: 'Avatar: The Way of Water', year: '2022',
-    poster: '/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg', backdrop: '/8sNiAPPYU14PUepFNeSNGUTiHW.jpg',
-    overview: 'A family of Na’vi finds a new home on the water, and brings the old war with them.',
-    genres: [878, 12, 28], score: 7.6, votes: 10500, popularity: 175, runtime: 192,
-  },
-  {
-    tmdbId: 299534, mediaType: 'movie', title: 'Avengers: Endgame', year: '2019',
-    poster: '/jtDv3lCnST0fZRvdYFwR5CVwK2x.jpg', backdrop: '/lY2DhbA7Hy44fAKddr06UrXWWaQ.jpg',
-    overview: 'The remaining heroes go back through time for one more chance.',
-    genres: [12, 878, 28], score: 8.3, votes: 25000, popularity: 210, runtime: 181,
-  },
-  {
     tmdbId: 136315, mediaType: 'tv', title: 'The Bear', year: '2022',
     poster: '/eKfVzzEazSIjJMrw9ADa2x8ksLz.jpg', backdrop: '/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg',
     overview: 'A fine-dining chef takes over his family’s sandwich shop and its noise.',
@@ -227,6 +215,17 @@ const record = (d: DemoTitle) => ({
 
 const RECORDS = DEMO.map(record);
 
+const EPISODE_BLURBS = [
+  'A quiet morning turns into the day everything changes on {show}.',
+  'An old promise comes due, and nobody is ready to pay it.',
+  'Two people take the long way round and say almost nothing.',
+  'The plan works, which turns out to be the problem.',
+  'A door that was locked all season is finally open.',
+  'Someone tells the truth, and it costs them the room.',
+  'A message arrives from a place nobody can reach.',
+  'The rain stops, and the aftermath is worse than the storm.',
+];
+
 const EPISODE_TITLES = [
   'Pilot', 'The Long Way Home', 'Quiet Hours', 'Crossing Lines', 'Nightfall',
   'What We Keep', 'Signal Fire', 'After the Rain', 'Two Roads', 'Last Light',
@@ -269,10 +268,13 @@ export function agentTmdbResponse(urlStr: string): Record<string, unknown> | nul
           episode_number: i + 1,
           season_number: seasonNumber,
           name: EPISODE_TITLES[i % EPISODE_TITLES.length],
-          overview: `${EPISODE_TITLES[i % EPISODE_TITLES.length]} of ${match.name}.`,
-          runtime: match.episode_run_time?.[0] ?? 45,
+          // Each episode gets its own line and length, so a list of rows is not
+          // eight copies of one sentence with one runtime.
+          overview: EPISODE_BLURBS[i % EPISODE_BLURBS.length].replace('{show}', match.name),
+          runtime: (match.episode_run_time?.[0] ?? 45) + (i % 3) * 2,
           air_date: `${match.first_air_date.slice(0, 4)}-06-${String(i + 1).padStart(2, '0')}`,
-          still_path: RECORDS[(at + i + 1) % RECORDS.length].backdrop_path,
+          // Stills come from the title itself, not from whichever film is next.
+          still_path: RECORDS[at].backdrop_path,
         })),
       };
     }

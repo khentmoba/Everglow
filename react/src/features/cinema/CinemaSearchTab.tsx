@@ -141,8 +141,26 @@ export function CinemaSearchTab({
   const grid = (items: MediaItem[]) => (
     <div style={{ padding: `0 ${h}px`, display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 10 }}>
       {items.map((item) => (
-        <div key={`${item.mediaType}:${item.tmdbId}`} style={{ aspectRatio: '0.67' }}>
-          <NetflixPosterCard item={item} compact onTap={() => onMediaTap(item)} />
+        <div key={`${item.mediaType}:${item.tmdbId}`}>
+          <div style={{ aspectRatio: '0.67' }}>
+            <NetflixPosterCard item={item} compact onTap={() => onMediaTap(item)} />
+          </div>
+          {/* A poster alone cannot confirm a match; name it under the art. */}
+          <div
+            style={{
+              paddingTop: 6,
+              ...AppTypography.outfitWhite,
+              fontSize: 11.5,
+              lineHeight: lineHeight(11.5),
+              color: NetflixColors.textSecondary,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {item.title}
+            {item.year ? ` · ${item.year}` : ''}
+          </div>
         </div>
       ))}
     </div>

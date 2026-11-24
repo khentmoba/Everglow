@@ -1050,7 +1050,7 @@ export function NetflixBillboard({
         }}
       />
 
-      <div style={{ position: 'absolute', left: hPad, right: hPad, bottom: 54, maxWidth: isDesktop ? 620 : undefined }}>
+      <div style={{ position: 'absolute', left: hPad, right: hPad, bottom: 54, maxWidth: boardViewport >= 700 ? 620 : undefined }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 10px' }}>
           {topTenRank != null && (
             <span

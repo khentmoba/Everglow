@@ -316,6 +316,8 @@ export function CinemaPage() {
   const progressOf = (m: MediaItem) => {
     const pos = m.currentTimestamp ?? 0;
     const dur = m.durationSeconds ?? 0;
+    // A saved place without a stored duration has no bar: a made-up length would
+    // show a progress the app cannot honour.
     if (pos <= 0 || dur <= 0) return null;
     return Math.min(1, Math.max(0, pos / dur));
   };
@@ -550,80 +552,92 @@ function HomeTab({
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
   // Under this many posters a rail is not a recommendation, it is a stub.
   const MIN_RAIL_SHOWN = 4;
-  // A full row is this many posters, whichever pool they came from.
-  const MIN_RAIL = 6;
   // One rail is a row, not a dump: the pool behind it feeds the rails below.
   const RAIL_MAX = 8;
-  // The billboard has already shown these five, so no rail repeats them.
-  const heroTitles = trendingGlobal.slice(0, 5);
-  const seen = new Set<string>(
-    [...watchingList, ...savedList, ...heroTitles].map((m) => catalogKeyOf(m)),
-  );
-  const railSignatures = new Set<string>();
-  // Two rails of memory: a row that copies the one two screens up reads as a
-  // repeat just as much as an adjacent clone.
-  const recentRails: string[][] = [];
-  // The rail directly above may share nothing much; a rail three up may share
-  // some, because a small catalogue cannot fill ten rows without repeating.
-  const overlapsTooMuch = (keys: string[]) => {
-    if (keys.length === 0) return false;
-    return recentRails.some((rail, i) => {
-      const limit = i === 0 ? 0.5 : 0.75;
-      const shared = keys.filter((k) => rail.includes(k)).length;
-      return shared / Math.min(keys.length, rail.length) >= limit;
-    });
-  };
-  // Everything the page has fetched, so a shelf with a small pool can still be
-  // a full row of titles that are not already on screen.
-  const fallbackPool = [...trendingGlobal, ...topTenToday, ...popularTV, ...newlyReleased, ...Object.values(discoveryRows).flat()];
-  const seenRow = (items: MediaItem[]) => {
-    // A rail keeps its own titles first. It may borrow from the far end of its
-    // pool to reach a usable length, but never enough to look like the rail
-    // directly above it, which is what made two rows carry the same posters.
-    // 1. the rail's own titles that are not on screen yet,
-    // 2. fresh titles from anywhere else the page has fetched,
-    // 3. and only then, repeat from its own pool: never from a rail above.
-    // A rail also avoids the two rows directly above it, so no shelf is a copy
-    // of its neighbour even when the catalogue is small.
-    const recentKeys = new Set(recentRails.flat());
-    const fresh = (m: MediaItem) => !seen.has(catalogKeyOf(m)) && !recentKeys.has(catalogKeyOf(m));
-    const keep = items.filter(fresh);
-    for (const m of fallbackPool) {
-      if (keep.length >= MIN_RAIL) break;
-      if (!fresh(m)) continue;
-      if (keep.some((k) => catalogKeyOf(k) === catalogKeyOf(m))) continue;
-      keep.push(m);
-    }
-    if (keep.length < MIN_RAIL_SHOWN) {
-      for (const m of items) {
-        if (recentKeys.has(catalogKeyOf(m))) continue;
-        if (keep.some((k) => catalogKeyOf(k) === catalogKeyOf(m))) continue;
-        keep.push(m);
+  // The rail plan is a pure function of the fetched data. Building it during
+  // render (mutating a "seen" set) made the page depend on how often React
+  // re-rendered, so the same data could produce a different Home twice.
+  const rails = useMemo(() => {
+    const seen = new Set<string>(
+      [...watchingList, ...savedList, ...trendingGlobal.slice(0, 5)].map((m) => catalogKeyOf(m)),
+    );
+    const recent: string[][] = [];
+    const signatures = new Set<string>();
+    const unique = (items: MediaItem[]) => {
+      const keys = new Set<string>();
+      return items.filter((m) => {
+        const key = catalogKeyOf(m);
+        if (keys.has(key)) return false;
+        keys.add(key);
+        return true;
+      });
+    };
+    const ratio = (keys: string[], rail: string[]) =>
+      keys.length === 0 ? 0 : keys.filter((k) => rail.includes(k)).length / Math.min(keys.length, rail.length);
+    const tooSimilar = (keys: string[]) =>
+      recent.some((rail, i) => ratio(keys, rail) >= (i === 0 ? 0.5 : 0.75));
+
+    const plan: { title: string; reason: string; items: MediaItem[]; ranked?: boolean }[] = [];
+    const add = (
+      title: string,
+      reason: string,
+      rawItems: MediaItem[],
+      opts: { mediaType?: 'movie' | 'tv'; ranked?: boolean } = {},
+    ) => {
+      const items = unique(rawItems);
+      if (opts.ranked) {
+        // The ranked row states a fact, so it keeps its own order and cannot be
+        // trimmed; it just has to stop the rails below it from repeating it.
+        const shown = items.slice(0, 10);
+        if (shown.length < MIN_RAIL_SHOWN) return;
+        for (const m of shown) seen.add(catalogKeyOf(m));
+        recent.unshift(shown.map(catalogKeyOf));
+        plan.push({ title, reason, items: shown, ranked: true });
+        return;
       }
+      const recentKeys = new Set(recent.flat());
+      const fresh = (m: MediaItem) => !seen.has(catalogKeyOf(m)) && !recentKeys.has(catalogKeyOf(m));
+      // A rail shows its own titles, nothing borrowed: padding a series row with
+      // a film (or a stranger's sequel) is how "Popular Series" ended up holding
+      // John Wick. A rail that cannot fill is dropped instead.
+      const keep = items.filter(fresh);
+      if (keep.length < MIN_RAIL_SHOWN) {
+        for (const m of items) {
+          if (recentKeys.has(catalogKeyOf(m))) continue;
+          if (keep.some((k) => catalogKeyOf(k) === catalogKeyOf(m))) continue;
+          keep.push(m);
+        }
+      }
+      const shown = keep.slice(0, RAIL_MAX);
+      const keys = shown.map((m) => catalogKeyOf(m));
+      if (keys.length < MIN_RAIL_SHOWN || tooSimilar(keys)) return;
+      const signature = [...keys].sort().join('|');
+      if (signatures.has(signature)) return;
+      signatures.add(signature);
+      recent.unshift(keys);
+      if (recent.length > 3) recent.pop();
+      for (const m of shown) seen.add(catalogKeyOf(m));
+      plan.push({ title, reason, items: shown });
+    };
+
+    const becauseOf = watchingList[0];
+    const becauseGenre = becauseOf?.genres?.[0];
+    const becauseItems =
+      becauseOf && becauseGenre
+        ? trendingGlobal.filter((m) => m.genres?.includes(becauseGenre) && catalogKeyOf(m) !== catalogKeyOf(becauseOf)).slice(0, 12)
+        : [];
+    if (becauseItems.length >= MIN_RAIL_SHOWN) add(`Because you watched ${becauseOf?.title ?? ''}`, 'Same mood, different story', becauseItems);
+    add('Trending Now', 'What everyone is watching this week', trendingGlobal);
+    add(`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`, "Today's most-watched", topTenToday, { ranked: true });
+    add('Coming Soon', 'New on Everglow Cinema', newlyReleased);
+    add('Popular Series', 'Most-watched series right now', popularTV, { mediaType: 'tv' });
+    for (const [title, items] of Object.entries(discoveryRows)) {
+      const shelf = DISCOVERY_SHELVES.find((d) => d.title === title);
+      add(title, shelf?.reason ?? '', items, { mediaType: shelf?.type });
     }
-    // One rail is a row, not a dump: the rest of the pool stays available for
-    // the rails below it instead of being marked as already seen.
-    const shown = keep.slice(0, RAIL_MAX);
-    const keys = shown.map((m) => catalogKeyOf(m));
-    // Two adjacent rows carrying the same posters is worse than one row fewer.
-    if (keys.length < MIN_RAIL_SHOWN || overlapsTooMuch(keys)) return [];
-    // A rail identical to one already on screen is not a second recommendation.
-    const signature = [...keys].sort().join('|');
-    if (railSignatures.has(signature)) return [];
-    railSignatures.add(signature);
-    recentRails.unshift(keys);
-    if (recentRails.length > 3) recentRails.pop();
-    for (const m of shown) seen.add(catalogKeyOf(m));
-    return shown;
-  };
-  const becauseOf = watchingList[0];
-  const becauseGenre = becauseOf?.genres?.[0];
-  const becauseItems =
-    becauseOf && becauseGenre
-      ? trendingGlobal
-          .filter((m) => m.genres?.includes(becauseGenre) && catalogKeyOf(m) !== catalogKeyOf(becauseOf))
-          .slice(0, 12)
-      : [];
+    return plan;
+  }, [watchingList, savedList, trendingGlobal, topTenToday, popularTV, newlyReleased, discoveryRows]);
+
   const rowProps = {
     isDesktop,
     onTapItem,
@@ -696,27 +710,16 @@ function HomeTab({
         </div>
       )}
 
-      {becauseItems.length >= 4 && (
-        <NetflixRow
-          title={`Because you watched ${becauseOf?.title ?? ''}`}
-          reason="Same mood, different story"
-          items={seenRow(becauseItems)}
+      {rails.map((rail) => (
+          <NetflixRow
+            key={rail.title}
+            title={rail.title}
+            reason={rail.reason}
+            items={rail.items}
+            ranked={rail.ranked}
+            rankOf={rail.ranked ? rankOf : undefined}
           {...rowProps}
         />
-      )}
-      <NetflixRow title="Trending Now" reason="What everyone is watching this week" items={seenRow(trendingGlobal)} {...rowProps} />
-      <NetflixRow
-        title={`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`}
-        reason="Today's most-watched"
-        items={topTenToday.slice(0, 10)}
-        ranked
-        rankOf={rankOf}
-        {...rowProps}
-      />
-      <NetflixRow title="Coming Soon" reason="New on Everglow Cinema" items={seenRow(newlyReleased)} {...rowProps} />
-      <NetflixRow title="Popular Series" reason="Most-watched series right now" items={seenRow(popularTV)} {...rowProps} />
-      {Object.entries(discoveryRows).map(([title, items]) => (
-        <NetflixRow key={title} title={title} reason={DISCOVERY_SHELVES.find((d) => d.title === title)?.reason} items={seenRow(items)} {...rowProps} />
       ))}
 
       <div style={{ padding: 16 }}>

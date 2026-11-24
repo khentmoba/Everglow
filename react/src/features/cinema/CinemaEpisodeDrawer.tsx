@@ -1770,8 +1770,8 @@ function PhotoOrInitial({ url, label, size, background }: { url: string; label: 
         // A hairline and a warmer initial so a missing photo reads as a choice,
         // not as a broken image next to finished posters.
         boxShadow: `inset 0 0 0 1px ${withAlpha(NetflixColors.textPrimary, 0.14)}`,
-        ...AppTypography.cormorantBold,
-        fontSize: size,
+        ...AppTypography.outfitBold,
+        fontSize: Math.round(size * 0.9),
         color: withAlpha(NetflixColors.textPrimary, 0.72),
       }}
     >
@@ -2379,7 +2379,7 @@ function EpisodeRow({
             {overview}
           </div>
         )}
-        {hidden && (
+        {hidden && (overview?.length ?? 0) > 110 && (
           <span
             role="button"
             onClick={(e) => {
