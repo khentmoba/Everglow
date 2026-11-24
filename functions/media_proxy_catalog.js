@@ -54,7 +54,14 @@ function resolveCatalogUpstream(baseKey, pathParam) {
   if (targetUrl.origin !== baseUrl.origin || !targetUrl.pathname.startsWith(baseUrl.pathname)) {
     throw new Error('Invalid path');
   }
-  if (rawQuery) targetUrl.search = rawQuery;
+  if (rawQuery) {
+    const forwarded = new URLSearchParams(rawQuery);
+    const credentialParams = new Set(['api_key', 'access_token', '__auth']);
+    for (const key of new Set(forwarded.keys())) {
+      if (credentialParams.has(key.toLowerCase())) forwarded.delete(key);
+    }
+    targetUrl.search = forwarded.toString();
+  }
   if (targetUrl.search.length > 300) throw new Error('Invalid path');
   return targetUrl;
 }

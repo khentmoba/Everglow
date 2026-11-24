@@ -137,6 +137,17 @@ test('proxyCatalog rejects absolute and scheme-relative SSRF paths', () => {
   );
 });
 
+test('proxyCatalog strips credential-like query params before calling upstream', () => {
+  const url = resolveCatalogUpstream(
+    'jikan',
+    'anime/1?api_key=stolen&access_token=borrowed&__auth=trusted&q=dune',
+  );
+  assert.equal(url.searchParams.has('api_key'), false);
+  assert.equal(url.searchParams.has('access_token'), false);
+  assert.equal(url.searchParams.has('__auth'), false);
+  assert.equal(url.searchParams.get('q'), 'dune');
+});
+
 test('proxyCatalog caches 200 responses in memory and skips opentdb', async (t) => {
   let hits = 0;
   t.mock.method(common, 'fetchPublicUrl', async () => {
