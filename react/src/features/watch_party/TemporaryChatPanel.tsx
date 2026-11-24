@@ -216,13 +216,14 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
             type="button"
             className="bare-button"
             aria-label="Send"
-            disabled={sending}
+            disabled={sending || state.kind !== 'data'}
             onClick={() => void send()}
             style={{
               width: 38,
               height: 38,
               borderRadius: '50%',
               background: NetflixColors.accent,
+              opacity: state.kind === 'data' ? 1 : 0.4,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

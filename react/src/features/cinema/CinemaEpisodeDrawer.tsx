@@ -14,7 +14,7 @@ import { AppSpacing } from '../../core/theme/layout';
 import { Align, boxShadow, insetBorder, lineHeight, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
-import { TextButton } from '../../shared/widgets/Dialogs';
+import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
@@ -302,7 +302,7 @@ export function CinemaEpisodeDrawer({
             setReviews(r);
             setLoadingReviews(false);
           });
-      }, 4000);
+      }, 600);
     } else {
       void (async () => {
         let list: MediaItem[] = [];
@@ -614,7 +614,13 @@ export function CinemaEpisodeDrawer({
           : item.episodeCount != null
             ? `${item.episodeCount} Episodes`
             : '';
-  const runtimeStr = isFilm && runtime != null ? `${String(runtime)}m` : '';
+  const runtimeMinutes = typeof runtime === 'number' ? runtime : null;
+  const runtimeStr =
+    isFilm && runtimeMinutes != null
+      ? runtimeMinutes >= 60
+        ? `${Math.floor(runtimeMinutes / 60)}h ${runtimeMinutes % 60}m`
+        : `${String(runtimeMinutes)}m`
+      : '';
 
   const content = (
     <div className="no-scrollbar" style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
@@ -1082,7 +1088,7 @@ function Hero({
           {cleanTitle(title)}
         </div>
         <div style={{ height: 14 }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 }}>
           <button
             type="button"
             className="bare-button"
@@ -1111,13 +1117,14 @@ function Hero({
               {playLabel}
             </span>
           </button>
+          {isMobile && <div style={{ width: 0 }} />}
           {isUnreleased && (
             <CircleAction icon="notifications_none" tooltip="Remind Me" label="Remind Me" wide={!isMobile} onTap={onRemindMe} />
           )}
           <CircleAction
             icon={inWatchlist ? 'check' : 'add'}
             tooltip={inWatchlist ? 'In My List' : 'Add to My List'}
-            label="My List"
+            label={inWatchlist ? 'Saved' : 'List'}
             wide={!isMobile}
             onTap={onToggleWatchlist}
             activeColor={inWatchlist ? NetflixColors.accent : undefined}
@@ -1125,7 +1132,7 @@ function Hero({
           <CircleAction
             icon={liked ? 'check_circle' : 'check_circle_outline'}
             tooltip={liked ? 'Watched' : 'Mark watched'}
-            label={liked ? 'Watched' : 'Mark watched'}
+            label={liked ? 'Watched' : 'Watch'}
             wide={!isMobile}
             onTap={onRate}
             activeColor={liked ? NetflixColors.accent : undefined}
@@ -1157,41 +1164,63 @@ function CircleAction({
   wide?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const button = (
+    <button
+      type="button"
+      className="bare-button"
+      aria-label={tooltip}
+      aria-pressed={activeColor != null}
+      onClick={onTap}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        minWidth: 44,
+        height: 44,
+        padding: wide && label ? '0 16px' : 0,
+        borderRadius: 22,
+        background: hovered ? withAlpha(WHITE, 0.25) : withAlpha('#000000', 0.5),
+        ...insetBorder(activeColor ?? (hovered ? WHITE : withAlpha(WHITE, 0.4)), 1.5),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+      }}
+    >
+      <Icon name={icon} size={20} color={activeColor ?? WHITE} />
+      {wide && label && (
+        <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: activeColor ?? WHITE }}>
+          {label}
+        </span>
+      )}
+    </button>
+  );
   return (
     <Tooltip message={tooltip}>
-      <button
-        type="button"
-        className="bare-button"
-        aria-label={tooltip}
-        aria-pressed={activeColor != null}
-        onClick={onTap}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          minWidth: 44,
-          height: 44,
-          padding: wide && label ? '0 16px' : 0,
-          borderRadius: 22,
-          background: hovered ? withAlpha(WHITE, 0.25) : withAlpha('#000000', 0.5),
-          ...insetBorder(activeColor ?? (hovered ? WHITE : withAlpha(WHITE, 0.4)), 1.5),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-        }}
-      >
-        <Icon name={icon} size={20} color={activeColor ?? WHITE} />
-        {wide && label && (
-          <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: activeColor ?? WHITE }}>
+      {wide || !label ? (
+        button
+      ) : (
+        // Phones get a word under the glyph: a tooltip never opens on touch.
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          {button}
+          <span
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 9.5,
+              lineHeight: lineHeight(9.5),
+              color: withAlpha(WHITE, 0.8),
+              textAlign: 'center',
+              maxWidth: 52,
+            }}
+          >
             {label}
           </span>
-        )}
-      </button>
+        </div>
+      )}
     </Tooltip>
   );
 }
 
-function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: boolean }) {
+function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: boolean; caption?: boolean }) {
   const offline = useOfflineMedia();
   const id = OfflineIds.cinemaMovieId(item.tmdbId);
   // A 44px target that reads like its neighbours: outlined, and labelled on wide screens.
@@ -1207,25 +1236,71 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
   };
   if (offline.isDownloaded(id)) {
     // A saved row is still a control: tapping it removes the download.
-    return (
-      <Tooltip message="Downloaded — tap to remove">
+    const savedButton = (
         <button
           type="button"
           className="bare-button"
           aria-label="Remove download"
           onClick={() => {
-            void offline.deleteDownload(id);
-            showSnackBar(`Removed ${item.title} from downloads`);
+            // Destructive, so it asks first: a tap here frees space but loses the file.
+            void showDialog<void>((close) => (
+              <AlertDialog
+                background={NetflixColors.surface}
+                title={<div style={{ ...AppTypography.outfitBold, fontSize: 17, color: WHITE }}>Remove download?</div>}
+                content={
+                  <div style={{ ...AppTypography.outfitWhite, fontSize: 13.5, lineHeight: lineHeight(13.5, 1.4), color: NetflixColors.textSecondary }}>
+                    {`${item.title} stays in My List. You would download it again to watch offline.`}
+                  </div>
+                }
+                actions={[
+                  <TextButton key="cancel" onPressed={() => close()}>
+                    Keep
+                  </TextButton>,
+                  <TextButton
+                    key="remove"
+                    onPressed={() => {
+                      close();
+                      void offline.deleteDownload(id);
+                      showSnackBar(`Removed ${item.title} from downloads`);
+                    }}
+                  >
+                    Remove
+                  </TextButton>,
+                ]}
+              />
+            ));
           }}
           style={{ ...circle, background: withAlpha('#000000', 0.5), ...insetBorder(withAlpha(WHITE, 0.55), 1.5) }}
         >
           <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
           {wide && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
-              Downloaded
+              Saved
             </span>
           )}
         </button>
+    );
+    return (
+      <Tooltip message="Downloaded — tap to remove">
+        {wide ? (
+          savedButton
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+            {savedButton}
+            <span
+              style={{
+                ...AppTypography.outfitWhite,
+                fontSize: 9.5,
+                lineHeight: lineHeight(9.5),
+                color: withAlpha(WHITE, 0.8),
+                textAlign: 'center',
+                maxWidth: 52,
+              }}
+            >
+              Saved
+            </span>
+          </div>
+        )}
       </Tooltip>
     );
   }
@@ -1236,8 +1311,7 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
       </div>
     );
   }
-  return (
-    <Tooltip message="Download movie for offline">
+  const downloadButton = (
       <button
         type="button"
         className="bare-button"
@@ -1261,6 +1335,28 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
           <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: WHITE }}>Download</span>
         )}
       </button>
+  );
+  return (
+    <Tooltip message="Download movie for offline">
+      {wide ? (
+        downloadButton
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          {downloadButton}
+          <span
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 9.5,
+              lineHeight: lineHeight(9.5),
+              color: withAlpha(WHITE, 0.8),
+              textAlign: 'center',
+              maxWidth: 52,
+            }}
+          >
+            Save
+          </span>
+        </div>
+      )}
     </Tooltip>
   );
 }
@@ -1593,8 +1689,8 @@ function CastRow({ cast, loading, isAnimeSourced }: { cast: Cast[]; loading: boo
           <div key={i} style={{ width: 128, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div
               style={{
-                width: 112,
-                height: 112,
+                width: 96,
+                height: 96,
                 borderRadius: '50%',
                 overflow: 'hidden',
                 background: NetflixColors.surfaceElevated,
@@ -1671,7 +1767,28 @@ function PhotoOrInitial({ url, label, size, background }: { url: string; label: 
 }
 
 function Reviews({ reviews, loading }: { reviews: CinemaReview[]; loading: boolean }) {
-  if (loading) return <Spinner vertical={28} size={22} />;
+  if (loading)
+    return (
+      <div style={{ padding: '4px 20px' }} aria-busy="true">
+        <div
+          style={{ ...AppTypography.outfitWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), color: NetflixColors.textMuted }}
+        >
+          Loading reviews…
+        </div>
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            style={{
+              marginTop: 10,
+              height: 76,
+              borderRadius: 12,
+              background: NetflixColors.surfaceElevated,
+              opacity: i === 0 ? 0.9 : 0.5,
+            }}
+          />
+        ))}
+      </div>
+    );
   if (!reviews.length) return <EmptyLine text="No reviews yet" />;
   return (
     <div style={{ padding: '0 20px' }}>

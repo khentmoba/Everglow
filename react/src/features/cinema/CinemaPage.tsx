@@ -233,7 +233,26 @@ export function CinemaPage() {
     else if (action === 'restart') launchPlayer(item, undefined, undefined, { restart: true });
     else if (action === 'episodes') setDrawerItem(item);
     else if (action === 'finished') void saveToWatchList(item, 'watched-self', userName);
-    else if (action === 'remove') void clearWatchProgress(item, userName);
+    else if (action === 'remove') {
+      const snapshot = watchlist.find((w) => catalogKeyOf(w) === catalogKeyOf(item));
+      void clearWatchProgress(item, userName);
+      // Removing progress is one tap, so it carries an Undo.
+      showSnackBar('Removed from Continue Watching', {
+        action: snapshot
+          ? {
+              label: 'Undo',
+              onPressed: () =>
+                void saveWatchProgress(item, userName, {
+                  season: snapshot.currentSeason,
+                  episode: snapshot.currentEpisode,
+                  timestamp: snapshot.currentTimestamp,
+                  durationSeconds: snapshot.durationSeconds,
+                  status: snapshot.status,
+                }),
+            }
+          : undefined,
+      });
+    }
   };
 
   // `_showMediaDetails`: the drawer opens with the saved status and progress.
@@ -260,27 +279,6 @@ export function CinemaPage() {
     }
     if (isCoupleUser) void navigate('/dashboard');
     else void navigate('/');
-  };
-
-  // Removing progress is one tap, so it carries an Undo for the rest of the session.
-  const removeProgress = (item: MediaItem) => {
-    const snapshot = watchlist.find((w) => catalogKeyOf(w) === catalogKeyOf(item));
-    void clearWatchProgress(item, userName);
-    showSnackBar(`Removed from Continue Watching`, {
-      action: snapshot
-        ? {
-            label: 'Undo',
-            onPressed: () =>
-              void saveWatchProgress(item, userName, {
-                season: snapshot.currentSeason,
-                episode: snapshot.currentEpisode,
-                timestamp: snapshot.currentTimestamp,
-                durationSeconds: snapshot.durationSeconds,
-                status: snapshot.status,
-              }),
-          }
-        : undefined,
-    });
   };
 
   const handleLogout = async () => {
@@ -440,7 +438,6 @@ export function CinemaPage() {
             width={width}
             watchlist={watchlist}
             onMediaTap={setDrawerItem}
-            onRemoveProgress={removeProgress}
             onSwitchTab={handleNavSelect}
           />
         )}
@@ -536,15 +533,19 @@ function HomeTab({
   const seen = new Set<string>(
     [...watchingList, ...savedList, ...trendingGlobal.slice(0, 1)].map((m) => catalogKeyOf(m)),
   );
+  // A rail identical to one already on screen is not a second recommendation.
+  const railSignatures = new Set<string>();
   const seenRow = (items: MediaItem[]) => {
+    const signature = items.map((m) => catalogKeyOf(m)).sort().join('|');
+    if (railSignatures.has(signature)) return [];
     const keep = items.filter((m) => !seen.has(catalogKeyOf(m)));
     if (keep.length < MIN_RAIL) {
       // Refill from titles already shown above rather than render a rail of two.
-      for (const m of items) {
-        if (keep.length >= MIN_RAIL) break;
-        if (!keep.includes(m)) keep.push(m);
+      for (let i = items.length - 1; i >= 0 && keep.length < MIN_RAIL; i--) {
+        if (!keep.includes(items[i])) keep.push(items[i]);
       }
     }
+    railSignatures.add(signature);
     for (const m of keep) seen.add(catalogKeyOf(m));
     return keep;
   };

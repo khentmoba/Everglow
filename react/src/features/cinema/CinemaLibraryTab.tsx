@@ -44,13 +44,11 @@ export function CinemaLibraryTab({
   width,
   watchlist,
   onMediaTap,
-  onRemoveProgress,
   onSwitchTab,
 }: {
   width: number;
   watchlist: MediaItem[];
   onMediaTap: (m: MediaItem) => void;
-  onRemoveProgress?: (m: MediaItem) => void;
   onSwitchTab: (tab: number) => void;
 }) {
   const auth = useAuth();
@@ -116,7 +114,10 @@ export function CinemaLibraryTab({
           {all.length} {all.length === 1 ? 'title' : 'titles'}
         </span>
       </div>
-      <div className="no-scrollbar" style={{ padding: `8px ${h}px 10px`, display: 'flex', gap: 8, overflowX: 'auto' }}>
+      <div
+        className="no-scrollbar"
+        style={{ padding: `8px ${h}px 10px`, paddingRight: h + 16, display: 'flex', gap: 8, overflowX: 'auto' }}
+      >
         {(
           [
             ['all', 'All'],
@@ -189,12 +190,9 @@ export function CinemaLibraryTab({
             const watching = isCurrentlyWatching(m);
             return (
               <div key={m.id || `${m.mediaType}:${m.tmdbId}`} style={{ position: 'relative', aspectRatio: '0.67' }}>
+                {/* No remove badge here: "remove from Continue Watching" lives in the
+                    tile menu on Home, where the progress it clears is visible. */}
                 <NetflixPosterCard item={m} compact progress={watching ? progressOf(m) : null} onTap={() => onMediaTap(m)} />
-                {onRemoveProgress && watching && (
-                  <div style={{ position: 'absolute', top: 6, right: 6 }}>
-                    <NetflixRemoveBadge onTap={() => onRemoveProgress(m)} />
-                  </div>
-                )}
               </div>
             );
           })}

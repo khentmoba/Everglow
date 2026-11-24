@@ -701,7 +701,7 @@ export function NetflixPosterCard({
         aria-hidden
         style={{
           position: 'absolute',
-          left: 6,
+          left: 14,
           bottom: 0,
           width: textWidth,
           height: 200,
@@ -773,6 +773,28 @@ export function NetflixRow({
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const { width: rowViewport } = useViewport();
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    // An arrow on a rail that fits is a promise the row cannot keep.
+    setEdges({
+      left: el.scrollLeft > 8,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 8,
+    });
+  }, []);
+  useEffect(() => {
+    measure();
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', measure, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      ro.disconnect();
+    };
+  }, [measure, items.length, rowViewport]);
   if (items.length === 0) return null;
 
   const hPad = isDesktop ? 48 : rowViewport >= 700 ? 32 : 16;
@@ -867,7 +889,7 @@ export function NetflixRow({
             </div>
           ))}
         </div>
-        {isDesktop && items.length > 4 && (
+        {isDesktop && (edges.left || edges.right) && (
           <>
             <button
               type="button"
@@ -878,11 +900,11 @@ export function NetflixRow({
                 position: 'absolute',
                 left: 6,
                 top: '42%',
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 background: 'rgba(0,0,0,0.6)',
-                display: 'flex',
+                display: edges.left ? 'flex' : 'none',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -898,11 +920,11 @@ export function NetflixRow({
                 position: 'absolute',
                 right: 6,
                 top: '42%',
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 background: 'rgba(0,0,0,0.6)',
-                display: 'flex',
+                display: edges.right ? 'flex' : 'none',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

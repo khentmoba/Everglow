@@ -77,7 +77,8 @@ export function CinemaSearchTab({
         ...cur,
         results: [...cur.results, ...added],
         page,
-        hasMore: results.length > 0 && page < 500,
+        // A page that brings nothing new means there is nothing left to load.
+        hasMore: added.length > 0 && results.length > 0 && page < 500,
         searching: false,
         loadingMore: false,
       });
