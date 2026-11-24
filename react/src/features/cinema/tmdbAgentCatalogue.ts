@@ -35,7 +35,7 @@ const DEMO: DemoTitle[] = [
   {
     tmdbId: 157336, mediaType: 'movie', title: 'Interstellar', year: '2014',
     poster: '/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg', backdrop: '/8sNiAPPYU14PUepFNeSNGUTiHW.jpg',
-    overview: 'A team of explorers travels through a wormhole in space in an attempt to ensure humanitys survival.',
+    overview: "A team of explorers travels through a wormhole in space in an attempt to ensure humanity's survival.",
     genres: [878, 18], score: 8.4, votes: 34000, popularity: 190, runtime: 169,
   },
   {
@@ -171,16 +171,18 @@ export function agentTmdbResponse(urlStr: string): Record<string, unknown> | nul
     if (path[2] === 'season') {
       const seasonNumber = Number(path[3] ?? '1') || 1;
       const count = Math.min(10, match.seasons?.[seasonNumber - 1]?.episode_count ?? 8);
+      // Screens should not show seven copies of one frame: rotate the catalogue art.
+      const at = Math.max(0, RECORDS.findIndex((r) => r.id === idNum && r.media_type === path[0]));
       return {
         episodes: Array.from({ length: count }, (_, i) => ({
           id: seasonNumber * 100 + i + 1,
           episode_number: i + 1,
           season_number: seasonNumber,
           name: EPISODE_TITLES[i % EPISODE_TITLES.length],
-          overview: `Episode ${i + 1} of ${match.name}.`,
+          overview: `${EPISODE_TITLES[i % EPISODE_TITLES.length]} of ${match.name}.`,
           runtime: match.episode_run_time?.[0] ?? 45,
           air_date: `${match.first_air_date.slice(0, 4)}-06-${String(i + 1).padStart(2, '0')}`,
-          still_path: match.backdrop_path,
+          still_path: RECORDS[(at + i * 3 + 1) % RECORDS.length].backdrop_path,
         })),
       };
     }

@@ -27,9 +27,12 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
   const [error, setError] = useState<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
 
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     let alive = true;
     let unsub: (() => void) | undefined;
+    setState({ kind: 'loading' });
     void ensureTemporaryChatRoom(roomId, myUid, partnerUid).then(() => {
       if (!alive) return;
       unsub = temporaryChatStream(roomId)({
@@ -41,7 +44,7 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
       alive = false;
       unsub?.();
     };
-  }, [roomId, myUid, partnerUid]);
+  }, [roomId, myUid, partnerUid, attempt]);
 
   // Jump to the newest message whenever the list changes.
   useLayoutEffect(() => {
@@ -130,7 +133,26 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
       </div>
       <div style={{ height: state.kind === 'error' ? 80 : 240, position: 'relative' }}>
         {state.kind === 'error' ? (
-          <ChatMessageState icon="cloud_off" text="Chat is unavailable. Check your connection." />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <ChatMessageState icon="cloud_off" text="Chat is unavailable. Check your connection." />
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => setAttempt((n) => n + 1)}
+              style={{
+                padding: '9px 16px',
+                borderRadius: 8,
+                ...AppTypography.outfitHeading,
+                fontSize: 12.5,
+                lineHeight: lineHeight(12.5),
+                color: NetflixColors.textPrimary,
+                background: NetflixColors.surfaceElevated,
+                border: `1px solid ${NetflixColors.hairline}`,
+              }}
+            >
+              Try again
+            </button>
+          </div>
         ) : state.kind === 'loading' ? (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CircularProgress size={36} strokeWidth={2} color={NetflixColors.accent} />
@@ -177,9 +199,17 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
               boxSizing: 'border-box',
               display: 'flex',
               alignItems: 'center',
+              // The composer tells the truth: no typing while the chat is down.
+              opacity: state.kind === 'data' ? 1 : 0.45,
             }}
           >
-            <ChatInput value={input} placeholder={`Message ${partnerName}...`} onChange={setInput} onSubmit={() => void send()} />
+            <ChatInput
+              value={input}
+              placeholder={state.kind === 'error' ? 'Chat is offline' : `Message ${partnerName}...`}
+              disabled={state.kind !== 'data'}
+              onChange={setInput}
+              onSubmit={() => void send()}
+            />
           </div>
           <div style={{ width: 6 }} />
           <button
@@ -215,11 +245,13 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
 function ChatInput({
   value,
   placeholder,
+  disabled = false,
   onChange,
   onSubmit,
 }: {
   value: string;
   placeholder: string;
+  disabled?: boolean;
   onChange: (v: string) => void;
   onSubmit: () => void;
 }) {
@@ -237,6 +269,8 @@ function ChatInput({
       rows={1}
       value={value}
       placeholder={placeholder}
+      disabled={disabled}
+      aria-disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && !e.shiftKey) {

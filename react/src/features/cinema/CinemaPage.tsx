@@ -9,6 +9,7 @@ import { useSource } from '../../core/utils/liveSource';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { Icon } from '../../shared/widgets/Icon';
 import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
+import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Logger } from '../../core/system/logger';
 import { CinemaHomeCache } from './cinemaHomeCache';
 import { CinemaSearchTab } from './CinemaSearchTab';
@@ -36,6 +37,7 @@ import {
   fetchTrendingByCountry,
   fetchUpcoming,
   saveToWatchList,
+  saveWatchProgress,
   setListMembership,
   watchCinemaWatchlist,
 } from './tmdbService';
@@ -45,18 +47,29 @@ interface DiscoveryShelf {
   type: 'movie' | 'tv';
   genre?: number;
   language?: string;
+  reason: string;
 }
 
 const DISCOVERY_SHELVES: DiscoveryShelf[] = [
-  { title: 'Top-Rated Movies', type: 'movie' },
-  { title: 'Top-Rated Series', type: 'tv' },
-  { title: 'Action & Adventure', type: 'movie', genre: 28 },
-  { title: 'Need a Laugh?', type: 'movie', genre: 35 },
-  { title: 'Romance', type: 'movie', genre: 10749 },
-  { title: 'Edge-of-Your-Seat Thrillers', type: 'movie', genre: 53 },
-  { title: 'Sci-Fi Escapes', type: 'movie', genre: 878 },
-  { title: 'Korean Dramas', type: 'tv', genre: 18, language: 'ko' },
+  { title: 'Top-Rated Movies', type: 'movie', reason: 'Loved by critics and viewers' },
+  { title: 'Top-Rated Series', type: 'tv', reason: 'The best of the small screen' },
+  { title: 'Action & Adventure', type: 'movie', genre: 28, reason: 'Big set pieces, bigger stakes' },
+  { title: 'Need a Laugh?', type: 'movie', genre: 35, reason: 'Short of time, long on smiles' },
+  { title: 'Romance', type: 'movie', genre: 10749, reason: 'For a slow evening together' },
+  { title: 'Edge-of-Your-Seat Thrillers', type: 'movie', genre: 53, reason: 'Lights off, heart rate up' },
+  { title: 'Sci-Fi Escapes', type: 'movie', genre: 878, reason: 'Other worlds, familiar feelings' },
+  { title: 'Stories That Stay With You', type: 'movie', genre: 18, reason: 'Quiet films that linger' },
 ];
+
+/** "1h 4m left": the honest counterpart to the tile's progress hairline. */
+function remainingLabelOf(m: MediaItem): string | null {
+  const pos = m.currentTimestamp ?? 0;
+  const dur = m.durationSeconds ?? 0;
+  if (pos <= 0 || dur <= 0 || pos >= dur) return null;
+  const left = Math.max(1, Math.round((dur - pos) / 60));
+  const hours = Math.floor(left / 60);
+  return hours > 0 ? `${hours}h ${left % 60}m left` : `${left}m left`;
+}
 
 export function CinemaPage() {
   const auth = useAuth();
@@ -74,6 +87,9 @@ export function CinemaPage() {
   const isCoupleUser = auth.isCoupleUser;
   const isCinemaOnlyUser = auth.isCinemaOnlyUser;
   const isDesktop = width >= AppBreakpoint.tablet;
+  // An 820px iPad is not a phone: it gets the top bar and wider rails.
+  const isTablet = !isDesktop && width >= 700;
+  const isWide = isDesktop || isTablet;
 
   const watchlist = useSource(() => watchCinemaWatchlist(userName), [userName], []);
   const watchingList = useMemo(
@@ -207,7 +223,10 @@ export function CinemaPage() {
     navigate(`/cinema/video/${item.tmdbId}?${qs.toString()}`);
   };
 
-  const handleContinueTap = async (item: MediaItem) => {
+  // Tapping a Continue Watching tile resumes; the sheet lives behind the tile's ⋯.
+  const handleContinueTap = (item: MediaItem) => launchPlayer(item);
+
+  const handleContinueOptions = async (item: MediaItem) => {
     const action = await showCinemaPlaybackSheet(item);
     if (!action) return;
     if (action === 'resume') launchPlayer(item);
@@ -243,6 +262,27 @@ export function CinemaPage() {
     else void navigate('/');
   };
 
+  // Removing progress is one tap, so it carries an Undo for the rest of the session.
+  const removeProgress = (item: MediaItem) => {
+    const snapshot = watchlist.find((w) => catalogKeyOf(w) === catalogKeyOf(item));
+    void clearWatchProgress(item, userName);
+    showSnackBar(`Removed from Continue Watching`, {
+      action: snapshot
+        ? {
+            label: 'Undo',
+            onPressed: () =>
+              void saveWatchProgress(item, userName, {
+                season: snapshot.currentSeason,
+                episode: snapshot.currentEpisode,
+                timestamp: snapshot.currentTimestamp,
+                durationSeconds: snapshot.durationSeconds,
+                status: snapshot.status,
+              }),
+          }
+        : undefined,
+    });
+  };
+
   const handleLogout = async () => {
     await auth.logout();
     navigate('/');
@@ -273,11 +313,11 @@ export function CinemaPage() {
       }}
     >
       <TvMediaNavHeader currentRoute="/cinema" onLogout={() => void handleLogout()} />
-      {isDesktop && (
+      {isWide && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20 }}>
           <NetflixCinemaTopBar
             currentIndex={currentTab}
-            currentBrowseId={selectedBrowseId}
+            currentBrowseId={selectedBrowseId ?? (currentTab === 2 ? 'collection-movies' : null)}
             links={links}
             scrolled={scrolled}
             userName={userName}
@@ -290,7 +330,7 @@ export function CinemaPage() {
         </div>
       )}
 
-      {!isDesktop && (
+      {!isWide && (
         <>
           <div
             aria-hidden
@@ -367,7 +407,8 @@ export function CinemaPage() {
             savedList={savedList}
             onRefresh={loadHome}
             onTapItem={setDrawerItem}
-            onTapContinue={(item) => void handleContinueTap(item)}
+            onTapContinue={handleContinueTap}
+            onContinueOptions={(item) => void handleContinueOptions(item)}
             onPlay={(item) => launchPlayer(item)}
             onRestart={(item) => launchPlayer(item, undefined, undefined, { restart: true })}
             onToggleList={(item, add) => void setListMembership(item, userName, add)}
@@ -393,7 +434,7 @@ export function CinemaPage() {
             width={width}
             watchlist={watchlist}
             onMediaTap={setDrawerItem}
-            onRemoveProgress={(item) => void clearWatchProgress(item, userName)}
+            onRemoveProgress={removeProgress}
             onSwitchTab={handleNavSelect}
           />
         )}
@@ -410,10 +451,10 @@ export function CinemaPage() {
         <div style={{ height: 100 }} />
       </div>
 
-      {!isDesktop && (
+      {!isWide && (
         <NetflixBottomNav
           currentIndex={currentTab}
-          currentBrowseId={selectedBrowseId}
+          currentBrowseId={selectedBrowseId ?? (currentTab === 2 ? 'collection-movies' : null)}
           items={cinemaMobileNavItems(isCinemaOnlyUser)}
           onSelect={handleNavSelect}
           onAnimeTap={() => navigate('/anime')}
@@ -450,6 +491,7 @@ function HomeTab({
   onRefresh,
   onTapItem,
   onTapContinue,
+  onContinueOptions,
   onPlay,
   onRestart,
   onToggleList,
@@ -471,6 +513,7 @@ function HomeTab({
   onRefresh: () => void;
   onTapItem: (m: MediaItem) => void;
   onTapContinue: (m: MediaItem) => void;
+  onContinueOptions: (m: MediaItem) => void;
   onPlay: (m: MediaItem) => void;
   onRestart: (m: MediaItem) => void;
   onToggleList: (m: MediaItem, add: boolean) => void;
@@ -481,6 +524,23 @@ function HomeTab({
 }) {
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
+  // One title, one rail: a poster that already appeared above stays there.
+  const seen = new Set<string>();
+  const seenRow = (items: MediaItem[]) =>
+    items.filter((m) => {
+      const key = catalogKeyOf(m);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  const becauseOf = watchingList[0];
+  const becauseGenre = becauseOf?.genres?.[0];
+  const becauseItems =
+    becauseOf && becauseGenre
+      ? trendingGlobal
+          .filter((m) => m.genres?.includes(becauseGenre) && catalogKeyOf(m) !== catalogKeyOf(becauseOf))
+          .slice(0, 12)
+      : [];
   const rowProps = {
     isDesktop,
     onTapItem,
@@ -519,7 +579,15 @@ function HomeTab({
       )}
 
       {watchingList.length > 0 && (
-        <NetflixRow title="Continue Watching" items={watchingList.slice(0, 10)} {...rowProps} onTapItem={onTapContinue} />
+        <NetflixRow
+          title="Continue Watching"
+          reason="Pick up where you left off"
+          items={watchingList.slice(0, 10)}
+          {...rowProps}
+          onTapItem={onTapContinue}
+          onOptionsItem={onContinueOptions}
+          progressLabel={remainingLabelOf}
+        />
       )}
       {savedList.length > 0 && <NetflixRow title="My List" items={savedList.slice(0, 10)} {...rowProps} />}
 
@@ -544,17 +612,26 @@ function HomeTab({
         </div>
       )}
 
-      <NetflixRow title="Trending Now" items={trendingGlobal} {...rowProps} />
+      {becauseItems.length >= 4 && (
+        <NetflixRow
+          title={`Because you watched ${becauseOf?.title ?? ''}`}
+          reason="Same mood, different story"
+          items={becauseItems}
+          {...rowProps}
+        />
+      )}
+      <NetflixRow title="Trending Now" reason="What everyone is watching this week" items={seenRow(trendingGlobal)} {...rowProps} />
       <NetflixRow
         title={`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`}
-        items={topTenToday.slice(0, 10)}
+        reason="Today's most-watched"
+        items={seenRow(topTenToday).slice(0, 10)}
         ranked
         {...rowProps}
       />
-      <NetflixRow title="Coming Soon" items={newlyReleased} {...rowProps} />
-      <NetflixRow title="Popular Series" items={popularTV} {...rowProps} />
+      <NetflixRow title="Coming Soon" reason="New on Everglow Cinema" items={seenRow(newlyReleased)} {...rowProps} />
+      <NetflixRow title="Popular Series" reason="Most-watched series right now" items={seenRow(popularTV)} {...rowProps} />
       {Object.entries(discoveryRows).map(([title, items]) => (
-        <NetflixRow key={title} title={title} items={items} {...rowProps} />
+        <NetflixRow key={title} title={title} reason={DISCOVERY_SHELVES.find((d) => d.title === title)?.reason} items={seenRow(items)} {...rowProps} />
       ))}
 
       <div style={{ padding: 16 }}>

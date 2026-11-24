@@ -301,6 +301,11 @@ function SeriesGroup({ episodes, onPlay, onDelete }: { episodes: OfflineMediaIte
   );
 }
 
+/** The chip already says "S1 E1"; the title should not say it twice. */
+function subtitleWithoutSeason(item: OfflineMediaItem): string {
+  return item.subtitle.replace(/^S\d+\s*E\d+\s*[·•-]\s*/i, '').trim();
+}
+
 function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & RowProps) {
   return (
     <div
@@ -320,7 +325,7 @@ function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & Row
       <div style={{ width: 10 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="clamp-2" style={text(13, NetflixColors.textPrimary, 600)}>
-          {item.subtitle || `Episode ${item.episode ?? 1}`}
+          {subtitleWithoutSeason(item) || `Episode ${item.episode ?? 1}`}
         </div>
         <div style={{ height: 2 }} />
         <div style={text(11, NetflixColors.textMuted)}>{sizeLine(item)}</div>

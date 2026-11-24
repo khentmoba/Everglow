@@ -119,6 +119,7 @@ export function CinemaEpisodeDrawer({
   const navigate = useNavigate();
   const { w: screenW, h: screenH } = useWidth();
   const isMobile = screenW < 720;
+  const isWide = screenW >= 720;
   const isCouple = auth.isCoupleUser;
   const prefs = useValue(cinemaPreferences);
   useEffect(() => cinemaPreferences.setUser(auth.currentUser), [auth.currentUser]);
@@ -601,12 +602,13 @@ export function CinemaEpisodeDrawer({
   const format = isAnimeSourced ? (aniDetail?.format ?? item.format) : '';
   const airing = isAnimeSourced ? (aniDetail?.airingStatus ?? item.airingStatus) : '';
   const overview = (typeof details?.overview === 'string' ? details.overview : null) ?? item.synopsis;
+  // One counter, one meaning: totals say "Seasons" when there is more than one.
   const episodesCountStr = isFilm
     ? ''
-    : details?.number_of_episodes != null
-      ? `${String(details.number_of_episodes)} Episodes`
-      : seasons.length > 1
-        ? `${seasons.length} Seasons`
+    : seasons.length > 1
+      ? `${String(seasons.length)} Seasons${details?.number_of_episodes != null ? ` · ${String(details.number_of_episodes)} Episodes` : ''}`
+      : details?.number_of_episodes != null
+        ? `${String(details.number_of_episodes)} Episodes`
         : episodes.length
           ? `${episodes.length} Episodes`
           : item.episodeCount != null
@@ -632,7 +634,7 @@ export function CinemaEpisodeDrawer({
         onRemindMe={() => updateStatus('to-watch')}
         onShareDiscord={isCouple ? () => void shareToDiscord(selectedSeason) : undefined}
         onToggleMute={() => setMuted((m) => !m)}
-        downloadAction={isFilm ? <MovieDownloadAction item={item} /> : null}
+        downloadAction={isFilm ? <MovieDownloadAction item={item} wide={isWide} /> : null}
         onClose={onClose}
       />
       <div className="drawer-fade-in">
@@ -710,7 +712,7 @@ export function CinemaEpisodeDrawer({
       ) : (
         <CastRow cast={cast} loading={loadingCast} isAnimeSourced={isAnimeSourced} />
       )}
-      <div style={{ height: 60 }} />
+      <div style={{ height: 96 }} />
     </div>
   );
 
@@ -727,7 +729,7 @@ export function CinemaEpisodeDrawer({
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 6 }}>
           {rating != null && rating > 0 && (
             <span
-              style={{ ...AppTypography.outfitHeading, fontSize: 14, lineHeight: lineHeight(14), color: NetflixColors.match }}
+              style={{ ...AppTypography.outfitHeading, fontSize: 14, lineHeight: lineHeight(14), color: withAlpha(WHITE, 0.85) }}
             >
               {`TMDB ${rating.toFixed(1)}`}
             </span>
@@ -1104,9 +1106,9 @@ function Hero({
             activeColor={inWatchlist ? NetflixColors.accent : undefined}
           />
           <CircleAction
-            icon={liked ? 'thumb_up_alt' : 'thumb_up_off_alt'}
-            tooltip={liked ? 'Rated' : 'Rate'}
-            label="Rate"
+            icon={liked ? 'check_circle' : 'check_circle_outline'}
+            tooltip={liked ? 'Watched' : 'Mark watched'}
+            label={liked ? 'Watched' : 'Mark watched'}
             wide={!isMobile}
             onTap={onRate}
             activeColor={liked ? NetflixColors.accent : undefined}
@@ -1172,22 +1174,30 @@ function CircleAction({
   );
 }
 
-function MovieDownloadAction({ item }: { item: MediaItem }) {
+function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: boolean }) {
   const offline = useOfflineMedia();
   const id = OfflineIds.cinemaMovieId(item.tmdbId);
+  // A 44px target that reads like its neighbours: outlined, and labelled on wide screens.
   const circle: CSSProperties = {
-    width: 40,
-    height: 40,
-    borderRadius: '50%',
+    minWidth: 44,
+    height: 44,
+    padding: wide ? '0 16px' : 0,
+    borderRadius: 22,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   };
   if (offline.isDownloaded(id)) {
     return (
       <Tooltip message="Downloaded for offline viewing">
-        <div style={{ ...circle, background: withAlpha(WHITE, 0.9) }}>
-          <Icon name="offline_pin" size={20} color="#000000" />
+        <div style={{ ...circle, background: withAlpha('#000000', 0.5) }}>
+          <Icon name="offline_pin" size={20} color={withAlpha(WHITE, 0.9)} />
+          {wide && (
+            <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
+              Downloaded
+            </span>
+          )}
         </div>
       </Tooltip>
     );
@@ -1220,6 +1230,9 @@ function MovieDownloadAction({ item }: { item: MediaItem }) {
         style={{ ...circle, background: withAlpha('#000000', 0.5), ...insetBorder(withAlpha(WHITE, 0.4), 1.5) }}
       >
         <Icon name="download_for_offline_outlined" size={20} color={WHITE} />
+        {wide && (
+          <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: WHITE }}>Download</span>
+        )}
       </button>
     </Tooltip>
   );
@@ -1795,7 +1808,7 @@ function SimilarCard({ item, onTap }: { item: MediaItem; onTap: () => void }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {match != null && (
-              <span style={{ ...AppTypography.outfitBold, fontSize: 12, lineHeight: lineHeight(12), color: NetflixColors.match }}>
+              <span style={{ ...AppTypography.outfitBold, fontSize: 12, lineHeight: lineHeight(12), color: withAlpha(WHITE, 0.85) }}>
                 {`TMDB ${match}`}
               </span>
             )}
@@ -2137,7 +2150,7 @@ function EpisodeRow({
               textOverflow: 'ellipsis',
             }}
           >
-            {hidden ? `Episode ${num}` : name}
+            {name}
           </div>
           {duration && (
             <span
@@ -2169,7 +2182,7 @@ function EpisodeRow({
               color: withAlpha(WHITE, 0.55),
             }}
           >
-            Show spoilers
+            Show synopsis
           </span>
         ) : (
           overview && (

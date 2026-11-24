@@ -97,7 +97,9 @@ function TouchPreviewDialog({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, fontSize: 11.5, color: NetflixColors.textSecondary }}>
             {item.year && <span>{item.year}</span>}
             {item.score != null && item.score > 0 && (
-              <span style={{ color: NetflixColors.match, fontWeight: 700 }}>{Math.round(item.score * 10)}% Match</span>
+              <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>
+                {item.score != null && item.score > 0 ? `TMDB ${item.score.toFixed(1)}` : ''}
+              </span>
             )}
             <span>{item.mediaType === 'tv' ? 'Series' : 'Movie'}</span>
           </div>

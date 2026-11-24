@@ -49,7 +49,7 @@ export function CinemaWatchTogetherTab({
               color: NetflixColors.textPrimary,
             }}
           >
-            Watch Together
+            Together
           </div>
           <div style={{ height: 4 }} />
           <div

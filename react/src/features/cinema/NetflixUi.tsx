@@ -27,16 +27,19 @@ export interface NetflixMobileItem {
   isAnimeLink?: boolean;
 }
 
+/** Four links stay in the bar; everything after them lives in the "More" menu. */
+export const CINEMA_PRIMARY_LINK_COUNT = 4;
+
 export function cinemaNavLinks(isCinemaOnlyUser: boolean): NetflixNavLink[] {
   return [
     { label: 'Home', tab: 0 },
-    { label: 'TV Shows', tab: 2, browseOptionId: 'collection-tv' },
     { label: 'Movies', tab: 2, browseOptionId: 'collection-movies' },
-    { label: 'Popular', tab: 2, browseOptionId: 'collection-new' },
+    { label: 'TV Shows', tab: 2, browseOptionId: 'collection-tv' },
     { label: 'My List', tab: 3 },
+    { label: 'Popular', tab: 2, browseOptionId: 'collection-new' },
+    { label: 'Browse', tab: 2 },
     { label: 'Downloads', tab: 5 },
     ...(!isCinemaOnlyUser ? [{ label: 'Watch Together', tab: 4 }] : []),
-    { label: 'Browse', tab: 2 },
     { label: 'Search', tab: 1 },
   ];
 }
@@ -46,11 +49,11 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
     ? [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
         {
-          label: 'Popular',
-          icon: 'local_fire_department',
-          activeIcon: 'local_fire_department',
+          label: 'Movies',
+          icon: 'movie',
+          activeIcon: 'movie',
           tab: 2,
-          browseOptionId: 'collection-new',
+          browseOptionId: 'collection-movies',
         },
         { label: 'My List', icon: 'bookmark_border', activeIcon: 'bookmark', tab: 3 },
         { label: 'Downloads', icon: 'download_for_offline', activeIcon: 'download_for_offline', tab: 5 },
@@ -60,11 +63,11 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
     : [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
         {
-          label: 'Popular',
-          icon: 'local_fire_department',
-          activeIcon: 'local_fire_department',
+          label: 'Movies',
+          icon: 'movie',
+          activeIcon: 'movie',
           tab: 2,
-          browseOptionId: 'collection-new',
+          browseOptionId: 'collection-movies',
         },
         { label: 'My List', icon: 'bookmark_border', activeIcon: 'bookmark', tab: 3 },
         { label: 'Downloads', icon: 'download_for_offline', activeIcon: 'download_for_offline', tab: 5 },
@@ -77,6 +80,17 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
 /** Poster width per breakpoint: phone, tablet, desktop (the row height follows it). */
 export function rowCardWidth(isDesktop: boolean, vw: number): number {
   return isDesktop ? 172 : vw >= 700 ? 168 : 124;
+}
+
+/** 1:43:00 — the same clock the resume sheet shows. */
+function clockOf(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${m}:${String(s).padStart(2, '0')}`;
 }
 
 const DETAIL_CACHE_MAX = 60;
@@ -183,6 +197,11 @@ function NetflixHoverPreview({
       : Array.isArray(details?.genres)
         ? details.genres.map((g) => String((g as Record<string, unknown>)?.name ?? '')).filter(Boolean)
         : [];
+  // A continue-watching title says where it stopped, here too.
+  const resumeFraction =
+    (item.currentTimestamp ?? 0) > 0 && (item.durationSeconds ?? 0) > 0
+      ? (item.currentTimestamp ?? 0) / (item.durationSeconds ?? 1)
+      : null;
   const synopsis =
     item.synopsis ||
     (typeof details?.overview === 'string' && details.overview.trim() ? details.overview.trim() : '') ||
@@ -265,8 +284,8 @@ function NetflixHoverPreview({
               else onTap();
             }}
             style={{
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               borderRadius: '50%',
               background: '#FFFFFF',
               display: 'flex',
@@ -289,8 +308,8 @@ function NetflixHoverPreview({
                 onToggleList(item, next);
               }}
               style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 background: 'rgba(42,42,42,0.8)',
                 border: '1.5px solid rgba(255,255,255,0.45)',
@@ -314,8 +333,8 @@ function NetflixHoverPreview({
               onTap();
             }}
             style={{
-              width: 34,
-              height: 34,
+              width: 44,
+              height: 44,
               borderRadius: '50%',
               background: 'rgba(42,42,42,0.8)',
               border: '1.5px solid rgba(255,255,255,0.45)',
@@ -330,8 +349,8 @@ function NetflixHoverPreview({
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px' }}>
           {voteAvg > 0 && (
-            <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: '#46D369' }}>
-              {voteAvg > 0 ? `TMDB ${voteAvg.toFixed(1)}` : ''}
+            <span style={{ ...AppTypography.outfitBold, fontSize: 12, color: 'rgba(255,255,255,0.9)' }}>
+              {`TMDB ${voteAvg.toFixed(1)}`}
             </span>
           )}
           {year && <span style={{ ...AppTypography.outfitMedium, fontSize: 12, color: NetflixColors.textSecondary }}>{year}</span>}
@@ -363,6 +382,23 @@ function NetflixHoverPreview({
         <div className="clamp-3" style={{ ...AppTypography.bodySmall, fontSize: 11.5, lineHeight: 1.4, color: NetflixColors.textSecondary }}>
           {synopsis}
         </div>
+
+        {resumeFraction != null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${Math.round(Math.max(0, Math.min(1, resumeFraction)) * 100)}%`,
+                  background: NetflixColors.accent,
+                }}
+              />
+            </div>
+            <span style={{ ...AppTypography.outfitMedium, fontSize: 11.5, color: 'rgba(255,255,255,0.75)' }}>
+              {`Resume at ${clockOf(item.currentTimestamp ?? 0)}`}
+            </span>
+          </div>
+        )}
       </div>
     </div>,
     document.body,
@@ -381,6 +417,7 @@ export function NetflixPosterCard({
   compact = false,
   isDesktop = false,
   height,
+  progressLabel,
 }: {
   item: MediaItem;
   onTap: () => void;
@@ -389,6 +426,8 @@ export function NetflixPosterCard({
   onToggleList?: (item: MediaItem, add: boolean) => void;
   isInList?: (item: MediaItem) => boolean;
   progress?: number | null;
+  /** "1h 4m left" under the progress bar. */
+  progressLabel?: string | null;
   rank?: number;
   compact?: boolean;
   isDesktop?: boolean;
@@ -614,6 +653,23 @@ export function NetflixPosterCard({
           />
         </div>
       )}
+      {progressLabel && progress != null && (
+        <span
+          style={{
+            position: 'absolute',
+            left: 6,
+            bottom: 8,
+            padding: '2px 6px',
+            borderRadius: 4,
+            background: 'rgba(0,0,0,0.72)',
+            ...AppTypography.outfitBold,
+            fontSize: 10.5,
+            color: NetflixColors.textPrimary,
+          }}
+        >
+          {progressLabel}
+        </span>
+      )}
     </button>
   );
 
@@ -646,7 +702,7 @@ export function NetflixPosterCard({
           lineHeight: '200px',
           letterSpacing: 0.25,
           whiteSpace: 'nowrap',
-          color: '#4D4D4D',
+          color: '#6B6B6B',
           WebkitTextStroke: '8px #000000',
           paintOrder: 'stroke fill',
           userSelect: 'none',
@@ -676,33 +732,40 @@ const outfitBlackDigit: Record<string, number> = {
 
 export function NetflixRow({
   title,
+  reason,
   items,
   ranked = false,
   onTapItem,
   onPlayItem,
   onRestartItem,
   onToggleListItem,
+  onOptionsItem,
   isInList,
   progress,
+  progressLabel,
   isDesktop = false,
 }: {
   title: string;
+  /** One plain line under the title: why these titles are here. */
+  reason?: string;
   items: MediaItem[];
   ranked?: boolean;
   onTapItem: (item: MediaItem) => void;
   onPlayItem?: (item: MediaItem) => void;
   onRestartItem?: (item: MediaItem) => void;
   onToggleListItem?: (item: MediaItem, add: boolean) => void;
+  onOptionsItem?: (item: MediaItem) => void;
   isInList?: (item: MediaItem) => boolean;
   /** 0..1 resume position, drawn as the red hairline Netflix puts on a tile. */
   progress?: (item: MediaItem) => number | null;
+  progressLabel?: (item: MediaItem) => string | null;
   isDesktop?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const { width: rowViewport } = useViewport();
   if (items.length === 0) return null;
 
-  const hPad = isDesktop ? 48 : 16;
+  const hPad = isDesktop ? 48 : rowViewport >= 700 ? 32 : 16;
   const rowHeight = rowCardWidth(isDesktop, rowViewport) * 1.5 + 6;
   const scrollBy = (dx: number) => {
     scrollerRef.current?.scrollBy({ left: dx, behavior: 'smooth' });
@@ -722,6 +785,11 @@ export function NetflixRow({
         >
           {title}
         </h3>
+        {reason && (
+          <div style={{ marginTop: 2, ...AppTypography.outfitWhite, fontSize: 12.5, color: NetflixColors.textSecondary }}>
+            {reason}
+          </div>
+        )}
       </div>
       <div style={{ position: 'relative' }}>
         <div
@@ -736,19 +804,56 @@ export function NetflixRow({
           }}
         >
           {items.map((item, idx) => (
-            <div key={`${item.mediaType}:${item.tmdbId}:${idx}`} style={{ flexShrink: 0 }}>
+            <div key={`${item.mediaType}:${item.tmdbId}:${idx}`} style={{ flexShrink: 0, position: 'relative' }}>
               <NetflixPosterCard
                 item={item}
                 rank={ranked ? idx + 1 : undefined}
                 isDesktop={isDesktop}
                 height={rowHeight}
                 progress={progress?.(item) ?? null}
+                progressLabel={progressLabel?.(item) ?? null}
                 onTap={() => onTapItem(item)}
                 onPlay={onPlayItem}
                 onRestart={onRestartItem}
                 onToggleList={onToggleListItem}
                 isInList={isInList}
               />
+              {onOptionsItem && (
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Resume options for ${item.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOptionsItem(item);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: 2,
+                    top: 2,
+                    width: 44,
+                    height: 44,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.72)',
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon name="more_horiz" size={16} color="#FFFFFF" />
+                  </span>
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -821,6 +926,7 @@ export function NetflixBillboard({
   onPlay: (item: MediaItem) => void;
   onInfo: (item: MediaItem) => void;
 }) {
+  const { width: boardViewport } = useViewport();
   const [index, setIndex] = useState(0);
   const [details, setDetails] = useState<Record<string, unknown> | null>(null);
   const [imgErr, setImgErr] = useState(false);
@@ -846,7 +952,7 @@ export function NetflixBillboard({
   const voteAverage = typeof details?.vote_average === 'number' ? details.vote_average : (item.score ?? 0);
   const runtimeNum = typeof details?.runtime === 'number' ? details.runtime : null;
   const synopsis = typeof details?.overview === 'string' && details.overview ? details.overview : item.synopsis;
-  const hPad = isDesktop ? 48 : 16;
+  const hPad = isDesktop ? 48 : boardViewport >= 700 ? 32 : 16;
   const topTenRank = rankOf?.(item) ?? null;
   const inList = inListOf?.(item) ?? false;
 
@@ -1067,7 +1173,13 @@ export function NetflixBillboard({
                 className="bare-button"
                 aria-label={`Slide ${i + 1}`}
                 onClick={() => setIndex(i)}
-                style={{ padding: '10px 5px' }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 <div
                   style={{
@@ -1120,7 +1232,9 @@ export function NetflixBottomNav({
           !item.isAnimeLink &&
           item.tab === currentIndex &&
           (item.browseOptionId ? item.browseOptionId === currentBrowseId : !currentBrowseId);
-        const color = active ? '#FFFFFF' : item.isAnimeLink ? NetflixColors.accent : 'rgba(255,255,255,0.55)';
+        // The Anime door is a link out, never the current tab: one thing looks selected.
+        const color = active ? '#FFFFFF' : 'rgba(255,255,255,0.55)';
+        const iconColor = active ? '#FFFFFF' : item.isAnimeLink ? NetflixColors.accent : 'rgba(255,255,255,0.55)';
         return (
           <button
             key={item.label}
@@ -1137,7 +1251,7 @@ export function NetflixBottomNav({
               gap: 3,
             }}
           >
-            <Icon name={active ? item.activeIcon : item.icon} variant={active ? 'round' : 'outlined'} size={23} color={color} />
+            <Icon name={active ? item.activeIcon : item.icon} variant={active ? 'round' : 'outlined'} size={23} color={iconColor} />
             <span
               style={{
                 ...AppTypography.outfitHeading,
@@ -1182,16 +1296,25 @@ export function NetflixCinemaTopBar({
   onLogout: () => void;
 }) {
   const navigate = useNavigate();
+  const { width: barViewport } = useViewport();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const letter = (userName || '?')[0].toUpperCase();
+  const primary = links.slice(0, CINEMA_PRIMARY_LINK_COUNT);
+  const more = links.slice(CINEMA_PRIMARY_LINK_COUNT).filter((l) => l.tab !== 1);
+  const search = links.find((l) => l.tab === 1);
+  const moreActive = more.some(
+    (l) => l.tab === currentIndex && (l.browseOptionId ? l.browseOptionId === currentBrowseId : !currentBrowseId),
+  );
+  const hPad = barViewport >= 1024 ? 48 : 24;
 
   return (
     <header
       style={{
         height: 'calc(56px + env(safe-area-inset-top, 0px))',
         paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingLeft: 'calc(48px + env(safe-area-inset-left, 0px))',
-        paddingRight: 'calc(48px + env(safe-area-inset-right, 0px))',
+        paddingLeft: `calc(${hPad}px + env(safe-area-inset-left, 0px))`,
+        paddingRight: `calc(${hPad}px + env(safe-area-inset-right, 0px))`,
         background: scrolled ? 'rgba(0,0,0,0.92)' : 'transparent',
         borderBottom: `1px solid ${scrolled ? NetflixColors.hairline : 'transparent'}`,
         display: 'flex',
@@ -1229,10 +1352,10 @@ export function NetflixCinemaTopBar({
         </span>
       </button>
 
-      <div style={{ width: 30 }} />
+      <div style={{ width: barViewport >= 1024 ? 30 : 18 }} />
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 22, overflow: 'hidden' }}>
-        {links.map((l) => {
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: barViewport >= 1024 ? 22 : 16, overflow: 'hidden' }}>
+        {primary.map((l) => {
           const active =
             l.tab === currentIndex && (l.browseOptionId ? l.browseOptionId === currentBrowseId : !currentBrowseId);
           return (
@@ -1252,7 +1375,82 @@ export function NetflixCinemaTopBar({
             </button>
           );
         })}
+        {more.length > 0 && (
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="bare-button"
+              aria-label="More destinations"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((v) => !v)}
+              style={{
+                ...AppTypography.outfitHeading,
+                fontSize: 14,
+                color: moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.72)',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              More
+              <Icon name="expand_more" size={16} color={moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.72)'} />
+            </button>
+            {moreOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 34,
+                  minWidth: 180,
+                  borderRadius: 10,
+                  background: NetflixColors.surfaceElevated,
+                  border: `1px solid ${NetflixColors.hairline}`,
+                  padding: 6,
+                  zIndex: 1200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.45)',
+                }}
+              >
+                {more.map((l) => (
+                  <button
+                    key={l.label}
+                    type="button"
+                    className="bare-button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onSelect(l.tab, l.browseOptionId);
+                    }}
+                    style={{ padding: '9px 12px', textAlign: 'left', ...AppTypography.outfitWhite, fontSize: 13 }}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {search && (
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Search"
+          onClick={() => onSelect(search.tab)}
+          style={{
+            width: 36,
+            height: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 10,
+          }}
+        >
+          <Icon name="search" size={20} color={currentIndex === 1 ? '#FFFFFF' : 'rgba(255,255,255,0.8)'} />
+        </button>
+      )}
 
       {showAnime && <MediaSectionMenuButton currentRoute="/cinema" />}
 

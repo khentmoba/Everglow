@@ -35,7 +35,8 @@ function progressOf(m: MediaItem): number | null {
 /** `cinemaTopContentInset` (no safe-area top on the web).
  * Phones clear the 48px floating back button (10 + 48 + 10) so page titles never sit under it. */
 export function cinemaTopInset(width: number) {
-  if (width >= 1024) return 56 + 20;
+  // Tablets and desktops carry the top bar (56px); phones carry the floating button.
+  if (width >= 700) return 56 + 20;
   return 68;
 }
 
@@ -223,18 +224,30 @@ export function NetflixRemoveBadge({
           onTap();
         }}
         style={{
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           boxSizing: 'border-box',
           borderRadius: '50%',
-          background: 'rgba(8,8,8,0.8)',
-          border: `1px solid ${NetflixColors.textSecondary}`,
+          background: 'transparent',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name="close" size={20} color={NetflixColors.textPrimary} />
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: 'rgba(8,8,8,0.72)',
+            border: '1px solid rgba(245,245,245,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="close" size={15} color={NetflixColors.textPrimary} />
+        </span>
       </button>
     </Tooltip>
   );
