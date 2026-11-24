@@ -109,7 +109,10 @@ async function fetchJson(url, timeoutMs) {
     headers: { 'User-Agent': DESKTOP_UA, Accept: 'application/json' },
     signal: AbortSignal.timeout(timeoutMs || 12000),
   });
-  if (!res.ok) throw new Error(`upstream ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel?.().catch(() => {});
+    throw new Error(`upstream ${res.status}`);
+  }
   return res.json();
 }
 
@@ -1033,4 +1036,5 @@ module.exports = {
   makeMegaPlayToken,
   verifyMegaPlayStream,
   verifyStream,
+  fetchJson,
 }

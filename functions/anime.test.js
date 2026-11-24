@@ -1096,3 +1096,19 @@ test('proxyAnime passes checkRevoked=true to verifyIdToken', async (t) => {
   assert.deepEqual(seen, [{ token: 'test-token-123', checkRevoked: true }]);
   assert.equal(res.code, 401);
 });
+
+test('fetchJson cancels unconsumed error response body on non-OK status', async (t) => {
+  const { fetchJson } = require('./anime');
+  let cancelled = false;
+  t.mock.method(globalThis, 'fetch', async () => ({
+    ok: false,
+    status: 503,
+    body: {
+      cancel: async () => {
+        cancelled = true;
+      },
+    },
+  }));
+  await assert.rejects(() => fetchJson('https://example.com/api'), /upstream 503/);
+  assert.equal(cancelled, true);
+});

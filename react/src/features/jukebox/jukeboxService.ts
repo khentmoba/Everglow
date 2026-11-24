@@ -517,6 +517,11 @@ export async function fetchSpotifyPlayback(
 }
 
 const lastSyncedTrackKeys: Record<string, string> = {};
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    for (const key of Object.keys(lastSyncedTrackKeys)) delete lastSyncedTrackKeys[key];
+  });
+}
 
 export async function syncMusicStatusPoll(
   currentUsername: string | null,
