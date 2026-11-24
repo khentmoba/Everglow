@@ -85,7 +85,7 @@ const DEMO: DemoTitle[] = [
   {
     tmdbId: 1396, mediaType: 'tv', title: 'Breaking Bad', year: '2008',
     poster: '/anFx9aTOOYqgS3v7x3R84Kz67ly.jpg', backdrop: '/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg',
-    overview: 'A chemistry teacher turns to making meth to secure his familys future.',
+    overview: "A chemistry teacher turns to making meth to secure his family's future.",
     genres: [18, 80], score: 8.9, votes: 14000, popularity: 185,
     episodeRunTime: 47, seasons: 5, episodes: 62,
   },

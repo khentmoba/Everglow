@@ -580,24 +580,33 @@ export function NetflixPosterCard({
       ) : (
         <div
           style={{
-            padding: 8,
+            padding: 10,
             width: '100%',
             height: '100%',
+            boxSizing: 'border-box',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: 6,
             textAlign: 'center',
+            background: linear(['#1C1C1C', '#111111'], { begin: Align.topLeft, end: Align.bottomRight }),
           }}
         >
+          <Icon name="movie" size={18} color="rgba(255,255,255,0.35)" />
           <span
             className="clamp-3"
             style={{
-              ...AppTypography.outfitBold,
-              fontSize: 11,
-              color: NetflixColors.textSecondary,
+              ...AppTypography.cormorantBold,
+              fontSize: 14,
+              lineHeight: 1.15,
+              color: 'rgba(255,255,255,0.82)',
             }}
           >
             {item.title}
+          </span>
+          <span style={{ ...AppTypography.outfitHeading, fontSize: 8, letterSpacing: '0.8px', color: 'rgba(255,255,255,0.4)' }}>
+            EVERGLOW CINEMA
           </span>
         </div>
       )}
@@ -682,8 +691,9 @@ export function NetflixPosterCard({
   const textWidth = [...digits].reduce((w, c) => w + (outfitBlackDigit[c] ?? 580) * 0.2 + 0.25, 0);
   // A 200px font draws ±144px of digit ink inside a 200px line box; fitting the
   // whole line box (not the ink) keeps the glyph inside the row, so nothing clips.
-  const slotWidth = 84 + (digits.length - 1) * 68;
-  const scale = Math.min(slotWidth / textWidth, boxHeight / 200);
+  const slotWidth = 62 + (digits.length - 1) * 54;
+  // A numeral shorter than the tile stays a numeral; full height turned "1" into a slab.
+  const scale = Math.min(slotWidth / textWidth, (boxHeight * 0.72) / 200);
   const boxWidth = (cardWidth ?? 118) + slotWidth;
   return (
     <div style={{ position: 'relative', width: boxWidth, height: boxHeight, flexShrink: 0 }}>
@@ -703,9 +713,8 @@ export function NetflixPosterCard({
           lineHeight: '200px',
           letterSpacing: 0.25,
           whiteSpace: 'nowrap',
-          color: '#6B6B6B',
-          WebkitTextStroke: '8px #000000',
-          paintOrder: 'stroke fill',
+          // A soft glass numeral: a thick outline turned this into a grey slab.
+          color: 'rgba(255,255,255,0.2)',
           userSelect: 'none',
           pointerEvents: 'none',
         }}
