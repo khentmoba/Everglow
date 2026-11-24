@@ -209,10 +209,15 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
       { id: 'completed', opts: { sort: 'END_DATE_DESC', status: 'FINISHED', perPage: 18, japaneseTitle: nav.titleJapanese } },
     ];
     for (const spec of specs) {
-      fetchAnimexPage(spec.opts).then((res) => {
-        if (!alive) return;
-        setRows((prev) => prev.map((r) => (r.id === spec.id ? { ...r, loading: false, items: res.items } : r)));
-      });
+      fetchAnimexPage(spec.opts)
+        .then((res) => {
+          if (!alive) return;
+          setRows((prev) => prev.map((r) => (r.id === spec.id ? { ...r, loading: false, items: res.items } : r)));
+        })
+        .catch(() => {
+          if (!alive) return;
+          setRows((prev) => prev.map((r) => (r.id === spec.id ? { ...r, loading: false } : r)));
+        });
     }
     return () => {
       alive = false;

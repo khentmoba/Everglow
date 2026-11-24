@@ -247,45 +247,6 @@ async function handleProxyAnime(request, env) {
   }
 }
 
-async function handleProxyHls(request, env, _ctx) {
-  const cors = corsHeaders(request);
-  if (request.method === 'OPTIONS') {
-    return new Response('', { status: 204, headers: cors });
-  }
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return jsonResponse({ error: 'GET only' }, 405, request);
-  }
-  if (checkWorkerRateLimit(request, 'proxyHls', 600)) {
-    return jsonResponse({ error: 'Too many requests' }, 429, request);
-  }
-
-  const url = new URL(request.url);
-  const sealed = await scopedTarget(url.searchParams, env.CDN_STAMP_KEY || null);
-  if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400, request);
-  const target = sealed.target;
-  const provider = sealed.provider;
-
-  let parsed;
-  try {
-    parsed = new URL(target);
-  } catch {
-    return jsonResponse({ error: 'Invalid url' }, 400, request);
-  }
-  if (parsed.protocol !== 'https:') {
-    return jsonResponse({ error: 'Host not allowed' }, 400, request);
-  }
-
-  const megaplay =
-    provider === 'megaplay' ||
-    (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(parsed.hostname));
-  let headers;
-  if (CINEMA_PROVIDERS.has(provider)) headers = cinemaHeaders(provider);
-  else if (provider === 'yumezone') headers = yumeHeaders();
-  else if (megaplay) headers = megaplayHeaders();
-  else headers = megavidHeaders();
-  const range = request.headers.get('Range');
-  if (range) headers.Range = range;
-
 function isBlockedRedirectHost(hostname) {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
@@ -341,31 +302,6 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal, method = 'G
   throw new Error('Excessive redirects');
 }
 
-  let upstream;
-  try {
-    upstream = await fetchPublicHls(
-      target,
-      headers,
-      AbortSignal.timeout(25_000),
-      request.method === 'HEAD' ? 'HEAD' : 'GET',
-    );
-  } catch (e) {
-    console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
-    return jsonResponse({ error: 'Upstream fetch failed' }, 502, request);
-  }
-  if (!upstream.ok && upstream.status !== 206) {
-    await upstream.body?.cancel().catch(() => {});
-    const status = upstream.status >= 400 && upstream.status <= 599 ? upstream.status : 502;
-    return jsonResponse({ error: `Upstream ${upstream.status}` }, status, request);
-  }
-
-  const upstreamCt = (upstream.headers.get('content-type') || '').toLowerCase();
-  const looksLikePlaylist =
-    upstreamCt.includes('mpegurl') ||
-    upstreamCt.includes('x-mpegurl') ||
-    parsed.pathname.toLowerCase().includes('.m3u8') ||
-    (parsed.search.toLowerCase().includes('.m3u8') && !upstreamCt.includes('video/'));
-
 async function readLimitedText(response, maxBytes) {
   const makeTooLarge = () => {
     const err = new Error('Upstream response exceeded size limit');
@@ -399,6 +335,70 @@ async function readLimitedText(response, maxBytes) {
 
 const DISALLOWED_MEDIA_CT_RE =
   /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/;
+
+async function handleProxyHls(request, env, _ctx) {
+  const cors = corsHeaders(request);
+  if (request.method === 'OPTIONS') {
+    return new Response('', { status: 204, headers: cors });
+  }
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return jsonResponse({ error: 'GET only' }, 405, request);
+  }
+  if (checkWorkerRateLimit(request, 'proxyHls', 600)) {
+    return jsonResponse({ error: 'Too many requests' }, 429, request);
+  }
+
+  const url = new URL(request.url);
+  const sealed = await scopedTarget(url.searchParams, env.CDN_STAMP_KEY || null);
+  if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400, request);
+  const target = sealed.target;
+  const provider = sealed.provider;
+
+  let parsed;
+  try {
+    parsed = new URL(target);
+  } catch {
+    return jsonResponse({ error: 'Invalid url' }, 400, request);
+  }
+  if (parsed.protocol !== 'https:') {
+    return jsonResponse({ error: 'Host not allowed' }, 400, request);
+  }
+
+  const megaplay =
+    provider === 'megaplay' ||
+    (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(parsed.hostname));
+  let headers;
+  if (CINEMA_PROVIDERS.has(provider)) headers = cinemaHeaders(provider);
+  else if (provider === 'yumezone') headers = yumeHeaders();
+  else if (megaplay) headers = megaplayHeaders();
+  else headers = megavidHeaders();
+  const range = request.headers.get('Range');
+  if (range) headers.Range = range;
+
+  let upstream;
+  try {
+    upstream = await fetchPublicHls(
+      target,
+      headers,
+      AbortSignal.timeout(25_000),
+      request.method === 'HEAD' ? 'HEAD' : 'GET',
+    );
+  } catch (e) {
+    console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
+    return jsonResponse({ error: 'Upstream fetch failed' }, 502, request);
+  }
+  if (!upstream.ok && upstream.status !== 206) {
+    await upstream.body?.cancel().catch(() => {});
+    const status = upstream.status >= 400 && upstream.status <= 599 ? upstream.status : 502;
+    return jsonResponse({ error: `Upstream ${upstream.status}` }, status, request);
+  }
+
+  const upstreamCt = (upstream.headers.get('content-type') || '').toLowerCase();
+  const looksLikePlaylist =
+    upstreamCt.includes('mpegurl') ||
+    upstreamCt.includes('x-mpegurl') ||
+    parsed.pathname.toLowerCase().includes('.m3u8') ||
+    (parsed.search.toLowerCase().includes('.m3u8') && !upstreamCt.includes('video/'));
 
   let consumed = null;
   if (looksLikePlaylist) {

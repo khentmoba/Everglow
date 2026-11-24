@@ -60,8 +60,9 @@ async function exec_send_sanctuary_message(ctx, args) {
 }
 
 async function exec_send_note_to_partner(ctx, args) {
-    const note = (args.note || '').trim();
+    const note = String(args.note || '').trim();
     if (!note) return JSON.stringify({ error: 'No note provided' });
+    if (note.length > 2000) return JSON.stringify({ error: 'Note too long (max 2000)' });
     const partnerMap = { khentsgdz: 'clairjassen', clairjassen: 'khentsgdz' };
     const partnerUid = partnerMap[(ctx.callerUid || '').toLowerCase()];
     if (!partnerUid) return JSON.stringify({ error: 'Unknown partner for this user' });
@@ -162,9 +163,12 @@ async function exec_add_xp(ctx, args) {
 }
 
 async function exec_log_activity(ctx, args) {
+    const activity = String(args.activity || '').trim().slice(0, 500);
+    if (!activity) return JSON.stringify({ error: 'No activity provided' });
+    const category = String(args.category || 'other').trim().slice(0, 60) || 'other';
     await ctx.db.collection('recent_activity').add({
-      activity: args.activity,
-      category: args.category || 'other',
+      activity,
+      category,
       loggedBy: ctx.callerUid,
       timestamp: ctx.admin.firestore.FieldValue.serverTimestamp(),
     });

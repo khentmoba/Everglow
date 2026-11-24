@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../core/services/auth';
+import { Logger } from '../../core/system/logger';
 import { useViewport } from '../../core/system/viewport';
 import { WebTts } from '../../core/system/webTts';
 import { AppColors, ReaderPaper, withAlpha } from '../../core/theme/colors';
@@ -356,6 +357,12 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
       } else {
         setError(res.error ?? 'Could not load book text.');
       }
+      setLoading(false);
+    }).catch((e: unknown) => {
+      window.clearTimeout(slowTimer);
+      if (!alive) return;
+      Logger.e('Book text load failed', e);
+      setError('We couldn’t load the text right now.');
       setLoading(false);
     });
     return () => {

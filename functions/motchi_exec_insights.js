@@ -119,11 +119,19 @@ async function exec_search_everglow(ctx, args) {
         const k = ctx.getTmdbKey();
         if (!k) return [];
         const r = await fetch(`https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(query)}&api_key=${k}`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) {
+          await r.body?.cancel?.().catch(() => {});
+          throw new Error(`TMDB ${r.status}`);
+        }
         const d = await r.json();
         return (d.results || []).slice(0, 3).map(x => ({ title: x.title || x.name, year: (x.release_date || x.first_air_date || '').slice(0,4), type: x.media_type || 'movie' }));
       })(),
       (async () => {
         const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=3&fields=key,title,author_name,first_publish_year`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) {
+          await r.body?.cancel?.().catch(() => {});
+          throw new Error(`OpenLibrary ${r.status}`);
+        }
         const d = await r.json();
         return (d.docs || []).slice(0, 3).map(b => ({ title: b.title, authors: (b.author_name||[]).slice(0,2).join(', '), type: 'book' }));
       })(),
@@ -132,18 +140,18 @@ async function exec_search_everglow(ctx, args) {
           const list = await fetchAniListAnime(query, 3);
           if (list.length > 0) return list.map(a => ({ title: a.title, type: 'anime', score: a.score }));
         } catch (_) {}
-        try {
-          const list = await fetchJikanAnime(query, 3);
-          return list.map(a => ({ title: a.title, type: 'anime', score: a.score }));
-        } catch (_) {
-          return [];
-        }
+        const list = await fetchJikanAnime(query, 3);
+        return list.map(a => ({ title: a.title, type: 'anime', score: a.score }));
       })(),
       (async () => {
         const token = await ctx.getSpotifyAppToken();
         if (!token) return [];
         const url = 'https://api.spotify.com/v1/search?' + new URLSearchParams({ q: query, type: 'track', limit: '3', market: 'US' }).toString();
         const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(8000) });
+        if (!r.ok) {
+          await r.body?.cancel?.().catch(() => {});
+          throw new Error(`Spotify ${r.status}`);
+        }
         const d = await r.json();
         const items = d.tracks?.items || [];
         return items.slice(0,3).map(t=>({ title: t.name, artist: t.artists?.[0]?.name || '', type: 'track' }));
@@ -156,7 +164,14 @@ async function exec_search_everglow(ctx, args) {
       anime: animeRes.status === 'fulfilled' ? animeRes.value : [],
       tracks: spotifyRes.status === 'fulfilled' ? spotifyRes.value : [],
     };
-    ctx.cacheSet(cacheKey, result);
+    if (
+      moviesRes.status === 'fulfilled' &&
+      booksRes.status === 'fulfilled' &&
+      animeRes.status === 'fulfilled' &&
+      spotifyRes.status === 'fulfilled'
+    ) {
+      ctx.cacheSet(cacheKey, result);
+    }
     return JSON.stringify(result);
 }
 
