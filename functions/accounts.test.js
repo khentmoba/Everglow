@@ -411,13 +411,14 @@ test('manageAccounts deletes users/{uid} on revoke and delete to cut off Firesto
   assert.equal(db.store.has('member_accounts/kai'), false);
 });
 
-test('account and watch-party endpoints set Cache-Control: private, no-store', async () => {
+test('account and watch-party endpoints set private cache and vary headers', async () => {
   const { communityWatchPartyAccess } = require('./accounts');
   for (const endpoint of [registerAccount, loginAccount, manageAccounts, communityWatchPartyAccess]) {
     const res = makeRes();
     await endpoint({ method: 'OPTIONS', headers: {}, get: () => '' }, res);
     assert.equal(res.code, 204);
     assert.equal(res.headers['Cache-Control'], 'private, no-store');
+    assert.equal(res.headers['Vary'], 'Origin, Authorization');
   }
 });
 

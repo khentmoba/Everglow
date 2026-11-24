@@ -125,7 +125,7 @@ test('global lockout uses a 30-minute cooldown and resets counter once cooldown 
   assert.equal(db.data.get('global').lockedUntil, 0);
 });
 
-test('verifyPasscode sets Cache-Control: private, no-store', async () => {
+test('verifyPasscode sets private cache and vary headers', async () => {
   const { verifyPasscode } = require('./passcode');
   const headers = {};
   const res = {
@@ -137,4 +137,5 @@ test('verifyPasscode sets Cache-Control: private, no-store', async () => {
   await verifyPasscode({ method: 'OPTIONS', headers: {}, get: () => '' }, res);
   assert.equal(res.code, 204);
   assert.equal(headers['cache-control'], 'private, no-store');
+  assert.equal(headers['vary'], 'Origin, Authorization');
 });
