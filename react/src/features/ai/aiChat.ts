@@ -146,6 +146,20 @@ async function streamSse(
   let full = '';
   let lineBuffer = '';
   const pending: string[] = [];
+  let pendingHead = 0;
+  const hasPending = () => pendingHead < pending.length;
+  const takePending = () => {
+    const item = pending[pendingHead++];
+    if (pendingHead === pending.length) {
+      pending.length = 0;
+      pendingHead = 0;
+    }
+    return item;
+  };
+  const clearPending = () => {
+    pending.length = 0;
+    pendingHead = 0;
+  };
   let drainScheduled = false;
   let rafId: number | null = null;
   let streamDone = false;
@@ -170,7 +184,7 @@ async function streamSse(
   const fail = (e: unknown) => {
     if (finished) return;
     finished = true;
-    pending.length = 0;
+    clearPending();
     cleanupDrain();
     settle!.reject(e);
   };
@@ -203,15 +217,21 @@ async function streamSse(
     const v = i + key.length + 4;
     return v < data.length && data[v] !== '"';
   };
-  const pendingHasVisibleToken = () => pending.some((d) => payloadHasText(d, 'content') || payloadHasText(d, 'reasoning'));
+  const pendingHasVisibleToken = () => {
+    for (let i = pendingHead; i < pending.length; i++) {
+      const d = pending[i];
+      if (payloadHasText(d, 'content') || payloadHasText(d, 'reasoning')) return true;
+    }
+    return false;
+  };
   const drainAll = () => {
-    while (pending.length > 0) process(pending.shift()!);
+    while (hasPending()) process(takePending());
   };
   const drain = () => {
     if (finished) return;
     let budget = 4;
-    while (pending.length > 0 && budget-- > 0) process(pending.shift()!);
-    if (pending.length === 0 && streamDone) complete();
+    while (hasPending() && budget-- > 0) process(takePending());
+    if (!hasPending() && streamDone) complete();
   };
   const startDrain = (): void => {
     if (finished) return;
@@ -225,7 +245,7 @@ async function streamSse(
     if (!paintedFirstToken && pendingHasVisibleToken()) {
       drain();
       paintedFirstToken = !pendingHasVisibleToken();
-      if (pending.length > 0) startDrain();
+      if (hasPending()) startDrain();
       return;
     }
     drainScheduled = true;
@@ -234,11 +254,11 @@ async function streamSse(
       drainScheduled = false;
       if (finished) return;
       drain();
-      if (pending.length > 0) startDrain();
+      if (hasPending()) startDrain();
     });
   };
   function onVisible() {
-    if (!document.hidden && pending.length > 0) startDrain();
+    if (!document.hidden && hasPending()) startDrain();
   }
   document.addEventListener('visibilitychange', onVisible);
   const processText = (text: string) => {
@@ -256,7 +276,7 @@ async function streamSse(
     const trimmed = lineBuffer.trimEnd();
     if (trimmed.startsWith('data: ')) pending.push(trimmed.slice(6).trim());
     lineBuffer = '';
-    if (pending.length === 0 || document.hidden) {
+    if (!hasPending() || document.hidden) {
       drainAll();
       complete();
     } else {
