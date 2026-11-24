@@ -393,19 +393,6 @@ export function CinemaPage() {
       {!isWide && (
         <>
           <div
-            aria-hidden
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: 260,
-              height: 220,
-              zIndex: 24,
-              pointerEvents: 'none',
-              background: 'radial-gradient(circle 140px at 34px 34px, rgba(8,8,8,0.6) 0%, rgba(8,8,8,0.3) 45%, rgba(8,8,8,0) 100%)',
-            }}
-          />
-          <div
             style={{
               position: 'fixed',
               top: 'calc(10px + env(safe-area-inset-top, 0px))',
@@ -431,7 +418,7 @@ export function CinemaPage() {
               }}
             >
               <Icon
-                name={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'grid_view' : 'arrow_back') : 'logout'}
+                name={isCoupleUser ? 'arrow_back' : 'logout'}
                 size={22}
                 color="#FFFFFF"
               />
@@ -593,39 +580,71 @@ function HomeTab({
 }) {
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
-  // A title shown above stays there, but a rail is never emptied by the rule:
-  // below MIN_RAIL it refills, because a dead rail is worse than a repeat.
-  const MIN_RAIL = 6;
   // Under this many posters a rail is not a recommendation, it is a stub.
   const MIN_RAIL_SHOWN = 4;
+  // A full row is this many posters, whichever pool they came from.
+  const MIN_RAIL = 6;
+  // One rail is a row, not a dump: the pool behind it feeds the rails below.
+  const RAIL_MAX = 8;
   const seen = new Set<string>(
     [...watchingList, ...savedList, ...trendingGlobal.slice(0, 1)].map((m) => catalogKeyOf(m)),
   );
   const railSignatures = new Set<string>();
-  let previousRail: string[] = [];
-  const overlapWithPrevious = (keys: string[]) => {
-    if (keys.length === 0 || previousRail.length === 0) return 0;
-    const shared = keys.filter((k) => previousRail.includes(k)).length;
-    return shared / Math.min(keys.length, previousRail.length);
+  // Two rails of memory: a row that copies the one two screens up reads as a
+  // repeat just as much as an adjacent clone.
+  const recentRails: string[][] = [];
+  // The rail directly above may share nothing much; a rail three up may share
+  // some, because a small catalogue cannot fill ten rows without repeating.
+  const overlapsTooMuch = (keys: string[]) => {
+    if (keys.length === 0) return false;
+    return recentRails.some((rail, i) => {
+      const limit = i === 0 ? 0.5 : 0.75;
+      const shared = keys.filter((k) => rail.includes(k)).length;
+      return shared / Math.min(keys.length, rail.length) >= limit;
+    });
   };
+  // Everything the page has fetched, so a shelf with a small pool can still be
+  // a full row of titles that are not already on screen.
+  const fallbackPool = [...trendingGlobal, ...topTenToday, ...popularTV, ...newlyReleased, ...Object.values(discoveryRows).flat()];
   const seenRow = (items: MediaItem[]) => {
-    const keep = items.filter((m) => !seen.has(catalogKeyOf(m)));
-    if (keep.length < MIN_RAIL) {
-      // Refill from the far end so the rail is not the one above it again.
-      for (let i = items.length - 1; i >= 0 && keep.length < MIN_RAIL; i--) {
-        if (!keep.includes(items[i])) keep.push(items[i]);
+    // A rail keeps its own titles first. It may borrow from the far end of its
+    // pool to reach a usable length, but never enough to look like the rail
+    // directly above it, which is what made two rows carry the same posters.
+    // 1. the rail's own titles that are not on screen yet,
+    // 2. fresh titles from anywhere else the page has fetched,
+    // 3. and only then, repeat from its own pool: never from a rail above.
+    // A rail also avoids the two rows directly above it, so no shelf is a copy
+    // of its neighbour even when the catalogue is small.
+    const recentKeys = new Set(recentRails.flat());
+    const fresh = (m: MediaItem) => !seen.has(catalogKeyOf(m)) && !recentKeys.has(catalogKeyOf(m));
+    const keep = items.filter(fresh);
+    for (const m of fallbackPool) {
+      if (keep.length >= MIN_RAIL) break;
+      if (!fresh(m)) continue;
+      if (keep.some((k) => catalogKeyOf(k) === catalogKeyOf(m))) continue;
+      keep.push(m);
+    }
+    if (keep.length < MIN_RAIL_SHOWN) {
+      for (const m of items) {
+        if (recentKeys.has(catalogKeyOf(m))) continue;
+        if (keep.some((k) => catalogKeyOf(k) === catalogKeyOf(m))) continue;
+        keep.push(m);
       }
     }
-    const keys = keep.map((m) => catalogKeyOf(m));
+    // One rail is a row, not a dump: the rest of the pool stays available for
+    // the rails below it instead of being marked as already seen.
+    const shown = keep.slice(0, RAIL_MAX);
+    const keys = shown.map((m) => catalogKeyOf(m));
     // Two adjacent rows carrying the same posters is worse than one row fewer.
-    if (keep.length < MIN_RAIL_SHOWN || overlapWithPrevious(keys) >= 0.67) return [];
+    if (keys.length < MIN_RAIL_SHOWN || overlapsTooMuch(keys)) return [];
     // A rail identical to one already on screen is not a second recommendation.
     const signature = [...keys].sort().join('|');
     if (railSignatures.has(signature)) return [];
     railSignatures.add(signature);
-    previousRail = keys;
-    for (const m of keep) seen.add(catalogKeyOf(m));
-    return keep;
+    recentRails.unshift(keys);
+    if (recentRails.length > 3) recentRails.pop();
+    for (const m of shown) seen.add(catalogKeyOf(m));
+    return shown;
   };
   const becauseOf = watchingList[0];
   const becauseGenre = becauseOf?.genres?.[0];

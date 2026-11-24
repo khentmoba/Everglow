@@ -191,7 +191,7 @@ function StorageSummary({ storage }: { storage: string }) {
         <div style={{ height: 2 }} />
         <div style={text(12, NetflixColors.textSecondary)}>Watch instantly without Wi-Fi or mobile data</div>
       </div>
-      <div style={text(13, NetflixColors.gold, 700)}>{storage}</div>
+      <div style={text(13, NetflixColors.textPrimary, 700)}>{storage}</div>
     </div>
   );
 }
@@ -317,7 +317,7 @@ function EpisodeRow({ item, onPlay, onDelete }: { item: OfflineMediaItem } & Row
           background: NetflixColors.surfaceElevated,
           borderRadius: AppRadius.xs,
           border: `1px solid ${NetflixColors.hairline}`,
-          ...text(11, NetflixColors.gold, 700),
+          ...text(11, NetflixColors.textSecondary, 700),
         }}
       >
         S{item.season ?? 1} E{item.episode ?? 1}

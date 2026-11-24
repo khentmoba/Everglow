@@ -178,6 +178,13 @@ export function PulsingDot() {
 export function CinematicLoader({ providerName }: { providerName: string }) {
   const still = motionReduced();
   const v = 0.5;
+  // A start that takes this long is not "almost there"; say what to do instead
+  // of showing the same three words forever.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setSlow(true), 9000);
+    return () => window.clearTimeout(id);
+  }, []);
   return (
     <div
       style={{
@@ -222,7 +229,9 @@ export function CinematicLoader({ providerName }: { providerName: string }) {
       <div style={{ height: 18 }} />
       <div style={text(14, AppTypography.outfitBold, { letterSpacing: 0.4 })}>Preparing your stream</div>
       <div style={{ height: 4 }} />
-      <div style={text(12, AppTypography.outfitMuted)}>via {providerName}</div>
+      <div style={text(12, AppTypography.outfitMuted)}>
+        {slow ? `via ${providerName} · taking longer than usual, try Servers` : `via ${providerName}`}
+      </div>
       <div style={{ height: 16 }} />
       <div
         style={{

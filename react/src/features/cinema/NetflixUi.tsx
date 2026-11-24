@@ -781,10 +781,12 @@ export function NetflixRow({
   const measure = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    // An arrow on a rail that fits is a promise the row cannot keep.
+    // An arrow on a rail that fits is a promise the row cannot keep, so the
+    // threshold is half a card: less than that is a rounding artefact.
+    const slack = 40;
     setEdges({
       left: el.scrollLeft > 8,
-      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 8,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - slack,
     });
   }, []);
   useEffect(() => {
@@ -792,10 +794,13 @@ export function NetflixRow({
     const el = scrollerRef.current;
     if (!el) return;
     el.addEventListener('scroll', measure, { passive: true });
+    // Posters arrive after first paint and change scrollWidth.
+    el.addEventListener('load', measure, true);
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => {
       el.removeEventListener('scroll', measure);
+      el.removeEventListener('load', measure, true);
       ro.disconnect();
     };
   }, [measure, items.length, rowViewport]);
@@ -893,7 +898,7 @@ export function NetflixRow({
             </div>
           ))}
         </div>
-        {isDesktop && (edges.left || edges.right) && (
+        {(isDesktop || rowViewport >= 700) && (edges.left || edges.right) && (
           <>
             <button
               type="button"
@@ -1194,10 +1199,10 @@ export function NetflixBillboard({
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: 16,
+            bottom: 6,
             display: 'flex',
             justifyContent: 'center',
-            gap: 2,
+            gap: 0,
           }}
         >
           {items.map((_, i) => {
@@ -1210,8 +1215,9 @@ export function NetflixBillboard({
                 aria-label={`Slide ${i + 1}`}
                 onClick={() => setIndex(i)}
                 style={{
-                  width: 34,
-                  height: 34,
+                  // The only way to change the hero on touch, so it clears 44.
+                  width: 44,
+                  height: 44,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

@@ -1596,18 +1596,33 @@ function Spinner({ vertical, size }: { vertical: number; size: number }) {
   );
 }
 
-function EmptyLine({ text }: { text: string }) {
+function EmptyLine({ text, hint }: { text: string; hint?: string }) {
   return (
-    <div
-      style={{
-        padding: '10px 20px',
-        ...AppTypography.outfitWhite,
-        fontSize: 13,
-        lineHeight: lineHeight(13),
-        color: NetflixColors.textMuted,
-      }}
-    >
-      {text}
+    <div style={{ padding: '10px 20px' }}>
+      <div
+        style={{
+          ...AppTypography.outfitWhite,
+          fontSize: 13,
+          lineHeight: lineHeight(13),
+          color: NetflixColors.textMuted,
+        }}
+      >
+        {text}
+      </div>
+      {hint ? (
+        <div
+          style={{
+            paddingTop: 4,
+            ...AppTypography.outfitWhite,
+            fontSize: 12,
+            lineHeight: lineHeight(12),
+            color: NetflixColors.textMuted,
+            opacity: 0.8,
+          }}
+        >
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1739,9 +1754,12 @@ function PhotoOrInitial({ url, label, size, background }: { url: string; label: 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        // A hairline and a warmer initial so a missing photo reads as a choice,
+        // not as a broken image next to finished posters.
+        boxShadow: `inset 0 0 0 1px ${withAlpha(NetflixColors.textPrimary, 0.14)}`,
         ...AppTypography.cormorantBold,
         fontSize: size,
-        color: NetflixColors.textSecondary,
+        color: withAlpha(NetflixColors.textPrimary, 0.72),
       }}
     >
       {label ? label[0].toUpperCase() : '?'}
@@ -1772,7 +1790,9 @@ function Reviews({ reviews, loading }: { reviews: CinemaReview[]; loading: boole
         ))}
       </div>
     );
-  if (!reviews.length) return <EmptyLine text="No reviews yet" />;
+  // Say why it is empty and where to go next, not just that it is.
+  if (!reviews.length)
+    return <EmptyLine text="No reviews yet" hint="Reviews come from TMDB, and nobody has rated this one. More Like This is a good next step." />;
   return (
     <div style={{ padding: '0 20px' }}>
       {reviews.map((r, i) => {

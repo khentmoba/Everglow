@@ -134,7 +134,7 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
       <div style={{ height: state.kind === 'error' ? 150 : 240, position: 'relative' }}>
         {state.kind === 'error' ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            <ChatMessageState icon="cloud_off" text="Chat is unavailable. Check your connection." />
+            <ChatMessageState inline icon="cloud_off" text="Chat is unavailable. Check your connection." />
             <button
               type="button"
               className="bare-button"
@@ -343,12 +343,13 @@ function Bubble({ message, isMe }: { message: TemporaryChatMessage; isMe: boolea
   );
 }
 
-function ChatMessageState({ icon, text }: { icon: string; text: string }) {
+function ChatMessageState({ icon, text, inline }: { icon: string; text: string; inline?: boolean }) {
   return (
     <div
       style={{
-        position: 'absolute',
-        inset: 0,
+        // Inline when something follows it: an absolute box put "Try again"
+        // above the message it was meant to answer.
+        ...(inline ? {} : { position: 'absolute' as const, inset: 0 }),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
