@@ -886,7 +886,7 @@ export function AnimeXSpotlight({
     <section
       style={{
         position: 'relative',
-        minHeight: heroHeight,
+        minHeight: phone ? Math.round(heroHeight * 0.82) : heroHeight,
         overflow: 'hidden',
         background: AnimeXTokens.bg,
         display: 'flex',

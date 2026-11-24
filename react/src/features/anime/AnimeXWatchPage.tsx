@@ -1391,16 +1391,22 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               padding: '0 14px',
               boxSizing: 'border-box',
               borderRadius: T.radiusPill,
-              background: contentError ? white(0.06) : T.accent,
-              border: contentError ? `1px solid ${T.borderStrong}` : 'none',
+              background: contentError || showUpNext ? white(0.06) : T.accent,
+              border: contentError || showUpNext ? `1px solid ${T.borderStrong}` : 'none',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
             }}
           >
-            <Icon name="skip_next" size={18} color={contentError ? T.textPrimary : '#FFFFFF'} />
-            <span style={dmSansStyle({ size: 13, color: contentError ? T.textPrimary : '#FFFFFF', weight: 700 })}>
+            <Icon name="skip_next" size={18} color={contentError || showUpNext ? T.textPrimary : '#FFFFFF'} />
+            <span
+              style={dmSansStyle({
+                size: 13,
+                color: contentError || showUpNext ? T.textPrimary : '#FFFFFF',
+                weight: 700,
+              })}
+            >
               {hasNextSeason ? 'Next season' : 'Next episode'}
             </span>
           </button>
