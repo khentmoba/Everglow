@@ -123,6 +123,8 @@ const motchiDailyDigest = onSchedule({
         const body = await resp.json();
         const text = (body.choices?.[0]?.message?.content || '').trim();
         if (text) digest = text;
+      } else {
+        await resp.body?.cancel?.().catch(() => {});
       }
     }
   } catch (e) {
@@ -368,6 +370,8 @@ const motchiWeeklyRecap = onSchedule({
           const body = await resp.json();
           const text = (body.choices?.[0]?.message?.content || '').trim();
           if (text) recap = text;
+        } else {
+          await resp.body?.cancel?.().catch(() => {});
         }
       }
     } catch (e) {
