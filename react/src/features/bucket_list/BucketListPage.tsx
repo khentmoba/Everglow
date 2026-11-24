@@ -197,7 +197,7 @@ function StarsCanvas() {
   useEffect(() => {
     const c = ref.current;
     if (!c || !size) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     c.width = Math.round(size[0] * dpr);
     c.height = Math.round(size[1] * dpr);
     const ctx = c.getContext('2d');

@@ -68,17 +68,34 @@ export function EverglowMarquee({
     let rafId = 0;
     let lastTs = performance.now();
     const tick = (now: number) => {
+      rafId = 0;
+      if (document.hidden) return;
       const dt = Math.min(0.1, Math.max(0, (now - lastTs) / 1000));
       lastTs = now;
       const loopW = loopWidthRef.current;
-      if (loopW > 1 && trackRef.current && document.visibilityState === 'visible') {
+      if (loopW > 1 && trackRef.current) {
         offsetRef.current = (offsetRef.current + pixelsPerSecond * dt) % loopW;
         trackRef.current.style.transform = `translate3d(${-offsetRef.current.toFixed(2)}px, 0, 0)`;
       }
       rafId = window.requestAnimationFrame(tick);
     };
-    rafId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafId);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (rafId) {
+          window.cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+      } else if (!rafId) {
+        lastTs = performance.now();
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    if (!document.hidden) rafId = window.requestAnimationFrame(tick);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
   }, [reduceAmbient, children.length, hovered, touchPaused, visible, pixelsPerSecond]);
 
   if (children.length === 0) return null;

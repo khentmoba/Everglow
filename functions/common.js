@@ -339,6 +339,16 @@ function applyCors(req, res, methods, headers = 'Content-Type, Authorization') {
   res.set('Access-Control-Max-Age', '86400');
 }
 
+function isSafeDocId(id) {
+  if (typeof id !== 'string' || id.length === 0 || id.length > 128) return false;
+  if (id === '.' || id === '..' || id.includes('/') || /^__.*__$/.test(id)) return false;
+  for (let i = 0; i < id.length; i++) {
+    const code = id.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return false;
+  }
+  return true;
+}
+
 function cappedHttps(maxInstances, handler, opts = {}) {
   const functions = require('firebase-functions/v1');
   return functions.runWith({ maxInstances, ...opts }).https.onRequest(handler);
@@ -365,6 +375,7 @@ module.exports = {
   fetchPublicUrl,
   readLimitedText,
   isAllowedBookTextUrl,
+  isSafeDocId,
   _getExternalCache,
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,

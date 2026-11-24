@@ -28,8 +28,9 @@ async function recordMotchiTurn({
     const now = new Date();
     const nowIso = now.toISOString();
 
-    let targetId = typeof sessionId === 'string' && sessionId.trim().length >= 3
-      ? sessionId.trim()
+    const rawSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
+    let targetId = rawSessionId.length >= 3 && common.isSafeDocId(rawSessionId)
+      ? rawSessionId
       : null;
 
     if (!targetId) {

@@ -75,7 +75,7 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
     }
     const rawCt = (upstream.headers.get('content-type') || 'image/jpeg').split(';')[0].trim().toLowerCase();
     if (!/^image\/(jpeg|jpg|png|webp|gif|avif|bmp|x-icon|vnd\.microsoft\.icon)$/.test(rawCt)) {
-      await upstream.body?.cancel();
+      await upstream.body?.cancel().catch(() => {});
       res.status(415).json({ error: 'Upstream did not return a raster image' });
       return;
     }
