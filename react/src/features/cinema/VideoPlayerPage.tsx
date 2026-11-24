@@ -192,7 +192,7 @@ class PlayerController {
   userName: string;
 
   selectedProvider: VideoSourceConfig;
-  private resolvedStartSeconds: number | undefined;
+  resolvedStartSeconds: number | undefined;
   private restoreDone: Promise<void> = Promise.resolve();
   private readonly failedProviderIds = new Set<string>();
 
@@ -1618,7 +1618,7 @@ function VideoPlayerScreen(props: PlayerProps) {
                   />
                 )}
               </div>
-              {c.isLoading && <CinematicLoader providerName={c.selectedProvider.shortName} resumeAt={c.positionSeconds} />}
+              {c.isLoading && <CinematicLoader providerName={c.selectedProvider.shortName} resumeAt={c.resolvedStartSeconds ?? c.positionSeconds} />}
               {!c.isLoading &&
                 !c.iframeFailed &&
                 c.upNextVisible &&
