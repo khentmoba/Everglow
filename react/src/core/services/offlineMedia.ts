@@ -29,6 +29,10 @@ export interface OfflineMediaItem {
   durationSeconds?: number;
   lastPositionSeconds?: number;
   pageUrls: string[];
+  downloadedPages?: number;
+  verifiedCachedPages?: number;
+  cacheMissingPages?: number;
+  cacheVerifiedAt?: string;
   blobKey?: string;
 }
 
@@ -42,7 +46,7 @@ export const isEpisodeItem = (i: OfflineMediaItem) => i.type === 'tv' || i.type 
 const isCompleted = (i: OfflineMediaItem) => i.status === 'completed';
 const isDownloading = (i: OfflineMediaItem) => i.status === 'downloading';
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 MB';
   if (bytes < GB) return `${(bytes / MB).toFixed(1)} MB`;
   return `${(bytes / GB).toFixed(2)} GB`;
@@ -89,6 +93,10 @@ function fromJson(json: Record<string, unknown>): OfflineMediaItem {
     durationSeconds: int(json.durationSeconds),
     lastPositionSeconds: int(json.lastPositionSeconds),
     pageUrls: Array.isArray(json.pageUrls) ? json.pageUrls.filter((u): u is string => typeof u === 'string') : [],
+    downloadedPages: int(json.downloadedPages),
+    verifiedCachedPages: int(json.verifiedCachedPages),
+    cacheMissingPages: int(json.cacheMissingPages),
+    cacheVerifiedAt: str(json.cacheVerifiedAt),
     blobKey: str(json.blobKey),
   };
 }
@@ -112,6 +120,10 @@ const toJson = (i: OfflineMediaItem) => ({
   durationSeconds: i.durationSeconds ?? null,
   lastPositionSeconds: i.lastPositionSeconds ?? null,
   pageUrls: i.pageUrls,
+  downloadedPages: i.downloadedPages ?? null,
+  verifiedCachedPages: i.verifiedCachedPages ?? null,
+  cacheMissingPages: i.cacheMissingPages ?? null,
+  cacheVerifiedAt: i.cacheVerifiedAt ?? null,
   blobKey: i.blobKey ?? null,
 });
 
@@ -189,12 +201,31 @@ async function getBlobUrl(key: string, isManga: boolean): Promise<string | null>
     const cache = await caches.open(isManga ? MANGA_CACHE : MEDIA_CACHE);
     const res = await cache.match(cacheKey(key, isManga));
     if (!res) return null;
-    const url = URL.createObjectURL(await res.blob());
+    const blob = await res.blob();
+    if (!blob || blob.size <= 0) {
+      await cache.delete(cacheKey(key, isManga)).catch(() => {});
+      return null;
+    }
+    const url = URL.createObjectURL(blob);
     objectUrls.add(url);
     return url;
   } catch (e) {
     Logger.e(`OfflineMediaStorage: could not create blob URL for ${key}`, e);
     return null;
+  }
+}
+
+async function getCachedBlobSize(key: string, isManga: boolean): Promise<number> {
+  try {
+    const cache = await caches.open(isManga ? MANGA_CACHE : MEDIA_CACHE);
+    const res = await cache.match(cacheKey(key, isManga));
+    if (!res) return 0;
+    const headerLen = Number(res.headers.get('content-length')) || 0;
+    if (headerLen > 0) return headerLen;
+    const blob = await res.blob();
+    return blob?.size ?? 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -225,21 +256,10 @@ function revokeObjectUrl(url: string | null | undefined): void {
 }
 
 async function deleteItemBlobs(item: OfflineMediaItem) {
+  if (item.blobKey) await deleteBlob(item.blobKey, item.type === 'manga');
   if (item.type === 'manga') {
-    try {
-      const cache = await caches.open(MANGA_CACHE);
-      const deletes: Promise<boolean>[] = [];
-      if (item.blobKey) deletes.push(cache.delete(cacheKey(item.blobKey, true)));
-      for (let i = 1; i <= item.pageUrls.length; i++) {
-        deletes.push(cache.delete(cacheKey(`${item.id}_p_${i}`, true)));
-      }
-      await Promise.all(deletes);
-    } catch (e) {
-      Logger.e(`OfflineMediaStorage: could not delete manga blobs for ${item.id}`, e);
-    }
-    return;
+    for (let i = 1; i <= item.pageUrls.length; i++) await deleteBlob(`${item.id}_p_${i}`, true);
   }
-  if (item.blobKey) await deleteBlob(item.blobKey, false);
 }
 
 // --- Service ------------------------------------------------------------------
@@ -259,13 +279,21 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     if (this.initialized) return;
     this.initialized = true;
     const items: Record<string, OfflineMediaItem> = {};
+    const autoResumeIds: string[] = [];
     try {
       const raw = Prefs.getString(PREFS_KEY);
       if (raw) {
         for (const entry of JSON.parse(raw) as unknown[]) {
           if (entry && typeof entry === 'object') {
             const item = fromJson(entry as Record<string, unknown>);
-            items[item.id] = item.status === 'downloading' ? { ...item, status: 'paused' } : item;
+            if (item.status === 'downloading' || item.status === 'queued') {
+              items[item.id] = { ...item, status: 'paused' };
+              if (item.type === 'manga' && item.pageUrls.length > 0) {
+                autoResumeIds.push(item.id);
+              }
+            } else {
+              items[item.id] = item;
+            }
           }
         }
       }
@@ -276,6 +304,18 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       for (const item of demoItems()) items[item.id] = item;
     }
     this.value = items;
+    if (typeof caches !== 'undefined') {
+      queueMicrotask(() => {
+        void this.verifyAllMangaChaptersCache();
+      });
+    }
+    if (autoResumeIds.length > 0 && !AgentMode.demo && typeof navigator !== 'undefined' && navigator.onLine !== false) {
+      queueMicrotask(() => {
+        for (const id of autoResumeIds) {
+          void this.resumeDownload(id);
+        }
+      });
+    }
   }
 
   /** Completed or in-progress downloads, newest first. */
@@ -316,7 +356,11 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
   }
   isDownloaded(id: string) {
     const item = this.value[id];
-    return !!item && isCompleted(item) && item.downloadedBytes > 0;
+    return !!item && isCompleted(item) && item.downloadedBytes > 0 && (item.cacheMissingPages ?? 0) === 0;
+  }
+  needsCacheRepair(id: string) {
+    const item = this.value[id];
+    return !!item && item.type === 'manga' && isCompleted(item) && (item.cacheMissingPages ?? 0) > 0;
   }
   isDownloading(id: string) {
     const item = this.value[id];
@@ -453,15 +497,24 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     pageUrls: string[];
     /** Rewrites a remote page URL through our image proxy (KatanaService.proxyImageUrl). */
     proxy?: (url: string) => string;
+    /** Force delta re-download of evicted/missing Cache Storage pages even if status was 'completed'. */
+    forceRepair?: boolean;
   }): Promise<void> {
     this.init();
     const id = OfflineIds.mangaChapterId(args.slug, args.chapterId);
     const existing = this.value[id];
-    if (existing && isCompleted(existing)) return;
+    if (existing && isCompleted(existing) && !args.forceRepair && (existing.cacheMissingPages ?? 0) === 0) return;
     const proxy = args.proxy ?? this.mangaProxyMap.get(id) ?? ((raw: string) =>
       `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyKatanaImage?url=${encodeURIComponent(raw)}`);
     this.mangaProxyMap.set(id, proxy);
     const estimated = args.pageUrls.length * 750 * 1024;
+    const priorPages = existing && existing.pageUrls.length === args.pageUrls.length ? (existing.downloadedPages ?? 0) : 0;
+    const priorProgress =
+      args.pageUrls.length > 0 && priorPages > 0
+        ? Math.min(0.98, Math.max(0.1, priorPages / args.pageUrls.length))
+        : existing && existing.progress > 0.1 && existing.progress < 1
+          ? existing.progress
+          : 0.1;
     const initial: OfflineMediaItem = {
       id,
       type: 'manga',
@@ -471,66 +524,140 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
       chapterId: args.chapterId,
       coverUrl: args.coverUrl,
       status: 'downloading',
-      progress: 0.1,
-      totalBytes: estimated,
-      downloadedBytes: Math.round(estimated * 0.1),
-      downloadedAt: new Date().toISOString(),
+      progress: priorProgress,
+      totalBytes: existing && existing.totalBytes > 0 ? existing.totalBytes : estimated,
+      downloadedBytes:
+        existing && existing.downloadedBytes > 0 ? existing.downloadedBytes : Math.round(estimated * priorProgress),
+      downloadedAt: existing?.downloadedAt || new Date().toISOString(),
       pageUrls: args.pageUrls,
+      downloadedPages: priorPages,
       blobKey: id,
     };
     this.put(initial);
     this.save();
 
+    // Delegate background cache population hint to active Service Worker when supported
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller && args.pageUrls.length > 0) {
+      try {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'EVERGLOW_PRECACHE_MANGA',
+          id,
+          cacheName: MANGA_CACHE,
+          pages: args.pageUrls.map((raw, idx) => ({
+            key: cacheKey(`${id}_p_${idx + 1}`, true),
+            url: raw.startsWith('http') ? proxy(raw) : raw,
+          })),
+        });
+      } catch {
+        // ignore SW message errors
+      }
+    }
+
     const controller = new AbortController();
     this.activeControllers.get(id)?.abort();
     this.activeControllers.set(id, controller);
 
+    const waitBackoff = (ms: number) =>
+      new Promise<void>((resolve) => {
+        if (controller.signal.aborted) {
+          resolve();
+          return;
+        }
+        const t = setTimeout(() => {
+          controller.signal.removeEventListener('abort', onAbort);
+          resolve();
+        }, ms);
+        const onAbort = () => {
+          clearTimeout(t);
+          resolve();
+        };
+        controller.signal.addEventListener('abort', onAbort, { once: true });
+      });
+
     try {
       if (args.pageUrls.length > 0) {
+        let saved = 0;
+        let total = 0;
         try {
-          let saved = 0;
-          let total = 0;
           for (let i = 0; i < args.pageUrls.length; i++) {
             if (controller.signal.aborted || !this.value[id]) return;
             const raw = args.pageUrls[i];
             const pageKey = `${id}_p_${i + 1}`;
-            const src = raw.startsWith('http')
-              ? proxy(raw)
-              : raw.startsWith('assets/')
-                ? `/${raw}`
-                : null;
-            if (src) {
-              const pageController = new AbortController();
-              const onParentAbort = () => pageController.abort();
-              controller.signal.addEventListener('abort', onParentAbort, { once: true });
-              const timer = setTimeout(() => pageController.abort(), 15000);
-              let res: Response;
-              let blob: Blob | null = null;
-              try {
-                res = await fetch(src, { signal: pageController.signal });
-                blob = res.ok ? await res.blob() : null;
-              } finally {
-                clearTimeout(timer);
-                controller.signal.removeEventListener('abort', onParentAbort);
-              }
-              if (controller.signal.aborted || !this.value[id]) return;
-              if (blob && blob.size > 0) {
-                await saveBlob(pageKey, blob, true, 'image/jpeg');
-                saved++;
-                total += blob.size;
-              } else {
-                Logger.e(`Failed to fetch manga page ${i} (${src}): status ${res.status}`);
+            // Real resume: skip any page blob already persisted in MANGA_CACHE.
+            const cachedSize = await getCachedBlobSize(pageKey, true);
+            if (controller.signal.aborted || !this.value[id]) return;
+            if (cachedSize > 0) {
+              saved++;
+              total += cachedSize;
+            } else {
+              const src = raw.startsWith('http')
+                ? proxy(raw)
+                : raw.startsWith('assets/')
+                  ? `/${raw}`
+                  : raw.startsWith('/') || raw.startsWith('data:')
+                    ? raw
+                    : null;
+              if (src) {
+                let blob: Blob | null = null;
+                let lastStatus = 0;
+                const backoffDelays = [0, 500, 1400];
+                for (let attempt = 0; attempt < backoffDelays.length; attempt++) {
+                  if (backoffDelays[attempt] > 0) {
+                    await waitBackoff(backoffDelays[attempt]);
+                  }
+                  if (controller.signal.aborted || !this.value[id]) return;
+                  const pageController = new AbortController();
+                  const onParentAbort = () => pageController.abort();
+                  controller.signal.addEventListener('abort', onParentAbort, { once: true });
+                  const timer = setTimeout(() => pageController.abort(), 15000);
+                  try {
+                    const res = await fetch(src, { signal: pageController.signal });
+                    lastStatus = res.status;
+                    blob = res.ok ? await res.blob() : null;
+                  } catch {
+                    blob = null;
+                  } finally {
+                    clearTimeout(timer);
+                    controller.signal.removeEventListener('abort', onParentAbort);
+                  }
+                  if (blob && blob.size > 0) break;
+                }
+                if (controller.signal.aborted || !this.value[id]) return;
+                if (blob && blob.size > 0) {
+                  await saveBlob(pageKey, blob, true, 'image/jpeg');
+                  saved++;
+                  total += blob.size;
+                } else {
+                  Logger.e(`Failed to fetch manga page ${i} (${src}) after retries: status ${lastStatus}`);
+                }
               }
             }
             const progress = Math.min(1, saved / args.pageUrls.length);
-            if (!this.putIfPresent(id, { progress, downloadedBytes: total > 0 ? total : Math.round(estimated * progress) })) {
+            if (
+              !this.putIfPresent(id, {
+                progress,
+                downloadedPages: saved,
+                downloadedBytes: total > 0 ? total : Math.round(estimated * progress),
+              })
+            ) {
               return;
             }
           }
           if (controller.signal.aborted || !this.value[id]) return;
           if (saved === args.pageUrls.length && saved > 0) {
             const bytes = total > 0 ? total : estimated;
-            if (this.putIfPresent(id, { status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes })) {
+            if (
+              this.putIfPresent(id, {
+                status: 'completed',
+                progress: 1,
+                downloadedPages: saved,
+                verifiedCachedPages: saved,
+                cacheMissingPages: 0,
+                cacheVerifiedAt: new Date().toISOString(),
+                downloadedBytes: bytes,
+                totalBytes: bytes,
+              })
+            ) {
               this.save();
             }
             return;
@@ -539,10 +666,26 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
           if (controller.signal.aborted) return;
           Logger.e(`Manga chapter download failed for ${id}`, e);
         }
+        if (controller.signal.aborted) return;
+        // Keep already-cached page blobs intact so resume/retry continues from the remaining pages!
+        const partialProgress = args.pageUrls.length > 0 ? Math.min(0.99, saved / args.pageUrls.length) : 0;
+        if (
+          this.putIfPresent(id, {
+            status: 'failed',
+            progress: partialProgress,
+            downloadedPages: saved,
+            verifiedCachedPages: saved,
+            cacheMissingPages: Math.max(0, args.pageUrls.length - saved),
+            cacheVerifiedAt: new Date().toISOString(),
+            downloadedBytes: total,
+          })
+        ) {
+          this.save();
+        }
+        return;
       }
       if (controller.signal.aborted) return;
-      for (let i = 1; i <= args.pageUrls.length; i++) await deleteBlob(`${id}_p_${i}`, true);
-      if (this.putIfPresent(id, { status: 'failed', progress: 0, downloadedBytes: 0 })) {
+      if (this.putIfPresent(id, { status: 'failed', progress: 0, downloadedPages: 0, downloadedBytes: 0 })) {
         this.save();
       }
     } finally {
@@ -637,12 +780,145 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     return (await getBlobUrl(item.blobKey, item.type === 'manga')) || null;
   }
 
-  async getMangaPageUrl(itemId: string, pageNumber: number): Promise<string | null> {
+  private isBundledOrInlinePageUrl(raw: string): boolean {
+    if (!raw) return false;
+    if (raw.startsWith('data:')) return true;
+    if (AgentMode.demo && (raw.startsWith('/images/demo/') || raw.startsWith('images/demo/'))) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Verifies every page of a downloaded manga chapter in Cache Storage (`everglow-offline-manga-v1`),
+   * updating `verifiedCachedPages` and `cacheMissingPages` so browser cache eviction is surfaced
+   * instead of silently treated as offline-ready.
+   */
+  async verifyMangaChapterCache(
+    itemId: string,
+  ): Promise<{ totalPages: number; cachedPages: number; missingPages: number; isComplete: boolean }> {
+    this.init();
+    const item = this.value[itemId];
+    if (!item || item.type !== 'manga') {
+      return { totalPages: 0, cachedPages: 0, missingPages: 0, isComplete: false };
+    }
+    const totalPages = item.pageUrls.length;
+    if (totalPages === 0) {
+      return { totalPages: 0, cachedPages: 0, missingPages: 0, isComplete: false };
+    }
+    let cachedPages = 0;
+    for (let i = 1; i <= totalPages; i++) {
+      const raw = item.pageUrls[i - 1] ?? '';
+      const size = await getCachedBlobSize(`${itemId}_p_${i}`, true);
+      if (size > 0 || this.isBundledOrInlinePageUrl(raw)) {
+        cachedPages += 1;
+      }
+    }
+    const missingPages = Math.max(0, totalPages - cachedPages);
+    const prevMissing = item.cacheMissingPages ?? 0;
+    const prevVerified = item.verifiedCachedPages;
+    if (prevMissing !== missingPages || prevVerified !== cachedPages) {
+      if (
+        this.putIfPresent(itemId, {
+          verifiedCachedPages: cachedPages,
+          cacheMissingPages: missingPages,
+          cacheVerifiedAt: new Date().toISOString(),
+        })
+      ) {
+        this.save();
+      }
+    }
+    return {
+      totalPages,
+      cachedPages,
+      missingPages,
+      isComplete: missingPages === 0,
+    };
+  }
+
+  async verifyAllMangaChaptersCache(): Promise<{
+    checked: number;
+    evictedChapters: number;
+    missingPages: number;
+  }> {
+    this.init();
+    const chapters = Object.values(this.value).filter((i) => i.type === 'manga' && isCompleted(i));
+    let evictedChapters = 0;
+    let missingPages = 0;
+    for (const ch of chapters) {
+      const res = await this.verifyMangaChapterCache(ch.id);
+      if (res.missingPages > 0) {
+        evictedChapters += 1;
+        missingPages += res.missingPages;
+      }
+    }
+    return {
+      checked: chapters.length,
+      evictedChapters,
+      missingPages,
+    };
+  }
+
+  async repairMangaChapter(itemId: string, proxy?: (url: string) => string): Promise<void> {
+    this.init();
+    const item = this.value[itemId];
+    if (!item || item.type !== 'manga' || item.pageUrls.length === 0) return;
+    await this.startDownloadMangaChapter({
+      slug: item.mediaId,
+      mangaTitle: item.title,
+      coverUrl: item.coverUrl,
+      chapterId: item.chapterId ?? '1',
+      chapterTitle: item.subtitle,
+      pageUrls: item.pageUrls,
+      proxy: proxy ?? this.mangaProxyMap.get(itemId),
+      forceRepair: true,
+    });
+  }
+
+  async repairAllEvictedMangaChapters(proxy?: (url: string) => string): Promise<number> {
+    this.init();
+    const evicted = Object.values(this.value).filter(
+      (i) => i.type === 'manga' && isCompleted(i) && (i.cacheMissingPages ?? 0) > 0,
+    );
+    for (const item of evicted) {
+      await this.repairMangaChapter(item.id, proxy);
+    }
+    return evicted.length;
+  }
+
+  /**
+   * Returns a verified offline page URL from Cache Storage (`blob:` URL) or bundled data/demo asset.
+   * Never silently substitutes a remote network URL when a cached page was evicted—records the
+   * cache miss on the item so the UI surfaces a repair/re-download state.
+   */
+  async getMangaPageUrl(
+    itemId: string,
+    pageNumber: number,
+    opts?: { allowRemoteFallback?: boolean },
+  ): Promise<string | null> {
     const url = await getBlobUrl(`${itemId}_p_${pageNumber}`, true);
     if (url) return url;
     const item = this.value[itemId];
-    if (item && pageNumber > 0 && pageNumber <= item.pageUrls.length) return item.pageUrls[pageNumber - 1];
-    return null;
+    if (!item || pageNumber <= 0 || pageNumber > item.pageUrls.length) return null;
+    const raw = item.pageUrls[pageNumber - 1];
+    if (this.isBundledOrInlinePageUrl(raw) && (item.cacheMissingPages ?? 0) === 0) {
+      return raw;
+    }
+    // Cache Storage miss for an offline chapter: flag missing pages immediately and verify full chapter cache
+    if ((item.cacheMissingPages ?? 0) === 0) {
+      this.putIfPresent(itemId, {
+        cacheMissingPages: Math.max(1, item.cacheMissingPages ?? 1),
+        verifiedCachedPages: Math.max(0, item.pageUrls.length - 1),
+        cacheVerifiedAt: new Date().toISOString(),
+      });
+      this.save();
+    }
+    void this.verifyMangaChapterCache(itemId);
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (isOffline || opts?.allowRemoteFallback !== true) {
+      return null;
+    }
+    return raw;
   }
 
   revokeBlobUrl(url: string | null | undefined) {
@@ -652,6 +928,361 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
   revokeBlobUrls(urls: Iterable<string>) {
     for (const url of urls) revokeObjectUrl(url);
   }
+
+  /**
+   * Exports a downloaded manga chapter as a portable, standards-compliant `.cbz` (ZIP archive)
+   * containing `001.jpg..NNN.jpg` plus a `comicinfo.json` manifest so pages are never trapped
+   * inside browser Cache Storage.
+   */
+  async exportMangaChapterCbz(itemId: string): Promise<{ blob: Blob; filename: string } | null> {
+    this.init();
+    const item = this.value[itemId];
+    if (!item || item.type !== 'manga') return null;
+    const files: Array<{ name: string; data: Uint8Array }> = [];
+    const totalPages = Math.max(item.pageUrls.length, item.downloadedPages ?? 0);
+    for (let i = 1; i <= totalPages; i++) {
+      let bytes: Uint8Array | null = null;
+      try {
+        const cache = await caches.open(MANGA_CACHE);
+        const res = await cache.match(cacheKey(`${itemId}_p_${i}`, true));
+        if (res) {
+          const buf = await res.arrayBuffer();
+          if (buf.byteLength > 0) bytes = new Uint8Array(buf);
+        }
+      } catch {
+        bytes = null;
+      }
+      if (!bytes && item.pageUrls[i - 1]) {
+        try {
+          const rawUrl = item.pageUrls[i - 1];
+          const res = await fetch(rawUrl.startsWith('assets/') ? `/${rawUrl}` : rawUrl);
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength > 0) bytes = new Uint8Array(buf);
+          }
+        } catch {
+          bytes = null;
+        }
+      }
+      if (bytes && bytes.byteLength > 0) {
+        files.push({ name: `${String(i).padStart(3, '0')}.jpg`, data: bytes });
+      }
+    }
+    if (files.length === 0) return null;
+    const chapterNumber = (item.chapterId ?? '1').replace(/^c/i, '');
+    const manifest = JSON.stringify(
+      {
+        format: 'mangacelestia-cbz-v1',
+        id: item.id,
+        slug: item.mediaId,
+        title: item.title,
+        subtitle: item.subtitle,
+        chapterId: item.chapterId ?? '1',
+        coverUrl: item.coverUrl,
+        pageCount: files.length,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    );
+    const comicInfoXml = [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<ComicInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">',
+      `  <Series>${escapeXmlText(item.title || item.mediaId)}</Series>`,
+      `  <Title>${escapeXmlText(item.subtitle || `Chapter ${chapterNumber}`)}</Title>`,
+      `  <Number>${escapeXmlText(chapterNumber)}</Number>`,
+      `  <PageCount>${files.length}</PageCount>`,
+      '  <Manga>Yes</Manga>',
+      `  <Web>${escapeXmlText(item.mediaId)}</Web>`,
+      '</ComicInfo>',
+    ].join('\n');
+    files.push({ name: 'ComicInfo.xml', data: new TextEncoder().encode(comicInfoXml) });
+    files.push({ name: 'comicinfo.json', data: new TextEncoder().encode(manifest) });
+    const safeSlug = (item.mediaId || 'manga').replace(/[^a-z0-9_-]+/gi, '-');
+    const safeCh = (item.chapterId || 'ch1').replace(/[^a-z0-9._-]+/gi, '-');
+    return {
+      blob: buildStoreZipBlob(files),
+      filename: `${safeSlug}-${safeCh}.cbz`,
+    };
+  }
+
+  /**
+   * Imports a `.cbz` / `.zip` chapter archive (both stored method 0 and DEFLATE method 8,
+   * with `ComicInfo.xml` or `comicinfo.json` metadata) into `everglow-offline-manga-v1`
+   * Cache Storage and registers the offline chapter item.
+   */
+  async importMangaChapterCbz(file: File): Promise<OfflineMediaItem | null> {
+    this.init();
+    try {
+      const buf = await file.arrayBuffer();
+      const entries = await parseZipEntries(buf);
+      if (entries.length === 0) return null;
+      const manifestEntry = entries.find((e) => e.name.toLowerCase().endsWith('comicinfo.json'));
+      const xmlEntry = entries.find((e) => e.name.toLowerCase().endsWith('comicinfo.xml'));
+      let meta: {
+        slug?: string;
+        title?: string;
+        subtitle?: string;
+        chapterId?: string;
+        coverUrl?: string;
+      } = {};
+      if (manifestEntry) {
+        try {
+          meta = JSON.parse(new TextDecoder().decode(manifestEntry.data));
+        } catch {
+          meta = {};
+        }
+      } else if (xmlEntry) {
+        meta = parseComicInfoXml(new TextDecoder().decode(xmlEntry.data));
+      }
+      const imageEntries = entries
+        .filter((e) => /\.(jpe?g|png|webp)$/i.test(e.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (imageEntries.length === 0) return null;
+      const baseName = file.name.replace(/\.(cbz|zip)$/i, '');
+      const slug = (meta.slug || baseName.split('-ch')[0] || 'imported-manga')
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-');
+      const chapterId = meta.chapterId || 'c1';
+      const id = OfflineIds.mangaChapterId(slug, chapterId);
+      let totalBytes = 0;
+      const pageUrls: string[] = [];
+      for (let i = 0; i < imageEntries.length; i++) {
+        const img = imageEntries[i];
+        const mime = img.name.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : img.name.toLowerCase().endsWith('.webp')
+            ? 'image/webp'
+            : 'image/jpeg';
+        const pageKey = `${id}_p_${i + 1}`;
+        await saveBlob(pageKey, new Blob([img.data as BlobPart], { type: mime }), true, mime);
+        totalBytes += img.data.byteLength;
+        pageUrls.push(cacheKey(pageKey, true));
+      }
+      const restored: OfflineMediaItem = {
+        id,
+        type: 'manga',
+        mediaId: slug,
+        title: meta.title || baseName,
+        subtitle: meta.subtitle || `Chapter ${chapterId.replace(/^c/i, '')}`,
+        chapterId,
+        coverUrl: meta.coverUrl || '',
+        status: 'completed',
+        progress: 1,
+        totalBytes,
+        downloadedBytes: totalBytes,
+        downloadedAt: new Date().toISOString(),
+        pageUrls,
+        downloadedPages: imageEntries.length,
+        blobKey: id,
+      };
+      this.put(restored);
+      this.save();
+      return restored;
+    } catch (e) {
+      Logger.e('OfflineMediaService: failed to import CBZ archive', e);
+      return null;
+    }
+  }
+}
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function buildStoreZipBlob(files: Array<{ name: string; data: Uint8Array }>): Blob {
+  const enc = new TextEncoder();
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = enc.encode(file.name);
+    const crc = crc32(file.data);
+    const size = file.data.byteLength;
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 0, true); // store (uncompressed)
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    localParts.push(local, file.data);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+    centralParts.push(central);
+
+    offset += local.byteLength + size;
+  }
+
+  const centralSize = centralParts.reduce((s, p) => s + p.byteLength, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+
+  return new Blob([...localParts, ...centralParts, eocd] as BlobPart[], { type: 'application/vnd.comicbook+zip' });
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function unescapeXmlText(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function parseComicInfoXml(xml: string): {
+  slug?: string;
+  title?: string;
+  subtitle?: string;
+  chapterId?: string;
+} {
+  const tag = (name: string): string | undefined => {
+    const m = new RegExp(`<${name}[^>]*>([\\s\\S]*?)<\\/${name}>`, 'i').exec(xml);
+    return m ? unescapeXmlText(m[1].trim()) : undefined;
+  };
+  const series = tag('Series');
+  const title = tag('Title');
+  const num = tag('Number');
+  const web = tag('Web');
+  return {
+    slug: web && !/^https?:\/\//i.test(web) ? web : series?.toLowerCase().replace(/[^a-z0-9_-]+/g, '-'),
+    title: series || title,
+    subtitle: title || (num ? `Chapter ${num}` : undefined),
+    chapterId: num ? (num.startsWith('c') ? num : `c${num}`) : undefined,
+  };
+}
+
+async function inflateDeflateRaw(compressed: Uint8Array): Promise<Uint8Array | null> {
+  if (typeof DecompressionStream === 'undefined') return null;
+  try {
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    void writer.write(compressed as unknown as BufferSource);
+    void writer.close();
+    const ab = await new Response(ds.readable).arrayBuffer();
+    return new Uint8Array(ab);
+  } catch {
+    return null;
+  }
+}
+
+async function decodeZipEntryPayload(
+  buf: ArrayBuffer,
+  method: number,
+  dataStart: number,
+  compSize: number,
+): Promise<Uint8Array | null> {
+  if (compSize <= 0 || dataStart < 0 || dataStart + compSize > buf.byteLength) return null;
+  const slice = new Uint8Array(buf.slice(dataStart, dataStart + compSize));
+  if (method === 0) return slice;
+  if (method === 8) return inflateDeflateRaw(slice);
+  return null;
+}
+
+async function parseZipEntries(buf: ArrayBuffer): Promise<Array<{ name: string; data: Uint8Array }>> {
+  const view = new DataView(buf);
+  const dec = new TextDecoder();
+  const out: Array<{ name: string; data: Uint8Array }> = [];
+
+  // Prefer Central Directory when present (handles DEFLATE + streaming data descriptors).
+  const minEocdOffset = Math.max(0, buf.byteLength - 65557);
+  let eocdPos = -1;
+  for (let p = buf.byteLength - 22; p >= minEocdOffset; p--) {
+    if (view.getUint32(p, true) === 0x06054b50) {
+      eocdPos = p;
+      break;
+    }
+  }
+  if (eocdPos >= 0) {
+    const totalEntries = view.getUint16(eocdPos + 10, true);
+    let cdPos = view.getUint32(eocdPos + 16, true);
+    for (let i = 0; i < totalEntries && cdPos + 46 <= buf.byteLength; i++) {
+      if (view.getUint32(cdPos, true) !== 0x02014b50) break;
+      const method = view.getUint16(cdPos + 10, true);
+      const compSize = view.getUint32(cdPos + 20, true);
+      const nameLen = view.getUint16(cdPos + 28, true);
+      const extraLen = view.getUint16(cdPos + 30, true);
+      const commentLen = view.getUint16(cdPos + 32, true);
+      const localOffset = view.getUint32(cdPos + 42, true);
+      const name = dec.decode(new Uint8Array(buf, cdPos + 46, nameLen));
+      if (localOffset + 30 <= buf.byteLength && view.getUint32(localOffset, true) === 0x04034b50) {
+        const localNameLen = view.getUint16(localOffset + 26, true);
+        const localExtraLen = view.getUint16(localOffset + 28, true);
+        const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+        const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize);
+        if (decoded) out.push({ name, data: decoded });
+      }
+      cdPos += 46 + nameLen + extraLen + commentLen;
+    }
+    if (out.length > 0) return out;
+  }
+
+  // Fallback: walk Local File Headers sequentially.
+  let pos = 0;
+  while (pos + 30 <= buf.byteLength) {
+    const sig = view.getUint32(pos, true);
+    if (sig !== 0x04034b50) break;
+    const method = view.getUint16(pos + 8, true);
+    const compSize = view.getUint32(pos + 18, true);
+    const nameLen = view.getUint16(pos + 26, true);
+    const extraLen = view.getUint16(pos + 28, true);
+    const nameStart = pos + 30;
+    const dataStart = nameStart + nameLen + extraLen;
+    if (dataStart + compSize > buf.byteLength) break;
+    const name = dec.decode(new Uint8Array(buf, nameStart, nameLen));
+    const decoded = await decodeZipEntryPayload(buf, method, dataStart, compSize);
+    if (decoded) out.push({ name, data: decoded });
+    pos = dataStart + compSize;
+  }
+  return out;
 }
 
 export const offlineMedia = new OfflineMediaService();
@@ -675,8 +1306,8 @@ function demoItems(): OfflineMediaItem[] {
   const M = 60 * 1000;
   const st = 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg';
   const fr = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-n1HJZ2s7vGgA.jpg';
-  const sl = 'https://uploads.mangadex.org/covers/32d76d19-8a05-4db0-9fc2-e0b0648fe9d0/37aeaa0a-8bf7-42f5-b28e-f5139031c03a.jpg';
-  const pages = ['assets/images/demo/poster-1.jpg', 'assets/images/demo/poster-2.jpg', 'assets/images/demo/poster-3.jpg'];
+  const sl = '/images/demo/poster-4.jpg';
+  const pages = ['/images/demo/poster-1.jpg', '/images/demo/poster-2.jpg', '/images/demo/poster-3.jpg'];
   const base = { status: 'completed' as const, progress: 1, pageUrls: [] as string[] };
   const video = (
     id: string,
@@ -711,10 +1342,10 @@ function demoItems(): OfflineMediaItem[] {
   });
   const chapter = (n: string, subtitle: string, bytes: number, at: string): OfflineMediaItem => ({
     ...base,
-    id: `manga_solo-leveling_ch_${n}`,
+    id: `manga_demo-starlight-manga_ch_${n}`,
     type: 'manga',
-    mediaId: 'solo-leveling',
-    title: 'Solo Leveling',
+    mediaId: 'demo-starlight-manga',
+    title: 'Fictional Starlight Manga',
     subtitle,
     chapterId: n,
     coverUrl: sl,
@@ -722,7 +1353,7 @@ function demoItems(): OfflineMediaItem[] {
     downloadedBytes: bytes,
     downloadedAt: at,
     pageUrls: pages,
-    blobKey: `manga_solo-leveling_ch_${n}`,
+    blobKey: `manga_demo-starlight-manga_ch_${n}`,
   });
   const frieren = "Frieren: Beyond Journey's End";
   return [

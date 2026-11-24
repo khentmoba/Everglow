@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../../shared/widgets/Icon';
-import { katanaCdnFallback, proxyKatanaImageUrl } from './katanaService';
+import { katanaCdnFallback, proxyKatanaImageUrl, resolveCorsProxyImageUrl } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
 import type { FitMode } from './readerSettings';
-import { WIDE_ASPECT_THRESHOLD } from './readerSpread';
+import { WIDE_ASPECT_THRESHOLD, type GuidedPanelRect } from './readerSpread';
 
 export function normalizeAssetUrl(src: string): string {
   if (src.startsWith('assets/')) return `/${src.slice('assets/'.length)}`;
@@ -28,11 +28,13 @@ interface CropInsets {
 interface SampleAnalysis {
   insets: CropInsets | null;
   edgeColor: string | null;
+  panels: GuidedPanelRect[];
 }
 
 /**
- * Samples a small offscreen canvas to detect uniform white/black scan margins (max 14%/side)
- * AND the dominant edge color for adaptive "Smart Background" matching (Komikku/TachiyomiSY style).
+ * Samples a small offscreen canvas to detect uniform white/black scan margins (max 14%/side),
+ * the dominant edge color for adaptive "Smart Background" matching (Komikku/TachiyomiSY style),
+ * AND horizontal/vertical panel gutter lines for Guided Panel Zoom.
  */
 function analyzePageCanvas(img: HTMLImageElement): SampleAnalysis {
   try {
@@ -42,7 +44,7 @@ function analyzePageCanvas(img: HTMLImageElement): SampleAnalysis {
     canvas.width = sampleW;
     canvas.height = sampleH;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return { insets: null, edgeColor: null };
+    if (!ctx) return { insets: null, edgeColor: null, panels: [] };
     ctx.drawImage(img, 0, 0, sampleW, sampleH);
     const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
 
@@ -96,7 +98,7 @@ function analyzePageCanvas(img: HTMLImageElement): SampleAnalysis {
         }
       }
     }
-    if (maxX <= minX || maxY <= minY) return { insets: null, edgeColor };
+    if (maxX <= minX || maxY <= minY) return { insets: null, edgeColor, panels: [] };
 
     const maxPct = 14;
     const insets: CropInsets = {
@@ -105,12 +107,84 @@ function analyzePageCanvas(img: HTMLImageElement): SampleAnalysis {
       left: Number(Math.min(maxPct, (minX / sampleW) * 100).toFixed(2)),
       right: Number(Math.min(maxPct, ((sampleW - 1 - maxX) / sampleW) * 100).toFixed(2)),
     };
+
+    // Detect horizontal & vertical gutter lines inside [minX..maxX, minY..maxY] for Guided Panel Zoom
+    const panels: GuidedPanelRect[] = [];
+    const contentW = Math.max(1, maxX - minX + 1);
+    const contentH = Math.max(1, maxY - minY + 1);
+    const minRowH = Math.max(8, Math.round(contentH * 0.16));
+    const minColW = Math.max(10, Math.round(contentW * 0.22));
+    const yCuts: number[] = [minY];
+    let yGutterStart = -1;
+    for (let y = minY + minRowH; y <= maxY - minRowH; y++) {
+      let gutterPx = 0;
+      let totalPx = 0;
+      for (let x = minX; x <= maxX; x += 2) {
+        totalPx++;
+        if (isBorderPixel(x, y)) gutterPx++;
+      }
+      const isGutterRow = totalPx > 0 && gutterPx / totalPx >= 0.86;
+      if (isGutterRow) {
+        if (yGutterStart < 0) yGutterStart = y;
+      } else if (yGutterStart >= 0) {
+        const midY = Math.round((yGutterStart + y - 1) / 2);
+        if (midY - yCuts[yCuts.length - 1] >= minRowH && yCuts.length < 4) {
+          yCuts.push(midY);
+        }
+        yGutterStart = -1;
+      }
+    }
+    yCuts.push(maxY);
+
+    for (let r = 0; r < yCuts.length - 1; r++) {
+      const ry0 = yCuts[r];
+      const ry1 = yCuts[r + 1];
+      if (ry1 - ry0 < minRowH) continue;
+      const xCuts: number[] = [minX];
+      let xGutterStart = -1;
+      for (let x = minX + minColW; x <= maxX - minColW; x++) {
+        let gutterPx = 0;
+        let totalPx = 0;
+        for (let y = ry0; y <= ry1; y += 2) {
+          totalPx++;
+          if (isBorderPixel(x, y)) gutterPx++;
+        }
+        const isGutterCol = totalPx > 0 && gutterPx / totalPx >= 0.85;
+        if (isGutterCol) {
+          if (xGutterStart < 0) xGutterStart = x;
+        } else if (xGutterStart >= 0) {
+          const midX = Math.round((xGutterStart + x - 1) / 2);
+          if (midX - xCuts[xCuts.length - 1] >= minColW && xCuts.length < 3) {
+            xCuts.push(midX);
+          }
+          xGutterStart = -1;
+        }
+      }
+      xCuts.push(maxX);
+
+      for (let c = 0; c < xCuts.length - 1; c++) {
+        const cx0 = xCuts[c];
+        const cx1 = xCuts[c + 1];
+        const nx0 = Math.max(0, cx0 / sampleW - 0.025);
+        const ny0 = Math.max(0, ry0 / sampleH - 0.02);
+        const nx1 = Math.min(1, cx1 / sampleW + 0.025);
+        const ny1 = Math.min(1, ry1 / sampleH + 0.02);
+        panels.push({
+          x: Number(nx0.toFixed(3)),
+          y: Number(ny0.toFixed(3)),
+          w: Number(Math.max(0.18, nx1 - nx0).toFixed(3)),
+          h: Number(Math.max(0.14, ny1 - ny0).toFixed(3)),
+        });
+      }
+    }
+
     return {
       insets: insets.top + insets.bottom + insets.left + insets.right < 1 ? null : insets,
       edgeColor,
+      panels,
     };
   } catch {
-    return { insets: null, edgeColor: null };
+    return { insets: null, edgeColor: null, panels: [] };
   }
 }
 
@@ -130,8 +204,10 @@ export interface ReaderPageImageProps {
   containerWidth?: number;
   reloadToken?: number;
   sampleEdgeColor?: boolean;
+  detectPanels?: boolean;
   onDimensions?: (naturalWidth: number, naturalHeight: number) => void;
   onEdgeColor?: (cssColor: string) => void;
+  onPanelsDetected?: (panels: GuidedPanelRect[]) => void;
   onCdnStepResolved?: (step: number) => void;
   onErrorChange?: (errored: boolean) => void;
   onLongPress?: (resolvedUrl: string, pageNumber: number) => void;
@@ -153,8 +229,10 @@ export function ReaderPageImage({
   containerWidth = 430,
   reloadToken = 0,
   sampleEdgeColor = false,
+  detectPanels = false,
   onDimensions,
   onEdgeColor,
+  onPanelsDetected,
   onCdnStepResolved,
   onErrorChange,
   onLongPress,
@@ -170,8 +248,18 @@ export function ReaderPageImage({
 
   useEffect(() => {
     setStep(0);
-    setStatus('loading');
     setCropInsets(null);
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setStatus('loaded');
+      onErrorChange?.(false);
+      onCdnStepResolved?.(0);
+      const ratio = img.naturalWidth / img.naturalHeight;
+      setAspect(ratio);
+      onDimensions?.(img.naturalWidth, img.naturalHeight);
+    } else {
+      setStatus('loading');
+    }
   }, [src, reloadToken]);
 
   useEffect(() => {
@@ -184,8 +272,21 @@ export function ReaderPageImage({
       ? `${baseResolved}${baseResolved.includes('?') ? '&' : '?'}_r=${retryCount}`
       : baseResolved;
 
-  const shouldCrop = cropBorders || fitMode === 'smart-fit';
-  const needsCanvasSample = shouldCrop || sampleEdgeColor;
+  // Catch cached/data-URL images that finish decoding before React attaches or flushes the reset effect.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (status === 'loading' && img && img.complete && img.naturalWidth > 0) {
+      setStatus('loaded');
+      onErrorChange?.(false);
+      onCdnStepResolved?.(step);
+      const ratio = img.naturalWidth / img.naturalHeight;
+      setAspect(ratio);
+      onDimensions?.(img.naturalWidth, img.naturalHeight);
+    }
+  }, [resolved, reloadToken, status, step]);
+
+  const shouldCrop = cropBorders;
+  const needsCanvasSample = shouldCrop || sampleEdgeColor || detectPanels;
 
   useEffect(() => {
     if (!needsCanvasSample || status !== 'loaded') {
@@ -197,13 +298,15 @@ export function ReaderPageImage({
     const applyAnalysis = (res: SampleAnalysis) => {
       if (shouldCrop) setCropInsets(res.insets);
       if (sampleEdgeColor && res.edgeColor) onEdgeColor?.(res.edgeColor);
+      if (detectPanels && res.panels.length >= 2) onPanelsDetected?.(res.panels);
     };
     const isLocalUrl = resolved.startsWith('data:') || resolved.startsWith('blob:') || resolved.startsWith('/');
     if (isLocalUrl) {
       applyAnalysis(analyzePageCanvas(img));
       return;
     }
-    // Probe via detached CORS image so the visible <img> never fails if a mirror omits CORS headers.
+    // Probe via detached CORS image routed through Everglow's CORS-enabled image proxy
+    // so gutter detection, border cropping, and edge-color sampling are always deterministic.
     let alive = true;
     const probe = new Image();
     probe.crossOrigin = 'anonymous';
@@ -213,11 +316,11 @@ export function ReaderPageImage({
     probe.onerror = () => {
       if (alive && shouldCrop) setCropInsets(null);
     };
-    probe.src = resolved;
+    probe.src = resolveCorsProxyImageUrl(resolved);
     return () => {
       alive = false;
     };
-  }, [needsCanvasSample, shouldCrop, sampleEdgeColor, status, resolved, onEdgeColor]);
+  }, [needsCanvasSample, shouldCrop, sampleEdgeColor, detectPanels, status, resolved, onEdgeColor, onPanelsDetected]);
 
   useEffect(() => () => {
     if (longPressTimer.current != null) window.clearTimeout(longPressTimer.current);
@@ -499,6 +602,7 @@ export function ReaderPageImage({
         </div>
       ) : (
         <img
+          key={`${resolved}#${reloadToken}`}
           ref={imgRef}
           src={resolved}
           alt={cropHalf ? `Page ${pageNumber} (${cropHalf} half)` : `Page ${pageNumber}`}

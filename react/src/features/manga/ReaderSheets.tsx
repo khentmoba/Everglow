@@ -4,6 +4,8 @@ import { chapterDisplayTitle, proxyKatanaImageUrl, type KatanaChapter } from './
 import { KatanaColors, KatanaType } from './katanaTokens';
 import { resolveReaderImageUrl } from './ReaderPageImage';
 import {
+  FIT_MODE_BUCKET_LABEL,
+  getFitModeBucket,
   READER_BACKGROUNDS,
   READER_PROFILES,
   READING_MODE_META,
@@ -18,6 +20,7 @@ import {
   type ReadingMode,
   type ScrollHideSensitivity,
   type TapZoneLayout,
+  type ZoomStartPosition,
 } from './readerSettings';
 
 function useDialogFocusTrap(containerRef: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
@@ -143,7 +146,7 @@ function ToggleRow({
           borderRadius: 99,
           padding: 2,
           flexShrink: 0,
-          background: checked ? KatanaColors.accent : '#2B2032',
+          background: checked ? KatanaColors.accent : KatanaColors.switchOff,
           display: 'flex',
           alignItems: 'center',
           justifyContent: checked ? 'flex-end' : 'flex-start',
@@ -195,6 +198,7 @@ export function ChapterDrawerSheet({
   onToggleChapterRead,
   onSelectBookmark,
   onRemoveBookmark,
+  onUpdateBookmarkNote,
   onClose,
 }: {
   chapters: KatanaChapter[];
@@ -209,11 +213,14 @@ export function ChapterDrawerSheet({
   onToggleChapterRead: (chapterId: string) => void;
   onSelectBookmark: (bm: PageBookmark) => void;
   onRemoveBookmark: (bm: PageBookmark) => void;
+  onUpdateBookmarkNote?: (bm: PageBookmark, note: string) => void;
   onClose: () => void;
 }) {
   const [drawerTab, setDrawerTab] = useState<'chapters' | 'pages' | 'bookmarks'>('chapters');
   const [query, setQuery] = useState('');
   const [ascending, setAscending] = useState(false);
+  const [editingNoteKey, setEditingNoteKey] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
   const sheetRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   useDialogFocusTrap(sheetRef, onClose);
@@ -530,7 +537,7 @@ export function ChapterDrawerSheet({
                         right: 4,
                         padding: '2px 7px',
                         borderRadius: 99,
-                        background: isActive ? KatanaColors.accent : 'rgba(9, 6, 12, 0.82)',
+                        background: isActive ? KatanaColors.accent : 'rgba(11, 13, 18, 0.82)',
                         color: '#FFFFFF',
                         fontSize: 11,
                         fontWeight: 700,
@@ -550,51 +557,144 @@ export function ChapterDrawerSheet({
                 No page bookmarks yet. Tap the bookmark icon in the bottom bar or long-press any page to save it.
               </div>
             ) : (
-              pageBookmarks.map((bm) => (
-                <div
-                  key={`${bm.chapterId}:${bm.pageIdx}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 6,
-                    padding: '6px 8px 6px 12px',
-                    borderRadius: 12,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.border}`,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="bare-button player-focusable"
-                    onClick={() => {
-                      onSelectBookmark(bm);
-                      onClose();
-                    }}
-                    style={{ flex: 1, minWidth: 0, minHeight: 40, textAlign: 'left' }}
-                  >
-                    <div className="ellipsis" style={{ fontSize: 13.5, fontWeight: 600, color: KatanaColors.text }}>
-                      {bm.chapterTitle}
-                    </div>
-                    <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>Page {bm.pageIdx + 1}</div>
-                  </button>
-                  <button
-                    type="button"
-                    className="bare-button player-focusable"
-                    aria-label={`Remove bookmark for ${bm.chapterTitle} page ${bm.pageIdx + 1}`}
-                    onClick={() => onRemoveBookmark(bm)}
+              pageBookmarks.map((bm) => {
+                const bmKey = `${bm.chapterId}:${bm.pageIdx}`;
+                const isEditing = editingNoteKey === bmKey;
+                return (
+                  <div
+                    key={bmKey}
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      display: 'grid',
-                      placeItems: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      marginBottom: 8,
+                      padding: '8px 10px 8px 12px',
+                      borderRadius: 12,
+                      background: KatanaColors.surfaceAlt,
+                      border: `1px solid ${KatanaColors.border}`,
                     }}
                   >
-                    <Icon name="delete_outline" size={19} color={KatanaColors.textLight} />
-                  </button>
-                </div>
-              ))
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="bare-button player-focusable"
+                        onClick={() => {
+                          onSelectBookmark(bm);
+                          onClose();
+                        }}
+                        style={{ flex: 1, minWidth: 0, minHeight: 42, textAlign: 'left' }}
+                      >
+                        <div className="ellipsis" style={{ fontSize: 13.5, fontWeight: 600, color: KatanaColors.text }}>
+                          {bm.chapterTitle}
+                        </div>
+                        <div style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>Page {bm.pageIdx + 1}</div>
+                      </button>
+                      {onUpdateBookmarkNote && (
+                        <button
+                          type="button"
+                          className="bare-button player-focusable"
+                          aria-label={`Add or edit note for ${bm.chapterTitle} page ${bm.pageIdx + 1}`}
+                          title={bm.note ? 'Edit Moment note' : 'Add personal note to this Moment'}
+                          onClick={() => {
+                            if (isEditing) {
+                              setEditingNoteKey(null);
+                            } else {
+                              setEditingNoteKey(bmKey);
+                              setNoteDraft(bm.note ?? '');
+                            }
+                          }}
+                          style={{
+                            minHeight: 40,
+                            padding: '0 10px',
+                            borderRadius: 10,
+                            background: bm.note ? KatanaColors.surfaceGlow : KatanaColors.surface,
+                            border: `1px solid ${bm.note ? KatanaColors.accent : KatanaColors.border}`,
+                            color: bm.note ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Icon name="edit_note" size={16} color={bm.note ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                          <span>{bm.note ? 'Note' : '+ Note'}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="bare-button player-focusable"
+                        aria-label={`Remove bookmark for ${bm.chapterTitle} page ${bm.pageIdx + 1}`}
+                        onClick={() => onRemoveBookmark(bm)}
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 10,
+                          display: 'grid',
+                          placeItems: 'center',
+                        }}
+                      >
+                        <Icon name="delete_outline" size={19} color={KatanaColors.textLight} />
+                      </button>
+                    </div>
+                    {bm.note && !isEditing && (
+                      <div
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 8,
+                          background: KatanaColors.surface,
+                          borderLeft: `2px solid ${KatanaColors.accent}`,
+                          fontSize: 12.5,
+                          color: KatanaColors.text,
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        “{bm.note}”
+                      </div>
+                    )}
+                    {isEditing && onUpdateBookmarkNote && (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          placeholder="Why did you love this panel or moment?"
+                          aria-label="Moment personal note"
+                          style={{
+                            flex: 1,
+                            minHeight: 38,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            border: `1px solid ${KatanaColors.accent}`,
+                            background: KatanaColors.surface,
+                            color: KatanaColors.text,
+                            fontSize: 12.5,
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="bare-button player-focusable"
+                          onClick={() => {
+                            onUpdateBookmarkNote(bm, noteDraft.trim());
+                            setEditingNoteKey(null);
+                          }}
+                          style={{
+                            minHeight: 38,
+                            padding: '0 12px',
+                            borderRadius: 8,
+                            background: KatanaColors.accent,
+                            color: KatanaColors.accentInk,
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}
@@ -607,6 +707,12 @@ export function ReaderSettingsSheet({
   settings,
   hasSeriesOverride,
   server,
+  sleepTimerEndAt,
+  sleepWaitChapterEnd,
+  incognitoSession,
+  onSetSleepTimer,
+  onToggleSleepWaitChapterEnd,
+  onToggleIncognitoSession,
   onUpdateSettings,
   onToggleSeriesOverride,
   onChangeServer,
@@ -615,6 +721,12 @@ export function ReaderSettingsSheet({
   settings: ReaderSettings;
   hasSeriesOverride: boolean;
   server: string;
+  sleepTimerEndAt?: number | null;
+  sleepWaitChapterEnd?: boolean;
+  incognitoSession?: boolean;
+  onSetSleepTimer?: (minutes: number) => void;
+  onToggleSleepWaitChapterEnd?: (enabled: boolean) => void;
+  onToggleIncognitoSession?: (enabled: boolean) => void;
   onUpdateSettings: (patch: Partial<ReaderSettings>) => void;
   onToggleSeriesOverride: (enabled: boolean) => void;
   onChangeServer: (server: string) => void;
@@ -802,6 +914,8 @@ export function ReaderSettingsSheet({
                       key={m}
                       type="button"
                       className="bare-button player-focusable"
+                      aria-label={`Reading mode: ${meta.label}`}
+                      aria-pressed={active}
                       onClick={() => onUpdateSettings({ readingMode: m })}
                       style={{
                         minHeight: 46,
@@ -824,7 +938,9 @@ export function ReaderSettingsSheet({
                 })}
               </div>
 
-              <SectionLabel>Image Scaling</SectionLabel>
+              <SectionLabel>
+                Image Scaling · {FIT_MODE_BUCKET_LABEL[getFitModeBucket(settings.readingMode)]}
+              </SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>
                 {fitOptions.map((opt) => {
                   const active = settings.fitMode === opt.id;
@@ -854,7 +970,7 @@ export function ReaderSettingsSheet({
 
               {isDoubleCapable && (
                 <>
-                  <SectionLabel>Spread Center Gutter ({settings.spreadGutter}px)</SectionLabel>
+                  <SectionLabel>Gap between pages ({settings.spreadGutter}px)</SectionLabel>
                   <input
                     type="range"
                     className="manga-range"
@@ -959,10 +1075,28 @@ export function ReaderSettingsSheet({
                   </>
                 )}
                 <ToggleRow
+                  label="Guided panel-by-panel zoom"
+                  hint="Step through manga panels one by one in reading order (ideal on phone)"
+                  checked={settings.guidedPanelZoom}
+                  onChange={(v) => onUpdateSettings({ guidedPanelZoom: v })}
+                />
+                <ToggleRow
                   label="Skip finished chapters"
                   hint="Jump past chapters you already completed"
                   checked={settings.skipReadChapters}
                   onChange={(v) => onUpdateSettings({ skipReadChapters: v })}
+                />
+                <ToggleRow
+                  label="Skip duplicate chapters"
+                  hint="Avoid re-reading the same chapter number from another scanlation group"
+                  checked={settings.skipDuplicateChapters}
+                  onChange={(v) => onUpdateSettings({ skipDuplicateChapters: v })}
+                />
+                <ToggleRow
+                  label="Skip filtered chapters"
+                  hint="Respect language and scanlation group filters from the series page"
+                  checked={settings.skipFilteredChapters}
+                  onChange={(v) => onUpdateSettings({ skipFilteredChapters: v })}
                 />
                 <ToggleRow
                   label="Data-saver preloading"
@@ -978,23 +1112,40 @@ export function ReaderSettingsSheet({
                 />
                 {!settings.dataSaver && (
                   <div style={{ padding: '4px 2px' }}>
-                    <SectionLabel>Pages to Preload Ahead ({settings.preloadCount})</SectionLabel>
-                    <input
-                      type="range"
-                      className="manga-range"
-                      min={1}
-                      max={6}
-                      step={1}
-                      value={settings.preloadCount}
-                      aria-label="Pages to preload ahead"
-                      onChange={(e) => onUpdateSettings({ preloadCount: Number(e.target.value) })}
-                      style={{ width: '100%' }}
-                    />
+                    <SectionLabel>
+                      Pages to Preload Ahead ({settings.preloadCount >= 99 ? 'Whole chapter' : settings.preloadCount})
+                    </SectionLabel>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {([1, 2, 3, 4, 6, 99] as const).map((cnt) => {
+                        const active = settings.preloadCount === cnt;
+                        return (
+                          <button
+                            key={cnt}
+                            type="button"
+                            className="bare-button player-focusable"
+                            onClick={() => onUpdateSettings({ preloadCount: cnt })}
+                            style={{
+                              flex: cnt === 99 ? '1 1 92px' : '1 1 42px',
+                              minHeight: 38,
+                              padding: '0 10px',
+                              borderRadius: 9,
+                              background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                              border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                              color: active ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                              fontSize: 12,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {cnt >= 99 ? 'All pages' : `${cnt}`}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
 
-              <SectionLabel>Image Source Server</SectionLabel>
+              <SectionLabel>Where pages load from</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {SERVER_OPTIONS.map((srv) => {
                   const active = server === srv.value;
@@ -1172,6 +1323,19 @@ export function ReaderSettingsSheet({
                 style={{ width: '100%' }}
               />
 
+              <SectionLabel>Webtoon Side Padding ({settings.webtoonSidePadding}%)</SectionLabel>
+              <input
+                type="range"
+                className="manga-range"
+                min={0}
+                max={25}
+                step={5}
+                value={settings.webtoonSidePadding}
+                aria-label="Webtoon side padding"
+                onChange={(e) => onUpdateSettings({ webtoonSidePadding: Number(e.target.value) })}
+                style={{ width: '100%' }}
+              />
+
               <SectionLabel>Orientation Lock</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {orientationOptions.map((opt) => {
@@ -1220,7 +1384,7 @@ export function ReaderSettingsSheet({
                 />
                 <ToggleRow
                   label="Crop scan borders"
-                  hint="Detects and trims uniform white or black scan margins"
+                  hint="Trims fixed outer scan margins (4%) so panels fill more of the screen"
                   checked={settings.cropBorders}
                   onChange={(v) => onUpdateSettings({ cropBorders: v })}
                 />
@@ -1296,6 +1460,47 @@ export function ReaderSettingsSheet({
                 checked={settings.keepZoomAcrossPages}
                 onChange={(v) => onUpdateSettings({ keepZoomAcrossPages: v })}
               />
+              <div style={{ height: 6 }} />
+              <ToggleRow
+                label="Disable zoom out below 100%"
+                hint="Lock minimum scale at 1.0× (turn off to allow 0.75× page overview)"
+                checked={settings.disableZoomOut}
+                onChange={(v) => onUpdateSettings({ disableZoomOut: v })}
+              />
+
+              <SectionLabel>Zoom Start Position</SectionLabel>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {(
+                  [
+                    ['automatic', 'Auto'],
+                    ['left', 'Left'],
+                    ['center', 'Center'],
+                    ['right', 'Right'],
+                  ] as Array<[ZoomStartPosition, string]>
+                ).map(([pos, label]) => {
+                  const active = settings.zoomStartPosition === pos;
+                  return (
+                    <button
+                      key={pos}
+                      type="button"
+                      className="bare-button player-focusable"
+                      onClick={() => onUpdateSettings({ zoomStartPosition: pos })}
+                      style={{
+                        minHeight: 40,
+                        borderRadius: 10,
+                        background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                        border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                        color: active ? KatanaColors.accentSoft : KatanaColors.text,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
 
               <SectionLabel>Page Transition</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -1351,7 +1556,7 @@ export function ReaderSettingsSheet({
                 })}
               </div>
 
-              <SectionLabel>Long-Strip Vertical Seekbar</SectionLabel>
+              <SectionLabel>Scroll bar in long strips</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {(
                   [
@@ -1477,12 +1682,95 @@ export function ReaderSettingsSheet({
                   onChange={(v) => onUpdateSettings({ autoHideChrome: v })}
                 />
                 <ToggleRow
+                  label="Volume-key page turning"
+                  hint="Use hardware volume buttons to turn pages without touching the screen"
+                  checked={settings.volumeKeys}
+                  onChange={(v) => onUpdateSettings({ volumeKeys: v })}
+                />
+                {settings.volumeKeys && (
+                  <ToggleRow
+                    label="Invert volume keys"
+                    hint="Flip Volume Up / Volume Down page direction"
+                    checked={settings.invertVolumeKeys}
+                    onChange={(v) => onUpdateSettings({ invertVolumeKeys: v })}
+                  />
+                )}
+                <ToggleRow
                   label="Subtle haptic feedback"
                   hint="Gentle tap vibration on page turns and bookmarks (mobile)"
                   checked={settings.haptics}
                   onChange={(v) => onUpdateSettings({ haptics: v })}
                 />
               </div>
+
+              {onToggleIncognitoSession && (
+                <>
+                  <SectionLabel>Privacy &amp; Session</SectionLabel>
+                  <ToggleRow
+                    label="Incognito reading session"
+                    hint="Suppresses reading history, read-chapter marking, and tracker pushes for this session only"
+                    checked={Boolean(incognitoSession)}
+                    onChange={onToggleIncognitoSession}
+                  />
+                </>
+              )}
+
+              {onSetSleepTimer && (
+                <>
+                  <SectionLabel>
+                    Sleep Timer
+                    {sleepTimerEndAt === -1
+                      ? ' (Stops at chapter end)'
+                      : sleepTimerEndAt && sleepTimerEndAt > Date.now()
+                        ? ` (${Math.max(1, Math.ceil((sleepTimerEndAt - Date.now()) / 60000))}m left)`
+                        : ''}
+                  </SectionLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {([0, -1, 15, 30, 45, 60] as const).map((mins) => {
+                      const remainingMins =
+                        sleepTimerEndAt && sleepTimerEndAt > Date.now()
+                          ? Math.ceil((sleepTimerEndAt - Date.now()) / 60000)
+                          : 0;
+                      const active =
+                        mins === -1
+                          ? sleepTimerEndAt === -1
+                          : mins === 0
+                            ? !sleepTimerEndAt || (sleepTimerEndAt !== -1 && remainingMins === 0)
+                            : sleepTimerEndAt !== -1 && Math.abs(remainingMins - mins) <= 2;
+                      return (
+                        <button
+                          key={mins}
+                          type="button"
+                          className="bare-button player-focusable"
+                          onClick={() => onSetSleepTimer(mins)}
+                          style={{
+                            minHeight: 42,
+                            borderRadius: 10,
+                            background: active ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+                            border: `1.5px solid ${active ? KatanaColors.accent : KatanaColors.border}`,
+                            color: active ? KatanaColors.accentSoft : KatanaColors.text,
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            textAlign: 'center',
+                          }}
+                        >
+                          {mins === 0 ? 'Off' : mins === -1 ? 'End of Ch.' : `${mins}m`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {onToggleSleepWaitChapterEnd && (
+                    <div style={{ marginTop: 8 }}>
+                      <ToggleRow
+                        label="Finish current chapter before sleeping"
+                        hint="When a timed sleep countdown expires, wait until you reach the last page of the chapter"
+                        checked={Boolean(sleepWaitChapterEnd)}
+                        onChange={onToggleSleepWaitChapterEnd}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
 
               <SectionLabel>Keyboard Shortcuts</SectionLabel>
               <div
@@ -1522,6 +1810,7 @@ export function PageActionSheet({
   imageUrl,
   isBookmarked,
   onToggleBookmark,
+  onSetAsCover,
   onReloadPage,
   onOpenSettings,
   onClose,
@@ -1532,6 +1821,7 @@ export function PageActionSheet({
   imageUrl: string;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
+  onSetAsCover?: () => void;
   onReloadPage: () => void;
   onOpenSettings: () => void;
   onClose: () => void;
@@ -1554,7 +1844,7 @@ export function PageActionSheet({
       return;
     }
     try {
-      const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(15_000) });
+      const res = await fetch(fetchUrl);
       if (!res.ok) throw new Error('fetch failed');
       const blob = await res.blob();
       const mime = blob.type.toLowerCase();
@@ -1624,6 +1914,19 @@ export function PageActionSheet({
           },
         ]
       : []),
+    ...(onSetAsCover
+      ? [
+          {
+            icon: 'image',
+            label: 'Set as Series Cover',
+            onClick: () => {
+              onSetAsCover();
+              setStatusMsg('Updated series cover');
+              window.setTimeout(onClose, 450);
+            },
+          },
+        ]
+      : []),
     {
       icon: 'refresh',
       label: `Reload Page ${pageNumber}`,
@@ -1659,7 +1962,7 @@ export function PageActionSheet({
       : []),
     {
       icon: 'dns',
-      label: 'Switch Source Server',
+      label: 'Try another source',
       onClick: () => {
         onClose();
         onOpenSettings();

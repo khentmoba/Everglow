@@ -4,28 +4,42 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { useAuth } from '../../core/services/auth';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
 import { useViewport } from '../../core/system/viewport';
+import { withAlpha } from '../../core/theme/colors';
 import { motionReduced, reduceAmbientMotion } from '../../core/theme/motion';
-import { setBoundedCache } from '../../core/utils/boundedCache';
 import { Icon } from '../../shared/widgets/Icon';
 import { canPop } from '../../shared/widgets/MaterialFields';
 import {
   chapterDisplayTitle,
   fetchKatanaChapterPages,
+  hydrateMangaReaderGlobalSettings,
+  hydrateMangaReaderSeriesState,
+  isKatanaIncognitoSession,
+  markKatanaChaptersRead,
+  proxyKatanaImageUrl,
   saveKatanaReadingProgress,
+  setKatanaIncognitoSession,
+  setKatanaSeriesCover,
+  subscribeKatanaIncognitoSession,
+  syncMangaReaderGlobalSettings,
+  syncMangaReaderSeriesState,
   type KatanaChapter,
 } from './katanaService';
 import { KatanaColors, KatanaType } from './katanaTokens';
 import { createDemoMangaReaderParams, getDemoChapterPages } from './readerDemo';
 import { normalizeAssetUrl, ReaderPageImage, resolveReaderImageUrl } from './ReaderPageImage';
 import {
+  getFitModeBucket,
   hasSeenReaderHint,
+  loadAllResumeAnchors,
   loadChapterAspects,
   loadGlobalReaderSettings,
   loadPageBookmarks,
   loadResumeAnchor,
+  loadSeriesChapterFilter,
   loadSeriesDefaultAspect,
   loadSeriesReaderOverride,
   markReaderHintSeen,
+  mergeRemoteResumeAnchors,
   READING_MODE_META,
   READING_MODE_ORDER,
   resolveBackgroundTheme,
@@ -36,7 +50,6 @@ import {
   saveSeriesReaderOverride,
   SCROLL_HIDE_THRESHOLD,
   SERVER_OPTIONS,
-  type FitMode,
   type PageBookmark,
   type ReaderSettings,
   type SeriesReaderOverride,
@@ -44,18 +57,25 @@ import {
 import { ChapterDrawerSheet, PageActionSheet, PageJumpDialog, QuickDisplayPopover, ReaderSettingsSheet } from './ReaderSheets';
 import {
   adjacentChapter,
+  buildGuidedPanels,
   buildSpreads,
   clampZoomPan,
+  computeGuidedPanelTransform,
   computePinchAnchoredPan,
   computeTapAnchoredPan,
   detectChapterGap,
   DOUBLE_TAP_WINDOW_MS,
   findSpreadIndexForPage,
   isWideAspect,
+  loadPersistedSeriesFormat,
   resolveEffectiveReadingMode,
   resolveTapZoneAction,
+  savePersistedSeriesFormat,
+  setLruEntry,
   SINGLE_TAP_DELAY_MS,
   WIDE_ASPECT_THRESHOLD,
+  type GuidedPanelRect,
+  type SeriesReadingFormat,
 } from './readerSpread';
 
 export interface MangaReaderParams {
@@ -71,22 +91,14 @@ export interface MangaReaderParams {
   finalChapterId?: string;
   /** Already-read chapter IDs for chapter drawer badges & skip-read navigation. */
   readChapterIds?: string[];
+  /** Inferred content format (manga / webtoon / comic) for content-aware Auto reading mode. */
+  seriesFormat?: SeriesReadingFormat;
 }
 
 interface ChapterSegment {
   chapter: KatanaChapter;
   pages: string[];
 }
-
-const FIT_ORDER: FitMode[] = ['smart-fit', 'fit-width', 'fit-height', 'fit-screen', 'stretch', 'original'];
-const FIT_SHORT_LABEL: Record<FitMode, string> = {
-  'smart-fit': 'Smart Fit',
-  'fit-width': 'Fit Width',
-  'fit-height': 'Fit Height',
-  'fit-screen': 'Fit Screen',
-  stretch: 'Stretch',
-  original: 'Original',
-};
 
 const MAX_PREFETCH_CACHE = 16;
 const MAX_ASPECT_CACHE = 240;
@@ -104,7 +116,24 @@ export function MangaReaderView({
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageContentRef = useRef<HTMLDivElement>(null);
+  const hudTopRef = useRef<HTMLDivElement>(null);
+  const hudBottomRef = useRef<HTMLDivElement>(null);
+  const [hudInset, setHudInset] = useState({ top: 0, bottom: 0 });
   const [osColorTick, setOsColorTick] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const top = hudTopRef.current?.offsetHeight ?? 0;
+      const bottom = hudBottomRef.current?.offsetHeight ?? 0;
+      setHudInset((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    if (hudTopRef.current) ro.observe(hudTopRef.current);
+    if (hudBottomRef.current) ro.observe(hudBottomRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia?.('(prefers-color-scheme: light)');
@@ -122,27 +151,56 @@ export function MangaReaderView({
   }, []);
 
   const seriesDefaultAspect = useMemo(() => loadSeriesDefaultAspect(params.slug), [params.slug]);
+  const [persistedFormat, setPersistedFormat] = useState<SeriesReadingFormat | undefined>(() =>
+    loadPersistedSeriesFormat(params.slug),
+  );
   const [liveMedianAspect, setLiveMedianAspect] = useState<number | undefined>(undefined);
 
-  // Settings & expanded per-series overrides
+  // Settings & expanded per-series overrides (with per-reading-mode fit memory)
   const [globalSettings, setGlobalSettings] = useState<ReaderSettings>(() => loadGlobalReaderSettings());
   const [seriesOverride, setSeriesOverride] = useState<SeriesReaderOverride | null>(() =>
     loadSeriesReaderOverride(params.slug),
   );
-  const settings: ReaderSettings = useMemo(
-    () => ({
+  const rawReadingMode = seriesOverride?.readingMode ?? globalSettings.readingMode;
+  const effectiveSeriesFormat = persistedFormat ?? params.seriesFormat;
+  const effectiveMode = useMemo(
+    () =>
+      resolveEffectiveReadingMode(
+        rawReadingMode,
+        viewportWidth,
+        viewportHeight,
+        liveMedianAspect ?? seriesDefaultAspect,
+        effectiveSeriesFormat,
+      ),
+    [rawReadingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect, effectiveSeriesFormat],
+  );
+  const fitBucket = getFitModeBucket(effectiveMode);
+  const settings: ReaderSettings = useMemo(() => {
+    const merged: ReaderSettings = {
       ...globalSettings,
       ...(seriesOverride ?? {}),
-    }),
-    [globalSettings, seriesOverride],
-  );
-
-  const effectiveMode = useMemo(
-    () => resolveEffectiveReadingMode(settings.readingMode, viewportWidth, viewportHeight, liveMedianAspect ?? seriesDefaultAspect),
-    [settings.readingMode, viewportWidth, viewportHeight, liveMedianAspect, seriesDefaultAspect],
-  );
+    };
+    const mergedFitByMode = {
+      ...(globalSettings.fitByMode ?? {}),
+      ...(seriesOverride?.fitByMode ?? {}),
+    };
+    const modeFit = mergedFitByMode[fitBucket];
+    return {
+      ...merged,
+      fitByMode: mergedFitByMode,
+      fitMode: modeFit ?? merged.fitMode,
+    };
+  }, [globalSettings, seriesOverride, fitBucket]);
   const modeMeta = READING_MODE_META[settings.readingMode];
   const effectiveMeta = READING_MODE_META[effectiveMode];
+  const resolvedModeShortLabel =
+    effectiveMode !== settings.readingMode
+      ? `${effectiveMeta.shortLabel} (Auto)`
+      : effectiveMeta.shortLabel;
+  const resolvedModeAriaLabel =
+    effectiveMode !== settings.readingMode
+      ? `${effectiveMeta.label} (${modeMeta.label})`
+      : effectiveMeta.label;
   const isWebtoon = effectiveMeta.isWebtoon;
   const isHorizontalStrip = effectiveMeta.isHorizontalStrip;
   const isRtl = effectiveMeta.isRtl;
@@ -151,6 +209,24 @@ export function MangaReaderView({
     void osColorTick;
     return resolveBackgroundTheme(settings.background);
   }, [settings.background, osColorTick]);
+
+  // Keep document root background aligned with the reader surface to prevent couple-plum overscroll flashes.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById('root');
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+    const prevRootBg = root?.style.backgroundColor ?? '';
+    html.style.backgroundColor = bgTheme.bg;
+    body.style.backgroundColor = bgTheme.bg;
+    if (root) root.style.backgroundColor = bgTheme.bg;
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
+      if (root) root.style.backgroundColor = prevRootBg;
+    };
+  }, [bgTheme.bg]);
 
   // Chapter, pages, bookmarks & finished-read state
   const [chapterId, setChapterId] = useState(params.chapterId);
@@ -185,6 +261,32 @@ export function MangaReaderView({
   const [pageAction, setPageAction] = useState<{ url: string; pageNumber: number; key: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showTapHint, setShowTapHint] = useState(false);
+  const [seenOnboardingHint, setSeenOnboardingHint] = useState(() => hasSeenReaderHint());
+
+  // The controls pill is the last thing on the page; it steps aside too, and any
+  // tap on the page brings the chrome (and the pill) back.
+  const [pillQuiet, setPillQuiet] = useState(false);
+  useEffect(() => {
+    if (showUi) {
+      setPillQuiet(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setPillQuiet(true), 3200);
+    return () => window.clearTimeout(timer);
+  }, [showUi, pageIdx, chapterId]);
+
+  // The tip sits over the artwork, so it steps aside on its own after a few seconds.
+  useEffect(() => {
+    if (seenOnboardingHint) return;
+    const timer = window.setTimeout(() => setSeenOnboardingHint(true), 5200);
+    return () => window.clearTimeout(timer);
+  }, [seenOnboardingHint]);
+  const [evictedOfflineState, setEvictedOfflineState] = useState<{
+    itemId: string;
+    missingPages: number;
+    totalPages: number;
+  } | null>(null);
+  const [repairingOffline, setRepairingOffline] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [autoScrolling, setAutoScrolling] = useState(false);
   const [einkFlashing, setEinkFlashing] = useState(false);
@@ -197,6 +299,16 @@ export function MangaReaderView({
   // Zoom & pan
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [guidedPanelIdx, setGuidedPanelIdx] = useState(0);
+  const [detectedPanelsByKey, setDetectedPanelsByKey] = useState<Record<string, GuidedPanelRect[]>>({});
+  const [sleepTimerEndAt, setSleepTimerEndAt] = useState<number | null>(null);
+  const [sleepWaitChapterEnd, setSleepWaitChapterEnd] = useState(false);
+  const [sleepPendingChapterEnd, setSleepPendingChapterEnd] = useState(false);
+  const [sleepTimerExpired, setSleepTimerExpired] = useState(false);
+  const [incognitoSession, setIncognitoSession] = useState(() => isKatanaIncognitoSession());
+
+  useEffect(() => subscribeKatanaIncognitoSession(setIncognitoSession), []);
+  const cloudResumeTimerRef = useRef(0);
   const pinchStartRef = useRef<{ dist: number; scale: number; pan: { x: number; y: number } } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -251,6 +363,7 @@ export function MangaReaderView({
     prefetchedChapterRef.current.clear();
     aspectMapRef.current.clear();
     setFailedPageKeys([]);
+    setDetectedPanelsByKey({});
     setPageBookmarks(loadPageBookmarks(params.slug));
     return () => {
       offlineMedia.revokeBlobUrls(blobs);
@@ -270,14 +383,102 @@ export function MangaReaderView({
   );
   const pages = activeSegment?.pages ?? [];
 
+  const seriesChapterFilter = useMemo(
+    () => (settings.skipFilteredChapters ? loadSeriesChapterFilter(params.slug) : null),
+    [params.slug, settings.skipFilteredChapters],
+  );
+  const allowedChapterIds = useMemo(() => {
+    if (!seriesChapterFilter) return undefined;
+    const set = new Set<string>();
+    for (const c of params.chapters) {
+      if (seriesChapterFilter.lang && (c.language || '').trim().toLowerCase() !== seriesChapterFilter.lang) continue;
+      if (seriesChapterFilter.group && (c.scanlationGroup || '').trim() !== seriesChapterFilter.group) continue;
+      set.add(c.id);
+    }
+    return set.size > 0 ? set : undefined;
+  }, [params.chapters, seriesChapterFilter]);
+
+  const chapterNavOpts = useMemo(
+    () => ({
+      skipRead: settings.skipReadChapters,
+      readIds,
+      skipDuplicate: settings.skipDuplicateChapters,
+      allowedIds: allowedChapterIds,
+    }),
+    [settings.skipReadChapters, settings.skipDuplicateChapters, readIds, allowedChapterIds],
+  );
+
   const prevChapter = useMemo(
-    () => adjacentChapter(params.chapters, chapterId, 'prev', { skipRead: settings.skipReadChapters, readIds }),
-    [params.chapters, chapterId, settings.skipReadChapters, readIds],
+    () => adjacentChapter(params.chapters, chapterId, 'prev', chapterNavOpts),
+    [params.chapters, chapterId, chapterNavOpts],
   );
   const nextChapter = useMemo(
-    () => adjacentChapter(params.chapters, chapterId, 'next', { skipRead: settings.skipReadChapters, readIds }),
-    [params.chapters, chapterId, settings.skipReadChapters, readIds],
+    () => adjacentChapter(params.chapters, chapterId, 'next', chapterNavOpts),
+    [params.chapters, chapterId, chapterNavOpts],
   );
+
+  // Hydrate global reader settings & per-series state (override, resume anchor, bookmarks) from Firestore
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    void hydrateMangaReaderGlobalSettings<ReaderSettings>(currentUser).then((remote) => {
+      if (!alive || !remote) return;
+      setGlobalSettings((prev) => {
+        const merged = { ...prev, ...remote };
+        saveGlobalReaderSettings(merged);
+        return merged;
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser || !params.slug) return;
+    let alive = true;
+    void hydrateMangaReaderSeriesState(currentUser, params.slug).then((remote) => {
+      if (!alive || !remote) return;
+      if (remote.override && Object.keys(remote.override).length > 0) {
+        const nextOverride = remote.override as SeriesReaderOverride;
+        setSeriesOverride(nextOverride);
+        saveSeriesReaderOverride(params.slug, nextOverride);
+      }
+      if (remote.bookmarks && remote.bookmarks.length > 0) {
+        setPageBookmarks((prev) => {
+          const seen = new Set(prev.map((b) => `${b.chapterId}:${b.pageIdx}`));
+          const merged = [...prev];
+          for (const b of remote.bookmarks!) {
+            if (!seen.has(`${b.chapterId}:${b.pageIdx}`)) merged.push(b);
+          }
+          savePageBookmarks(params.slug, merged);
+          return merged;
+        });
+      }
+      if (remote.resume || remote.resumeChapters) {
+        const { mergedChapters, updatedChapterIds } = mergeRemoteResumeAnchors(
+          params.slug,
+          remote.resume,
+          remote.resumeChapters,
+          remote.updatedAt,
+        );
+        if (updatedChapterIds.has(chapterId) && !userScrolledRef.current) {
+          const synced = mergedChapters[chapterId];
+          if (synced) {
+            pendingResumeRef.current = {
+              chapterId,
+              pageIdx: synced.pageIdx,
+              offsetRatio: synced.offsetRatio,
+            };
+            setPageIdx(synced.pageIdx);
+          }
+        }
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [currentUser, params.slug]);
 
   const spreads = useMemo(
     () =>
@@ -317,12 +518,14 @@ export function MangaReaderView({
 
   const flashToast = useCallback(
     (msg: string, force = false) => {
+      // one onboarding surface at a time: the intro card already explains the mode
+      if (!seenOnboardingHint) return;
       if (!force && !settings.showModeToast) return;
       setToast(msg);
       window.clearTimeout(toastTimerRef.current);
       toastTimerRef.current = window.setTimeout(() => setToast(null), 1900);
     },
-    [settings.showModeToast],
+    [settings.showModeToast, seenOnboardingHint],
   );
 
   const isPageBookmarked = useCallback(
@@ -347,26 +550,71 @@ export function MangaReaderView({
               ...prev,
             ];
         savePageBookmarks(params.slug, next);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { bookmarks: next });
+        }
         triggerHaptic(10);
         flashToast(exists ? `Removed bookmark (Page ${targetPageIdx + 1})` : `Bookmarked Page ${targetPageIdx + 1}`, true);
         return next;
       });
     },
-    [chapterById, params.slug, flashToast, triggerHaptic],
+    [chapterById, params.slug, currentUser, flashToast, triggerHaptic],
+  );
+
+  const updatePageBookmarkNote = useCallback(
+    (targetBm: PageBookmark, note: string) => {
+      setPageBookmarks((prev) => {
+        const next = prev.map((b) =>
+          b.chapterId === targetBm.chapterId && b.pageIdx === targetBm.pageIdx
+            ? { ...b, note: note || undefined }
+            : b,
+        );
+        savePageBookmarks(params.slug, next);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { bookmarks: next });
+        }
+        flashToast(note ? 'Saved Moment note' : 'Cleared Moment note', true);
+        return next;
+      });
+    },
+    [params.slug, currentUser, flashToast],
   );
 
   const updateSettings = useCallback(
     (patch: Partial<ReaderSettings>) => {
+      const normalizedPatch: Partial<ReaderSettings> = patch.fitMode
+        ? {
+            ...patch,
+            fitByMode: {
+              ...(settings.fitByMode ?? {}),
+              ...(patch.fitByMode ?? {}),
+              [fitBucket]: patch.fitMode,
+            },
+          }
+        : patch;
       if (seriesOverride) {
-        const nextOverride: SeriesReaderOverride = { ...seriesOverride, ...patch };
+        const nextOverride: SeriesReaderOverride = { ...seriesOverride, ...normalizedPatch };
         setSeriesOverride(nextOverride);
         saveSeriesReaderOverride(params.slug, nextOverride);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { override: nextOverride });
+        }
       } else {
         setGlobalSettings((prev) => {
-          const next = { ...prev, ...patch };
+          const next = { ...prev, ...normalizedPatch };
           saveGlobalReaderSettings(next);
+          if (currentUser) {
+            void syncMangaReaderGlobalSettings(currentUser, next);
+          }
           return next;
         });
+      }
+      if (patch.guidedPanelZoom === false) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        setGuidedPanelIdx(0);
+      } else if (patch.guidedPanelZoom === true) {
+        setGuidedPanelIdx(0);
       }
       if (patch.readingMode) {
         setAutoScrolling(false);
@@ -383,7 +631,7 @@ export function MangaReaderView({
         }
       }
     },
-    [seriesOverride, params.slug, flashToast, chapterId, pageIdx],
+    [seriesOverride, params.slug, currentUser, flashToast, chapterId, pageIdx, fitBucket, settings.fitByMode],
   );
 
   const toggleSeriesOverride = useCallback(
@@ -392,26 +640,94 @@ export function MangaReaderView({
         const next: SeriesReaderOverride = { ...settings };
         setSeriesOverride(next);
         saveSeriesReaderOverride(params.slug, next);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { override: next });
+        }
         flashToast('Saved custom settings for this series', true);
       } else {
         setSeriesOverride(null);
         saveSeriesReaderOverride(params.slug, null);
+        if (currentUser) {
+          void syncMangaReaderSeriesState(currentUser, params.slug, { override: null });
+        }
         flashToast('Using global reader settings', true);
       }
     },
-    [settings, params.slug, flashToast],
+    [settings, params.slug, currentUser, flashToast],
   );
 
-  const markChapterFinished = useCallback((finishedChapterId: string) => {
-    setReadIds((prev) => (prev.has(finishedChapterId) ? prev : new Set([...prev, finishedChapterId])));
-  }, []);
+  const markChapterFinished = useCallback(
+    (finishedChapterId: string) => {
+      setReadIds((prev) => (prev.has(finishedChapterId) ? prev : new Set([...prev, finishedChapterId])));
+      if (currentUser && !incognitoSession) {
+        void markKatanaChaptersRead(
+          {
+            slug: params.slug,
+            title: params.mangaTitle,
+            coverUrl: params.coverUrl ?? '',
+            status: params.mangaStatus ?? 'ongoing',
+          },
+          currentUser,
+          [finishedChapterId],
+          true,
+        );
+      }
+      if (sleepTimerEndAt === -1 || sleepPendingChapterEnd) {
+        setAutoScrolling(false);
+        setSleepTimerExpired(true);
+        setSleepTimerEndAt(null);
+        setSleepPendingChapterEnd(false);
+      }
+    },
+    [
+      currentUser,
+      incognitoSession,
+      params.slug,
+      params.mangaTitle,
+      params.coverUrl,
+      params.mangaStatus,
+      sleepTimerEndAt,
+      sleepPendingChapterEnd,
+    ],
+  );
 
   const writeProgressNow = useCallback(
-    (targetChapterId: string, page: number, totalPages: number, offsetRatio = 0, allowMarkFinished = true) => {
+    (
+      targetChapterId: string,
+      page: number,
+      totalPages: number,
+      offsetRatio = 0,
+      allowMarkFinished = true,
+      immediateCloudSync = false,
+    ) => {
       const safePage = Math.max(1, page);
-      saveResumeAnchor(params.slug, { chapterId: targetChapterId, pageIdx: safePage - 1, offsetRatio });
+      const chapterCompleted = allowMarkFinished && totalPages > 0 && safePage >= totalPages;
+      if (!incognitoSession) {
+        const now = Date.now();
+        const resumeAnchor = {
+          chapterId: targetChapterId,
+          pageIdx: safePage - 1,
+          offsetRatio,
+          updatedAt: now,
+        };
+        saveResumeAnchor(params.slug, resumeAnchor);
+        if (currentUser) {
+          window.clearTimeout(cloudResumeTimerRef.current);
+          const pushCloud = () => {
+            void syncMangaReaderSeriesState(currentUser, params.slug, {
+              resume: resumeAnchor,
+              resumeChapters: loadAllResumeAnchors(params.slug),
+            });
+          };
+          if (immediateCloudSync) {
+            pushCloud();
+          } else {
+            cloudResumeTimerRef.current = window.setTimeout(pushCloud, 900);
+          }
+        }
+      }
       // Mark chapter finished only on active reading advance to the true final page
-      if (allowMarkFinished && totalPages > 0 && safePage >= totalPages) {
+      if (chapterCompleted) {
         markChapterFinished(targetChapterId);
       }
       const ch = chapterById(targetChapterId);
@@ -419,13 +735,12 @@ export function MangaReaderView({
         params.mangaStatus === 'completed' &&
         !!params.finalChapterId &&
         targetChapterId === params.finalChapterId &&
-        totalPages > 0 &&
-        safePage >= totalPages;
+        chapterCompleted;
       const offlineId = OfflineIds.mangaChapterId(params.slug, targetChapterId);
-      if (offlineMedia.getItem(offlineId)) {
+      if (offlineMedia.getItem(offlineId) && !incognitoSession) {
         offlineMedia.updatePlaybackPosition(offlineId, safePage, true);
       }
-      if (!currentUser) return;
+      if (!currentUser || incognitoSession) return;
       void saveKatanaReadingProgress({
         slug: params.slug,
         userName: currentUser,
@@ -435,9 +750,20 @@ export function MangaReaderView({
         title: params.mangaTitle,
         coverUrl: params.coverUrl,
         finished,
+        chapterCompleted,
       });
     },
-    [chapterById, markChapterFinished, params.mangaStatus, params.finalChapterId, params.slug, params.mangaTitle, params.coverUrl, currentUser],
+    [
+      chapterById,
+      markChapterFinished,
+      incognitoSession,
+      params.mangaStatus,
+      params.finalChapterId,
+      params.slug,
+      params.mangaTitle,
+      params.coverUrl,
+      currentUser,
+    ],
   );
 
   const persistProgress = useCallback(
@@ -468,20 +794,18 @@ export function MangaReaderView({
       window.clearTimeout(einkTimerRef.current);
       window.clearTimeout(aspectSaveTimerRef.current);
       window.clearTimeout(programmaticScrollTimerRef.current);
+      window.clearTimeout(cloudResumeTimerRef.current);
       if (tapTimerRef.current != null) window.clearTimeout(tapTimerRef.current);
       if (scrollRafRef.current != null) window.cancelAnimationFrame(scrollRafRef.current);
       const latest = latestProgressRef.current;
       if (latest.total > 0) {
-        flushProgressRef.current(latest.chapterId, latest.page, latest.total, latest.offsetRatio);
+        flushProgressRef.current(latest.chapterId, latest.page, latest.total, latest.offsetRatio, true, true);
       }
     };
   }, []);
 
   const loadChapterPages = useCallback(
     async (targetChapterId: string, targetServer: string): Promise<string[]> => {
-      if (AgentMode.demo && params.slug.startsWith('demo-')) {
-        return getDemoChapterPages(targetChapterId);
-      }
       const cacheKey = `${targetChapterId}|${targetServer}`;
       const cached = prefetchedChapterRef.current.get(cacheKey);
       if (cached && cached.length > 0) return cached;
@@ -489,20 +813,51 @@ export function MangaReaderView({
       offlineMedia.init();
       const offlineItem = offlineMedia.getItem(OfflineIds.mangaChapterId(params.slug, targetChapterId));
       if (offlineItem && offlineItem.pageUrls.length > 0) {
+        let evictedCount = 0;
+        const demoFallback =
+          AgentMode.demo && params.slug.startsWith('demo-') ? getDemoChapterPages(targetChapterId) : null;
         const resolved = await Promise.all(
           offlineItem.pageUrls.map(async (raw, i) => {
             const blobUrl = await offlineMedia.getMangaPageUrl(offlineItem.id, i + 1);
-            if (blobUrl && blobUrl.startsWith('blob:')) offlineBlobUrlsRef.current.add(blobUrl);
-            return normalizeAssetUrl(blobUrl ?? raw);
+            if (blobUrl && (blobUrl.startsWith('blob:') || blobUrl.startsWith('data:'))) {
+              if (blobUrl.startsWith('blob:')) offlineBlobUrlsRef.current.add(blobUrl);
+              return blobUrl;
+            }
+            if (blobUrl && AgentMode.demo && blobUrl.startsWith('/images/demo/')) {
+              return demoFallback?.[i] ?? blobUrl;
+            }
+            evictedCount += 1;
+            if (demoFallback && demoFallback[i]) return demoFallback[i];
+            const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+            if (isOffline) return '';
+            const candidate = normalizeAssetUrl(raw);
+            return candidate.startsWith('http') ? proxyKatanaImageUrl(candidate) : candidate;
           }),
         );
+        if (evictedCount > 0) {
+          setEvictedOfflineState({
+            itemId: offlineItem.id,
+            missingPages: evictedCount,
+            totalPages: offlineItem.pageUrls.length,
+          });
+        } else {
+          setEvictedOfflineState(null);
+        }
         const filtered = resolved.filter(Boolean);
-        if (filtered.length > 0) return filtered;
+        if (filtered.length > 0) {
+          return filtered;
+        }
+      } else {
+        setEvictedOfflineState(null);
+      }
+
+      if (AgentMode.demo && params.slug.startsWith('demo-')) {
+        return getDemoChapterPages(targetChapterId);
       }
 
       const urls = await fetchKatanaChapterPages(params.slug, targetChapterId, targetServer);
       if (urls.length > 0) {
-        setBoundedCache(prefetchedChapterRef.current, cacheKey, urls, 12);
+        setLruEntry(prefetchedChapterRef.current, cacheKey, urls, 12);
       }
       return urls;
     },
@@ -633,8 +988,12 @@ export function MangaReaderView({
             programmaticScrollRef.current = false;
           });
         }
+        const portraitTabletSpreadHint =
+          viewportWidth >= 720 && viewportWidth <= viewportHeight && !isWebtoon && !isDouble
+            ? ' • Rotate or tap Spread for 2-page view'
+            : '';
         writeProgressNow(chapterId, targetIdx + 1, existing.pages.length, resume?.offsetRatio ?? 0, false);
-        flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(existing.chapter)}`);
+        flashToast(`${resolvedModeShortLabel} • ${chapterDisplayTitle(existing.chapter)}${portraitTabletSpreadHint}`);
       }
       return;
     }
@@ -673,8 +1032,12 @@ export function MangaReaderView({
       }
       activeKeyRef.current = `${chapterId}:${targetIdx}`;
       setPageIdx(targetIdx);
+      const portraitTabletSpreadHint =
+        viewportWidth >= 720 && viewportWidth <= viewportHeight && !isWebtoon && !isDouble
+          ? ' • Rotate or tap Spread for 2-page view'
+          : '';
       writeProgressNow(chapterId, targetIdx + 1, urls.length, resume?.offsetRatio ?? 0, false);
-      flashToast(`${READING_MODE_META[settings.readingMode].shortLabel} • ${chapterDisplayTitle(ch)}`);
+      flashToast(`${resolvedModeShortLabel} • ${chapterDisplayTitle(ch)}${portraitTabletSpreadHint}`);
     });
 
     return () => {
@@ -700,8 +1063,13 @@ export function MangaReaderView({
       programmaticScrollTimerRef.current = window.setTimeout(
         () => {
           programmaticScrollRef.current = false;
+          scrollDownAccumRef.current = 0;
+          scrollUpAccumRef.current = 0;
+          if (scrollRef.current) {
+            lastScrollTopRef.current = scrollRef.current.scrollTop;
+          }
         },
-        behavior === 'smooth' ? 550 : 180,
+        behavior === 'smooth' ? 950 : 220,
       );
       return true;
     },
@@ -828,10 +1196,14 @@ export function MangaReaderView({
     const cellularRestricted =
       settings.preloadWifiOnly && Boolean(conn && (conn.saveData || conn.type === 'cellular'));
     const liteMode = settings.dataSaver || cellularRestricted;
-    const ahead = liteMode ? 1 : settings.preloadCount;
+    const ahead = liteMode ? 1 : settings.preloadCount >= 99 ? pages.length : settings.preloadCount;
     const indices: number[] = [];
-    for (let i = 1; i <= ahead; i++) indices.push(pageIdx + i);
-    if (!liteMode) indices.push(pageIdx - 1);
+    if (!liteMode && settings.preloadCount >= 99) {
+      for (let i = 0; i < pages.length; i++) indices.push(i);
+    } else {
+      for (let i = 1; i <= ahead; i++) indices.push(pageIdx + i);
+      if (!liteMode) indices.push(pageIdx - 1);
+    }
     const cdnStep = workingCdnStepRef.current;
     for (const idx of indices) {
       if (idx < 0 || idx >= pages.length) continue;
@@ -840,7 +1212,7 @@ export function MangaReaderView({
       const img = new Image();
       img.decoding = 'async';
       img.src = resolved;
-      setBoundedCache(prefetchedImagesRef.current, resolved, img, MAX_PREFETCH_CACHE);
+      setLruEntry(prefetchedImagesRef.current, resolved, img, MAX_PREFETCH_CACHE);
     }
     if (!liteMode && nextChapter && pageIdx >= Math.max(0, pages.length - Math.max(2, ahead))) {
       const cacheKey = `${nextChapter.id}|${server}`;
@@ -858,7 +1230,7 @@ export function MangaReaderView({
 
   // Screen Wake Lock with visibilitychange AND silent release-event re-acquisition
   useEffect(() => {
-    if (!settings.keepAwake) return;
+    if (!settings.keepAwake || sleepTimerExpired) return;
     let alive = true;
     type WakeSentinel = {
       release: () => Promise<void>;
@@ -894,7 +1266,51 @@ export function MangaReaderView({
       document.removeEventListener('visibilitychange', onVis);
       void sentinel?.release().catch(() => {});
     };
-  }, [settings.keepAwake]);
+  }, [settings.keepAwake, sleepTimerExpired]);
+
+  // Sleep timer: stops auto-scroll, releases wake lock, and dims screen gently when expired (or waits for chapter end)
+  useEffect(() => {
+    if (!sleepTimerEndAt || sleepTimerEndAt === -1) return;
+    const check = () => {
+      if (Date.now() >= sleepTimerEndAt) {
+        if (sleepWaitChapterEnd && pages.length > 0 && pageIdx < pages.length - 1) {
+          setSleepPendingChapterEnd(true);
+          setSleepTimerEndAt(-1);
+          flashToast('Sleep timer reached — will pause at end of chapter', true);
+          return;
+        }
+        setAutoScrolling(false);
+        setSleepTimerExpired(true);
+        setSleepTimerEndAt(null);
+        setSleepPendingChapterEnd(false);
+      }
+    };
+    check();
+    const id = window.setInterval(check, 5000);
+    return () => window.clearInterval(id);
+  }, [sleepTimerEndAt, sleepWaitChapterEnd, pages.length, pageIdx, flashToast]);
+
+  const handleSetSleepTimer = useCallback(
+    (minutes: number) => {
+      if (minutes === -1) {
+        setSleepTimerEndAt(-1);
+        setSleepPendingChapterEnd(true);
+        setSleepTimerExpired(false);
+        flashToast('Sleep timer: will pause at end of chapter', true);
+      } else if (minutes <= 0) {
+        setSleepTimerEndAt(null);
+        setSleepPendingChapterEnd(false);
+        setSleepTimerExpired(false);
+        flashToast('Sleep timer off', true);
+      } else {
+        setSleepTimerEndAt(Date.now() + minutes * 60000);
+        setSleepPendingChapterEnd(false);
+        setSleepTimerExpired(false);
+        flashToast(`Sleep timer set for ${minutes} min`, true);
+      }
+    },
+    [flashToast],
+  );
 
   // Screen Orientation Lock
   useEffect(() => {
@@ -940,10 +1356,18 @@ export function MangaReaderView({
       return;
     }
     idleTimerRef.current = window.setTimeout(() => {
+      if (!hasSeenReaderHint()) {
+        markReaderHintSeen();
+        idleTimerRef.current = window.setTimeout(() => {
+          setSeenOnboardingHint(true);
+          setShowUi(false);
+        }, 2200);
+        return;
+      }
       setShowUi(false);
     }, settings.autoHideDelayMs);
     return () => window.clearTimeout(idleTimerRef.current);
-  }, [showUi, settings.autoHideChrome, settings.autoHideDelayMs, activeSheet, pageAction, loading, loadFailed, pageIdx, chapterId]);
+  }, [showUi, settings.autoHideChrome, settings.autoHideDelayMs, activeSheet, pageAction, loading, loadFailed, pageIdx, chapterId, flashToast]);
 
   // Seamless next-chapter append in webtoon & continuous horizontal strip modes
   const appendNextChapterSegment = useCallback(async () => {
@@ -956,10 +1380,7 @@ export function MangaReaderView({
       return;
     }
     const lastSeg = segmentsRef.current[segmentsRef.current.length - 1];
-    const following = adjacentChapter(params.chapters, lastSeg.chapter.id, 'next', {
-      skipRead: settings.skipReadChapters,
-      readIds,
-    });
+    const following = adjacentChapter(params.chapters, lastSeg.chapter.id, 'next', chapterNavOpts);
     if (!following || segmentsRef.current.some((s) => s.chapter.id === following.id)) return;
     const myEpoch = navEpochRef.current;
     appendingNextRef.current = true;
@@ -1051,10 +1472,7 @@ export function MangaReaderView({
   const prependPrevChapterSegment = useCallback(async () => {
     if (prependingPrevRef.current || !isWebtoon || !settings.seamlessNextChapter || segmentsRef.current.length === 0) return;
     const firstSeg = segmentsRef.current[0];
-    const preceding = adjacentChapter(params.chapters, firstSeg.chapter.id, 'prev', {
-      skipRead: settings.skipReadChapters,
-      readIds,
-    });
+    const preceding = adjacentChapter(params.chapters, firstSeg.chapter.id, 'prev', chapterNavOpts);
     if (!preceding || segmentsRef.current.some((s) => s.chapter.id === preceding.id)) return;
     const myEpoch = navEpochRef.current;
     prependingPrevRef.current = true;
@@ -1124,7 +1542,10 @@ export function MangaReaderView({
       const delta = curTop - lastScrollTopRef.current;
       lastScrollTopRef.current = curTop;
 
-      if (!programmaticScrollRef.current && !autoScrolling && activeSheet === 'none' && pageAction == null) {
+      if (programmaticScrollRef.current) {
+        scrollDownAccumRef.current = 0;
+        scrollUpAccumRef.current = 0;
+      } else if (!autoScrolling && activeSheet === 'none' && pageAction == null) {
         const threshold = SCROLL_HIDE_THRESHOLD[settings.scrollHideSensitivity];
         if (delta > 0) {
           scrollDownAccumRef.current += delta;
@@ -1180,6 +1601,35 @@ export function MangaReaderView({
     prependPrevChapterSegment,
   ]);
 
+  const computeZoomStartPan = useCallback(
+    (targetZoom: number): { x: number; y: number } => {
+      if (targetZoom <= 1) return { x: 0, y: 0 };
+      const stage = scrollRef.current;
+      const content = stageContentRef.current;
+      const vw = stage?.clientWidth ?? viewportWidth;
+      const vh = stage?.clientHeight ?? viewportHeight;
+      const cw = content?.offsetWidth ?? vw;
+      const ch = content?.offsetHeight ?? vh;
+      const pos = settings.zoomStartPosition;
+      const xRatio =
+        pos === 'left'
+          ? 0
+          : pos === 'right'
+            ? 1
+            : pos === 'center'
+              ? 0.5
+              : isWebtoon
+                ? 0.5
+                : isRtl
+                  ? 1
+                  : 0;
+      const rawX = (0.5 - xRatio) * Math.max(vw, cw) * (targetZoom - 1);
+      const rawY = 0.5 * Math.max(vh, ch) * (targetZoom - 1);
+      return clampZoomPan(rawX, rawY, cw, ch, vw, vh, targetZoom);
+    },
+    [viewportWidth, viewportHeight, settings.zoomStartPosition, isWebtoon, isRtl],
+  );
+
   // Paged / Spread navigation
   const goToSpread = useCallback(
     (nextSpreadIdx: number, dir: 'next' | 'prev' | 'fade') => {
@@ -1216,11 +1666,36 @@ export function MangaReaderView({
       if (!settings.keepZoomAcrossPages) {
         setZoom(1);
         setPan({ x: 0, y: 0 });
+      } else if (zoom > 1) {
+        setPan(computeZoomStartPan(zoom));
       }
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     },
-    [spreads, prevChapter, nextChapter, chapterId, markChapterFinished, flashToast, navigateToChapter, settings.einkFlash, settings.keepZoomAcrossPages, triggerHaptic],
+    [spreads, prevChapter, nextChapter, chapterId, markChapterFinished, flashToast, navigateToChapter, settings.einkFlash, settings.keepZoomAcrossPages, triggerHaptic, zoom, computeZoomStartPan],
   );
+
+  const guidedActive = settings.guidedPanelZoom && !isWebtoon && !isHorizontalStrip && pages.length > 0;
+  const currentPageAspect = aspectMapRef.current.get(`${chapterId}:${pageIdx}`) ?? 0.7;
+  const activeDetectedPanels = detectedPanelsByKey[`${chapterId}:${pageIdx}`];
+  const guidedPanels = useMemo(
+    () => (guidedActive ? buildGuidedPanels(currentPageAspect, isRtl, activeDetectedPanels) : []),
+    [guidedActive, currentPageAspect, isRtl, activeDetectedPanels],
+  );
+
+  useEffect(() => {
+    if (!guidedActive || guidedPanels.length === 0) return;
+    const clampedIdx = Math.min(Math.max(0, guidedPanelIdx), guidedPanels.length - 1);
+    const panel = guidedPanels[clampedIdx];
+    const stageEl = scrollRef.current;
+    const contentEl = stageContentRef.current;
+    const stageW = stageEl?.clientWidth || viewportWidth;
+    const stageH = stageEl?.clientHeight || viewportHeight;
+    const contentW = contentEl?.clientWidth || stageW;
+    const contentH = contentEl?.clientHeight || stageH;
+    const next = computeGuidedPanelTransform(panel, stageW, stageH, contentW, contentH);
+    setZoom(next.zoom);
+    setPan(next.pan);
+  }, [guidedActive, guidedPanels, guidedPanelIdx, pageIdx, viewportWidth, viewportHeight]);
 
   // `delta = +1` always advances forward in reading order (page 1 -> page 2) in both RTL and LTR;
   // arrow keys map physical left/right to `isRtl ? +1 : -1` and `isRtl ? -1 : +1`.
@@ -1241,9 +1716,18 @@ export function MangaReaderView({
         el.scrollBy({ left: sign * Math.round(el.clientWidth * 0.85), behavior });
         return;
       }
+      if (guidedActive && guidedPanels.length > 1) {
+        const nextPanel = guidedPanelIdx + delta;
+        if (nextPanel >= 0 && nextPanel < guidedPanels.length) {
+          triggerHaptic(5);
+          setGuidedPanelIdx(nextPanel);
+          return;
+        }
+        setGuidedPanelIdx(delta > 0 ? 0 : guidedPanels.length - 1);
+      }
       goToSpread(safeSpreadIdx + delta, delta > 0 ? 'next' : 'prev');
     },
-    [isWebtoon, isHorizontalStrip, isRtl, goToSpread, safeSpreadIdx],
+    [isWebtoon, isHorizontalStrip, isRtl, guidedActive, guidedPanels.length, guidedPanelIdx, triggerHaptic, goToSpread, safeSpreadIdx],
   );
 
   const jumpToPage = useCallback(
@@ -1296,13 +1780,6 @@ export function MangaReaderView({
     const next = READING_MODE_ORDER[(idx + 1) % READING_MODE_ORDER.length];
     updateSettings({ readingMode: next });
   }, [settings.readingMode, updateSettings]);
-
-  const cycleFitMode = useCallback(() => {
-    const idx = FIT_ORDER.indexOf(settings.fitMode);
-    const next = FIT_ORDER[(idx + 1) % FIT_ORDER.length];
-    updateSettings({ fitMode: next });
-    flashToast(FIT_SHORT_LABEL[next], true);
-  }, [settings.fitMode, updateSettings, flashToast]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1358,6 +1835,18 @@ export function MangaReaderView({
         case 'PageUp':
           e.preventDefault();
           stepPage(-1);
+          break;
+        case 'AudioVolumeDown':
+        case 'VolumeDown':
+          if (!settings.volumeKeys) break;
+          e.preventDefault();
+          stepPage(settings.invertVolumeKeys ? -1 : 1);
+          break;
+        case 'AudioVolumeUp':
+        case 'VolumeUp':
+          if (!settings.volumeKeys) break;
+          e.preventDefault();
+          stepPage(settings.invertVolumeKeys ? 1 : -1);
           break;
         case 'ArrowDown':
         case 'j':
@@ -1418,12 +1907,17 @@ export function MangaReaderView({
           break;
         case '+':
         case '=':
-          setZoom((z) => Math.min(3, Number((z + 0.5).toFixed(2))));
+          setZoom((z) => {
+            const next = Math.min(3, Number((z + 0.5).toFixed(2)));
+            if (z <= 1 && next > 1) setPan(computeZoomStartPan(next));
+            return next;
+          });
           break;
         case '-':
           setZoom((z) => {
-            const next = Math.max(1, Number((z - 0.5).toFixed(2)));
-            if (next === 1) setPan({ x: 0, y: 0 });
+            const minZoom = settings.disableZoomOut ? 1 : 0.75;
+            const next = Math.max(minZoom, Number((z - 0.25).toFixed(2)));
+            if (next <= 1) setPan({ x: 0, y: 0 });
             return next;
           });
           break;
@@ -1453,6 +1947,8 @@ export function MangaReaderView({
     chapterId,
     pageIdx,
     pages.length,
+    settings.volumeKeys,
+    settings.invertVolumeKeys,
   ]);
 
   // Auto-advance timer for paged & spread modes (reuses autoScrolling toggle)
@@ -1460,9 +1956,6 @@ export function MangaReaderView({
     if (!autoScrolling || isWebtoon || isHorizontalStrip || activeSheet !== 'none' || pageAction != null || loading) return;
     const intervalMs = Math.max(2000, Math.round(7500 / settings.autoScrollSpeed));
     const timer = window.setInterval(() => {
-      // Auto-advance is a reading action: a hidden tab must not turn pages,
-      // save progress, or roll into the next chapter while the phone is away.
-      if (document.visibilityState !== 'visible') return;
       stepPage(1);
     }, intervalMs);
     return () => window.clearInterval(timer);
@@ -1581,8 +2074,8 @@ export function MangaReaderView({
       return;
     }
 
-    // Instant 0ms side-zone page turns in paged/spread modes (no 265ms wait on every page flip!)
-    if (zoom === 1 && !isWebtoon && !isHorizontalStrip) {
+    // Instant 0ms side-zone page/panel turns in paged/spread modes (no 265ms wait on every turn!)
+    if ((zoom === 1 || guidedActive) && !isWebtoon && !isHorizontalStrip) {
       const action = resolveTapZoneAction(xRatio, yRatio, settings.tapZoneLayout, isRtl, settings.invertTapZones);
       if (action === 'next' || action === 'prev') {
         lastTapRef.current = null;
@@ -1653,9 +2146,10 @@ export function MangaReaderView({
     if (e.touches.length === 2 && pinchStartRef.current) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const minScale = settings.disableZoomOut ? 1 : 0.75;
       const nextScale = Math.min(
         3,
-        Math.max(1, pinchStartRef.current.scale * (Math.hypot(dx, dy) / Math.max(1, pinchStartRef.current.dist))),
+        Math.max(minScale, pinchStartRef.current.scale * (Math.hypot(dx, dy) / Math.max(1, pinchStartRef.current.dist))),
       );
       const rounded = Number(nextScale.toFixed(2));
       setZoom(rounded);
@@ -1763,14 +2257,23 @@ export function MangaReaderView({
   const handlePageDimensions = useCallback(
     (segChapterId: string, idx: number, w: number, h: number) => {
       const ratio = w / Math.max(1, h);
-      setBoundedCache(aspectMapRef.current, `${segChapterId}:${idx}`, ratio, MAX_ASPECT_CACHE);
+      setLruEntry(aspectMapRef.current, `${segChapterId}:${idx}`, ratio, MAX_ASPECT_CACHE);
 
       if (segChapterId === chapterId) {
         chapterAspectsRef.current[idx] = ratio;
         const measured = Object.values(chapterAspectsRef.current);
-        if (measured.length >= 2 && measured.length <= 5) {
+        if (measured.length >= 1 && measured.length <= 5) {
           const sorted = [...measured].sort((a, b) => a - b);
-          setLiveMedianAspect(sorted[Math.floor(sorted.length / 2)]);
+          const median = sorted[Math.floor(sorted.length / 2)];
+          setLiveMedianAspect(median);
+          if (median > 0 && median < 0.56) {
+            savePersistedSeriesFormat(params.slug, 'webtoon');
+            setPersistedFormat('webtoon');
+          } else if (measured.length >= 2 && !loadPersistedSeriesFormat(params.slug)) {
+            const fmt = params.seriesFormat ?? 'manga';
+            savePersistedSeriesFormat(params.slug, fmt);
+            setPersistedFormat(fmt);
+          }
         }
         window.clearTimeout(aspectSaveTimerRef.current);
         aspectSaveTimerRef.current = window.setTimeout(() => {
@@ -1846,7 +2349,12 @@ export function MangaReaderView({
     return parts.length > 0 ? parts.join(' ') : undefined;
   }, [settings.warmTint, settings.contrast, settings.grayscale, settings.invertColors]);
 
-  const isCompactPhone = viewportWidth < 400;
+  const isCompactPhone = viewportWidth < 480;
+  const coarsePointer = useMemo(
+    () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : true),
+    [],
+  );
+  const isTabletOrWide = viewportWidth >= 768;
   const showZoneGuide = !isWebtoon && (showTapHint || (settings.showTapZonesOverlay && settings.tapZoneLayout !== 'disabled'));
   const currentBookmarked = pages.length > 0 && isPageBookmarked(chapterId, pageIdx);
 
@@ -1860,11 +2368,14 @@ export function MangaReaderView({
         inset: 0,
         zIndex: 90,
         background: settings.background === 'auto' && adaptiveBgColor ? adaptiveBgColor : bgTheme.bg,
-        transition: motionReduced() ? 'none' : 'background 260ms ease',
+        transition: motionReduced() ? 'none' : 'background 260ms ease, padding 180ms ease',
         color: bgTheme.fg,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        paddingTop: showUi ? hudInset.top : 0,
+        paddingBottom: showUi ? hudInset.bottom : 0,
+        boxSizing: 'border-box',
       }}
     >
       {/* Screen-reader live page announcement */}
@@ -1982,7 +2493,7 @@ export function MangaReaderView({
                     setReloadNonce((n) => n + 1);
                   }}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '0 14px',
                     borderRadius: 99,
                     background: server === srv.value ? KatanaColors.accent : KatanaColors.surfaceAlt,
@@ -2050,7 +2561,7 @@ export function MangaReaderView({
                     setReloadNonce((n) => n + 1);
                   }}
                   style={{
-                    minHeight: 40,
+                    minHeight: 44,
                     padding: '0 14px',
                     borderRadius: 99,
                     background: server === srv.value ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
@@ -2069,8 +2580,11 @@ export function MangaReaderView({
           <div
             ref={stageContentRef}
             style={{
-              width: zoom > 1 ? `${Math.round(zoom * 100)}%` : '100%',
+              width: zoom !== 1 ? `${Math.round(zoom * 100)}%` : '100%',
               maxWidth: zoom > 1 ? 'none' : containerMaxWidth,
+              paddingLeft: settings.webtoonSidePadding > 0 ? `${settings.webtoonSidePadding}%` : undefined,
+              paddingRight: settings.webtoonSidePadding > 0 ? `${settings.webtoonSidePadding}%` : undefined,
+              boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
               gap: settings.pageGap,
@@ -2182,10 +2696,7 @@ export function MangaReaderView({
                 <div style={{ ...KatanaType.body, color: KatanaColors.accentSoft }}>Loading next chapter…</div>
               ) : (() => {
                   const lastSegCh = segments[segments.length - 1]?.chapter ?? activeChapter;
-                  const upcoming = adjacentChapter(params.chapters, lastSegCh.id, 'next', {
-                    skipRead: settings.skipReadChapters,
-                    readIds,
-                  });
+                  const upcoming = adjacentChapter(params.chapters, lastSegCh.id, 'next', chapterNavOpts);
                   return upcoming ? (
                     <button
                       type="button"
@@ -2350,9 +2861,13 @@ export function MangaReaderView({
                   rotateWide={settings.rotateWidePages}
                   eager
                   cropBorders={settings.cropBorders}
+                  detectPanels={settings.guidedPanelZoom}
                   knownAspect={aspectMapRef.current.get(rawKey)}
                   reloadToken={pageReloadTokens[rawKey] ?? 0}
                   onDimensions={(w, h) => handlePageDimensions(chapterId, slot.pageIndex, w, h)}
+                  onPanelsDetected={(panels) =>
+                    setDetectedPanelsByKey((prev) => (prev[rawKey] ? prev : { ...prev, [rawKey]: panels }))
+                  }
                   onLongPress={(resolvedUrl, num) => {
                     lastSwipeAtRef.current = Date.now();
                     setPageAction({ url: resolvedUrl, pageNumber: num, key: rawKey });
@@ -2438,45 +2953,48 @@ export function MangaReaderView({
         >
           {settings.tapZoneLayout === 'kindle' ? (
             <>
-              <div style={{ gridColumn: '1 / -1', background: 'rgba(9, 6, 12, 0.45)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ gridColumn: '1 / -1', background: 'rgba(11, 13, 18, 0.5)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 HUD Menu
               </div>
-              <div style={{ background: isRtl ? 'rgba(255, 46, 126, 0.2)' : 'rgba(123, 97, 255, 0.2)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(245, 158, 11, 0.22)' : 'rgba(96, 165, 250, 0.22)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: isRtl ? 'rgba(123, 97, 255, 0.2)' : 'rgba(255, 46, 126, 0.2)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(96, 165, 250, 0.22)' : 'rgba(245, 158, 11, 0.22)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Prev' : 'Next'}
               </div>
             </>
           ) : settings.tapZoneLayout === 'l-shaped' ? (
             <>
-              <div style={{ gridColumn: '1 / -1', background: 'rgba(123, 97, 255, 0.2)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ gridColumn: '1 / -1', background: 'rgba(96, 165, 250, 0.22)', borderBottom: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: isRtl ? 'rgba(255, 46, 126, 0.2)' : 'rgba(123, 97, 255, 0.2)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(245, 158, 11, 0.22)' : 'rgba(96, 165, 250, 0.22)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: 'rgba(9, 6, 12, 0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: 'rgba(11, 13, 18, 0.5)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 HUD
               </div>
-              <div style={{ background: isRtl ? 'rgba(123, 97, 255, 0.2)' : 'rgba(255, 46, 126, 0.2)', borderLeft: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: isRtl ? 'rgba(96, 165, 250, 0.22)' : 'rgba(245, 158, 11, 0.22)', borderLeft: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Prev' : 'Next'}
               </div>
-              <div style={{ gridColumn: '1 / -1', background: 'rgba(255, 46, 126, 0.2)', borderTop: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ gridColumn: '1 / -1', background: 'rgba(245, 158, 11, 0.22)', borderTop: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {settings.invertTapZones ? 'Prev' : 'Next'}
               </div>
             </>
           ) : (
             <>
-              <div style={{ background: 'rgba(255, 46, 126, 0.2)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
+              <div style={{ background: 'rgba(245, 158, 11, 0.22)', borderRight: '1px dashed rgba(255,255,255,0.45)', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13 }}>
                 {isRtl !== settings.invertTapZones ? 'Next' : 'Prev'}
               </div>
-              <div style={{ background: showTapHint ? 'rgba(9, 6, 12, 0.45)' : 'transparent', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13, textAlign: 'center', padding: 12 }}>
+              <div style={{ background: showTapHint ? 'rgba(11, 13, 18, 0.5)' : 'transparent', display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 700, fontSize: 13, textAlign: 'center', padding: 12 }}>
                 {showTapHint ? (
                   <div>
                     <div>Tap Center for Menu</div>
                     <div style={{ fontSize: 11.5, fontWeight: 500, opacity: 0.85, marginTop: 6 }}>
                       Double-tap to zoom • Swipe to turn
+                      {viewportWidth >= 720 && viewportWidth <= viewportHeight && !isDouble
+                        ? ' • Rotate or tap Spread for 2-page view'
+                        : ''}
                     </div>
                   </div>
                 ) : (
@@ -2491,29 +3009,69 @@ export function MangaReaderView({
         </div>
       )}
 
-      {/* Vertical long-strip seekbar (left or right edge) */}
-      {isWebtoon && showUi && settings.verticalSeekbar !== 'off' && pages.length > 1 && !loading && (
+      {/* Touch fast-scroll scrubber for long-strip reading (reachable even mid-scroll, with chapter tick marks) */}
+      {isWebtoon && settings.verticalSeekbar !== 'off' && showUi && pages.length > 1 && !loading && (
         <div
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            const track = e.currentTarget.getBoundingClientRect();
+            const innerTop = track.top + 14;
+            const innerHeight = Math.max(1, track.height - 28);
+            const ratio = Math.min(1, Math.max(0, (e.clientY - innerTop) / innerHeight));
+            const targetIdx = Math.min(pages.length - 1, Math.max(0, Math.round(ratio * (pages.length - 1))));
+            jumpToPage(targetIdx);
+          }}
           style={{
             position: 'fixed',
             top: 'calc(76px + env(safe-area-inset-top))',
             bottom: 'calc(126px + env(safe-area-inset-bottom))',
             ...(settings.verticalSeekbar === 'left'
-              ? { left: 'max(6px, env(safe-area-inset-left))' }
-              : { right: 'max(6px, env(safe-area-inset-right))' }),
+              ? { left: 'max(4px, env(safe-area-inset-left))' }
+              : { right: 'max(4px, env(safe-area-inset-right))' }),
             zIndex: 97,
-            width: 44,
+            width: viewportWidth < 600 ? 32 : 38,
             borderRadius: 99,
-            background: allowBlur ? 'rgba(9, 6, 12, 0.58)' : 'rgba(9, 6, 12, 0.88)',
-            border: `1px solid ${KatanaColors.border}`,
+            background: allowBlur ? 'rgba(11, 13, 18, 0.56)' : 'rgba(11, 13, 18, 0.82)',
+            border: `1px solid ${showUi ? 'rgba(245, 158, 11, 0.36)' : 'rgba(255, 255, 255, 0.14)'}`,
             ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '10px 0',
+            opacity: showUi ? 1 : 0.48,
+            transition: 'opacity 180ms ease, border-color 180ms ease',
+            touchAction: 'none',
           }}
         >
+          {/* Chapter tick marks along the fast-scroll scrubber track */}
+          {segments.length > 1 &&
+            (() => {
+              const totalChainedPages = segments.reduce((sum, s) => sum + s.pages.length, 0);
+              let accum = 0;
+              return segments.slice(0, -1).map((seg) => {
+                accum += seg.pages.length;
+                const pct = totalChainedPages > 0 ? Math.min(96, Math.max(4, Math.round((accum / totalChainedPages) * 100))) : 50;
+                return (
+                  <span
+                    key={`tick-${seg.chapter.id}`}
+                    title={`Chapter boundary: ${chapterDisplayTitle(seg.chapter)}`}
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: `${pct}%`,
+                      left: 5,
+                      right: 5,
+                      height: 2,
+                      borderRadius: 2,
+                      background: KatanaColors.accent,
+                      opacity: 0.85,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                );
+              });
+            })()}
           <input
             type="range"
             className="manga-range manga-range--vertical"
@@ -2526,6 +3084,19 @@ export function MangaReaderView({
               writingMode: 'vertical-lr',
             }}
           />
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              fontSize: 9.5,
+              fontWeight: 800,
+              color: KatanaColors.accentSoft,
+              pointerEvents: 'none',
+            }}
+          >
+            {pageIdx + 1}
+          </span>
         </div>
       )}
 
@@ -2634,12 +3205,12 @@ export function MangaReaderView({
           style={{
             position: 'fixed',
             left: '50%',
-            top: showUi ? 'calc(68px + env(safe-area-inset-top))' : 'max(18px, env(safe-area-inset-top))',
+            bottom: showUi ? hudInset.bottom + 10 : 'max(18px, env(safe-area-inset-bottom))',
             transform: 'translateX(-50%)',
             zIndex: 100,
             padding: '6px 14px',
             borderRadius: 99,
-            background: 'rgba(14, 9, 18, 0.9)',
+            background: 'rgba(11, 13, 18, 0.94)',
             border: `1px solid ${KatanaColors.borderStrong}`,
             color: KatanaColors.text,
             fontSize: 12.5,
@@ -2656,32 +3227,50 @@ export function MangaReaderView({
         </div>
       )}
 
-      {/* Persistent unobtrusive page indicator pill when HUD is hidden */}
-      {!showUi && settings.showPageIndicator && pages.length > 0 && !loading && (
-        <div
-          aria-hidden
+      {/* Persistent unobtrusive interactive control & page indicator pill when HUD is hidden */}
+      {!showUi && pages.length > 0 && !loading && (
+        <button
+          type="button"
+          className="bare-button player-focusable"
+          aria-label={`Show reader controls (${displayPageLabel})`}
+          title="Show reader controls"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowUi(true);
+          }}
           style={{
             position: 'fixed',
             right: 'max(12px, env(safe-area-inset-right))',
             bottom: 'max(12px, env(safe-area-inset-bottom))',
             zIndex: 95,
-            padding: '4px 10px',
+            minHeight: 44,
+            minWidth: 44,
+            padding: '5px 14px',
             borderRadius: 99,
-            background: allowBlur ? 'rgba(9, 6, 12, 0.72)' : 'rgba(9, 6, 12, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: 'rgba(255, 245, 248, 0.85)',
+            background: allowBlur ? 'rgba(11, 13, 18, 0.72)' : 'rgba(11, 13, 18, 0.9)',
+            border: `1px solid ${withAlpha(KatanaColors.accent, 0.28)}`,
+            color: KatanaColors.text,
+            opacity: pillQuiet ? 0 : pageIdx === pages.length - 1 ? 0.62 : 0.92,
+            pointerEvents: pillQuiet ? 'none' : 'auto',
+            transition: motionReduced() ? 'none' : 'opacity 260ms ease',
             fontSize: 11.5,
-            fontWeight: 600,
-            pointerEvents: 'none',
-            ...(allowBlur ? { backdropFilter: 'blur(6px)' } : {}),
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.45)',
+            ...(allowBlur ? { backdropFilter: 'blur(8px)' } : {}),
           }}
         >
-          {displayPageLabel}
-        </div>
+          <Icon name="tune" size={14} color={KatanaColors.accentSoft} />
+          <span>{settings.showPageIndicator ? `${displayPageLabel} · Controls` : 'Controls'}</span>
+        </button>
       )}
 
       {/* Compact translucent top HUD bar */}
       <div
+        ref={hudTopRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
@@ -2693,7 +3282,7 @@ export function MangaReaderView({
           paddingLeft: 'max(8px, env(safe-area-inset-left))',
           paddingRight: 'max(8px, env(safe-area-inset-right))',
           paddingBottom: 8,
-          background: allowBlur ? 'rgba(9, 6, 12, 0.78)' : 'rgba(9, 6, 12, 0.94)',
+          background: allowBlur ? 'rgba(11, 13, 18, 0.82)' : 'rgba(11, 13, 18, 0.96)',
           borderBottom: `1px solid ${KatanaColors.border}`,
           ...(allowBlur ? { backdropFilter: 'blur(12px)' } : {}),
           display: 'flex',
@@ -2731,18 +3320,36 @@ export function MangaReaderView({
             flex: 1,
             minWidth: 0,
             minHeight: 44,
-            padding: '2px 6px',
+            padding: '2px 4px',
             borderRadius: 10,
             textAlign: 'left',
           }}
         >
-          <div className="ellipsis" style={{ ...KatanaType.title, fontSize: 14 }}>
-            {params.mangaTitle}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div className="ellipsis" style={{ ...KatanaType.title, fontSize: isCompactPhone ? 13.5 : 14 }}>
+              {params.mangaTitle}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-            <span className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.accentSoft }}>
+            <span className="ellipsis" style={{ ...KatanaType.small, lineHeight: 1.4, paddingBottom: 1, color: KatanaColors.accentSoft }}>
               {chapterDisplayTitle(activeChapter)}
             </span>
+            {incognitoSession && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  background: KatanaColors.surfaceGlow,
+                  border: `1px solid ${KatanaColors.accent}`,
+                  color: KatanaColors.accentSoft,
+                  flexShrink: 0,
+                }}
+              >
+                Incognito
+              </span>
+            )}
             <Icon name="expand_more" size={16} color={KatanaColors.accentSoft} />
           </div>
         </button>
@@ -2750,28 +3357,66 @@ export function MangaReaderView({
         <button
           type="button"
           className="bare-button player-focusable"
-          aria-label={`Reading mode: ${modeMeta.label}. Tap to switch`}
+          aria-label={`Reading mode: ${resolvedModeAriaLabel}. Tap to switch`}
+          title={`Reading mode: ${resolvedModeAriaLabel}`}
           onClick={cycleMode}
           style={{
-            minHeight: 40,
-            padding: '0 10px',
+            minHeight: 44,
+            padding: isCompactPhone ? '0 8px' : '0 10px',
             borderRadius: 10,
             background: KatanaColors.surfaceAlt,
             border: `1px solid ${KatanaColors.border}`,
             color: KatanaColors.accentSoft,
-            fontSize: 12,
+            fontSize: isCompactPhone ? 11.5 : 12,
             fontWeight: 600,
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
+            gap: 4,
             flexShrink: 0,
           }}
         >
-          <Icon name={modeMeta.icon} size={17} color={KatanaColors.accentSoft} />
-          <span>{modeMeta.shortLabel}</span>
+          <Icon name={effectiveMeta.icon} size={16} color={KatanaColors.accentSoft} />
+          <span>{isCompactPhone ? effectiveMeta.shortLabel : resolvedModeShortLabel}</span>
         </button>
 
-        {canFullscreen && (
+        {isTabletOrWide && !isWebtoon && (
+          <button
+            type="button"
+            className="bare-button player-focusable"
+            aria-label={isDouble ? 'Switch to single page view' : 'Switch to 2-page spread view'}
+            aria-pressed={isDouble}
+            title={isDouble ? '2-Page Spread active (tap for 1-Page)' : 'Enable 2-Page Spread on tablet'}
+            onClick={() => {
+              const nextMode = isDouble
+                ? isRtl
+                  ? 'paged-rtl'
+                  : 'paged-ltr'
+                : isRtl
+                  ? 'double-rtl'
+                  : 'double-ltr';
+              updateSettings({ readingMode: nextMode });
+            }}
+            style={{
+              minHeight: 44,
+              padding: '0 10px',
+              borderRadius: 10,
+              background: isDouble ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
+              border: `1px solid ${isDouble ? KatanaColors.accent : KatanaColors.border}`,
+              color: isDouble ? KatanaColors.accentSoft : KatanaColors.textMuted,
+              fontSize: 12,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="auto_stories" size={16} color={isDouble ? KatanaColors.accent : KatanaColors.textMuted} />
+            <span>{isDouble ? '2P Spread' : '2P'}</span>
+          </button>
+        )}
+
+        {canFullscreen && !isCompactPhone && (
           <button
             type="button"
             className="bare-button player-focusable"
@@ -2814,6 +3459,7 @@ export function MangaReaderView({
 
       {/* Compact translucent bottom HUD bar */}
       <div
+        ref={hudBottomRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
@@ -2825,7 +3471,7 @@ export function MangaReaderView({
           paddingLeft: 'max(12px, env(safe-area-inset-left))',
           paddingRight: 'max(12px, env(safe-area-inset-right))',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
-          background: allowBlur ? 'rgba(9, 6, 12, 0.82)' : 'rgba(9, 6, 12, 0.95)',
+          background: allowBlur ? 'rgba(11, 13, 18, 0.88)' : 'rgba(11, 13, 18, 0.97)',
           borderTop: `1px solid ${KatanaColors.border}`,
           ...(allowBlur ? { backdropFilter: 'blur(12px)' } : {}),
           display: 'flex',
@@ -2837,6 +3483,145 @@ export function MangaReaderView({
           transition: motionReduced() ? 'none' : 'opacity 180ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 760,
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+        {evictedOfflineState && evictedOfflineState.missingPages > 0 && (
+          <div
+            style={{
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: `1px solid ${KatanaColors.accent}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, fontWeight: 600 }}>
+              <Icon name="warning_amber" size={14} color={KatanaColors.accent} />{' '}
+              This chapter is missing {evictedOfflineState.missingPages} of {evictedOfflineState.totalPages} offline
+              pages
+            </span>
+            <button
+              type="button"
+              className="bare-button player-focusable"
+              disabled={repairingOffline}
+              onClick={async () => {
+                if (repairingOffline) return;
+                setRepairingOffline(true);
+                try {
+                  await offlineMedia.repairMangaChapter(evictedOfflineState.itemId, proxyKatanaImageUrl);
+                  const check = await offlineMedia.verifyMangaChapterCache(evictedOfflineState.itemId);
+                  if (check.isComplete) {
+                    setEvictedOfflineState(null);
+                    prefetchedChapterRef.current.delete(`${chapterId}|${server}`);
+                    setReloadNonce((n) => n + 1);
+                  } else {
+                    setEvictedOfflineState({
+                      itemId: evictedOfflineState.itemId,
+                      missingPages: check.missingPages,
+                      totalPages: check.totalPages,
+                    });
+                  }
+                } finally {
+                  setRepairingOffline(false);
+                }
+              }}
+              style={{
+                minHeight: 30,
+                padding: '3px 10px',
+                borderRadius: 6,
+                background: KatanaColors.accent,
+                color: KatanaColors.accentInk,
+                fontSize: 11.5,
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Icon name="build" size={13} color={KatanaColors.accentInk} />
+              <span>{repairingOffline ? 'Downloading…' : 'Download the missing pages'}</span>
+            </button>
+          </div>
+        )}
+        {!seenOnboardingHint && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 760,
+              margin: '0 auto',
+              padding: '5px 10px',
+              borderRadius: 8,
+              background: KatanaColors.surfaceAlt,
+              border: `1px solid ${KatanaColors.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 6,
+            }}
+          >
+            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
+              {isWebtoon
+                ? `${coarsePointer ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · Scroll to keep reading`
+                : `${coarsePointer ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · ${
+                    coarsePointer ? 'Tap or swipe' : 'Click or drag'
+                  } the left and right edges to turn pages`}
+            </span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {!isWebtoon && (
+                <button
+                  type="button"
+                  className="bare-button player-focusable"
+                  onClick={() => setShowTapHint((v) => !v)}
+                  style={{
+                    minHeight: 44,
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    background: KatanaColors.surface,
+                    border: `1px solid ${KatanaColors.borderStrong}`,
+                    color: KatanaColors.accentSoft,
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                  }}
+                >
+                  {showTapHint ? 'Hide Zones' : 'Touch Zones'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="bare-button player-focusable"
+                aria-label="Got it, hide this tip"
+                onClick={() => {
+                  markReaderHintSeen();
+                  setSeenOnboardingHint(true);
+                }}
+                style={{
+                  minHeight: 44,
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  background: 'transparent',
+                  color: KatanaColors.textLight,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
         {pages.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
@@ -2846,7 +3631,7 @@ export function MangaReaderView({
               onClick={() => setActiveSheet('jump')}
               style={{
                 minWidth: 62,
-                minHeight: 34,
+                minHeight: 44,
                 padding: '0 8px',
                 borderRadius: 8,
                 background: KatanaColors.surfaceAlt,
@@ -2872,6 +3657,27 @@ export function MangaReaderView({
                 direction: isRtl ? 'rtl' : 'ltr',
               }}
             />
+            {!incognitoSession && currentUser && (
+              <span
+                title="Exact page and scroll position synced across phone and tablet"
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: 6,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                  color: KatanaColors.textMuted,
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
+              >
+                <Icon name="cloud_done" size={11} color={KatanaColors.accentSoft} />
+                <span>Synced</span>
+              </span>
+            )}
             {isRtl && (
               <span
                 style={{
@@ -2884,7 +3690,7 @@ export function MangaReaderView({
                   color: KatanaColors.accentSoft,
                 }}
               >
-                RTL
+                Right to left
               </span>
             )}
           </div>
@@ -2906,7 +3712,9 @@ export function MangaReaderView({
             aria-label="Previous chapter"
             onClick={() => prevChapter && navigateToChapter(prevChapter.id, { warnGap: true })}
             style={{
-              minHeight: 42,
+              minHeight: 44,
+              minWidth: 48,
+              justifyContent: 'center',
               padding: '0 10px',
               borderRadius: 10,
               background: KatanaColors.surfaceAlt,
@@ -2925,38 +3733,15 @@ export function MangaReaderView({
             {!isCompactPhone && <span>Prev</span>}
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: isCompactPhone ? 4 : 6 }}>
-            <button
-              type="button"
-              className="bare-button player-focusable"
-              aria-label={`Image scaling: ${FIT_SHORT_LABEL[settings.fitMode]}. Tap to switch`}
-              onClick={cycleFitMode}
-              style={{
-                minHeight: 40,
-                padding: isCompactPhone ? '0 8px' : '0 9px',
-                borderRadius: 10,
-                background: KatanaColors.surfaceAlt,
-                border: `1px solid ${KatanaColors.border}`,
-                color: KatanaColors.textMuted,
-                fontSize: 11.5,
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Icon name="fit_screen" size={16} color={KatanaColors.textMuted} />
-              {!isCompactPhone && <span>{FIT_SHORT_LABEL[settings.fitMode]}</span>}
-            </button>
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: isCompactPhone ? 8 : 6 }}>
             <button
               type="button"
               className="bare-button player-focusable"
               aria-label={autoScrolling ? 'Pause auto-read' : 'Start auto-read'}
               onClick={() => setAutoScrolling((a) => !a)}
               style={{
-                width: 42,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: 10,
                 background: autoScrolling ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${autoScrolling ? KatanaColors.accent : KatanaColors.border}`,
@@ -2977,8 +3762,8 @@ export function MangaReaderView({
               aria-label={currentBookmarked ? 'Remove page bookmark' : 'Bookmark current page'}
               onClick={() => pages.length > 0 && togglePageBookmark(chapterId, pageIdx)}
               style={{
-                width: 42,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: 10,
                 background: currentBookmarked ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${currentBookmarked ? KatanaColors.accent : KatanaColors.border}`,
@@ -2999,8 +3784,8 @@ export function MangaReaderView({
               aria-label="Quick brightness and display"
               onClick={() => setActiveSheet('quick-display')}
               style={{
-                width: 42,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: 10,
                 background: activeSheet === 'quick-display' ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
                 border: `1px solid ${activeSheet === 'quick-display' ? KatanaColors.accent : KatanaColors.border}`,
@@ -3011,23 +3796,25 @@ export function MangaReaderView({
               <Icon name="brightness_6" size={19} color={KatanaColors.textMuted} />
             </button>
 
-            <button
-              type="button"
-              className="bare-button player-focusable"
-              aria-label="Open chapters and bookmarks"
-              onClick={() => setActiveSheet('chapters')}
-              style={{
-                width: 42,
-                height: 40,
-                borderRadius: 10,
-                background: KatanaColors.surfaceAlt,
-                border: `1px solid ${KatanaColors.border}`,
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Icon name="format_list_numbered" size={19} color={KatanaColors.textMuted} />
-            </button>
+            {!isCompactPhone && (
+              <button
+                type="button"
+                className="bare-button player-focusable"
+                aria-label="Chapter list"
+                onClick={() => setActiveSheet('chapters')}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <Icon name="format_list_numbered" size={19} color={KatanaColors.textMuted} />
+              </button>
+            )}
           </div>
 
           <button
@@ -3037,7 +3824,9 @@ export function MangaReaderView({
             aria-label="Next chapter"
             onClick={() => nextChapter && navigateToChapter(nextChapter.id, { markPrevFinished: true, warnGap: true })}
             style={{
-              minHeight: 42,
+              minHeight: 44,
+              minWidth: 48,
+              justifyContent: 'center',
               padding: '0 10px',
               borderRadius: 10,
               background: nextChapter ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
@@ -3056,6 +3845,7 @@ export function MangaReaderView({
             <Icon name={isRtl ? 'skip_previous' : 'skip_next'} size={18} color={nextChapter ? KatanaColors.accentSoft : KatanaColors.textLight} />
           </button>
         </div>
+        </div>
       </div>
 
       {/* Sheets & dialogs */}
@@ -3073,8 +3863,22 @@ export function MangaReaderView({
           onToggleChapterRead={(id) => {
             setReadIds((prev) => {
               const next = new Set(prev);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
+              const willRead = !next.has(id);
+              if (willRead) next.add(id);
+              else next.delete(id);
+              if (currentUser && !incognitoSession) {
+                void markKatanaChaptersRead(
+                  {
+                    slug: params.slug,
+                    title: params.mangaTitle,
+                    coverUrl: params.coverUrl ?? '',
+                    status: params.mangaStatus ?? 'ongoing',
+                  },
+                  currentUser,
+                  [id],
+                  willRead,
+                );
+              }
               return next;
             });
           }}
@@ -3086,6 +3890,7 @@ export function MangaReaderView({
             }
           }}
           onRemoveBookmark={(bm) => togglePageBookmark(bm.chapterId, bm.pageIdx)}
+          onUpdateBookmarkNote={updatePageBookmarkNote}
           onClose={() => setActiveSheet('none')}
         />
       )}
@@ -3099,11 +3904,80 @@ export function MangaReaderView({
         />
       )}
 
+      {guidedActive && guidedPanels.length > 1 && (
+        <button
+          type="button"
+          className="bare-button"
+          aria-label={`Guided panel ${guidedPanelIdx + 1} of ${guidedPanels.length}. Tap to exit guided panel zoom.`}
+          onClick={() => updateSettings({ guidedPanelZoom: false })}
+          style={{
+            position: 'fixed',
+            bottom: showUi ? 124 : 18,
+            left: 16,
+            zIndex: 92,
+            padding: '5px 11px',
+            borderRadius: 99,
+            background: 'rgba(12, 13, 19, 0.84)',
+            border: `1px solid ${KatanaColors.accent}`,
+            color: KatanaColors.accentSoft,
+            fontSize: 11.5,
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <Icon name="center_focus_strong" size={14} color={KatanaColors.accent} />
+          <span>Panel {Math.min(guidedPanelIdx + 1, guidedPanels.length)}/{guidedPanels.length}</span>
+        </button>
+      )}
+
+      {sleepTimerExpired && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sleep timer ended"
+          onClick={() => setSleepTimerExpired(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 145,
+            background: 'rgba(6, 7, 11, 0.92)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            padding: 24,
+            textAlign: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <Icon name="bedtime" size={38} color={KatanaColors.accent} />
+          <div style={{ ...KatanaType.title, fontSize: 20 }}>Sleep timer ended</div>
+          <div style={{ ...KatanaType.body, maxWidth: 320 }}>
+            Auto-scroll paused and screen wake lock released. Tap anywhere to keep reading.
+          </div>
+        </div>
+      )}
+
       {activeSheet === 'settings' && (
         <ReaderSettingsSheet
           settings={settings}
           hasSeriesOverride={seriesOverride != null}
           server={server}
+          sleepTimerEndAt={sleepTimerEndAt}
+          sleepWaitChapterEnd={sleepWaitChapterEnd}
+          incognitoSession={incognitoSession}
+          onSetSleepTimer={handleSetSleepTimer}
+          onToggleSleepWaitChapterEnd={(enabled) => {
+            setSleepWaitChapterEnd(enabled);
+            flashToast(enabled ? 'Sleep timer will finish current chapter first' : 'Sleep timer pauses immediately when time ends', true);
+          }}
+          onToggleIncognitoSession={(enabled) => {
+            setKatanaIncognitoSession(enabled);
+            flashToast(enabled ? 'Incognito reading session enabled' : 'Incognito reading session off', true);
+          }}
           onUpdateSettings={updateSettings}
           onToggleSeriesOverride={toggleSeriesOverride}
           onChangeServer={(nextServer) => {
@@ -3132,6 +4006,14 @@ export function MangaReaderView({
           imageUrl={pageAction.url}
           isBookmarked={isPageBookmarked(chapterId, pageAction.pageNumber - 1)}
           onToggleBookmark={() => togglePageBookmark(chapterId, pageAction.pageNumber - 1)}
+          onSetAsCover={
+            currentUser
+              ? () => {
+                  void setKatanaSeriesCover(params.slug, params.mangaTitle, pageAction.url, currentUser);
+                  flashToast('Updated series cover', true);
+                }
+              : undefined
+          }
           onReloadPage={() =>
             setPageReloadTokens((prev) => ({ ...prev, [pageAction.key]: (prev[pageAction.key] ?? 0) + 1 }))
           }

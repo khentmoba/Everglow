@@ -113,6 +113,14 @@ export function resolveTapZoneAction(
   return (invert ? !forward : forward) ? 'next' : 'prev';
 }
 
+function normalizedChapterKey(ch: KatanaChapter | undefined): string {
+  if (!ch) return '';
+  const raw = (ch.num || '').trim();
+  if (!raw) return '';
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? String(n) : raw.toLowerCase();
+}
+
 /**
  * Katana chapter lists are ordered newest-first (index 0 is latest chapter,
  * index length - 1 is Chapter 1).
@@ -121,21 +129,107 @@ export function adjacentChapter(
   chapters: KatanaChapter[],
   currentId: string,
   direction: 'prev' | 'next',
-  options?: { skipRead?: boolean; readIds?: ReadonlySet<string> },
+  options?: {
+    skipRead?: boolean;
+    readIds?: ReadonlySet<string>;
+    skipDuplicate?: boolean;
+    allowedIds?: ReadonlySet<string>;
+  },
 ): KatanaChapter | null {
   const idx = chapters.findIndex((c) => c.id === currentId);
   if (idx < 0) return null;
+  const currentNumKey = normalizedChapterKey(chapters[idx]);
   const step = direction === 'next' ? -1 : 1;
   let cursor = idx + step;
   while (cursor >= 0 && cursor < chapters.length) {
     const candidate = chapters[cursor];
-    if (!options?.skipRead || !options.readIds?.has(candidate.id)) {
+    const isDuplicate =
+      Boolean(options?.skipDuplicate) &&
+      currentNumKey !== '' &&
+      normalizedChapterKey(candidate) === currentNumKey;
+    const isFilteredOut =
+      options?.allowedIds != null &&
+      options.allowedIds.size > 0 &&
+      !options.allowedIds.has(candidate.id);
+    const isRead = Boolean(options?.skipRead) && Boolean(options?.readIds?.has(candidate.id));
+    if (!isDuplicate && !isFilteredOut && !isRead) {
       return candidate;
     }
     cursor += step;
   }
   const immediate = chapters[idx + step];
   return immediate ?? null;
+}
+
+export interface GuidedPanelRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Builds ordered panel rectangles in normalized [0, 1] coordinates for guided panel-by-panel zoom.
+ * Uses detected panel boxes when available, or a reading-order manga quadrant grid with gentle overlap
+ * so speech bubbles near panel borders remain readable on small screens.
+ */
+export function buildGuidedPanels(
+  aspectRatio: number,
+  isRtl: boolean,
+  detectedPanels?: GuidedPanelRect[],
+): GuidedPanelRect[] {
+  if (detectedPanels && detectedPanels.length >= 2) {
+    return [...detectedPanels].sort((a, b) => {
+      const rowDiff = Math.abs(a.y - b.y);
+      if (rowDiff > 0.14) return a.y - b.y;
+      return isRtl ? b.x - a.x : a.x - b.x;
+    });
+  }
+  const cols = 2;
+  const rows = aspectRatio >= 1.25 ? 2 : 3;
+  const overlapX = 0.06;
+  const overlapY = 0.05;
+  const baseW = 1 / cols;
+  const baseH = 1 / rows;
+  const panels: GuidedPanelRect[] = [];
+  for (let r = 0; r < rows; r++) {
+    const colOrder = isRtl ? [1, 0] : [0, 1];
+    for (const c of colOrder) {
+      const x0 = Math.max(0, c * baseW - overlapX / 2);
+      const y0 = Math.max(0, r * baseH - overlapY / 2);
+      const x1 = Math.min(1, (c + 1) * baseW + overlapX / 2);
+      const y1 = Math.min(1, (r + 1) * baseH + overlapY / 2);
+      panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    }
+  }
+  return panels;
+}
+
+/**
+ * Computes zoom and clamped pan offsets to center a guided panel rect inside the reader viewport.
+ */
+export function computeGuidedPanelTransform(
+  panel: GuidedPanelRect,
+  stageWidth: number,
+  stageHeight: number,
+  contentWidth: number,
+  contentHeight: number,
+): { zoom: number; pan: { x: number; y: number } } {
+  if (stageWidth <= 0 || stageHeight <= 0 || contentWidth <= 0 || contentHeight <= 0) {
+    return { zoom: 1.8, pan: { x: 0, y: 0 } };
+  }
+  const panelPxW = Math.max(1, panel.w * contentWidth);
+  const panelPxH = Math.max(1, panel.h * contentHeight);
+  const fitZoom = Math.min((stageWidth * 0.94) / panelPxW, (stageHeight * 0.88) / panelPxH);
+  const zoom = Number(Math.min(2.6, Math.max(1.45, fitZoom)).toFixed(2));
+  const centerX = panel.x + panel.w / 2;
+  const centerY = panel.y + panel.h / 2;
+  const rawPanX = (0.5 - centerX) * contentWidth * zoom;
+  const rawPanY = (0.5 - centerY) * contentHeight * zoom;
+  return {
+    zoom,
+    pan: clampZoomPan(rawPanX, rawPanY, contentWidth, contentHeight, stageWidth, stageHeight, zoom),
+  };
 }
 
 export const WIDE_ASPECT_THRESHOLD = 1.32;
@@ -212,25 +306,80 @@ export function computePinchAnchoredPan(
   return clampZoomPan(nextX, nextY, stageWidth, stageHeight, stageWidth, stageHeight, nextScale);
 }
 
+export type SeriesReadingFormat = 'webtoon' | 'manga' | 'comic';
+
+const PERSISTED_SERIES_FORMAT_PREFIX = 'katana.series.format.v1.';
+
+export function loadPersistedSeriesFormat(slug?: string): SeriesReadingFormat | undefined {
+  if (!slug || typeof localStorage === 'undefined') return undefined;
+  try {
+    const raw = localStorage.getItem(`${PERSISTED_SERIES_FORMAT_PREFIX}${slug}`);
+    if (raw === 'webtoon' || raw === 'manga' || raw === 'comic') return raw;
+  } catch {
+    // ignore storage errors
+  }
+  return undefined;
+}
+
+export function savePersistedSeriesFormat(slug: string, format: SeriesReadingFormat): void {
+  if (!slug || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(`${PERSISTED_SERIES_FORMAT_PREFIX}${slug}`, format);
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+/** Infers reading direction/format from persisted format, series genres/tags, altNames, or Korean/Chinese scripts so manhwa opens as webtoon and manga opens RTL. */
+export function inferSeriesReadingFormat(
+  genres?: readonly string[],
+  title?: string,
+  demographic?: string,
+  altNames?: readonly string[],
+  slug?: string,
+): SeriesReadingFormat {
+  const persisted = loadPersistedSeriesFormat(slug);
+  if (persisted) return persisted;
+  const rawText = [...(genres ?? []), ...(altNames ?? []), demographic ?? '', title ?? '', slug ?? ''].join(' ');
+  const tokens = rawText.toLowerCase();
+  // Hangul script or explicit Korean/Chinese/webtoon/long-strip indicators
+  if (
+    /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/.test(rawText) ||
+    /\b(manhwa|manhua|webtoon|long\s*strip|web\s*comic|korean|full\s*color|vertical\s*scroll|murim|cultivation)\b/.test(tokens) ||
+    /\b[a-z]+-ui\b/.test(tokens)
+  ) {
+    if (slug) savePersistedSeriesFormat(slug, 'webtoon');
+    return 'webtoon';
+  }
+  if (/\b(comic|western|graphic\s*novel)\b/.test(tokens)) {
+    if (slug) savePersistedSeriesFormat(slug, 'comic');
+    return 'comic';
+  }
+  return 'manga';
+}
+
 /**
  * Resolves `auto-rtl` / `auto-ltr` into:
- * - `'webtoon'` when content-type auto-detection sees tall manhwa/webtoon strips (`medianAspect < 0.56`)
- * - `'double-rtl'` / `'double-ltr'` on landscape tablets/desktop (`width >= 820 && width > height`)
- * - `'paged-rtl'` / `'paged-ltr'` on portrait phones.
+ * - `'webtoon'` when series metadata indicates manhwa/manhua/webtoon OR tall strips (`medianAspect < 0.56`)
+ * - `'double-rtl'` / `'double-ltr'` on tablets/desktop (`width >= 820 && (width > height || allowPortraitTabletSpread)`)
+ * - `'paged-rtl'` / `'paged-ltr'` on phones.
  */
 export function resolveEffectiveReadingMode(
   mode: ReadingMode,
   viewportWidth: number,
   viewportHeight: number,
   medianAspect?: number,
+  seriesFormat?: SeriesReadingFormat,
+  allowPortraitTabletSpread = false,
 ): ReadingMode {
   if (mode === 'auto-rtl' || mode === 'auto-ltr') {
-    if (typeof medianAspect === 'number' && medianAspect > 0 && medianAspect < 0.56) {
+    if (seriesFormat === 'webtoon' || (typeof medianAspect === 'number' && medianAspect > 0 && medianAspect < 0.56)) {
       return 'webtoon';
     }
-    const isLandscapeTablet = viewportWidth >= 820 && viewportWidth > viewportHeight;
-    if (mode === 'auto-rtl') return isLandscapeTablet ? 'double-rtl' : 'paged-rtl';
-    return isLandscapeTablet ? 'double-ltr' : 'paged-ltr';
+    const isTabletSpread = viewportWidth >= 820 && (viewportWidth > viewportHeight || allowPortraitTabletSpread);
+    if (seriesFormat === 'comic') return isTabletSpread ? 'double-ltr' : 'paged-ltr';
+    if (mode === 'auto-rtl') return isTabletSpread ? 'double-rtl' : 'paged-rtl';
+    return isTabletSpread ? 'double-ltr' : 'paged-ltr';
   }
   return mode;
 }
@@ -245,3 +394,13 @@ export function detectChapterGap(from: KatanaChapter | null | undefined, to: Kat
   return diff > 0 ? diff : 0;
 }
 
+/** True LRU insert into a bounded Map (evicts oldest entry, never wholesale-clears). */
+export function setLruEntry<K, V>(map: Map<K, V>, key: K, value: V, maxSize: number): void {
+  if (map.has(key)) map.delete(key);
+  map.set(key, value);
+  while (map.size > maxSize) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
+}
