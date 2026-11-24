@@ -489,7 +489,6 @@ export function MobileEpisodesSection(p: EpisodesProps) {
   const query = text.trim().toLowerCase();
 
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
-  const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
   const progress = useSeriesProgress(p.animeId);
 
 
@@ -596,63 +595,6 @@ export function MobileEpisodesSection(p: EpisodesProps) {
       )}
 
       <div style={{ height: 12 }} />
-
-      {!query && upNext && (
-        <div style={{ marginBottom: 10 }}>
-          <button
-            type="button"
-            className="bare-button"
-            onClick={() => p.onSelectEpisode(upNext.number)}
-            style={{
-              width: '100%',
-              minHeight: 62,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: 8,
-              boxSizing: 'border-box',
-              borderRadius: T.radiusLg,
-              background: white(0.05),
-              border: `1px solid ${T.border}`,
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <EpisodeThumbnail
-                episode={upNext}
-                fallbackPoster={p.fallbackPoster}
-                isPlaying={false}
-                width={76}
-                height={43}
-                compact
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background: 'rgba(0,0,0,0.28)',
-                  borderRadius: 6,
-                }}
-              >
-                <Icon name="play_arrow" size={20} color="#FFFFFF" />
-              </div>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 800, letterSpacing: 0.08 })}>
-                UP NEXT
-              </div>
-              <div style={{ height: 2 }} />
-              <div style={{ ...dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 600 }), ...ellipsis(1) }}>
-                Episode {upNext.number}
-                {hideSpoilers || !upNext.title ? '' : ` · ${upNext.title}`}
-              </div>
-            </div>
-            <Icon name="chevron_right" size={18} color={T.textSecondary} />
-          </button>
-        </div>
-      )}
 
       {displayList.length === 0 ? (
         <div style={{ padding: '24px 0', textAlign: 'center', ...dmSansStyle({ size: 12.5, color: T.textSecondary }) }}>
@@ -924,7 +866,6 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         ? `${p.nextSeason.label} (Episode 1)`
         : undefined);
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
-  const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
   const box: CSSProperties = {
     height: 34,
     boxSizing: 'border-box',
@@ -968,56 +909,10 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         <div style={{ ...dmSansStyle({ size: 11.5, color: T.textSecondary }), ...ellipsis(1) }}>
           {hideSpoilers ? `Playing Episode ${p.selectedEpisode}` : `Playing Episode ${p.selectedEpisode} - ${currentTitle}`}
         </div>
-        {nextTitle != null && !upNext && (
+        {nextTitle != null && (
           <>
             <div style={{ height: 2 }} />
-            <div style={{ ...dmSansStyle({ size: 11, color: T.accentWarm, weight: 500 }), ...ellipsis(1) }}>Up next: {nextTitle}</div>
-          </>
-        )}
-        {upNext && (
-          <>
-            <div style={{ height: 8 }} />
-            <button
-              type="button"
-              className="bare-button"
-              onClick={() => p.onSelectEpisode(upNext.number)}
-              style={{
-                width: '100%',
-                minHeight: 56,
-                boxSizing: 'border-box',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: 6,
-                borderRadius: T.radiusMd,
-                background: white(0.05),
-                border: `1px solid ${T.border}`,
-                textAlign: 'left',
-              }}
-            >
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <EpisodeThumbnail episode={upNext} fallbackPoster={p.fallbackPoster} isPlaying={false} width={68} height={38} compact />
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'grid',
-                    placeItems: 'center',
-                    background: 'rgba(0,0,0,0.28)',
-                    borderRadius: 5,
-                  }}
-                >
-                  <Icon name="play_arrow" size={18} color="#FFFFFF" />
-                </div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={dmSansStyle({ size: 9.5, color: T.textSecondary, weight: 800, letterSpacing: 0.08 })}>UP NEXT</div>
-                <div style={{ ...dmSansStyle({ size: 12, color: T.textPrimary, weight: 600 }), ...ellipsis(1) }}>
-                  Episode {upNext.number}
-                </div>
-              </div>
-              <Icon name="chevron_right" size={16} color={T.textSecondary} />
-            </button>
+            <div style={{ ...dmSansStyle({ size: 11, color: T.textSecondary, weight: 500 }), ...ellipsis(1) }}>Up next: {nextTitle}</div>
           </>
         )}
         <HideSpoilersSwitch />

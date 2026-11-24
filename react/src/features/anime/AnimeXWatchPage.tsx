@@ -1055,8 +1055,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               </div>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 700, letterSpacing: 0.6 })}>
-                UP NEXT · IN {secondsLeft}s
+              <div style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700, letterSpacing: 0.3 })}>
+                Up next · in {secondsLeft}s
               </div>
               <div
                 style={{
@@ -1067,6 +1067,11 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 }}
               >
                 {next.isSeason ? 'Next season' : `Episode ${st.selectedEpisode + 1}`}
+                {!next.isSeason && nextEpisode?.duration ? (
+                  <span style={dmSansStyle({ size: 12, color: T.textSecondary, weight: 600 })}>
+                    {` · ${nextEpisode.duration} min`}
+                  </span>
+                ) : null}
               </div>
               {!next.isSeason && nextEpisode?.title && !stores.hideSpoilers && (
                 <div
