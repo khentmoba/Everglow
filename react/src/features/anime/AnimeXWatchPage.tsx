@@ -1017,18 +1017,13 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       >
         {player}
         {slowStart && !contentError && <div style={{ position: 'absolute', inset: 0 }}>{errorCard}</div>}
-        {showUpNext && next && (
+        {showUpNext && next && !phone && (
           <div
             style={{
-              // Top of the frame, not the bottom: the bottom is where subtitles
-              // live, and covering a line she is reading is worse than a card
-              // she can ignore.
               position: 'absolute',
-              left: phone ? 10 : 14,
-              right: phone ? 10 : 14,
-              // Bottom-centre is where her thumb is, but the caption band lives
-              // down there too: sit above it rather than on it.
-              bottom: phone ? 100 : 112,
+              left: 14,
+              right: 14,
+              bottom: 112,
               padding: 8,
               boxSizing: 'border-box',
               borderRadius: T.radiusCard,
@@ -1150,60 +1145,6 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const ns = nextSeason();
   const hasNextSeason = isLastEpisode && ns != null;
 
-  const showServerSheet = () => {
-    void showModalBottomSheet<void>((close) => (
-      <div style={{ padding: '4px 16px 24px' }}>
-        <SheetDragHandle />
-        <div style={dmSansStyle({ size: 15, color: T.textPrimary, weight: 800 })}>Where to watch from</div>
-        <div style={{ height: 4 }} />
-        <div style={dmSansStyle({ size: 12, color: T.textSecondary })}>
-          One free source is enough. If one stalls, pick another.
-        </div>
-        <div style={{ height: 14 }} />
-        {st.servers.map((srv, i) => {
-          const failed = st.failedServerIndices.has(i);
-          const selected = st.serverIndex === i;
-          return (
-            <button
-              key={srv.name}
-              type="button"
-              className="bare-button"
-              disabled={!srv.available}
-              onClick={() => {
-                close(null);
-                selectServer(i);
-              }}
-              style={{
-                width: '100%',
-                minHeight: 52,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '0 12px',
-                marginBottom: 8,
-                borderRadius: T.radiusLg,
-                background: selected ? withAlpha(T.accent, 0.16) : white(0.04),
-                border: `1px solid ${selected ? withAlpha(T.accent, 0.45) : T.border}`,
-                opacity: srv.available ? 1 : 0.5,
-              }}
-            >
-              <Icon
-                name={failed ? 'error_outline' : selected ? 'check_circle' : 'circle'}
-                size={17}
-                color={failed ? T.textMuted : selected ? T.accentText : T.textSecondary}
-              />
-              <span style={{ ...dmSansStyle({ size: 14, color: T.textPrimary, weight: 600 }), flex: 1, textAlign: 'left' }}>
-                {srv.name}
-              </span>
-              <span style={dmSansStyle({ size: 11, color: T.textMuted, weight: 600 })}>
-                {!srv.available ? 'Unavailable' : failed ? 'Failed' : srv.supportsAudioSelection ? 'Sub & Dub' : 'Sub'}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    ));
-  };
 
   // Source and the two playback switches used to sit under the player as three
   // more chips. They are settings, not steps, so they live behind one button.
@@ -1329,6 +1270,72 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const playerColumn = phone ? (
     <div>
       <div style={{ position: 'sticky', top: 0, zIndex: 20, background: T.bg }}>{playerBox}</div>
+      {showUpNext && next && (
+        <div
+          style={{
+            margin: '8px 16px 0',
+            padding: 8,
+            borderRadius: T.radiusCard,
+            background: T.surfaceRaised,
+            border: `1px solid ${T.borderStrong}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          {nextEpisode?.thumbnail && (
+            <div style={{ width: 84, aspectRatio: '16 / 9', flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
+              <img src={nextEpisode.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Up next · in {secondsLeft}s</div>
+            <div style={{ ...dmSansStyle({ size: 13, color: T.textPrimary, weight: 700 }), ...oneLine }}>
+              {next.isSeason ? 'Next season' : `Episode ${st.selectedEpisode + 1}`}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => (next.isSeason ? openSeason(nextSeason()!) : stepEpisode(1))}
+            style={{
+              minHeight: 44,
+              flexShrink: 0,
+              padding: '0 14px',
+              borderRadius: 999,
+              background: T.accent,
+              border: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Icon name="play_arrow" size={15} color="#FFFFFF" />
+            <span style={dmSansStyle({ size: 12.5, color: '#FFFFFF', weight: 700 })}>Watch now</span>
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Cancel auto next"
+            onClick={() => {
+              setUpNextDismissed(true);
+              AnimexStores.setAutoNext(false);
+            }}
+            style={{
+              width: 44,
+              height: 44,
+              flexShrink: 0,
+              borderRadius: 999,
+              border: `1px solid ${T.borderStrong}`,
+              background: white(0.06),
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            <Icon name="close" size={18} color={T.textPrimary} />
+          </button>
+        </div>
+      )}
       <div style={{ padding: '10px 16px 0' }}>
         {st.ready && (
           <>
@@ -1447,51 +1454,38 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         </>
       )}
       <div style={{ height: isCompactPage ? 8 : 10 }} />
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <EpisodeStepButton label="Prev episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
+        <EpisodeStepButton
+          label={hasNextSeason ? 'Next season' : 'Next episode'}
+          icon="skip_next"
+          primary
+          enabled={!isLastEpisode || hasNextSeason}
+          onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
+        />
+        <div style={{ flex: 1, minWidth: 8 }} />
         <button
           type="button"
           className="bare-button"
-          onClick={showServerSheet}
+          aria-label="Playback settings"
+          onClick={showControlsSheet}
           style={{
             minHeight: 44,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
             padding: '0 14px',
             boxSizing: 'border-box',
             borderRadius: T.radiusPill,
             background: white(0.05),
             border: `1px solid ${T.border}`,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
           }}
         >
-          <Icon name="dns" size={15} color={T.accentText} />
+          <Icon name="tune" size={16} color={T.textPrimary} />
           <span style={dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 700 })}>
             Server · {currentServer()?.name ?? 'none'}
           </span>
-          <Icon name="keyboard_arrow_down" size={15} color={T.textSecondary} />
         </button>
-        {[...st.failedServerIndices].some((i) => i === st.serverIndex) && (
-          <span style={dmSansStyle({ size: 11.5, color: T.textMuted })}>last source didn't load</span>
-        )}
-        {st.ready && (
-          <>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
-          <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
-        </div>
-        <div style={{ flex: 1, minWidth: 8 }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <EpisodeStepButton label="Prev episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
-          <EpisodeStepButton
-            label={hasNextSeason ? 'Next season' : 'Next episode'}
-            icon="skip_next"
-            primary
-            enabled={!isLastEpisode || hasNextSeason}
-            onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
-          />
-        </div>
-          </>
-        )}
       </div>
       {failedNote && (
         <>
@@ -1866,67 +1860,6 @@ function TopBar({
 }
 
 
-function PrefToggle({ label, value, onChanged }: { label: string; value: boolean; onChanged: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={value}
-      className="bare-button"
-      onClick={() => onChanged(!value)}
-      style={{
-        minHeight: 48,
-        boxSizing: 'border-box',
-        padding: '7px 12px',
-        // A preference is not an action: on-state is a lit switch, not a second
-        // primary button competing with Next episode.
-        background: value ? white(0.1) : white(0.04),
-        borderRadius: T.radiusSm,
-        border: `1px solid ${value ? white(0.24) : T.border}`,
-        display: 'flex',
-        alignItems: 'center',
-        transition: 'background-color 120ms, border-color 120ms',
-      }}
-    >
-      {/* A drawn switch, not the shared button: this whole row is one tap
-          target and a nested button would flip twice. */}
-      <span
-        style={{
-          width: 40,
-          height: 24,
-          borderRadius: 12,
-          flexShrink: 0,
-          background: value ? T.accent : white(0.18),
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: value ? 'flex-end' : 'flex-start',
-          padding: 3,
-          boxSizing: 'border-box',
-          transition: 'background 180ms',
-        }}
-      >
-        <span
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            background: '#FFFFFF',
-            transition: 'transform 180ms',
-          }}
-        />
-      </span>
-      <div style={{ width: 8 }} />
-      <span
-        style={{
-          ...dmSansStyle({ size: 12, color: value ? T.textPrimary : T.textSecondary, weight: 600 }),
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </span>
-    </button>
-  );
-}
 
 /** "Next episode in 2d 4h" — the one next-air fact Anikura puts on this page. */
 function nextAiringChip(detail: AniListDetail, now: number) {

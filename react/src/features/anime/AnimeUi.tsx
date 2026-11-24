@@ -927,10 +927,10 @@ export function AnimeXSpotlight({
           // the transparent part of this fade: "Trending now" measured 2.48:1 on
           // a bright frame. The ramp now starts holding at 18% and is properly
           // dark by the time any label lands on it.
-          background: linear(['#00000059', '#00000073', '#A6000000', '#E6000000', AnimeXTokens.bg], {
+          background: linear(['#00000059', '#00000080', '#000000CC', '#000000F2', AnimeXTokens.bg], {
             begin: Align.topCenter,
             end: Align.bottomCenter,
-            stops: [0, 0.18, 0.5, 0.84, 1],
+            stops: [0, 0.14, 0.42, 0.8, 1],
           }),
         }}
       />

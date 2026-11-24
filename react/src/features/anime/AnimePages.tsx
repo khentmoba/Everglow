@@ -1180,7 +1180,10 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
         <div style={{ marginBottom: 26 }}>
           <AnimeXSectionHeader icon="history" title="Pick up where you stopped" />
           <div className="no-scrollbar" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 4 }}>
-            {nav.history.slice(0, 8).map((e) => (
+            {nav.history
+              .filter((e) => !(e.totalEpisodes > 0 && e.episode >= e.totalEpisodes))
+              .slice(0, 8)
+              .map((e) => (
               <ContinueWatchingCard
                 key={`rec-${e.key}`}
                 entry={e}
