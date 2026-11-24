@@ -657,7 +657,6 @@ export function CinemaEpisodeDrawer({
         onShareDiscord={isCouple ? () => void shareToDiscord(selectedSeason) : undefined}
         onToggleMute={() => setMuted((m) => !m)}
         downloadAction={isFilm ? <MovieDownloadAction item={item} wide={isWide} /> : null}
-        onClose={onClose}
       />
       <div className="drawer-fade-in">
         <div style={{ padding: '18px 24px 16px' }}>
@@ -842,10 +841,6 @@ export function CinemaEpisodeDrawer({
   }
 
   function RightColumn() {
-    const castNames = cast
-      .slice(0, 4)
-      .map((c) => c.name)
-      .filter(Boolean);
     // RichText: no inherited bodyMedium height, so Outfit's own 1.26 line.
     const line = (label: string, value: ReactNode, bottom: number) => (
       <div style={{ paddingBottom: bottom, ...AppTypography.outfitWhite, fontSize: 13, lineHeight: lineHeight(13, 1.26) }}>
@@ -855,15 +850,8 @@ export function CinemaEpisodeDrawer({
     );
     return (
       <div>
-        {castNames.length > 0 &&
-          line(
-            'Cast: ',
-            <>
-              <span style={{ lineHeight: 'inherit', color: WHITE }}>{castNames.join(', ')}</span>
-              <span style={{ lineHeight: 'inherit', color: withAlpha(WHITE, 0.6), fontStyle: 'italic' }}>, more</span>
-            </>,
-            10,
-          )}
+        {/* The Cast tab below carries the same five people with their roles, so
+            the metadata line names the genres and the mood only. */}
         {genreNames.length > 0 && line('Genres: ', <span style={{ lineHeight: 'inherit', color: WHITE }}>{genreNames.join(', ')}</span>, 10)}
         {line(`This ${isFilm ? 'Movie' : 'Show'} Is: `, <span style={{ lineHeight: 'inherit', color: WHITE }}>{moodTags}</span>, 16)}
       </div>
@@ -888,6 +876,7 @@ export function CinemaEpisodeDrawer({
             style={{ height: '100%', background: NetflixColors.surface, pointerEvents: 'auto' }}
           >
             {content}
+            <CloseButton onClose={onClose} />
           </div>
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -915,6 +904,7 @@ export function CinemaEpisodeDrawer({
               }}
             >
               {content}
+              <CloseButton onClose={onClose} />
               {/* The panel scrolls; this says so without cutting a row mid-card. */}
               <div
                 aria-hidden
@@ -939,6 +929,37 @@ export function CinemaEpisodeDrawer({
   );
 }
 
+// The only way out of the sheet, pinned to the panel frame: inside the scrolled
+// hero it used to scroll away and leave a long page with no exit.
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      className="bare-button"
+      aria-label="Close"
+      onClick={onClose}
+      style={{
+        position: 'absolute',
+        top: 10,
+        right: 16,
+        zIndex: 5,
+        width: 44,
+        height: 44,
+        borderRadius: '50%',
+        boxSizing: 'border-box',
+        background: '#181818CC',
+        border: `1px solid ${withAlpha(WHITE, 0.2)}`,
+        boxShadow: boxShadow([{ color: withAlpha('#000000', 0.5), blur: 10 }]),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Icon name="close" size={20} color={WHITE} />
+    </button>
+  );
+}
+
 function Hero({
   backdropUrl,
   trailerKey,
@@ -954,7 +975,6 @@ function Hero({
   onShareDiscord,
   onToggleMute,
   downloadAction,
-  onClose,
 }: {
   backdropUrl: string;
   trailerKey: string | null;
@@ -970,7 +990,6 @@ function Hero({
   onShareDiscord?: () => void;
   onToggleMute: () => void;
   downloadAction: ReactNode;
-  onClose: () => void;
 }) {
   const [imgState, setImgState] = useState<'loading' | 'ok' | 'error'>('loading');
   // A short laptop screen must still reach the tabs below the hero.
@@ -1054,29 +1073,6 @@ function Hero({
           ].join(', '),
         }}
       />
-      <button
-        type="button"
-        className="bare-button"
-        aria-label="Close"
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 16,
-          width: 44,
-          height: 44,
-          borderRadius: '50%',
-          boxSizing: 'border-box',
-          background: '#181818CC',
-          border: `1px solid ${withAlpha(WHITE, 0.2)}`,
-          boxShadow: boxShadow([{ color: withAlpha('#000000', 0.5), blur: 10 }]),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="close" size={20} color={WHITE} />
-      </button>
       {trailerKey && (
         <div style={{ position: 'absolute', bottom: 24, right: 20 }}>
           <Tooltip message={muted ? 'Unmute' : 'Mute'}>

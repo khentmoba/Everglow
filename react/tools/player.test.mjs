@@ -73,8 +73,8 @@ async function pickFromSheet(page, name) {
 
 /** Open the Switch Provider sheet and tap one row by its name. */
 async function pickProvider(page, name) {
-  // The card is keyboard-operable, and Enter sidesteps the pulsing dot's animation.
-  await page.locator('[data-testid="player-source"]').first().press('Enter');
+  // One control changes the source, and it lives in the top bar.
+  await page.getByRole('button', { name: /^Source/ }).first().click();
   await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
   await pickFromSheet(page, name);
 }
@@ -130,8 +130,8 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
     assert.equal(await epBtn.getAttribute('aria-expanded'), 'true');
 
     // Open Switch Provider sheet, verify native default-source buttons, and pick Everglow (everglow-embed).
-    // The card is keyboard-operable, and Enter sidesteps the pulsing dot's animation.
-  await page.locator('[data-testid="player-source"]').first().press('Enter');
+    // One control changes the source, and it lives in the top bar.
+  await page.getByRole('button', { name: /^Source/ }).first().click();
     await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
     const defaultBtns = page.locator('button[aria-label="Set as default source"]');
     assert.ok((await defaultBtns.count()) >= 1, 'Switch Provider sheet must render native default-source buttons');
@@ -338,9 +338,7 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
 
     const layout = await page.evaluate(() => {
       const iframe = document.querySelector('iframe');
-      const provCard = [...document.querySelectorAll('[role="button"]')].find((el) =>
-        el.getAttribute('data-testid') === 'player-source',
-      );
+      const provCard = document.querySelector('[data-testid="player-source"]');
       const topServers = [...document.querySelectorAll('button')].find(
         (b) => b.textContent?.includes('Source'),
       );

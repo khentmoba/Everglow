@@ -52,11 +52,37 @@ export function CinemaDownloadsTab({ width, onBrowseCinema }: { width: number; o
         : `/cinema/video/${item.mediaId}?type=movie&title=${title}`,
     );
   };
-  const remove = (item: OfflineMediaItem) => {
-    void offlineMedia.deleteDownload(item.id);
-    // The bytes are gone; say what that means instead of offering a dead Undo.
-    showSnackBar(`Removed ${item.title} from this device · stream it any time`);
-  };
+  const remove = (item: OfflineMediaItem) =>
+    // The bytes cannot come back, so ask first and then say what happened: an
+    // Undo here would be a dead button.
+    void showDialog<void>((close) => (
+      <AlertDialog
+        background={NetflixColors.surface}
+        title={<div style={text(17, NetflixColors.textPrimary, 700)}>{`Remove ${item.title}?`}</div>}
+        content={
+          <div style={text(14, NetflixColors.textSecondary)}>
+            This removes the download from this device. You can stream it any time, and download it again for offline.
+          </div>
+        }
+        actions={[
+          <TextButton key="keep" color={NetflixColors.textMuted} onPressed={() => close(null)} style={text(14, NetflixColors.textMuted)}>
+            Keep it
+          </TextButton>,
+          <TextButton
+            key="remove"
+            color={NetflixColors.accent}
+            onPressed={() => {
+              close(null);
+              void offlineMedia.deleteDownload(item.id);
+              showSnackBar(`Removed ${item.title} from this device · stream it any time`);
+            }}
+            style={text(14, NetflixColors.accent, 700)}
+          >
+            Remove
+          </TextButton>,
+        ]}
+      />
+    ));
 
   const shows = new Map<string, OfflineMediaItem[]>();
   const movies: OfflineMediaItem[] = [];

@@ -285,6 +285,9 @@ function FilterGroup({
   isDesktop: boolean;
 }) {
   const selectedId = selection[group as 'genre' | 'decade' | 'language' | 'sort'];
+  // Results are always in some order: when nothing is picked, the default is the
+  // order in force, so one chip has to say so.
+  const defaultLabel = group === 'sort' ? options[0]?.label : undefined;
   return (
     <div style={{ padding: '18px 0 0' }}>
       <div
@@ -302,6 +305,9 @@ function FilterGroup({
         {options.map((o) => (
           <BrowsePill key={o.id} label={o.label} selected={selectedId === o.id} onTap={() => onPick(o)} />
         ))}
+        {defaultLabel != null && selectedId == null && (
+          <BrowsePill label={`Default · ${defaultLabel}`} selected onTap={() => onPick(options[0])} />
+        )}
         <div style={{ flex: `0 0 ${h - 8}px` }} />
       </div>
     </div>

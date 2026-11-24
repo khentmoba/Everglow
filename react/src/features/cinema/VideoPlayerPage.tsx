@@ -1712,24 +1712,14 @@ function VideoPlayerScreen(props: PlayerProps) {
             </div>
           )}
           <div style={{ padding: '16px 20px 0' }}>
+            {/* One way to change the source, in the top bar. This row only says
+                which one is playing. */}
             <div
-              role="button"
-              tabIndex={0}
-              aria-label="Change source"
               data-testid="player-source"
-              onClick={showProviderSheet}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  showProviderSheet();
-                }
-              }}
-              className="player-focusable"
               style={{
                 borderRadius: AppRadius.x2,
                 background: surfaceElevated,
                 border: `1px solid ${hairline}`,
-                cursor: 'pointer',
               }}
             >
               <div
@@ -1745,7 +1735,7 @@ function VideoPlayerScreen(props: PlayerProps) {
                 <div style={{ width: 12, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), letterSpacing: 0.2 }}>
-                    {c.selectedProvider.name} · change source
+                    {c.selectedProvider.name}
                   </div>
                   {(!compact || c.selectedProvider.id !== 'everglow-embed') && (
                     <>

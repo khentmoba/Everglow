@@ -65,7 +65,7 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaI
       title: string,
       reason: string,
       rawItems: MediaItem[],
-      opts: { mediaType?: 'movie' | 'tv'; ranked?: boolean } = {},
+      opts: { mediaType?: 'movie' | 'tv'; ranked?: boolean; allowHero?: boolean } = {},
     ) => {
       const items = unique(rawItems);
       if (opts.ranked) {
@@ -77,8 +77,9 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaI
         // rather than offered twice.
         const pool = items.slice(0, 10);
         const unseen = pool.filter((m) => !seen.has(catalogKeyOf(m)));
-        // A ranked row may be short: it states places, it does not need padding.
-        const shown = unseen.length > 0 ? unseen : pool;
+        // A ranked row may be short: it states places, and it never re-offers a
+        // title the page already showed.
+        const shown = unseen;
         if (shown.length === 0) return;
         for (const m of shown) seen.add(catalogKeyOf(m));
         recent.unshift(shown.map(catalogKeyOf));
@@ -86,7 +87,14 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaI
         return;
       }
       const recentKeys = new Set(recent.flat());
-      const fresh = (m: MediaItem) => !seen.has(catalogKeyOf(m)) && !recentKeys.has(catalogKeyOf(m));
+      // A rail may be allowed to reuse the billboard's titles; the first personal
+      // rail is, because it is a cause, not a catalogue listing.
+      const fresh = (m: MediaItem) => {
+        const key = catalogKeyOf(m);
+        if (recentKeys.has(key)) return false;
+        if (opts.allowHero && heroKeys.has(key)) return true;
+        return !seen.has(key);
+      };
       // A rail shows its own titles, nothing borrowed: padding a series row with
       // a film (or a stranger's sequel) is how "Popular Series" ended up holding
       // John Wick. A rail that cannot fill is dropped instead.
@@ -121,7 +129,8 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaI
             )
             .slice(0, 12)
         : [];
-    if (becauseItems.length >= MIN_RAIL_SHOWN) add(`Because you watched ${becauseOf?.title ?? ''}`, 'Same mood, different story', becauseItems);
+    if (becauseItems.length >= MIN_RAIL_SHOWN)
+      add(`Because you watched ${becauseOf?.title ?? ''}`, 'Same mood, different story', becauseItems, { allowHero: true });
     add('Trending Now', 'What everyone is watching this week', trendingGlobal);
     add(`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`, 'Ranked by popularity today', topTenToday, { ranked: true });
     add('Coming Soon', 'New on Everglow Cinema', newlyReleased);
