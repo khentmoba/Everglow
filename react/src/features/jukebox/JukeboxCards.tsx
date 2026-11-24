@@ -1024,18 +1024,35 @@ export function MusicStatsSection() {
         });
     };
 
+    let interval = 0;
+    const startPolling = () => {
+      if (interval || document.hidden) return;
+      interval = window.setInterval(load, 60_000);
+    };
+    const stopPolling = () => {
+      if (!interval) return;
+      window.clearInterval(interval);
+      interval = 0;
+    };
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastLoadAt > 30_000) {
+      if (document.hidden) {
+        stopPolling();
+        return;
+      }
+      if (Date.now() - lastLoadAt > 30_000) {
         load();
       }
+      startPolling();
     };
 
-    load();
-    const interval = setInterval(load, 60_000);
+    if (!document.hidden) {
+      load();
+      startPolling();
+    }
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       alive = false;
-      clearInterval(interval);
+      stopPolling();
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [auth.uid, auth.currentUser]);

@@ -2747,3 +2747,28 @@ test('resolveMegavid cancels unconsumed error bodies and keeps abort signal acti
     globalThis.fetch = realFetch;
   }
 });
+
+test('handleProxyHls clamps null-body upstream error statuses like 304 to 502', async () => {
+  const realFetch = globalThis.fetch;
+  let cancelled = false;
+  try {
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 304,
+      headers: new Headers(),
+      body: {
+        cancel: async () => {
+          cancelled = true;
+        },
+      },
+    });
+    const proxyUrl = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, 'https://cache.vdrk.site/v1/seg.ts', 'fmov', KEY);
+    const resp = await handleProxyHls(new Request(proxyUrl), { CDN_STAMP_KEY: KEY });
+    assert.equal(resp.status, 502);
+    assert.equal(cancelled, true);
+    const data = await resp.json();
+    assert.match(data.error, /304/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

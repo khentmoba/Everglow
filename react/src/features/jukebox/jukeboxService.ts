@@ -310,27 +310,34 @@ export async function linkSpotify(options?: { forceDialog?: boolean }): Promise<
     Logger.w('SpotifyAuth: VITE_SPOTIFY_CLIENT_ID missing');
     throw new Error('Spotify not configured (missing client ID)');
   }
-  const verifier = generateVerifier();
-  const state = generateVerifier();
-  const challenge = await challengeFor(verifier);
-  Prefs.set(SPOTIFY_VERIFIER_KEY, verifier);
-  Prefs.set(SPOTIFY_STATE_KEY, state);
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: 'code',
-    redirect_uri: spotifyRedirectUri(),
-    scope: SPOTIFY_SCOPES.join(' '),
-    code_challenge_method: 'S256',
-    code_challenge: challenge,
-    state,
-    show_dialog: options?.forceDialog ? 'true' : 'false',
-  });
-  const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
-  const opened = window.open(url, '_blank', 'noopener');
+  const opened = window.open('', '_blank');
   if (!opened) {
     throw new Error(
-      `Could not open Spotify auth — pop-up blocked? Allow pop-ups for ${window.location.origin} and try again, or open manually: ${url}`,
+      `Could not open Spotify auth — pop-up blocked? Allow pop-ups for ${window.location.origin} and try again.`,
     );
+  }
+  opened.opener = null;
+  try {
+    const verifier = generateVerifier();
+    const state = generateVerifier();
+    const challenge = await challengeFor(verifier);
+    Prefs.set(SPOTIFY_VERIFIER_KEY, verifier);
+    Prefs.set(SPOTIFY_STATE_KEY, state);
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: spotifyRedirectUri(),
+      scope: SPOTIFY_SCOPES.join(' '),
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+      state,
+      show_dialog: options?.forceDialog ? 'true' : 'false',
+    });
+    const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
+    opened.location.replace(url);
+  } catch (e) {
+    opened.close();
+    throw e;
   }
 }
 

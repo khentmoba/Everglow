@@ -116,7 +116,7 @@ const onNewMood = functions.firestore
   .document('moods/{moodId}')
   .onCreate(async (snap) => {
     const data = snap.data();
-    const uid = data.uid || data.username;
+    const uid = String(data.uid || data.username || '').toLowerCase();
     if (!uid || !PARTNER_UID[uid]) return;
 
     const partnerUid = PARTNER_UID[uid];

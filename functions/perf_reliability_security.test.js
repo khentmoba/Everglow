@@ -655,3 +655,37 @@ test('proxyAnime sets private cache and vary headers on early error responses', 
   assert.equal(res.headers['Cache-Control'], 'private, no-store');
   assert.equal(res.headers.Vary, 'Origin, Authorization');
 });
+
+test('motchi_exec_tools bounds _idempotencyCache to IDEMPOTENCY_MAX_ENTRIES', async () => {
+  const {
+    executeToolCall,
+    clearIdempotencyCache,
+    _idempotencyCache,
+    IDEMPOTENCY_MAX_ENTRIES,
+  } = require('./motchi_exec_tools.js');
+  clearIdempotencyCache();
+  try {
+    const now = Date.now();
+    for (let i = 0; i < IDEMPOTENCY_MAX_ENTRIES + 25; i++) {
+      _idempotencyCache.set(`seed::${i}`, { result: '{"success":true}', ts: now });
+    }
+    const ctx = makeCtx({
+      sessionId: 'sess-bound',
+      admin: { firestore: { Timestamp: { now: () => ({ toDate: () => new Date() }) } } },
+      db: {
+        collection: () => ({
+          add: async () => ({ id: 'doc-1' }),
+          where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }) }),
+        }),
+      },
+    });
+    const out = JSON.parse(await executeToolCall(ctx, 'add_bucket_item', { title: 'Watch aurora' }));
+    assert.equal(out.success, true);
+    assert.ok(
+      _idempotencyCache.size <= IDEMPOTENCY_MAX_ENTRIES,
+      `expected cache size <= ${IDEMPOTENCY_MAX_ENTRIES}, got ${_idempotencyCache.size}`,
+    );
+  } finally {
+    clearIdempotencyCache();
+  }
+});

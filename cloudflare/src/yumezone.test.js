@@ -164,6 +164,29 @@ test('yumeSources keeps timeout active while reading the JSON body', async () =>
   }
 });
 
+test('yumeSources cancels unconsumed error bodies on non-OK status', async () => {
+  const realFetch = globalThis.fetch;
+  let cancelled = false;
+  try {
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 502,
+      body: {
+        cancel: async () => {
+          cancelled = true;
+        },
+      },
+    });
+    await assert.rejects(
+      yumeSources({ animeId: 21, episode: 1, language: 'sub', provider: 'Goku' }),
+      /yumezone Goku 502/,
+    );
+    assert.equal(cancelled, true, 'unconsumed !res.ok body must be cancelled');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test('yumeHeaders name the site and never carry a cookie', () => {
   const headers = yumeHeaders();
   assert.equal(headers.Referer, `${YUME_ORIGIN}/`);

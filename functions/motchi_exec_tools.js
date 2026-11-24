@@ -224,7 +224,24 @@ function visionMessageForResults(fullResults) {
 }
 
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
+const IDEMPOTENCY_MAX_ENTRIES = 500;
 const _idempotencyCache = new Map();
+
+function _setIdempotencyEntry(key, result) {
+  const now = Date.now();
+  _idempotencyCache.delete(key);
+  _idempotencyCache.set(key, { result, ts: now });
+  if (_idempotencyCache.size > IDEMPOTENCY_MAX_ENTRIES) {
+    for (const [k, entry] of _idempotencyCache) {
+      if (now - entry.ts >= IDEMPOTENCY_TTL_MS) _idempotencyCache.delete(k);
+    }
+    while (_idempotencyCache.size > IDEMPOTENCY_MAX_ENTRIES) {
+      const oldest = _idempotencyCache.keys().next().value;
+      if (oldest === undefined) break;
+      _idempotencyCache.delete(oldest);
+    }
+  }
+}
 
 const IDEMPOTENT_CREATE_TOOLS = new Set([
   'add_to_watchlist',
@@ -335,7 +352,7 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
         const parsed = JSON.parse(resStr);
         if (parsed.success === true || parsed.scheduled === true || parsed.id) {
           if (ctx.sessionId) {
-            _idempotencyCache.set(idempKey, { result: resStr, ts: Date.now() });
+            _setIdempotencyEntry(idempKey, resStr);
           } else if (ctx.turnWrites) {
             ctx.turnWrites.set(idempKey, resStr);
           }
@@ -365,6 +382,8 @@ module.exports = {
   createToolCtx,
   executeToolCall,
   clearIdempotencyCache,
+  _idempotencyCache,
+  IDEMPOTENCY_MAX_ENTRIES,
   writeIdempotencyKey,
   visionMessageForResults,
   VISION_IMAGES_PER_ROUND,
