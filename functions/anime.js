@@ -833,7 +833,10 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       res.set('Content-Type', headCt);
       res.set('X-Content-Type-Options', 'nosniff');
       res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-      res.set('Cache-Control', looksLikePlaylist ? 'private, max-age=30' : 'public, max-age=3600');
+      res.set('Vary', 'Origin, Range');
+      res.set('Cache-Control', looksLikePlaylist
+        ? 'private, max-age=30'
+        : (upstream.status === 206 ? 'private, no-store' : 'public, max-age=3600'));
       const acceptRanges = upstream.headers.get('accept-ranges');
       if (acceptRanges) res.set('Accept-Ranges', acceptRanges);
       const contentRange = upstream.headers.get('content-range');
@@ -860,6 +863,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+        res.set('Vary', 'Origin, Range');
         res.set('Cache-Control', 'private, max-age=30');
         res.status(200).send(rewritten);
         return;
@@ -873,7 +877,8 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', ct);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-    res.set('Cache-Control', 'public, max-age=3600');
+    res.set('Vary', 'Origin, Range');
+    res.set('Cache-Control', upstream.status === 206 ? 'private, no-store' : 'public, max-age=3600');
     const acceptRanges = upstream.headers.get('accept-ranges');
     if (acceptRanges) res.set('Accept-Ranges', acceptRanges);
     const contentRange = upstream.headers.get('content-range');

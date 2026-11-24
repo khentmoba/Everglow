@@ -112,7 +112,12 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
       const baseCt = contentType.split(';')[0].trim().toLowerCase();
       const finalUrl = upstream.url || targetUrl;
       if (/mpegurl/i.test(contentType) || new URL(finalUrl).pathname.toLowerCase().endsWith('.m3u8')) {
+        if (!upstream.body || typeof upstream.body.getReader !== 'function') {
+          res.status(502).json({ error: 'Stream unavailable — please reload the player' });
+          return;
+        }
         const reader = upstream.body.getReader();
+        const bodyTimer = setTimeout(() => controller.abort(new Error('Playlist body timeout')), 15000);
         const chunks = [];
         let size = 0;
         try {
@@ -123,7 +128,10 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
             if (size > 1024 * 1024) throw new Error('Playlist exceeds 1 MB');
             chunks.push(Buffer.from(value));
           }
-        } finally { await reader.cancel(); }
+        } finally {
+          clearTimeout(bodyTimer);
+          await reader.cancel().catch(() => {});
+        }
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Content-Security-Policy', "default-src 'none'; sandbox");

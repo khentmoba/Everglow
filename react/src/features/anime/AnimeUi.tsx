@@ -696,10 +696,18 @@ export function AnimeXSpotlight({
   const timer = useRef<number | undefined>(undefined);
   const armTimer = useRef<number | undefined>(undefined);
   const fallbackTimer = useRef<number | undefined>(undefined);
+  const mountedRef = useRef(true);
   const lastScrollAt = useRef(0);
   const isScrolling = () => performance.now() - lastScrollAt.current < 150;
-  const state = useRef({ items, index, muted, playing, ready, trailerCache });
-  state.current = { items, index, muted, playing, ready, trailerCache };
+  const state = useRef({ items, index, muted, playing, armed, ready, trailerCache });
+  state.current = { items, index, muted, playing, armed, ready, trailerCache };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -719,11 +727,13 @@ export function AnimeXSpotlight({
 
   const startTimer = (hold?: number) => {
     window.clearTimeout(timer.current);
+    if (!mountedRef.current || (typeof document !== 'undefined' && document.hidden)) return;
     const s = state.current;
     if (!s.muted || !s.playing) return;
     const item = currentItem();
     const ms = hold ?? (item && resolveKey(item) && s.ready ? TRAILER_HOLD : STILL_HOLD);
     timer.current = window.setTimeout(() => {
+      if (!mountedRef.current || (typeof document !== 'undefined' && document.hidden)) return;
       const n = state.current.items.length;
       if (n < 2) return;
       select((state.current.index + 1) % n);
@@ -731,6 +741,7 @@ export function AnimeXSpotlight({
   };
 
   const onTrailerLoaded = () => {
+    if (!mountedRef.current) return;
     window.clearTimeout(fallbackTimer.current);
     setReady(true);
     state.current.ready = true;
@@ -748,11 +759,12 @@ export function AnimeXSpotlight({
     } catch {
       ytId = null;
     }
+    if (!mountedRef.current) return;
     setTrailerCache((m) => new Map(m).set(key, ytId));
-    if (ytId) {
+    if (ytId && (typeof document === 'undefined' || !document.hidden)) {
       window.clearTimeout(fallbackTimer.current);
       fallbackTimer.current = window.setTimeout(() => {
-        if (!state.current.ready) onTrailerLoaded();
+        if (mountedRef.current && !state.current.ready) onTrailerLoaded();
       }, 2500);
     }
   };
@@ -760,13 +772,16 @@ export function AnimeXSpotlight({
   const armTrailer = (immediate = false) => {
     window.clearTimeout(armTimer.current);
     window.clearTimeout(fallbackTimer.current);
+    if (!mountedRef.current || (typeof document !== 'undefined' && document.hidden)) return;
     const item = currentItem();
     if (!item) return;
     if (!item.trailerYoutubeId && !state.current.trailerCache.has(cacheKeyOf(item))) void resolveTrailer(item);
     const arm = () => {
+      if (!mountedRef.current || (typeof document !== 'undefined' && document.hidden)) return;
       setArmed(true);
+      state.current.armed = true;
       fallbackTimer.current = window.setTimeout(() => {
-        if (!state.current.ready) onTrailerLoaded();
+        if (mountedRef.current && !state.current.ready) onTrailerLoaded();
       }, 2500);
     };
     const whenSettled = () => {
@@ -822,7 +837,19 @@ export function AnimeXSpotlight({
     window.clearTimeout(fallbackTimer.current);
     startTimer();
     armTrailer(true);
+    const onVisibility = () => {
+      if (document.hidden) {
+        window.clearTimeout(timer.current);
+        window.clearTimeout(armTimer.current);
+        window.clearTimeout(fallbackTimer.current);
+      } else {
+        startTimer();
+        if (!state.current.armed) armTrailer();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
       window.clearTimeout(timer.current);
       window.clearTimeout(armTimer.current);
       window.clearTimeout(fallbackTimer.current);

@@ -387,7 +387,7 @@ const proxyComick = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'private, max-age=60');
+    res.set('Cache-Control', upstream.status === 200 ? 'private, max-age=60' : 'private, no-store');
     res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
@@ -460,7 +460,7 @@ const proxyMangaDex = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'private, max-age=60');
+    res.set('Cache-Control', upstream.status === 200 ? 'private, max-age=60' : 'private, no-store');
     res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
