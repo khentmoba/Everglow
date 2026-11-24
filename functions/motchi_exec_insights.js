@@ -1,7 +1,46 @@
 'use strict';
 
+const net = require('node:net');
+const { isPrivateIp, readLimitedText } = require('./common.js');
 const { computeInsights, generateTrivia, composeTodayRecap } = require('./motchi_core.js');
 const { fetchAniListAnime, fetchJikanAnime } = require('./motchi_exec_media.js');
+
+const MAX_FREE_SEARCH_BYTES = 1024 * 1024;
+const MAX_FREE_READ_BYTES = 1024 * 1024;
+
+function isSafeExternalWebUrl(raw) {
+  let parsed;
+  try {
+    parsed = new URL(String(raw || '').trim());
+  } catch {
+    return false;
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    return false;
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
+    return false;
+  }
+  if (net.isIP(host) && isPrivateIp(host)) return false;
+  return true;
+}
+
+function sleepWithSignal(ms, signal) {
+  if (!signal) return new Promise((r) => setTimeout(r, ms));
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 async function exec_get_relationship_insights(ctx, _args) {
     const [moodSnap, activitySnap] = await Promise.all([
@@ -200,8 +239,12 @@ async function freeSearch(query, limit) {
       },
       signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return [];
-    return parseFreeSearch(await res.text(), limit);
+    if (!res.ok) {
+      await res.body?.cancel?.().catch(() => {});
+      return [];
+    }
+    const html = await readBodyText(res, MAX_FREE_SEARCH_BYTES);
+    return parseFreeSearch(html, limit);
   } catch (_) {
     return [];
   }
@@ -209,7 +252,46 @@ async function freeSearch(query, limit) {
 
 const FREE_READ_TIMEOUT_MS = 6000;
 
+/** Reads an upstream body with a byte cap, falling back to `res.text()` for non-stream bodies. */
+async function readBodyText(res, maxBytes) {
+  const body = res?.body;
+  if (body && typeof body.getReader === 'function') {
+    return readLimitedText(body, maxBytes);
+  }
+  const text = await res.text();
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) throw new Error('Upstream response exceeded size limit');
+  return text;
+}
+
+/** Like readBodyText, but keeps the first `maxBytes` bytes instead of failing on oversize bodies. */
+async function readBodyPrefix(res, maxBytes) {
+  const body = res?.body;
+  if (!body || typeof body.getReader !== 'function') {
+    const text = await res.text();
+    return text.length > maxBytes ? text.slice(0, maxBytes) : text;
+  }
+  const reader = body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      const remaining = maxBytes - total;
+      const slice = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+      chunks.push(Buffer.from(slice));
+      total += slice.byteLength;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+    try { reader.releaseLock(); } catch (_) {}
+  }
+  return Buffer.concat(chunks, total).toString('utf8');
+}
+
 async function freeReadPage(url, timeoutMs) {
+  if (!isSafeExternalWebUrl(url)) return null;
   try {
     const res = await fetch(FREE_READER_URL + url, {
       headers: { Accept: 'text/plain', 'X-Return-Format': 'markdown' },
@@ -217,8 +299,11 @@ async function freeReadPage(url, timeoutMs) {
         Math.min(timeoutMs || FREE_READ_TIMEOUT_MS, FREE_READ_TIMEOUT_MS),
       ),
     });
-    if (!res.ok) return null;
-    const raw = await res.text();
+    if (!res.ok) {
+      await res.body?.cancel?.().catch(() => {});
+      return null;
+    }
+    const raw = await readBodyPrefix(res, MAX_FREE_READ_BYTES);
     const marker = 'Markdown Content:';
     const at = raw.indexOf(marker);
     const text = (at >= 0 ? raw.slice(at + marker.length) : raw).trim();
@@ -237,10 +322,13 @@ async function tinyfishSearch(apiKey, params) {
       headers: { 'X-API-Key': apiKey },
       signal: AbortSignal.timeout(8000),
     });
-    if (res.status === 401 || res.status === 403) return { error: 'Web search API key is invalid or forbidden.' };
-    if (res.status === 402) return { error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' };
-    if (res.status === 429) return { error: 'Web search rate limit hit — try again in a minute.' };
-    if (!res.ok) return { error: `Web search failed (HTTP ${res.status}).` };
+    if (!res.ok) {
+      await res.body?.cancel?.().catch(() => {});
+      if (res.status === 401 || res.status === 403) return { error: 'Web search API key is invalid or forbidden.' };
+      if (res.status === 402) return { error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' };
+      if (res.status === 429) return { error: 'Web search rate limit hit — try again in a minute.' };
+      return { error: `Web search failed (HTTP ${res.status}).` };
+    }
     return { data: await res.json() };
   } catch (_) {
     return { error: 'Web search timed out — answer from what you know and say the web was slow.' };
@@ -331,10 +419,13 @@ async function readOnePage(ctx, apiKey, url, timeoutMs) {
           body: JSON.stringify({ urls: [url], format: 'markdown' }),
           signal: AbortSignal.timeout(timeoutMs),
         });
-        if (res.status === 401 || res.status === 403) throw new Error('Web page reading API key is invalid or forbidden.');
-        if (res.status === 402) throw new Error('Web page reading account needs a top-up at agent.tinyfish.ai/wallet.');
-        if (res.status === 429) throw new Error('Web page reading rate limit hit — try again in a minute.');
-        if (!res.ok) throw new Error(`Web page reading failed (HTTP ${res.status}).`);
+        if (!res.ok) {
+          await res.body?.cancel?.().catch(() => {});
+          if (res.status === 401 || res.status === 403) throw new Error('Web page reading API key is invalid or forbidden.');
+          if (res.status === 402) throw new Error('Web page reading account needs a top-up at agent.tinyfish.ai/wallet.');
+          if (res.status === 429) throw new Error('Web page reading rate limit hit — try again in a minute.');
+          throw new Error(`Web page reading failed (HTTP ${res.status}).`);
+        }
         const data = await res.json();
         const first = (data.results || [])[0];
         if (!first || !first.text) {
@@ -362,8 +453,8 @@ async function readOnePage(ctx, apiKey, url, timeoutMs) {
 async function exec_read_web_page(ctx, args) {
     const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
     const urlsRaw = Array.isArray(args.urls) ? args.urls : [args.urls];
-    const urls = urlsRaw.map(u => String(u || '').trim()).filter(u => /^https?:\/\//i.test(u)).slice(0, 3);
-    if (urls.length === 0) return JSON.stringify({ error: 'No valid http(s) URLs provided' });
+    const urls = urlsRaw.map(u => String(u || '').trim()).filter(isSafeExternalWebUrl).slice(0, 3);
+    if (urls.length === 0) return JSON.stringify({ error: 'No valid public http(s) URLs provided' });
     const settled = await Promise.allSettled(urls.map(url => readOnePage(ctx, apiKey, url, 10000)));
     const pages = [];
     const pageErrors = [];
@@ -397,13 +488,16 @@ async function exec_browse_web(ctx, args) {
     const goal = String(args.goal || '').trim();
     let cacheKey = null;
     if (!runId) {
-      if (!/^https?:\/\//i.test(url)) return JSON.stringify({ error: 'No valid http(s) URL provided' });
+      if (!isSafeExternalWebUrl(url)) return JSON.stringify({ error: 'No valid public http(s) URL provided' });
       if (!goal) return JSON.stringify({ error: 'No goal provided' });
       cacheKey = `browse:${url}|${goal.slice(0, 200)}`;
       const cached = ctx.cacheGet(cacheKey, ctx.cacheTTLs.web_page);
       if (cached) return JSON.stringify(cached);
       let queueRes;
       try {
+        const queueSignal = ctx.signal
+          ? AbortSignal.any([ctx.signal, AbortSignal.timeout(10000)])
+          : AbortSignal.timeout(10000);
         queueRes = await fetch(`${TINYFISH_AGENT_BASE}/v1/automation/run-async`, {
           method: 'POST',
           headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
@@ -413,15 +507,18 @@ async function exec_browse_web(ctx, args) {
             browser_profile: args.stealth === true ? 'stealth' : 'lite',
             capture_config: { screenshots: false },
           }),
-          signal: AbortSignal.timeout(10000),
+          signal: queueSignal,
         });
       } catch (_) {
         return JSON.stringify({ error: 'Browsing timed out while starting — try again in a moment.' });
       }
-      if (queueRes.status === 401 || queueRes.status === 403) return JSON.stringify({ error: 'Web browsing API key is invalid or forbidden.' });
-      if (queueRes.status === 402) return JSON.stringify({ error: 'Web browsing account needs a top-up at agent.tinyfish.ai/wallet.' });
-      if (queueRes.status === 429) return JSON.stringify({ error: 'Web browsing rate limit hit — try again in a minute.' });
-      if (!queueRes.ok) return JSON.stringify({ error: `Web browsing failed to start (HTTP ${queueRes.status}).` });
+      if (!queueRes.ok) {
+        await queueRes.body?.cancel?.().catch(() => {});
+        if (queueRes.status === 401 || queueRes.status === 403) return JSON.stringify({ error: 'Web browsing API key is invalid or forbidden.' });
+        if (queueRes.status === 402) return JSON.stringify({ error: 'Web browsing account needs a top-up at agent.tinyfish.ai/wallet.' });
+        if (queueRes.status === 429) return JSON.stringify({ error: 'Web browsing rate limit hit — try again in a minute.' });
+        return JSON.stringify({ error: `Web browsing failed to start (HTTP ${queueRes.status}).` });
+      }
       const queued = await queueRes.json().catch(() => ({}));
       runId = String(queued.run_id || '');
       if (!runId) {
@@ -433,17 +530,26 @@ async function exec_browse_web(ctx, args) {
     }
     const deadline = Date.now() + BROWSE_BUDGET_MS;
     for (;;) {
+      if (ctx.signal?.aborted) {
+        return JSON.stringify({ status: 'RUNNING', run_id: runId, url, hint: resumeHint(runId) });
+      }
       let runRes;
       try {
+        const pollSignal = ctx.signal
+          ? AbortSignal.any([ctx.signal, AbortSignal.timeout(8000)])
+          : AbortSignal.timeout(8000);
         runRes = await fetch(`${TINYFISH_AGENT_BASE}/v1/runs/${encodeURIComponent(runId)}`, {
           headers: { 'X-API-Key': apiKey },
-          signal: AbortSignal.timeout(8000),
+          signal: pollSignal,
         });
       } catch (_) {
         return JSON.stringify({ status: 'RUNNING', run_id: runId, url, hint: resumeHint(runId) });
       }
-      if (runRes.status === 401 || runRes.status === 403) return JSON.stringify({ error: 'Web browsing API key is invalid or forbidden.' });
-      if (!runRes.ok) return JSON.stringify({ error: `Web browsing status check failed (HTTP ${runRes.status}).` });
+      if (!runRes.ok) {
+        await runRes.body?.cancel?.().catch(() => {});
+        if (runRes.status === 401 || runRes.status === 403) return JSON.stringify({ error: 'Web browsing API key is invalid or forbidden.' });
+        return JSON.stringify({ error: `Web browsing status check failed (HTTP ${runRes.status}).` });
+      }
       const run = await runRes.json().catch(() => ({}));
       const status = String(run.status || 'RUNNING').toUpperCase();
       if (status === 'COMPLETED') {
@@ -462,10 +568,10 @@ async function exec_browse_web(ctx, args) {
         const msg = run.error && run.error.message ? run.error.message : status.toLowerCase();
         return JSON.stringify({ status, run_id: runId, url, error: `Browse ${status.toLowerCase()}: ${msg}` });
       }
-      if (Date.now() >= deadline) {
+      if (Date.now() >= deadline || ctx.signal?.aborted) {
         return JSON.stringify({ status: 'RUNNING', run_id: runId, url, hint: resumeHint(runId) });
       }
-      await new Promise((r) => setTimeout(r, BROWSE_POLL_MS));
+      await sleepWithSignal(BROWSE_POLL_MS, ctx.signal);
     }
 }
 

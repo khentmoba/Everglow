@@ -19,26 +19,40 @@ type HlsConstructor = {
 };
 
 const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+const HLS_LOAD_TIMEOUT_MS = 12_000;
+let hlsLoadPromise: Promise<HlsConstructor | null> | null = null;
 
 function loadHlsConstructor(): Promise<HlsConstructor | null> {
   if (typeof window === 'undefined') return Promise.resolve(null);
   const w = window as unknown as { Hls?: HlsConstructor };
   if (w.Hls) return Promise.resolve(w.Hls);
-  return new Promise((resolve) => {
-    const existing = document.getElementById('everglow-hlsjs') as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => resolve(w.Hls ?? null), { once: true });
-      existing.addEventListener('error', () => resolve(null), { once: true });
+  if (hlsLoadPromise) return hlsLoadPromise;
+  hlsLoadPromise = new Promise((resolve) => {
+    let settled = false;
+    let script = document.getElementById('everglow-hlsjs') as HTMLScriptElement | null;
+    const finish = (ctor: HlsConstructor | null, removeScript = false) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      if (removeScript) script?.remove();
+      if (!ctor) hlsLoadPromise = null;
+      resolve(ctor);
+    };
+    const timer = window.setTimeout(() => finish(null, true), HLS_LOAD_TIMEOUT_MS);
+    if (script) {
+      script.addEventListener('load', () => finish(w.Hls ?? null, !w.Hls), { once: true });
+      script.addEventListener('error', () => finish(null, true), { once: true });
       return;
     }
-    const script = document.createElement('script');
+    script = document.createElement('script');
     script.id = 'everglow-hlsjs';
     script.crossOrigin = 'anonymous';
     script.src = HLS_SCRIPT_SRC;
-    script.onload = () => resolve(w.Hls ?? null);
-    script.onerror = () => resolve(null);
+    script.onload = () => finish(w.Hls ?? null, !w.Hls);
+    script.onerror = () => finish(null, true);
     document.head.appendChild(script);
   });
+  return hlsLoadPromise;
 }
 
 export function HlsServerPlayer({

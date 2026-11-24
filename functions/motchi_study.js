@@ -138,6 +138,7 @@ async function callLlm({ apiKey, messages, maxTokens, timeoutMs }) {
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!resp.ok) {
+    await resp.body?.cancel?.().catch(() => {});
     const err = new Error(`Agnes HTTP ${resp.status}`);
     err.status = resp.status;
     throw err;

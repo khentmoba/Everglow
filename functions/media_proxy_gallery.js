@@ -147,9 +147,10 @@ async function deleteGalleryDocs(docs, deleteFile, workerCount = 20) {
     while (cursor < docs.length) {
       const doc = docs[cursor++];
       const d = doc.data();
-      if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
+      const urls = new Set([d.imageUrl, d.thumbUrl].filter((u) => typeof u === 'string' && u.includes('firebasestorage.googleapis.com')));
+      for (const url of urls) {
         try {
-          const path = resolveGalleryDeletePath(d.imageUrl);
+          const path = resolveGalleryDeletePath(url);
           if (path) await deleteFile(path);
         } catch (_) { /* A missing file must not strand its Firestore doc. */ }
       }

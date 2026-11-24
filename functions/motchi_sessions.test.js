@@ -36,6 +36,12 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
         },
       };
     },
+    runTransaction: (fn) =>
+      fn({
+        get: (ref) => ref.get(),
+        set: (ref, data) => ref.set(data),
+        update: (ref, data) => ref.update(data),
+      }),
   };
 
   const originalGetDb = common.getDb;
@@ -133,6 +139,12 @@ test('recordMotchiTurn updates existing session on subsequent turns', async () =
         doc: () => fakeDocRef,
       };
     },
+    runTransaction: (fn) =>
+      fn({
+        get: (ref) => ref.get(),
+        set: (ref, data) => ref.set(data),
+        update: (ref, data) => ref.update(data),
+      }),
   };
 
   const originalGetDb = common.getDb;
