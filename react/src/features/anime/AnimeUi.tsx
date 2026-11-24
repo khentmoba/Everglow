@@ -1810,25 +1810,36 @@ export function AnimeXPosterRow({
   episodeLabels?: Record<number, string>;
 }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRafRef = useRef<number>(0);
   const [hover, setHover] = useState(false);
   const viewport = useViewport();
   const reduceAmbient = reduceAmbientMotion(viewport);
+  useEffect(() => () => {
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+  }, []);
   if (!items.length) return null;
   const page = cardWidth * 3 + 32;
 
-  // animateTo: 450ms easeOutCubic, clamped to the scroll range.
   const scrollBy = (dx: number) => {
     const el = scrollerRef.current;
     if (!el) return;
+    if (scrollRafRef.current) {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = 0;
+    }
     const from = el.scrollLeft;
     const to = Math.min(Math.max(from + dx, 0), el.scrollWidth - el.clientWidth);
     const start = performance.now();
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / 450);
       el.scrollLeft = from + (to - from) * (1 - Math.pow(1 - t, 3));
-      if (t < 1) requestAnimationFrame(step);
+      if (t < 1) {
+        scrollRafRef.current = requestAnimationFrame(step);
+      } else {
+        scrollRafRef.current = 0;
+      }
     };
-    requestAnimationFrame(step);
+    scrollRafRef.current = requestAnimationFrame(step);
   };
 
   const edgeFade = (left: boolean) => (

@@ -39,7 +39,7 @@ export function Confetti({
     const el = canvas.current;
     const ctx = el?.getContext('2d');
     if (!el || !ctx) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const particles: Particle[] = [];
     const start = performance.now();
     let frame = 0;

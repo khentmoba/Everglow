@@ -141,7 +141,7 @@ function Sparkles({ progress }: { progress: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current!;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = 330;
     const h = 560;
     if (canvas.width !== w * dpr) {

@@ -117,15 +117,22 @@ function mapOlDoc(d: Record<string, unknown>): BookSearchResult {
   };
 }
 
+function safeHttpUrl(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : '';
+}
+
 function mapGutendexBook(b: Record<string, unknown>): BookSearchResult {
   const id = Number(b.id ?? 0);
   const title = String(b.title ?? '');
   const authors = Array.isArray(b.authors) ? (b.authors as { name?: string }[]).map((a) => String(a.name ?? '')).filter(Boolean) : [];
   const formats = (b.formats as Record<string, string> | undefined) ?? {};
-  const coverUrl = formats['image/jpeg'] ?? '';
+  const coverUrl = safeHttpUrl(formats['image/jpeg']);
   const downloadUrls: Record<string, string> = {};
-  if (formats['application/epub+zip']) downloadUrls.epub = formats['application/epub+zip'];
-  const txt = formats['text/plain; charset=utf-8'] ?? formats['text/plain; charset=us-ascii'] ?? formats['text/plain'];
+  const epub = safeHttpUrl(formats['application/epub+zip']);
+  if (epub) downloadUrls.epub = epub;
+  const txt = safeHttpUrl(formats['text/plain; charset=utf-8'] ?? formats['text/plain; charset=us-ascii'] ?? formats['text/plain']);
   if (txt) downloadUrls.txt = txt;
   const subjects = Array.isArray(b.subjects)
     ? b.subjects.map((x) => String(x).replace(/\s*--\s*/g, ' · ')).filter((x) => x.trim() !== '').slice(0, 8)
