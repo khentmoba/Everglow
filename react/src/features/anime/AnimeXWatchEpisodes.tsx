@@ -932,7 +932,7 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         <div style={{ ...dmSansStyle({ size: 11.5, color: T.textSecondary }), ...ellipsis(1) }}>
           {hideSpoilers ? `Playing Episode ${p.selectedEpisode}` : `Playing Episode ${p.selectedEpisode} - ${currentTitle}`}
         </div>
-        {nextTitle != null && (
+        {nextTitle != null && !upNext && (
           <>
             <div style={{ height: 2 }} />
             <div style={{ ...dmSansStyle({ size: 11, color: T.accentWarm, weight: 500 }), ...ellipsis(1) }}>Up next: {nextTitle}</div>
@@ -940,7 +940,7 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         )}
         {upNext && (
           <>
-            <div style={{ height: 10 }} />
+            <div style={{ height: 8 }} />
             <button
               type="button"
               className="bare-button"

@@ -213,12 +213,14 @@ export function AnimeXGhostButton({
   icon,
   iconNode,
   color = AnimeXTokens.textSecondary,
+  style,
   onClick,
 }: {
   label: string;
   icon?: string;
   iconNode?: ReactNode;
   color?: string;
+  style?: CSSProperties;
   onClick?: () => void;
 }) {
   return (
@@ -228,6 +230,7 @@ export function AnimeXGhostButton({
         padding: '6px 10px',
         borderRadius: AnimeXTokens.radiusSm,
         background: hover ? withAlpha('#FFFFFF', 0.06) : 'transparent',
+        ...style,
       })}
     >
       {(hover) => (
@@ -953,7 +956,7 @@ export function AnimeXSpotlight({
           </div>
           <div style={{ height: 12 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px' }}>
-            <div style={dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary, weight: 700, letterSpacing: 0.02 })}>
+            <div style={dmSansStyle({ size: 12, color: AnimeXTokens.textPrimary, weight: 700, letterSpacing: 0.02 })}>
               Trending now
             </div>
             {isAiring && <div style={dmSansStyle({ size: 12, color: AnimeXTokens.success, weight: 600 })}>Airing Now</div>}
@@ -1013,6 +1016,7 @@ export function AnimeXSpotlight({
                   background: withAlpha(AnimeXTokens.accent, 0.18),
                   display: 'inline-flex',
                   alignItems: 'center',
+                  maxWidth: '100%',
                 }}
                 title={`Continue ${latestResume.title}`}
               >
@@ -1026,7 +1030,7 @@ export function AnimeXSpotlight({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  Continue Ep {latestResume.episode}
+                  Continue {latestResume.title} · Ep {latestResume.episode}
                 </span>
               </button>
             )}
@@ -1042,6 +1046,7 @@ export function AnimeXSpotlight({
               label={hasTrailer && !muted ? 'Full Trailer' : 'Trailer'}
               icon={hasTrailer ? (muted ? 'volume_off' : 'volume_up') : 'play_circle_outline'}
               color={AnimeXTokens.white85}
+              style={{ minHeight: 44, padding: '0 14px', border: `1px solid ${withAlpha('#FFFFFF', 0.16)}` }}
               onClick={() => {
                 if (hasTrailer && muted) toggleMute();
                 else {

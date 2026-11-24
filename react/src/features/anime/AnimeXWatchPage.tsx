@@ -922,15 +922,31 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   );
 
   const ep = activeEpisode();
+  // A source that never starts must not be a silent dead end: after 9s with no
+  // playback, say so and offer the two ways out. The clock is measured against
+  // a mount time, so re-renders and server switches cannot reset it.
   const [slowStart, setSlowStart] = useState(false);
-  const playingNow = (st.playbackPosition ?? 0) > 0;
+  const playerWatchRef = useRef(st.playbackPosition ?? 0);
+  playerWatchRef.current = st.playbackPosition ?? 0;
   useEffect(() => {
     if (!st.ready || !url) return;
-    setSlowStart(false);
-    const timer = window.setTimeout(() => setSlowStart(true), 9000);
-    return () => window.clearTimeout(timer);
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      if (playerWatchRef.current > 0) {
+        window.clearInterval(timer);
+        setSlowStart(false);
+        return;
+      }
+      if (Date.now() - startedAt >= 9000) {
+        window.clearInterval(timer);
+        setSlowStart(true);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, st.selectedEpisode, st.serverIndex]);
+  }, [st.selectedEpisode, Boolean(st.ready)]);
+  // Real playback clears the message for good, including when it starts late.
+  const playingNow = (st.playbackPosition ?? 0) > 0;
   useEffect(() => {
     if (playingNow) setSlowStart(false);
   }, [playingNow]);
@@ -1049,13 +1065,35 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               }}
             >
               <Icon name="dns" size={15} color={T.accentText} />
-              <span style={dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 700 })}>{currentServer()?.name ?? 'Source'}</span>
+              <span style={dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 700 })}>
+                Server · {currentServer()?.name ?? 'none'}
+              </span>
               <Icon name="keyboard_arrow_down" size={15} color={T.textSecondary} />
             </button>
           )}
           <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
           <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
         </div>
+        <button
+          type="button"
+          className="bare-button"
+          onClick={handleContentError}
+          style={{
+            marginTop: 6,
+            minHeight: 40,
+            padding: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'transparent',
+            border: 'none',
+          }}
+        >
+          <Icon name="refresh" size={14} color={T.accentText} />
+          <span style={{ ...dmSansStyle({ size: 12, color: T.accentText, weight: 600 }), textDecoration: 'underline' }}>
+            Not playing? Switch server
+          </span>
+        </button>
         {failedNote && (
           <>
             <div style={{ height: 8 }} />
@@ -1158,6 +1196,26 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           ),
         )}
       </div>
+      <button
+        type="button"
+        className="bare-button"
+        onClick={handleContentError}
+        style={{
+          marginTop: 6,
+          minHeight: 40,
+          padding: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          background: 'transparent',
+          border: 'none',
+        }}
+      >
+        <Icon name="refresh" size={14} color={T.accentText} />
+        <span style={{ ...dmSansStyle({ size: 12, color: T.accentText, weight: 600 }), textDecoration: 'underline' }}>
+          Not playing? Switch server
+        </span>
+      </button>
       {failedNote && (
         <>
           <div style={{ height: 10 }} />
