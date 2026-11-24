@@ -5,7 +5,7 @@ const { promisify } = require('node:util');
 
 const scryptAsync = promisify(crypto.scrypt);
 
-const { getAdmin, clientIp, cappedHttps, applyCors, requireAuth, isSafeDocId } = require('./common.js');
+const { getAdmin, clientIp, cappedHttps, applyCors, requireAuth, enforceRateLimit, isSafeDocId } = require('./common.js');
 const {
   normalizeUsername,
   isValidUsername,
@@ -342,6 +342,7 @@ const manageAccounts = cappedHttps(10, async (req, res) => {
     res.status(403).json({ error: 'Creator access required' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'manageAccounts', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
 
   const db = getAdmin().firestore();
   const col = db.collection('member_accounts');
@@ -543,6 +544,10 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
         return;
       }
       const roomData = roomSnap.data() || {};
+      if (roomData.active === false) {
+        res.status(410).json({ error: 'This watch party has ended.' });
+        return;
+      }
       const isBypass =
         !roomData.hasPassword ||
         roomData.hostUid === decoded.uid ||

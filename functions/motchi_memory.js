@@ -174,8 +174,8 @@ async function checkHallucinations(replyText, rand = Math.random) {
           const data = await res.json();
           const results = data.results || [];
           exists = results.some(r => {
-            const t = (r.title || r.name || '').toLowerCase();
-            return t.includes(q) || q.includes(t);
+            const t = (r.title || r.name || '').trim().toLowerCase();
+            return t.length > 0 && (t.includes(q) || q.includes(t));
           });
           _setExternalCache(cacheKey, exists);
         } catch (_) {

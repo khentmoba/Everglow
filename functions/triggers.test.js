@@ -7,7 +7,7 @@ const triggers = require('./triggers.js');
 test('temporary push failures return false so reminders can retry', async (t) => {
   const admin = getAdmin();
   t.mock.method(admin, 'firestore', () => ({ collection: () => ({ doc: () => ({
-    collection: () => ({ get: async () => ({ docs: [
+    collection: () => ({ limit() { return this; }, get: async () => ({ docs: [
       { data: () => ({ token: 'fake-device' }) },
     ] }) }),
   }) }) }));
@@ -41,7 +41,7 @@ test('partner triggers use app collection paths, authors, and navigation types',
   const admin = getAdmin();
   t.mock.method(admin, 'firestore', () => ({ collection: () => ({ doc: (name) => {
     recipients.push(name);
-    return { collection: () => ({ get: async () => ({ docs: [
+    return { collection: () => ({ limit() { return this; }, get: async () => ({ docs: [
       { data: () => ({ token: 'demo-token' }), ref: { delete: async () => {} } },
     ] }) }) };
   } }) }));
@@ -76,7 +76,7 @@ test('new Motchi device gets default scheduled pushes without a preferences pare
   const admin = getAdmin();
   t.mock.method(admin, 'firestore', () => ({
     collection: () => ({ doc: () => ({
-      collection: () => ({ get: async () => ({ docs: [
+      collection: () => ({ limit() { return this; }, get: async () => ({ docs: [
         { data: () => ({ token: 'new-device-token' }), ref: { delete: async () => {} } },
       ] }) }),
     }) }),
@@ -117,7 +117,7 @@ test('push goes to every registered device, ignores legacy tokens, and removes d
       legacyReads++;
       return { exists: true, data: () => ({ token: 'stale-legacy-token' }) };
     },
-    collection: () => ({ get: async () => ({ docs: devices }) }),
+    collection: () => ({ limit() { return this; }, get: async () => ({ docs: devices }) }),
   }) }) }));
   t.mock.method(admin, 'messaging', () => ({ send: async ({ token }) => {
     sent.push(token);

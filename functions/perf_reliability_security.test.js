@@ -10,6 +10,7 @@ const {
   exec_mark_watchlist_item_watched,
   exec_remove_from_watchlist,
   exec_search_books,
+  exec_update_book_progress,
 } = require('./motchi_exec_media.js');
 const {
   exec_plan_date_night,
@@ -31,7 +32,8 @@ const {
   exec_edit_journal_entry,
   exec_delete_journal_entry,
 } = require('./motchi_exec_memory.js');
-const { loginAccount, communityWatchPartyAccess } = require('./accounts.js');
+const { loginAccount, manageAccounts, communityWatchPartyAccess } = require('./accounts.js');
+const { sendFCMToUser } = require('./triggers.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
 const { proxyLastfmImage } = require('./media_proxy_music.js');
 const common = require('./common.js');
@@ -915,4 +917,229 @@ test('motchiStats returns generic 500 error without leaking internal error detai
   assert.equal(res.code, 500);
   assert.equal(res.body.error, 'Could not load stats');
   assert.ok(!String(res.body.error).includes('secret-internal-firestore-details'));
+});
+
+test('Motchi title-lookup tools never match untitled documents and bound our_books reads', async () => {
+  const untitledDoc = {
+    id: 'untitled-1',
+    data: () => ({ title: '' }),
+    ref: {
+      update: async () => { throw new Error('must not update untitled doc'); },
+      delete: async () => { throw new Error('must not delete untitled doc'); },
+    },
+  };
+  let ourBooksLimit = null;
+  const ctx = makeCtx({
+    db: {
+      batch: () => ({
+        update: () => { throw new Error('must not batch-update untitled doc'); },
+        delete: () => { throw new Error('must not batch-delete untitled doc'); },
+        commit: async () => {},
+      }),
+      collection: (name) => ({
+        where: () => ({
+          limit: () => ({ get: async () => ({ docs: [untitledDoc] }) }),
+        }),
+        limit: (n) => {
+          if (name === 'our_books') ourBooksLimit = n;
+          return { get: async () => ({ docs: [untitledDoc] }) };
+        },
+        get: async () => {
+          if (name === 'our_books') throw new Error('our_books query must be bounded with limit()');
+          return { docs: [untitledDoc] };
+        },
+      }),
+    },
+  });
+
+  const bookRes = JSON.parse(await exec_update_book_progress(ctx, { title: 'Dune', progress: 50 }));
+  assert.match(bookRes.error, /No book found/);
+  assert.equal(ourBooksLimit, 200);
+
+  const watchRes = JSON.parse(await exec_mark_watchlist_item_watched(ctx, { title: 'Dune' }));
+  assert.match(watchRes.error, /No watchlist item found/);
+
+  const removeRes = JSON.parse(await exec_remove_from_watchlist(ctx, { title: 'Dune', confirm: true }));
+  assert.match(removeRes.error, /No watchlist item found/);
+
+  const editJournalRes = JSON.parse(await exec_edit_journal_entry(ctx, { title: 'Dune', content: 'hi' }));
+  assert.match(editJournalRes.error, /No journal entry found/);
+
+  const delJournalRes = JSON.parse(await exec_delete_journal_entry(ctx, { title: 'Dune', confirm: true }));
+  assert.match(delJournalRes.error, /No journal entry found/);
+
+  const remRes = JSON.parse(await exec_cancel_reminder(ctx, { title: 'Dune', confirm: true }));
+  assert.match(remRes.error, /No pending reminder found/);
+
+  const updCalRes = JSON.parse(await exec_update_calendar_event(ctx, { title: 'Dune', description: 'x' }));
+  assert.match(updCalRes.error, /No calendar event found/);
+
+  const delCalRes = JSON.parse(await exec_delete_calendar_event(ctx, { title: 'Dune', confirm: true }));
+  assert.match(delCalRes.error, /No calendar event found/);
+
+  const compBucketRes = JSON.parse(await exec_complete_bucket_item(ctx, { title: 'Dune' }));
+  assert.match(compBucketRes.error, /No bucket item found/);
+
+  const delBucketRes = JSON.parse(await exec_delete_bucket_item(ctx, { title: 'Dune', confirm: true }));
+  assert.match(delBucketRes.error, /No bucket item found/);
+});
+
+test('exec_search_movies, exec_search_books, and exec_get_weather reject empty input without calling fetch', async (t) => {
+  let fetchCalls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    fetchCalls += 1;
+    throw new Error('fetch should not be called');
+  });
+  const ctx = makeCtx();
+
+  const movieRes = JSON.parse(await exec_search_movies(ctx, { query: '   ' }));
+  assert.deepEqual(movieRes, { results: [] });
+
+  const bookRes = JSON.parse(await exec_search_books(ctx, {}));
+  assert.deepEqual(bookRes, { results: [] });
+
+  const weatherRes = JSON.parse(await exec_get_weather(ctx, { location: '' }));
+  assert.match(weatherRes.error, /No location provided/);
+
+  assert.equal(fetchCalls, 0);
+});
+
+test('sendFCMToUser bounds device collection reads with limit(50)', async (t) => {
+  let devicesLimit = null;
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'firestore', () => ({
+    collection: () => ({
+      doc: () => ({
+        collection: (sub) => ({
+          limit: (n) => {
+            if (sub === 'devices') devicesLimit = n;
+            return { get: async () => ({ docs: [] }) };
+          },
+          get: async () => {
+            throw new Error('devices query must use limit()');
+          },
+        }),
+      }),
+    }),
+  }));
+  const ok = await sendFCMToUser('clairjassen', { title: 'Hi', body: 'Test' });
+  assert.equal(ok, true);
+  assert.equal(devicesLimit, 50);
+});
+
+test('communityWatchPartyAccess unlockRoom rejects ended rooms with 410', async (t) => {
+  const admin = common.getAdmin();
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'guest-uid',
+    username: 'breyan',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  t.mock.method(admin, 'firestore', () => ({
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({ exists: true, data: () => ({ active: false, hasPassword: true, hostUid: 'other' }) }),
+      }),
+    }),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await communityWatchPartyAccess(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok' },
+      get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer tok' : ''),
+      ip: '203.0.113.61',
+      body: { action: 'unlockRoom', roomId: 'room123', password: 'secret' },
+    },
+    res,
+  );
+  assert.equal(res.code, 410);
+  assert.match(res.body.error, /ended/i);
+});
+
+test('proxyBookFile sets nosniff and sandbox CSP on binary EPUB responses', async (t) => {
+  const admin = common.getAdmin();
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'clair-uid',
+    username: 'clairjassen',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'application/epub+zip', 'content-length': '4' }),
+    body: new ReadableStream({
+      start(c) {
+        c.enqueue(new Uint8Array([0x50, 0x4b, 0x03, 0x04]));
+        c.close();
+      },
+    }),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await proxyBookFile(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok', accept: 'application/epub+zip' },
+      get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer tok' : h.toLowerCase() === 'accept' ? 'application/epub+zip' : ''),
+      ip: '203.0.113.62',
+      body: { urls: ['https://www.gutenberg.org/ebooks/84.epub.images'] },
+    },
+    res,
+  );
+  assert.equal(res.code, 200);
+  assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+  assert.equal(res.headers['Content-Security-Policy'], "default-src 'none'; sandbox");
+});
+
+test('manageAccounts enforces per-uid rate limiting', async (t) => {
+  const admin = common.getAdmin();
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'khent-rate-uid',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  t.mock.method(admin, 'firestore', () => ({
+    collection: () => ({
+      orderBy: () => ({
+        limit: () => ({
+          get: async () => ({ docs: [] }),
+        }),
+      }),
+    }),
+  }));
+  let lastCode = 200;
+  for (let i = 0; i < 61; i++) {
+    const res = {
+      code: 200,
+      headers: {},
+      set(k, v) { this.headers[k] = v; return this; },
+      status(n) { this.code = n; return this; },
+      send(b) { this.body = b; return this; },
+      json(b) { this.body = b; return this; },
+    };
+    await manageAccounts(
+      {
+        method: 'GET',
+        headers: { authorization: 'Bearer tok' },
+        get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer tok' : ''),
+        ip: '203.0.113.63',
+      },
+      res,
+    );
+    lastCode = res.code;
+  }
+  assert.equal(lastCode, 429);
 });
