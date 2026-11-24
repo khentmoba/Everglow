@@ -456,11 +456,7 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
   const now = getAdmin().firestore.FieldValue.serverTimestamp();
 
   if (action === 'createRoom') {
-    const ip = clientIp(req);
-    if (_acctHit(ip, 15)) {
-      res.status(429).json({ error: 'Too many requests — try again shortly' });
-      return;
-    }
+    if (enforceRateLimit(req, res, { endpoint: 'communityWatchPartyCreate', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
     const cleanName = String(body.name || '').trim().slice(0, 80) || 'Watch Party';
     const cleanPassword = String(body.password || '').trim();
     if (cleanPassword.length > MAX_PASSWORD_LEN) {
@@ -532,11 +528,7 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
   }
 
   if (action === 'unlockRoom') {
-    const ip = clientIp(req);
-    if (_acctHit(ip, 15)) {
-      res.status(429).json({ error: 'Too many attempts — try again shortly' });
-      return;
-    }
+    if (enforceRateLimit(req, res, { endpoint: 'communityWatchPartyUnlock', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
     const roomId = String(body.roomId || '').trim();
     const password = String(body.password || '').trim();
     if (!isSafeDocId(roomId)) {

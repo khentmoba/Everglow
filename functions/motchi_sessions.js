@@ -3,6 +3,36 @@
 const common = require('./common.js');
 
 const MAX_TURNS_PER_SESSION = 50;
+const MAX_SESSION_DOC_BYTES = 750 * 1024;
+const MAX_TOOL_ARGS_BYTES = 4096;
+
+function boundToolArgs(rawArgs) {
+  if (!rawArgs || typeof rawArgs !== 'object' || Array.isArray(rawArgs)) return {};
+  try {
+    const json = JSON.stringify(rawArgs);
+    if (Buffer.byteLength(json, 'utf8') <= MAX_TOOL_ARGS_BYTES) return rawArgs;
+    return { _truncated: true, preview: json.slice(0, 1024) };
+  } catch {
+    return {};
+  }
+}
+
+function trimTurnsToByteBudget(turns, maxBytes = MAX_SESSION_DOC_BYTES) {
+  let trimmed = turns.length > MAX_TURNS_PER_SESSION
+    ? turns.slice(-MAX_TURNS_PER_SESSION)
+    : turns.slice();
+  while (trimmed.length > 1) {
+    let bytes;
+    try {
+      bytes = Buffer.byteLength(JSON.stringify(trimmed), 'utf8');
+    } catch {
+      break;
+    }
+    if (bytes <= maxBytes) break;
+    trimmed = trimmed.slice(1);
+  }
+  return trimmed;
+}
 
 async function recordMotchiTurn({
   sessionId,
@@ -67,7 +97,7 @@ async function recordMotchiTurn({
       assistantReply: cleanReply.slice(0, 15000),
       tools: (tools || []).map((t) => ({
         name: String(t.name || ''),
-        args: t.args && typeof t.args === 'object' ? t.args : {},
+        args: boundToolArgs(t.args),
         resultSummary: typeof t.resultSummary === 'string' ? t.resultSummary.slice(0, 800) : '',
         elapsedMs: typeof t.elapsedMs === 'number' ? t.elapsedMs : 0,
       })),
@@ -109,10 +139,7 @@ async function recordMotchiTurn({
       } else {
         const prevData = docSnap.data() || {};
         const prevTurns = Array.isArray(prevData.turns) ? prevData.turns : [];
-        let updatedTurns = [...prevTurns, turnData];
-        if (updatedTurns.length > MAX_TURNS_PER_SESSION) {
-          updatedTurns = updatedTurns.slice(-MAX_TURNS_PER_SESSION);
-        }
+        const updatedTurns = trimTurnsToByteBudget([...prevTurns, turnData]);
 
         await writer.update(docRef, {
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -144,4 +171,7 @@ async function recordMotchiTurn({
 module.exports = {
   recordMotchiTurn,
   MAX_TURNS_PER_SESSION,
+  MAX_SESSION_DOC_BYTES,
+  boundToolArgs,
+  trimTurnsToByteBudget,
 };

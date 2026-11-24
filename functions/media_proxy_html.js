@@ -79,6 +79,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
   ];
   const isAllowedScanlationUrl = (u) =>
     u.protocol === 'https:' &&
+    !u.port &&
     allowedSuffixes.some((s) => u.hostname === s.slice(1) || u.hostname.endsWith(s));
   if (!isAllowedScanlationUrl(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
@@ -191,6 +192,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
   ];
   const isAllowedHtmlUrl = (u) =>
     u.protocol === 'https:' &&
+    !u.port &&
     (allowedExactHosts.has(u.hostname) ||
       allowedSuffixes.some((s) => u.hostname === s.slice(1) || u.hostname.endsWith(s)));
   if (!isAllowedHtmlUrl(parsed)) {

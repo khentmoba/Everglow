@@ -109,7 +109,7 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
   const allowedSuffixes = ['.mangadex.network', '.mangadex.org'];
   const isAllowedMangaDex = (u) => {
     const h = u.hostname.toLowerCase();
-    return allowedHosts.has(h) || allowedSuffixes.some((s) => h.endsWith(s));
+    return !u.port && (allowedHosts.has(h) || allowedSuffixes.some((s) => h.endsWith(s)));
   };
   if (parsed.protocol !== 'https:' || !isAllowedMangaDex(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
@@ -200,7 +200,7 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
   ];
   const isAllowedKakalot = (u) => {
     const h = u.hostname.toLowerCase();
-    return allowedSuffixes.some((s) => h.endsWith(s));
+    return !u.port && allowedSuffixes.some((s) => h.endsWith(s));
   };
   if (parsed.protocol !== 'https:' || !isAllowedKakalot(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
@@ -293,7 +293,7 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
   ];
   const isAllowedKatana = (u) => {
     const h = u.hostname.toLowerCase();
-    return h === 'mangakatana.com' || allowedSuffixes.some((s) => h.endsWith(s));
+    return !u.port && (h === 'mangakatana.com' || allowedSuffixes.some((s) => h.endsWith(s)));
   };
   if (parsed.protocol !== 'https:' || !isAllowedKatana(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
