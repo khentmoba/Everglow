@@ -1069,9 +1069,10 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 <div
                   style={{
                     ...dmSansStyle({ size: 11.5, color: T.textSecondary, weight: 600 }),
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
                   }}
                 >
                   {nextEpisode.title}
@@ -1083,9 +1084,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               className="bare-button"
               onClick={() => (next.isSeason ? openSeason(nextSeason()!) : stepEpisode(1))}
               style={{
-                minHeight: 40,
+                minHeight: 44,
                 flexShrink: 0,
-                padding: '0 12px',
+                padding: '0 14px',
                 borderRadius: 999,
                 background: T.accent,
                 border: 'none',
@@ -1095,7 +1096,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               }}
             >
               <Icon name="play_arrow" size={15} color="#FFFFFF" />
-              <span style={dmSansStyle({ size: 12, color: '#FFFFFF', weight: 700 })}>Watch now</span>
+              <span style={dmSansStyle({ size: 12.5, color: '#FFFFFF', weight: 700 })}>Watch now</span>
             </button>
             <button
               type="button"
@@ -1106,8 +1107,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 AnimexStores.setAutoNext(false);
               }}
               style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 flexShrink: 0,
                 borderRadius: 999,
                 border: `1px solid ${T.borderStrong}`,
@@ -1472,10 +1473,11 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         </div>
         <div style={{ flex: 1, minWidth: 8 }} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <EpisodeStepButton label="Prev Episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
+          <EpisodeStepButton label="Prev episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
           <EpisodeStepButton
-            label={hasNextSeason ? 'Next Season' : 'Next Episode'}
-            icon={hasNextSeason ? 'skip_next' : undefined}
+            label={hasNextSeason ? 'Next season' : 'Next episode'}
+            icon="skip_next"
+            primary
             enabled={!isLastEpisode || hasNextSeason}
             onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
           />
@@ -1825,15 +1827,26 @@ function TopBar({
           <div style={{ width: 8, flexShrink: 0 }} />
           {onWatchTogether && (
             <>
-              <PillButton
-                icon="favorite"
-                iconSize={14}
-                iconColor={AppColors.roseQuartz}
-                label="Watch Together"
-                onTap={onWatchTogether}
-                background={withAlpha(AppColors.deepRose, 0.16)}
-                border={withAlpha(AppColors.deepRose, 0.55)}
-              />
+              <button
+                type="button"
+                className="bare-button"
+                aria-label="Watch Together"
+                title="Watch Together"
+                onClick={onWatchTogether}
+                style={{
+                  width: 44,
+                  height: 44,
+                  flexShrink: 0,
+                  boxSizing: 'border-box',
+                  borderRadius: T.radiusLg,
+                  background: withAlpha(AppColors.deepRose, 0.16),
+                  border: `1px solid ${withAlpha(AppColors.deepRose, 0.55)}`,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <Icon name="favorite" size={18} color={AppColors.roseQuartz} />
+              </button>
               <div style={{ width: 8, flexShrink: 0 }} />
             </>
           )}
@@ -1936,11 +1949,14 @@ function EpisodeStepButton({
   enabled,
   onTap,
   icon,
+  primary,
 }: {
   label: string;
   enabled: boolean;
   onTap: () => void;
   icon?: string;
+  /** The next episode is the action of this page; it stays filled at every width. */
+  primary?: boolean;
 }) {
   return (
     <button
@@ -1949,10 +1965,12 @@ function EpisodeStepButton({
       disabled={!enabled}
       onClick={enabled ? onTap : undefined}
       style={{
-        padding: '8px 14px',
-        background: enabled ? white(0.06) : 'transparent',
-        borderRadius: T.radiusMd,
-        border: `1px solid ${enabled ? T.borderStrong : T.border}`,
+        minHeight: 44,
+        padding: primary ? '0 18px' : '8px 14px',
+        boxSizing: 'border-box',
+        background: primary ? (enabled ? T.accent : withAlpha(T.accent, 0.35)) : enabled ? white(0.06) : 'transparent',
+        borderRadius: primary ? T.radiusPill : T.radiusMd,
+        border: primary ? 'none' : `1px solid ${enabled ? T.borderStrong : T.border}`,
         display: 'flex',
         alignItems: 'center',
         cursor: enabled ? 'pointer' : 'default',
@@ -1964,7 +1982,13 @@ function EpisodeStepButton({
           <div style={{ width: 6 }} />
         </>
       )}
-      <span style={dmSansStyle({ size: 12, color: enabled ? (icon ? T.accentWarm : T.textPrimary) : T.textMuted, weight: 600 })}>
+      <span
+        style={dmSansStyle({
+          size: 12,
+          color: primary ? '#FFFFFF' : enabled ? (icon ? T.accentWarm : T.textPrimary) : T.textMuted,
+          weight: 700,
+        })}
+      >
         {label}
       </span>
     </button>

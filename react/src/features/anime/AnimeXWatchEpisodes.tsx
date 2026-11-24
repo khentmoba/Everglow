@@ -648,13 +648,6 @@ export function MobileEpisodesSection(p: EpisodesProps) {
         </div>
       )}
 
-      {p.selectedEpisode > 3 && (
-        <div style={{ height: 8 }}>
-          <div style={{ ...dmSansStyle({ size: 11.5, color: T.accentWarm, weight: 700 }) }}>
-            Playing Episode {p.selectedEpisode}
-          </div>
-        </div>
-      )}
       {displayList.length === 0 ? (
         <div style={{ padding: '24px 0', textAlign: 'center', ...dmSansStyle({ size: 12.5, color: T.textSecondary }) }}>
           No episodes found matching "{query}"
