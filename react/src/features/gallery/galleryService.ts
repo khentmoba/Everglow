@@ -234,6 +234,10 @@ class GalleryService {
   // A photo the partner deletes stays searchable until the page is reopened (same as Flutter).
   private searchIndex: Promise<MemoryPhoto[]> | null = null;
 
+  clearCache(): void {
+    this.searchIndex = null;
+  }
+
   private async readAllPhotos(): Promise<MemoryPhoto[]> {
     const photos: MemoryPhoto[] = [];
     let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
@@ -325,7 +329,8 @@ class GalleryService {
     const uploaded: string[] = [];
     const total = images.full.size + (images.thumb?.size ?? 0);
     let sent = 0;
-    const report = (inFlight: number) => opts.onProgress?.(Math.min(1, Math.max(0, (sent + inFlight) / total)));
+    const report = (inFlight: number) =>
+      opts.onProgress?.(total > 0 ? Math.min(1, Math.max(0, (sent + inFlight) / total)) : 1);
     const put = async (path: string, blob: Blob) => {
       const { storage, mod } = await loadStorage();
       const fileRef = mod.ref(storage, path);
@@ -423,6 +428,11 @@ class GalleryService {
 }
 
 export const galleryService = new GalleryService();
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    galleryService.clearCache();
+  });
+}
 export { where };
 
 /** `getPhotosFromThisDay`: photos uploaded on today's date in earlier years (none in demo mode). */

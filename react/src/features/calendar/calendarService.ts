@@ -449,5 +449,10 @@ class CalendarPollService {
 }
 
 export const calendarService = new CalendarService();
+if (typeof window !== 'undefined') {
+  window.addEventListener('everglow:logout', () => {
+    calendarService.cachedUpcoming = null;
+  });
+}
 export const calendarPollService = new CalendarPollService();
 export { just };

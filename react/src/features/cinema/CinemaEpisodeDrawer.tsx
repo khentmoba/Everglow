@@ -163,6 +163,8 @@ export function CinemaEpisodeDrawer({
   const [muted, setMuted] = useState(true);
   const [sharing, setSharing] = useState(false);
   const alive = useRef(true);
+  const reviewsTimer = useRef<number | null>(null);
+  const tabScrollTimer = useRef<number | null>(null);
   const selectedRef = useRef<number | null>(null);
   selectedRef.current = selectedSeason;
 
@@ -188,19 +190,24 @@ export function CinemaEpisodeDrawer({
     }
     setLoadingEpisodes(true);
     setEpisodes([]);
-    const eps = await fetchSeasonEpisodes(item.tmdbId, seasonNumber);
-    if (!alive.current || selectedRef.current !== seasonNumber) return;
-    setEpisodes(
-      eps.map((e) => ({
-        season: e.seasonNumber,
-        number: e.episodeNumber,
-        name: e.name,
-        overview: e.overview,
-        still: e.stillPath || undefined,
-        runtime: e.runtime,
-      })),
-    );
-    setLoadingEpisodes(false);
+    try {
+      const eps = await fetchSeasonEpisodes(item.tmdbId, seasonNumber);
+      if (!alive.current || selectedRef.current !== seasonNumber) return;
+      setEpisodes(
+        eps.map((e) => ({
+          season: e.seasonNumber,
+          number: e.episodeNumber,
+          name: e.name,
+          overview: e.overview,
+          still: e.stillPath || undefined,
+          runtime: e.runtime,
+        })),
+      );
+    } catch (e) {
+      Logger.w(`CinemaEpisodeDrawer: failed to load season ${seasonNumber}: ${String(e)}`);
+    } finally {
+      if (alive.current && selectedRef.current === seasonNumber) setLoadingEpisodes(false);
+    }
   };
 
   const selectSeason = (sn: number) => {
@@ -282,6 +289,8 @@ export function CinemaEpisodeDrawer({
     requestExtraTab(0);
     return () => {
       alive.current = false;
+      if (reviewsTimer.current != null) window.clearTimeout(reviewsTimer.current);
+      if (tabScrollTimer.current != null) window.clearTimeout(tabScrollTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -292,20 +301,28 @@ export function CinemaEpisodeDrawer({
     if (index === 0) {
       void (async () => {
         let list: Cast[] = [];
-        if (isAnimeSourced) {
-          const d = await fetchAniListDetails({ anilistId: item.anilistId, malId: item.tmdbId });
-          list = (d?.characters ?? [])
-            .filter((c) => c.voiceActorName)
-            .map((c) => ({ name: c.voiceActorName!, character: c.name, profilePath: c.voiceActorImageUrl ?? '' }));
-        } else {
-          list = await fetchCredits(item.tmdbId, item.mediaType);
+        try {
+          if (isAnimeSourced) {
+            const d = await fetchAniListDetails({ anilistId: item.anilistId, malId: item.tmdbId });
+            list = (d?.characters ?? [])
+              .filter((c) => c.voiceActorName)
+              .map((c) => ({ name: c.voiceActorName!, character: c.name, profilePath: c.voiceActorImageUrl ?? '' }));
+          } else {
+            list = await fetchCredits(item.tmdbId, item.mediaType);
+          }
+        } catch (e) {
+          Logger.w(`CinemaEpisodeDrawer: failed to load cast: ${String(e)}`);
+        } finally {
+          if (alive.current) {
+            setCast(list);
+            setLoadingCast(false);
+          }
         }
-        if (!alive.current) return;
-        setCast(list);
-        setLoadingCast(false);
       })();
     } else if (index === 1) {
-      window.setTimeout(() => {
+      if (reviewsTimer.current != null) window.clearTimeout(reviewsTimer.current);
+      reviewsTimer.current = window.setTimeout(() => {
+        reviewsTimer.current = null;
         if (!alive.current) return;
         void (isAnimeSourced ? Promise.resolve([]) : fetchReviews(item.tmdbId, item.mediaType))
           .catch(() => [] as CinemaReview[])
@@ -318,36 +335,42 @@ export function CinemaEpisodeDrawer({
     } else {
       void (async () => {
         let list: MediaItem[] = [];
-        if (isAnimeSourced) {
-          const d = await fetchAniListDetails({ anilistId: item.anilistId, malId: item.tmdbId });
-          const seen = new Set<number>();
-          const base = { id: '', backdropPath: '', year: '', status: 'to-watch', isAnime: true, userName: '', source: 'jikan' };
-          for (const r of [...(d?.seasons ?? []), ...(d?.recommendations ?? [])]) {
-            if (r.id === 0 || seen.has(r.id)) continue;
-            seen.add(r.id);
-            const format = 'format' in r ? r.format : '';
-            list.push({
-              ...base,
-              tmdbId: r.malId ?? r.id,
-              anilistId: r.id,
-              title: r.title,
-              mediaType: format === 'MOVIE' ? 'movie' : 'tv',
-              posterPath: r.coverImageUrl,
-              addedAt: new Date(),
-              synopsis: '',
-              airingStatus: '',
-              format,
-              studio: '',
-              genres: [],
-              remindMe: false,
-            });
+        try {
+          if (isAnimeSourced) {
+            const d = await fetchAniListDetails({ anilistId: item.anilistId, malId: item.tmdbId });
+            const seen = new Set<number>();
+            const base = { id: '', backdropPath: '', year: '', status: 'to-watch', isAnime: true, userName: '', source: 'jikan' };
+            for (const r of [...(d?.seasons ?? []), ...(d?.recommendations ?? [])]) {
+              if (r.id === 0 || seen.has(r.id)) continue;
+              seen.add(r.id);
+              const format = 'format' in r ? r.format : '';
+              list.push({
+                ...base,
+                tmdbId: r.malId ?? r.id,
+                anilistId: r.id,
+                title: r.title,
+                mediaType: format === 'MOVIE' ? 'movie' : 'tv',
+                posterPath: r.coverImageUrl,
+                addedAt: new Date(),
+                synopsis: '',
+                airingStatus: '',
+                format,
+                studio: '',
+                genres: [],
+                remindMe: false,
+              });
+            }
+          } else {
+            list = await fetchSimilar(item.tmdbId, item.mediaType);
           }
-        } else {
-          list = await fetchSimilar(item.tmdbId, item.mediaType);
+        } catch (e) {
+          Logger.w(`CinemaEpisodeDrawer: failed to load similar titles: ${String(e)}`);
+        } finally {
+          if (alive.current) {
+            setSimilar(list);
+            setLoadingSimilar(false);
+          }
         }
-        if (!alive.current) return;
-        setSimilar(list);
-        setLoadingSimilar(false);
       })();
     }
   }
@@ -358,7 +381,10 @@ export function CinemaEpisodeDrawer({
     requestExtraTab(i);
     // Bring the tab strip to the top: switching tabs should show the new tab's
     // content, not the same slice of the hero you were already looking at.
-    window.setTimeout(() => {
+    if (tabScrollTimer.current != null) window.clearTimeout(tabScrollTimer.current);
+    tabScrollTimer.current = window.setTimeout(() => {
+      tabScrollTimer.current = null;
+      if (!alive.current) return;
       const el = tabsRef.current;
       if (!el) return;
       const scroller = el.closest('[data-drawer-scroll]') as HTMLElement | null;
