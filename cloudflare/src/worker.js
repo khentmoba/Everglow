@@ -355,7 +355,8 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal, method = 'G
   }
   if (!upstream.ok && upstream.status !== 206) {
     await upstream.body?.cancel().catch(() => {});
-    return jsonResponse({ error: `Upstream ${upstream.status}` }, upstream.status, request);
+    const status = upstream.status >= 400 && upstream.status <= 599 ? upstream.status : 502;
+    return jsonResponse({ error: `Upstream ${upstream.status}` }, status, request);
   }
 
   const upstreamCt = (upstream.headers.get('content-type') || '').toLowerCase();

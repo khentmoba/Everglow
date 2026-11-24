@@ -122,7 +122,10 @@ async function yumeSources({ animeId, episode, language, provider, signal, timeo
       }),
       signal: ctrl.signal,
     });
-    if (!res.ok) throw new Error(`yumezone ${provider} ${res.status}`);
+    if (!res.ok) {
+      await res.body?.cancel?.().catch(() => {});
+      throw new Error(`yumezone ${provider} ${res.status}`);
+    }
     body = await res.json();
   } finally {
     clearTimeout(timer);
