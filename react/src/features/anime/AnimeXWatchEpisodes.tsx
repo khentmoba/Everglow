@@ -764,7 +764,7 @@ function DesktopEpisodeTile(p: CardProps) {
         <div
           style={{
             ...dmSansStyle({ size: 12.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.3 }),
-            ...ellipsis(2),
+            ...ellipsis(1),
           }}
         >
           {title}
@@ -782,7 +782,7 @@ function DesktopEpisodeTile(p: CardProps) {
             <span style={dmSansStyle({ size: 10.5, color: T.textSecondary })}>{p.episode.duration} min</span>
           )}
         </div>
-        {synopsis && (
+        {synopsis && p.isPlaying && (
           <div style={{ ...dmSansStyle({ size: 11, color: withAlpha(T.textSecondary, 0.85), height: 1.3 }), ...ellipsis(1), marginTop: 2 }}>
             {synopsis}
           </div>

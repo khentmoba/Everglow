@@ -979,6 +979,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const playedSeconds = st.playbackPosition ?? 0;
   const totalSeconds = st.playbackDuration ?? 0;
   const secondsLeft = totalSeconds > 0 && playedSeconds > 0 ? Math.ceil(totalSeconds - playedSeconds) : 0;
+  const nextEpisode = st.episodes.find((e) => e.number === st.selectedEpisode + 1);
   const showUpNext =
     Boolean(next) &&
     !st.showErrorCard &&
@@ -1018,14 +1019,17 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         {showUpNext && next && (
           <div
             style={{
+              // Top of the frame, not the bottom: the bottom is where subtitles
+              // live, and covering a line she is reading is worse than a card
+              // she can ignore.
               position: 'absolute',
-              left: phone ? 10 : 16,
-              right: phone ? 10 : 16,
-              bottom: phone ? 10 : 16,
-              padding: phone ? '10px 12px' : '12px 14px',
+              left: phone ? 10 : 14,
+              right: phone ? 10 : 14,
+              top: phone ? 54 : 58,
+              padding: 8,
               boxSizing: 'border-box',
               borderRadius: T.radiusCard,
-              background: 'rgba(8,7,13,0.92)',
+              background: 'rgba(8,7,13,0.94)',
               border: `1px solid ${T.borderStrong}`,
               display: 'flex',
               alignItems: 'center',
@@ -1033,6 +1037,20 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               backdropFilter: 'blur(8px)',
             }}
           >
+            {nextEpisode?.thumbnail && (
+              <div
+                style={{
+                  width: phone ? 84 : 104,
+                  aspectRatio: '16 / 9',
+                  flexShrink: 0,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  background: T.surfaceRaised,
+                }}
+              >
+                <img src={nextEpisode.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 700, letterSpacing: 0.6 })}>
                 UP NEXT · IN {secondsLeft}s
@@ -1046,6 +1064,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 }}
               >
                 {next.isSeason ? 'Next season' : `Episode ${st.selectedEpisode + 1}`}
+                {!next.isSeason && nextEpisode?.title ? ` · ${nextEpisode.title}` : ''}
               </div>
             </div>
             <button
@@ -1054,7 +1073,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               onClick={() => (next.isSeason ? openSeason(nextSeason()!) : stepEpisode(1))}
               style={{
                 minHeight: 40,
-                padding: '0 14px',
+                flexShrink: 0,
+                padding: '0 12px',
                 borderRadius: 999,
                 background: T.accent,
                 border: 'none',
@@ -1708,19 +1728,21 @@ function PrefToggle({ label, value, onChanged }: { label: string; value: boolean
         minHeight: 44,
         boxSizing: 'border-box',
         padding: '7px 12px',
-        background: value ? withAlpha(T.accent, 0.18) : white(0.05),
+        // A preference is not an action: on-state is a lit switch, not a second
+        // primary button competing with Next episode.
+        background: value ? white(0.1) : white(0.04),
         borderRadius: T.radiusSm,
-        border: `1px solid ${value ? withAlpha(T.accent, 0.45) : T.border}`,
+        border: `1px solid ${value ? white(0.24) : T.border}`,
         display: 'flex',
         alignItems: 'center',
         transition: 'background-color 120ms, border-color 120ms',
       }}
     >
-      <Icon name={value ? 'check' : 'remove'} size={13} color={value ? T.accentWarm : T.textSecondary} />
+      <Icon name={value ? 'toggle_on' : 'toggle_off'} size={16} color={value ? T.textPrimary : T.textSecondary} />
       <div style={{ width: 6 }} />
       <span
         style={{
-          ...dmSansStyle({ size: 12, color: value ? T.accentWarm : T.textSecondary, weight: 600 }),
+          ...dmSansStyle({ size: 12, color: value ? T.textPrimary : T.textSecondary, weight: 600 }),
           whiteSpace: 'nowrap',
         }}
       >

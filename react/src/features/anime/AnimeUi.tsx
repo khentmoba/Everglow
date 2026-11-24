@@ -923,10 +923,14 @@ export function AnimeXSpotlight({
         style={{
           position: 'absolute',
           inset: 0,
-          background: linear(['#00000059', 'transparent', '#B3000000', AnimeXTokens.bg], {
+          // The text block sits between 25% and 50% of the hero, which used to be
+          // the transparent part of this fade: "Trending now" measured 2.48:1 on
+          // a bright frame. The ramp now starts holding at 18% and is properly
+          // dark by the time any label lands on it.
+          background: linear(['#00000059', '#00000073', '#A6000000', '#E6000000', AnimeXTokens.bg], {
             begin: Align.topCenter,
             end: Align.bottomCenter,
-            stops: [0, 0.42, 0.78, 1],
+            stops: [0, 0.18, 0.5, 0.84, 1],
           }),
         }}
       />
