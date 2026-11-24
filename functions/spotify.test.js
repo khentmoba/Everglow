@@ -96,3 +96,76 @@ test('_mapSpotifyRecentItems maps played_at and track metadata', () => {
   assert.equal(mapped[0].isPlaying, false);
   assert.equal(mapped[0].timestamp, Date.parse('2026-11-18T07:00:00.000Z'));
 });
+
+test('_mapSpotifyRecentItems deduplicates repeated plays keeping newest timestamp and caps at maxUnique', () => {
+  const mk = (id, name, artist, playedAt) => ({
+    played_at: playedAt,
+    track: {
+      id,
+      name,
+      artists: [{ name: artist }],
+      album: { name: 'Album', images: [{ url: `https://i.scdn.co/image/${id}` }] },
+      external_urls: { spotify: `https://open.spotify.com/track/${id}` },
+    },
+  });
+  const mapped = _mapSpotifyRecentItems([
+    mk('1', 'Chasing Cars', 'Snow Patrol', '2026-11-24T14:20:00.000Z'),
+    mk('2', 'Totoong tayo', 'Jin DC', '2026-11-24T14:15:00.000Z'),
+    mk('1b', 'Chasing Cars', 'Snow Patrol', '2026-11-24T14:10:00.000Z'),
+    mk('3', 'My Love Mine All Mine', 'Mitski', '2026-11-24T14:05:00.000Z'),
+    mk('3b', 'My Love Mine All Mine', 'Mitski', '2026-11-24T14:00:00.000Z'),
+    mk('4', 'Sparks', 'Coldplay', '2026-11-24T13:55:00.000Z'),
+    mk('5', 'Pink + White', 'Frank Ocean', '2026-11-24T13:50:00.000Z'),
+  ], 5);
+  assert.deepEqual(
+    mapped.map((t) => t.trackName),
+    ['Chasing Cars', 'Totoong tayo', 'My Love Mine All Mine', 'Sparks', 'Pink + White'],
+  );
+  assert.equal(mapped[0].timestamp, Date.parse('2026-11-24T14:20:00.000Z'));
+});
+
+test('spotifyCurrentlyPlaying requests limit=50 for recently-played when includeRecent=1', async (t) => {
+  const admin = getAdmin();
+  t.mock.method(admin, 'auth', () => ({
+    verifyIdToken: async () => ({ uid: 'uid-khent', username: 'khentsgdz', firebase: { sign_in_provider: 'custom' } }),
+  }));
+  t.mock.method(admin, 'firestore', () => ({
+    collection: (name) => ({
+      doc: () => ({
+        get: async () => {
+          if (name === 'spotify_tokens') {
+            return { exists: true, data: () => ({ access_token: 'tok', expires_at: Date.now() + 600_000 }) };
+          }
+          return { exists: true, data: () => ({ username: 'khentsgdz' }) };
+        },
+      }),
+    }),
+  }));
+  const urls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    urls.push(String(url));
+    if (String(url).includes('recently-played')) {
+      return new Response(JSON.stringify({
+        items: [
+          { played_at: '2026-11-24T14:20:00.000Z', track: { id: 'a', name: 'Song A', artists: [{ name: 'Art' }], album: { name: 'Alb', images: [] } } },
+          { played_at: '2026-11-24T14:15:00.000Z', track: { id: 'a', name: 'Song A', artists: [{ name: 'Art' }], album: { name: 'Alb', images: [] } } },
+          { played_at: '2026-11-24T14:10:00.000Z', track: { id: 'b', name: 'Song B', artists: [{ name: 'Art' }], album: { name: 'Alb', images: [] } } },
+        ],
+      }), { status: 200 });
+    }
+    return new Response(null, { status: 204 });
+  });
+  let body;
+  const res = {
+    set() { return this; },
+    status() { return this; },
+    send() {},
+    json(payload) { body = payload; },
+  };
+  await spotifyCurrentlyPlaying(
+    { method: 'GET', query: { includeRecent: '1' }, headers: { authorization: 'Bearer id-tok' }, get: () => '' },
+    res,
+  );
+  assert.ok(urls.includes('https://api.spotify.com/v1/me/player/recently-played?limit=50'));
+  assert.deepEqual(body.recentTracks.map((t) => t.trackName), ['Song A', 'Song B']);
+});

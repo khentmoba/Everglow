@@ -290,9 +290,14 @@ function _mapSpotifyTrack(item, { isPlaying = false, timestamp = Date.now() } = 
   };
 }
 
-function _mapSpotifyRecentItems(items) {
+function _normRecentTrackKey(artist, track) {
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  return `${norm(artist)}|${norm(track)}`;
+}
+
+function _mapSpotifyRecentItems(items, maxUnique = 10) {
   if (!Array.isArray(items)) return [];
-  const out = [];
+  const mappedAll = [];
   for (const entry of items) {
     if (!entry || !entry.track) continue;
     const playedMs = entry.played_at ? Date.parse(entry.played_at) : NaN;
@@ -300,7 +305,17 @@ function _mapSpotifyRecentItems(items) {
       isPlaying: false,
       timestamp: Number.isFinite(playedMs) ? playedMs : null,
     });
-    if (mapped && mapped.trackName) out.push(mapped);
+    if (mapped && mapped.trackName) mappedAll.push(mapped);
+  }
+  mappedAll.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const out = [];
+  const seen = new Set();
+  for (const track of mappedAll) {
+    const key = _normRecentTrackKey(track.artistName, track.trackName);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(track);
+    if (out.length >= maxUnique) break;
   }
   return out;
 }
@@ -360,7 +375,7 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
     const [r, recentResp] = await Promise.all([
       fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: authHeaders, signal: AbortSignal.timeout(8000) }),
       includeRecent
-        ? fetch('https://api.spotify.com/v1/me/player/recently-played?limit=5', { headers: authHeaders, signal: AbortSignal.timeout(8000) }).catch(() => null)
+        ? fetch('https://api.spotify.com/v1/me/player/recently-played?limit=50', { headers: authHeaders, signal: AbortSignal.timeout(8000) }).catch(() => null)
         : Promise.resolve(null),
     ]);
     let recentTracks = [];
