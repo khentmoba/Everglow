@@ -69,9 +69,10 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput): CinemaRail[] {
     ) => {
       const items = unique(rawItems);
       if (opts.ranked) {
-        // The ranked row states a fact, so it keeps its own order and cannot be
-        // trimmed; it just has to stop the rails below it from repeating it.
-        const shown = items.slice(0, 10);
+        // The ranked row keeps its own order, but a film the page has already
+        // shown is dropped from the row rather than offered a third time; its
+        // numeral still comes from the title's real place in the list.
+        const shown = items.filter((m) => !seen.has(catalogKeyOf(m))).slice(0, 10);
         if (shown.length < MIN_RAIL_SHOWN) return;
         for (const m of shown) seen.add(catalogKeyOf(m));
         recent.unshift(shown.map(catalogKeyOf));

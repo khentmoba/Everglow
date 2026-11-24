@@ -153,13 +153,14 @@ export function CinemaSearchTab({
               fontSize: 11.5,
               lineHeight: lineHeight(11.5),
               color: NetflixColors.textSecondary,
+              display: 'flex',
+              gap: 3,
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
           >
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
-            {item.year ? <span style={{ flexShrink: 0 }}>{` · ${item.year}`}</span> : null}
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+            {item.year ? <span style={{ flexShrink: 0 }}>{`· ${item.year}`}</span> : null}
           </div>
         </div>
       ))}

@@ -1431,13 +1431,15 @@ export function NetflixCinemaTopBar({
               style={{
                 ...AppTypography.outfitHeading,
                 fontSize: 14,
-                color: active ? '#FFFFFF' : 'rgba(255,255,255,0.86)',
+                color: active ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
                 whiteSpace: 'nowrap',
                 // A tablet is a touch screen: the link needs a 44px lane.
                 display: 'flex',
                 alignItems: 'center',
                 minHeight: 44,
                 padding: '0 2px',
+                // White text alone was 255 vs 228: the current link also gets a mark.
+                boxShadow: active ? `inset 0 -2px 0 ${NetflixColors.accent}` : undefined,
               }}
             >
               {l.label}
@@ -1455,11 +1457,13 @@ export function NetflixCinemaTopBar({
               style={{
                 ...AppTypography.outfitHeading,
                 fontSize: 14,
-                color: moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.86)',
+                color: moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
+                minHeight: 44,
+                boxShadow: moreActive && !moreOpen ? `inset 0 -2px 0 ${NetflixColors.accent}` : undefined,
               }}
             >
               {activeMore && !moreOpen ? activeMore.label : 'More'}
@@ -1509,12 +1513,12 @@ export function NetflixCinemaTopBar({
           aria-label="Search"
           onClick={() => onSelect(search.tab)}
           style={{
-            width: 36,
-            height: 36,
+            width: 44,
+            height: 44,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: 10,
+            marginRight: 6,
           }}
         >
           <Icon name="search" size={20} color={currentIndex === 1 ? '#FFFFFF' : 'rgba(255,255,255,0.8)'} />
@@ -1530,8 +1534,8 @@ export function NetflixCinemaTopBar({
           aria-label="Account menu"
           onClick={() => setMenuOpen((v) => !v)}
           style={{
-            width: 32,
-            height: 32,
+            width: 44,
+            height: 44,
             borderRadius: '50%',
             background: 'rgba(255,255,255,0.08)',
             border: `1px solid ${NetflixColors.hairline}`,

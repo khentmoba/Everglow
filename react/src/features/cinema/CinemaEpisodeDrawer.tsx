@@ -591,12 +591,7 @@ export function CinemaEpisodeDrawer({
   const has = (g: string) => genreNames.includes(g);
   // Only what TMDB actually states: the certificate and, when it has one, its
   // descriptor list. Nothing here is guessed from a genre.
-  const maturityLine =
-    certification != null
-      ? certification
-      : genreNames.length > 0
-        ? 'Not rated'
-        : null;
+  const maturityLine = certification == null && genreNames.length > 0 ? 'Unrated' : null;
   const moodTags = (() => {
     const tags: string[] = [];
     if (has('Romance')) tags.push('Emotional', 'Romantic');
@@ -765,11 +760,11 @@ export function CinemaEpisodeDrawer({
         </div>
         <div style={{ height: 10 }} />
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 6 }}>
-          {certification != null && (
+          {(certification != null || maturityLine != null) && (
             <span
               style={{
                 padding: '2px 6px',
-                border: `1px solid ${withAlpha(WHITE, 0.7)}`,
+                border: `1px solid ${withAlpha(WHITE, 0.55)}`,
                 borderRadius: 3,
                 ...AppTypography.outfitHeading,
                 fontSize: 11,
@@ -778,14 +773,7 @@ export function CinemaEpisodeDrawer({
                 color: WHITE,
               }}
             >
-              {certification}
-            </span>
-          )}
-          {maturityLine != null && (
-            <span
-              style={{ ...AppTypography.outfitWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), color: withAlpha(WHITE, 0.75) }}
-            >
-              {maturityLine}
+              {certification ?? maturityLine}
             </span>
           )}
         </div>
@@ -2349,6 +2337,27 @@ function EpisodeRow({
             }}
           >
             <Icon name="play_arrow" size={20} color={WHITE} />
+          </div>
+        )}
+        {progress >= 0.99 && (
+          // A finished episode says so on its own thumbnail, so "have I seen
+          // this?" never needs memory.
+          <div
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              background: withAlpha('#000000', 0.72),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            aria-label="Watched"
+          >
+            <Icon name="check" size={13} color={WHITE} />
           </div>
         )}
         {progress > 0 && (
