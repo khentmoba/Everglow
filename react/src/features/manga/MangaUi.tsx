@@ -745,11 +745,12 @@ export function KatanaHeader({
           aria-label="Search manga, manhwa, manhua..."
           style={{
             width: '100%',
-            padding: 0,
+            padding: '0 10px 0 0',
             margin: 0,
             background: 'transparent',
             border: 'none',
             outline: 'none',
+            textOverflow: 'ellipsis',
             ...bodyText(13.5, 500, KatanaColors.text, 1.4),
             caretColor: KatanaColors.accent,
           }}
@@ -2224,7 +2225,7 @@ export function KatanaPosterCard({
                 {verifiedOfficial ? (
                   <span style={{ ...bodyText(11, 700, KatanaColors.green, 1.2) }}>Official</span>
                 ) : (
-                  <Icon name="info" size={12} color={KatanaColors.textLight} />
+                  <span style={{ ...bodyText(11, 600, KatanaColors.textLight, 1.2) }}>Fan</span>
                 )}
               </button>
             )}

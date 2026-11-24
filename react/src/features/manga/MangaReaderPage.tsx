@@ -2380,6 +2380,7 @@ export function MangaReaderView({
     () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : true),
     [],
   );
+  const isTouchCopy = coarsePointer || viewportWidth < 900;
   const isTabletOrWide = viewportWidth >= 768;
   const showZoneGuide = !isWebtoon && (showTapHint || (settings.showTapZonesOverlay && settings.tapZoneLayout !== 'disabled'));
   const currentBookmarked = pages.length > 0 && isPageBookmarked(chapterId, pageIdx);
@@ -3598,27 +3599,27 @@ export function MangaReaderView({
               gap: 6,
             }}
           >
-            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
+            <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted, flex: '1 1 200px' }}>
               {isWebtoon
-                ? `${coarsePointer ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · Scroll to keep reading`
-                : `${coarsePointer ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · ${
-                    coarsePointer ? 'Tap or swipe' : 'Click or drag'
+                ? `${isTouchCopy ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · Scroll to keep reading`
+                : `${isTouchCopy ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · ${
+                    isTouchCopy ? 'Tap or swipe' : 'Click or drag'
                   } the left and right edges to turn pages`}
             </span>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
               {!isWebtoon && (
                 <button
                   type="button"
                   className="bare-button player-focusable"
                   onClick={() => setShowTapHint((v) => !v)}
                   style={{
-                    minHeight: 44,
-                    padding: '8px 14px',
-                    borderRadius: 8,
+                    minHeight: 40,
+                    padding: '6px 12px',
+                    borderRadius: 99,
                     background: KatanaColors.surface,
                     border: `1px solid ${KatanaColors.borderStrong}`,
                     color: KatanaColors.accentSoft,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: 700,
                   }}
                 >
@@ -3634,11 +3635,12 @@ export function MangaReaderView({
                   setSeenOnboardingHint(true);
                 }}
                 style={{
-                  minHeight: 44,
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  background: 'transparent',
-                  color: KatanaColors.textLight,
+                  minHeight: 40,
+                  padding: '6px 16px',
+                  borderRadius: 99,
+                  background: withAlpha(KatanaColors.accent, 0.16),
+                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.45)}`,
+                  color: KatanaColors.accentSoft,
                   fontSize: 12,
                   fontWeight: 700,
                 }}

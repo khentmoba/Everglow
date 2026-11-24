@@ -2464,7 +2464,24 @@ export function MangaPage() {
                           backgroundImage: `radial-gradient(ellipse 70% 55% at 15% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.16 : 0.12)}, transparent 70%)`,
                         }}
                       >
-                        <div style={{ display: 'flex', gap: desktop ? 22 : 14, flexWrap: tablet ? 'nowrap' : 'wrap', alignItems: 'flex-start' }}>
+                        <div
+                          style={
+                            compactCard
+                              ? {
+                                  display: 'grid',
+                                  gridTemplateColumns: '112px minmax(0, 1fr)',
+                                  columnGap: 14,
+                                  rowGap: 12,
+                                  alignItems: 'start',
+                                }
+                              : {
+                                  display: 'flex',
+                                  gap: desktop ? 22 : 14,
+                                  flexWrap: tablet ? 'nowrap' : 'wrap',
+                                  alignItems: 'flex-start',
+                                }
+                          }
+                        >
                           <div
                             style={{
                               position: 'relative',
@@ -2481,7 +2498,8 @@ export function MangaPage() {
                             <KatanaCoverBadges unreadCount={isBookmarked ? unreadCount : undefined} downloadedCount={downloadedCounts[detail.slug]} />
                           </div>
 
-                          <div style={{ flex: 1, minWidth: 200 }}>
+                          <div style={compactCard ? { display: 'contents' } : { flex: 1, minWidth: 200 }}>
+                            <div style={compactCard ? { gridColumn: 2, minWidth: 0 } : undefined}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                               <span
                                 style={{
@@ -2613,11 +2631,9 @@ export function MangaPage() {
 
                             {detail.genres.length > 0 && (
                               <div
-                                className={compactCard ? 'no-scrollbar' : undefined}
                                 style={{
                                   display: 'flex',
-                                  flexWrap: compactCard ? 'nowrap' : 'wrap',
-                                  overflowX: compactCard ? 'auto' : undefined,
+                                  flexWrap: 'wrap',
                                   gap: 6,
                                   marginTop: 10,
                                 }}
@@ -2629,8 +2645,8 @@ export function MangaPage() {
                                     className="bare-button"
                                     onClick={() => handleSelectGenre(g)}
                                     style={{
-                                      minHeight: 44,
-                                      padding: '6px 12px',
+                                      minHeight: compactCard ? 36 : 44,
+                                      padding: compactCard ? '5px 10px' : '6px 12px',
                                       borderRadius: 8,
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -2645,9 +2661,11 @@ export function MangaPage() {
                                 ))}
                               </div>
                             )}
+                            </div>
 
+                            <div style={compactCard ? { gridColumn: '1 / -1', minWidth: 0 } : undefined}>
                             {compactCard && detail.summary && (
-                              <div style={{ marginTop: 8 }}>
+                              <div style={{ marginTop: 0 }}>
                                 <p
                                   className={summaryOpen ? undefined : 'clamp-2'}
                                   style={{ ...KatanaType.body, margin: 0, fontSize: 13, lineHeight: 1.5, color: KatanaColors.textMuted }}
@@ -3339,7 +3357,7 @@ export function MangaPage() {
                                         fontFamily: Fonts.body,
                                         fontSize: 12,
                                         fontWeight: 600,
-                                        color: KatanaColors.link,
+                                        color: KatanaColors.text,
                                         whiteSpace: 'nowrap',
                                         opacity: batchProgress != null ? 0.6 : 1,
                                       }}
@@ -3383,6 +3401,7 @@ export function MangaPage() {
                                   )}
                                 </div>
                               )}
+                            </div>
                             </div>
                           </div>
 
@@ -7056,16 +7075,18 @@ export function MangaPage() {
                 )}
 
                 {/* Status buckets */}
-                <div style={{ position: 'relative', marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}>
                 <div
                   ref={shelfChipsRef}
                   className="no-scrollbar"
                   style={{
+                    flex: 1,
+                    minWidth: 0,
                     display: 'flex',
                     gap: 8,
                     overflowX: 'auto',
                     paddingBottom: 2,
-                    paddingRight: 56,
+                    paddingRight: 18,
                     maskImage: 'linear-gradient(to right, black 86%, transparent 100%)',
                     WebkitMaskImage: 'linear-gradient(to right, black 86%, transparent 100%)',
                   }}
@@ -7112,10 +7133,7 @@ export function MangaPage() {
                     aria-label="Scroll shelves right"
                     onClick={() => shelfChipsRef.current?.scrollBy({ left: 160, behavior: 'smooth' })}
                     style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
+                      flexShrink: 0,
                       width: 44,
                       height: 44,
                       borderRadius: 99,
@@ -7123,7 +7141,6 @@ export function MangaPage() {
                       border: `1px solid ${KatanaColors.borderStrong}`,
                       display: 'grid',
                       placeItems: 'center',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
                     }}
                   >
                     <Icon name="chevron_right" size={18} color={KatanaColors.text} />

@@ -265,74 +265,69 @@ export function KatanaDownloadsView({
       ) : (
         <>
           <KatanaCard padding={12} style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 220px' }}>
                 <Icon name="storage" size={18} color={KatanaColors.accent} />
                 <span style={KatanaType.small}>
                   Downloads are using <strong style={{ color: KatanaColors.text }}>{storage}</strong>
                   {quotaInfo
-                    ? ` of the ${quotaInfo.quota >= 1e9 ? `${(quotaInfo.quota / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(quotaInfo.quota / 1e6))} MB`} this browser allows`
+                    ? (() => {
+                        const quotaLabel =
+                          quotaInfo.quota >= 1e9
+                            ? `${(quotaInfo.quota / 1e9).toFixed(1)} GB`
+                            : `${Math.max(1, Math.round(quotaInfo.quota / 1e6))} MB`;
+                        const pct = (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100;
+                        const pctText = pct < 1 ? 'under 1%' : `${Math.round(pct)}%`;
+                        return ` of ${quotaLabel} (${pctText} used)`;
+                      })()
                     : ''}
                 </span>
               </div>
+              <button
+                type="button"
+                className="bare-button"
+                disabled={verifyingCache}
+                onClick={() => void handleVerifyCache()}
+                title="Make sure every downloaded page is still on this device"
+                style={{
+                  minHeight: 40,
+                  padding: '6px 12px',
+                  borderRadius: 7,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.borderStrong}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  fontFamily: Fonts.body,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: KatanaColors.text,
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="fact_check" size={14} color={KatanaColors.text} />
+                <span>{verifyingCache ? 'Checking…' : 'Check my downloads'}</span>
+              </button>
             </div>
-            {quotaInfo && (
-              <div style={{ marginTop: 10 }}>
-                {(() => {
-                  const pct = Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100);
-                  // a 1% sliver across a wide bar reads as a rendering bug; the sentence carries it instead
-                  if (pct < 2) return null;
-                  return (
-                    <div style={{ height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${pct}%`,
-                          minWidth: 10,
-                          height: '100%',
-                          background: KatanaColors.accent,
-                          borderRadius: 99,
-                        }}
-                      />
-                    </div>
-                  );
-                })()}
-                <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 5 }}>
-                  {(() => {
-                    const pct = (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100;
-                    if (pct < 1) return 'Under 1% of the space this browser allows';
-                    return `${Math.round(pct)}% of the space this browser allows`;
-                  })()}
+            {quotaInfo && (() => {
+              const pct = Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100);
+              if (pct < 2) return null;
+              return (
+                <div style={{ marginTop: 8, height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${pct}%`,
+                      minWidth: 10,
+                      height: '100%',
+                      background: KatanaColors.accent,
+                      borderRadius: 99,
+                    }}
+                  />
                 </div>
-              </div>
-            )}
+              );
+            })()}
             <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
-              Downloads stay here until you remove them. If you clear this browser's site data, they go too.
-            </div>
-            <div style={{ marginTop: 8 }}>
-                <button
-                  type="button"
-                  className="bare-button"
-                  disabled={verifyingCache}
-                  onClick={() => void handleVerifyCache()}
-                  title="Make sure every downloaded page is still on this device"
-                  style={{
-                    minHeight: 44,
-                    padding: '6px 12px',
-                    borderRadius: 7,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.borderStrong}`,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontFamily: Fonts.body,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: KatanaColors.text,
-                  }}
-                >
-                  <Icon name="fact_check" size={14} color={KatanaColors.text} />
-                  <span>{verifyingCache ? 'Checking…' : 'Check my downloads'}</span>
-                </button>
+              Downloads stay here until you remove them or clear browser site data.
             </div>
             {evictedItems.length > 0 && (
               <div
@@ -723,15 +718,15 @@ export function KatanaDownloadsView({
                           />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ ...KatanaType.title, fontSize: 13.5 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
-                            <div style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <div style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: '2px 8px', flexWrap: 'wrap', marginTop: 2 }}>
                               <span>{formattedSize(ch)}</span>
                               {needsRepair ? (
                                 <span style={{ color: KatanaColors.accentSoft, fontWeight: 700 }}>
-                                  · Needs repair ({cachedPages} of {totalPages} pages)
+                                  Needs repair ({cachedPages} of {totalPages} pages)
                                 </span>
                               ) : totalPages > 0 ? (
                                 <span style={{ color: KatanaColors.green, fontWeight: 600 }}>
-                                  · Ready offline · {cachedPages} {cachedPages === 1 ? 'page' : 'pages'}
+                                  Ready offline · {cachedPages} {cachedPages === 1 ? 'page' : 'pages'}
                                 </span>
                               ) : null}
                             </div>

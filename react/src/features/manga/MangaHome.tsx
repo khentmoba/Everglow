@@ -8,7 +8,6 @@ import {
   KatanaButton,
   KatanaCard,
   KatanaCompactCard,
-  KatanaCoverBadges,
   KatanaCoverImage,
   KatanaEmptyState,
   KatanaErrorBanner,
@@ -669,13 +668,12 @@ function CurrentlyReadingShelf({
                   }}
                 >
                   <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={18} />
-                  <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 13, fontWeight: 700, color: KatanaColors.text, lineHeight: 1.25 }}>
                     {bm.title}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
                     <span className="ellipsis" style={{ ...KatanaType.link, fontSize: 11.5 }}>
                       {bm.lastReadChapterTitle || 'Resume'}
                       {(bm.lastReadPage ?? 0) > 1 ? ` · p. ${bm.lastReadPage}` : ''}
@@ -694,6 +692,27 @@ function CurrentlyReadingShelf({
                         }}
                       >
                         +{unread} new
+                      </span>
+                    )}
+                    {dlCount > 0 && (
+                      <span
+                        title={`${dlCount} ${dlCount === 1 ? 'chapter' : 'chapters'} ready offline`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          padding: '1px 5px',
+                          borderRadius: 4,
+                          background: withAlpha(KatanaColors.green, 0.16),
+                          fontFamily: Fonts.body,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: KatanaColors.green,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Icon name="download_done" size={11} color={KatanaColors.green} />
+                        {dlCount}
                       </span>
                     )}
                   </div>
@@ -1777,16 +1796,23 @@ export function MangaHome({
   const typeStripRef = useRef<HTMLDivElement | null>(null);
   const typeChips = (
     <>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 5 : 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 8 : 8 }}>
       <div
         ref={typeStripRef}
         className="no-scrollbar"
         style={{
           overflowX: 'auto',
           display: 'flex',
-          gap: compact ? 5 : 8,
+          gap: compact ? 6 : 8,
           flex: 1,
           minWidth: 0,
+          paddingRight: compact ? 18 : 0,
+          ...(compact
+            ? {
+                maskImage: 'linear-gradient(to right, black 82%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, black 82%, transparent 100%)',
+              }
+            : {}),
         }}
       >
         {(['all', 'manga', 'manhwa', 'manhua'] as const).map((t) => (

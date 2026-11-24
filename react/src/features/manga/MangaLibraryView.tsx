@@ -284,7 +284,7 @@ export function MangaLibraryCollectionView({
                       color: KatanaColors.accentSoft,
                     }}
                   >
-                    ★ {bm.userScore}
+                    ★ {bm.userScore.toFixed(1)}
                   </span>
                 )}
                 {librarySelectMode && (
@@ -333,7 +333,7 @@ export function MangaLibraryCollectionView({
                 )}
               </div>
               {libraryViewMode === 'grid' && (
-                <div style={{ padding: '8px 9px 10px', paddingRight: 50 }}>
+                <div style={{ padding: '8px 10px 10px', paddingRight: 58 }}>
                   <div
                     className="clamp-2"
                     style={{
@@ -342,17 +342,19 @@ export function MangaLibraryCollectionView({
                       fontWeight: 600,
                       color: KatanaColors.text,
                       lineHeight: 1.25,
+                      minHeight: 32.5,
                     }}
                   >
                     {bm.title}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
                     <span
                       style={{
                         ...KatanaType.small,
                         fontSize: 11.5,
                         fontWeight: 700,
                         color: unread > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {readCount} / {readCount + unread}
@@ -372,9 +374,9 @@ export function MangaLibraryCollectionView({
                         <span style={{ ...KatanaType.small, fontSize: 11, whiteSpace: 'nowrap' }}>p.{pageNum}</span>
                       ) : null;
                     })()}
-                    <span style={{ ...KatanaType.small, fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
-                    </span>
+                  </div>
+                  <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
                   </div>
                 </div>
               )}
