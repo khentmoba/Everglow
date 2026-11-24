@@ -482,19 +482,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
   const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
   const progress = useSeriesProgress(p.animeId);
-  const activeRowRef = useRef<HTMLDivElement>(null);
-  const scrolledTo = useRef(0);
 
-  // Land on the episode she is watching. The phone player is sticky, so the
-  // video stays put while the list moves under it.
-  useEffect(() => {
-    if (scrolledTo.current === p.selectedEpisode || p.selectedEpisode <= 1) return;
-    const timer = window.setTimeout(() => {
-      scrolledTo.current = p.selectedEpisode;
-      activeRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [p.selectedEpisode]);
 
   return (
     <div>
@@ -651,11 +639,18 @@ export function MobileEpisodesSection(p: EpisodesProps) {
           No episodes found matching "{query}"
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div
+          style={{
+            display: 'grid',
+            // A tablet row was a phone row stretched to 780px with a dead
+            // right half; two columns use that width instead.
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: 2,
+          }}
+        >
           {displayList.map((ep) => {
             const active = ep.number === p.selectedEpisode;
             return (
-              <div key={`row-${ep.number}`} ref={active ? activeRowRef : undefined}>
               <MobileEpisodeRow
                 key={ep.number}
                 episode={ep}
@@ -675,7 +670,6 @@ export function MobileEpisodesSection(p: EpisodesProps) {
                 onTap={() => p.onSelectEpisode(ep.number)}
                 onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}
               />
-              </div>
             );
           })}
         </div>
@@ -1044,7 +1038,25 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
             No episodes found
           </div>
         ) : (
-          <div ref={listRef} style={{ height: '100%', overflowY: 'auto', padding: 8, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div
+            ref={listRef}
+            style={{
+              height: '100%',
+              overflowY: 'auto',
+              padding: 8,
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              // The rail scrolls to the playing episode and ends mid-row at
+              // both edges; the fades say "there is more" instead of looking
+              // like a cut-off bug.
+              maskImage:
+                'linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 28px), transparent 100%)',
+              WebkitMaskImage:
+                'linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 28px), transparent 100%)',
+            }}
+          >
             {displayList.map((ep) => {
               const active = ep.number === p.selectedEpisode;
               return (

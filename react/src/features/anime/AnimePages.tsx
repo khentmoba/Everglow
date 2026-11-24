@@ -220,8 +220,9 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
 
   const cardWidth = nav.width < 600 ? AnimeXTokens.rowPosterWidthMobile : AnimeXTokens.rowPosterWidthDesktop;
   // A 280px card on an 820px tablet left 500px of dead space beside it.
+  // Phone: one card plus a peek. Tablet: three across, so the row is a row.
   const continueWidth =
-    nav.width < 600 ? 280 : Math.max(300, Math.min(380, Math.floor((nav.width - 62) / 2)));
+    nav.width < 600 ? 280 : Math.floor((nav.width - 48 - 28) / 3);
   const trending = rows[0];
   const airing = rows[1];
   const allFailed = rows.every((r) => !r.loading && r.items.length === 0);
@@ -245,10 +246,21 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
     return entry ? { episode: entry.episode, resumeSeconds: entry.resumeSeconds } : undefined;
   };
 
+  // One hero, one show: if she is mid-series, that series leads, so the loudest
+  // button resumes the show the hero is actually about.
+  const heroItems = (() => {
+    const base = trending.items.slice(0, 5);
+    const resume = nav.continueWatching[0]?.savedItem;
+    if (!resume) return base;
+    const isSame = (it: MediaItem) =>
+      (it.anilistId != null && it.anilistId === resume.anilistId) || (it.tmdbId > 0 && it.tmdbId === resume.tmdbId);
+    return base.some(isSame) ? base : [resume, ...base.slice(0, 4)];
+  })();
+
   return (
     <div style={{ paddingBottom: 64, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <AnimeXSpotlight
-        items={trending.items.slice(0, 5)}
+        items={heroItems}
         loading={trending.loading}
         width={nav.width}
         height={nav.height}
@@ -1427,7 +1439,14 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: nav.width < 600 ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
+          gap: 10,
+          marginTop: 12,
+        }}
+      >
         {(
           [
             ['Playlists', 'video_library', 'outlined', () => nav.onNavigate('playlists')],
@@ -1444,12 +1463,13 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
             style={{
               minHeight: 44,
               boxSizing: 'border-box',
-              padding: '0 14px',
+              padding: '0 12px',
               background: 'rgba(255,255,255,0.05)',
               borderRadius: AnimeXTokens.radiusMd,
               border: `1px solid ${AnimeXTokens.border}`,
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: 8,
             }}
           >

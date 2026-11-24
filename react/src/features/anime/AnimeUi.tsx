@@ -1035,19 +1035,28 @@ export function AnimeXSpotlight({
                 }}
               />
             )}
-            <AnimeXSecondaryButton
-              label="More Info"
-              icon="info_outline"
-              onClick={() => {
-                pauseTrailer();
-                onMoreInfo(active);
-              }}
-            />
+            {phone && (
+              <AnimeXSecondaryButton
+                label="More Info"
+                icon="info_outline"
+                onClick={() => {
+                  pauseTrailer();
+                  onMoreInfo(active);
+                }}
+              />
+            )}
             <AnimeXGhostButton
               label={hasTrailer && !muted ? 'Full Trailer' : 'Trailer'}
               icon={hasTrailer ? (muted ? 'volume_off' : 'volume_up') : 'play_circle_outline'}
               color={AnimeXTokens.white85}
-              style={{ minHeight: 44, padding: '0 14px', border: `1px solid ${withAlpha('#FFFFFF', 0.16)}` }}
+              // On a phone the row must break after two buttons; the trailer is
+              // the least important of the three, so it goes quiet instead of
+              // sitting alone in a bordered box on line two.
+              style={{
+                minHeight: 44,
+                padding: phone ? '0 4px' : '0 14px',
+                border: phone ? '1px solid transparent' : `1px solid ${withAlpha('#FFFFFF', 0.16)}`,
+              }}
               onClick={() => {
                 if (hasTrailer && muted) toggleMute();
                 else {

@@ -50,6 +50,7 @@ import {
 } from './animexWatchConfig';
 import { AnimeXPlayerFrame, exitPlayerFullscreen, isPlayerFullscreenActive, showAnimexTrailer } from './AnimeXPlayerFrame';
 import { DesktopEpisodesSidebar, MobileEpisodesSection, showEpisodeInfoSheet } from './AnimeXWatchEpisodes';
+import { AgentMode } from '../../core/agent/agentMode';
 import { AnimeXTokens, bebasStyle, dmSansStyle, interBodyStyle } from './animeTokens';
 import { AnimeXFooter, AnimeXPosterRow, AnimeXPrimaryButton, AnimeXSectionHeader } from './AnimeUi';
 
@@ -72,6 +73,8 @@ export interface AnimexWatchController {
   savedAnime: (item: MediaItem) => MediaItem | undefined;
   goHome: () => void;
   openDmca: () => void;
+  /** Couple-only companion, offered from the watch page's overflow menu. */
+  onMotchi?: () => void;
 }
 
 function animeItem(fields: Partial<MediaItem> & Pick<MediaItem, 'tmdbId' | 'title' | 'mediaType' | 'posterPath'>): MediaItem {
@@ -835,6 +838,61 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
 
   const url = playerUrl();
   const next = nextUpInfo();
+
+  // The recovery card is normally driven by a real failed probe. Agent sessions
+  // can ask for it with &playerError=1 so a proof shot is reproducible.
+  const forceContentError =
+    AgentMode.isActive.value && new URLSearchParams(window.location.search).get('playerError') === '1';
+  const contentError = st.showErrorCard || forceContentError;
+
+  // One failure, one card. A dead probe and a source that never starts used to
+  // say different things; they are the same problem to her.
+  const errorCard = (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        padding: '0 24px',
+        boxSizing: 'border-box',
+        background: '#08070D',
+        textAlign: 'center',
+      }}
+    >
+      <Icon name="warning_amber" size={28} color={T.accentText} />
+      <div style={dmSansStyle({ size: 15.5, color: T.textPrimary, weight: 700 })}>This episode isn't playing</div>
+      <div style={{ ...dmSansStyle({ size: 12.5, color: T.textSecondary, height: 1.45 }), maxWidth: 300 }}>
+        No server answered just now.
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 6 }}>
+        <AnimeXPrimaryButton label="Try another server" icon="swap_horiz" onClick={handleContentError} />
+        {next && !next.isSeason && (
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => stepEpisode(1)}
+            style={{
+              minHeight: 40,
+              padding: '0 14px',
+              borderRadius: 999,
+              border: `1px solid ${T.borderStrong}`,
+              background: white(0.08),
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Icon name="skip_next" size={15} color={T.textPrimary} />
+            <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Episode {st.selectedEpisode + 1}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
   const player = !st.ready ? (
     <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9' }}>
       {TmdbImages.backdropOf(item.backdropPath, true) && (
@@ -848,37 +906,18 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         <CircularProgress size={36} strokeWidth={4} color={T.accent} />
       </div>
     </div>
-  ) : st.showErrorCard || !url ? (
+  ) : contentError || !url ? (
     <div
       style={{
+        position: 'relative',
         width: '100%',
         aspectRatio: '16 / 9',
-        boxSizing: 'border-box',
-        background: T.surface,
         borderRadius: T.radiusLg,
+        overflow: 'hidden',
         border: `1px solid ${T.border}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
       }}
     >
-      <Icon name="warning_amber" size={38} color={T.accent} />
-      <div style={{ height: 10 }} />
-      <div style={dmSansStyle({ size: 18, color: T.textPrimary, weight: 700 })}>This episode won't play</div>
-      <div style={{ height: 6 }} />
-      <div
-        style={{ padding: '0 28px', textAlign: 'center', ...dmSansStyle({ size: 13, color: T.textSecondary, height: 1.5 }) }}
-      >
-        No server had a stream for it just now.
-      </div>
-      <div style={{ height: 14 }} />
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px' }}>
-        <AnimeXPrimaryButton label="Try again" icon="refresh" onClick={() => void handleRetry()} />
-        {next && !next.isSeason && (
-          <AnimeXPrimaryButton label={`Episode ${st.selectedEpisode + 1}`} icon="skip_next" onClick={() => stepEpisode(1)} />
-        )}
-      </div>
+      {errorCard}
     </div>
   ) : (
     <AnimeXPlayerFrame
@@ -945,50 +984,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         }}
       >
         {player}
-        {slowStart && !st.showErrorCard && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              padding: '0 20px',
-              boxSizing: 'border-box',
-              background: 'rgba(6,6,10,0.84)',
-              textAlign: 'center',
-            }}
-          >
-            <Icon name="warning_amber" size={26} color={T.accentText} />
-            <div style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 700 })}>This episode hasn't started</div>
-            <div style={{ ...dmSansStyle({ size: 12, color: T.textSecondary, height: 1.4 }), maxWidth: 320 }}>
-              {currentServer()?.name ?? 'This server'} isn't answering. Try the next server.
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 }}>
-              <AnimeXPrimaryButton label="Try next server" icon="swap_horiz" onClick={handleContentError} />
-              <button
-                type="button"
-                className="bare-button"
-                onClick={() => void handleRetry()}
-                style={{
-                  minHeight: 40,
-                  padding: '0 14px',
-                  borderRadius: 999,
-                  border: `1px solid ${T.borderStrong}`,
-                  background: white(0.08),
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <Icon name="refresh" size={15} color={T.textPrimary} />
-                <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Retry</span>
-              </button>
-            </div>
-          </div>
-        )}
+        {slowStart && !contentError && <div style={{ position: 'absolute', inset: 0 }}>{errorCard}</div>}
       </div>
     </div>
   );
@@ -996,7 +992,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const ep = activeEpisode();
 
   const failedNote = (() => {
-    if (st.showErrorCard || slowStart || !st.failedServerIndices.size) return '';
+    if (contentError || slowStart || !st.failedServerIndices.size) return '';
     const failed = [...st.failedServerIndices].filter((i) => i >= 0 && i < st.servers.length).map((i) => st.servers[i]!.name);
     if (!failed.length) return '';
     const names = failed.join(', ');
@@ -1090,7 +1086,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           </>
         )}
         <div style={{ height: 10 }} />
-        <div className="no-scrollbar" style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           {st.servers.length > 1 && (
             <button
               type="button"
@@ -1117,6 +1113,47 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           )}
           <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
           <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Previous episode"
+            disabled={st.selectedEpisode <= 1}
+            onClick={() => stepEpisode(-1)}
+            style={{
+              flexShrink: 0,
+              width: 44,
+              height: 44,
+              boxSizing: 'border-box',
+              borderRadius: T.radiusPill,
+              background: white(0.05),
+              border: `1px solid ${T.border}`,
+              display: 'grid',
+              placeItems: 'center',
+              opacity: st.selectedEpisode <= 1 ? 0.4 : 1,
+            }}
+          >
+            <Icon name="skip_previous" size={18} color={T.textPrimary} />
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Next episode"
+            disabled={isLastEpisode && !hasNextSeason}
+            onClick={() => (hasNextSeason ? openSeason(ns!) : stepEpisode(1))}
+            style={{
+              flexShrink: 0,
+              width: 44,
+              height: 44,
+              boxSizing: 'border-box',
+              borderRadius: T.radiusPill,
+              background: withAlpha(T.accent, 0.16),
+              border: `1px solid ${withAlpha(T.accent, 0.45)}`,
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            <Icon name="skip_next" size={18} color={T.accentText} />
+          </button>
         </div>
         {failedNote && (
           <>
@@ -1298,6 +1335,10 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       ? { icon: 'favorite', label: 'Watch together', onTap: () => void startAnimeWatchParty() }
       : null,
     { icon: 'ios_share', label: 'Share', onTap: () => showShareSheet(shareTitle, detail?.siteUrl) },
+    { icon: 'refresh', label: 'Retry this server', onTap: () => void handleRetry() },
+    ctl.current.onMotchi
+      ? { icon: 'pets', label: 'Chat with Motchi', onTap: () => ctl.current.onMotchi?.() }
+      : null,
   ].filter(Boolean) as { icon: string; label: string; onTap: () => void }[];
 
   return (

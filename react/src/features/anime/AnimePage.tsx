@@ -247,6 +247,9 @@ export function AnimePage() {
       }}
     >
       <TvMediaNavHeader currentRoute="/anime" />
+      {/* A watch screen owns the whole frame: two header bars meant two back
+          buttons and 70px of the player's height. */}
+      {!(watchItem && width < 600) && (
       <AnimeXTopHeader
         page={page}
         hasDetail={hasDetail}
@@ -266,6 +269,7 @@ export function AnimePage() {
         onNavigate={goTo}
         onSearch={() => goTo('search')}
       />
+      )}
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <div
@@ -310,6 +314,7 @@ export function AnimePage() {
                   savedAnime,
                   goHome: () => goTo('home'),
                   openDmca: navActions.onOpenDmca,
+                  onMotchi: isCoupleUser ? () => setMotchiOpen(true) : undefined,
                 }}
               />
             ) : (
