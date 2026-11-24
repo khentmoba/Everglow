@@ -130,7 +130,7 @@ function ListenAlongPopup({ status: initial, close }: { status: MusicStatus; clo
             <div style={{ height: 16 }} />
             <iframe
               title="Spotify player"
-              src={`https://open.spotify.com/embed/track/${status.spotifyTrackId}?utm_source=generator&theme=0`}
+              src={`https://open.spotify.com/embed/track/${encodeURIComponent(status.spotifyTrackId!)}?utm_source=generator&theme=0`}
               allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
               loading="lazy"
               style={{ width: '100%', height: 80, border: 0, borderRadius: 12, display: 'block' }}

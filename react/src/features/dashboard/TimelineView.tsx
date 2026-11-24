@@ -227,11 +227,29 @@ export function TimelineView() {
   useEffect(() => {
     if (reduceAmbient || carouselHovered || selected != null) return;
     if (!milestones || milestones.length <= 1) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== 'visible' || !carouselInViewRef.current) return;
-      glideToCard((activeCardRef.current + 1) % milestones.length);
-    }, 5500);
-    return () => window.clearInterval(id);
+    let id = 0;
+    const start = () => {
+      if (id || document.hidden) return;
+      id = window.setInterval(() => {
+        if (!carouselInViewRef.current) return;
+        glideToCard((activeCardRef.current + 1) % milestones.length);
+      }, 5500);
+    };
+    const stop = () => {
+      if (!id) return;
+      window.clearInterval(id);
+      id = 0;
+    };
+    const onVis = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [milestones, reduceAmbient, carouselHovered, selected, glideToCard]);
 
   const handleScroll = () => {
@@ -521,12 +539,28 @@ function MilestoneCarouselCard({
 
   useEffect(() => {
     if (reduceAmbient || hovered || count <= 1) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+    let id = 0;
+    const start = () => {
+      if (id || document.hidden) return;
+      id = window.setInterval(() => {
         setImgIndex((i) => (i + 1) % count);
-      }
-    }, 4200);
-    return () => window.clearInterval(id);
+      }, 4200);
+    };
+    const stop = () => {
+      if (!id) return;
+      window.clearInterval(id);
+      id = 0;
+    };
+    const onVis = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [count, reduceAmbient, hovered]);
 
   const activePhotoIdx = count > 0 ? imgIndex % count : 0;

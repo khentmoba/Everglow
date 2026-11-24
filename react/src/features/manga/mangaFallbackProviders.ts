@@ -156,7 +156,7 @@ async function tryBato(title: string, chapterNum: string): Promise<string[]> {
     });
     if (!seriesResp.ok) return [];
     const seriesHtml = await seriesResp.text();
-    const chRe = new RegExp(`href="(\\/chapter\\/\\d+[^"]*)"[^>]*>[^<]*(?:ch(?:apter)?\\.?\\s*${chapterNum}\\b)`, 'i');
+    const chRe = new RegExp(`href="(\\/chapter\\/\\d+[^"]*)"[^>]*>[^<]*(?:ch(?:apter)?\\.?\\s*${escapeRegExp(chapterNum)}\\b)`, 'i');
     const chMatch = chRe.exec(seriesHtml);
     if (!chMatch) return [];
     const pageResp = await fetch(`${PROXY_FETCH_HTML}?url=${encodeURIComponent(`https://bato.to${chMatch[1]}`)}`, {
@@ -186,6 +186,10 @@ const SCANLATION_SITES = [
 
 const SCAN_IMG_EXCLUDE = ['avatar', 'logo', 'icon', 'banner', 'header', 'discord'];
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function tryScanlation(title: string, chapterNum: string): Promise<string[]> {
   if (!title || !chapterNum) return [];
   const slug = title
@@ -203,7 +207,7 @@ async function tryScanlation(title: string, chapterNum: string): Promise<string[
       });
       if (!resp.ok) continue;
       const html = await resp.text();
-      const chRe = new RegExp(`href="(https?:\\/\\/[^"]*?(?:chapter|ch)[-_]${chapterNum}(?:[^0-9"][^"]*)?)"`, 'i');
+      const chRe = new RegExp(`href="(https?:\\/\\/[^"]*?(?:chapter|ch)[-_]${escapeRegExp(chapterNum)}(?:[^0-9"][^"]*)?)"`, 'i');
       const chMatch = chRe.exec(html);
       if (!chMatch) continue;
       const chResp = await fetch(`${PROXY_FETCH_HTML}?url=${encodeURIComponent(chMatch[1])}`, {
