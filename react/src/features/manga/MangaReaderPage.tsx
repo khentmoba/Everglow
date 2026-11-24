@@ -1420,7 +1420,14 @@ export function MangaReaderView({
     let rafId = 0;
     let lastTime = performance.now();
     const pxPerSec = 95 * settings.autoScrollSpeed;
+    const stopLoop = () => {
+      if (!rafId) return;
+      window.cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
     const tick = (now: number) => {
+      rafId = 0;
+      if (document.hidden) return;
       const dt = Math.min(0.08, (now - lastTime) / 1000);
       lastTime = now;
       const el = scrollRef.current;
@@ -1454,8 +1461,24 @@ export function MangaReaderView({
       }
       rafId = window.requestAnimationFrame(tick);
     };
-    rafId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafId);
+    const startLoop = () => {
+      if (rafId || document.hidden) return;
+      lastTime = performance.now();
+      rafId = window.requestAnimationFrame(tick);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopLoop();
+      } else {
+        startLoop();
+      }
+    };
+    startLoop();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      stopLoop();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [
     autoScrolling,
     isWebtoon,
@@ -1962,10 +1985,31 @@ export function MangaReaderView({
   useEffect(() => {
     if (!autoScrolling || isWebtoon || isHorizontalStrip || activeSheet !== 'none' || pageAction != null || loading) return;
     const intervalMs = Math.max(2000, Math.round(7500 / settings.autoScrollSpeed));
-    const timer = window.setInterval(() => {
-      stepPage(1);
-    }, intervalMs);
-    return () => window.clearInterval(timer);
+    let timer = 0;
+    const startTimer = () => {
+      if (timer || document.hidden) return;
+      timer = window.setInterval(() => {
+        if (!document.hidden) stepPage(1);
+      }, intervalMs);
+    };
+    const stopTimer = () => {
+      if (!timer) return;
+      window.clearInterval(timer);
+      timer = 0;
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    };
+    startTimer();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      stopTimer();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [autoScrolling, isWebtoon, isHorizontalStrip, activeSheet, pageAction, loading, settings.autoScrollSpeed, stepPage]);
 
   // Bluetooth Gamepad / Page-Turner Remote support (polls only while a gamepad is connected)

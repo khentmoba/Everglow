@@ -785,7 +785,7 @@ export function KatanaDownloadsView({
                                 a.href = url;
                                 a.download = res.filename;
                                 a.click();
-                                URL.revokeObjectURL(url);
+                                window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
                                 showSnackBar(`Exported ${res.filename}`);
                               }}
                               style={{

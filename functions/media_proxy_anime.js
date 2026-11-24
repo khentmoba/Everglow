@@ -97,7 +97,7 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
       if (!res.destroyed) res.destroy(e);
       return;
     }
-    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+    res.status(502).json({ error: 'Upstream fetch failed' });
   }
 });
 

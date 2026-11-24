@@ -13,6 +13,11 @@ async function requireCoupleUser(decoded, res) {
 }
 
 
+function _normExpiresIn(data) {
+  const n = Number(data && data.expires_in);
+  return Number.isFinite(n) && n > 0 ? n : 3600;
+}
+
 function _getSpotifyCreds() {
   const id = (process.env.SPOTIFY_CLIENT_ID || '').trim();
   const secret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim();
@@ -35,7 +40,9 @@ async function _getSpotifyAppToken() {
     });
     if (!res.ok) { console.warn('[spotify] token error', res.status, await res.text().catch(() => '')); return null; }
     const data = await res.json();
-    _spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in * 1000) };
+    if (!data || typeof data.access_token !== 'string' || !data.access_token) return null;
+    const expiresInSec = _normExpiresIn(data);
+    _spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (expiresInSec * 1000) };
     return data.access_token;
   })();
   _spotifyTokenInFlight = task;
@@ -134,7 +141,7 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
     });
   } catch (e) {
     console.warn('[proxySpotifySearch]', e.message);
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ error: 'Spotify search failed' });
   }
 });
 
@@ -165,8 +172,20 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
     const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
     const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers, body: params.toString(), signal: AbortSignal.timeout(10000) });
     const text = await r.text();
-    if (!r.ok) { console.warn('[spotifyExchange]', r.status, text); res.status(r.status).json({ error: text }); return; }
+    if (!r.ok) {
+      console.warn('[spotifyExchange]', r.status, text);
+      const status = r.status >= 400 && r.status <= 599 ? r.status : 502;
+      res.status(status).json({ error: 'Spotify token exchange failed' });
+      return;
+    }
     const data = JSON.parse(text);
+    if (!data || typeof data.access_token !== 'string' || !data.access_token) {
+      res.status(502).json({ error: 'Invalid Spotify token response' });
+      return;
+    }
+    const expiresInSec = _normExpiresIn(data);
+    const refreshToken = typeof data.refresh_token === 'string' && data.refresh_token ? data.refresh_token : null;
+    const scope = typeof data.scope === 'string' ? data.scope : '';
     let profile = null;
     try {
       const pr = await fetch('https://api.spotify.com/v1/me', { headers: { 'Authorization': 'Bearer ' + data.access_token }, signal: AbortSignal.timeout(8000) });
@@ -174,23 +193,23 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
     } catch (_) {}
     const doc = {
       access_token: data.access_token,
-      refresh_token: data.refresh_token || null,
-      expires_at: Date.now() + (data.expires_in * 1000),
-      scope: data.scope || '',
+      refresh_token: refreshToken,
+      expires_at: Date.now() + (expiresInSec * 1000),
+      scope,
       spotify_user_id: profile ? profile.id : null,
       spotify_display_name: profile ? profile.display_name : null,
       updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     };
     const ref = getAdmin().firestore().collection('spotify_tokens').doc(decoded.uid);
     const existing = await ref.get();
-    if (existing.exists && !data.refresh_token && existing.data().refresh_token) {
+    if (existing.exists && !refreshToken && existing.data().refresh_token) {
       doc.refresh_token = existing.data().refresh_token;
     }
     await ref.set(doc, { merge: true });
-    res.json({ ok: true, expires_in: data.expires_in, spotify_user_id: doc.spotify_user_id });
+    res.json({ ok: true, expires_in: expiresInSec, spotify_user_id: doc.spotify_user_id });
   } catch (e) {
     console.warn('[spotifyExchange]', e.message);
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ error: 'Spotify token exchange failed' });
   }
 });
 
@@ -216,19 +235,31 @@ const spotifyRefresh = cappedHttps(10, async (req, res) => {
     if (secret) headers['Authorization'] = 'Basic ' + Buffer.from(id + ':' + secret).toString('base64');
     const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers, body: params.toString(), signal: AbortSignal.timeout(10000) });
     const text = await r.text();
-    if (!r.ok) { console.warn('[spotifyRefresh]', r.status, text); res.status(r.status).json({ error: text }); return; }
+    if (!r.ok) {
+      console.warn('[spotifyRefresh]', r.status, text);
+      const status = r.status >= 400 && r.status <= 599 ? r.status : 502;
+      res.status(status).json({ error: 'Spotify token refresh failed' });
+      return;
+    }
     const data = JSON.parse(text);
+    if (!data || typeof data.access_token !== 'string' || !data.access_token) {
+      res.status(502).json({ error: 'Invalid Spotify token response' });
+      return;
+    }
+    const expiresInSec = _normExpiresIn(data);
+    const refreshToken = typeof data.refresh_token === 'string' && data.refresh_token ? data.refresh_token : null;
+    const scope = typeof data.scope === 'string' && data.scope ? data.scope : (snap.data().scope || '');
     await ref.set({
       access_token: data.access_token,
-      expires_at: Date.now() + (data.expires_in * 1000),
-      scope: data.scope || snap.data().scope || '',
+      expires_at: Date.now() + (expiresInSec * 1000),
+      scope,
       updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-      ...(data.refresh_token ? { refresh_token: data.refresh_token } : {}),
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
     }, { merge: true });
-    res.json({ ok: true, expires_in: data.expires_in, access_token: data.access_token });
+    res.json({ ok: true, expires_in: expiresInSec, access_token: data.access_token });
   } catch (e) {
     console.warn('[spotifyRefresh]', e.message);
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ error: 'Spotify token refresh failed' });
   }
 });
 
@@ -293,17 +324,23 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
           const rr = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers, body: params.toString(), signal: AbortSignal.timeout(10000) });
           if (rr.ok) {
             const dd = await rr.json();
-            token = dd.access_token;
-            expiresAt = Date.now() + (dd.expires_in * 1000);
-            await ref.set(
-              {
-                access_token: token,
-                expires_at: expiresAt,
-                updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-                ...(dd.refresh_token ? { refresh_token: dd.refresh_token } : {}),
-              },
-              { merge: true },
-            );
+            if (dd && typeof dd.access_token === 'string' && dd.access_token) {
+              const expiresInSec = _normExpiresIn(dd);
+              const refreshToken = typeof dd.refresh_token === 'string' && dd.refresh_token ? dd.refresh_token : null;
+              token = dd.access_token;
+              expiresAt = Date.now() + (expiresInSec * 1000);
+              await ref.set(
+                {
+                  access_token: token,
+                  expires_at: expiresAt,
+                  updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                  ...(refreshToken ? { refresh_token: refreshToken } : {}),
+                },
+                { merge: true },
+              );
+            } else {
+              console.warn('[spotifyCurrentlyPlaying] invalid refresh payload');
+            }
           }
         } catch (_) {}
       }
@@ -336,7 +373,7 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
     });
   } catch (e) {
     console.warn('[spotifyCurrentlyPlaying]', e.message);
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ error: 'Spotify playback lookup failed' });
   }
 });
 

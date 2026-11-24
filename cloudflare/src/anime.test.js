@@ -2772,3 +2772,20 @@ test('handleProxyHls clamps null-body upstream error statuses like 304 to 502', 
     globalThis.fetch = realFetch;
   }
 });
+
+test('handleProxyHls sanitizes upstream fetch error details in 502 responses', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => {
+      throw new Error('internal-secret-hostname.corp ECONNREFUSED');
+    };
+    const proxyUrl = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, 'https://cache.vdrk.site/v1/seg.ts', 'fmov', KEY);
+    const resp = await handleProxyHls(new Request(proxyUrl), { CDN_STAMP_KEY: KEY });
+    assert.equal(resp.status, 502);
+    const data = await resp.json();
+    assert.equal(data.error, 'Upstream fetch failed');
+    assert.ok(!String(data.error).includes('internal-secret-hostname'));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

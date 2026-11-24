@@ -351,7 +351,7 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal, method = 'G
     );
   } catch (e) {
     console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
-    return jsonResponse({ error: `Upstream fetch failed: ${e.message}` }, 502, request);
+    return jsonResponse({ error: 'Upstream fetch failed' }, 502, request);
   }
   if (!upstream.ok && upstream.status !== 206) {
     await upstream.body?.cancel().catch(() => {});
@@ -367,10 +367,15 @@ async function fetchPublicHls(initialTarget, initialHeaders, signal, method = 'G
     (parsed.search.toLowerCase().includes('.m3u8') && !upstreamCt.includes('video/'));
 
 async function readLimitedText(response, maxBytes) {
+  const makeTooLarge = () => {
+    const err = new Error('Upstream response exceeded size limit');
+    err.code = 'TOO_LARGE';
+    return err;
+  };
   if (!response.body || typeof response.body.getReader !== 'function') {
     const text = await response.text();
     if (new TextEncoder().encode(text).byteLength > maxBytes) {
-      throw new Error('Upstream response exceeded size limit');
+      throw makeTooLarge();
     }
     return text;
   }
@@ -384,7 +389,7 @@ async function readLimitedText(response, maxBytes) {
     total += value.byteLength;
     if (total > maxBytes) {
       await reader.cancel().catch(() => {});
-      throw new Error('Upstream response exceeded size limit');
+      throw makeTooLarge();
     }
     out += decoder.decode(value, { stream: true });
   }
@@ -414,7 +419,12 @@ const DISALLOWED_MEDIA_CT_RE =
     try {
       text = await readLimitedText(upstream, 2 * 1024 * 1024);
     } catch (e) {
-      return jsonResponse({ error: e.message || 'Playlist too large' }, 502, request);
+      console.warn(`[proxyMegavidHls] playlist read failed (${parsed.hostname}):`, e.message);
+      return jsonResponse(
+        { error: e && e.code === 'TOO_LARGE' ? 'Playlist too large' : 'Upstream read failed' },
+        502,
+        request,
+      );
     }
     if (text && text.includes('#EXTM3U')) {
       const base = proxyBase(request);
@@ -458,7 +468,12 @@ const DISALLOWED_MEDIA_CT_RE =
     try {
       text = consumed !== null ? consumed : await readLimitedText(upstream, 4 * 1024 * 1024);
     } catch (e) {
-      return jsonResponse({ error: e.message || 'Subtitle too large' }, 502, request);
+      console.warn(`[proxyMegavidHls] subtitle read failed (${parsed.hostname}):`, e.message);
+      return jsonResponse(
+        { error: e && e.code === 'TOO_LARGE' ? 'Subtitle too large' : 'Upstream read failed' },
+        502,
+        request,
+      );
     }
     const cleaned = stripAdCues(text);
     return new Response(cleaned, { status: 200, headers: vttHeaders });
