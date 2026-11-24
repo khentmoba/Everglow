@@ -15,13 +15,11 @@ import { lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { displayNameFor } from '../../shared/utils/text';
 import { useDraft } from '../../shared/utils/draft';
-import { CircularProgress } from '../../shared/widgets/CircularProgress';
-import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
+import { TextButton } from '../../shared/widgets/Dialogs';
 import { EverglowBackground } from '../../shared/widgets/EverglowBackground';
 import { EverglowFeatureHeader } from '../../shared/widgets/EverglowFeatureHeader';
 import { FadeIn } from '../../shared/widgets/FadeIn';
 import { Icon } from '../../shared/widgets/Icon';
-import { MaterialIconButton } from '../../shared/widgets/MaterialFields';
 import { PartnerPresenceIndicator } from '../../shared/widgets/PartnerPresenceIndicator';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
@@ -162,7 +160,8 @@ export function SanctuaryPage() {
   }, []);
   useEffect(() => () => cancelAnimationFrame(scrollAnim.current), []);
 
-  const { merged: messages, remaining } = mergeMessages(stream.data ?? [], optimistic);
+  const { merged, remaining } = mergeMessages(stream.data ?? [], optimistic);
+  const messages = merged.filter((m) => !(m.sender === 'System' && m.text === 'DIAGNOSTIC_CHECK'));
   useEffect(() => {
     if (remaining !== optimistic) setOptimistic(remaining);
   }, [remaining, optimistic]);
@@ -331,16 +330,6 @@ export function SanctuaryPage() {
           subtitle="our quiet corner"
           icon="favorite_border"
           hue={AppColors.auroraRose}
-          actions={[
-            <MaterialIconButton
-              key="diag"
-              icon="wifi_tethering"
-              size={18}
-              color={AppColors.blushGold}
-              tooltip="Connection"
-              onPressed={() => void showDiagnostics(auth.uid)}
-            />,
-          ]}
         />
         <div
           style={{
@@ -851,55 +840,3 @@ function InputArea({
   );
 }
 
-async function showDiagnostics(uid: string | null) {
-  let closeSpinner: ((v: null) => void) | null = null;
-  void showDialog<null>(
-    (close) => {
-      closeSpinner = close;
-      return (
-        <AlertDialog
-          background={AppColors.velvet}
-          radius={24}
-          content={
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <CircularProgress size={36} strokeWidth={4} color={AppColors.roseQuartz} />
-              <div style={{ height: 16 }} />
-              <div style={{ ...AppTypography.bodyMedium, lineHeight: lineHeight(14) }}>
-                Testing connection to our sanctuary...
-              </div>
-            </div>
-          }
-        />
-      );
-    },
-    { barrierDismissible: false },
-  );
-  let result: string;
-  try {
-    await chatService.sendMessage('DIAGNOSTIC_CHECK', 'System', uid ?? 'no-id');
-    result =
-      "[OK] Connection Successful!\n\nYour device can reach the server. If you still can't see messages, please check if your partner has a stable connection too.";
-  } catch (e) {
-    result = `[FAIL] Connection Failed!\n\nError: ${String(e)}\n\nThis is usually due to Firestore Security Rules. Please make sure your database allows access for authenticated users.`;
-  }
-  (closeSpinner as ((v: null) => void) | null)?.(null);
-  void showDialog<null>((close) => (
-    <AlertDialog
-      background={AppColors.velvet}
-      radius={22}
-      title={<span style={{ ...AppTypography.titleLarge, color: AppColors.roseQuartz }}>Sanctuary Status</span>}
-      content={
-        <div
-          style={{ ...AppTypography.bodyMedium, lineHeight: lineHeight(14), color: Derived.textMedium, whiteSpace: 'pre-wrap' }}
-        >
-          {result}
-        </div>
-      }
-      actions={[
-        <TextButton key="ok" onPressed={() => close(null)} color={AppColors.roseQuartz}>
-          OK
-        </TextButton>,
-      ]}
-    />
-  ));
-}
