@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AgentMode } from '../../core/agent/agentMode';
+import { useDialogFocus } from '../../shared/utils/focusTrap';
 import { useAuth } from '../../core/services/auth';
 import { auth as firebaseAuth } from '../../core/services/firebase';
 import { OfflineIds, useOfflineMedia } from '../../core/services/offlineMedia';
@@ -140,6 +141,9 @@ export function CinemaEpisodeDrawer({
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [extraTab, setExtraTab] = useState(0);
   const tabsRef = useRef<HTMLDivElement>(null);
+  // Tab stays inside the sheet, Escape closes it, and focus goes back where it was.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, panelRef, onClose);
   const requested = useRef(new Set<number>());
   const [status, setStatusState] = useState(() => resolveCoupleStatus(item));
   const statusRef = useRef(status);
@@ -866,12 +870,18 @@ export function CinemaEpisodeDrawer({
   }
 
   return (
-    <div className="drawer-root" style={{ position: 'fixed', inset: 0, zIndex: 1400 }}>
+    <div
+      className="drawer-root"
+      ref={panelRef}
+      tabIndex={-1}
+      style={{ position: 'fixed', inset: 0, zIndex: 1400, outline: 'none' }}
+    >
       <div className="drawer-barrier" aria-hidden onClick={onClose} style={{ position: 'absolute', inset: 0 }} />
       <div className="drawer-slide" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {isMobile ? (
           <div
             role="dialog"
+            aria-modal="true"
             aria-label={item.title}
             style={{ height: '100%', background: NetflixColors.surface, pointerEvents: 'auto' }}
           >
@@ -881,6 +891,7 @@ export function CinemaEpisodeDrawer({
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div
               role="dialog"
+              aria-modal="true"
               aria-label={item.title}
               style={{
                 pointerEvents: 'auto',
@@ -1283,13 +1294,13 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
           <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
           {wide && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
-              Downloaded · remove
+              Remove download
             </span>
           )}
         </button>
     );
     return (
-      <Tooltip message="Downloaded — tap to remove">
+      <Tooltip message="Removes the download from this device">
         {wide ? (
           savedButton
         ) : (
@@ -1302,10 +1313,10 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
                 lineHeight: lineHeight(11),
                 color: withAlpha(WHITE, 0.82),
                 textAlign: 'center',
-                maxWidth: 72,
+                maxWidth: 66,
               }}
             >
-              Downloaded · remove
+              Remove
             </span>
           </div>
         )}

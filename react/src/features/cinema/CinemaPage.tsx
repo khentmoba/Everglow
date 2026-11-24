@@ -69,7 +69,11 @@ function remainingLabelOf(m: MediaItem): string | null {
   if (pos <= 0 || dur <= 0 || pos >= dur) return null;
   const left = Math.max(1, Math.round((dur - pos) / 60));
   const hours = Math.floor(left / 60);
-  return hours > 0 ? `${hours}h ${left % 60}m left` : `${left}m left`;
+  const where =
+    m.mediaType === 'tv' && m.currentSeason != null && m.currentEpisode != null
+      ? `S${m.currentSeason} E${m.currentEpisode} · `
+      : '';
+  return `${where}${hours > 0 ? `${hours}h ${left % 60}m left` : `${left}m left`}`;
 }
 
 export function CinemaPage() {
@@ -566,9 +570,10 @@ function HomeTab({
   // render (mutating a "seen" set) made the page depend on how often React
   // re-rendered, so the same data could produce a different Home twice.
   const rails = useMemo(() => {
-    const seen = new Set<string>(
-      [...watchingList, ...savedList, ...trendingGlobal.slice(0, 5)].map((m) => catalogKeyOf(m)),
-    );
+    // The billboard already showed these five; the rail named Trending is allowed
+    // to carry them anyway, because it is the list they come from.
+    const heroKeys = new Set(trendingGlobal.slice(0, 5).map((m) => catalogKeyOf(m)));
+    const seen = new Set<string>([...watchingList, ...savedList].map((m) => catalogKeyOf(m)));
     const recent: string[][] = [];
     const signatures = new Set<string>();
     const unique = (items: MediaItem[]) => {
@@ -590,7 +595,7 @@ function HomeTab({
       title: string,
       reason: string,
       rawItems: MediaItem[],
-      opts: { mediaType?: 'movie' | 'tv'; ranked?: boolean } = {},
+      opts: { mediaType?: 'movie' | 'tv'; ranked?: boolean; allowHero?: boolean } = {},
     ) => {
       const items = unique(rawItems);
       if (opts.ranked) {
@@ -604,7 +609,12 @@ function HomeTab({
         return;
       }
       const recentKeys = new Set(recent.flat());
-      const fresh = (m: MediaItem) => !seen.has(catalogKeyOf(m)) && !recentKeys.has(catalogKeyOf(m));
+      const fresh = (m: MediaItem) => {
+        const key = catalogKeyOf(m);
+        if (recentKeys.has(key)) return false;
+        if (opts.allowHero && heroKeys.has(key)) return true;
+        return !seen.has(key);
+      };
       // A rail shows its own titles, nothing borrowed: padding a series row with
       // a film (or a stranger's sequel) is how "Popular Series" ended up holding
       // John Wick. A rail that cannot fill is dropped instead.
@@ -629,7 +639,7 @@ function HomeTab({
         ? trendingGlobal.filter((m) => m.genres?.includes(becauseGenre) && catalogKeyOf(m) !== catalogKeyOf(becauseOf)).slice(0, 12)
         : [];
     if (becauseItems.length >= MIN_RAIL_SHOWN) add(`Because you watched ${becauseOf?.title ?? ''}`, 'Same mood, different story', becauseItems);
-    add('Trending Now', 'What everyone is watching this week', trendingGlobal);
+    add('Trending Now', 'What everyone is watching this week', trendingGlobal, { allowHero: true });
     add(`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`, "Today's most-watched", topTenToday, { ranked: true });
     add('Coming Soon', 'New on Everglow Cinema', newlyReleased);
     add('Popular Series', 'Most-watched series right now', popularTV, { mediaType: 'tv' });

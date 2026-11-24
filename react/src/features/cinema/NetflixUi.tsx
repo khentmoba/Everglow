@@ -1372,7 +1372,11 @@ export function NetflixCinemaTopBar({
         paddingTop: 'env(safe-area-inset-top, 0px)',
         paddingLeft: `calc(${hPad}px + env(safe-area-inset-left, 0px))`,
         paddingRight: `calc(${hPad}px + env(safe-area-inset-right, 0px))`,
-        background: scrolled ? 'rgba(0,0,0,0.92)' : 'transparent',
+        // Over a photo, white links on nothing measured 2.0–4.2:1. The scrim is the
+        // fix, not a heavier font: it gives every link the same ground.
+        background: scrolled
+          ? 'rgba(0,0,0,0.92)'
+          : 'linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.42) 62%, rgba(0,0,0,0) 100%)',
         borderBottom: `1px solid ${scrolled ? NetflixColors.hairline : 'transparent'}`,
         display: 'flex',
         alignItems: 'center',
@@ -1424,7 +1428,7 @@ export function NetflixCinemaTopBar({
               style={{
                 ...AppTypography.outfitHeading,
                 fontSize: 14,
-                color: active ? '#FFFFFF' : 'rgba(255,255,255,0.72)',
+                color: active ? '#FFFFFF' : 'rgba(255,255,255,0.86)',
                 whiteSpace: 'nowrap',
                 // A tablet is a touch screen: the link needs a 44px lane.
                 display: 'flex',
@@ -1448,7 +1452,7 @@ export function NetflixCinemaTopBar({
               style={{
                 ...AppTypography.outfitHeading,
                 fontSize: 14,
-                color: moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.72)',
+                color: moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.86)',
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1456,7 +1460,7 @@ export function NetflixCinemaTopBar({
               }}
             >
               More
-              <Icon name="expand_more" size={16} color={moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.72)'} />
+              <Icon name="expand_more" size={16} color={moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.86)'} />
             </button>
             {moreOpen && (
               <div
