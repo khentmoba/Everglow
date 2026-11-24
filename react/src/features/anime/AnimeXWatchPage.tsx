@@ -866,7 +866,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         textAlign: 'center',
       }}
     >
-      <Icon name="warning_amber" size={28} color={T.accentText} />
+      <Icon name="warning_amber" size={28} color={T.textSecondary} />
       <div style={dmSansStyle({ size: 15.5, color: T.textPrimary, weight: 700 })}>This episode isn't playing</div>
       <div style={{ ...dmSansStyle({ size: 12.5, color: T.textSecondary, height: 1.45 }), maxWidth: 300 }}>
         No server answered just now.
@@ -1064,8 +1064,19 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 }}
               >
                 {next.isSeason ? 'Next season' : `Episode ${st.selectedEpisode + 1}`}
-                {!next.isSeason && nextEpisode?.title ? ` · ${nextEpisode.title}` : ''}
               </div>
+              {!next.isSeason && nextEpisode?.title && (
+                <div
+                  style={{
+                    ...dmSansStyle({ size: 11.5, color: T.textSecondary, weight: 600 }),
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {nextEpisode.title}
+                </div>
+              )}
             </div>
             <button
               type="button"
@@ -1185,6 +1196,124 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     ));
   };
 
+  // Source and the two playback switches used to sit under the player as three
+  // more chips. They are settings, not steps, so they live behind one button.
+  const showControlsSheet = () => {
+    void showModalBottomSheet<void>((close) => (
+      <div style={{ padding: '4px 16px 24px' }}>
+        <SheetDragHandle />
+        <div style={dmSansStyle({ size: 15, color: T.textPrimary, weight: 800 })}>Playback</div>
+        <div style={{ height: 12 }} />
+        <div style={dmSansStyle({ size: 11.5, color: T.textSecondary, weight: 700, letterSpacing: 0.4 })}>SOURCE</div>
+        <div style={{ height: 8 }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {st.servers.map((srv, i) => {
+            const on = i === st.serverIndex;
+            const failed = st.failedServerIndices.has(i);
+            return (
+              <button
+                key={`${srv.name}-${i}`}
+                type="button"
+                className="bare-button"
+                onClick={() => {
+                  close(null);
+                  selectServer(i);
+                }}
+                style={{
+                  minHeight: 44,
+                  padding: '0 14px',
+                  borderRadius: T.radiusPill,
+                  background: on ? withAlpha(T.accent, 0.9) : white(0.06),
+                  border: `1px solid ${on ? withAlpha(T.accent, 0.9) : T.border}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  opacity: failed && !on ? 0.55 : 1,
+                }}
+              >
+                <span style={dmSansStyle({ size: 12.5, color: on ? '#FFFFFF' : T.textPrimary, weight: 700 })}>
+                  {srv.name}
+                </span>
+                {srv.tag && (
+                  <span style={dmSansStyle({ size: 9.5, color: on ? 'rgba(255,255,255,0.8)' : T.textSecondary, weight: 700 })}>
+                    {srv.tag}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ height: 14 }} />
+        <button
+          type="button"
+          className="bare-button"
+          onClick={() => {
+            AnimexStores.setAutoNext(!stores.autoNext);
+          }}
+          style={{
+            width: '100%',
+            minHeight: 52,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            borderTop: `1px solid ${T.border}`,
+          }}
+        >
+          <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 600 })}>Auto next episode</span>
+          <Icon
+            name={stores.autoNext ? 'toggle_on' : 'toggle_off'}
+            size={26}
+            color={stores.autoNext ? T.accentText : T.textSecondary}
+          />
+        </button>
+        <button
+          type="button"
+          className="bare-button"
+          onClick={() => {
+            AnimexStores.setSkipIntro(!stores.skipIntro);
+          }}
+          style={{
+            width: '100%',
+            minHeight: 52,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            borderTop: `1px solid ${T.border}`,
+          }}
+        >
+          <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 600 })}>Skip intro</span>
+          <Icon
+            name={stores.skipIntro ? 'toggle_on' : 'toggle_off'}
+            size={26}
+            color={stores.skipIntro ? T.accentText : T.textSecondary}
+          />
+        </button>
+        <div style={{ height: 8 }} />
+        <button
+          type="button"
+          className="bare-button"
+          onClick={() => {
+            close(null);
+            void handleRetry();
+          }}
+          style={{
+            width: '100%',
+            minHeight: 52,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            borderTop: `1px solid ${T.border}`,
+          }}
+        >
+          <Icon name="refresh" size={19} color={T.textSecondary} />
+          <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 600 })}>Retry this server</span>
+        </button>
+      </div>
+    ));
+  };
+
   // Phone: player pinned while the episode list scrolls under it, then one
   // compact band of controls. The old layout stacked six bands (heading, meta,
   // server wall, audio, toggles, prev/next) before a single episode.
@@ -1210,33 +1339,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           </>
         )}
         <div style={{ height: 10 }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          {st.servers.length > 1 && (
-            <button
-              type="button"
-              className="bare-button"
-              onClick={showServerSheet}
-              style={{
-                flexShrink: 0,
-                minHeight: 40,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '0 12px',
-                borderRadius: T.radiusPill,
-                background: white(0.05),
-                border: `1px solid ${T.border}`,
-              }}
-            >
-              <Icon name="dns" size={15} color={T.accentText} />
-              <span style={dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 700 })}>
-                Server · {currentServer()?.name ?? 'none'}
-              </span>
-              <Icon name="keyboard_arrow_down" size={15} color={T.textSecondary} />
-            </button>
-          )}
-          <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
-          <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
+        {!contentError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
             className="bare-button"
@@ -1261,24 +1365,49 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           <button
             type="button"
             className="bare-button"
-            aria-label="Next episode"
             disabled={isLastEpisode && !hasNextSeason}
             onClick={() => (hasNextSeason ? openSeason(ns!) : stepEpisode(1))}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 44,
+              padding: '0 14px',
+              boxSizing: 'border-box',
+              borderRadius: T.radiusPill,
+              background: T.accent,
+              border: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <Icon name="skip_next" size={18} color="#FFFFFF" />
+            <span style={dmSansStyle({ size: 13, color: '#FFFFFF', weight: 700 })}>
+              {hasNextSeason ? 'Next season' : 'Next episode'}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="bare-button"
+            aria-label="Playback settings"
+            onClick={showControlsSheet}
             style={{
               flexShrink: 0,
               width: 44,
               height: 44,
               boxSizing: 'border-box',
               borderRadius: T.radiusPill,
-              background: withAlpha(T.accent, 0.16),
-              border: `1px solid ${withAlpha(T.accent, 0.45)}`,
+              background: white(0.05),
+              border: `1px solid ${T.border}`,
               display: 'grid',
               placeItems: 'center',
             }}
           >
-            <Icon name="skip_next" size={18} color={T.accentText} />
+            <Icon name="tune" size={18} color={T.textPrimary} />
           </button>
         </div>
+        )}
         {failedNote && (
           <>
             <div style={{ height: 8 }} />

@@ -220,9 +220,9 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
 
   const cardWidth = nav.width < 600 ? AnimeXTokens.rowPosterWidthMobile : AnimeXTokens.rowPosterWidthDesktop;
   // A 280px card on an 820px tablet left 500px of dead space beside it.
-  // Phone: one card plus a peek. Tablet: three across, so the row is a row.
+  // Phone: one card plus a peek. Tablet: two across. Desktop: three.
   const continueWidth =
-    nav.width < 600 ? 280 : Math.floor((nav.width - 48 - 28) / 3);
+    nav.width < 600 ? 280 : nav.width < 1200 ? Math.floor((nav.width - 48 - 14) / 2) : Math.floor((nav.width - 48 - 28) / 3);
   const trending = rows[0];
   const airing = rows[1];
   const allFailed = rows.every((r) => !r.loading && r.items.length === 0);
@@ -537,19 +537,14 @@ export function AnimeXBrowsePage({
       </div>
 
       <div
-        className="no-scrollbar"
+        // A scroller cut the fourth chip in half at the screen edge. Four
+        // controls fit in two tidy rows, so nothing has to be sliced.
         style={{
-          display: 'flex',
-          flexWrap: 'nowrap',
+          display: 'grid',
+          gridTemplateColumns: nav.width < 600 ? '1fr 1fr' : 'repeat(4, max-content)',
           alignItems: 'center',
           gap: 8,
           marginTop: 16,
-          overflowX: 'auto',
-          paddingBottom: 2,
-          paddingRight: 24,
-          boxSizing: 'border-box',
-          maskImage: 'linear-gradient(to right, #000 92%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to right, #000 92%, transparent 100%)',
         }}
       >
         <BrowseSelect
