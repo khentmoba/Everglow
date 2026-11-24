@@ -334,7 +334,7 @@ export function CinemaSearchTab({
                       color: NetflixColors.textMuted,
                     }}
                   >
-                    {state.results.length === 0 ? 'Try a different title, or browse the shelves.' : 'Clear the filters or load more titles.'}
+                    {state.results.length === 0 ? 'Try a different title, or browse the movies.' : 'Clear the filters or load more titles.'}
                   </div>
                   <div style={{ height: 14 }} />
                   <button

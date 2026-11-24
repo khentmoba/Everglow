@@ -1049,8 +1049,8 @@ function Hero({
           position: 'absolute',
           top: 10,
           right: 16,
-          width: 36,
-          height: 36,
+          width: 44,
+          height: 44,
           borderRadius: '50%',
           boxSizing: 'border-box',
           background: '#181818CC',
@@ -1283,7 +1283,7 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
           <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
           {wide && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
-              Downloaded
+              Downloaded · remove
             </span>
           )}
         </button>
@@ -1302,10 +1302,10 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
                 lineHeight: lineHeight(11),
                 color: withAlpha(WHITE, 0.82),
                 textAlign: 'center',
-                maxWidth: 66,
+                maxWidth: 72,
               }}
             >
-              Downloaded
+              Downloaded · remove
             </span>
           </div>
         )}
@@ -1674,7 +1674,7 @@ function ExtraTabs({
             style={{
               flex: '1 1 0',
               minWidth: 0,
-              padding: '10px 0',
+              padding: '12px 0',
               borderRadius: 8,
               // A red underline marks the tab; a full red block would out-shout Play.
               background: on ? NetflixColors.surfaceElevated : 'transparent',

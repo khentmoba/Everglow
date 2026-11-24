@@ -1559,7 +1559,7 @@ function VideoPlayerScreen(props: PlayerProps) {
               <Tooltip message="Switch server">
                 <PlayerPillButton
                   icon="swap_horiz"
-                  label={compact ? 'Servers' : `Servers · ${c.selectedProvider.shortName}`}
+                  label={compact ? 'Source' : `Source · ${c.selectedProvider.shortName}`}
                   compact={compact}
                   onTap={showProviderSheet}
                 />
@@ -1618,7 +1618,7 @@ function VideoPlayerScreen(props: PlayerProps) {
                   />
                 )}
               </div>
-              {c.isLoading && <CinematicLoader providerName={c.selectedProvider.shortName} />}
+              {c.isLoading && <CinematicLoader providerName={c.selectedProvider.shortName} resumeAt={c.positionSeconds} />}
               {!c.isLoading &&
                 !c.iframeFailed &&
                 c.upNextVisible &&

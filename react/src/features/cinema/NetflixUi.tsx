@@ -1426,6 +1426,11 @@ export function NetflixCinemaTopBar({
                 fontSize: 14,
                 color: active ? '#FFFFFF' : 'rgba(255,255,255,0.72)',
                 whiteSpace: 'nowrap',
+                // A tablet is a touch screen: the link needs a 44px lane.
+                display: 'flex',
+                alignItems: 'center',
+                minHeight: 44,
+                padding: '0 2px',
               }}
             >
               {l.label}

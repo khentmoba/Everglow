@@ -191,7 +191,6 @@ export function CinemaPage() {
 
   // Each tab keeps its own place; returning to Home lands where you left it.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastScroll = useRef(0);
   const [hideBack, setHideBack] = useState(false);
   const tabScroll = useRef<Record<number, number>>({});
   useEffect(() => {
@@ -413,11 +412,9 @@ export function CinemaPage() {
         onScroll={(e) => {
           const top = e.currentTarget.scrollTop;
           setScrolled(top > 60);
-          // Reading downward is no time for a floating button over a rail title.
-          if (Math.abs(top - lastScroll.current) > 12) {
-            setHideBack(top > 80 && top > lastScroll.current);
-            lastScroll.current = top;
-          }
+          // The control belongs to the first screen. Past it, no rail heading or
+          // poster ever has a floating button sitting on top of it.
+          setHideBack(top > 80);
           tabScroll.current[currentTab] = top;
         }}
         style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
