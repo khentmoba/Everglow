@@ -129,7 +129,7 @@ async function tryComick(title: string, chapterNum: string): Promise<string[]> {
     const detail = (await detailResp.json()) as { chapter?: { md_images?: Array<{ b2key?: string }> } };
     const imgs = detail.chapter?.md_images ?? [];
     return imgs
-      .map((img) => (img.b2key ? proxiedMangaImage(`https://meo.comick.pictures/${img.b2key}`) : ''))
+      .map((img) => (img.b2key ? proxiedScanlationImage(`https://meo.comick.pictures/${img.b2key}`) : ''))
       .filter(Boolean);
   } catch (e) {
     Logger.e('ComicK fallback failed', e);
@@ -217,13 +217,17 @@ async function tryScanlation(title: string, chapterNum: string): Promise<string[
       if (!chResp.ok) continue;
       const chHtml = await chResp.text();
       const imgs: string[] = [];
+      const seen = new Set<string>();
       const imgRe = /<img[^>]*src="(https?:\/\/[^"]+)"[^>]*>/gi;
       let m: RegExpExecArray | null;
       while ((m = imgRe.exec(chHtml)) !== null) {
         const u = m[1];
         const lower = u.toLowerCase();
         if (SCAN_IMG_EXCLUDE.some((ex) => lower.includes(ex))) continue;
-        if (!imgs.includes(u)) imgs.push(proxiedScanlationImage(u, site.baseUrl));
+        if (!seen.has(u)) {
+          seen.add(u);
+          imgs.push(proxiedScanlationImage(u, site.baseUrl));
+        }
       }
       if (imgs.length >= 3) return imgs;
     } catch {

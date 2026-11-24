@@ -1837,14 +1837,18 @@ export function PageActionSheet({
     const baseName = `${mangaTitle.replace(/[^a-z0-9]+/gi, '_')}_${chapterLabel.replace(/[^a-z0-9]+/gi, '_')}_p${pageNumber}`;
     const isSameOriginOrLocal = isLocalOrInline || imageUrl.startsWith('/');
     const fetchUrl = isSameOriginOrLocal ? imageUrl : proxyKatanaImageUrl(imageUrl);
-    const canFetch = isSameOriginOrLocal || fetchUrl.includes('proxyMangaKatana');
+    const canFetch =
+      isSameOriginOrLocal ||
+      fetchUrl.includes('proxyMangaKatana') ||
+      fetchUrl.includes('proxyMangaImage') ||
+      fetchUrl.includes('proxyScanlation');
     if (!canFetch) {
       window.open(fetchUrl, '_blank', 'noopener,noreferrer');
       onClose();
       return;
     }
     try {
-      const res = await fetch(fetchUrl);
+      const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(15_000) });
       if (!res.ok) throw new Error('fetch failed');
       const blob = await res.blob();
       const mime = blob.type.toLowerCase();
