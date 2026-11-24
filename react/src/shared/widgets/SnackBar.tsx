@@ -42,7 +42,9 @@ export function SnackBarHost() {
         justifyContent: 'center',
         padding: '0 15px',
         pointerEvents: 'none',
-        zIndex: 900,
+        // Above every surface, including Cinema's detail sheet (1400): a message
+        // that explains what just happened is useless behind the panel.
+        zIndex: 1600,
         opacity: visible ? 1 : 0,
         transition: 'opacity 250ms linear',
       }}

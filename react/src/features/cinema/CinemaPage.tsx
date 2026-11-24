@@ -180,17 +180,26 @@ export function CinemaPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hideBack, setHideBack] = useState(false);
   const tabScroll = useRef<Record<number, number>>({});
+  // A collection is its own page inside the Browse tab, so its offset is its own
+  // too: restoring Movies' place on a TV Shows grid landed mid-list.
+  const scrollKey = (tab: number, browse: string | null) => (tab === 2 && browse ? 200 + browse.length : tab);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTop = tabScroll.current[currentTab] ?? 0;
+    el.scrollTop = tabScroll.current[scrollKey(currentTab, selectedBrowseId)] ?? 0;
   }, [currentTab, selectedBrowseId]);
 
   const tabHistory = useRef<number[]>([]);
+  // True while the back control is navigating: that move must not record the tab
+  // it is leaving, or Back and the push undo each other and the trail ping-pongs.
+  const backNavigating = useRef(false);
   const handleNavSelect = useCallback(
     (tab: number, browseOptionId?: string) => {
       const clamped = Math.max(0, Math.min(5, tab));
-      if (clamped !== currentTab) tabHistory.current = [...tabHistory.current.slice(-8), currentTab];
+      if (clamped !== currentTab && !backNavigating.current) {
+        tabHistory.current = [...tabHistory.current.slice(-8), currentTab];
+      }
+      backNavigating.current = false;
       if (browseOptionId) setBrowseSeed((n) => n + 1);
       const next = new URLSearchParams(params);
       if (browseOptionId) {
@@ -272,18 +281,23 @@ export function CinemaPage() {
     };
   };
   // Back means back: the tab you came from, then Home, then out of Cinema.
+  // Every branch below moves the page, so each one flags the move as a back step.
+  const goBackTo = (tab: number) => {
+    backNavigating.current = true;
+    handleNavSelect(tab);
+  };
   const handleBack = () => {
     const previous = tabHistory.current.pop();
     if (selectedBrowseId) {
-      handleNavSelect(2);
+      goBackTo(2);
       return;
     }
     if (previous != null && previous !== currentTab) {
-      handleNavSelect(previous);
+      goBackTo(previous);
       return;
     }
     if (currentTab !== 0) {
-      handleNavSelect(0);
+      goBackTo(0);
       return;
     }
     if (isCoupleUser) void navigate('/dashboard');
@@ -326,6 +340,7 @@ export function CinemaPage() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20 }}>
           <NetflixCinemaTopBar
             currentIndex={currentTab}
+            currentBrowseId={selectedBrowseId}
             links={links}
             scrolled={scrolled}
             userName={userName}
@@ -409,7 +424,7 @@ export function CinemaPage() {
           // The control belongs to the first screen. Past it, no rail heading or
           // poster ever has a floating button sitting on top of it.
           setHideBack(top > 80);
-          tabScroll.current[currentTab] = top;
+          tabScroll.current[scrollKey(currentTab, selectedBrowseId)] = top;
         }}
         style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
       >

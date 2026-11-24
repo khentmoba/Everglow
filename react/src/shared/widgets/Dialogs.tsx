@@ -19,7 +19,16 @@ type Entry = {
   barrier?: string;
   /** Route fade length; `showGeneralDialog` callers pass their transitionDuration (linear). */
   fadeMs?: number;
+  /** Above a full-screen surface (Cinema's detail sheet is 1400), or under nothing. */
+  zIndex?: number;
+  /** Key used to know whether any dialog is open, so a host panel can yield Escape. */
+  dismissLayer?: string;
 };
+
+/** True while any dialog is on the stack: a surface under it must not also handle Escape. */
+export function isDialogOpen(): boolean {
+  return stack.value.length > 0;
+}
 
 const stack = new ValueNotifier<Entry[]>([]);
 let nextId = 1;
@@ -32,11 +41,14 @@ export function showDialog<R>(
     insetPadding,
     barrierColor,
     fadeMs,
+    zIndex,
   }: {
     barrierDismissible?: boolean;
     /** Dialog.insetPadding as CSS padding. */ insetPadding?: string;
     barrierColor?: string;
     fadeMs?: number;
+    /** Raise this dialog above a full-screen surface such as Cinema's detail sheet. */
+    zIndex?: number;
   } = {},
 ): Promise<R | null> {
   return new Promise((resolve) => {
@@ -48,6 +60,7 @@ export function showDialog<R>(
       inset: insetPadding,
       barrier: barrierColor,
       fadeMs,
+      zIndex,
     };
     stack.value = [...stack.value, entry];
   });
@@ -141,7 +154,7 @@ function DialogRoute({ entry }: { entry: Entry }) {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 800,
+        zIndex: entry.zIndex ?? 800,
         background: entry.barrier ?? withAlpha(AppColors.inkDeep, 0.72),
         display: 'flex',
         alignItems: entry.sheet ? 'flex-end' : 'center',

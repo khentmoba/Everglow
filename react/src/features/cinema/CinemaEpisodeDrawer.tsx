@@ -143,7 +143,14 @@ export function CinemaEpisodeDrawer({
   const tabsRef = useRef<HTMLDivElement>(null);
   // Tab stays inside the sheet, Escape closes it, and focus goes back where it was.
   const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(true, panelRef, onClose);
+  // Captured before the sheet takes focus, so closing returns the reader to the
+  // poster or tile they came from instead of to <body>.
+  const openerRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null,
+  );
+  useDialogFocus(true, panelRef, onClose, openerRef);
   const requested = useRef(new Set<number>());
   const [status, setStatusState] = useState(() => resolveCoupleStatus(item));
   const statusRef = useRef(status);
@@ -961,7 +968,8 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       onClick={onClose}
       style={{
         position: 'absolute',
-        top: 10,
+        // The sheet's only exit, so it clears the notch band in standalone.
+        top: 'calc(10px + env(safe-area-inset-top, 0px))',
         right: 16,
         zIndex: 5,
         width: 44,
@@ -1308,7 +1316,7 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
                   </TextButton>,
                 ]}
               />
-            ));
+            ), { zIndex: 1500 });
           }}
           style={{ ...circle, background: withAlpha('#000000', 0.5), ...insetBorder(withAlpha(WHITE, 0.55), 1.5) }}
         >
@@ -1524,6 +1532,7 @@ function StatusControl({
   isCouple: boolean;
   onChange: (next: string) => void;
 }) {
+  const auth = useAuth();
   const watching = status.startsWith('watching');
   const watched = status.startsWith('watched');
   const intent = status === 'to-watch' ? 'to-watch' : watching ? 'watching' : watched ? 'watched' : '';
@@ -1536,12 +1545,14 @@ function StatusControl({
         : '';
   const applyIntent = (next: 'to-watch' | 'watching' | 'watched') => {
     if (next === 'to-watch') return onChange(status === 'to-watch' ? '' : 'to-watch');
-    const owner = isCouple ? who || 'both' : 'self';
+    // Never assert the partner: a fresh tap records the person who tapped it.
+    const me = auth.currentUser === 'clairjassen' ? 'clair' : 'khent';
+    const owner = isCouple ? who || me : 'self';
     onChange(`${next}-${owner}`);
   };
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         <StatusChip
           label="Want to Watch"
           icon=""
@@ -1584,7 +1595,6 @@ function StatusControl({
               key={value}
               label={label}
               icon=""
-              activeColor={intent === 'watched' ? AppColors.cinemaGreen : AppColors.cinemaAmber}
               selected={who === value}
               onTap={() => onChange(`${intent}-${value}`)}
             />

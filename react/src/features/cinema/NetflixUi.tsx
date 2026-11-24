@@ -219,6 +219,7 @@ function NetflixHoverPreview({
 
   return createPortal(
     <div
+      data-testid="cinema-hover-preview"
       onMouseEnter={onPointerEnter}
       onMouseLeave={onPointerLeave}
       onClick={(e) => {
@@ -821,10 +822,13 @@ export function NetflixRow({
     // An arrow on a rail that fits is a promise the row cannot keep, so the
     // threshold is half a card: less than that is a rounding artefact.
     const slack = 40;
-    setEdges({
+    const next = {
       left: el.scrollLeft > 8,
       right: el.scrollLeft + el.clientWidth < el.scrollWidth - slack,
-    });
+    };
+    // Same two booleans means nothing changed on screen. A fresh object here made
+    // every rail re-render its posters on each scroll tick and resize callback.
+    setEdges((prev) => (prev.left === next.left && prev.right === next.right ? prev : next));
   }, []);
   useEffect(() => {
     measure();
@@ -885,7 +889,9 @@ export function NetflixRow({
             <div key={`${item.mediaType}:${item.tmdbId}:${idx}`} style={{ flexShrink: 0, position: 'relative' }}>
               <NetflixPosterCard
                 item={item}
-                rank={ranked ? (rankOf?.(item) ?? idx + 1) : undefined}
+                // A numeral is the title's real place or it is absent: falling back
+                // to the row index invents a ranking the row does not hold.
+                rank={ranked ? (rankOf?.(item) ?? undefined) : undefined}
                 isDesktop={isDesktop}
                 height={rowHeight}
                 progress={progress?.(item) ?? null}

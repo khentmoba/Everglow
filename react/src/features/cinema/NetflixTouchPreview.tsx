@@ -46,6 +46,7 @@ function TouchPreviewDialog({
 
   return (
     <div
+      data-testid="cinema-hover-preview"
       style={{
         width: 'min(90vw, 360px)',
         borderRadius: 16,
