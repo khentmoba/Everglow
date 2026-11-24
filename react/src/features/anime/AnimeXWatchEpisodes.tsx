@@ -316,6 +316,8 @@ export interface EpisodesProps {
   seasons: AniListSeason[];
   onSelectSeason?: (s: AniListSeason) => void;
   nextSeason?: AniListSeason;
+  /** The current episode's source is not playing right now. */
+  isBroken?: boolean;
 }
 
 function infoTapFor(p: EpisodesProps, hideSpoilers: boolean, ep: AniListEpisode, active: boolean) {
@@ -907,7 +909,11 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         </div>
         <div style={{ height: 5 }} />
         <div style={{ ...dmSansStyle({ size: 11.5, color: T.textSecondary }), ...ellipsis(1) }}>
-          {hideSpoilers ? `Playing Episode ${p.selectedEpisode}` : `Playing Episode ${p.selectedEpisode} - ${currentTitle}`}
+          {p.isBroken
+            ? `Episode ${p.selectedEpisode} isn't playing`
+            : hideSpoilers
+              ? `Playing Episode ${p.selectedEpisode}`
+              : `Playing Episode ${p.selectedEpisode} - ${currentTitle}`}
         </div>
         {nextTitle != null && (
           <>

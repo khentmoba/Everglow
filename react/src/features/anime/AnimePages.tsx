@@ -252,9 +252,8 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
     const base = trending.items.slice(0, 5);
     const resume = nav.continueWatching[0]?.savedItem;
     if (!resume) return base;
-    const isSame = (it: MediaItem) =>
-      (it.anilistId != null && it.anilistId === resume.anilistId) || (it.tmdbId > 0 && it.tmdbId === resume.tmdbId);
-    return base.some(isSame) ? base : [resume, ...base.slice(0, 4)];
+    // One slide, no pager: a carousel would let the resume button rotate away.
+    return [resume];
   })();
 
   return (

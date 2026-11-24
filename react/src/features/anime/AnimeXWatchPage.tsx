@@ -1463,7 +1463,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           icon="skip_next"
           // While the end card offers "Watch now", this page-level twin steps
           // back so the same action is not two identical pink buttons.
-          primary={!showUpNext}
+          primary={!showUpNext && !contentError}
           enabled={!isLastEpisode || hasNextSeason}
           onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
         />
