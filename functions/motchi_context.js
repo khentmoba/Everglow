@@ -127,45 +127,54 @@ function getProactiveContext(nowMs = Date.now()) {
 
 async function getMoodContext() {
   try {
+    const db = getDb();
     const usernames = ['khentsgdz', 'clairjassen'];
+    const snapshots = await Promise.all(
+      usernames.map((username) =>
+        db.collection('moods')
+          .where('username', '==', username)
+          .orderBy('timestamp', 'desc')
+          .limit(5)
+          .get(),
+      ),
+    );
     const moodParts = [];
-    for (const username of usernames) {
-      const db = getDb();
-      const snapshot = await db.collection('moods')
-        .where('username', '==', username)
-        .orderBy('createdAt', 'desc')
-        .limit(5)
-        .get();
+    snapshots.forEach((snapshot, idx) => {
       if (!snapshot.empty) {
         const moods = snapshot.docs.map(doc => {
           const d = doc.data();
           return `${d.moodEmoji || '💭'} ${d.mood || d.moodLabel || 'okay'}`;
         }).join(', ');
-        moodParts.push(`${username}: ${moods}`);
+        moodParts.push(`${usernames[idx]}: ${moods}`);
       }
-    }
+    });
     return moodParts.length ? `Recent moods:\n${moodParts.join('\n')}` : '';
   } catch (_) { return ''; }
 }
 
 async function getWatchContext() {
   try {
+    const db = getDb();
+    const usernames = ['khentsgdz', 'clairjassen'];
+    const snapshots = await Promise.all(
+      usernames.map((username) =>
+        db.collection('our_cinema')
+          .where('addedBy', '==', username)
+          .orderBy('addedAt', 'desc')
+          .limit(10)
+          .get(),
+      ),
+    );
     const watchParts = [];
-    for (const username of ['khentsgdz', 'clairjassen']) {
-      const db = getDb();
-      const snapshot = await db.collection('our_cinema')
-        .where('userId', '==', username)
-        .orderBy('addedAt', 'desc')
-        .limit(10)
-        .get();
+    snapshots.forEach((snapshot, idx) => {
       if (!snapshot.empty) {
         const items = snapshot.docs.map(doc => {
           const d = doc.data();
           return `${d.title || 'Unknown'} (${d.mediaType || 'movie'}) - ${d.status || 'plan to watch'}`;
         }).join('\n');
-        watchParts.push(`${username}'s watchlist:\n${items}`);
+        watchParts.push(`${usernames[idx]}'s watchlist:\n${items}`);
       }
-    }
+    });
     return watchParts.length ? watchParts.join('\n\n') : '';
   } catch (_) { return ''; }
 }
@@ -284,7 +293,7 @@ async function getRecentChatContext() {
     if (snapshot.empty) return '';
     const lines = snapshot.docs.map(doc => {
       const d = doc.data();
-      return `${d.username || 'user'}: ${d.text || d.content || ''}`;
+      return `${d.sender || d.username || d.senderUid || 'user'}: ${d.text || d.content || ''}`;
     }).toReversed();
     return formatChatContext(lines);
   } catch (_) { return ''; }
@@ -525,4 +534,7 @@ module.exports = {
   getProactiveContext,
   getTmdbKey,
   invalidateContextBlock,
+  getMoodContext,
+  getWatchContext,
+  getRecentChatContext,
 };

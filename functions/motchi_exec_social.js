@@ -174,7 +174,7 @@ async function exec_log_activity(ctx, args) {
 async function exec_get_gallery(ctx, args) {
   const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 20);
   const wantImages = args.include_images === true;
-  const snap = await ctx.db.collection('gallery').orderBy('createdAt', 'desc').limit(limit).get();
+  const snap = await ctx.db.collection('gallery').orderBy('uploadedAt', 'desc').limit(limit).get();
   if (snap.empty) return JSON.stringify({ photos: [], count: 0 });
   const vision = [];
   const photos = snap.docs.map((d) => {
@@ -187,7 +187,7 @@ async function exec_get_gallery(ctx, args) {
       caption: (data.caption || '').slice(0, 200),
       uploadedBy: data.uploadedBy || data.author || '',
       imageUrl: data.imageUrl ? '[image]' : '',
-      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+      createdAt: (data.uploadedAt || data.createdAt)?.toDate?.()?.toISOString() || null,
     };
   });
   const out = { photos, count: photos.length };
