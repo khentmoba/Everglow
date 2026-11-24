@@ -428,6 +428,7 @@ export function NetflixPosterCard({
   isDesktop = false,
   height,
   progressLabel,
+  caption = false,
 }: {
   item: MediaItem;
   onTap: () => void;
@@ -443,6 +444,8 @@ export function NetflixPosterCard({
   isDesktop?: boolean;
   /** The row's height: Flutter's horizontal ListView stretches every card to it. */
   height?: number;
+  /** Name the title under the art: a grid of posters alone cannot confirm a match. */
+  caption?: boolean;
 }) {
   const { width: vw } = useViewport();
   const desktopCapable = isDesktop || vw >= 1024;
@@ -692,7 +695,34 @@ export function NetflixPosterCard({
     </button>
   );
 
-  if (rank == null) return posterBox;
+  // A caption under the art, used by the grids where a poster is the only
+  // identification (search, browse, my list).
+  const withCaption = (inner: React.ReactNode) =>
+    caption ? (
+      <div style={{ width: '100%', minWidth: 0 }}>
+        {inner}
+        <div
+          style={{
+            paddingTop: 6,
+            display: 'flex',
+            gap: 3,
+            ...AppTypography.outfitWhite,
+            fontSize: 11.5,
+            lineHeight: '15px',
+            color: NetflixColors.textSecondary,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+          {item.year ? <span style={{ flexShrink: 0 }}>{`· ${item.year}`}</span> : null}
+        </div>
+      </div>
+    ) : (
+      inner
+    );
+
+  if (rank == null) return withCaption(posterBox);
 
   const boxHeight = height ?? (cardWidth ?? 118) * 1.5;
   const digits = String(rank);

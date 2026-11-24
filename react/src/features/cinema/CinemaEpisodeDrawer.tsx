@@ -22,7 +22,7 @@ import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { Tooltip } from '../../shared/widgets/Tooltip';
 import { fetchAniListDetails, type AniListDetail } from '../anime/animeService';
 import { cinemaPreferences } from './cinemaPreferences';
-import { NetflixColors, TmdbImages, TOP_TEN_COUNTRY_LABEL, type MediaItem } from './cinemaTypes';
+import { NetflixColors, TmdbImages, type MediaItem } from './cinemaTypes';
 import {
   cleanStalePartnerStatus,
   fetchCredits,
@@ -591,7 +591,7 @@ export function CinemaEpisodeDrawer({
   const has = (g: string) => genreNames.includes(g);
   // Only what TMDB actually states: the certificate and, when it has one, its
   // descriptor list. Nothing here is guessed from a genre.
-  const maturityLine = certification == null && genreNames.length > 0 ? 'Unrated' : null;
+  const maturityLine = certification == null && genreNames.length > 0 ? 'Not rated' : null;
   const moodTags = (() => {
     const tags: string[] = [];
     if (has('Romance')) tags.push('Emotional', 'Romantic');
@@ -629,7 +629,19 @@ export function CinemaEpisodeDrawer({
       : '';
 
   const content = (
-    <div data-drawer-scroll className="no-scrollbar" style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
+    <div
+      data-drawer-scroll
+      className={isMobile ? 'no-scrollbar' : undefined}
+      style={{
+        height: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        // On a big screen the panel scrolls to the nearest section, so the fold
+        // lands between cards instead of through them.
+        scrollSnapType: isMobile ? undefined : 'y proximity',
+        scrollbarWidth: isMobile ? undefined : 'thin',
+      }}
+    >
       <Hero
         backdropUrl={backdropUrl}
         trailerKey={trailerKey}
@@ -798,7 +810,7 @@ export function CinemaEpisodeDrawer({
             </div>
             <div style={{ width: 8 }} />
             <span style={{ ...AppTypography.outfitBold, fontSize: 14, lineHeight: lineHeight(14), color: WHITE }}>
-              #{topTenRank} in {TOP_TEN_COUNTRY_LABEL} Today
+              #{topTenRank} in Top 10
             </span>
           </div>
         )}
@@ -889,7 +901,8 @@ export function CinemaEpisodeDrawer({
                 margin: '84px 20px 28px',
                 width: 'calc(100% - 40px)',
                 maxWidth: 880,
-                // 84 above the bar + 28 below it.
+                // 84 above the bar + 28 below it. A shorter panel scrolls to a
+                // whole card instead of slicing one at the fade.
                 maxHeight: Math.max(0, screenH - 112),
                 alignSelf: 'center',
                 boxSizing: 'border-box',
@@ -2023,20 +2036,7 @@ function SimilarCard({ item, onTap }: { item: MediaItem; onTap: () => void }) {
                 {`TMDB ${match}`}
               </span>
             )}
-            <div style={{ width: 6 }} />
-            <span
-              style={{
-                padding: '1px 4px',
-                border: `1px solid ${withAlpha(WHITE, 0.5)}`,
-                borderRadius: 2,
-                ...AppTypography.outfitBold,
-                fontSize: 9,
-                lineHeight: lineHeight(9),
-                color: WHITE,
-              }}
-            >
-              {item.isAnime ? '13+' : '16+'}
-            </span>
+
           </div>
           <div
             style={{

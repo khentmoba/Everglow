@@ -189,10 +189,12 @@ export function CinemaLibraryTab({
           {visible.map((m) => {
             const watching = isCurrentlyWatching(m);
             return (
-              <div key={m.id || `${m.mediaType}:${m.tmdbId}`} style={{ position: 'relative', aspectRatio: '0.67' }}>
+              <div key={m.id || `${m.mediaType}:${m.tmdbId}`} style={{ position: 'relative' }}>
                 {/* No remove badge here: "remove from Continue Watching" lives in the
                     tile menu on Home, where the progress it clears is visible. */}
-                <NetflixPosterCard item={m} compact progress={watching ? progressOf(m) : null} onTap={() => onMediaTap(m)} />
+                <div style={{ aspectRatio: '0.67' }}>
+                  <NetflixPosterCard item={m} compact caption progress={watching ? progressOf(m) : null} onTap={() => onMediaTap(m)} />
+                </div>
               </div>
             );
           })}

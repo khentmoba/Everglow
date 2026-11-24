@@ -35,11 +35,11 @@ export function useCinemaHeroTitles(trendingGlobal: MediaItem[], watchingList: M
   }, [trendingGlobal, watchingList]);
 }
 
-export function useCinemaRailPlan(input: CinemaRailPlanInput): CinemaRail[] {
+export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaItem[]): CinemaRail[] {
   const { watchingList, savedList, trendingGlobal, topTenToday, popularTV, newlyReleased, discoveryRows } = input;
   return useMemo(() => {
-    // The billboard already showed its five, so no rail below repeats them.
-    const heroKeys = new Set(trendingGlobal.slice(0, 5).map((m) => catalogKeyOf(m)));
+    // The billboard already showed these, so no rail below repeats them.
+    const heroKeys = new Set(heroTitles.map((m) => catalogKeyOf(m)));
     const seen = new Set<string>([
       ...[...watchingList, ...savedList].map((m) => catalogKeyOf(m)),
       ...heroKeys,
@@ -72,11 +72,14 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput): CinemaRail[] {
         // The ranked row keeps its own order, but a film the page has already
         // shown is dropped from the row rather than offered a third time; its
         // numeral still comes from the title's real place in the list.
-        const unseen = items.filter((m) => !seen.has(catalogKeyOf(m)));
-        // The ranked list is a fact: if filtering would gut it, show it whole
-        // rather than pretend today's top ten is three titles long.
-        const shown = (unseen.length >= MIN_RAIL_SHOWN ? unseen : items).slice(0, 10);
-        if (shown.length < MIN_RAIL_SHOWN) return;
+        // The pool is the real top ten, so every numeral is the title's actual
+        // place. A title the page has already shown is dropped from the row
+        // rather than offered twice.
+        const pool = items.slice(0, 10);
+        const unseen = pool.filter((m) => !seen.has(catalogKeyOf(m)));
+        // A ranked row may be short: it states places, it does not need padding.
+        const shown = unseen.length > 0 ? unseen : pool;
+        if (shown.length === 0) return;
         for (const m of shown) seen.add(catalogKeyOf(m));
         recent.unshift(shown.map(catalogKeyOf));
         plan.push({ title, reason, items: shown, ranked: true });
@@ -128,5 +131,5 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput): CinemaRail[] {
       add(title, shelf?.reason ?? '', items, { mediaType: shelf?.type });
     }
     return plan;
-  }, [watchingList, savedList, trendingGlobal, topTenToday, popularTV, newlyReleased, discoveryRows]);
+  }, [watchingList, savedList, trendingGlobal, topTenToday, popularTV, newlyReleased, discoveryRows, heroTitles]);
 }

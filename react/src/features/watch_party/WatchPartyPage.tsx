@@ -10,6 +10,7 @@ import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
 import { Icon } from '../../shared/widgets/Icon';
+import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { TmdbImages } from '../cinema/cinemaTypes';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
@@ -930,13 +931,37 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                       className="bare-button"
                       aria-label={`Delete ${room.name || 'Our room'}`}
                       onClick={() => {
-                        if (window.confirm(`Delete "${room.name || 'Our room'}"?`)) {
-                          void deleteWatchPartyRoom(room.id);
-                        }
+                        // The app's own dialog, not a browser prompt: this is a
+                        // surface Clair uses, and 32px was below the touch floor.
+                        void showDialog<void>((close) => (
+                          <AlertDialog
+                            title={<div style={{ ...AppTypography.outfitHeading, fontSize: 17 }}>{`Delete ${room.name || 'Our room'}?`}</div>}
+                            content={
+                              <div style={{ ...AppTypography.outfitWhite, fontSize: 14, color: Derived.textMuted }}>
+                                Everyone in the room leaves, and the chat log with it.
+                              </div>
+                            }
+                            actions={[
+                              <TextButton key="cancel" onPressed={() => close(null)}>
+                                Keep room
+                              </TextButton>,
+                              <TextButton
+                                key="delete"
+                                color={AppColors.roseQuartz}
+                                onPressed={() => {
+                                  close(null);
+                                  void deleteWatchPartyRoom(room.id);
+                                }}
+                              >
+                                Delete
+                              </TextButton>,
+                            ]}
+                          />
+                        ));
                       }}
                       style={{
-                        width: 32,
-                        height: 32,
+                        width: 44,
+                        height: 44,
                         borderRadius: '50%',
                         background: withAlpha(AppColors.petalWhite, 0.06),
                         display: 'flex',

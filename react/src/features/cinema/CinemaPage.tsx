@@ -547,15 +547,18 @@ function HomeTab({
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
   // Under this many posters a rail is not a recommendation, it is a stub.
   const heroTitles = useCinemaHeroTitles(trendingGlobal, watchingList);
-  const rails = useCinemaRailPlan({
-    watchingList,
-    savedList,
-    trendingGlobal,
-    topTenToday,
-    popularTV,
-    newlyReleased,
-    discoveryRows,
-  });
+  const rails = useCinemaRailPlan(
+    {
+      watchingList,
+      savedList,
+      trendingGlobal,
+      topTenToday,
+      popularTV,
+      newlyReleased,
+      discoveryRows,
+    },
+    heroTitles,
+  );
 
   const rowProps = {
     isDesktop,

@@ -350,8 +350,10 @@ function Results({
     <>
       <div style={{ padding: `0 ${h}px`, display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 10 }}>
         {state.results.map((item) => (
-          <div key={`${item.mediaType}:${item.tmdbId}`} style={{ aspectRatio: '0.67' }}>
-            <NetflixPosterCard item={item} compact onTap={() => onMediaTap(item)} />
+          <div key={`${item.mediaType}:${item.tmdbId}`}>
+            <div style={{ aspectRatio: '0.67' }}>
+              <NetflixPosterCard item={item} compact caption onTap={() => onMediaTap(item)} />
+            </div>
           </div>
         ))}
       </div>
