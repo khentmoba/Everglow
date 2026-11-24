@@ -249,7 +249,7 @@ export function KatanaDownloadsView({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <KatanaSectionHeader
           title="Downloads"
-          badge={items.length > 0 ? `${items.length} series` : undefined}
+          badge={items.length > 0 ? `${new Set(items.map((it) => it.mediaId)).size} series` : undefined}
         />
       </div>
       <div style={{ height: 14 }} />
@@ -281,7 +281,8 @@ export function KatanaDownloadsView({
                 <div style={{ height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
                   <div
                     style={{
-                      width: `clamp(6px, ${Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)}%, 100%)`,
+                      width: `${Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)}%`,
+                      minWidth: (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100 >= 2 ? 6 : 0,
                       height: '100%',
                       background: KatanaColors.accent,
                       borderRadius: 99,
@@ -291,8 +292,8 @@ export function KatanaDownloadsView({
                 <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 5 }}>
                   {(() => {
                     const pct = (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100;
-                    if (pct < 1) return 'Less than 1% of your allowance used';
-                    return `${Math.round(pct)}% of your allowance used`;
+                    if (pct < 1) return 'Under 1% of the space this browser allows';
+                    return `${Math.round(pct)}% of the space this browser allows`;
                   })()}
                 </div>
               </div>

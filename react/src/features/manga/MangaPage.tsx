@@ -2704,7 +2704,7 @@ export function MangaPage() {
                                   display: 'flex',
                                   gap: 6,
                                   alignItems: 'center',
-                                  flexWrap: desktop ? 'wrap' : 'nowrap',
+                                  flexWrap: desktop || tablet ? 'wrap' : 'nowrap',
                                   justifyContent: 'flex-start',
                                   rowGap: 6,
                                   position: 'relative',
@@ -2907,7 +2907,7 @@ export function MangaPage() {
                                       fontFamily: Fonts.body,
                                       fontSize: 12.5,
                                       fontWeight: 600,
-                                      color: KatanaColors.link,
+                                      color: KatanaColors.accentSoft,
                                       flexShrink: 0,
                                       opacity: batchProgress != null ? 0.6 : 1,
                                     }}
@@ -2994,7 +2994,7 @@ export function MangaPage() {
                                     }}
                                   >
                                     <Icon name={detailBm?.userScore ? 'star' : 'tune'} size={16} color={detailBm?.userScore ? KatanaColors.accent : KatanaColors.textMuted} />
-                                    <span>{detailBm?.userScore ? `Your ${detailBm.userScore}/10` : 'Track'}</span>
+                                    <span>{detailBm?.userScore ? (desktop ? `Your ${detailBm.userScore}/10` : `${detailBm.userScore}/10`) : 'Track'}</span>
                                   </button>
                                 )}
                                 <div style={{ position: 'relative' }}>
@@ -7076,7 +7076,7 @@ export function MangaPage() {
                         : bucket === 'caught_up'
                           ? 'Caught Up'
                           : bucket === 'downloaded'
-                            ? 'Downloaded'
+                            ? 'Offline'
                             : STATUS_LABELS[bucket].label;
                     return (
                       <button

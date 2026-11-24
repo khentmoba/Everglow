@@ -3705,6 +3705,8 @@ export function MangaReaderView({
             onClick={() => prevChapter && navigateToChapter(prevChapter.id, { warnGap: true })}
             style={{
               minHeight: 44,
+              minWidth: 48,
+              justifyContent: 'center',
               padding: '0 10px',
               borderRadius: 10,
               background: KatanaColors.surfaceAlt,
@@ -3790,7 +3792,7 @@ export function MangaReaderView({
               <button
                 type="button"
                 className="bare-button player-focusable"
-                aria-label="Open chapters and bookmarks"
+                aria-label="Chapter list"
                 onClick={() => setActiveSheet('chapters')}
                 style={{
                   width: 44,
@@ -3815,6 +3817,8 @@ export function MangaReaderView({
             onClick={() => nextChapter && navigateToChapter(nextChapter.id, { markPrevFinished: true, warnGap: true })}
             style={{
               minHeight: 44,
+              minWidth: 48,
+              justifyContent: 'center',
               padding: '0 10px',
               borderRadius: 10,
               background: nextChapter ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
