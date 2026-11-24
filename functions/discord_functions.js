@@ -62,7 +62,10 @@ async function postToWebhook({ webhookUrl, payload, fetchImpl }) {
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(12000),
   });
-  if (!resp.ok) throw new Error(`Discord post failed: ${resp.status}`);
+  if (!resp.ok) {
+    await resp.body?.cancel?.().catch(() => {});
+    throw new Error(`Discord post failed: ${resp.status}`);
+  }
   const data = await resp.json();
   return data.id;
 }
@@ -76,7 +79,19 @@ async function patchWebhookMessage({ webhookUrl, messageId, payload, fetchImpl }
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(12000),
   });
+  await resp.body?.cancel?.().catch(() => {});
   if (!resp.ok) throw new Error(`Discord edit failed: ${resp.status}`);
+}
+
+function safeHttpsPosterUrl(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return '';
+  try {
+    const u = new URL(raw.trim());
+    if (u.protocol !== 'https:' || u.username || u.password) return '';
+    return u.toString();
+  } catch (_) {
+    return '';
+  }
 }
 
 function isAllowedDiscordUser({ userId, env }) {
@@ -97,7 +112,9 @@ const notifyDiscordWatch = cappedHttps(10, async (req, res) => {
   try { username = await getVerifiedUsername(decoded); } catch (e) { console.warn('[notifyDiscordWatch] user lookup failed:', e.message); }
   if (username !== 'khentsgdz' && username !== 'clairjassen') { res.status(403).json({ error: 'Couple only' }); return; }
   if (enforceRateLimit(req, res, { endpoint: 'notifyDiscordWatch', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
-  const { title, posterPath, mediaType, season, episode } = req.body || {};
+  const { title: rawTitle, posterPath: rawPosterPath, mediaType, season, episode } = req.body || {};
+  const title = typeof rawTitle === 'string' ? rawTitle.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+  const posterPath = safeHttpsPosterUrl(rawPosterPath);
   if (!title || (mediaType !== 'movie' && mediaType !== 'tv')) { res.status(400).json({ error: 'title + mediaType required' }); return; }
   const hostDisplay = username === 'khentsgdz' ? 'Khent' : 'Clair';
   const clairMention = [(process.env.DISCORD_CLAIR_ID1 || '').trim(), (process.env.DISCORD_CLAIR_ID2 || '').trim(), (process.env.DISCORD_CLAIR_ID || '').trim()].filter(Boolean).map((id) => `<@${id}>`).join(' ');
@@ -163,13 +180,15 @@ const discordInteractions = onRequest({ invoker: 'public', maxInstances: 10 }, a
     const s = snap.data();
     const hostDisplay = s.startedBy === 'khentsgdz' ? 'Khent' : 'Clair';
     const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
-    try {
-      await patchWebhookMessage({
-        webhookUrl,
-        messageId: s.messageId,
-        payload: buildEndedPost({ title: s.title, hostDisplay }),
-      });
-    } catch (e) { console.warn('[discordInteractions] edit failed:', e.message); }
+    if (webhookUrl && s.messageId) {
+      try {
+        await patchWebhookMessage({
+          webhookUrl,
+          messageId: s.messageId,
+          payload: buildEndedPost({ title: s.title, hostDisplay }),
+        });
+      } catch (e) { console.warn('[discordInteractions] edit failed:', e.message); }
+    }
     await ref.set({ active: false, status: 'ended' }, { merge: true });
     res.status(200).json({ type: 4, data: { content: `Ended: ${s.title}`, flags: 64 } });
   } catch (e) { console.warn('[discordInteractions] failed:', e.message); res.status(200).json({ type: 4, data: { content: 'End failed, try again.', flags: 64 } }); }
@@ -183,9 +202,15 @@ const sweepStaleDiscordWatch = onSchedule({ schedule: 'every 60 minutes' }, asyn
     if (!snap.exists || !snap.data().active) return;
     if (Date.now() - (snap.data().startedAtMs || 0) < 12 * 60 * 60 * 1000) return;
     const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
-    try {
-      await patchWebhookMessage({ webhookUrl, messageId: snap.data().messageId, payload: { content: `Expired: ${snap.data().title}`, components: [] } });
-    } catch (e) { console.warn('[sweepStaleDiscordWatch] edit failed:', e.message); }
+    if (webhookUrl && snap.data().messageId) {
+      try {
+        await patchWebhookMessage({
+          webhookUrl,
+          messageId: snap.data().messageId,
+          payload: { content: `Expired: ${snap.data().title}`, components: [] },
+        });
+      } catch (e) { console.warn('[sweepStaleDiscordWatch] edit failed:', e.message); }
+    }
     await ref.set({ active: false, status: 'expired' }, { merge: true });
   } catch (e) { console.warn('[sweepStaleDiscordWatch] failed:', e.message); }
 });
@@ -199,4 +224,5 @@ module.exports = {
   postToWebhook,
   patchWebhookMessage,
   isAllowedDiscordUser,
+  safeHttpsPosterUrl,
 };

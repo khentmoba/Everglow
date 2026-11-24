@@ -128,3 +128,31 @@ test('selectCoreProfileNotes returns pinned profile facts only, oldest first, ca
   const capped = await mem.selectCoreProfileNotes(memoryDb(many).db);
   assert.equal(capped.length, 8);
 });
+
+test('checkHallucinations does not cache false positives on non-OK TMDB responses and drains body', async () => {
+  const realFetch = global.fetch;
+  const realKey = process.env.TMDB_API_KEY;
+  process.env.TMDB_API_KEY = 'test-tmdb-key';
+  let cancelled = false;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    return {
+      ok: false,
+      status: 429,
+      body: { cancel: async () => { cancelled = true; } },
+      json: async () => ({ status_code: 25 }),
+    };
+  };
+  try {
+    const title = `TransientRateLimitMovie${Date.now()}`;
+    await mem.checkHallucinations(`Watch "${title}" tonight!`, () => 0);
+    await mem.checkHallucinations(`Watch "${title}" tonight!`, () => 0);
+    assert.equal(cancelled, true);
+    assert.equal(calls, 2, 'non-OK TMDB response must not be cached as hallucinated');
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = realKey;
+  }
+});

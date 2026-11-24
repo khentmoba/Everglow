@@ -93,7 +93,11 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
       const name = artist || query;
       const url = 'https://api.spotify.com/v1/search?' + new URLSearchParams({ q: name, type: 'artist', limit: '5', market: 'US' }).toString();
       const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
-      if (!r.ok) { res.status(r.status).json({ error: 'Spotify search failed ' + r.status }); return; }
+      if (!r.ok) {
+        await r.body?.cancel?.().catch(() => {});
+        res.status(r.status).json({ error: 'Spotify search failed ' + r.status });
+        return;
+      }
       const data = await r.json();
       const items = data.artists && data.artists.items;
       if (!Array.isArray(items) || items.length === 0) { res.json({ artistId: null, query: name }); return; }
@@ -116,7 +120,11 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
     }
     const url = 'https://api.spotify.com/v1/search?' + new URLSearchParams({ q: query, type: 'track', limit: '5', market: 'US' }).toString();
     const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
-    if (!r.ok) { res.status(r.status).json({ error: 'Spotify search failed ' + r.status }); return; }
+    if (!r.ok) {
+      await r.body?.cancel?.().catch(() => {});
+      res.status(r.status).json({ error: 'Spotify search failed ' + r.status });
+      return;
+    }
     const data = await r.json();
     const items = data.tracks && data.tracks.items;
     if (!Array.isArray(items) || items.length === 0) { res.json({ trackId: null, query }); return; }
@@ -190,6 +198,7 @@ const spotifyExchange = cappedHttps(10, async (req, res) => {
     try {
       const pr = await fetch('https://api.spotify.com/v1/me', { headers: { 'Authorization': 'Bearer ' + data.access_token }, signal: AbortSignal.timeout(8000) });
       if (pr.ok) profile = await pr.json();
+      else await pr.body?.cancel?.().catch(() => {});
     } catch (_) {}
     const doc = {
       access_token: data.access_token,
@@ -341,6 +350,8 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
             } else {
               console.warn('[spotifyCurrentlyPlaying] invalid refresh payload');
             }
+          } else {
+            await rr.body?.cancel?.().catch(() => {});
           }
         } catch (_) {}
       }
@@ -356,12 +367,26 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
     if (recentResp && recentResp.ok) {
       const recentData = await recentResp.json().catch(() => null);
       recentTracks = _mapSpotifyRecentItems(recentData && recentData.items);
+    } else if (recentResp) {
+      await recentResp.body?.cancel?.().catch(() => {});
     }
     const needsRecentScope = includeRecent && Boolean(recentResp && recentResp.status === 403);
     const extra = includeRecent ? { recentTracks, ...(needsRecentScope ? { needsRecentScope: true } : {}) } : {};
-    if (r.status === 204) { res.json({ connected: true, isPlaying: false, ...extra }); return; }
-    if (r.status === 401) { res.json({ connected: true, isPlaying: false, needsReauth: true, ...extra }); return; }
-    if (!r.ok) { res.status(r.status).json({ error: 'Spotify API ' + r.status }); return; }
+    if (r.status === 204) {
+      await r.body?.cancel?.().catch(() => {});
+      res.json({ connected: true, isPlaying: false, ...extra });
+      return;
+    }
+    if (r.status === 401) {
+      await r.body?.cancel?.().catch(() => {});
+      res.json({ connected: true, isPlaying: false, needsReauth: true, ...extra });
+      return;
+    }
+    if (!r.ok) {
+      await r.body?.cancel?.().catch(() => {});
+      res.status(r.status).json({ error: 'Spotify API ' + r.status });
+      return;
+    }
     const data = await r.json();
     const mapped = _mapSpotifyTrack(data.item, { isPlaying: !!data.is_playing, timestamp: Date.now() });
     if (!mapped) { res.json({ connected: true, isPlaying: !!data.is_playing, ...extra }); return; }
