@@ -375,7 +375,7 @@ function Pill({
 
 /** One episode of a binge list: thumb, number chip, title, duration, state. */
 function MobileEpisodeRow(p: CardProps) {
-  const [revealed, setRevealed] = useRevealed(p.episode.number, p.hideSpoilers);
+  const [revealed] = useRevealed(p.episode.number, p.hideSpoilers);
   const hidden = p.hideSpoilers && !revealed;
   const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
   const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
@@ -467,19 +467,7 @@ function MobileEpisodeRow(p: CardProps) {
           )}
         </div>
       </div>
-      {hidden ? (
-        <div
-          onClick={(ev) => {
-            ev.stopPropagation();
-            setRevealed(true);
-          }}
-          style={{ padding: 8, display: 'flex' }}
-        >
-          <Icon name="visibility" size={18} color={T.textSecondary} />
-        </div>
-      ) : (
-        <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} />
-      )}
+      <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} />
     </button>
   );
 }
@@ -900,6 +888,7 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         ? `${p.nextSeason.label} (Episode 1)`
         : undefined);
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
+  const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
   const box: CSSProperties = {
     height: 34,
     boxSizing: 'border-box',
@@ -949,6 +938,52 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
             <div style={{ ...dmSansStyle({ size: 11, color: T.accentWarm, weight: 500 }), ...ellipsis(1) }}>Up next: {nextTitle}</div>
           </>
         )}
+        {upNext && (
+          <>
+            <div style={{ height: 10 }} />
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => p.onSelectEpisode(upNext.number)}
+              style={{
+                width: '100%',
+                minHeight: 56,
+                boxSizing: 'border-box',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: 6,
+                borderRadius: T.radiusMd,
+                background: white(0.05),
+                border: `1px solid ${T.border}`,
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <EpisodeThumbnail episode={upNext} fallbackPoster={p.fallbackPoster} isPlaying={false} width={68} height={38} compact />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'rgba(0,0,0,0.28)',
+                    borderRadius: 5,
+                  }}
+                >
+                  <Icon name="play_arrow" size={18} color="#FFFFFF" />
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={dmSansStyle({ size: 9.5, color: T.textSecondary, weight: 800, letterSpacing: 0.08 })}>UP NEXT</div>
+                <div style={{ ...dmSansStyle({ size: 12, color: T.textPrimary, weight: 600 }), ...ellipsis(1) }}>
+                  Episode {upNext.number}
+                </div>
+              </div>
+              <Icon name="chevron_right" size={16} color={T.textSecondary} />
+            </button>
+          </>
+        )}
         <HideSpoilersSwitch />
         <div style={{ height: 12 }} />
         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -985,7 +1020,7 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         </div>
       </div>
       <div style={{ height: 1, background: T.border, flexShrink: 0 }} />
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {displayList.length === 0 ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...dmSansStyle({ size: 12.5, color: T.textMuted }) }}>
             No episodes found
@@ -1017,6 +1052,21 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
               );
             })}
           </div>
+        )}
+        {/* A cut row should look like "there is more", not like a broken layout. */}
+        {displayList.length > 3 && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 26,
+              background: linear(['transparent', T.surface], { begin: Align.topCenter, end: Align.bottomCenter }),
+              pointerEvents: 'none',
+            }}
+          />
         )}
       </div>
     </div>

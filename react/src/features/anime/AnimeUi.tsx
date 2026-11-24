@@ -168,14 +168,15 @@ export function AnimeXWatchNowButton({ label, onClick }: { label: string; onClic
       style={(hover) => ({
         padding: '9px 18px',
         transform: hover ? 'translateY(-1px)' : undefined,
-        background: hover ? '#E8E8E8' : '#FFFFFF',
+        background: hover ? withAlpha(AnimeXTokens.accent, 0.9) : AnimeXTokens.accent,
+        boxShadow: boxShadow([{ color: 'rgba(194,24,91,0.35)', blur: 14, offset: [0, 4] }]),
       })}
     >
       {() => (
         <>
-          <Icon name="play_arrow" size={16} color={AnimeXTokens.bg} />
+          <Icon name="play_arrow" size={16} color="#FFFFFF" />
           <div style={{ width: 7 }} />
-          <div style={dmSansStyle({ size: 13.5, color: AnimeXTokens.bg, weight: 700 })}>{label}</div>
+          <div style={dmSansStyle({ size: 13.5, color: '#FFFFFF', weight: 700 })}>{label}</div>
         </>
       )}
     </HoverTap>
@@ -675,6 +676,7 @@ export function AnimeXSpotlight({
   width,
   height,
   resumeFor,
+  latestResume,
   onWatch,
   onMoreInfo,
   onTrailer,
@@ -684,6 +686,8 @@ export function AnimeXSpotlight({
   width: number;
   height: number;
   resumeFor?: (item: MediaItem) => { episode: number; resumeSeconds?: number } | undefined;
+  /** Her most recent show, when the hero itself has nothing to resume. */
+  latestResume?: { title: string; episode: number; onTap: () => void };
   onWatch: (item: MediaItem) => void;
   onMoreInfo: (item: MediaItem) => void;
   onTrailer: (item: MediaItem) => void;
@@ -949,7 +953,9 @@ export function AnimeXSpotlight({
           </div>
           <div style={{ height: 12 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px' }}>
-            <div style={dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 700 })}>Trending now</div>
+            <div style={dmSansStyle({ size: 12, color: AnimeXTokens.textSecondary, weight: 700, letterSpacing: 0.02 })}>
+              Trending now
+            </div>
             {isAiring && <div style={dmSansStyle({ size: 12, color: AnimeXTokens.success, weight: 600 })}>Airing Now</div>}
             {active.score != null && active.score > 0 && (
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -990,6 +996,40 @@ export function AnimeXSpotlight({
                 onWatch(active);
               }}
             />
+            {resumeLabelFor(active) === 'Watch Now' && latestResume && (
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => {
+                  pauseTrailer();
+                  latestResume.onTap();
+                }}
+                style={{
+                  minHeight: 40,
+                  boxSizing: 'border-box',
+                  padding: '0 14px',
+                  borderRadius: 999,
+                  border: `1px solid ${withAlpha(AnimeXTokens.accent, 0.55)}`,
+                  background: withAlpha(AnimeXTokens.accent, 0.18),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+                title={`Continue ${latestResume.title}`}
+              >
+                <Icon name="history" size={15} color={AnimeXTokens.accentText} />
+                <div style={{ width: 7 }} />
+                <span
+                  style={{
+                    ...dmSansStyle({ size: 12.5, color: AnimeXTokens.accentText, weight: 700 }),
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Continue Ep {latestResume.episode}
+                </span>
+              </button>
+            )}
             <AnimeXSecondaryButton
               label="More Info"
               icon="info_outline"
@@ -1246,9 +1286,9 @@ export function AnimeXTicker({
           flexShrink: 0,
           padding: '2px 7px',
           borderRadius: AnimeXTokens.radiusSm,
-          background: withAlpha(AnimeXTokens.accent, 0.16),
-          border: `1px solid ${withAlpha(AnimeXTokens.accent, 0.3)}`,
-          ...dmSansStyle({ size: 10.5, color: AnimeXTokens.accentWarm, weight: 800, letterSpacing: 0.04 }),
+          background: 'rgba(255,255,255,0.07)',
+          border: `1px solid ${AnimeXTokens.border}`,
+          ...dmSansStyle({ size: 10.5, color: AnimeXTokens.textSecondary, weight: 800, letterSpacing: 0.04 }),
           whiteSpace: 'nowrap',
         }}
       >

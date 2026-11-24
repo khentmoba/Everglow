@@ -220,7 +220,8 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
 
   const cardWidth = nav.width < 600 ? AnimeXTokens.rowPosterWidthMobile : AnimeXTokens.rowPosterWidthDesktop;
   // A 280px card on an 820px tablet left 500px of dead space beside it.
-  const continueWidth = nav.width >= 700 ? 340 : 280;
+  const continueWidth =
+    nav.width < 600 ? 280 : Math.max(300, Math.min(380, Math.floor((nav.width - 62) / 2)));
   const trending = rows[0];
   const airing = rows[1];
   const allFailed = rows.every((r) => !r.loading && r.items.length === 0);
@@ -252,6 +253,18 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
         width={nav.width}
         height={nav.height}
         resumeFor={resumeFor}
+        latestResume={
+          nav.continueWatching[0]
+            ? {
+                title: nav.continueWatching[0].title,
+                episode: nav.continueWatching[0].episode,
+                onTap: () => {
+                  const e = nav.continueWatching[0]!;
+                  if (e.savedItem) nav.onWatch(e.savedItem, e.episode);
+                },
+              }
+            : undefined
+        }
         onWatch={(it) => nav.onWatch(it)}
         onMoreInfo={(it) => nav.onInfo(it)}
         onTrailer={nav.onTrailer}
@@ -1090,7 +1103,8 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
               }}
               style={{
                 flexShrink: 0,
-                minHeight: 44,
+                height: 44,
+                boxSizing: 'border-box',
                 display: 'inline-flex',
                 alignItems: 'center',
                 padding: '0 13px',

@@ -809,7 +809,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const isDesktop = width >= 1200;
   const isCompactPage = width < 700;
   const phone = width < 600;
-  const maxPlayerHeight = clamp(height - 280, 240, PLAYER_MAX_HEIGHT);
+  // Reserve room for the title, servers, recovery strip and prefs: a desktop
+  // player that eats the whole fold hides prev/next, which is the binge controls.
+  const maxPlayerHeight = clamp(height - (width < 700 ? 280 : 350), 240, PLAYER_MAX_HEIGHT);
   if (!isPlayerFullscreenActive() || st.lastWindowedMaxPlayerHeight == null) st.lastWindowedMaxPlayerHeight = maxPlayerHeight;
   const contentWidth = clamp(width - 48, 0, WATCH_PAGE_MAX_WIDTH);
   const sidebarHeight = clamp(((contentWidth - 20 - 380) * 9) / 16, 0, maxPlayerHeight);
@@ -921,14 +923,17 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
 
   const ep = activeEpisode();
   const [slowStart, setSlowStart] = useState(false);
-  const progressMark = `${String(st.playerEpisode)}:${String(st.serverIndex)}:${String(st.playbackPosition ?? -1)}`;
+  const playingNow = (st.playbackPosition ?? 0) > 0;
   useEffect(() => {
     if (!st.ready || !url) return;
     setSlowStart(false);
-    const timer = window.setTimeout(() => setSlowStart(true), 12000);
+    const timer = window.setTimeout(() => setSlowStart(true), 9000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, st.selectedEpisode, progressMark]);
+  }, [url, st.selectedEpisode, st.serverIndex]);
+  useEffect(() => {
+    if (playingNow) setSlowStart(false);
+  }, [playingNow]);
 
   const failedNote = (() => {
     if (st.showErrorCard || slowStart || !st.failedServerIndices.size) return '';
@@ -1089,14 +1094,16 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               flexWrap: 'wrap',
               alignItems: 'center',
               gap: 10,
-              padding: '10px 12px',
+              padding: isCompactPage ? '10px 12px' : '6px 10px',
               borderRadius: T.radiusMd,
               background: white(0.04),
               border: `1px solid ${T.border}`,
             }}
           >
             <span style={{ ...dmSansStyle({ size: 12, color: T.textSecondary, height: 1.4 }), flex: '1 1 160px', minWidth: 0 }}>
-              This source hasn't started. Give it another go, or pick another server.
+              {isCompactPage
+                ? "This source hasn't started. Give it another go, or pick another server."
+                : "This source hasn't started."}
             </span>
             <button
               type="button"
