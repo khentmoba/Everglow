@@ -67,7 +67,10 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       }),
       signal: AbortSignal.timeout(15000),
     });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      await resp.body?.cancel?.().catch(() => {});
+      return;
+    }
     const data = await resp.json();
     const raw = (data.choices?.[0]?.message?.content || '').trim();
     if (!raw) return;
@@ -80,7 +83,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     let recentDocs = [];
     try {
       if (_factsCache.db === db && _factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS) {
-        recentDocs = _factsCache.facts;
+        recentDocs = _factsCache.facts.map((d) => ({ ...d }));
       }
       else {
         const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(30).get();
@@ -109,8 +112,8 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
             updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
           });
           invalidateMemoryCache();
+          hit.fact = fact;
         } catch (_) {}
-        hit.fact = fact;
         continue;
       }
       let embedding = null;
@@ -133,9 +136,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         });
         invalidateMemoryCache();
         recentDocs.unshift({ id: ref.id, fact });
-      } catch (_) {
-        recentDocs.unshift({ id: null, fact });
-      }
+      } catch (_) {}
     }
   } catch (e) {
     console.warn('[memoryExtract] failed:', e.message);
