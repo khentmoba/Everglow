@@ -72,7 +72,10 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput): CinemaRail[] {
         // The ranked row keeps its own order, but a film the page has already
         // shown is dropped from the row rather than offered a third time; its
         // numeral still comes from the title's real place in the list.
-        const shown = items.filter((m) => !seen.has(catalogKeyOf(m))).slice(0, 10);
+        const unseen = items.filter((m) => !seen.has(catalogKeyOf(m)));
+        // The ranked list is a fact: if filtering would gut it, show it whole
+        // rather than pretend today's top ten is three titles long.
+        const shown = (unseen.length >= MIN_RAIL_SHOWN ? unseen : items).slice(0, 10);
         if (shown.length < MIN_RAIL_SHOWN) return;
         for (const m of shown) seen.add(catalogKeyOf(m));
         recent.unshift(shown.map(catalogKeyOf));
