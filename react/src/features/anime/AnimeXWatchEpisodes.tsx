@@ -408,7 +408,7 @@ function MobileEpisodeRow(p: CardProps) {
         <EpisodeThumbnail
           episode={p.episode}
           fallbackPoster={p.fallbackPoster}
-          isPlaying={p.isPlaying}
+          isPlaying={p.isPlaying && !p.isBroken}
           width={104}
           height={59}
           compact
@@ -622,6 +622,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
                 animeTitle={p.animeTitle}
                 animeId={p.animeId}
                 isPlaying={active}
+                isBroken={active && p.isBroken}
                 watched={!active && ep.number < progress.watchedThrough}
                 resumeFraction={
                   !active && ep.number === progress.watchedThrough && progress.resumeAt > 0
@@ -671,7 +672,7 @@ function DesktopEpisodeTile(p: CardProps) {
         <EpisodeThumbnail
           episode={p.episode}
           fallbackPoster={p.fallbackPoster}
-          isPlaying={p.isPlaying}
+          isPlaying={p.isPlaying && !p.isBroken}
           width={96}
           height={54}
           compact
@@ -992,6 +993,7 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
                   animeTitle={p.animeTitle}
                   animeId={p.animeId}
                   isPlaying={active}
+                  isBroken={active && p.isBroken}
                   watched={!active && ep.number < progress.watchedThrough}
                   resumeFraction={
                     !active && ep.number === progress.watchedThrough && progress.resumeAt > 0
