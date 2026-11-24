@@ -831,6 +831,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     fallbackPoster,
     onSelectEpisode: selectEpisode,
     onShowInfo: openEpisodeInfo,
+    isBroken: st.showErrorCard || (AgentMode.isActive.value && new URLSearchParams(window.location.search).get('playerError') === '1'),
     seasons: seasons(),
     onSelectSeason: openSeason,
     nextSeason: nextSeason(),
@@ -1025,7 +1026,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               position: 'absolute',
               left: phone ? 10 : 14,
               right: phone ? 10 : 14,
-              top: phone ? 54 : 58,
+              // Bottom-centre is where her thumb is, but the caption band lives
+              // down there too: sit above it rather than on it.
+              bottom: phone ? 100 : 112,
               padding: 8,
               boxSizing: 'border-box',
               borderRadius: T.radiusCard,
@@ -1065,7 +1068,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               >
                 {next.isSeason ? 'Next season' : `Episode ${st.selectedEpisode + 1}`}
               </div>
-              {!next.isSeason && nextEpisode?.title && (
+              {!next.isSeason && nextEpisode?.title && !stores.hideSpoilers && (
                 <div
                   style={{
                     ...dmSansStyle({ size: 11.5, color: T.textSecondary, weight: 600 }),
@@ -1084,9 +1087,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               className="bare-button"
               onClick={() => (next.isSeason ? openSeason(nextSeason()!) : stepEpisode(1))}
               style={{
-                minHeight: 44,
+                minHeight: 48,
                 flexShrink: 0,
-                padding: '0 14px',
+                padding: '0 16px',
                 borderRadius: 999,
                 background: T.accent,
                 border: 'none',
@@ -1107,8 +1110,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 AnimexStores.setAutoNext(false);
               }}
               style={{
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 flexShrink: 0,
                 borderRadius: 999,
                 border: `1px solid ${T.borderStrong}`,
@@ -1117,7 +1120,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 placeItems: 'center',
               }}
             >
-              <Icon name="close" size={16} color={T.textPrimary} />
+              <Icon name="close" size={18} color={T.textPrimary} />
             </button>
           </div>
         )}
@@ -1340,7 +1343,6 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           </>
         )}
         <div style={{ height: 10 }} />
-        {!contentError && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
@@ -1388,6 +1390,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
               {hasNextSeason ? 'Next season' : 'Next episode'}
             </span>
           </button>
+          {!contentError && (
           <button
             type="button"
             className="bare-button"
@@ -1407,8 +1410,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           >
             <Icon name="tune" size={18} color={T.textPrimary} />
           </button>
+          )}
         </div>
-        )}
         {failedNote && (
           <>
             <div style={{ height: 8 }} />
@@ -1867,7 +1870,7 @@ function PrefToggle({ label, value, onChanged }: { label: string; value: boolean
       className="bare-button"
       onClick={() => onChanged(!value)}
       style={{
-        minHeight: 44,
+        minHeight: 48,
         boxSizing: 'border-box',
         padding: '7px 12px',
         // A preference is not an action: on-state is a lit switch, not a second
@@ -1880,8 +1883,34 @@ function PrefToggle({ label, value, onChanged }: { label: string; value: boolean
         transition: 'background-color 120ms, border-color 120ms',
       }}
     >
-      <Icon name={value ? 'toggle_on' : 'toggle_off'} size={16} color={value ? T.textPrimary : T.textSecondary} />
-      <div style={{ width: 6 }} />
+      {/* A drawn switch, not the shared button: this whole row is one tap
+          target and a nested button would flip twice. */}
+      <span
+        style={{
+          width: 40,
+          height: 24,
+          borderRadius: 12,
+          flexShrink: 0,
+          background: value ? T.accent : white(0.18),
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: value ? 'flex-end' : 'flex-start',
+          padding: 3,
+          boxSizing: 'border-box',
+          transition: 'background 180ms',
+        }}
+      >
+        <span
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            background: '#FFFFFF',
+            transition: 'transform 180ms',
+          }}
+        />
+      </span>
+      <div style={{ width: 8 }} />
       <span
         style={{
           ...dmSansStyle({ size: 12, color: value ? T.textPrimary : T.textSecondary, weight: 600 }),

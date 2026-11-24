@@ -294,6 +294,8 @@ interface CardProps {
   animeTitle: string;
   animeId: number;
   isPlaying: boolean;
+  /** The row is the current one, but its source is not playing right now. */
+  isBroken?: boolean;
   hideSpoilers: boolean;
   watched?: boolean;
   resumeFraction?: number;
@@ -458,7 +460,11 @@ function MobileEpisodeRow(p: CardProps) {
         </div>
         <div style={{ height: 2 }} />
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginLeft: 'auto' }}>
-          {p.isPlaying && <span style={dmSansStyle({ size: 11, color: T.textPrimary, weight: 700 })}>Playing</span>}
+          {p.isPlaying && (
+            <span style={dmSansStyle({ size: 11, color: p.isBroken ? T.textSecondary : T.textPrimary, weight: 700 })}>
+              {p.isBroken ? 'Not playing' : 'Playing'}
+            </span>
+          )}
           {!p.isPlaying && p.watched && (
             <>
               <Icon name="check_circle" size={12} color={T.textSecondary} />
@@ -773,7 +779,11 @@ function DesktopEpisodeTile(p: CardProps) {
         </div>
         <div style={{ height: 3 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {p.isPlaying && <span style={dmSansStyle({ size: 10.5, color: T.textPrimary, weight: 700 })}>Playing</span>}
+          {p.isPlaying && (
+            <span style={dmSansStyle({ size: 10.5, color: p.isBroken ? T.textSecondary : T.textPrimary, weight: 700 })}>
+              {p.isBroken ? 'Not playing' : 'Playing'}
+            </span>
+          )}
           {!p.isPlaying && p.watched && (
             <>
               <Icon name="check_circle" size={11} color={T.textSecondary} />
