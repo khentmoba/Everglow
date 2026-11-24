@@ -714,7 +714,7 @@ function DesktopEpisodeTile(p: CardProps) {
         <div
           style={{
             ...dmSansStyle({ size: 12.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.3 }),
-            ...ellipsis(1),
+            ...ellipsis(2),
           }}
         >
           {title}

@@ -891,7 +891,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
             }}
           >
             <Icon name="skip_next" size={15} color={T.textPrimary} />
-            <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Episode {st.selectedEpisode + 1}</span>
+            <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>
+              Skip to Episode {st.selectedEpisode + 1}
+            </span>
           </button>
         )}
       </div>
@@ -1459,7 +1461,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         <EpisodeStepButton
           label={hasNextSeason ? 'Next season' : 'Next episode'}
           icon="skip_next"
-          primary
+          // While the end card offers "Watch now", this page-level twin steps
+          // back so the same action is not two identical pink buttons.
+          primary={!showUpNext}
           enabled={!isLastEpisode || hasNextSeason}
           onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
         />
@@ -1502,7 +1506,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     <div style={{ ...pageBox, display: 'flex', alignItems: 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>{playerColumn}</div>
       <div style={{ width: 20, flexShrink: 0 }} />
-      <div style={{ width: 380, height: sidebarHeight, flexShrink: 0 }}>
+      <div style={{ width: 430, height: sidebarHeight, flexShrink: 0 }}>
         {st.ready && <DesktopEpisodesSidebar {...episodesProps} />}
       </div>
     </div>

@@ -1039,7 +1039,7 @@ export function AnimeXSpotlight({
                 }}
               />
             )}
-            {phone && (
+            {(
               <AnimeXSecondaryButton
                 label="More Info"
                 icon="info_outline"
