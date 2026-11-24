@@ -352,7 +352,13 @@ export function CinemaPage() {
             <button
               type="button"
               className="bare-button"
-              aria-label={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'Exit Cinema' : 'Back to Home') : 'Logout'}
+              aria-label={
+                !isCoupleUser
+                  ? 'Logout'
+                  : currentTab === 0 && !selectedBrowseId
+                    ? 'Exit Cinema'
+                    : 'Back to Home'
+              }
               onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
                 transition: 'opacity 200ms ease, transform 200ms ease, background 200ms ease',
@@ -372,7 +378,9 @@ export function CinemaPage() {
               }}
             >
               <Icon
-                name={isCoupleUser ? 'arrow_back' : 'logout'}
+                // A tab root has nothing behind it inside Cinema, so the glyph is
+                // an exit there, not a back arrow.
+                name={!isCoupleUser || (currentTab === 0 && !selectedBrowseId) ? 'logout' : 'arrow_back'}
                 size={22}
                 color="#FFFFFF"
               />
@@ -546,7 +554,7 @@ function HomeTab({
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
   // Under this many posters a rail is not a recommendation, it is a stub.
-  const heroTitles = useCinemaHeroTitles(trendingGlobal, watchingList);
+  const heroTitles = useCinemaHeroTitles(trendingGlobal, watchingList, savedList);
   const rails = useCinemaRailPlan(
     {
       watchingList,

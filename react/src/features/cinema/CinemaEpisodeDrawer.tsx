@@ -742,7 +742,9 @@ export function CinemaEpisodeDrawer({
       ) : (
         <CastRow cast={cast} loading={loadingCast} isAnimeSourced={isAnimeSourced} />
       )}
-      <div style={{ height: 96 }} />
+      {/* A whole card of slack: the panel's edge then falls between rows rather
+          than through the last circle or poster. */}
+      <div style={{ height: isMobile ? 96 : 150 }} />
     </div>
   );
 

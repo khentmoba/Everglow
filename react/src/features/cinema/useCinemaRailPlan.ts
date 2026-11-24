@@ -27,12 +27,16 @@ export interface CinemaRailPlanInput {
   discoveryRows: Record<string, MediaItem[]>;
 }
 
-export function useCinemaHeroTitles(trendingGlobal: MediaItem[], watchingList: MediaItem[]): MediaItem[] {
+export function useCinemaHeroTitles(
+  trendingGlobal: MediaItem[],
+  watchingList: MediaItem[],
+  savedList: MediaItem[] = [],
+): MediaItem[] {
   return useMemo(() => {
-    const watching = new Set(watchingList.map((m) => catalogKeyOf(m)));
-    const fresh = trendingGlobal.filter((m) => !watching.has(catalogKeyOf(m)));
+    const taken = new Set([...watchingList, ...savedList].map((m) => catalogKeyOf(m)));
+    const fresh = trendingGlobal.filter((m) => !taken.has(catalogKeyOf(m)));
     return (fresh.length >= 3 ? fresh : trendingGlobal).slice(0, 5);
-  }, [trendingGlobal, watchingList]);
+  }, [trendingGlobal, watchingList, savedList]);
 }
 
 export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaItem[]): CinemaRail[] {
@@ -131,8 +135,8 @@ export function useCinemaRailPlan(input: CinemaRailPlanInput, heroTitles: MediaI
         : [];
     if (becauseItems.length >= MIN_RAIL_SHOWN)
       add(`Because you watched ${becauseOf?.title ?? ''}`, 'Same mood, different story', becauseItems, { allowHero: true });
-    add('Trending Now', 'What everyone is watching this week', trendingGlobal);
     add(`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`, 'Ranked by popularity today', topTenToday, { ranked: true });
+    add('Trending Now', 'What everyone is watching this week', trendingGlobal);
     add('Coming Soon', 'New on Everglow Cinema', newlyReleased);
     add('Popular Series', 'Most-watched series right now', popularTV, { mediaType: 'tv' });
     for (const [title, items] of Object.entries(discoveryRows)) {

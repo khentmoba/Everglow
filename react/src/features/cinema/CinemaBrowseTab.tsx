@@ -285,9 +285,10 @@ function FilterGroup({
   isDesktop: boolean;
 }) {
   const selectedId = selection[group as 'genre' | 'decade' | 'language' | 'sort'];
-  // Results are always in some order: when nothing is picked, the default is the
-  // order in force, so one chip has to say so.
-  const defaultLabel = group === 'sort' ? options[0]?.label : undefined;
+  // Results are always in some order. When nothing has been picked, the first
+  // chip is that order, so it reads as selected rather than adding a second chip
+  // with the same meaning at the end of a scrolling row.
+  const effectiveId = selectedId ?? (group === 'sort' ? (options[0]?.id ?? null) : null);
   return (
     <div style={{ padding: '18px 0 0' }}>
       <div
@@ -303,11 +304,8 @@ function FilterGroup({
       </div>
       <div className="no-scrollbar" style={{ height: 48, display: 'flex', gap: 8, padding: `0 ${h}px`, overflowX: 'auto' }}>
         {options.map((o) => (
-          <BrowsePill key={o.id} label={o.label} selected={selectedId === o.id} onTap={() => onPick(o)} />
+          <BrowsePill key={o.id} label={o.label} selected={effectiveId === o.id} onTap={() => onPick(o)} />
         ))}
-        {defaultLabel != null && selectedId == null && (
-          <BrowsePill label={`Default · ${defaultLabel}`} selected onTap={() => onPick(options[0])} />
-        )}
         <div style={{ flex: `0 0 ${h - 8}px` }} />
       </div>
     </div>
