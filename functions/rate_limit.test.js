@@ -124,3 +124,20 @@ test('_todayDayKey returns a YYYY-MM-DD day bucket', () => {
   assert.match(_todayDayKey(new Date('2026-09-14T10:00:00.000Z')), /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(_todayDayKey(new Date('2026-09-14T10:00:00.000Z')), '2026-09-14');
 });
+
+test('rateLimitHit pruning evicts expired buckets before active freshly-reset buckets', () => {
+  const base = Date.now() + 10_000_000;
+  const activeKey = `test:active-reset:${base}`;
+  assert.equal(rateLimitHit(activeKey, 2, 60_000, base), false);
+  // Fill >2000 short-lived buckets that will be expired by the time activeKey resets.
+  for (let i = 0; i < 2050; i++) {
+    rateLimitHit(`test:stale:${base}:${i}`, 5, 1_000, base + 1);
+  }
+  // Reset activeKey after its window expires, then hit it again within the new window.
+  const t2 = base + 61_000;
+  assert.equal(rateLimitHit(activeKey, 2, 60_000, t2), false);
+  assert.equal(rateLimitHit(activeKey, 2, 60_000, t2 + 100), false);
+  // Trigger another prune with a new key; activeKey must still be tracked and trip on the 3rd hit.
+  rateLimitHit(`test:trigger:${base}`, 5, 60_000, t2 + 200);
+  assert.equal(rateLimitHit(activeKey, 2, 60_000, t2 + 300), true);
+});
