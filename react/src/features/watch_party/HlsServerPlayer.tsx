@@ -61,26 +61,30 @@ export function HlsServerPlayer({
       typeof window !== 'undefined' &&
       ('MediaSource' in window || 'ManagedMediaSource' in window);
     const attach = async () => {
-      if (nativeHls && !hasMse) {
-        video.src = stream.src;
-        return;
-      }
-      const Hls = await loadHlsConstructor();
-      if (!alive) return;
-      if (Hls && Hls.isSupported()) {
-        video.removeAttribute('src');
-        hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
-        hls.on(Hls.Events.ERROR, (_ev, data) => {
-          if (data?.fatal && alive) {
-            setError('Video playback failed on this browser — try Embed Sync.');
-          }
-        });
-        hls.loadSource(stream.src);
-        hls.attachMedia(video);
-      } else if (nativeHls) {
-        video.src = stream.src;
-      } else {
-        setError('HLS playback is not supported on this browser — try Embed Sync.');
+      try {
+        if (nativeHls && !hasMse) {
+          video.src = stream.src;
+          return;
+        }
+        const Hls = await loadHlsConstructor();
+        if (!alive) return;
+        if (Hls && Hls.isSupported()) {
+          video.removeAttribute('src');
+          hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
+          hls.on(Hls.Events.ERROR, (_ev, data) => {
+            if (data?.fatal && alive) {
+              setError('Video playback failed on this browser — try Embed Sync.');
+            }
+          });
+          hls.loadSource(stream.src);
+          hls.attachMedia(video);
+        } else if (nativeHls) {
+          video.src = stream.src;
+        } else {
+          setError('HLS playback is not supported on this browser — try Embed Sync.');
+        }
+      } catch {
+        if (alive) setError('Video playback failed on this browser — try Embed Sync.');
       }
     };
     void attach();
@@ -191,7 +195,11 @@ export function HlsServerPlayer({
         const expected = clock.expectedPosition(room);
         if (expected > 1) {
           suppressEventsUntil.current = Date.now() + 900;
-          e.currentTarget.currentTime = expected;
+          try {
+            e.currentTarget.currentTime = expected;
+          } catch {
+            // Seekable range not ready yet.
+          }
         }
         if (room.state === 'playing') {
           suppressEventsUntil.current = Date.now() + 900;

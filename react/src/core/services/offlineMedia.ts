@@ -587,23 +587,6 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     this.put(initial);
     this.save();
 
-    // Delegate background cache population hint to active Service Worker when supported
-    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller && args.pageUrls.length > 0) {
-      try {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'EVERGLOW_PRECACHE_MANGA',
-          id,
-          cacheName: MANGA_CACHE,
-          pages: args.pageUrls.map((raw, idx) => ({
-            key: cacheKey(`${id}_p_${idx + 1}`, true),
-            url: raw.startsWith('http') ? proxy(raw) : raw,
-          })),
-        });
-      } catch {
-        // ignore SW message errors
-      }
-    }
-
     const controller = new AbortController();
     this.activeControllers.get(id)?.abort();
     this.activeControllers.set(id, controller);
@@ -630,77 +613,85 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
         let saved = 0;
         let total = 0;
         let storageFull = false;
-        try {
-          for (let i = 0; i < args.pageUrls.length; i++) {
-            if (controller.signal.aborted || !this.value[id]) return;
-            const raw = args.pageUrls[i];
-            const pageKey = `${id}_p_${i + 1}`;
-            // Real resume: skip any page blob already persisted in MANGA_CACHE.
-            const cachedSize = await getCachedBlobSize(pageKey, true);
-            if (controller.signal.aborted || !this.value[id]) return;
-            if (cachedSize > 0) {
-              saved++;
-              total += cachedSize;
-            } else {
-              const src = raw.startsWith('http')
-                ? proxy(raw)
-                : raw.startsWith('assets/')
-                  ? `/${raw}`
-                  : raw.startsWith('/') || raw.startsWith('data:')
-                    ? raw
-                    : null;
-              if (src) {
-                let blob: Blob | null = null;
-                let lastStatus = 0;
-                const backoffDelays = [0, 500, 1400];
-                for (let attempt = 0; attempt < backoffDelays.length; attempt++) {
-                  if (backoffDelays[attempt] > 0) {
-                    await waitBackoff(backoffDelays[attempt]);
-                  }
-                  if (controller.signal.aborted || !this.value[id]) return;
-                  const pageController = new AbortController();
-                  const onParentAbort = () => pageController.abort();
-                  controller.signal.addEventListener('abort', onParentAbort, { once: true });
-                  const timer = setTimeout(() => pageController.abort(), 15000);
-                  try {
-                    const res = await fetch(src, { signal: pageController.signal });
-                    lastStatus = res.status;
-                    blob = res.ok ? await res.blob() : null;
-                  } catch {
-                    blob = null;
-                  } finally {
-                    clearTimeout(timer);
-                    controller.signal.removeEventListener('abort', onParentAbort);
-                  }
-                  if (blob && blob.size > 0) break;
+        const downloadPage = async (i: number): Promise<boolean> => {
+          if (controller.signal.aborted || !this.value[id] || storageFull) return false;
+          const raw = args.pageUrls[i];
+          const pageKey = `${id}_p_${i + 1}`;
+          const cachedSize = await getCachedBlobSize(pageKey, true);
+          if (controller.signal.aborted || !this.value[id] || storageFull) return false;
+          if (cachedSize > 0) {
+            saved++;
+            total += cachedSize;
+          } else {
+            const src = raw.startsWith('http')
+              ? proxy(raw)
+              : raw.startsWith('assets/')
+                ? `/${raw}`
+                : raw.startsWith('/') || raw.startsWith('data:')
+                  ? raw
+                  : null;
+            if (src) {
+              let blob: Blob | null = null;
+              let lastStatus = 0;
+              const backoffDelays = [0, 500, 1400];
+              for (let attempt = 0; attempt < backoffDelays.length; attempt++) {
+                if (backoffDelays[attempt] > 0) {
+                  await waitBackoff(backoffDelays[attempt]);
                 }
-                if (controller.signal.aborted || !this.value[id]) return;
-                if (blob && blob.size > 0) {
-                  const mime = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
-                  const stored = await saveBlob(pageKey, blob, true, mime);
-                  if (stored) {
-                    saved++;
-                    total += blob.size;
-                  } else {
-                    Logger.e(`Failed to cache manga page ${i} (${pageKey}) — storage quota may be full`);
-                    storageFull = true;
-                  }
+                if (controller.signal.aborted || !this.value[id] || storageFull) return false;
+                const pageController = new AbortController();
+                const onParentAbort = () => pageController.abort();
+                controller.signal.addEventListener('abort', onParentAbort, { once: true });
+                const timer = setTimeout(() => pageController.abort(), 15000);
+                try {
+                  const res = await fetch(src, { signal: pageController.signal });
+                  lastStatus = res.status;
+                  blob = res.ok ? await res.blob() : null;
+                } catch {
+                  blob = null;
+                } finally {
+                  clearTimeout(timer);
+                  controller.signal.removeEventListener('abort', onParentAbort);
+                }
+                if (blob && blob.size > 0) break;
+              }
+              if (controller.signal.aborted || !this.value[id] || storageFull) return false;
+              if (blob && blob.size > 0) {
+                const mime = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+                const stored = await saveBlob(pageKey, blob, true, mime);
+                if (stored) {
+                  saved++;
+                  total += blob.size;
                 } else {
-                  Logger.e(`Failed to fetch manga page ${i} (${src}) after retries: status ${lastStatus}`);
+                  Logger.e(`Failed to cache manga page ${i} (${pageKey}) — storage quota may be full`);
+                  storageFull = true;
+                  return false;
                 }
+              } else {
+                Logger.e(`Failed to fetch manga page ${i} (${src}) after retries: status ${lastStatus}`);
               }
             }
-            if (storageFull) break;
-            const progress = Math.min(1, saved / args.pageUrls.length);
-            if (
-              !this.putIfPresent(id, {
-                progress,
-                downloadedPages: saved,
-                downloadedBytes: total > 0 ? total : Math.round(estimated * progress),
-              })
-            ) {
-              return;
-            }
+          }
+          const progress = Math.min(1, saved / args.pageUrls.length);
+          return this.putIfPresent(id, {
+            progress,
+            downloadedPages: saved,
+            downloadedBytes: total > 0 ? total : Math.round(estimated * progress),
+          });
+        };
+        try {
+          const firstOk = await downloadPage(0);
+          if (firstOk && !storageFull && !controller.signal.aborted && this.value[id] && args.pageUrls.length > 1) {
+            let nextIndex = 1;
+            const workerCount = Math.min(3, args.pageUrls.length - 1);
+            const runWorker = async () => {
+              while (!storageFull && !controller.signal.aborted && this.value[id]) {
+                const i = nextIndex++;
+                if (i >= args.pageUrls.length) break;
+                if (!(await downloadPage(i))) return;
+              }
+            };
+            await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
           }
           if (controller.signal.aborted || !this.value[id]) return;
           if (saved === args.pageUrls.length && saved > 0) {
