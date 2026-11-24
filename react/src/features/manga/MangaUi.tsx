@@ -569,12 +569,14 @@ export function KatanaHeader({
         list[curIdx <= 0 ? list.length - 1 : curIdx - 1]?.focus();
       }
     };
+    // Read once on mount: by cleanup time the ref may already point at the next trigger.
+    const triggerAtOpen = themeTriggerRef.current;
     window.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('keydown', onKey);
-      (themeTriggerRef.current ?? prevFocus)?.focus?.();
+      (triggerAtOpen ?? prevFocus)?.focus?.();
     };
   }, [themeMenuOpen]);
 

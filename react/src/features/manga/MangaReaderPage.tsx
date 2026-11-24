@@ -381,7 +381,7 @@ export function MangaReaderView({
     () => segments.find((s) => s.chapter.id === chapterId) ?? segments[0],
     [segments, chapterId],
   );
-  const pages = activeSegment?.pages ?? [];
+  const pages = useMemo(() => activeSegment?.pages ?? [], [activeSegment]);
 
   const seriesChapterFilter = useMemo(
     () => (settings.skipFilteredChapters ? loadSeriesChapterFilter(params.slug) : null),
@@ -478,6 +478,7 @@ export function MangaReaderView({
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one resume subscription per series; chapterId only decides which anchor it applies
   }, [currentUser, params.slug]);
 
   const spreads = useMemo(
@@ -494,7 +495,10 @@ export function MangaReaderView({
   );
 
   const safeSpreadIdx = Math.min(Math.max(0, spreadCursor), Math.max(0, spreads.length - 1));
-  const currentSpread = spreads[safeSpreadIdx] ?? (pages.length > 0 ? [{ pageIndex: 0 }] : []);
+  const currentSpread = useMemo(
+    () => spreads[safeSpreadIdx] ?? (pages.length > 0 ? [{ pageIndex: 0 }] : []),
+    [spreads, safeSpreadIdx, pages.length],
+  );
 
   useEffect(() => {
     if (spreads.length === 0) return;
@@ -1180,7 +1184,7 @@ export function MangaReaderView({
       }
     }
     return () => observer.disconnect();
-  }, [isWebtoon, isHorizontalStrip, loading, segments, chapterId, pages.length, markChapterFinished, flashToast, chapterById, persistProgress]);
+  }, [isWebtoon, isHorizontalStrip, loading, segments, chapterId, pages.length, markChapterFinished, flashToast, chapterById, persistProgress, params.chapters]);
 
   // Persist progress in paged/spread modes
   useEffect(() => {
@@ -1511,6 +1515,7 @@ export function MangaReaderView({
     }
   }, [
     isWebtoon,
+    chapterNavOpts,
     settings.seamlessNextChapter,
     settings.skipReadChapters,
     params.chapters,
@@ -1949,6 +1954,8 @@ export function MangaReaderView({
     pages.length,
     settings.volumeKeys,
     settings.invertVolumeKeys,
+    settings.disableZoomOut,
+    computeZoomStartPan,
   ]);
 
   // Auto-advance timer for paged & spread modes (reuses autoScrolling toggle)
@@ -2300,7 +2307,7 @@ export function MangaReaderView({
         }
       }
     },
-    [chapterId, params.slug, isWebtoon, scrollToWebtoonPage],
+    [chapterId, params.slug, params.seriesFormat, isWebtoon, scrollToWebtoonPage],
   );
 
   // RTL-mirrored slide page animations

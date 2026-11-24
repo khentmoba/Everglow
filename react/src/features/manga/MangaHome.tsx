@@ -123,6 +123,7 @@ function FeaturedHero({
     featured?.title ?? '',
     featured?.genres.map((g) => g.name),
   );
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   if (!featured) return null;
   const bm = bookmarks.find((b) => b.slug === featured.slug);
   const completed = featured.status === 'completed';
@@ -130,7 +131,6 @@ function FeaturedHero({
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 800,
   });
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (candidates.length <= 1 || e.touches.length !== 1) return;
@@ -1225,7 +1225,7 @@ export function MangaHome({
     if (!topActiveGenresKey) return;
     let alive = true;
     const slugs = topActiveGenresKey.split(',').filter(Boolean);
-    Promise.all(
+    void Promise.all(
       slugs.map((gSlug) => fetchKatanaCatalog({ mode: 'genre', key: gSlug, page: 1 }).catch(() => ({ items: [] as KatanaManga[] }))),
     ).then((results) => {
       if (!alive) return;

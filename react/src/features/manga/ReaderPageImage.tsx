@@ -260,6 +260,7 @@ export function ReaderPageImage({
     } else {
       setStatus('loading');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks arrive as inline arrows from the reader; listing them re-runs this on every render
   }, [src, reloadToken]);
 
   useEffect(() => {
@@ -283,6 +284,7 @@ export function ReaderPageImage({
       setAspect(ratio);
       onDimensions?.(img.naturalWidth, img.naturalHeight);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same inline callbacks as above
   }, [resolved, reloadToken, status, step]);
 
   const shouldCrop = cropBorders;

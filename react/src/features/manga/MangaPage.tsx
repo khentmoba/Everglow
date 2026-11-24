@@ -285,7 +285,7 @@ export function MangaPage() {
         }
       }
       const qs = next.toString();
-      navigate(qs ? `/manga?${qs}` : '/manga', { replace: opts?.replace ?? false });
+      void navigate(qs ? `/manga?${qs}` : '/manga', { replace: opts?.replace ?? false });
     },
     [navigate, searchParams],
   );
@@ -293,14 +293,14 @@ export function MangaPage() {
   const openDetail = useCallback(
     (slug: string) => {
       if (!slug) return;
-      navigate(`/manga/series/${encodeURIComponent(slug)}${preservedQuery}`);
+      void navigate(`/manga/series/${encodeURIComponent(slug)}${preservedQuery}`);
     },
     [navigate, preservedQuery],
   );
 
   const closeDetail = useCallback(() => {
-    if (location.key !== 'default') navigate(-1);
-    else navigate(`/manga${preservedQuery}`);
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate(`/manga${preservedQuery}`);
   }, [location.key, navigate, preservedQuery]);
 
   const [readerParams, setReaderParams] = useState<MangaReaderParams | null>(null);
@@ -952,7 +952,7 @@ export function MangaPage() {
   useEffect(() => {
     let alive = true;
     setHomeLoading(true);
-    fetchKatanaHome().then((d) => {
+    void fetchKatanaHome().then((d) => {
       if (!alive) return;
       setHomeData(d);
       setHomeLoading(false);
@@ -966,7 +966,7 @@ export function MangaPage() {
     if (typeFilter === 'all') return;
     let alive = true;
     setTypeLoading(true);
-    fetchKatanaByType(typeFilter, typePage).then((res) => {
+    void fetchKatanaByType(typeFilter, typePage).then((res) => {
       if (!alive) return;
       setTypeItems(res.items);
       setTypeHasNext(res.hasNext);
@@ -1124,7 +1124,7 @@ export function MangaPage() {
       };
     }
     if (catalogSource === 'bato' && (catalogMode === 'search' || catalogMode === 'directory')) {
-      searchBatoCatalog({
+      void searchBatoCatalog({
         query: searchQuery,
         page: catPage,
         status: statusFilter,
@@ -1150,7 +1150,7 @@ export function MangaPage() {
       };
     }
     if (catalogSource === 'comick' && (catalogMode === 'search' || catalogMode === 'directory')) {
-      searchComickCatalog({
+      void searchComickCatalog({
         query: searchQuery,
         page: catPage,
         status: statusFilter,
@@ -1176,7 +1176,7 @@ export function MangaPage() {
       };
     }
     if (catalogSource === 'mangadex' && (catalogMode === 'search' || catalogMode === 'directory')) {
-      searchMangaDexCatalog({
+      void searchMangaDexCatalog({
         query: searchQuery,
         page: catPage,
         status: statusFilter,
@@ -1201,7 +1201,7 @@ export function MangaPage() {
         alive = false;
       };
     }
-    fetchKatanaCatalog({
+    void fetchKatanaCatalog({
       mode: catalogMode,
       key: genreSlug,
       page: catPage,
@@ -1263,7 +1263,7 @@ export function MangaPage() {
     setSelectMode(false);
     setSelectedChapterIds(new Set());
     setDetailOverflowOpen(false);
-    fetchKatanaDetail(detailSlug)
+    void fetchKatanaDetail(detailSlug)
       .catch(() => null)
       .then((d) => {
         if (!alive) return;
@@ -1277,7 +1277,7 @@ export function MangaPage() {
     return () => {
       alive = false;
     };
-  }, [detailSlug, detailRetryTick]);
+  }, [detailSlug, detailRetryTick, userName]);
 
   const desktop = width >= KATANA_BREAKPOINTS.desktop;
   const tablet = width >= KATANA_BREAKPOINTS.tablet;
@@ -1589,7 +1589,7 @@ export function MangaPage() {
       });
       const targetUrl = `/manga/series/${encodeURIComponent(manga.slug)}/${encodeURIComponent(chapterId)}${preservedQuery}`;
       if (`${location.pathname}${location.search}` !== targetUrl) {
-        navigate(targetUrl);
+        void navigate(targetUrl);
       }
     },
     [bookmarks, location.pathname, location.search, navigate, preservedQuery, userName],
@@ -1638,8 +1638,8 @@ export function MangaPage() {
   const closeReader = useCallback(() => {
     setReaderParams(null);
     if (activeRouteChapterId && detailSlug) {
-      if (location.key !== 'default') navigate(-1);
-      else navigate(`/manga/series/${encodeURIComponent(detailSlug)}${preservedQuery}`, { replace: true });
+      if (location.key !== 'default') void navigate(-1);
+      else void navigate(`/manga/series/${encodeURIComponent(detailSlug)}${preservedQuery}`, { replace: true });
     }
   }, [activeRouteChapterId, detailSlug, location.key, navigate, preservedQuery]);
 
@@ -1827,7 +1827,7 @@ export function MangaPage() {
         });
       }
     },
-    [downloadWifiOnly],
+    [downloadWifiOnly, confirmUnknownWifiDownload],
   );
 
   const cancelDownloadQueue = useCallback(() => {
