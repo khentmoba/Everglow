@@ -142,9 +142,11 @@ class MoneyService {
     if (AgentMode.demo) return just(demoMoney(month));
     const subscribe: Source<MoneyEntry[]> = (l) => {
       const MAX_MONTH_LIMIT = 1600;
+      let active = true;
       let limit = 200;
       let unsub = () => {};
       const listen = () => {
+        if (!active) return;
         const q = query(
           collection(db, 'budget_transactions'),
           where('createdAt', '>=', Timestamp.fromDate(new Date(month.getFullYear(), month.getMonth()))),
@@ -155,6 +157,7 @@ class MoneyService {
         unsub = onSnapshot(
           q,
           (snap) => {
+            if (!active) return;
             if (snap.docs.length === limit && limit < MAX_MONTH_LIMIT) {
               limit = Math.min(limit * 2, MAX_MONTH_LIMIT);
               unsub();
@@ -171,11 +174,16 @@ class MoneyService {
             }
             l.data(out);
           },
-          (e) => l.error?.(e),
+          (e) => {
+            if (active) l.error?.(e);
+          },
         );
       };
       listen();
-      return () => unsub();
+      return () => {
+        active = false;
+        unsub();
+      };
     };
     return withFirestoreTimeout(subscribe, { label: 'money-recent', maxAttempts: 3, resubscribe: () => subscribe });
   }

@@ -29,6 +29,7 @@ export interface AnimexMediaPage {
   currentPage: number;
   lastPage?: number;
   hasNextPage: boolean;
+  failed?: boolean;
 }
 
 export interface AnimexScheduleEntry {
@@ -516,7 +517,7 @@ export async function fetchAnimexPage(opts: {
   if (!pageData) {
     const fb = await jikanFallback(opts);
     if (fb) return fb;
-    return { items: [], scores: [], currentPage: opts.page ?? 1, hasNextPage: false };
+    return { items: [], scores: [], currentPage: opts.page ?? 1, hasNextPage: false, failed: true };
   }
 
   const pageInfo = (pageData.pageInfo as Record<string, unknown> | undefined) ?? {};

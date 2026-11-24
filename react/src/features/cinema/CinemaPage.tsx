@@ -102,6 +102,7 @@ export function CinemaPage() {
   const [drawerItem, setDrawerItem] = useState<MediaItem | null>(null);
   const [drawerSeq, setDrawerSeq] = useState(0);
   const homeRequest = useRef(0);
+  const alive = useRef(true);
 
   const loadHome = useCallback(async () => {
     const request = ++homeRequest.current;
@@ -112,7 +113,7 @@ export function CinemaPage() {
     const loadRow = async (key: string, fetch: Promise<MediaItem[]>, apply: (items: MediaItem[]) => void) => {
       try {
         const items = await fetch;
-        if (request !== homeRequest.current) return;
+        if (!alive.current || request !== homeRequest.current) return;
         const visible = items.filter((m) => !m.isAnime);
         if (visible.length === 0) return;
         live[key] = visible;
@@ -131,12 +132,12 @@ export function CinemaPage() {
         setNewlyReleased,
       ),
     ]);
-    if (request !== homeRequest.current) return;
+    if (!alive.current || request !== homeRequest.current) return;
     setIsLoadingHome(false);
 
     const BATCH_SIZE = 4;
     for (let i = 0; i < DISCOVERY_SHELVES.length; i += BATCH_SIZE) {
-      if (request !== homeRequest.current) return;
+      if (!alive.current || request !== homeRequest.current) return;
       const slice = DISCOVERY_SHELVES.slice(i, i + BATCH_SIZE);
       const batchUpdates: Record<string, MediaItem[]> = {};
       await Promise.all(
@@ -156,12 +157,12 @@ export function CinemaPage() {
           ),
         ),
       );
-      if (request !== homeRequest.current) return;
+      if (!alive.current || request !== homeRequest.current) return;
       if (Object.keys(batchUpdates).length > 0) {
         setDiscoveryRows((rows) => ({ ...rows, ...batchUpdates }));
       }
     }
-    if (request !== homeRequest.current) return;
+    if (!alive.current || request !== homeRequest.current) return;
     CinemaHomeCache.save(live);
   }, []);
 
@@ -176,13 +177,20 @@ export function CinemaPage() {
     else void loadHome();
   }, [currentTab, loadHome]);
 
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
   // Each tab keeps its own place; returning to Home lands where you left it.
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hideBack, setHideBack] = useState(false);
-  const tabScroll = useRef<Record<number, number>>({});
+  const tabScroll = useRef<Record<string, number>>({});
   // A collection is its own page inside the Browse tab, so its offset is its own
   // too: restoring Movies' place on a TV Shows grid landed mid-list.
-  const scrollKey = (tab: number, browse: string | null) => (tab === 2 && browse ? 200 + browse.length : tab);
+  const scrollKey = (tab: number, browse: string | null) => (tab === 2 && browse ? `browse:${browse}` : `tab:${tab}`);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -287,11 +295,11 @@ export function CinemaPage() {
     handleNavSelect(tab);
   };
   const handleBack = () => {
-    const previous = tabHistory.current.pop();
     if (selectedBrowseId) {
       goBackTo(2);
       return;
     }
+    const previous = tabHistory.current.pop();
     if (previous != null && previous !== currentTab) {
       goBackTo(previous);
       return;

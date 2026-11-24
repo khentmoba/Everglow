@@ -214,12 +214,17 @@ function CreatorLettersTab() {
       showSnackBar('Add a title and message first.');
       return;
     }
+    const parsedUnlockDate = new Date(`${unlockDate}T09:00:00`);
+    if (!unlockDate || Number.isNaN(parsedUnlockDate.getTime())) {
+      showSnackBar('Pick a valid unlock date first.');
+      return;
+    }
     setSaving(true);
     try {
       await creatorService.saveHiddenNote({
         title,
         content,
-        unlockDate: new Date(`${unlockDate}T09:00:00`),
+        unlockDate: parsedUnlockDate,
       });
       setTitle('');
       setContent('');
@@ -343,6 +348,11 @@ function CreatorMemoriesTab() {
       showSnackBar('Give this milestone a title.');
       return;
     }
+    const parsedDate = new Date(`${dateStr}T12:00:00`);
+    if (!dateStr || Number.isNaN(parsedDate.getTime())) {
+      showSnackBar('Pick a valid milestone date first.');
+      return;
+    }
     setSaving(true);
     try {
       const uploaded: string[] = [];
@@ -354,7 +364,7 @@ function CreatorMemoriesTab() {
       const payload = {
         title,
         description,
-        date: new Date(`${dateStr}T12:00:00`),
+        date: parsedDate,
         category,
         imageUrls,
         author: auth.currentUser ?? 'khentsgdz',
@@ -601,15 +611,23 @@ function CreatorSurprisesTab() {
             className="bare-button"
             onClick={() => {
               if (!teaserTitle.trim()) return;
+              const parsedTeaserDate = new Date(`${teaserDate}T18:00:00`);
+              if (!teaserDate || Number.isNaN(parsedTeaserDate.getTime())) {
+                showSnackBar('Pick a valid countdown date first.');
+                return;
+              }
               void creatorService
                 .createTeaserCountdown({
                   title: teaserTitle,
-                  date: new Date(`${teaserDate}T18:00:00`),
+                  date: parsedTeaserDate,
                   createdBy: auth.currentUser ?? 'khentsgdz',
                 })
                 .then(() => {
                   setTeaserTitle('');
                   showSnackBar('Countdown added to Calendar');
+                })
+                .catch(() => {
+                  showSnackBar('Could not save countdown.');
                 });
             }}
             style={{ padding: '0 14px', borderRadius: AppRadius.sm, background: AppColors.deepRose, color: AppColors.petalWhite, fontWeight: 700, fontSize: 12.5 }}

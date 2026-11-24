@@ -123,12 +123,15 @@ class CanvasService {
   getStrokesStream(): Source<DoodleStroke[]> {
     if (AgentMode.demo) return just([]);
     const subscribe: Source<DoodleStroke[]> = (l) => {
+      let active = true;
       let max = 300;
       let unsub = () => {};
       const listen = () => {
+        if (!active) return;
         unsub = onSnapshot(
           query(collection(db, STROKES), orderBy('createdAt'), limit(max)),
           (snap) => {
+            if (!active) return;
             if (snap.docs.length === max && max < MAX_STROKES) {
               max = Math.min(max * 2, MAX_STROKES);
               unsub();
@@ -137,11 +140,16 @@ class CanvasService {
             }
             l.data(snap.docs.map((d) => strokeFromMap(d.data(), d.id)));
           },
-          (e) => l.error?.(e),
+          (e) => {
+            if (active) l.error?.(e);
+          },
         );
       };
       listen();
-      return () => unsub();
+      return () => {
+        active = false;
+        unsub();
+      };
     };
     return withFirestoreTimeout(subscribe, { label: 'canvas-strokes', resubscribe: () => subscribe });
   }

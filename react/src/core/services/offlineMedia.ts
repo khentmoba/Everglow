@@ -495,7 +495,11 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     const controller = new AbortController();
     this.activeControllers.get(args.id)?.abort();
     this.activeControllers.set(args.id, controller);
-    const timer = window.setTimeout(() => controller.abort(), 10 * 60 * 1000);
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 10 * 60 * 1000);
 
     try {
       if (url.startsWith('http')) {
@@ -511,8 +515,8 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
                 totalBytes: denom,
               });
             });
-            if (controller.signal.aborted) return;
-            if (ok && bytes > 0) {
+            if (controller.signal.aborted && !timedOut) return;
+            if (!timedOut && ok && bytes > 0) {
               if (this.putIfPresent(args.id, { status: 'completed', progress: 1, downloadedBytes: bytes, totalBytes: bytes })) {
                 this.save();
               }
@@ -520,11 +524,11 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
             }
           }
         } catch (e) {
-          if (controller.signal.aborted) return;
-          Logger.e(`Offline download failed for ${args.id}`, e);
+          if (controller.signal.aborted && !timedOut) return;
+          Logger.e(timedOut ? `Offline download timed out for ${args.id}` : `Offline download failed for ${args.id}`, e);
         }
       }
-      if (controller.signal.aborted) return;
+      if ((controller.signal.aborted && !timedOut) || this.activeControllers.get(args.id) !== controller) return;
       if (this.putIfPresent(args.id, { status: 'failed', progress: 0, downloadedBytes: 0 })) {
         this.save();
       }

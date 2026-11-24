@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formattedDuration, formattedSize, offlineMedia, useOfflineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
+import { Logger } from '../../core/system/logger';
 import { Align, boxShadow, linear } from '../../core/theme/paint';
 import { withAlpha } from '../../core/theme/colors';
 import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
@@ -1017,39 +1018,69 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
   const [mode, setMode] = useState<'all' | 'trending' | 'airing' | 'movies' | 'new'>('trending');
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const searchSeq = useRef(0);
+  const aliveRef = useRef(true);
 
-  const runSearch = (q: string, targetMode: 'all' | 'trending' | 'airing' | 'movies' | 'new') => {
-    setLoading(true);
-    const opts = q
-      ? { search: q, perPage: 30, japaneseTitle: nav.titleJapanese }
-      : targetMode === 'trending'
-        ? { sort: 'TRENDING_DESC', perPage: 30, japaneseTitle: nav.titleJapanese }
-        : targetMode === 'airing'
-          ? { sort: 'SCORE_DESC', status: 'RELEASING', perPage: 30, japaneseTitle: nav.titleJapanese }
-          : targetMode === 'movies'
-            ? { format: 'MOVIE', sort: 'POPULARITY_DESC', perPage: 30, japaneseTitle: nav.titleJapanese }
-            : targetMode === 'new'
-              ? { sort: 'START_DATE_DESC', perPage: 30, japaneseTitle: nav.titleJapanese }
-              : { sort: 'TRENDING_DESC', perPage: 30, japaneseTitle: nav.titleJapanese };
-    fetchAnimexPage(opts).then((res) => {
-      setResults(res.items);
-      setLoading(false);
-    });
-  };
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      searchSeq.current++;
+    };
+  }, []);
 
+  const runSearch = useCallback(
+    (q: string, targetMode: 'all' | 'trending' | 'airing' | 'movies' | 'new') => {
+      const seq = ++searchSeq.current;
+      setLoading(true);
+      setLoadFailed(false);
+      const opts = q
+        ? { search: q, perPage: 30, japaneseTitle: nav.titleJapanese }
+        : targetMode === 'trending'
+          ? { sort: 'TRENDING_DESC', perPage: 30, japaneseTitle: nav.titleJapanese }
+          : targetMode === 'airing'
+            ? { sort: 'SCORE_DESC', status: 'RELEASING', perPage: 30, japaneseTitle: nav.titleJapanese }
+            : targetMode === 'movies'
+              ? { format: 'MOVIE', sort: 'POPULARITY_DESC', perPage: 30, japaneseTitle: nav.titleJapanese }
+              : targetMode === 'new'
+                ? { sort: 'START_DATE_DESC', perPage: 30, japaneseTitle: nav.titleJapanese }
+                : { sort: 'TRENDING_DESC', perPage: 30, japaneseTitle: nav.titleJapanese };
+      fetchAnimexPage(opts)
+        .then((res) => {
+          if (!aliveRef.current || seq !== searchSeq.current) return;
+          if (res.failed) {
+            Logger.e('AnimeX: search failed');
+            setResults([]);
+            setLoadFailed(true);
+            setLoading(false);
+            return;
+          }
+          setResults(res.items);
+          setLoading(false);
+        })
+        .catch((e) => {
+          Logger.e('AnimeX: search failed', e);
+          if (!aliveRef.current || seq !== searchSeq.current) return;
+          setResults([]);
+          setLoadFailed(true);
+          setLoading(false);
+        });
+    },
+    [nav.titleJapanese],
+  );
+
+  // An empty search box is not a dead end: show the selected discovery mode
+  // immediately; typed queries debounce so stale responses never win.
   useEffect(() => {
     const q = queryText.trim();
-    if (!q) return;
+    if (!q) {
+      runSearch('', mode);
+      return;
+    }
     const t = window.setTimeout(() => runSearch(q, mode), 450);
     return () => window.clearTimeout(t);
-  }, [queryText, nav.titleJapanese]);
-
-  // An empty search box is not a dead end: show trending immediately so she can
-  // start something without knowing a title.
-  useEffect(() => {
-    runSearch('', mode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, nav.titleJapanese]);
+  }, [queryText, mode, runSearch]);
 
   return (
     <div style={{ padding: '20px 24px 64px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -1074,9 +1105,7 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
         <input
           value={queryText}
           onChange={(e) => {
-            const val = e.target.value;
-            setQueryText(val);
-            if (!val.trim()) runSearch('', mode);
+            setQueryText(e.target.value);
           }}
           placeholder="Search anime..."
           className="animex-search-input"
@@ -1096,7 +1125,6 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
             className="bare-button"
             onClick={() => {
               setQueryText('');
-              runSearch('', mode);
             }}
           >
             <Icon name="close" size={17} color={AnimeXTokens.textSecondary} />
@@ -1121,7 +1149,6 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
               onClick={() => {
                 setQueryText('');
                 setMode(key);
-                runSearch('', key);
               }}
               style={{
                 flexShrink: 0,
@@ -1199,19 +1226,35 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
       ) : results.length === 0 ? (
         <div style={{ padding: '40px 0', textAlign: 'center' }}>
           <div style={dmSansStyle({ size: 15, color: AnimeXTokens.textPrimary, weight: 700 })}>
-            {queryText.trim() ? 'Nothing matched that title' : 'Nothing to show right now'}
+            {loadFailed
+              ? "Couldn't load anime right now"
+              : queryText.trim()
+                ? 'Nothing matched that title'
+                : 'Nothing to show right now'}
           </div>
           <div style={{ height: 6 }} />
           <div style={dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary })}>
-            {queryText.trim() ? 'Try a shorter title, or pick a category above.' : 'Try again in a moment.'}
+            {loadFailed
+              ? 'Check your connection and try again.'
+              : queryText.trim()
+                ? 'Try a shorter title, or pick a category above.'
+                : 'Try again in a moment.'}
           </div>
           <div style={{ height: 16 }} />
           <button
             type="button"
             className="bare-button"
             onClick={() => {
-              setQueryText('');
-              setMode('trending');
+              if (loadFailed) {
+                runSearch(queryText.trim(), mode);
+                return;
+              }
+              if (queryText !== '' || mode !== 'trending') {
+                setQueryText('');
+                setMode('trending');
+              } else {
+                runSearch('', 'trending');
+              }
             }}
             style={{
               display: 'inline-flex',
@@ -1224,8 +1267,10 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
               border: `1px solid ${AnimeXTokens.accent}`,
             }}
           >
-            <Icon name="trending_up" size={16} color={AnimeXTokens.accentText} />
-            <span style={dmSansStyle({ size: 13, color: AnimeXTokens.accentText, weight: 700 })}>Show trending</span>
+            <Icon name={loadFailed ? 'refresh' : 'trending_up'} size={16} color={AnimeXTokens.accentText} />
+            <span style={dmSansStyle({ size: 13, color: AnimeXTokens.accentText, weight: 700 })}>
+              {loadFailed ? 'Try again' : 'Show trending'}
+            </span>
           </button>
         </div>
       ) : (
