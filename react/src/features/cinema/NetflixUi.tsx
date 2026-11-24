@@ -49,7 +49,8 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
     ? [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
         {
-          label: 'Movies',
+          // The tab opens Browse, which lists series too: one name for both.
+          label: 'Movies & TV',
           icon: 'movie',
           activeIcon: 'movie',
           tab: 2,
@@ -63,7 +64,8 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
     : [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
         {
-          label: 'Movies',
+          // The tab opens Browse, which lists series too: one name for both.
+          label: 'Movies & TV',
           icon: 'movie',
           activeIcon: 'movie',
           tab: 2,
@@ -169,10 +171,13 @@ function NetflixHoverPreview({
   // the row heading and the tile itself stay readable.
   const below = anchor.bottom + 10;
   const above = anchor.top - estHeight - 10;
+  // Prefer below; flip above only when the card lands on screen without
+  // covering the row it came from; otherwise cover the tile's own row centre
+  // instead of jumping half a screen up over the hero.
   const top =
     below + estHeight <= vh - margin
       ? below
-      : above >= margin
+      : above >= margin && above + estHeight <= anchor.top + 2
         ? above
         : Math.max(margin, Math.min(vh - estHeight - margin, anchor.top + anchor.height / 2 - estHeight / 2));
 
@@ -897,6 +902,8 @@ export function NetflixRow({
               )}
             </div>
           ))}
+          {/* Trailing room so the last poster or its numeral is not sliced. */}
+          <div style={{ flex: `0 0 ${hPad}px`, flexShrink: 0 }} />
         </div>
         {(isDesktop || rowViewport >= 700) && (edges.left || edges.right) && (
           <>

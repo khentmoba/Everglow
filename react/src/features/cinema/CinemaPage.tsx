@@ -1,5 +1,5 @@
 // Port of lib/features/cinema/presentation/screens/cinema_screen.dart and tabs/*.dart.
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
@@ -18,6 +18,7 @@ import { CinemaLibraryTab } from './CinemaLibraryTab';
 import { CinemaWatchTogetherTab } from '../watch_party/CinemaWatchTogetherTab';
 import { CinemaEpisodeDrawer } from './CinemaEpisodeDrawer';
 import { showCinemaPlaybackSheet } from './CinemaPlaybackSheet';
+import { CinemaHomeSkeleton } from './CinemaHomeSkeleton';
 import { NetflixColors, TOP_TEN_COUNTRY_LABEL, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
 import {
   MediaSectionMenuButton,
@@ -26,7 +27,6 @@ import {
   NetflixCinemaTopBar,
   NetflixRow,
   cinemaMobileNavItems,
-  rowCardWidth,
   cinemaNavLinks,
 } from './NetflixUi';
 import {
@@ -69,57 +69,6 @@ function remainingLabelOf(m: MediaItem): string | null {
   const left = Math.max(1, Math.round((dur - pos) / 60));
   const hours = Math.floor(left / 60);
   return hours > 0 ? `${hours}h ${left % 60}m left` : `${left}m left`;
-}
-
-/** The first screen while the rails arrive: the shape it will have, not a spinner. */
-function HomeSkeleton({ isDesktop, viewportHeight }: { isDesktop: boolean; viewportHeight: number }) {
-  const heroHeight = isDesktop ? 560 : Math.max(380, Math.min(540, Math.round(viewportHeight * 0.58)));
-  const cardWidth = rowCardWidth(isDesktop, isDesktop ? 1440 : 390);
-  const bar = (w: number | string, h: number, extra: CSSProperties = {}): CSSProperties => ({
-    width: w,
-    height: h,
-    borderRadius: h / 2,
-    background: 'rgba(255,255,255,0.08)',
-    ...extra,
-  });
-  return (
-    <div aria-busy="true" aria-label="Loading Cinema">
-      <div style={{ height: heroHeight, background: NetflixColors.surface, padding: '0 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 40 }}>
-        <div style={bar('32%', 12)} />
-        <div style={{ height: 14 }} />
-        <div style={bar('68%', 32)} />
-        <div style={{ height: 12 }} />
-        <div style={bar('84%', 10)} />
-        <div style={{ height: 18 }} />
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={bar(104, 40)} />
-          <div style={bar(120, 40)} />
-        </div>
-      </div>
-      {[0, 1].map((rail) => (
-        <div key={rail} style={{ padding: '26px 16px 0' }}>
-          <div style={bar(160, 16)} />
-          <div style={{ height: 10 }} />
-          <div style={bar(230, 10, { background: 'rgba(255,255,255,0.05)' })} />
-          <div style={{ height: 12 }} />
-          <div style={{ display: 'flex', gap: 8, overflow: 'hidden' }}>
-            {Array.from({ length: isDesktop ? 7 : 4 }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  width: cardWidth,
-                  height: cardWidth * 1.5,
-                  borderRadius: 6,
-                  background: 'rgba(255,255,255,0.06)',
-                  flexShrink: 0,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export function CinemaPage() {
@@ -406,6 +355,9 @@ export function CinemaPage() {
               aria-label={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'Exit Cinema' : 'Back to Home') : 'Logout'}
               onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
+                // Out of the way of rail headings once content scrolls under it.
+                opacity: scrolled ? 0.25 : 1,
+                transition: 'opacity 200ms ease',
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
@@ -441,7 +393,7 @@ export function CinemaPage() {
 
       <div
         className="no-scrollbar"
-        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 20)}
+        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 60)}
         style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
       >
         {currentTab === 0 && (
@@ -667,7 +619,7 @@ function HomeTab({
   return (
     <div>
       {isLoading && trendingGlobal.length === 0 ? (
-        <HomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} />
+        <CinemaHomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} />
       ) : (
         <NetflixBillboard
           items={trendingGlobal.slice(0, 5)}

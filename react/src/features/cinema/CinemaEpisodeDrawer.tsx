@@ -659,26 +659,32 @@ export function CinemaEpisodeDrawer({
               <RightColumn />
             </>
           )}
-          <div style={{ height: 20 }} />
-          <div
-            style={{
-              ...AppTypography.outfitHeading,
-              fontSize: 11,
-              lineHeight: lineHeight(11),
-              letterSpacing: 1.2,
-              color: NetflixColors.textSecondary,
-            }}
-          >
-            Status
-          </div>
-          <div style={{ height: 8 }} />
-          <StatusControl status={status} isCouple={isCouple} onChange={updateStatus} />
+          {inWatchlist && (
+            <>
+              <div style={{ height: 20 }} />
+              <div
+                style={{
+                  ...AppTypography.outfitHeading,
+                  fontSize: 11,
+                  lineHeight: lineHeight(11),
+                  letterSpacing: 1.2,
+                  color: NetflixColors.textSecondary,
+                }}
+              >
+                Status
+              </div>
+              <div style={{ height: 8 }} />
+              {/* Status only appears once the title is in My List: two controls
+                  for the same fact (add, then set state) is one too many. */}
+              <StatusControl status={status} isCouple={isCouple} onChange={updateStatus} />
+            </>
+          )}
         </div>
       </div>
       {isCouple && (
         <div style={{ padding: `0 ${AppSpacing.lg}px` }}>
           <TextButton
-            icon={<Icon name="auto_awesome" size={18} color={AppColors.deepRose} />}
+            icon={<Icon name="auto_awesome" size={18} color={NetflixColors.textSecondary} />}
             style={{ width: '100%' }}
             onPressed={() => {
               onClose();
@@ -1656,7 +1662,9 @@ function ExtraTabs({
               // A red underline marks the tab; a full red block would out-shout Play.
               background: on ? NetflixColors.surfaceElevated : 'transparent',
               border: `1px solid ${on ? withAlpha(WHITE, 0.28) : NetflixColors.hairline}`,
-              borderBottom: `2px solid ${on ? NetflixColors.accent : 'transparent'}`,
+              // Inset, so the selected tab keeps its rounded corners instead of
+              // squaring off where a border-bottom would push through.
+              boxShadow: on ? `inset 0 -2px 0 0 ${NetflixColors.accent}` : 'none',
               transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
               ...AppTypography.outfitHeading,
               fontSize: 12.5,

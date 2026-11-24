@@ -4,6 +4,7 @@ import { AppColors, withAlpha } from '../../core/theme/colors';
 import { lineHeight } from '../../core/theme/paint';
 import { AppTypography } from '../../core/theme/typography';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
+import { Icon } from '../../shared/widgets/Icon';
 import {
   BROWSE_GROUP_META,
   BROWSE_GROUPS,
@@ -162,6 +163,9 @@ export function CinemaBrowseTab({
     return apply({ ...selectionRef.current, [group]: current === option.id ? null : option.id });
   };
 
+  const [facetsOpen, setFacetsOpen] = useState(false);
+  const facetCount = [selection.genre, selection.decade, selection.language, selection.sort].filter(Boolean).length;
+  const collectionOptions = CINEMA_BROWSE_OPTIONS.filter((o) => o.group === 'collection');
   const collection = optionById(selection.collection) ?? CINEMA_BROWSE_OPTIONS[0];
   const summary = summaryOf(selection);
   const clearFacets = () =>
@@ -214,18 +218,52 @@ export function CinemaBrowseTab({
         </div>
       </div>
 
+      <div style={{ height: 8 }} />
+      {/* Collections stay in reach; the long facet rows open on request, so a
+          filter tapped above the grid does not push the posters off-screen. */}
+      <FilterGroup group="collection" options={collectionOptions} selection={selection} onPick={pick} h={h} isDesktop={isDesktop} />
+      <div style={{ padding: `0 ${h}px`, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Filters"
+          aria-expanded={facetsOpen}
+          onClick={() => setFacetsOpen((open) => !open)}
+          style={{
+            height: 44,
+            padding: '0 14px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            borderRadius: 999,
+            border: `1px solid ${facetCount > 0 ? NetflixColors.textPrimary : NetflixColors.hairline}`,
+            ...AppTypography.outfitHeading,
+            fontSize: 13,
+            color: facetCount > 0 ? NetflixColors.textPrimary : NetflixColors.textSecondary,
+          }}
+        >
+          <Icon name="tune" size={16} color={facetCount > 0 ? NetflixColors.textPrimary : NetflixColors.textSecondary} />
+          <span>{facetCount > 0 ? `Filters · ${facetCount}` : 'Filters'}</span>
+          <Icon name={facetsOpen ? 'expand_less' : 'expand_more'} size={16} color={NetflixColors.textSecondary} />
+        </button>
+      </div>
+      {facetsOpen && (
+        <div style={{ paddingTop: 4 }}>
+          {BROWSE_GROUPS.filter((g) => g !== 'collection').map((group) => {
+            const options = CINEMA_BROWSE_OPTIONS.filter((o) => {
+              if (o.group !== group) return false;
+              if (group === 'genre') return o.mediaType === collection.mediaType;
+              return true;
+            });
+            if (options.length === 0) return null;
+            return (
+              <FilterGroup key={group} group={group} options={options} selection={selection} onPick={pick} h={h} isDesktop={isDesktop} />
+            );
+          })}
+        </div>
+      )}
       <div style={{ height: 12 }} />
       <Results state={state} width={width} h={h} onMediaTap={onMediaTap} onLoadMore={() => void loadMore()} />
-
-      {BROWSE_GROUPS.map((group) => {
-        const options = CINEMA_BROWSE_OPTIONS.filter((o) => {
-          if (o.group !== group) return false;
-          if (group === 'genre') return o.mediaType === collection.mediaType;
-          return true;
-        });
-        if (options.length === 0) return null;
-        return <FilterGroup key={group} group={group} options={options} selection={selection} onPick={pick} h={h} isDesktop={isDesktop} />;
-      })}
       <div style={{ height: 100 }} />
     </div>
   );

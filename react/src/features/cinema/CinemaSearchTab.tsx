@@ -248,6 +248,8 @@ export function CinemaSearchTab({
           {chips.map((c) => (
             <SearchPill key={c.label} label={c.label} selected={c.selected} onTap={c.onTap} />
           ))}
+          {/* Clear sits at the end of a scrolling row: give it room to show. */}
+          <div style={{ flex: `0 0 ${h}px` }} />
         </div>
       )}
 
