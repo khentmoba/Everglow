@@ -325,6 +325,8 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
 
 const proxyComick = cappedHttps(30, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -396,6 +398,8 @@ const proxyComick = cappedHttps(30, async (req, res) => {
 
 const proxyMangaDex = cappedHttps(30, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');

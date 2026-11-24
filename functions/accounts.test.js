@@ -420,3 +420,17 @@ test('account and watch-party endpoints set Cache-Control: private, no-store', a
     assert.equal(res.headers['Cache-Control'], 'private, no-store');
   }
 });
+
+test('verifyPassword and verifyPasswordAsync reject passwords over 128 chars before invoking scrypt', async (t) => {
+  const crypto = require('node:crypto');
+  const { hashPassword, verifyPassword, verifyPasswordAsync } = require('./accounts');
+  const { salt, hash } = hashPassword('valid-pass');
+  const scryptSyncSpy = t.mock.method(crypto, 'scryptSync');
+  const scryptSpy = t.mock.method(crypto, 'scrypt');
+  const huge = 'a'.repeat(129);
+  assert.equal(verifyPassword(huge, salt, hash), false);
+  assert.equal(await verifyPasswordAsync(huge, salt, hash), false);
+  assert.equal(scryptSyncSpy.mock.callCount(), 0);
+  assert.equal(scryptSpy.mock.callCount(), 0);
+  assert.throws(() => hashPassword(huge), /maximum length/);
+});
