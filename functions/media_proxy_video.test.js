@@ -122,3 +122,24 @@ test('proxyWatchStream rejects XML and legacy ECMAScript MIME types with 415 and
     customFetch = null;
   }
 });
+
+test('proxyWatchStream returns 400 on invalid stream url or referer', async () => {
+  const endpoint = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyWatchStream';
+  let res = new ResponseSink();
+  await proxyWatchStream(
+    request(endpoint, { method: 'POST', token: 'Bearer demo-token', body: { url: 'javascript:alert(1)' } }),
+    res,
+  );
+  assert.equal(res.code, 400);
+
+  res = new ResponseSink();
+  await proxyWatchStream(
+    request(endpoint, {
+      method: 'POST',
+      token: 'Bearer demo-token',
+      body: { url: 'https://media.example/master.m3u8', referer: 'file:///etc/passwd' },
+    }),
+    res,
+  );
+  assert.equal(res.code, 400);
+});

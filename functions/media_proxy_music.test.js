@@ -30,6 +30,18 @@ test('proxyLastfmImage allow-list rejects anything else', () => {
     ),
     false,
   );
+  assert.equal(
+    isAllowedLastfmImageUrl(
+      'https://lastfm-img.freetls.fastly.net:8443/i/u/x.png',
+    ),
+    false,
+  );
+  assert.equal(
+    isAllowedLastfmImageUrl(
+      'https://user:pass@lastfm-img.freetls.fastly.net/i/u/x.png',
+    ),
+    false,
+  );
 });
 
 test('index re-exports proxyLastfmImage', () => {

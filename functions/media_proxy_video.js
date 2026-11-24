@@ -76,8 +76,13 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
       access = { uid: input.uid, expires: Number(input.expires) };
     }
     if (typeof input.url !== 'string') { res.status(400).json({ error: 'Stream url required' }); return; }
-    const targetUrl = mediaUrl(input.url);
-    access.referer = typeof input.referer === 'string' && input.referer ? mediaUrl(input.referer) : '';
+    let targetUrl;
+    try {
+      targetUrl = mediaUrl(input.url);
+      access.referer = typeof input.referer === 'string' && input.referer ? mediaUrl(input.referer) : '';
+    } catch {
+      res.status(400).json({ error: 'Invalid stream url' }); return;
+    }
     access.secret = await streamSecret(access.uid, issue || !input.signature);
     if (!access.secret || (!issue && input.signature &&
         !validStreamSignature(targetUrl, access, input.signature))) {

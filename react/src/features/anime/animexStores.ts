@@ -230,30 +230,48 @@ class AnimexStoresImpl {
 
   private readInto(historyRaw: string | null, playlistsRaw: string | null, prefsRaw: string | null) {
     if (historyRaw) {
-      const raw = JSON.parse(historyRaw) as unknown[];
-      this.history = raw
-        .filter(isMap)
-        .map(historyFromJson)
-        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      try {
+        const raw: unknown = JSON.parse(historyRaw);
+        if (Array.isArray(raw)) {
+          this.history = raw
+            .filter(isMap)
+            .map(historyFromJson)
+            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+        }
+      } catch (e) {
+        Logger.w(`[AnimexStores] malformed history ignored: ${String(e)}`);
+      }
     }
     if (playlistsRaw) {
-      const raw = JSON.parse(playlistsRaw) as unknown[];
-      this.playlists = raw.filter(isMap).map((j) => ({
-        id: s(j.id),
-        name: s(j.name),
-        emoji: s(j.emoji, 'star'),
-        createdAt: new Date(num(j.createdAt, 0)),
-        items: (Array.isArray(j.items) ? j.items : []).filter(isMap).map(playlistItemFromJson),
-      }));
+      try {
+        const raw: unknown = JSON.parse(playlistsRaw);
+        if (Array.isArray(raw)) {
+          this.playlists = raw.filter(isMap).map((j) => ({
+            id: s(j.id),
+            name: s(j.name),
+            emoji: s(j.emoji, 'star'),
+            createdAt: new Date(num(j.createdAt, 0)),
+            items: (Array.isArray(j.items) ? j.items : []).filter(isMap).map(playlistItemFromJson),
+          }));
+        }
+      } catch (e) {
+        Logger.w(`[AnimexStores] malformed playlists ignored: ${String(e)}`);
+      }
     }
     if (prefsRaw) {
-      const data = JSON.parse(prefsRaw) as Record<string, unknown>;
-      this.titleJapanese = data.titleJapanese === true;
-      this.hideSpoilers = data.hideSpoilers !== false;
-      this.autoNext = data.autoNext !== false;
-      this.skipIntro = data.skipIntro !== false;
-      if (isMap(data.scheduleAlerts)) {
-        for (const [k, v] of Object.entries(data.scheduleAlerts)) this.scheduleAlerts.set(k, v === true);
+      try {
+        const data: unknown = JSON.parse(prefsRaw);
+        if (isMap(data)) {
+          this.titleJapanese = data.titleJapanese === true;
+          this.hideSpoilers = data.hideSpoilers !== false;
+          this.autoNext = data.autoNext !== false;
+          this.skipIntro = data.skipIntro !== false;
+          if (isMap(data.scheduleAlerts)) {
+            for (const [k, v] of Object.entries(data.scheduleAlerts)) this.scheduleAlerts.set(k, v === true);
+          }
+        }
+      } catch (e) {
+        Logger.w(`[AnimexStores] malformed prefs ignored: ${String(e)}`);
       }
     }
   }

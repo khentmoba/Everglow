@@ -240,7 +240,11 @@ const _rateBuckets = new Map();
 const RATE_LIMIT_MAX_BUCKETS = 2000;
 const RATE_LIMIT_PRUNE = 200;
 
-function _pruneRateBuckets() {
+function _pruneRateBuckets(now) {
+  for (const [k, b] of _rateBuckets) {
+    if ((now - b.start) >= b.windowMs) _rateBuckets.delete(k);
+  }
+  if (_rateBuckets.size <= RATE_LIMIT_MAX_BUCKETS) return;
   const keys = _rateBuckets.keys();
   for (let i = 0; i < RATE_LIMIT_PRUNE; i++) {
     const k = keys.next().value;
@@ -252,9 +256,10 @@ function _pruneRateBuckets() {
 function rateLimitHit(key, limit, windowMs, now = Date.now()) {
   let bucket = _rateBuckets.get(key);
   if (!bucket || (now - bucket.start) >= windowMs) {
-    bucket = { start: now, count: 0 };
+    bucket = { start: now, windowMs, count: 0 };
+    _rateBuckets.delete(key);
     _rateBuckets.set(key, bucket);
-    if (_rateBuckets.size > RATE_LIMIT_MAX_BUCKETS) _pruneRateBuckets();
+    if (_rateBuckets.size > RATE_LIMIT_MAX_BUCKETS) _pruneRateBuckets(now);
   }
   bucket.count += 1;
   return bucket.count > limit;

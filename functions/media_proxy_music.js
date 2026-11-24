@@ -19,6 +19,9 @@ function isAllowedLastfmImageUrl(targetUrl) {
   }
   return (
     parsed.protocol === 'https:' &&
+    !parsed.port &&
+    !parsed.username &&
+    !parsed.password &&
     LASTFM_IMAGE_HOSTS.has(parsed.hostname.toLowerCase())
   );
 }
