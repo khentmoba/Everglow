@@ -398,7 +398,7 @@ async function readLimitedText(response, maxBytes) {
 }
 
 const DISALLOWED_MEDIA_CT_RE =
-  /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/javascript|application\/javascript)$/;
+  /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/;
 
   let consumed = null;
   if (looksLikePlaylist) {
