@@ -258,7 +258,7 @@ export function CinemaPage() {
         setSearchParams(next);
       }
     },
-    [params, setSearchParams],
+    [currentTab, params, setSearchParams],
   );
 
   const launchPlayer = (item: MediaItem, season?: number, episode?: number, opts?: { restart?: boolean }) => {
