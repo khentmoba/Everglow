@@ -21,7 +21,7 @@ export function CircularProgress({
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current!;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const pad = strokeWidth;
     canvas.width = (size + pad * 2) * dpr;
     canvas.height = (size + pad * 2) * dpr;
@@ -40,6 +40,10 @@ export function CircularProgress({
     let frame = 0;
     const start = performance.now();
     const draw = (now: number) => {
+      if (document.hidden) {
+        frame = 0;
+        return;
+      }
       const ms = now - start;
       const p = (ms % 1333) / 1333;
       const head = interval(p, 0, 0.5);
@@ -57,8 +61,22 @@ export function CircularProgress({
       ctx.stroke();
       frame = requestAnimationFrame(draw);
     };
-    frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+      } else if (!frame) {
+        frame = requestAnimationFrame(draw);
+      }
+    };
+    if (!document.hidden) frame = requestAnimationFrame(draw);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [size, strokeWidth, color, value]);
   return (
     <canvas

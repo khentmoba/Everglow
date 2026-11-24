@@ -31,6 +31,10 @@ export function LinearProgress({
     let frame = 0;
     const start = performance.now();
     const draw = (now: number) => {
+      if (document.hidden) {
+        frame = 0;
+        return;
+      }
       const ms = (now - start) % PERIOD;
       const place = (el: HTMLDivElement | null, head: number, tail: number) => {
         if (!el) return;
@@ -41,8 +45,22 @@ export function LinearProgress({
       place(bar2.current, line2Head(ms), line2Tail(ms));
       frame = requestAnimationFrame(draw);
     };
-    frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+      } else if (!frame) {
+        frame = requestAnimationFrame(draw);
+      }
+    };
+    if (!document.hidden) frame = requestAnimationFrame(draw);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [value]);
   const bar = { position: 'absolute' as const, top: 0, bottom: 0, background: color };
   return (

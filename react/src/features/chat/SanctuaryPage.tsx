@@ -461,19 +461,43 @@ function FadeInPlain({
 /** PulsingHeartLoader: animate_do Pulse (1 → 1.5 → 1, easeOut halves, 1500ms, forever) and a late fade-in caption. */
 function PulsingHeartLoader() {
   const reduced = motionReduced();
-  const [t, setT] = useState(0);
+  const heartRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (reduced) return;
+    const heart = heartRef.current;
+    if (reduced) {
+      if (heart) heart.style.transform = '';
+      return;
+    }
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {
-      setT(((now - start) % 1500) / 1500);
+      if (document.hidden) {
+        raf = 0;
+        return;
+      }
+      const t = ((now - start) % 1500) / 1500;
+      const scale = t < 0.5 ? 1 + 0.5 * Curves.easeOut(t / 0.5) : 1.5 - 0.5 * Curves.easeOut((t - 0.5) / 0.5);
+      if (heart) heart.style.transform = `scale(${scale})`;
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (raf) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        }
+      } else if (!raf) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    if (!document.hidden) raf = requestAnimationFrame(tick);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (heart) heart.style.transform = '';
+    };
   }, [reduced]);
-  const scale = t < 0.5 ? 1 + 0.5 * Curves.easeOut(t / 0.5) : 1.5 - 0.5 * Curves.easeOut((t - 0.5) / 0.5);
   const caption = (
     <div style={{ ...AppTypography.outfitWhite, lineHeight: lineHeight(14), color: AppColors.roseQuartz, letterSpacing: 0.5 }}>
       Opening our sanctuary...
@@ -481,7 +505,7 @@ function PulsingHeartLoader() {
   );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ transform: reduced ? undefined : `scale(${scale})` }}>
+      <div ref={heartRef}>
         <Icon name="favorite" size={60} color={AppColors.deepRose} />
       </div>
       <div style={{ height: 16 }} />
