@@ -1,5 +1,6 @@
 'use strict';
 
+const { isSafeDocId } = require('./common.js');
 const { parseFactStructure, rankMemories, findContradiction, simpleEmbedding, tokenize } = require('./motchi_core.js');
 const { loadMemoryFacts, invalidateMemoryCache } = require('./motchi_memory.js');
 
@@ -177,7 +178,7 @@ async function exec_save_profile_note(ctx, args) {
 
 async function exec_pin_memory(ctx, args) {
     const mid = String(args.memory_id || '').trim();
-    if (!mid) return JSON.stringify({ error: 'memory_id required' });
+    if (!isSafeDocId(mid)) return JSON.stringify({ error: 'Valid memory_id required' });
     const pinned = !!args.pinned;
     const ref = ctx.db.collection('ai_memories').doc('shared').collection('facts').doc(mid);
     const snap = await ref.get();
@@ -189,7 +190,7 @@ async function exec_pin_memory(ctx, args) {
 
 async function exec_delete_memory(ctx, args) {
     const mid = String(args.memory_id || '').trim();
-    if (!mid) return JSON.stringify({ error: 'memory_id required' });
+    if (!isSafeDocId(mid)) return JSON.stringify({ error: 'Valid memory_id required' });
     const ref = ctx.db.collection('ai_memories').doc('shared').collection('facts').doc(mid);
     const snap = await ref.get();
     if (!snap.exists) return JSON.stringify({ error: `Memory ${mid} not found` });
@@ -215,7 +216,7 @@ async function exec_delete_memory(ctx, args) {
 async function exec_edit_memory(ctx, args) {
     const mid = String(args.memory_id || '').trim();
     const fact = String(args.fact || '').trim();
-    if (!mid || !fact) return JSON.stringify({ error: 'memory_id and fact required' });
+    if (!isSafeDocId(mid) || !fact) return JSON.stringify({ error: 'Valid memory_id and fact required' });
     if (fact.length > 500) return JSON.stringify({ error: 'Fact too long (max 500)' });
     const ref = ctx.db.collection('ai_memories').doc('shared').collection('facts').doc(mid);
     const snap = await ref.get();
@@ -404,6 +405,7 @@ async function exec_read_journal_entry(ctx, args) {
 
     let doc = null;
     if (id) {
+      if (!isSafeDocId(id)) return JSON.stringify({ error: 'Invalid journal entry id' });
       const docSnap = await ctx.db.collection('journal_entries').doc(id).get();
       if (docSnap.exists) {
         doc = docSnap;
@@ -450,6 +452,7 @@ async function exec_edit_journal_entry(ctx, args) {
   const id = String(args.id || args.entry_id || '').trim();
   const title = String(args.title || '').trim();
   if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  if (id && !isSafeDocId(id)) return JSON.stringify({ error: 'Invalid journal entry id' });
   let ref = id ? ctx.db.collection('journal_entries').doc(id) : null;
   if (!ref) {
     const snap = await ctx.db.collection('journal_entries').limit(20).get();
@@ -508,6 +511,7 @@ async function exec_delete_journal_entry(ctx, args) {
   const id = String(args.id || '').trim();
   const title = String(args.title || '').trim();
   if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  if (id && !isSafeDocId(id)) return JSON.stringify({ error: 'Invalid journal entry id' });
   let ref = id ? ctx.db.collection('journal_entries').doc(id) : null;
   if (!ref) {
     const snap = await ctx.db.collection('journal_entries').limit(20).get();
