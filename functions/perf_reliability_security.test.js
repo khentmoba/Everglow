@@ -15,6 +15,8 @@ const {
 } = require('./motchi_exec_planning.js');
 const common = require('./common.js');
 const { proxyFetchHtml } = require('./media_proxy_html.js');
+const { proxyComick, proxyMangaDex } = require('./media_proxy_manga.js');
+const { handleProxyAI } = require('./motchi_chat.js');
 const { exec_web_search } = require('./motchi_exec_insights.js');
 const { motchiStats } = require('./motchi_stats.js');
 const { handleGenerateStudySet } = require('./motchi_study.js');
@@ -221,8 +223,12 @@ test('auth-gated private endpoints set Cache-Control: private, no-store and Vary
   const handlers = [
     ['motchiStats', motchiStats],
     ['handleGenerateStudySet', handleGenerateStudySet],
+    ['handleProxyAI', handleProxyAI],
     ['proxyBookText', proxyBookText],
     ['proxyBookFile', proxyBookFile],
+    ['proxyFetchHtml', proxyFetchHtml],
+    ['proxyComick', proxyComick],
+    ['proxyMangaDex', proxyMangaDex],
     ['notifyDiscordWatch', notifyDiscordWatch],
     ['proxyWatchStream', proxyWatchStream],
   ];

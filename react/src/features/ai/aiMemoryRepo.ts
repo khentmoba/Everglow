@@ -50,10 +50,10 @@ export class AIMemoryRepository {
       const snap = await getDocs(query(factsRef(), orderBy('createdAt', 'desc'), limit(150)));
       this.memories = snap.docs.map((d) => d.data().fact).filter((f): f is string => typeof f === 'string' && f !== '');
       this.factList = snap.docs.map((d) => memoryFactFromJson({ ...d.data() }, d.id)).filter((f) => f.fact !== '');
+      this.loaded = true;
     } catch (e) {
       Logger.d(`Failed to load memories: ${e}`);
     }
-    this.loaded = true;
   }
 
   private get uid(): string {
@@ -64,7 +64,7 @@ export class AIMemoryRepository {
     const clean = fact.trim();
     if (clean === '') return;
     try {
-      await addDoc(factsRef(), {
+      const ref = await addDoc(factsRef(), {
         fact: clean,
         category,
         addedBy: this.uid,
@@ -74,7 +74,7 @@ export class AIMemoryRepository {
         lastAccessed: null,
       });
       this.memories.unshift(clean);
-      this.factList.unshift(memoryFactFromJson({ fact: clean, category, source: this.uid }));
+      this.factList.unshift(memoryFactFromJson({ fact: clean, category, source: this.uid }, ref.id));
     } catch (e) {
       Logger.d(`Failed to save memory: ${e}`);
     }
@@ -131,7 +131,7 @@ export class AIMemoryRepository {
     try {
       const [s, r, o] = parseFactStructure(fact);
       const fields = { subject: subject ?? s, relation: relation ?? r, object: object ?? o };
-      await addDoc(factsRef(), {
+      const ref = await addDoc(factsRef(), {
         fact: clean,
         category,
         ...fields,
@@ -146,7 +146,7 @@ export class AIMemoryRepository {
       });
       this.memories.unshift(clean);
       this.factList.unshift({
-        ...memoryFactFromJson({ fact: clean, category, source: this.uid }),
+        ...memoryFactFromJson({ fact: clean, category, source: this.uid }, ref.id),
         ...fields,
         occurredAt: occurredAt ?? null,
       });

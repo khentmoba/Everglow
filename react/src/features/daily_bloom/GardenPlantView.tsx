@@ -215,11 +215,15 @@ export function GardenPlantView({ plantType, stage }: { plantType: PlantType; st
     let raf = 0;
     const start = performance.now();
     const render = (now: number) => {
+      if (!reduceAmbient && document.hidden) {
+        raf = 0;
+        return;
+      }
       const canvas = canvasRef.current;
       if (!canvas) return;
       const w = canvas.clientWidth || 190;
       const h = canvas.clientHeight || 190;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
         canvas.width = Math.round(w * dpr);
         canvas.height = Math.round(h * dpr);
@@ -232,9 +236,25 @@ export function GardenPlantView({ plantType, stage }: { plantType: PlantType; st
         drawPlant(ctx, w, h, plantType.id, stage, t);
       }
       if (!reduceAmbient) raf = requestAnimationFrame(render);
+      else raf = 0;
     };
-    raf = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(raf);
+    const onVisibility = () => {
+      if (reduceAmbient) return;
+      if (document.hidden) {
+        if (raf) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        }
+      } else if (!raf) {
+        raf = requestAnimationFrame(render);
+      }
+    };
+    if (reduceAmbient || !document.hidden) raf = requestAnimationFrame(render);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [plantType.id, stage, reduceAmbient]);
 
   return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} aria-hidden />;

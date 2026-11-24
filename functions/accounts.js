@@ -45,19 +45,25 @@ function _sha256Hex(value) {
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
-  const derived = crypto.scryptSync(String(password), salt, SCRYPT_KEYLEN).toString('hex');
+  const raw = String(password);
+  if (raw.length > MAX_PASSWORD_LEN) throw new Error('Password exceeds maximum length');
+  const derived = crypto.scryptSync(raw, salt, SCRYPT_KEYLEN).toString('hex');
   return { salt, hash: derived };
 }
 
 async function hashPasswordAsync(password, salt = crypto.randomBytes(16).toString('hex')) {
-  const derived = (await scryptAsync(String(password), salt, SCRYPT_KEYLEN)).toString('hex');
+  const raw = String(password);
+  if (raw.length > MAX_PASSWORD_LEN) throw new Error('Password exceeds maximum length');
+  const derived = (await scryptAsync(raw, salt, SCRYPT_KEYLEN)).toString('hex');
   return { salt, hash: derived };
 }
 
 function verifyPassword(password, salt, expectedHash) {
   if (!salt || !expectedHash) return false;
+  const raw = String(password);
+  if (raw.length > MAX_PASSWORD_LEN) return false;
   try {
-    const derived = crypto.scryptSync(String(password), String(salt), SCRYPT_KEYLEN);
+    const derived = crypto.scryptSync(raw, String(salt), SCRYPT_KEYLEN);
     const expected = Buffer.from(String(expectedHash), 'hex');
     if (derived.length !== expected.length) return false;
     return crypto.timingSafeEqual(derived, expected);
@@ -68,8 +74,10 @@ function verifyPassword(password, salt, expectedHash) {
 
 async function verifyPasswordAsync(password, salt, expectedHash) {
   if (!salt || !expectedHash) return false;
+  const raw = String(password);
+  if (raw.length > MAX_PASSWORD_LEN) return false;
   try {
-    const derived = await scryptAsync(String(password), String(salt), SCRYPT_KEYLEN);
+    const derived = await scryptAsync(raw, String(salt), SCRYPT_KEYLEN);
     const expected = Buffer.from(String(expectedHash), 'hex');
     if (derived.length !== expected.length) return false;
     return crypto.timingSafeEqual(derived, expected);
@@ -570,5 +578,6 @@ module.exports = {
   communityWatchPartyAccess,
   hashPassword,
   verifyPassword,
+  verifyPasswordAsync,
   serializeAccount,
 };

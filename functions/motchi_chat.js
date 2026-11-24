@@ -144,6 +144,8 @@ function endsWithDanglingColon(text) {
 async function handleProxyAI(req, res) {
   const requestStartedAt = Date.now();
   applyCors(req, res, 'POST, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   res.set('Access-Control-Expose-Headers', '*');
 
   if (req.method === 'OPTIONS') {
@@ -262,7 +264,7 @@ async function handleProxyAI(req, res) {
   try {
   if (isStreaming) {
     res.set('Content-Type', 'text/event-stream');
-    res.set('Cache-Control', 'no-cache');
+    res.set('Cache-Control', 'private, no-store, no-cache');
     res.set('Connection', 'keep-alive');
     res.set('Access-Control-Expose-Headers', '*');
     res.set('X-Content-Type-Options', 'nosniff');

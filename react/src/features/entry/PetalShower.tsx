@@ -31,16 +31,22 @@ export function PetalShower({ isVisible }: { isVisible: boolean }) {
 
   useEffect(() => {
     if (!show) return;
-    const canvas = ref.current!;
-    const ctx = canvas.getContext('2d')!;
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const shape = new Path2D(`M0 0 Q${SHAPE / 2} ${-SHAPE} ${SHAPE} 0 Q${SHAPE / 2} ${SHAPE} 0 0`);
     const color = withAlpha(AppColors.roseQuartz, 0.6);
     let frame = 0;
     let start = -1;
     const draw = (now: number) => {
+      if (document.hidden) {
+        frame = 0;
+        return;
+      }
       if (start < 0) start = now;
       const progress = ((now - start) % 4000) / 4000;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
@@ -61,8 +67,22 @@ export function PetalShower({ isVisible }: { isVisible: boolean }) {
       }
       frame = requestAnimationFrame(draw);
     };
-    frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+      } else if (!frame) {
+        frame = requestAnimationFrame(draw);
+      }
+    };
+    if (!document.hidden) frame = requestAnimationFrame(draw);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [show, petals]);
 
   if (!show) return null;

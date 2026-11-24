@@ -200,7 +200,7 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
     const el = canvas.current;
     const ctx = el?.getContext('2d');
     if (!el || !ctx) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (el.width !== Math.round(JAR_W * dpr)) {
       el.width = Math.round(JAR_W * dpr);
       el.height = Math.round(JAR_H * dpr);
@@ -236,12 +236,30 @@ export function StarlightJarWidget({ embedded = false }: { embedded?: boolean } 
     const start = performance.now() - idleT.current * 14000;
     let raf = 0;
     const tick = (now: number) => {
+      if (document.hidden) {
+        raf = 0;
+        return;
+      }
       idleT.current = ((now - start) / 14000) % 1;
       draw();
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (raf) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        }
+      } else if (!raf) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    if (!document.hidden) raf = requestAnimationFrame(tick);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [idle, draw]);
 
   const busy = useRef(false);
