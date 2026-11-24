@@ -874,7 +874,8 @@ export function CinemaEpisodeDrawer({
       className="drawer-root"
       ref={panelRef}
       tabIndex={-1}
-      style={{ position: 'fixed', inset: 0, zIndex: 1400, outline: 'none' }}
+      // The container only receives focus so the dialog can hold it; no ring on a frame.
+      style={{ position: 'fixed', inset: 0, zIndex: 1400, outline: 'none' }} // ci:outline-none
     >
       <div className="drawer-barrier" aria-hidden onClick={onClose} style={{ position: 'absolute', inset: 0 }} />
       <div className="drawer-slide" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
