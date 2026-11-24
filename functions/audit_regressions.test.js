@@ -128,3 +128,46 @@ test('book creation shares the client SHA-256 id and preserves reading flags', a
   assert.equal(db.records.size, 1);
   assert.equal(saved.clairReadAt.toISOString(), '2026-10-01T00:00:00.000Z');
 });
+
+test('Motchi social tools validate activity and note bounds', async () => {
+  const social = require('./motchi_exec_social');
+  db = fakeDb();
+  const emptyAct = JSON.parse(await social.exec_log_activity(ctx(), {}));
+  assert.equal(emptyAct.error, 'No activity provided');
+  assert.equal(db.records.size, 0);
+
+  const longNote = JSON.parse(await social.exec_send_note_to_partner(ctx(), { note: 'x'.repeat(2001) }));
+  assert.equal(longNote.error, 'Note too long (max 2000)');
+  assert.equal(db.records.size, 0);
+});
+
+test('exec_search_everglow cancels non-OK bodies and skips cacheSet on partial failure', async (t) => {
+  const insights = require('./motchi_exec_insights');
+  let cachedWrites = 0;
+  let cancelledCount = 0;
+  t.mock.method(globalThis, 'fetch', async () => ({
+    ok: false,
+    status: 503,
+    body: {
+      async cancel() {
+        cancelledCount += 1;
+      },
+    },
+  }));
+  const searchCtx = {
+    callerUid: 'khentsgdz',
+    cacheGet: () => null,
+    cacheSet: () => {
+      cachedWrites += 1;
+    },
+    cacheTTLs: { tmdb: 60_000 },
+    getTmdbKey: () => 'demo-key',
+    getSpotifyAppToken: async () => 'demo-token',
+  };
+  const out = JSON.parse(await insights.exec_search_everglow(searchCtx, { query: 'spirited away' }));
+  assert.deepEqual(out.movies, []);
+  assert.deepEqual(out.books, []);
+  assert.deepEqual(out.tracks, []);
+  assert.equal(cachedWrites, 0);
+  assert.ok(cancelledCount >= 3);
+});

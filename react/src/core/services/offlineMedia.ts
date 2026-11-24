@@ -646,7 +646,12 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
                 try {
                   const res = await fetch(src, { signal: pageController.signal });
                   lastStatus = res.status;
-                  blob = res.ok ? await res.blob() : null;
+                  if (res.ok) {
+                    blob = await res.blob();
+                  } else {
+                    await res.body?.cancel().catch(() => {});
+                    blob = null;
+                  }
                 } catch {
                   blob = null;
                 } finally {

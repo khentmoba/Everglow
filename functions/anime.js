@@ -109,7 +109,10 @@ async function fetchJson(url, timeoutMs) {
     headers: { 'User-Agent': DESKTOP_UA, Accept: 'application/json' },
     signal: AbortSignal.timeout(timeoutMs || 12000),
   });
-  if (!res.ok) throw new Error(`upstream ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel?.().catch(() => {});
+    throw new Error(`upstream ${res.status}`);
+  }
   return res.json();
 }
 
@@ -144,7 +147,10 @@ async function anilistTitles(anilistId, malId) {
     body: JSON.stringify({ query, variables: vars }),
     signal: AbortSignal.timeout(12000),
   });
-  if (!res.ok) throw new Error(`anilist ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel?.().catch(() => {});
+    throw new Error(`anilist ${res.status}`);
+  }
   const body = await res.json();
   const media = body && body.data && body.data.Media;
   if (!media) throw new Error('anilist: no match');

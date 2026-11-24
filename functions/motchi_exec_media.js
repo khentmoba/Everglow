@@ -22,7 +22,10 @@ async function exec_add_to_watchlist(ctx, args) {
           `https://api.themoviedb.org/3/${detailType}/${providedId}?api_key=${ctx.getTmdbKey()}`,
           { signal: AbortSignal.timeout(10000) },
         );
-        if (!detailRes.ok) return JSON.stringify({ error: `TMDB ID ${providedId} not found for ${detailType}` });
+        if (!detailRes.ok) {
+          await detailRes.body?.cancel?.().catch(() => {});
+          return JSON.stringify({ error: `TMDB ID ${providedId} not found for ${detailType}` });
+        }
         detail = await detailRes.json();
         ctx.cacheSet(detailKey, detail);
       }
@@ -51,7 +54,10 @@ async function exec_add_to_watchlist(ctx, args) {
         `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(queryRaw)}&api_key=${ctx.getTmdbKey()}`,
         { signal: AbortSignal.timeout(10000) },
       );
-      if (!tmdbRes.ok) return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
+      if (!tmdbRes.ok) {
+        await tmdbRes.body?.cancel?.().catch(() => {});
+        return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
+      }
       tmdbData = await tmdbRes.json();
       ctx.cacheSet(tmdbCacheKey, tmdbData);
     }
@@ -107,7 +113,10 @@ async function exec_search_movies(ctx, args) {
         `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(queryRaw)}&api_key=${ctx.getTmdbKey()}`,
         { signal: AbortSignal.timeout(10000) },
       );
-      if (!tmdbRes.ok) return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
+      if (!tmdbRes.ok) {
+        await tmdbRes.body?.cancel?.().catch(() => {});
+        return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
+      }
       tmdbData = await tmdbRes.json();
       ctx.cacheSet(cacheKey, tmdbData);
     }
