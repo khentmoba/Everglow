@@ -754,6 +754,7 @@ export function NetflixRow({
   reason,
   items,
   ranked = false,
+  rankOf,
   onTapItem,
   onPlayItem,
   onRestartItem,
@@ -769,6 +770,8 @@ export function NetflixRow({
   reason?: string;
   items: MediaItem[];
   ranked?: boolean;
+  /** The title's real place in the Top 10, not its index in this filtered row. */
+  rankOf?: (item: MediaItem) => number | null;
   onTapItem: (item: MediaItem) => void;
   onPlayItem?: (item: MediaItem) => void;
   onRestartItem?: (item: MediaItem) => void;
@@ -853,7 +856,7 @@ export function NetflixRow({
             <div key={`${item.mediaType}:${item.tmdbId}:${idx}`} style={{ flexShrink: 0, position: 'relative' }}>
               <NetflixPosterCard
                 item={item}
-                rank={ranked ? idx + 1 : undefined}
+                rank={ranked ? (rankOf?.(item) ?? idx + 1) : undefined}
                 isDesktop={isDesktop}
                 height={rowHeight}
                 progress={progress?.(item) ?? null}

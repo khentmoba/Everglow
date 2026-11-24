@@ -715,7 +715,7 @@ export function CinemaEpisodeDrawer({
       )}
       <ExtraTabs selected={extraTab} onSelect={selectExtraTab} isAnimeSourced={isAnimeSourced} />
       {extraTab === 1 ? (
-        <Reviews reviews={reviews} loading={loadingReviews} />
+        <Reviews reviews={reviews} loading={loadingReviews} onSeeSimilar={() => selectExtraTab(2)} />
       ) : extraTab === 2 ? (
         <SimilarGrid similar={similar} loading={loadingSimilar} onTap={onShowItem} />
       ) : (
@@ -949,7 +949,8 @@ function Hero({
   const [imgState, setImgState] = useState<'loading' | 'ok' | 'error'>('loading');
   // A short laptop screen must still reach the tabs below the hero.
   const viewportH = typeof window !== 'undefined' ? window.innerHeight : 900;
-  const height = isMobile ? 280 : Math.max(320, Math.min(420, Math.round(viewportH * 0.44)));
+  // Short enough that the tab strip and the first row of cards fit above the fold.
+  const height = isMobile ? 280 : Math.max(260, Math.min(320, Math.round(viewportH * 0.34)));
   const placeholder = (loading: boolean) => (
     <div
       style={{
@@ -1080,10 +1081,11 @@ function Hero({
         <div
           className="clamp-2"
           style={{
-            ...AppTypography.outfitBold,
-            fontSize: isMobile ? 26 : 38,
-            lineHeight: lineHeight(isMobile ? 26 : 38, 1.1),
-            color: WHITE,
+            // The serif is the identity: the same film is serif on the hero and
+            // in the player, so it cannot turn into sans here.
+            ...AppTypography.cormorantBlackWhite,
+            fontSize: isMobile ? 30 : 44,
+            lineHeight: lineHeight(isMobile ? 30 : 44, 1.1),
             textShadow: `0 2px ${(2 * (16 * 0.57735 + 0.5)).toFixed(2)}px ${withAlpha('#000000', 0.8)}`,
           }}
         >
@@ -1778,7 +1780,16 @@ function PhotoOrInitial({ url, label, size, background }: { url: string; label: 
   );
 }
 
-function Reviews({ reviews, loading }: { reviews: CinemaReview[]; loading: boolean }) {
+function Reviews({
+  reviews,
+  loading,
+  onSeeSimilar,
+}: {
+  reviews: CinemaReview[];
+  loading: boolean;
+  /** The empty state points at More Like This; give it something to tap. */
+  onSeeSimilar?: () => void;
+}) {
   if (loading)
     return (
       <div style={{ padding: '4px 20px' }} aria-busy="true">
@@ -1803,7 +1814,33 @@ function Reviews({ reviews, loading }: { reviews: CinemaReview[]; loading: boole
     );
   // Say why it is empty and where to go next, not just that it is.
   if (!reviews.length)
-    return <EmptyLine text="No reviews yet" hint="Reviews come from TMDB, and nobody has rated this one. More Like This is a good next step." />;
+    return (
+      <div>
+        <EmptyLine text="No reviews yet" hint="Reviews come from TMDB, and nobody has rated this one." />
+        {onSeeSimilar && (
+          <div style={{ padding: '4px 20px 8px' }}>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={onSeeSimilar}
+              style={{
+                minHeight: 44,
+                padding: '0 16px',
+                borderRadius: 8,
+                ...AppTypography.outfitHeading,
+                fontSize: 13,
+                lineHeight: lineHeight(13),
+                color: NetflixColors.textPrimary,
+                border: `1px solid ${NetflixColors.hairline}`,
+                background: NetflixColors.surfaceElevated,
+              }}
+            >
+              See More Like This
+            </button>
+          </div>
+        )}
+      </div>
+    );
   return (
     <div style={{ padding: '0 20px' }}>
       {reviews.map((r, i) => {

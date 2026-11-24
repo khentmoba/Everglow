@@ -189,6 +189,15 @@ export function CinemaPage() {
     else void loadHome();
   }, [currentTab, loadHome]);
 
+  // Each tab keeps its own place; returning to Home lands where you left it.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const tabScroll = useRef<Record<number, number>>({});
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = tabScroll.current[currentTab] ?? 0;
+  }, [currentTab, selectedBrowseId]);
+
   const tabHistory = useRef<number[]>([]);
   const handleNavSelect = useCallback(
     (tab: number, browseOptionId?: string) => {
@@ -392,8 +401,12 @@ export function CinemaPage() {
       )}
 
       <div
+        ref={scrollRef}
         className="no-scrollbar"
-        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 60)}
+        onScroll={(e) => {
+          setScrolled(e.currentTarget.scrollTop > 60);
+          tabScroll.current[currentTab] = e.currentTarget.scrollTop;
+        }}
         style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
       >
         {currentTab === 0 && (
@@ -654,7 +667,12 @@ function HomeTab({
         />
       )}
       {savedList.length > 0 && (
-        <NetflixRow title="My List" reason="The titles you saved" items={savedList.slice(0, 10)} {...rowProps} />
+        <NetflixRow
+          title="Saved for later"
+          reason="Not started yet — the rest of your list lives in My List"
+          items={savedList.slice(0, 10)}
+          {...rowProps}
+        />
       )}
 
       {emptyCatalogue && (
@@ -690,8 +708,9 @@ function HomeTab({
       <NetflixRow
         title={`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`}
         reason="Today's most-watched"
-        items={seenRow(topTenToday).slice(0, 10)}
+        items={topTenToday.slice(0, 10)}
         ranked
+        rankOf={rankOf}
         {...rowProps}
       />
       <NetflixRow title="Coming Soon" reason="New on Everglow Cinema" items={seenRow(newlyReleased)} {...rowProps} />

@@ -16,6 +16,7 @@ import { AlertDialog, showDialog, TextButton } from '../../shared/widgets/Dialog
 import { ElevatedButton } from '../../shared/widgets/ElevatedButton';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
+import { showSnackBar } from '../../shared/widgets/SnackBar';
 import { cinemaTopInset } from './CinemaLibraryTab';
 import { NetflixColors } from './cinemaTypes';
 
@@ -51,7 +52,11 @@ export function CinemaDownloadsTab({ width, onBrowseCinema }: { width: number; o
         : `/cinema/video/${item.mediaId}?type=movie&title=${title}`,
     );
   };
-  const remove = (item: OfflineMediaItem) => void offlineMedia.deleteDownload(item.id);
+  const remove = (item: OfflineMediaItem) => {
+    void offlineMedia.deleteDownload(item.id);
+    // The bytes are gone; say what that means instead of offering a dead Undo.
+    showSnackBar(`Removed ${item.title} from this device · stream it any time`);
+  };
 
   const shows = new Map<string, OfflineMediaItem[]>();
   const movies: OfflineMediaItem[] = [];
@@ -115,7 +120,7 @@ function Header({ count }: { count: number }) {
         title={<div style={text(17, NetflixColors.textPrimary, 700)}>Clear Cinema Downloads</div>}
         content={
           <div style={text(14, NetflixColors.textSecondary)}>
-            Are you sure you want to remove all offline movies and TV episodes from this device?
+            This removes every offline movie and episode from this device. You can stream them any time, and download again for offline.
           </div>
         }
         actions={[
