@@ -482,6 +482,19 @@ export function MobileEpisodesSection(p: EpisodesProps) {
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
   const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
   const progress = useSeriesProgress(p.animeId);
+  const activeRowRef = useRef<HTMLDivElement>(null);
+  const scrolledTo = useRef(0);
+
+  // Land on the episode she is watching. The phone player is sticky, so the
+  // video stays put while the list moves under it.
+  useEffect(() => {
+    if (scrolledTo.current === p.selectedEpisode || p.selectedEpisode <= 1) return;
+    const timer = window.setTimeout(() => {
+      scrolledTo.current = p.selectedEpisode;
+      activeRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [p.selectedEpisode]);
 
   return (
     <div>
@@ -522,9 +535,12 @@ export function MobileEpisodesSection(p: EpisodesProps) {
             active={hideSpoilers}
             label={hideSpoilers ? 'Spoilers hidden, show episode titles' : 'Hide episode titles'}
             onTap={() => AnimexStores.setHideSpoilers(!hideSpoilers)}
-            style={{ width: 44, height: 44, justifyContent: 'center' }}
+            style={{ height: 44, padding: '0 12px', justifyContent: 'center', gap: 6 }}
           >
-            <Icon name={hideSpoilers ? 'visibility_off' : 'visibility'} size={17} color={hideSpoilers ? T.accentText : T.textSecondary} />
+            <Icon name={hideSpoilers ? 'visibility_off' : 'visibility'} size={16} color={hideSpoilers ? T.accentText : T.textSecondary} />
+            <span style={dmSansStyle({ size: 11.5, color: hideSpoilers ? T.accentText : T.textSecondary, weight: 600 })}>
+              Spoilers
+            </span>
           </Pill>
         </div>
       </div>
@@ -639,6 +655,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
           {displayList.map((ep) => {
             const active = ep.number === p.selectedEpisode;
             return (
+              <div key={`row-${ep.number}`} ref={active ? activeRowRef : undefined}>
               <MobileEpisodeRow
                 key={ep.number}
                 episode={ep}
@@ -658,6 +675,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
                 onTap={() => p.onSelectEpisode(ep.number)}
                 onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}
               />
+              </div>
             );
           })}
         </div>

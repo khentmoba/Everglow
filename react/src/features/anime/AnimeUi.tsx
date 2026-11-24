@@ -992,47 +992,48 @@ export function AnimeXSpotlight({
           )}
           <div style={{ height: 18 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-            <AnimeXWatchNowButton
-              label={resumeLabelFor(active)}
-              onClick={() => {
-                pauseTrailer();
-                onWatch(active);
-              }}
-            />
-            {resumeLabelFor(active) === 'Watch Now' && latestResume && (
-              <button
-                type="button"
-                className="bare-button"
-                onClick={() => {
-                  pauseTrailer();
-                  latestResume.onTap();
-                }}
-                style={{
-                  minHeight: 40,
-                  boxSizing: 'border-box',
-                  padding: '0 14px',
-                  borderRadius: 999,
-                  border: `1px solid ${withAlpha(AnimeXTokens.accent, 0.55)}`,
-                  background: withAlpha(AnimeXTokens.accent, 0.18),
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  maxWidth: '100%',
-                }}
-                title={`Continue ${latestResume.title}`}
-              >
-                <Icon name="history" size={15} color={AnimeXTokens.accentText} />
-                <div style={{ width: 7 }} />
-                <span
+            {resumeLabelFor(active) === 'Watch Now' && latestResume ? (
+              <>
+                {/* She opened this to keep watching: the resume action is the
+                    loud one, the featured title's play drops to an outline. */}
+                <AnimeXWatchNowButton
+                  label={`Continue ${latestResume.title} · Ep ${latestResume.episode}`}
+                  onClick={() => {
+                    pauseTrailer();
+                    latestResume.onTap();
+                  }}
+                />
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={() => {
+                    pauseTrailer();
+                    onWatch(active);
+                  }}
                   style={{
-                    ...dmSansStyle({ size: 12.5, color: AnimeXTokens.accentText, weight: 700 }),
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    minHeight: 40,
+                    boxSizing: 'border-box',
+                    padding: '0 18px',
+                    borderRadius: 999,
+                    border: `1px solid ${withAlpha('#FFFFFF', 0.45)}`,
+                    background: withAlpha('#FFFFFF', 0.06),
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
                   }}
                 >
-                  Continue {latestResume.title} · Ep {latestResume.episode}
-                </span>
-              </button>
+                  <Icon name="play_arrow" size={16} color="#FFFFFF" />
+                  <span style={dmSansStyle({ size: 13.5, color: '#FFFFFF', weight: 700 })}>Watch Now</span>
+                </button>
+              </>
+            ) : (
+              <AnimeXWatchNowButton
+                label={resumeLabelFor(active)}
+                onClick={() => {
+                  pauseTrailer();
+                  onWatch(active);
+                }}
+              />
             )}
             <AnimeXSecondaryButton
               label="More Info"
@@ -1085,10 +1086,10 @@ export function AnimeXSpotlight({
               >
                 <div
                   style={{
-                    width: on ? 28 : 8,
-                    height: 4,
-                    borderRadius: 2,
-                    background: on ? AnimeXTokens.textPrimary : AnimeXTokens.textSecondary,
+                    width: on ? 34 : 10,
+                    height: 5,
+                    borderRadius: 3,
+                    background: on ? AnimeXTokens.textPrimary : withAlpha('#FFFFFF', 0.45),
                     transition: 'width 160ms, background-color 160ms',
                   }}
                 />
@@ -1315,6 +1316,8 @@ export function AnimeXTicker({
         if (!still) controller.repeat();
       }}
       style={{
+        maskImage: 'linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 40px), transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 40px), transparent 100%)',
         height: 40,
         boxSizing: 'border-box',
         display: 'flex',

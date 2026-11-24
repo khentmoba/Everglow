@@ -12,7 +12,6 @@ import { fetchAniZipMappings } from '../../shared/utils/catalogProxy';
 import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { showModalBottomSheet } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
-import { Tooltip } from '../../shared/widgets/Tooltip';
 import type { MediaItem } from '../cinema/cinemaTypes';
 import { TmdbImages } from '../cinema/cinemaTypes';
 import { PlayerMemoryService } from '../cinema/playerServices';
@@ -906,22 +905,6 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     />
   );
 
-  // A centered box capped at maxHeight that keeps 16:9 (ConstrainedBox around AspectRatio).
-  const playerBox = (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <div
-        style={{
-          width: '100%',
-          // A phone is a theatre: the video runs edge to edge (no 24px gutters).
-          maxWidth: phone ? undefined : (st.lastWindowedMaxPlayerHeight * 16) / 9,
-        }}
-      >
-        {player}
-      </div>
-    </div>
-  );
-
-  const ep = activeEpisode();
   // A source that never starts must not be a silent dead end: after 9s with no
   // playback, say so and offer the two ways out. The clock is measured against
   // a mount time, so re-renders and server switches cannot reset it.
@@ -950,6 +933,67 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   useEffect(() => {
     if (playingNow) setSlowStart(false);
   }, [playingNow]);
+  // A centered box capped at maxHeight that keeps 16:9 (ConstrainedBox around AspectRatio).
+  const playerBox = (
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div
+        style={{
+          width: '100%',
+          position: 'relative',
+          // A phone is a theatre: the video runs edge to edge (no 24px gutters).
+          maxWidth: phone ? undefined : (st.lastWindowedMaxPlayerHeight * 16) / 9,
+        }}
+      >
+        {player}
+        {slowStart && !st.showErrorCard && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              padding: '0 20px',
+              boxSizing: 'border-box',
+              background: 'rgba(6,6,10,0.84)',
+              textAlign: 'center',
+            }}
+          >
+            <Icon name="warning_amber" size={26} color={T.accentText} />
+            <div style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 700 })}>This episode hasn't started</div>
+            <div style={{ ...dmSansStyle({ size: 12, color: T.textSecondary, height: 1.4 }), maxWidth: 320 }}>
+              {currentServer()?.name ?? 'This server'} isn't answering. Try the next server.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 }}>
+              <AnimeXPrimaryButton label="Try next server" icon="swap_horiz" onClick={handleContentError} />
+              <button
+                type="button"
+                className="bare-button"
+                onClick={() => void handleRetry()}
+                style={{
+                  minHeight: 40,
+                  padding: '0 14px',
+                  borderRadius: 999,
+                  border: `1px solid ${T.borderStrong}`,
+                  background: white(0.08),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Icon name="refresh" size={15} color={T.textPrimary} />
+                <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Retry</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const ep = activeEpisode();
 
   const failedNote = (() => {
     if (st.showErrorCard || slowStart || !st.failedServerIndices.size) return '';
@@ -1074,26 +1118,6 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
           <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
         </div>
-        <button
-          type="button"
-          className="bare-button"
-          onClick={handleContentError}
-          style={{
-            marginTop: 6,
-            minHeight: 40,
-            padding: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'transparent',
-            border: 'none',
-          }}
-        >
-          <Icon name="refresh" size={14} color={T.accentText} />
-          <span style={{ ...dmSansStyle({ size: 12, color: T.accentText, weight: 600 }), textDecoration: 'underline' }}>
-            Not playing? Switch server
-          </span>
-        </button>
         {failedNote && (
           <>
             <div style={{ height: 8 }} />
@@ -1123,99 +1147,34 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           </div>
         </>
       )}
-      {slowStart && !st.showErrorCard && (
-        <>
-          <div style={{ height: 10 }} />
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: 10,
-              padding: isCompactPage ? '10px 12px' : '6px 10px',
-              borderRadius: T.radiusMd,
-              background: white(0.04),
-              border: `1px solid ${T.border}`,
-            }}
-          >
-            <span style={{ ...dmSansStyle({ size: 12, color: T.textSecondary, height: 1.4 }), flex: '1 1 160px', minWidth: 0 }}>
-              {isCompactPage
-                ? "This source hasn't started. Give it another go, or pick another server."
-                : "This source hasn't started."}
-            </span>
-            <button
-              type="button"
-              className="bare-button"
-              onClick={() => void handleRetry()}
-              style={{
-                minHeight: 40,
-                padding: '0 14px',
-                borderRadius: 999,
-                border: `1px solid ${T.borderStrong}`,
-                background: white(0.06),
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="refresh" size={15} color={T.textPrimary} />
-              <div style={{ width: 6 }} />
-              <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Retry</span>
-            </button>
-            <button
-              type="button"
-              className="bare-button"
-              onClick={handleContentError}
-              style={{
-                minHeight: 40,
-                padding: '0 14px',
-                borderRadius: 999,
-                border: `1px solid ${withAlpha(T.accent, 0.45)}`,
-                background: withAlpha(T.accent, 0.16),
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <Icon name="swap_horiz" size={15} color={T.accentText} />
-              <div style={{ width: 6 }} />
-              <span style={dmSansStyle({ size: 12, color: T.accentText, weight: 700 })}>Next server</span>
-            </button>
-          </div>
-        </>
-      )}
       <div style={{ height: isCompactPage ? 8 : 10 }} />
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-        {st.servers.map((srv, i) =>
-          !srv.available ? null : (
-            <ServerChip
-              key={srv.name}
-              server={srv}
-              selected={st.serverIndex === i}
-              failed={st.failedServerIndices.has(i)}
-              onTap={() => selectServer(i)}
-            />
-          ),
+        <button
+          type="button"
+          className="bare-button"
+          onClick={showServerSheet}
+          style={{
+            minHeight: 44,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            padding: '0 14px',
+            boxSizing: 'border-box',
+            borderRadius: T.radiusPill,
+            background: white(0.05),
+            border: `1px solid ${T.border}`,
+          }}
+        >
+          <Icon name="dns" size={15} color={T.accentText} />
+          <span style={dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 700 })}>
+            Server · {currentServer()?.name ?? 'none'}
+          </span>
+          <Icon name="keyboard_arrow_down" size={15} color={T.textSecondary} />
+        </button>
+        {[...st.failedServerIndices].some((i) => i === st.serverIndex) && (
+          <span style={dmSansStyle({ size: 11.5, color: T.textMuted })}>last source didn't load</span>
         )}
       </div>
-      <button
-        type="button"
-        className="bare-button"
-        onClick={handleContentError}
-        style={{
-          marginTop: 6,
-          minHeight: 40,
-          padding: 0,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          background: 'transparent',
-          border: 'none',
-        }}
-      >
-        <Icon name="refresh" size={14} color={T.accentText} />
-        <span style={{ ...dmSansStyle({ size: 12, color: T.accentText, weight: 600 }), textDecoration: 'underline' }}>
-          Not playing? Switch server
-        </span>
-      </button>
       {failedNote && (
         <>
           <div style={{ height: 10 }} />
@@ -1592,59 +1551,6 @@ function TopBar({
   );
 }
 
-function ServerChip({
-  server,
-  selected,
-  failed,
-  onTap,
-}: {
-  server: AnimeServerOption;
-  selected: boolean;
-  failed: boolean;
-  onTap: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="bare-button"
-      onClick={onTap}
-      style={{
-        padding: '7px 14px',
-        background: selected ? withAlpha(T.accent, 0.18) : white(0.05),
-        borderRadius: T.radiusSm,
-        border: `1px solid ${selected ? withAlpha(T.accent, 0.45) : T.border}`,
-        display: 'flex',
-        alignItems: 'center',
-      }}
-    >
-      <span
-        style={dmSansStyle({
-          size: 12,
-          color: failed ? withAlpha(T.textSecondary, 0.5) : selected ? T.accentWarm : T.textSecondary,
-          weight: 600,
-        })}
-      >
-        {server.name}
-      </span>
-      {server.tag && (
-        <>
-          <div style={{ width: 6 }} />
-          <div style={{ padding: '1px 5px', background: white(0.06), borderRadius: 4, display: 'flex' }}>
-            <span style={dmSansStyle({ size: 9, color: T.textSecondary, weight: 600, letterSpacing: 0.03 })}>{server.tag}</span>
-          </div>
-        </>
-      )}
-      {failed && (
-        <>
-          <div style={{ width: 6 }} />
-          <Tooltip message="Didn't load for this episode">
-            <Icon name="error_outline" size={14} color={T.textSecondary} />
-          </Tooltip>
-        </>
-      )}
-    </button>
-  );
-}
 
 function PrefToggle({ label, value, onChanged }: { label: string; value: boolean; onChanged: (v: boolean) => void }) {
   return (

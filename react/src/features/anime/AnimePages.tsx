@@ -524,7 +524,20 @@ export function AnimeXBrowsePage({
         Explore anime
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 16 }}>
+      <div
+        className="no-scrollbar"
+        style={{
+          display: 'flex',
+          flexWrap: 'nowrap',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 16,
+          overflowX: 'auto',
+          paddingBottom: 2,
+          maskImage: 'linear-gradient(to right, #000 92%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to right, #000 92%, transparent 100%)',
+        }}
+      >
         <BrowseSelect
           value={sort}
           options={SORT_OPTIONS}
@@ -1058,6 +1071,7 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
             if (!val.trim()) runSearch('', mode);
           }}
           placeholder="Search anime..."
+          className="animex-search-input"
           style={{
             flex: 1,
             background: 'transparent',
@@ -1428,7 +1442,9 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
             className="bare-button"
             onClick={onTap}
             style={{
-              padding: '8px 14px',
+              minHeight: 44,
+              boxSizing: 'border-box',
+              padding: '0 14px',
               background: 'rgba(255,255,255,0.05)',
               borderRadius: AnimeXTokens.radiusMd,
               border: `1px solid ${AnimeXTokens.border}`,
