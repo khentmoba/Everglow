@@ -12,7 +12,7 @@ export type HlsConstructor = {
 };
 
 const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
-const HLS_LOAD_TIMEOUT_MS = 10_000;
+const HLS_LOAD_TIMEOUT_MS = 12_000;
 
 let hlsLoadPromise: Promise<HlsConstructor | null> | null = null;
 
