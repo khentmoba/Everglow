@@ -152,7 +152,7 @@ function ContinueWatchingCard({ entry, onClick, width }: { entry: AnimexHistoryE
           {entry.title}
         </div>
         <div style={{ height: 6 }} />
-        <div className="ellipsis" style={{ ...dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 600 }), maxWidth: '100%' }}>
+        <div className="ellipsis" style={{ ...dmSansStyle({ size: 12, color: '#FFFFFF', weight: 600 }), maxWidth: '100%' }}>
           {resumeLabel}
         </div>
         {entry.progress != null && (
@@ -878,12 +878,37 @@ export function AnimeXSchedulePage({ nav }: { nav: AnimeNavActions }) {
           Loading schedule…
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: '24px 0', ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }) }}>
-          {onlyMyList
-            ? nav.library.length === 0
-              ? 'Add anime to My List to see their broadcast dates here.'
-              : 'No airings from your list in this day’s schedule.'
-            : 'No scheduled episodes found.'}
+        <div
+          style={{
+            padding: '26px 20px',
+            borderRadius: AnimeXTokens.radiusLg,
+            border: `1px dashed ${AnimeXTokens.border}`,
+            background: 'rgba(255,255,255,0.02)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <Icon name="event_busy" size={26} color={AnimeXTokens.textMuted} />
+          <div style={{ height: 10 }} />
+          <div style={dmSansStyle({ size: 13.5, color: AnimeXTokens.textPrimary, weight: 700 })}>
+            {onlyMyList && nav.library.length === 0 ? 'Your list is empty' : 'Nothing airs on this day'}
+          </div>
+          <div style={{ height: 4 }} />
+          <div style={dmSansStyle({ size: 12.5, color: AnimeXTokens.textSecondary })}>
+            {onlyMyList && nav.library.length === 0
+              ? 'Add a title from Browse and its broadcast day shows up here.'
+              : onlyMyList
+                ? 'Try another day above, or switch to All anime.'
+                : 'Try another day above.'}
+          </div>
+          {onlyMyList && nav.library.length === 0 && (
+            <>
+              <div style={{ height: 14 }} />
+              <AnimeXPrimaryButton label="Browse anime" icon="explore" onClick={() => nav.onNavigate('browse')} />
+            </>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1046,7 +1071,7 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
         {([
           ['all', 'All'],
           ['trending', 'Trending'],
-          ['airing', 'Top Airing'],
+          ['airing', 'Airing'],
           ['movies', 'Movies'],
           ['new', 'New'],
         ] as const).map(([key, lbl]) => {
@@ -1063,20 +1088,51 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
               }}
               style={{
                 flexShrink: 0,
-                padding: '7px 14px',
+                padding: '6px 11px',
                 borderRadius: 999,
                 whiteSpace: 'nowrap',
                 background: active ? 'rgba(194,24,91,0.16)' : 'rgba(255,255,255,0.05)',
                 border: `1px solid ${active ? 'rgba(194,24,91,0.4)' : AnimeXTokens.border}`,
               }}
             >
-              <span style={dmSansStyle({ size: 12.5, color: active ? AnimeXTokens.accentText : AnimeXTokens.textSecondary, weight: 600 })}>
+              <span style={dmSansStyle({ size: 12, color: active ? AnimeXTokens.accentText : AnimeXTokens.textSecondary, weight: 600 })}>
                 {lbl}
               </span>
             </button>
           );
         })}
       </div>
+
+      {!queryText.trim() && (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ ...dmSansStyle({ size: 11, color: AnimeXTokens.textMuted, weight: 800, letterSpacing: 0.08 }), marginBottom: 8 }}>
+            BROWSE BY GENRE
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+            {(['Action', 'Romance', 'Comedy', 'Fantasy'] as const).map((genre) => (
+              <button
+                key={genre}
+                type="button"
+                className="bare-button"
+                onClick={() => nav.onPresetBrowse({ genre })}
+                style={{
+                  flexShrink: 0,
+                  minHeight: 36,
+                  padding: '0 12px',
+                  borderRadius: 999,
+                  whiteSpace: 'nowrap',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${AnimeXTokens.border}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={dmSansStyle({ size: 12.5, color: AnimeXTokens.textPrimary, weight: 600 })}>{genre}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!queryText.trim() && nav.history.length > 0 && !loading && (
         <div style={{ marginBottom: 26 }}>

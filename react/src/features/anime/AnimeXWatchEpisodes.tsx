@@ -34,6 +34,17 @@ function useHideSpoilers() {
   return AnimexStores.hideSpoilers;
 }
 
+/** The furthest episode history knows about, plus where she stopped inside it. */
+function useSeriesProgress(animeId: number) {
+  useAnimexStores();
+  const entry = AnimexStores.history.find((e) => e.anilistId === animeId || e.malId === animeId);
+  const item = entry?.savedItem;
+  const watchedThrough = item?.currentEpisode ?? entry?.episode ?? 0;
+  const resumeAt = item ? (item.currentTimestamp ?? 0) : 0;
+  const totalSeconds = (item?.durationSeconds ?? 0) > 0 ? item!.durationSeconds! : 0;
+  return { watchedThrough, resumeAt, totalSeconds };
+}
+
 function smoothScroll(el: HTMLElement, axis: 'left' | 'top', target: number) {
   const max = axis === 'left' ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
   el.scrollTo({ [axis]: Math.min(Math.max(target, 0), Math.max(max, 0)), behavior: 'smooth' });
@@ -314,6 +325,8 @@ interface CardProps {
   animeId: number;
   isPlaying: boolean;
   hideSpoilers: boolean;
+  watched?: boolean;
+  resumeFraction?: number;
   onTap: () => void;
   onInfoTap: () => void;
 }
@@ -347,10 +360,32 @@ function infoTapFor(p: EpisodesProps, hideSpoilers: boolean, ep: AniListEpisode,
   };
 }
 
-function Pill({ active, onTap, children, style }: { active?: boolean; onTap: () => void; children: ReactNode; style?: CSSProperties }) {
+function Pill({
+  active,
+  label,
+  onTap,
+  children,
+  style,
+}: {
+  active?: boolean;
+  label?: string;
+  onTap: () => void;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      aria-pressed={active}
       onClick={onTap}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onTap();
+        }
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -406,7 +441,7 @@ function MobileEpisodeRow(p: CardProps) {
           style={{
             position: 'absolute',
             left: 4,
-            bottom: 4,
+            bottom: p.resumeFraction != null ? 9 : 4,
             padding: '1px 5px',
             borderRadius: 4,
             background: 'rgba(0,0,0,0.75)',
@@ -415,6 +450,28 @@ function MobileEpisodeRow(p: CardProps) {
         >
           E{p.episode.number}
         </div>
+        {p.resumeFraction != null && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 4,
+              right: 4,
+              bottom: 4,
+              height: 3,
+              borderRadius: 2,
+              background: white(0.22),
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.round(Math.min(Math.max(p.resumeFraction, 0.02), 1) * 100)}%`,
+                height: '100%',
+                background: T.accent,
+              }}
+            />
+          </div>
+        )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
@@ -426,9 +483,15 @@ function MobileEpisodeRow(p: CardProps) {
           {title}
         </div>
         <div style={{ height: 2 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {p.isPlaying && <span style={dmSansStyle({ size: 11, color: T.accentText, weight: 700 })}>Watching now</span>}
-          {!p.isPlaying && ep.duration != null && ep.duration > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {p.isPlaying && <span style={dmSansStyle({ size: 11, color: T.textPrimary, weight: 700 })}>Playing</span>}
+          {!p.isPlaying && p.watched && (
+            <>
+              <Icon name="check_circle" size={12} color={T.textSecondary} />
+              <span style={dmSansStyle({ size: 11.5, color: T.textSecondary })}>Watched</span>
+            </>
+          )}
+          {!p.isPlaying && !p.watched && ep.duration != null && ep.duration > 0 && (
             <span style={dmSansStyle({ size: 11.5, color: T.textSecondary })}>{ep.duration} min</span>
           )}
         </div>
@@ -459,6 +522,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
 
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
   const upNext = p.episodes.find((e) => e.number === p.selectedEpisode + 1);
+  const progress = useSeriesProgress(p.animeId);
 
   return (
     <div>
@@ -497,6 +561,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
           </Pill>
           <Pill
             active={hideSpoilers}
+            label={hideSpoilers ? 'Spoilers hidden, show episode titles' : 'Hide episode titles'}
             onTap={() => AnimexStores.setHideSpoilers(!hideSpoilers)}
             style={{ width: 40, height: 40, justifyContent: 'center' }}
           >
@@ -557,27 +622,51 @@ export function MobileEpisodesSection(p: EpisodesProps) {
             onClick={() => p.onSelectEpisode(upNext.number)}
             style={{
               width: '100%',
-              minHeight: 56,
+              minHeight: 62,
               display: 'flex',
               alignItems: 'center',
               gap: 10,
-              padding: '0 12px',
+              padding: 8,
+              boxSizing: 'border-box',
               borderRadius: T.radiusLg,
               background: white(0.05),
               border: `1px solid ${T.border}`,
               textAlign: 'left',
             }}
           >
-            <Icon name="skip_next" size={18} color={T.accentText} />
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <EpisodeThumbnail
+                episode={upNext}
+                fallbackPoster={p.fallbackPoster}
+                isPlaying={false}
+                width={76}
+                height={43}
+                compact
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'rgba(0,0,0,0.28)',
+                  borderRadius: 6,
+                }}
+              >
+                <Icon name="play_arrow" size={20} color="#FFFFFF" />
+              </div>
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 800, letterSpacing: 0.08 })}>UP NEXT</div>
+              <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 800, letterSpacing: 0.08 })}>
+                UP NEXT
+              </div>
               <div style={{ height: 2 }} />
-              <div style={{ ...dmSansStyle({ size: 13, color: T.textPrimary, weight: 600 }), ...ellipsis(1) }}>
+              <div style={{ ...dmSansStyle({ size: 12.5, color: T.textPrimary, weight: 600 }), ...ellipsis(1) }}>
                 Episode {upNext.number}
                 {hideSpoilers || !upNext.title ? '' : ` · ${upNext.title}`}
               </div>
             </div>
-            <span style={dmSansStyle({ size: 12, color: T.accentText, weight: 700 })}>Play</span>
+            <Icon name="chevron_right" size={18} color={T.textSecondary} />
           </button>
         </div>
       )}
@@ -598,6 +687,14 @@ export function MobileEpisodesSection(p: EpisodesProps) {
                 animeTitle={p.animeTitle}
                 animeId={p.animeId}
                 isPlaying={active}
+                watched={!active && ep.number < progress.watchedThrough}
+                resumeFraction={
+                  !active && ep.number === progress.watchedThrough && progress.resumeAt > 0
+                    ? progress.totalSeconds > 0
+                      ? progress.resumeAt / progress.totalSeconds
+                      : undefined
+                    : undefined
+                }
                 hideSpoilers={hideSpoilers && ep.number >= p.selectedEpisode}
                 onTap={() => p.onSelectEpisode(ep.number)}
                 onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}

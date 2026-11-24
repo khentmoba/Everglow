@@ -32,7 +32,7 @@ import { AnimexStores, useAnimexStores } from './animexStores';
 import { AnimeXTokens } from './animeTokens';
 import { AnimeXMobileBottomNav, AnimeXTopHeader } from './AnimeUi';
 import { showAnimexTrailer } from './AnimeXPlayerFrame';
-import { AnimeXMotchiFloatingTrigger, AnimeXMotchiSidebar } from './AnimeXMotchi';
+import { AnimeXMotchiSidebar } from './AnimeXMotchi';
 import { AnimeXWatchPage } from './AnimeXWatchPage';
 import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import type { AIMessage } from '../ai/motchiDomain';
@@ -317,11 +317,6 @@ export function AnimePage() {
                 <AnimeXDmcaPage onBack={() => setDmcaOpen(false)} />
               </div>
             )}
-          </div>
-        )}
-        {isCoupleUser && watchItem && !motchiOpen && (
-          <div style={{ position: 'absolute', bottom: 20, right: 18 }}>
-            <AnimeXMotchiFloatingTrigger onTap={() => setMotchiOpen(true)} />
           </div>
         )}
         {isCoupleUser && watchItem && (

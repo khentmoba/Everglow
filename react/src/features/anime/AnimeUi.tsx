@@ -692,7 +692,7 @@ export function AnimeXSpotlight({
   // A phone hero has to leave room for Continue Watching below it: the card is
   // the reason she opened the app. 500px was tall enough to hide it entirely.
   const heroHeight = phone
-    ? Math.min(500, Math.max(390, height * 0.5))
+    ? Math.min(470, Math.max(360, height * 0.46))
     : Math.min(620, Math.max(420, height * 0.48));
 
   const [index, setIndex] = useState(0);

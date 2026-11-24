@@ -448,6 +448,17 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     void probeCurrentServer();
   };
 
+  const handleRetry = async () => {
+    st.failedServerIndices.clear();
+    const preferred = st.servers.findIndex((x) => x.available);
+    setState(() => {
+      st.showErrorCard = false;
+      st.serverIndex = preferred >= 0 ? preferred : st.serverIndex;
+      st.startSeconds = st.playbackPosition != null ? Math.round(st.playbackPosition) : st.startSeconds;
+    });
+    await probeCurrentServer(false);
+  };
+
   const probeCurrentServer = async (autoAdvance = true) => {
     const url = playerUrl();
     if (!url || st.probingServer || url.startsWith('blob:')) return;
@@ -850,14 +861,21 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         justifyContent: 'center',
       }}
     >
-      <Icon name="warning_amber" size={42} color={T.accent} />
-      <div style={{ height: 12 }} />
-      <div style={dmSansStyle({ size: 20, color: T.textPrimary, weight: 700 })}>We're Sorry!</div>
-      <div style={{ height: 8 }} />
+      <Icon name="warning_amber" size={38} color={T.accent} />
+      <div style={{ height: 10 }} />
+      <div style={dmSansStyle({ size: 18, color: T.textPrimary, weight: 700 })}>This episode won't play</div>
+      <div style={{ height: 6 }} />
       <div
-        style={{ padding: '0 32px', textAlign: 'center', ...dmSansStyle({ size: 13.5, color: T.textSecondary, height: 1.5 }) }}
+        style={{ padding: '0 28px', textAlign: 'center', ...dmSansStyle({ size: 13, color: T.textSecondary, height: 1.5 }) }}
       >
-        This episode is not available on the current server. Try another server below.
+        No server had a stream for it just now.
+      </div>
+      <div style={{ height: 14 }} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px' }}>
+        <AnimeXPrimaryButton label="Try again" icon="refresh" onClick={() => void handleRetry()} />
+        {next && !next.isSeason && (
+          <AnimeXPrimaryButton label={`Episode ${st.selectedEpisode + 1}`} icon="skip_next" onClick={() => stepEpisode(1)} />
+        )}
       </div>
     </div>
   ) : (
