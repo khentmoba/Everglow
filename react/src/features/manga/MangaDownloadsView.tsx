@@ -769,7 +769,7 @@ export function KatanaDownloadsView({
                             <button
                               type="button"
                               className="bare-button"
-                              title="Export portable .cbz comic archive"
+                              title="Export this chapter as a comic file you can keep"
                               aria-label={`Save ${ch.subtitle || ch.title} as a file`}
                               onClick={async () => {
                                 const res = await offlineMedia.exportMangaChapterCbz(ch.id);
@@ -800,7 +800,7 @@ export function KatanaDownloadsView({
                                 color: KatanaColors.link,
                               }}
                             >
-                              <Icon name="folder_zip" size={14} color={KatanaColors.link} />
+                              <Icon name="folder_zip" size={14} color={KatanaColors.textMuted} />
                               <span>Export as file</span>
                             </button>
                             <button
@@ -844,7 +844,7 @@ export function KatanaDownloadsView({
               cursor: 'pointer',
             }}
           >
-            <Icon name="folder_zip" size={15} color={KatanaColors.link} />
+            <Icon name="folder_zip" size={15} color={KatanaColors.textMuted} />
             <span>Add files</span>
             <input
               type="file"
@@ -909,7 +909,7 @@ export function KatanaDownloadsView({
                 );
                 e.target.value = '';
                 if (files.length === 0) {
-                  showSnackBar('No .cbz files found in that folder');
+                  showSnackBar('No comic files found in that folder');
                   return;
                 }
                 let okCount = 0;
@@ -920,7 +920,7 @@ export function KatanaDownloadsView({
                 showSnackBar(
                   okCount > 0
                     ? `Added ${okCount} of ${files.length} chapter files from that folder`
-                    : 'Could not import .cbz files from that folder',
+                    : 'Could not read the comic files in that folder',
                 );
               }}
             />
@@ -1063,7 +1063,7 @@ export function KatanaDownloadsView({
             }}
           >
             <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
-              When we can't tell:
+              When we can't tell if you're on Wi-Fi:
             </span>
             <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
               {([

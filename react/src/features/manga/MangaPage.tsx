@@ -2575,7 +2575,7 @@ export function MangaPage() {
                             {(detail.authors.length > 0 || detail.artists.length > 0) && (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 6 }}>
                                 {detail.authors.length > 0 && (
-                                  <span style={{ ...KatanaType.body, fontSize: 13.5, color: KatanaColors.link, fontWeight: 600 }}>
+                                  <span style={{ ...KatanaType.body, fontSize: 13.5, color: KatanaColors.text, fontWeight: 600 }}>
                                     {detail.artists.length > 0 ? `Author: ${detail.authors.join(', ')}` : detail.authors.join(', ')}
                                   </span>
                                 )}
@@ -2912,7 +2912,7 @@ export function MangaPage() {
                                       opacity: batchProgress != null ? 0.6 : 1,
                                     }}
                                   >
-                                    <Icon name="download" size={16} color={KatanaColors.link} />
+                                    <Icon name="download" size={16} color={KatanaColors.accent} />
                                     <span>{batchProgress ? `Downloading ${batchProgress.done} of ${batchProgress.total}` : 'Download 3 chapters'}</span>
                                   </button>
                                 )}
@@ -2994,7 +2994,7 @@ export function MangaPage() {
                                     }}
                                   >
                                     <Icon name={detailBm?.userScore ? 'star' : 'tune'} size={16} color={detailBm?.userScore ? KatanaColors.accent : KatanaColors.textMuted} />
-                                    <span>{detailBm?.userScore ? `${detailBm.userScore}/10` : 'Track'}</span>
+                                    <span>{detailBm?.userScore ? `Your ${detailBm.userScore}/10` : 'Track'}</span>
                                   </button>
                                 )}
                                 <div style={{ position: 'relative' }}>
@@ -3090,7 +3090,7 @@ export function MangaPage() {
                                             textAlign: 'left',
                                           }}
                                         >
-                                          <Icon name="download" size={16} color={KatanaColors.link} />
+                                          <Icon name="download" size={16} color={KatanaColors.accent} />
                                           <span>
                                             {batchProgress
                                               ? `Saving ${batchProgress.done}/${batchProgress.total}`
@@ -3121,7 +3121,7 @@ export function MangaPage() {
                                             textAlign: 'left',
                                           }}
                                         >
-                                          <Icon name="download_for_offline" size={16} color={KatanaColors.link} />
+                                          <Icon name="download_for_offline" size={16} color={KatanaColors.accent} />
                                           <span>
                                             Download all unread (
                                             {unreadCount > 0
@@ -3206,7 +3206,7 @@ export function MangaPage() {
                                             textAlign: 'left',
                                           }}
                                         >
-                                          <Icon name="downloading" size={16} color={KatanaColors.link} />
+                                          <Icon name="downloading" size={16} color={KatanaColors.accent} />
                                           <span>Download all unread ({unreadCount})</span>
                                         </button>
                                       )}
@@ -3342,7 +3342,7 @@ export function MangaPage() {
                                         opacity: batchProgress != null ? 0.6 : 1,
                                       }}
                                     >
-                                      <Icon name="download" size={15} color={KatanaColors.link} />
+                                      <Icon name="download" size={15} color={KatanaColors.accent} />
                                       <span>{batchProgress ? `${batchProgress.done} of ${batchProgress.total}` : 'Download'}</span>
                                     </button>
                                   )}
@@ -3509,7 +3509,7 @@ export function MangaPage() {
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                                   <span className="ellipsis" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
-                                    <Icon name="downloading" size={16} color={KatanaColors.link} />
+                                    <Icon name="downloading" size={16} color={KatanaColors.accent} />
                                     {batchProgress.currentTitle ? `Saving ${batchProgress.currentTitle}…` : 'Downloading chapters…'}
                                   </span>
                                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -5922,6 +5922,7 @@ export function MangaPage() {
                       aria-label="Refresh library updates"
                       style={{
                         padding: '6px 11px',
+                        minHeight: 44,
                         borderRadius: 8,
                         background: KatanaColors.surfaceAlt,
                         border: `1px solid ${KatanaColors.border}`,
@@ -5946,6 +5947,7 @@ export function MangaPage() {
                         aria-expanded={libraryStatsOpen}
                         style={{
                           padding: '6px 11px',
+                        minHeight: 44,
                           borderRadius: 8,
                           background: libraryStatsOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                           border: `1px solid ${libraryStatsOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
@@ -5969,6 +5971,7 @@ export function MangaPage() {
                       aria-expanded={backupPanelOpen}
                       style={{
                         padding: '6px 11px',
+                        minHeight: 44,
                         borderRadius: 8,
                         background: backupPanelOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                         border: `1px solid ${backupPanelOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
@@ -5995,6 +5998,7 @@ export function MangaPage() {
                         }}
                         style={{
                           padding: '6px 11px',
+                        minHeight: 44,
                           borderRadius: 8,
                           background: librarySelectMode ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
                           border: `1px solid ${librarySelectMode ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
@@ -7329,7 +7333,30 @@ export function MangaPage() {
                 onClearFailed={clearFailedDownloads}
                 onOpen={openOfflineMangaChapter}
                 onOpenSeries={openDetail}
-                onDelete={(id) => void offlineMedia.deleteDownload(id)}
+                onDelete={(id) =>
+                  void showDialog<void>((close) => (
+                    <AlertDialog
+                      background={KatanaColors.surface}
+                      title={<div style={KatanaType.title}>Remove this chapter?</div>}
+                      content={<div style={KatanaType.small}>It will no longer be available offline on this device.</div>}
+                      actions={[
+                        <TextButton key="cancel" onPressed={() => close(null)} color={KatanaColors.textMuted}>
+                          Keep it
+                        </TextButton>,
+                        <TextButton
+                          key="remove"
+                          color={KatanaColors.crimson}
+                          onPressed={() => {
+                            close(null);
+                            void offlineMedia.deleteDownload(id);
+                          }}
+                        >
+                          Remove
+                        </TextButton>,
+                      ]}
+                    />
+                  ))
+                }
                 onDeleteMany={(ids) => {
                   void Promise.all(ids.map((id) => offlineMedia.deleteDownload(id)));
                 }}
@@ -7439,7 +7466,7 @@ export function MangaPage() {
                               ? 'New Releases'
                               : 'Browse Catalog'
                     }
-                    badge={catTotalResults != null ? String(catTotalResults) : undefined}
+                    badge={catTotalResults != null ? `${catTotalResults} series` : undefined}
                   />
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {(catalogMode === 'directory' || catalogMode === 'search') && (

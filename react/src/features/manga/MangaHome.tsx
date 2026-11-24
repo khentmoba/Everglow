@@ -375,7 +375,7 @@ function FeaturedHero({
               >
                 <Icon name="event_repeat" size={14} color={KatanaColors.accent} />
                 {bm?.releaseDay || featured.releaseDay
-                  ? `New chapter every ${bm?.releaseDay || featured.releaseDay}`
+                  ? `New chapter every ${(bm?.releaseDay || featured.releaseDay || '')}`
                   : completed
                     ? 'Completed Series'
                     : 'Weekly Serialization'}

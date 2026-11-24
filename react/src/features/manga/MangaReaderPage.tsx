@@ -3503,7 +3503,8 @@ export function MangaReaderView({
           >
             <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, fontWeight: 600 }}>
               <Icon name="warning_amber" size={14} color={KatanaColors.accent} />{' '}
-              {evictedOfflineState.missingPages} of {evictedOfflineState.totalPages} offline page(s) evicted from cache
+              This chapter is missing {evictedOfflineState.missingPages} of {evictedOfflineState.totalPages} offline
+              pages
             </span>
             <button
               type="button"
@@ -3544,7 +3545,7 @@ export function MangaReaderView({
               }}
             >
               <Icon name="build" size={13} color={KatanaColors.accentInk} />
-              <span>{repairingOffline ? 'Repairing…' : 'Repair downloads'}</span>
+              <span>{repairingOffline ? 'Downloading…' : 'Download the missing pages'}</span>
             </button>
           </div>
         )}
