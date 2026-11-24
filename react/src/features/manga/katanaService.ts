@@ -21,6 +21,7 @@ import { fetchFallbackChapterPages } from './mangaFallbackProviders';
 import { getDemoChapterPages } from './readerDemo';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { Changes, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogProxyGet } from '../../shared/utils/catalogProxy';
 import { exportReaderBackupData, importReaderBackupData } from './readerSettings';
@@ -3231,10 +3232,12 @@ export interface TrackerPushResult {
   remotePushed: boolean;
 }
 
+const TRACKER_PUSH_COALESCE_MAX = 100;
 const trackerPushCoalesceMap = new Map<
   string,
   { chapterProgress: number; status: KatanaLibraryStatus; score?: number; at: number }
 >();
+clearOnLogout(trackerPushCoalesceMap);
 
 /**
  * Bidirectional tracker sync: pushes reading status, chapter progress, personal score,
@@ -3295,12 +3298,17 @@ export async function pushKatanaTrackerProgress(
   ) {
     return null;
   }
-  trackerPushCoalesceMap.set(coalesceKey, {
-    chapterProgress: readNum,
-    status,
-    score,
-    at: nowMs,
-  });
+  setBoundedCache(
+    trackerPushCoalesceMap,
+    coalesceKey,
+    {
+      chapterProgress: readNum,
+      status,
+      score,
+      at: nowMs,
+    },
+    TRACKER_PUSH_COALESCE_MAX,
+  );
   const repeat = overrides?.rereadCount ?? bm?.rereadCount ?? 0;
   const notes = bm?.trackerNote;
   const tokens = loadKatanaTrackerTokens(userName);

@@ -18,7 +18,7 @@ import {
 import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
-import { setBoundedCache } from '../../core/utils/boundedCache';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { Changes, snapshots, withFirestoreTimeout, withGetTimeout, type Source } from '../../core/utils/liveSource';
 import { catalogKeyOf, TmdbImages, type MediaItem } from './cinemaTypes';
 import { agentTmdbResponse } from './tmdbAgentCatalogue';
@@ -744,6 +744,7 @@ export async function fetchReviews(tmdbId: number, mediaType: string): Promise<C
 
 const trailerCache = new Map<string, string | null>();
 const TRAILER_CACHE_MAX = 80;
+clearOnLogout(tmdbCache, trailerCache);
 
 /** TMDBTrailerService.fetchTrailerKey: official YouTube trailer, then any trailer, then any YouTube video. */
 export async function fetchTrailerKey(tmdbId: number, mediaType: string): Promise<string | null> {
@@ -886,6 +887,7 @@ export async function cleanStalePartnerStatus(item: MediaItem, userName: string,
 
 const imdbIds = new Map<string, string>();
 const IMDB_ID_CACHE_MAX = 200;
+clearOnLogout(imdbIds);
 
 /** TMDBDetailsService.fetchImdbId. */
 export async function fetchImdbId(id: number, mediaType: string): Promise<string | null> {

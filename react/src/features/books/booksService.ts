@@ -22,7 +22,7 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
-import { setBoundedCache } from '../../core/utils/boundedCache';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 import { Changes, just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
 import {
   buildReadCandidates,
@@ -458,6 +458,7 @@ export async function fetchBookDetails(result: BookSearchResult): Promise<BookSe
 const BOOK_TEXT_CACHE_NAME = 'everglow-book-text-v1';
 const bookTextMemoryCache = new Map<string, string>();
 const BOOK_TEXT_MEM_MAX = 4;
+clearOnLogout(bookTextMemoryCache);
 
 async function writeBookTextCache(url: string, text: string): Promise<void> {
   setBoundedCache(bookTextMemoryCache, url, text, BOOK_TEXT_MEM_MAX);
@@ -486,7 +487,10 @@ async function readBookTextCache(url: string): Promise<string | null> {
       const match = await cache.match(new Request(`https://book-cache.local/${encodeURIComponent(url)}`));
       if (match) {
         const text = await match.text();
-        if (text) return text;
+        if (text) {
+          setBoundedCache(bookTextMemoryCache, url, text, BOOK_TEXT_MEM_MAX);
+          return text;
+        }
       }
     } catch {
       // ignore
@@ -494,7 +498,9 @@ async function readBookTextCache(url: string): Promise<string | null> {
   }
   const legacy = Prefs.get(`book_text::${url}`);
   if (legacy && typeof legacy === 'object' && typeof (legacy as { text?: unknown }).text === 'string') {
-    return (legacy as { text: string }).text;
+    const text = (legacy as { text: string }).text;
+    setBoundedCache(bookTextMemoryCache, url, text, BOOK_TEXT_MEM_MAX);
+    return text;
   }
   return null;
 }
@@ -534,7 +540,7 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ urls: candidates }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(48000),
     });
     if (resp.ok) {
       const data = (await resp.json()) as { text?: string; usedUrl?: string; error?: string };

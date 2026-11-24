@@ -1039,4 +1039,5 @@ module.exports = {
   makeMegaPlayToken,
   verifyMegaPlayStream,
   verifyStream,
+  fetchJson,
 }
