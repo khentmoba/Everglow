@@ -139,6 +139,7 @@ export function CinemaEpisodeDrawer({
   const [similar, setSimilar] = useState<MediaItem[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [extraTab, setExtraTab] = useState(0);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const requested = useRef(new Set<number>());
   const [status, setStatusState] = useState(() => resolveCoupleStatus(item));
   const statusRef = useRef(status);
@@ -344,6 +345,15 @@ export function CinemaEpisodeDrawer({
     if (extraTab === i) return;
     setExtraTab(i);
     requestExtraTab(i);
+    // Bring the tab strip to the top: switching tabs should show the new tab's
+    // content, not the same slice of the hero you were already looking at.
+    window.setTimeout(() => {
+      const el = tabsRef.current;
+      if (!el) return;
+      const scroller = el.closest('[data-drawer-scroll]') as HTMLElement | null;
+      if (scroller) scroller.scrollTop = Math.max(0, el.offsetTop - 12);
+      else el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
   };
 
   const resolvePoster = (): MediaItem => {
@@ -622,7 +632,7 @@ export function CinemaEpisodeDrawer({
       : '';
 
   const content = (
-    <div className="no-scrollbar" style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
+    <div data-drawer-scroll className="no-scrollbar" style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
       <Hero
         backdropUrl={backdropUrl}
         trailerKey={trailerKey}
@@ -713,7 +723,9 @@ export function CinemaEpisodeDrawer({
           onSeasonChanged={selectSeason}
         />
       )}
-      <ExtraTabs selected={extraTab} onSelect={selectExtraTab} isAnimeSourced={isAnimeSourced} />
+      <div ref={tabsRef}>
+        <ExtraTabs selected={extraTab} onSelect={selectExtraTab} isAnimeSourced={isAnimeSourced} />
+      </div>
       {extraTab === 1 ? (
         <Reviews reviews={reviews} loading={loadingReviews} onSeeSimilar={() => selectExtraTab(2)} />
       ) : extraTab === 2 ? (

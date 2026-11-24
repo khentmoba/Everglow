@@ -191,6 +191,8 @@ export function CinemaPage() {
 
   // Each tab keeps its own place; returning to Home lands where you left it.
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastScroll = useRef(0);
+  const [hideBack, setHideBack] = useState(false);
   const tabScroll = useRef<Record<number, number>>({});
   useEffect(() => {
     const el = scrollRef.current;
@@ -367,9 +369,12 @@ export function CinemaPage() {
               aria-label={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'Exit Cinema' : 'Back to Home') : 'Logout'}
               onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
+                transition: 'opacity 200ms ease, transform 200ms ease, background 200ms ease',
                 // Readable over posters: the surface does the separating, not opacity.
                 background: scrolled ? withAlpha(NetflixColors.background, 0.86) : NetflixColors.surface,
-                transition: 'background 200ms ease',
+                opacity: hideBack ? 0 : 1,
+                transform: hideBack ? 'translateY(-8px)' : 'none',
+                pointerEvents: hideBack ? 'none' : 'auto',
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
@@ -406,8 +411,14 @@ export function CinemaPage() {
         ref={scrollRef}
         className="no-scrollbar"
         onScroll={(e) => {
-          setScrolled(e.currentTarget.scrollTop > 60);
-          tabScroll.current[currentTab] = e.currentTarget.scrollTop;
+          const top = e.currentTarget.scrollTop;
+          setScrolled(top > 60);
+          // Reading downward is no time for a floating button over a rail title.
+          if (Math.abs(top - lastScroll.current) > 12) {
+            setHideBack(top > 80 && top > lastScroll.current);
+            lastScroll.current = top;
+          }
+          tabScroll.current[currentTab] = top;
         }}
         style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
       >
@@ -600,15 +611,9 @@ function HomeTab({
       // A rail shows its own titles, nothing borrowed: padding a series row with
       // a film (or a stranger's sequel) is how "Popular Series" ended up holding
       // John Wick. A rail that cannot fill is dropped instead.
-      const keep = items.filter(fresh);
-      if (keep.length < MIN_RAIL_SHOWN) {
-        for (const m of items) {
-          if (recentKeys.has(catalogKeyOf(m))) continue;
-          if (keep.some((k) => catalogKeyOf(k) === catalogKeyOf(m))) continue;
-          keep.push(m);
-        }
-      }
-      const shown = keep.slice(0, RAIL_MAX);
+      // No refill at all: a row that borrows already-shown titles is a repeat,
+      // and the rows above it already carry them.
+      const shown = items.filter(fresh).slice(0, RAIL_MAX);
       const keys = shown.map((m) => catalogKeyOf(m));
       if (keys.length < MIN_RAIL_SHOWN || tooSimilar(keys)) return;
       const signature = [...keys].sort().join('|');

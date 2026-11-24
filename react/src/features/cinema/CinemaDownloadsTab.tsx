@@ -168,14 +168,15 @@ function Header({ count }: { count: number }) {
           </>
         )}
       </div>
+      {/* A destructive act wears the destructive colour and says how many. */}
       {count > 0 && (
         <TextButton
-          color={NetflixColors.textMuted}
+          color={NetflixColors.accent}
           onPressed={confirmClear}
-          icon={<Icon name="delete_sweep_outlined" size={18} color={NetflixColors.textMuted} />}
-          style={text(13, NetflixColors.textMuted)}
+          icon={<Icon name="delete_sweep_outlined" size={18} color={NetflixColors.accent} />}
+          style={text(13, NetflixColors.accent, 600)}
         >
-          Clear All
+          {`Clear ${count} downloads`}
         </TextButton>
       )}
     </div>

@@ -36,7 +36,9 @@ export function CinemaHomeSkeleton({
           <div style={bar(120, 40)} />
         </div>
       </div>
-      {[0, 1].map((rail) => (
+      {/* Four rails is what Home usually settles on, so the page does not grow
+          under the reader when the data lands. */}
+      {[0, 1, 2, 3].map((rail) => (
         <div key={rail} style={{ padding: '26px 16px 0' }}>
           <div style={bar(160, 16)} />
           <div style={{ height: 10 }} />

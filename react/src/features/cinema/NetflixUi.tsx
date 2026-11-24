@@ -1290,7 +1290,8 @@ export function NetflixBottomNav({
           (item.browseOptionId ? item.browseOptionId === currentBrowseId : !currentBrowseId);
         // The Anime door is a link out, never the current tab: one thing looks selected.
         const color = active ? '#FFFFFF' : 'rgba(255,255,255,0.55)';
-        const iconColor = active ? '#FFFFFF' : item.isAnimeLink ? NetflixColors.accent : 'rgba(255,255,255,0.55)';
+        // The Anime door links out, so it wears the same grey as every other tab.
+        const iconColor = active ? '#FFFFFF' : 'rgba(255,255,255,0.55)';
         return (
           <button
             key={item.label}

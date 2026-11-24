@@ -273,8 +273,10 @@ export function agentTmdbResponse(urlStr: string): Record<string, unknown> | nul
           overview: EPISODE_BLURBS[i % EPISODE_BLURBS.length].replace('{show}', match.name),
           runtime: (match.episode_run_time?.[0] ?? 45) + (i % 3) * 2,
           air_date: `${match.first_air_date.slice(0, 4)}-06-${String(i + 1).padStart(2, '0')}`,
-          // Stills come from the title itself, not from whichever film is next.
-          still_path: RECORDS[at].backdrop_path,
+          // Stills come from the title itself, and they alternate between its
+          // backdrop and its poster: eight rows of one identical image read as a
+          // broken asset, and the fixture has no per-episode art.
+          still_path: i % 2 === 0 ? RECORDS[at].backdrop_path : RECORDS[at].poster_path,
         })),
       };
     }
