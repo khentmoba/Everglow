@@ -549,3 +549,82 @@ test('Mobile polish: Dashboard Quick Access 8+More, Cinema tab URL/Back sync, an
     server.close();
   }
 });
+
+test('AI conversation memory is erased on logout, including the visible assistant transcript', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.route(/proxyaiv2-6pr4gqobxa-uc\.a\.run\.app/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: 'data: {"content":"PRIVATECHATMARKER"}\n\n',
+      }),
+    );
+
+    await page.goto(`${baseUrl}/motchi?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    const input = page.getByPlaceholder('Message Motchi…');
+    await input.waitFor({ timeout: 10_000 });
+    await input.fill('Remember this private test message.');
+    const proxyResponse = page.waitForResponse(
+      (response) => response.url().includes('proxyaiv2-6pr4gqobxa-uc.a.run.app'),
+      { timeout: 10_000 },
+    );
+    await page.getByRole('button', { name: 'Send message' }).click();
+    await proxyResponse;
+    try {
+      await page.getByText('PRIVATECHATMARKER', { exact: true }).waitFor({ timeout: 10_000 });
+    } catch (error) {
+      throw new Error(`Mock reply did not render. Proxy status: ${(await proxyResponse).status()}. Body: ${(await page.locator('body').innerText()).slice(-1200)}; page errors: ${errors.join('; ')}`, { cause: error });
+    }
+
+    await page.evaluate(() => window.dispatchEvent(new Event('everglow:logout')));
+    await page.getByText('PRIVATECHATMARKER', { exact: true }).waitFor({ state: 'detached', timeout: 5_000 });
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('Journal search waits for typing to settle before it scans', async () => {
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/journal?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=The Magic of Ordinary Days', { timeout: 10_000 });
+
+    const input = page.getByPlaceholder('Search memories, tags, dreams...');
+    await input.click();
+    await page.keyboard.type('coffee');
+
+    // A scan per keystroke would already have painted the match here.
+    await page.waitForTimeout(140);
+    assert.equal(
+      await page.getByText('The Magic of Ordinary Days').count(),
+      0,
+      'search ran before the typing settled',
+    );
+
+    await page.waitForSelector('text=The Magic of Ordinary Days', { timeout: 3_000 });
+
+    await input.fill('zzzznomatch');
+    await page.waitForSelector('text=No matching entries', { timeout: 3_000 });
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
