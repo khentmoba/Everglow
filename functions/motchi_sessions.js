@@ -83,47 +83,56 @@ async function recordMotchiTurn({
     };
 
     const docRef = db.collection('motchi_sessions').doc(targetId);
-    const docSnap = await docRef.get();
+    const applyTurn = async (reader, writer) => {
+      const docSnap = await reader(docRef);
 
-    if (!docSnap.exists) {
-      const firstLine = cleanUser.split('\n')[0].trim();
-      const title = firstLine.length > 60 ? firstLine.substring(0, 60) + '…' : (firstLine || 'New conversation');
+      if (!docSnap.exists) {
+        const firstLine = cleanUser.split('\n')[0].trim();
+        const title = firstLine.length > 60 ? firstLine.substring(0, 60) + '…' : (firstLine || 'New conversation');
 
-      await docRef.set({
-        id: targetId,
-        caller,
-        feature,
-        title,
-        turnCount: 1,
-        startedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        startedAtIso: nowIso,
-        updatedAtIso: nowIso,
-        lastUserMessage: cleanUser.slice(0, 200),
-        lastAssistantReply: cleanReply.slice(0, 200),
-        hasError: !!error,
-        toolsUsedTotal: turnData.tools.length,
-        turns: [turnData],
-      });
-    } else {
-      const prevData = docSnap.data() || {};
-      const prevTurns = Array.isArray(prevData.turns) ? prevData.turns : [];
-      let updatedTurns = [...prevTurns, turnData];
-      if (updatedTurns.length > MAX_TURNS_PER_SESSION) {
-        updatedTurns = updatedTurns.slice(-MAX_TURNS_PER_SESSION);
+        await writer.set(docRef, {
+          id: targetId,
+          caller,
+          feature,
+          title,
+          turnCount: 1,
+          startedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          startedAtIso: nowIso,
+          updatedAtIso: nowIso,
+          lastUserMessage: cleanUser.slice(0, 200),
+          lastAssistantReply: cleanReply.slice(0, 200),
+          hasError: !!error,
+          toolsUsedTotal: turnData.tools.length,
+          turns: [turnData],
+        });
+      } else {
+        const prevData = docSnap.data() || {};
+        const prevTurns = Array.isArray(prevData.turns) ? prevData.turns : [];
+        let updatedTurns = [...prevTurns, turnData];
+        if (updatedTurns.length > MAX_TURNS_PER_SESSION) {
+          updatedTurns = updatedTurns.slice(-MAX_TURNS_PER_SESSION);
+        }
+
+        await writer.update(docRef, {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAtIso: nowIso,
+          turnCount: (prevData.turnCount || prevTurns.length) + 1,
+          lastUserMessage: cleanUser.slice(0, 200),
+          lastAssistantReply: cleanReply.slice(0, 200),
+          hasError: prevData.hasError || !!error,
+          toolsUsedTotal: (prevData.toolsUsedTotal || 0) + turnData.tools.length,
+          turns: updatedTurns,
+        });
       }
+    };
 
-      await docRef.update({
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAtIso: nowIso,
-        turnCount: (prevData.turnCount || prevTurns.length) + 1,
-        lastUserMessage: cleanUser.slice(0, 200),
-        lastAssistantReply: cleanReply.slice(0, 200),
-        hasError: prevData.hasError || !!error,
-        toolsUsedTotal: (prevData.toolsUsedTotal || 0) + turnData.tools.length,
-        turns: updatedTurns,
-      });
-    }
+    await db.runTransaction((tx) =>
+      applyTurn((ref) => tx.get(ref), {
+        set: (ref, data) => tx.set(ref, data),
+        update: (ref, data) => tx.update(ref, data),
+      }),
+    );
 
     return targetId;
   } catch (err) {
