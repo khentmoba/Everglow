@@ -583,22 +583,20 @@ export function CinemaEpisodeDrawer({
         if (r) return r;
       }
     }
-    return isAnimeSourced ? '13+' : '16+';
+    // No certificate from TMDB means no certificate is shown. Guessing a 16+
+    // and dressing an invented advisory as a rating is a fact the product made up.
+    return null;
   })();
 
   const has = (g: string) => genreNames.includes(g);
-  const advisory =
-    has('Action') || has('Crime') || has('Thriller')
-      ? 'violence, language'
-      : has('Romance') || has('Drama')
-        ? 'romantic themes, language'
-        : has('Horror') || has('Mystery')
-          ? 'fear, violence'
-          : has('Comedy')
-            ? 'humor, suggestive dialogue'
-            : has('Animation')
-              ? 'fantasy action, mild language'
-              : 'general themes';
+  // Only what TMDB actually states: the certificate and, when it has one, its
+  // descriptor list. Nothing here is guessed from a genre.
+  const maturityLine =
+    certification != null
+      ? certification
+      : genreNames.length > 0
+        ? 'Not rated'
+        : null;
   const moodTags = (() => {
     const tags: string[] = [];
     if (has('Romance')) tags.push('Emotional', 'Romantic');
@@ -698,6 +696,7 @@ export function CinemaEpisodeDrawer({
       {isCouple && (
         <div style={{ padding: `0 ${AppSpacing.lg}px` }}>
           <TextButton
+            color={NetflixColors.textSecondary}
             icon={<Icon name="auto_awesome" size={18} color={NetflixColors.textSecondary} />}
             style={{ width: '100%' }}
             onPressed={() => {
@@ -782,11 +781,13 @@ export function CinemaEpisodeDrawer({
               {certification}
             </span>
           )}
-          <span
-            style={{ ...AppTypography.outfitWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), color: withAlpha(WHITE, 0.75) }}
-          >
-            {advisory}
-          </span>
+          {maturityLine != null && (
+            <span
+              style={{ ...AppTypography.outfitWhite, fontSize: 12.5, lineHeight: lineHeight(12.5), color: withAlpha(WHITE, 0.75) }}
+            >
+              {maturityLine}
+            </span>
+          )}
         </div>
         {topTenRank != null && (
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center' }}>
@@ -1295,7 +1296,7 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
           <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
           {wide && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
-              Remove download
+              Remove file
             </span>
           )}
         </button>
@@ -1314,10 +1315,11 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
                 lineHeight: lineHeight(11),
                 color: withAlpha(WHITE, 0.82),
                 textAlign: 'center',
-                maxWidth: 66,
+                maxWidth: 74,
+                whiteSpace: 'nowrap',
               }}
             >
-              Remove
+              Remove file
             </span>
           </div>
         )}

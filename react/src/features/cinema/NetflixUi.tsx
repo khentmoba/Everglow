@@ -1360,9 +1360,12 @@ export function NetflixCinemaTopBar({
   const primary = links.slice(0, CINEMA_PRIMARY_LINK_COUNT);
   const more = links.slice(CINEMA_PRIMARY_LINK_COUNT).filter((l) => l.tab !== 1);
   const search = links.find((l) => l.tab === 1);
-  const moreActive = more.some(
+  // When the menu holds the current page, the bar says which page that is
+  // instead of a bare "More" that hides where you are.
+  const activeMore = more.find(
     (l) => l.tab === currentIndex && (l.browseOptionId ? l.browseOptionId === currentBrowseId : !currentBrowseId),
   );
+  const moreActive = activeMore != null;
   const hPad = barViewport >= 1024 ? 48 : 24;
 
   return (
@@ -1459,7 +1462,7 @@ export function NetflixCinemaTopBar({
                 gap: 4,
               }}
             >
-              More
+              {activeMore && !moreOpen ? activeMore.label : 'More'}
               <Icon name="expand_more" size={16} color={moreActive || moreOpen ? '#FFFFFF' : 'rgba(255,255,255,0.86)'} />
             </button>
             {moreOpen && (

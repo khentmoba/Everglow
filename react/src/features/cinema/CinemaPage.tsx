@@ -20,7 +20,9 @@ import { CinemaWatchTogetherTab } from '../watch_party/CinemaWatchTogetherTab';
 import { CinemaEpisodeDrawer } from './CinemaEpisodeDrawer';
 import { showCinemaPlaybackSheet } from './CinemaPlaybackSheet';
 import { CinemaHomeSkeleton } from './CinemaHomeSkeleton';
-import { NetflixColors, TOP_TEN_COUNTRY_LABEL, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
+import { NetflixColors, catalogKeyOf, resumeSecondsOf, type MediaItem } from './cinemaTypes';
+import { DISCOVERY_SHELVES } from './cinemaShelves';
+import { useCinemaHeroTitles, useCinemaRailPlan } from './useCinemaRailPlan';
 import {
   MediaSectionMenuButton,
   NetflixBillboard,
@@ -42,25 +44,6 @@ import {
   setListMembership,
   watchCinemaWatchlist,
 } from './tmdbService';
-
-interface DiscoveryShelf {
-  title: string;
-  type: 'movie' | 'tv';
-  genre?: number;
-  language?: string;
-  reason: string;
-}
-
-const DISCOVERY_SHELVES: DiscoveryShelf[] = [
-  { title: 'Top-Rated Movies', type: 'movie', reason: 'Loved by critics and viewers' },
-  { title: 'Top-Rated Series', type: 'tv', reason: 'The best of the small screen' },
-  { title: 'Action & Adventure', type: 'movie', genre: 28, reason: 'Big set pieces, bigger stakes' },
-  { title: 'Need a Laugh?', type: 'movie', genre: 35, reason: 'Short of time, long on smiles' },
-  { title: 'Romance', type: 'movie', genre: 10749, reason: 'For a slow evening together' },
-  { title: 'Edge-of-Your-Seat Thrillers', type: 'movie', genre: 53, reason: 'Lights off, heart rate up' },
-  { title: 'Sci-Fi Escapes', type: 'movie', genre: 878, reason: 'Other worlds, familiar feelings' },
-  { title: 'Drama', type: 'movie', genre: 18, reason: 'Serious stories, big feelings' },
-];
 
 /** "1h 4m left": the honest counterpart to the tile's progress hairline. */
 function remainingLabelOf(m: MediaItem): string | null {
@@ -563,92 +546,16 @@ function HomeTab({
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
   // Under this many posters a rail is not a recommendation, it is a stub.
-  const MIN_RAIL_SHOWN = 4;
-  // One rail is a row, not a dump: the pool behind it feeds the rails below.
-  const RAIL_MAX = 8;
-  // The rail plan is a pure function of the fetched data. Building it during
-  // render (mutating a "seen" set) made the page depend on how often React
-  // re-rendered, so the same data could produce a different Home twice.
-  const rails = useMemo(() => {
-    // The billboard already showed these five; the rail named Trending is allowed
-    // to carry them anyway, because it is the list they come from.
-    const heroKeys = new Set(trendingGlobal.slice(0, 5).map((m) => catalogKeyOf(m)));
-    const seen = new Set<string>([...watchingList, ...savedList].map((m) => catalogKeyOf(m)));
-    const recent: string[][] = [];
-    const signatures = new Set<string>();
-    const unique = (items: MediaItem[]) => {
-      const keys = new Set<string>();
-      return items.filter((m) => {
-        const key = catalogKeyOf(m);
-        if (keys.has(key)) return false;
-        keys.add(key);
-        return true;
-      });
-    };
-    const ratio = (keys: string[], rail: string[]) =>
-      keys.length === 0 ? 0 : keys.filter((k) => rail.includes(k)).length / Math.min(keys.length, rail.length);
-    const tooSimilar = (keys: string[]) =>
-      recent.some((rail, i) => ratio(keys, rail) >= (i === 0 ? 0.5 : 0.75));
-
-    const plan: { title: string; reason: string; items: MediaItem[]; ranked?: boolean }[] = [];
-    const add = (
-      title: string,
-      reason: string,
-      rawItems: MediaItem[],
-      opts: { mediaType?: 'movie' | 'tv'; ranked?: boolean; allowHero?: boolean } = {},
-    ) => {
-      const items = unique(rawItems);
-      if (opts.ranked) {
-        // The ranked row states a fact, so it keeps its own order and cannot be
-        // trimmed; it just has to stop the rails below it from repeating it.
-        const shown = items.slice(0, 10);
-        if (shown.length < MIN_RAIL_SHOWN) return;
-        for (const m of shown) seen.add(catalogKeyOf(m));
-        recent.unshift(shown.map(catalogKeyOf));
-        plan.push({ title, reason, items: shown, ranked: true });
-        return;
-      }
-      const recentKeys = new Set(recent.flat());
-      const fresh = (m: MediaItem) => {
-        const key = catalogKeyOf(m);
-        if (recentKeys.has(key)) return false;
-        if (opts.allowHero && heroKeys.has(key)) return true;
-        return !seen.has(key);
-      };
-      // A rail shows its own titles, nothing borrowed: padding a series row with
-      // a film (or a stranger's sequel) is how "Popular Series" ended up holding
-      // John Wick. A rail that cannot fill is dropped instead.
-      // No refill at all: a row that borrows already-shown titles is a repeat,
-      // and the rows above it already carry them.
-      const shown = items.filter(fresh).slice(0, RAIL_MAX);
-      const keys = shown.map((m) => catalogKeyOf(m));
-      if (keys.length < MIN_RAIL_SHOWN || tooSimilar(keys)) return;
-      const signature = [...keys].sort().join('|');
-      if (signatures.has(signature)) return;
-      signatures.add(signature);
-      recent.unshift(keys);
-      if (recent.length > 3) recent.pop();
-      for (const m of shown) seen.add(catalogKeyOf(m));
-      plan.push({ title, reason, items: shown });
-    };
-
-    const becauseOf = watchingList[0];
-    const becauseGenre = becauseOf?.genres?.[0];
-    const becauseItems =
-      becauseOf && becauseGenre
-        ? trendingGlobal.filter((m) => m.genres?.includes(becauseGenre) && catalogKeyOf(m) !== catalogKeyOf(becauseOf)).slice(0, 12)
-        : [];
-    if (becauseItems.length >= MIN_RAIL_SHOWN) add(`Because you watched ${becauseOf?.title ?? ''}`, 'Same mood, different story', becauseItems);
-    add('Trending Now', 'What everyone is watching this week', trendingGlobal, { allowHero: true });
-    add(`Top 10 in ${TOP_TEN_COUNTRY_LABEL}`, "Today's most-watched", topTenToday, { ranked: true });
-    add('Coming Soon', 'New on Everglow Cinema', newlyReleased);
-    add('Popular Series', 'Most-watched series right now', popularTV, { mediaType: 'tv' });
-    for (const [title, items] of Object.entries(discoveryRows)) {
-      const shelf = DISCOVERY_SHELVES.find((d) => d.title === title);
-      add(title, shelf?.reason ?? '', items, { mediaType: shelf?.type });
-    }
-    return plan;
-  }, [watchingList, savedList, trendingGlobal, topTenToday, popularTV, newlyReleased, discoveryRows]);
+  const heroTitles = useCinemaHeroTitles(trendingGlobal, watchingList);
+  const rails = useCinemaRailPlan({
+    watchingList,
+    savedList,
+    trendingGlobal,
+    topTenToday,
+    popularTV,
+    newlyReleased,
+    discoveryRows,
+  });
 
   const rowProps = {
     isDesktop,
@@ -666,7 +573,7 @@ function HomeTab({
         <CinemaHomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} viewportWidth={viewportWidth} />
       ) : (
         <NetflixBillboard
-          items={trendingGlobal.slice(0, 5)}
+          items={heroTitles}
           isDesktop={isDesktop}
           viewportHeight={viewportHeight}
           rankOf={rankOf}

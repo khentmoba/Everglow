@@ -158,8 +158,8 @@ export function CinemaSearchTab({
               whiteSpace: 'nowrap',
             }}
           >
-            {item.title}
-            {item.year ? ` · ${item.year}` : ''}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+            {item.year ? <span style={{ flexShrink: 0 }}>{` · ${item.year}`}</span> : null}
           </div>
         </div>
       ))}
