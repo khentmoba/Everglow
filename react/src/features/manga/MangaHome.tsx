@@ -714,21 +714,20 @@ function CurrentlyReadingShelf({
                 <button
                   type="button"
                   className="bare-button"
-                  aria-label={`Details for ${bm.title}`}
-                  title={`About ${bm.title}`}
-                  onClick={() => onSelectManga(bm.slug)}
+                  aria-label={`Continue ${bm.title}`}
+                  title={`Continue ${bm.lastReadChapterTitle || bm.title}`}
+                  onClick={() => onResumeBookmark(bm)}
                   style={{
                     width: 44,
                     height: 44,
                     borderRadius: 99,
                     flexShrink: 0,
-                    background: KatanaColors.surfaceAlt,
-                    border: `1px solid ${KatanaColors.border}`,
+                    background: KatanaColors.accent,
                     display: 'grid',
                     placeItems: 'center',
                   }}
                 >
-                  <Icon name="info" size={20} color={KatanaColors.textMuted} />
+                  <Icon name="play_arrow" size={20} color={KatanaColors.accentInk} />
                 </button>
               )}
             </div>

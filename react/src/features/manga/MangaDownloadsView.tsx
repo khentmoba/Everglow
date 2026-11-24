@@ -599,7 +599,10 @@ export function KatanaDownloadsView({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon name="download_done" size={16} color={KatanaColors.green} />
               <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloaded</span>
-              <span style={{ ...KatanaType.small }}>{items.length} series</span>
+              <span style={{ ...KatanaType.small }}>
+                {grouped.length} {grouped.length === 1 ? 'series' : 'series'} · {items.length}{' '}
+                {items.length === 1 ? 'chapter' : 'chapters'}
+              </span>
             </div>
             <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
               {(
@@ -977,7 +980,15 @@ export function KatanaDownloadsView({
                 type="button"
                 className="bare-button"
                 onClick={onClearAll}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  minHeight: 44,
+                  padding: '6px 12px',
+                  marginLeft: 'auto',
+                  borderRadius: 8,
+                }}
               >
                 <Icon name="delete_sweep" variant="outlined" size={18} color={KatanaColors.textLight} />
                 <span style={KatanaType.small}>Remove all</span>

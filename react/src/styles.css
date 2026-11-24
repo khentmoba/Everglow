@@ -104,7 +104,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
 /* Manga downloads: one column on phones, two on wide screens instead of a stretched strip. */
 .katana-downloads-list { display: flex; flex-direction: column; gap: 12px; }
-@media (min-width: 1024px) { .katana-downloads-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
+@media (min-width: 1024px) {
+  .katana-downloads-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  /* one series should not leave half the page empty beside it */
+  .katana-downloads-list > :only-child { grid-column: 1 / -1; }
+}
 
 /* animex_spotlight.dart: 700ms AnimatedSwitcher fade + 7s easeOutCubic settle. */
 @keyframes anx-fade-in { from { opacity: 0; } to { opacity: 1; } }

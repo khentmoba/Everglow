@@ -1683,7 +1683,9 @@ export function KatanaCoverBadges({
           }}
         >
           <Icon name="download_done" size={12} color={KatanaColors.accentInk} />
-          <span>{downloadedCount}</span>
+          <span>
+            {downloadedCount} offline
+          </span>
         </span>
       )}
     </div>

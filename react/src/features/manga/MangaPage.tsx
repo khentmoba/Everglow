@@ -2564,7 +2564,7 @@ export function MangaPage() {
                                 >
                                   <Icon name="notifications_active" size={12} color={KatanaColors.accent} />
                                   <span>
-                                    New chapters usually arrive within a day — we&apos;ll notify you
+                                    {compactCard ? 'New chapters daily' : 'New chapters usually arrive within a day — we&apos;ll notify you'}
                                   </span>
                                 </span>
                               )}
@@ -2641,6 +2641,34 @@ export function MangaPage() {
                                     {g.name}
                                   </button>
                                 ))}
+                              </div>
+                            )}
+
+                            {compactCard && detail.summary && (
+                              <div style={{ marginTop: 8 }}>
+                                <p
+                                  className={summaryOpen ? undefined : 'clamp-2'}
+                                  style={{ ...KatanaType.body, margin: 0, fontSize: 13, lineHeight: 1.5, color: KatanaColors.textMuted }}
+                                >
+                                  {detail.summary}
+                                </p>
+                                <button
+                                  type="button"
+                                  className="bare-button"
+                                  aria-expanded={summaryOpen}
+                                  onClick={() => setSummaryOpen((v) => !v)}
+                                  style={{
+                                    marginTop: -6,
+                                    minHeight: 44,
+                                    padding: 0,
+                                    fontFamily: Fonts.body,
+                                    fontSize: 12.5,
+                                    fontWeight: 700,
+                                    color: KatanaColors.accentSoft,
+                                  }}
+                                >
+                                  {summaryOpen ? 'Show less' : 'Read more'}
+                                </button>
                               </div>
                             )}
 
@@ -3010,34 +3038,6 @@ export function MangaPage() {
                                         gap: 4,
                                       }}
                                     >
-                                      {compactCard && detail.summary && (
-                                        <div style={{ padding: '6px 10px 10px' }}>
-                                          <div style={{ ...KatanaType.title, fontSize: 12.5, marginBottom: 4 }}>Story</div>
-                                          <p
-                                            className={summaryOpen ? undefined : 'clamp-4'}
-                                            style={{ ...KatanaType.body, margin: 0, fontSize: 12.5, lineHeight: 1.5 }}
-                                          >
-                                            {detail.summary}
-                                          </p>
-                                          <button
-                                            type="button"
-                                            className="bare-button"
-                                            aria-expanded={summaryOpen}
-                                            onClick={() => setSummaryOpen((v) => !v)}
-                                            style={{
-                                              marginTop: 6,
-                                              minHeight: 44,
-                                              padding: '0 2px',
-                                              fontFamily: Fonts.body,
-                                              fontSize: 12.5,
-                                              fontWeight: 700,
-                                              color: KatanaColors.accentSoft,
-                                            }}
-                                          >
-                                            {summaryOpen ? 'Show less' : 'Read the full story'}
-                                          </button>
-                                        </div>
-                                      )}
                                       {compactCard && userName && (
                                         <button
                                           type="button"
@@ -7440,12 +7440,15 @@ export function MangaPage() {
                       <div
                         role="group"
                         aria-label="Catalog source"
+                        className="no-scrollbar"
                         style={{
                           display: 'inline-flex',
                           padding: 3,
                           borderRadius: 99,
                           background: KatanaColors.surfaceAlt,
                           border: `1px solid ${KatanaColors.border}`,
+                          maxWidth: '100%',
+                          overflowX: 'auto',
                         }}
                       >
                         {(['all', 'mangakatana', 'mangadex', 'comick', 'bato'] as const).map((src) => {
@@ -7470,6 +7473,7 @@ export function MangaPage() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 whiteSpace: 'nowrap',
+                                flexShrink: 0,
                                 background: active ? KatanaColors.chipSelectedBg : 'transparent',
                                 fontFamily: Fonts.body,
                                 fontSize: 12,

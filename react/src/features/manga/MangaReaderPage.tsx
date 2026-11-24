@@ -3319,13 +3319,10 @@ export function MangaReaderView({
             textAlign: 'left',
           }}
         >
-          <div className="ellipsis" style={{ ...KatanaType.title, fontSize: isCompactPhone ? 13.5 : 14 }}>
-            {params.mangaTitle}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-            <span className="ellipsis" style={{ ...KatanaType.small, lineHeight: 1.4, paddingBottom: 1, color: KatanaColors.accentSoft }}>
-              {chapterDisplayTitle(activeChapter)}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div className="ellipsis" style={{ ...KatanaType.title, fontSize: isCompactPhone ? 13.5 : 14 }}>
+              {params.mangaTitle}
+            </div>
             {!incognitoSession && currentUser && (
               <span
                 title="Exact page and scroll position synced across phone and tablet"
@@ -3347,6 +3344,11 @@ export function MangaReaderView({
                 <span>Synced</span>
               </span>
             )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+            <span className="ellipsis" style={{ ...KatanaType.small, lineHeight: 1.4, paddingBottom: 1, color: KatanaColors.accentSoft }}>
+              {chapterDisplayTitle(activeChapter)}
+            </span>
             {incognitoSession && (
               <span
                 style={{
@@ -3698,7 +3700,7 @@ export function MangaReaderView({
             aria-label="Previous chapter"
             onClick={() => prevChapter && navigateToChapter(prevChapter.id, { warnGap: true })}
             style={{
-              minHeight: 42,
+              minHeight: 44,
               padding: '0 10px',
               borderRadius: 10,
               background: KatanaColors.surfaceAlt,
@@ -3808,7 +3810,7 @@ export function MangaReaderView({
             aria-label="Next chapter"
             onClick={() => nextChapter && navigateToChapter(nextChapter.id, { markPrevFinished: true, warnGap: true })}
             style={{
-              minHeight: 42,
+              minHeight: 44,
               padding: '0 10px',
               borderRadius: 10,
               background: nextChapter ? KatanaColors.surfaceGlow : KatanaColors.surfaceAlt,
