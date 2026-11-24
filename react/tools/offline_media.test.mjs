@@ -265,3 +265,44 @@ test('exportMangaChapterCbz opens Cache Storage once across all pages', async ()
     globalThis.caches = origCaches;
   }
 });
+
+test('startDownloadMedia marks timed-out downloads as failed instead of stuck downloading', async () => {
+  const origFetch = globalThis.fetch;
+  const origSetTimeout = window.setTimeout;
+  const origClearTimeout = window.clearTimeout;
+  const id = 'timeout-test-movie';
+  let triggerTimeout = null;
+
+  window.setTimeout = (fn) => {
+    triggerTimeout = fn;
+    return 999;
+  };
+  window.clearTimeout = () => {};
+  globalThis.fetch = (_url, init) =>
+    new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      queueMicrotask(() => triggerTimeout?.());
+    });
+
+  try {
+    await offlineMedia.startDownloadMedia({
+      id,
+      type: 'movie',
+      mediaId: '550',
+      title: 'Timeout Test',
+      subtitle: 'Movie',
+      coverUrl: '',
+      sourceUrl: 'https://cdn.example.com/movie.mp4',
+    });
+    const item = offlineMedia.getItem(id);
+    assert.ok(item);
+    assert.equal(item.status, 'failed');
+  } finally {
+    globalThis.fetch = origFetch;
+    window.setTimeout = origSetTimeout;
+    window.clearTimeout = origClearTimeout;
+    const next = { ...offlineMedia.value };
+    delete next[id];
+    offlineMedia.value = next;
+  }
+});

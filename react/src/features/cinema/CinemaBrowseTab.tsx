@@ -89,12 +89,12 @@ export function CinemaBrowseTab({
   selectionRef.current = selection;
   const version = useRef(0);
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const loadMore = async (fresh?: State) => {
     const s = fresh ?? stateRef.current;
