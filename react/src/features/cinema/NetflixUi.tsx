@@ -49,8 +49,8 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
     ? [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
         {
-          // The tab opens Browse, which lists series too: one name for both.
-          label: 'Movies & TV',
+          // The tab opens the Movies collection, and the page heading says Movies.
+          label: 'Movies',
           icon: 'movie',
           activeIcon: 'movie',
           tab: 2,
@@ -64,8 +64,8 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
     : [
         { label: 'Home', icon: 'home', activeIcon: 'home', tab: 0 },
         {
-          // The tab opens Browse, which lists series too: one name for both.
-          label: 'Movies & TV',
+          // The tab opens the Movies collection, and the page heading says Movies.
+          label: 'Movies',
           icon: 'movie',
           activeIcon: 'movie',
           tab: 2,
@@ -959,6 +959,7 @@ export function NetflixBillboard({
   isDesktop,
   viewportHeight,
   rankOf,
+  resumeOf,
   inListOf,
   onToggleList,
   onPlay,
@@ -969,6 +970,8 @@ export function NetflixBillboard({
   viewportHeight: number;
   /** Real position in the Top 10 row, or null when the title is not ranked. */
   rankOf?: (item: MediaItem) => number | null;
+  /** Saved place in seconds, when this title is mid-watch. */
+  resumeOf?: (item: MediaItem) => number | null;
   inListOf?: (item: MediaItem) => boolean;
   onToggleList?: (item: MediaItem, add: boolean) => void;
   onPlay: (item: MediaItem) => void;
@@ -1145,7 +1148,8 @@ export function NetflixBillboard({
             }}
           >
             <Icon name="play_arrow" size={isDesktop ? 20 : 18} color={NetflixColors.background} />
-            <span>Play</span>
+            {/* The rail below says "1h 4m left" for this title: Play would be a lie. */}
+            <span>{(resumeOf?.(item) ?? 0) > 0 ? 'Resume' : 'Play'}</span>
           </button>
           <button
             type="button"

@@ -854,7 +854,7 @@ export function CinemaEpisodeDrawer({
   }
 
   return (
-    <div className="drawer-root" style={{ position: 'fixed', inset: 0, zIndex: 1100 }}>
+    <div className="drawer-root" style={{ position: 'fixed', inset: 0, zIndex: 1400 }}>
       <div className="drawer-barrier" aria-hidden onClick={onClose} style={{ position: 'absolute', inset: 0 }} />
       <div className="drawer-slide" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {isMobile ? (
@@ -872,10 +872,13 @@ export function CinemaEpisodeDrawer({
               aria-label={item.title}
               style={{
                 pointerEvents: 'auto',
-                margin: '28px 20px',
+                // Clear of the fixed top bar, which otherwise crosses the panel's hero.
+                margin: '84px 20px 28px',
                 width: 'calc(100% - 40px)',
                 maxWidth: 880,
-                height: Math.max(0, screenH - 56),
+                // 84 above the bar + 28 below it.
+                maxHeight: Math.max(0, screenH - 112),
+                alignSelf: 'center',
                 boxSizing: 'border-box',
                 background: NetflixColors.surface,
                 borderRadius: 14,
@@ -1644,7 +1647,7 @@ function ExtraTabs({
 }) {
   const labels = [isAnimeSourced ? 'Voice Cast' : 'Cast', 'Reviews', 'More Like This'];
   return (
-    <div style={{ padding: '30px 20px 12px', display: 'flex', gap: 8 }}>
+    <div style={{ padding: '30px 24px 12px', display: 'flex', gap: 8 }}>
       {labels.map((label, i) => {
         const on = selected === i;
         return (
@@ -2324,7 +2327,22 @@ function EpisodeRow({
           )}
         </div>
         <div style={{ height: 5 }} />
-        {hidden ? (
+        {/* A spoiler guard that hides the whole synopsis leaves eight rows that
+            look empty; one line is the setup, not the twist. */}
+        {overview && (
+          <div
+            className={hidden ? 'clamp-1' : expanded ? 'clamp-4' : 'clamp-2'}
+            style={{
+              ...AppTypography.outfitWhite,
+              fontSize: 12.5,
+              lineHeight: lineHeight(12.5, 1.4),
+              color: NetflixColors.textSecondary,
+            }}
+          >
+            {overview}
+          </div>
+        )}
+        {hidden && (
           <span
             role="button"
             onClick={(e) => {
@@ -2340,22 +2358,8 @@ function EpisodeRow({
               textDecoration: 'underline',
             }}
           >
-            Show synopsis
+            Show full synopsis
           </span>
-        ) : (
-          overview && (
-            <div
-              className={expanded ? 'clamp-4' : 'clamp-2'}
-              style={{
-                ...AppTypography.outfitWhite,
-                fontSize: 12.5,
-                lineHeight: lineHeight(12.5, 1.4),
-                color: NetflixColors.textSecondary,
-              }}
-            >
-              {overview}
-            </div>
-          )
         )}
       </div>
     </div>

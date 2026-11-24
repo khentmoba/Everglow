@@ -1715,6 +1715,8 @@ function VideoPlayerScreen(props: PlayerProps) {
             <div
               role="button"
               tabIndex={0}
+              aria-label="Change source"
+              data-testid="player-source"
               onClick={showProviderSheet}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -1743,7 +1745,7 @@ function VideoPlayerScreen(props: PlayerProps) {
                 <div style={{ width: 12, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), letterSpacing: 0.2 }}>
-                    Provider: {c.selectedProvider.name}
+                    {c.selectedProvider.name} · change source
                   </div>
                   {(!compact || c.selectedProvider.id !== 'everglow-embed') && (
                     <>
@@ -1755,7 +1757,6 @@ function VideoPlayerScreen(props: PlayerProps) {
                   )}
                 </div>
                 <div style={{ width: 8, flexShrink: 0 }} />
-                <PlayerIconButton icon="swap_horiz" onTap={showProviderSheet} />
               </div>
             </div>
           </div>

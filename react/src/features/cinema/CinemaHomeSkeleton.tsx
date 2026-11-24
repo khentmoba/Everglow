@@ -3,9 +3,18 @@ import type { CSSProperties } from 'react';
 import { NetflixColors } from './cinemaTypes';
 import { rowCardWidth } from './NetflixUi';
 
-export function CinemaHomeSkeleton({ isDesktop, viewportHeight }: { isDesktop: boolean; viewportHeight: number }) {
+export function CinemaHomeSkeleton({
+  isDesktop,
+  viewportHeight,
+  viewportWidth,
+}: {
+  isDesktop: boolean;
+  viewportHeight: number;
+  viewportWidth: number;
+}) {
   const heroHeight = isDesktop ? 560 : Math.max(380, Math.min(540, Math.round(viewportHeight * 0.58)));
-  const cardWidth = rowCardWidth(isDesktop, 1440);
+  // The placeholders must be the size of the real ones, or the page jumps.
+  const cardWidth = rowCardWidth(isDesktop, viewportWidth);
   const bar = (w: number | string, h: number, extra: CSSProperties = {}): CSSProperties => ({
     width: w,
     height: h,

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
+import { withAlpha } from '../../core/theme/colors';
 import { AppBreakpoint } from '../../core/theme/layout';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
@@ -355,13 +356,12 @@ export function CinemaPage() {
               aria-label={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'Exit Cinema' : 'Back to Home') : 'Logout'}
               onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
-                // Out of the way of rail headings once content scrolls under it.
-                opacity: scrolled ? 0.25 : 1,
-                transition: 'opacity 200ms ease',
+                // Readable over posters: the surface does the separating, not opacity.
+                background: scrolled ? withAlpha(NetflixColors.background, 0.86) : NetflixColors.surface,
+                transition: 'background 200ms ease',
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
-                background: NetflixColors.surface,
                 border: `1px solid ${NetflixColors.hairline}`,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.45)',
                 display: 'flex',
@@ -400,6 +400,7 @@ export function CinemaPage() {
           <HomeTab
             isDesktop={isDesktop}
             viewportHeight={height}
+            viewportWidth={width}
             isLoading={isLoadingHome}
             trendingGlobal={trendingGlobal}
             topTenToday={topTenToday}
@@ -488,6 +489,7 @@ export function CinemaPage() {
 function HomeTab({
   isDesktop,
   viewportHeight,
+  viewportWidth,
   isLoading,
   trendingGlobal,
   topTenToday,
@@ -510,6 +512,7 @@ function HomeTab({
 }: {
   isDesktop: boolean;
   viewportHeight: number;
+  viewportWidth: number;
   isLoading: boolean;
   trendingGlobal: MediaItem[];
   topTenToday: MediaItem[];
@@ -538,8 +541,10 @@ function HomeTab({
   const MIN_RAIL = 6;
   // One rail is a row, not a dump: the pool behind it feeds the rails below.
   const RAIL_MAX = 8;
+  // The billboard has already shown these five, so no rail repeats them.
+  const heroTitles = trendingGlobal.slice(0, 5);
   const seen = new Set<string>(
-    [...watchingList, ...savedList, ...trendingGlobal.slice(0, 1)].map((m) => catalogKeyOf(m)),
+    [...watchingList, ...savedList, ...heroTitles].map((m) => catalogKeyOf(m)),
   );
   const railSignatures = new Set<string>();
   // Two rails of memory: a row that copies the one two screens up reads as a
@@ -619,13 +624,17 @@ function HomeTab({
   return (
     <div>
       {isLoading && trendingGlobal.length === 0 ? (
-        <CinemaHomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} />
+        <CinemaHomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} viewportWidth={viewportWidth} />
       ) : (
         <NetflixBillboard
           items={trendingGlobal.slice(0, 5)}
           isDesktop={isDesktop}
           viewportHeight={viewportHeight}
           rankOf={rankOf}
+          resumeOf={(m) => {
+            const saved = watchingList.find((w) => catalogKeyOf(w) === catalogKeyOf(m));
+            return saved?.currentTimestamp && saved.currentTimestamp > 0 ? saved.currentTimestamp : null;
+          }}
           inListOf={isInList}
           onToggleList={onToggleList}
           onPlay={onPlay}

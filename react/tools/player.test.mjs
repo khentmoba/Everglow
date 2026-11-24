@@ -73,7 +73,8 @@ async function pickFromSheet(page, name) {
 
 /** Open the Switch Provider sheet and tap one row by its name. */
 async function pickProvider(page, name) {
-  await page.getByText('Provider:').click();
+  // The card is keyboard-operable, and Enter sidesteps the pulsing dot's animation.
+  await page.locator('[data-testid="player-source"]').first().press('Enter');
   await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
   await pickFromSheet(page, name);
 }
@@ -121,7 +122,7 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
       waitUntil: 'domcontentloaded',
     });
 
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
     const epBtn = page.locator('button[aria-expanded]').first();
     await epBtn.waitFor({ state: 'visible', timeout: 10_000 });
     assert.equal(await epBtn.getAttribute('aria-expanded'), 'false');
@@ -129,7 +130,8 @@ test('Cinema player page renders accessible EpisodeNavigator, Provider sheet, an
     assert.equal(await epBtn.getAttribute('aria-expanded'), 'true');
 
     // Open Switch Provider sheet, verify native default-source buttons, and pick Everglow (everglow-embed).
-    await page.getByText('Provider:').click();
+    // The card is keyboard-operable, and Enter sidesteps the pulsing dot's animation.
+  await page.locator('[data-testid="player-source"]').first().press('Enter');
     await page.waitForSelector('text=Switch Provider', { timeout: 5_000 });
     const defaultBtns = page.locator('button[aria-label="Set as default source"]');
     assert.ok((await defaultBtns.count()) >= 1, 'Switch Provider sheet must render native default-source buttons');
@@ -328,7 +330,7 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
       waitUntil: 'domcontentloaded',
     });
 
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
 
     // Everglow's own player draws its theater chrome, so pick Celestia first: this
     // test covers the app-owned server switcher.
@@ -337,7 +339,7 @@ test('Cinema movie player keeps server switcher reachable on phone portrait, lan
     const layout = await page.evaluate(() => {
       const iframe = document.querySelector('iframe');
       const provCard = [...document.querySelectorAll('[role="button"]')].find((el) =>
-        el.textContent?.includes('Provider:'),
+        el.getAttribute('data-testid') === 'player-source',
       );
       const topServers = [...document.querySelectorAll('button')].find(
         (b) => b.textContent?.includes('Servers'),
@@ -433,7 +435,7 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
       waitUntil: 'domcontentloaded',
     });
     // The wrapper shell is the server that reports duration, so start on Celestia.
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
     await pickProvider(page, 'Celestia');
     await page.waitForSelector('text=may be the wrong movie', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Try Everglow' }).click();
@@ -449,7 +451,7 @@ test('Cinema movie player warns on runtime mismatch with 1-tap switch and auto-f
     await page.goto(`${baseUrl}/cinema/video/872585?type=movie&title=Oppenheimer&agent=1&hud=0`, {
       waitUntil: 'domcontentloaded',
     });
-    await page.waitForSelector('text=Provider:', { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="player-source"]', { timeout: 10_000 });
     await pickProvider(page, 'Celestia');
     await page.waitForFunction(
       () => Boolean(document.querySelector('iframe')?.src.includes('everglow-stream.khentplaysmoba.workers.dev')),
