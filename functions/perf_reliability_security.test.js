@@ -43,6 +43,8 @@ const { proxyComick, proxyMangaDex, resolveMangaApiUrl } = require('./media_prox
 const { resolveCatalogUpstream } = require('./media_proxy_catalog.js');
 const { parseStudySet } = require('./motchi_study.js');
 const { proxyAnime } = require('./anime.js');
+const { proxyAnimeImage } = require('./media_proxy_anime.js');
+const { proxyMangaImage } = require('./media_proxy_manga.js');
 const { handleProxyAI } = require('./motchi_chat.js');
 const { exec_web_search, exec_read_web_page, exec_browse_web } = require('./motchi_exec_insights.js');
 const { deleteGalleryDocs } = require('./media_proxy_gallery.js');
@@ -1600,4 +1602,144 @@ test('onNewChatMessage skips duplicate push notification when via is motchi', as
     data: () => ({ sender: 'khentsgdz', text: 'hello from motchi', via: 'motchi' }),
   });
   assert.equal(firestoreCalled, false);
+});
+
+test('proxyAnimeImage rate-limits before verifyIdToken and rejects non-standard ports', async (t) => {
+  const mkRes = () => ({
+    code: 200,
+    headers: {},
+    body: null,
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  });
+  const portRes = mkRes();
+  await proxyAnimeImage(
+    {
+      method: 'GET',
+      headers: {},
+      get: () => '',
+      ip: '198.51.100.41',
+      query: { url: 'https://static.crunchyroll.com:8443/poster.jpg' },
+    },
+    portRes,
+  );
+  assert.equal(portRes.code, 400);
+
+  let verifyCalls = 0;
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'auth', () => ({
+    verifyIdToken: async () => {
+      verifyCalls += 1;
+      throw new Error('bad token');
+    },
+  }));
+  let hit429 = false;
+  for (let i = 0; i < 245; i++) {
+    const res = mkRes();
+    await proxyAnimeImage(
+      {
+        method: 'GET',
+        headers: { authorization: 'Bearer bogus-token' },
+        get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer bogus-token' : ''),
+        ip: '198.51.100.42',
+        query: { url: 'https://static.crunchyroll.com/poster.jpg' },
+      },
+      res,
+    );
+    if (res.code === 429) {
+      hit429 = true;
+      break;
+    }
+  }
+  assert.equal(hit429, true);
+  assert.equal(verifyCalls, 240);
+});
+
+test('image and HTML proxies reject non-standard ports on allowed hosts', async () => {
+  const mkRes = () => ({
+    code: 200,
+    headers: {},
+    body: null,
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  });
+  const res1 = mkRes();
+  await proxyMangaImage(
+    {
+      method: 'GET',
+      headers: {},
+      get: () => '',
+      ip: '198.51.100.43',
+      query: { url: 'https://uploads.mangadex.org:8443/covers/a.jpg' },
+    },
+    res1,
+  );
+  assert.equal(res1.code, 400);
+
+  const res2 = mkRes();
+  await proxyScanlation(
+    {
+      method: 'GET',
+      headers: {},
+      get: () => '',
+      ip: '198.51.100.44',
+      query: { url: 'https://img.bato.to:8443/page.jpg' },
+    },
+    res2,
+  );
+  assert.equal(res2.code, 400);
+});
+
+test('communityWatchPartyAccess rate-limits per uid with Retry-After without tripping loginAccount IP bucket', async (t) => {
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'uid-room-rl-test',
+      username: 'khentsgdz',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  t.mock.method(admin, 'firestore', () => ({
+    collection: () => ({
+      doc: () => ({
+        id: 'room1',
+        get: async () => ({ exists: false }),
+        collection: () => ({ doc: () => ({}) }),
+      }),
+    }),
+    batch: () => ({ set: () => {}, commit: async () => {} }),
+  }));
+  const mkRes = () => ({
+    code: 200,
+    headers: {},
+    body: null,
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  });
+  let limitedRes = null;
+  for (let i = 0; i < 17; i++) {
+    const res = mkRes();
+    await communityWatchPartyAccess(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer ok' },
+        get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer ok' : ''),
+        ip: '198.51.100.55',
+        body: { action: 'unlockRoom', roomId: 'room1', password: '' },
+      },
+      res,
+    );
+    if (res.code === 429) {
+      limitedRes = res;
+      break;
+    }
+  }
+  assert.ok(limitedRes, 'expected 429 after exceeding per-uid unlockRoom limit');
+  assert.ok(Number(limitedRes.headers['Retry-After']) >= 1);
 });

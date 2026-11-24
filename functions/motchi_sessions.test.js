@@ -3,7 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { recordMotchiTurn, MAX_TURNS_PER_SESSION } = require('./motchi_sessions.js');
+const {
+  recordMotchiTurn,
+  MAX_TURNS_PER_SESSION,
+  boundToolArgs,
+  trimTurnsToByteBudget,
+} = require('./motchi_sessions.js');
 const common = require('./common.js');
 
 test('motchi_sessions exports recordMotchiTurn and MAX_TURNS_PER_SESSION', () => {
@@ -237,5 +242,24 @@ test('recordMotchiTurn skips persistence when sessionId starts with temp_', asyn
   } finally {
     common.getDb = originalGetDb;
   }
+});
+
+test('boundToolArgs caps oversized args and trimTurnsToByteBudget keeps session under limit', () => {
+  const small = { query: 'hello' };
+  assert.deepEqual(boundToolArgs(small), small);
+  const huge = { payload: 'x'.repeat(10000) };
+  const bounded = boundToolArgs(huge);
+  assert.equal(bounded._truncated, true);
+  assert.ok(bounded.preview.length <= 1024);
+
+  const turns = Array.from({ length: 10 }, (_, i) => ({
+    idx: i,
+    userMessage: 'a'.repeat(500),
+    assistantReply: 'b'.repeat(500),
+  }));
+  const trimmed = trimTurnsToByteBudget(turns, 3500);
+  assert.ok(trimmed.length >= 1 && trimmed.length < turns.length);
+  assert.equal(trimmed[trimmed.length - 1].idx, 9);
+  assert.ok(Buffer.byteLength(JSON.stringify(trimmed), 'utf8') <= 3500);
 });
 

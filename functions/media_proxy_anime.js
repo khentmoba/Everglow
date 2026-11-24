@@ -18,19 +18,17 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  let uid = '';
+  if (enforceRateLimit(req, res, { endpoint: 'proxyAnimeImage', limit: 240, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '').trim() : '';
   if (idToken) {
     try {
-      const decoded = await getAdmin().auth().verifyIdToken(idToken, true);
-      uid = decoded.uid || '';
+      await getAdmin().auth().verifyIdToken(idToken, true);
     } catch (e) {
       res.status(401).json({ error: 'Invalid or expired auth token' });
       return;
     }
   }
-  if (enforceRateLimit(req, res, { endpoint: 'proxyAnimeImage', limit: 240, windowMs: 60000, uid })) return;
 
 
 
@@ -57,7 +55,7 @@ const proxyAnimeImage = cappedHttps(30, async (req, res) => {
     '.funimation.com',
   ];
   const isAllowedAnimeImage = (u) =>
-    allowedSuffixes.some((s) => u.hostname.toLowerCase().endsWith(s));
+    !u.port && allowedSuffixes.some((s) => u.hostname.toLowerCase().endsWith(s));
   if (parsed.protocol !== 'https:' || !isAllowedAnimeImage(parsed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
