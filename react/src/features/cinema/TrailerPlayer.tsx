@@ -5,14 +5,15 @@ import { useEffect, useRef } from 'react';
 import { Logger } from '../../core/system/logger';
 
 function embedUrl(key: string, o: { autoplay: boolean; playing: boolean; muted: boolean; loop: boolean }) {
+  const safeKey = encodeURIComponent(key);
   return (
-    `https://www.youtube.com/embed/${key}?` +
+    `https://www.youtube.com/embed/${safeKey}?` +
     [
       `autoplay=${o.autoplay && o.playing ? 1 : 0}`,
       `mute=${o.muted ? 1 : 0}`,
       'controls=0',
       `loop=${o.loop ? 1 : 0}`,
-      ...(o.loop ? [`playlist=${key}`] : []),
+      ...(o.loop ? [`playlist=${safeKey}`] : []),
       'rel=0',
       'modestbranding=1',
       'showinfo=0',
@@ -92,17 +93,26 @@ export function TrailerPlayer({
       } catch (err) {
         Logger.d(`TrailerPlayer: failed to subscribe to YT events: ${err}`);
       }
-      if (!latest.current.playing) post('pauseVideo');
+      if (!latest.current.playing || (typeof document !== 'undefined' && document.hidden)) {
+        post('pauseVideo');
+      }
       window.clearTimeout(fallback);
       fallback = window.setTimeout(notify, 2200);
     };
+    const onVisibility = () => {
+      if (!loaded.current) return;
+      if (document.hidden) post('pauseVideo');
+      else if (latest.current.playing) post('playVideo');
+    };
     window.addEventListener('message', onMessage);
+    document.addEventListener('visibilitychange', onVisibility);
     iframe.addEventListener('load', onLoad);
     iframe.src = embedUrl(videoKey, latest.current);
     return () => {
       window.clearTimeout(fallback);
       window.clearTimeout(settle);
       window.removeEventListener('message', onMessage);
+      document.removeEventListener('visibilitychange', onVisibility);
       iframe.removeEventListener('load', onLoad);
       iframe.src = 'about:blank';
     };

@@ -23,6 +23,10 @@ const { handleGenerateStudySet } = require('./motchi_study.js');
 const { proxyBookText, proxyBookFile } = require('./media_proxy_books.js');
 const { notifyDiscordWatch } = require('./discord_functions.js');
 const { proxyWatchStream } = require('./media_proxy_video.js');
+const { proxyTmdb } = require('./catalog.js');
+const { proxyCatalog } = require('./media_proxy_catalog.js');
+const { isAllowedTmdbPath } = require('./media_proxy_core.js');
+const { proxyMegavidHls } = require('./anime.js');
 
 function makeCtx(overrides = {}) {
   const cache = new Map();
@@ -231,6 +235,7 @@ test('auth-gated private endpoints set Cache-Control: private, no-store and Vary
     ['proxyMangaDex', proxyMangaDex],
     ['notifyDiscordWatch', notifyDiscordWatch],
     ['proxyWatchStream', proxyWatchStream],
+    ['proxyTmdb', proxyTmdb],
   ];
   for (const [name, fn] of handlers) {
     const res = {
@@ -245,4 +250,164 @@ test('auth-gated private endpoints set Cache-Control: private, no-store and Vary
     assert.equal(res.headers['Cache-Control'], 'private, no-store', `${name} Cache-Control`);
     assert.equal(res.headers['Vary'], 'Origin, Authorization', `${name} Vary`);
   }
+});
+
+test('isAllowedTmdbPath rejects query smuggling, fragments, backslashes, and encoded traversal', () => {
+  assert.equal(isAllowedTmdbPath('/movie/550'), true);
+  assert.equal(isAllowedTmdbPath('tv/1396/season/1'), true);
+  assert.equal(isAllowedTmdbPath('movie/550?api_key=evil'), false);
+  assert.equal(isAllowedTmdbPath('movie/550#frag'), false);
+  assert.equal(isAllowedTmdbPath('movie\\550'), false);
+  assert.equal(isAllowedTmdbPath('%2e%2e/4/account'), false);
+  assert.equal(isAllowedTmdbPath('movie/%2e%2e/account'), false);
+  assert.equal(isAllowedTmdbPath('movie/%E0%A4%A'), false);
+});
+
+test('proxyCatalog and proxyMangaDex do not cache non-200 upstream responses', async (t) => {
+  t.mock.method(common.getAdmin(), 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'u-cache-err',
+      username: 'clairjassen',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: false,
+    status: 503,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    body: new ReadableStream({
+      start(c) { c.enqueue(Buffer.from('{"error":"busy"}')); c.close(); },
+    }),
+  }));
+
+  const makeRes = () => ({
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  });
+
+  const catRes = makeRes();
+  await proxyCatalog(
+    { method: 'GET', headers: {}, get: () => '', ip: '203.0.113.21', query: { base: 'openlibrary', path: 'search.json?q=test' } },
+    catRes,
+  );
+  assert.equal(catRes.code, 503);
+  assert.equal(catRes.headers['Cache-Control'], 'private, no-store');
+
+  const mdRes = makeRes();
+  await proxyMangaDex(
+    {
+      method: 'GET',
+      headers: { authorization: 'Bearer test-token' },
+      get: (h) => (String(h).toLowerCase() === 'authorization' ? 'Bearer test-token' : ''),
+      ip: '203.0.113.22',
+      query: { path: '/manga' },
+    },
+    mdRes,
+  );
+  assert.equal(mdRes.code, 503);
+  assert.equal(mdRes.headers['Cache-Control'], 'private, no-store');
+});
+
+test('proxyTmdb sets private, no-store on non-200 upstream responses and private, max-age=300 on 200', async (t) => {
+  const prevKey = process.env.TMDB_API_KEY;
+  process.env.TMDB_API_KEY = 'tmdb-test-key';
+  t.after(() => {
+    if (prevKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = prevKey;
+  });
+  t.mock.method(common.getAdmin(), 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'u-tmdb-cache',
+      username: 'clairjassen',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  let nextStatus = 503;
+  t.mock.method(globalThis, 'fetch', async () => ({
+    ok: nextStatus === 200,
+    status: nextStatus,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    body: new ReadableStream({
+      start(c) { c.enqueue(Buffer.from('{"ok":true}')); c.close(); },
+    }),
+  }));
+  const makeRes = () => ({
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  });
+  const authReq = {
+    method: 'GET',
+    path: '/movie/999001',
+    query: {},
+    headers: { authorization: 'Bearer test-token' },
+    get: (h) => (String(h).toLowerCase() === 'authorization' ? 'Bearer test-token' : ''),
+    ip: '203.0.113.23',
+  };
+
+  const errRes = makeRes();
+  await proxyTmdb(authReq, errRes);
+  assert.equal(errRes.code, 503);
+  assert.equal(errRes.headers['Cache-Control'], 'private, no-store');
+
+  nextStatus = 200;
+  const okRes = makeRes();
+  await proxyTmdb(authReq, okRes);
+  assert.equal(okRes.code, 200);
+  assert.equal(okRes.headers['Cache-Control'], 'private, max-age=300');
+});
+
+test('proxyMegavidHls marks 206 partial responses private, no-store with Vary: Origin, Range', async (t) => {
+  const dns = require('node:dns').promises;
+  t.mock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]);
+  t.mock.method(common.getAdmin(), 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'u-hls-206',
+      username: 'clairjassen',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: true,
+    status: 206,
+    headers: new Headers({
+      'content-type': 'video/mp2t',
+      'content-range': 'bytes 0-10/100',
+      'accept-ranges': 'bytes',
+    }),
+    arrayBuffer: async () => Buffer.from('01234567890'),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await proxyMegavidHls(
+    {
+      method: 'GET',
+      headers: { authorization: 'Bearer test-token', range: 'bytes=0-10' },
+      get: (h) => {
+        const k = String(h).toLowerCase();
+        if (k === 'authorization') return 'Bearer test-token';
+        if (k === 'range') return 'bytes=0-10';
+        return '';
+      },
+      ip: '203.0.113.24',
+      query: { u: 'https://megavid.buzz/seg1.ts' },
+    },
+    res,
+  );
+  assert.equal(res.code, 206);
+  assert.equal(res.headers['Cache-Control'], 'private, no-store');
+  assert.equal(res.headers['Vary'], 'Origin, Range');
 });
