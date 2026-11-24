@@ -995,22 +995,31 @@ class OfflineMediaService extends ValueNotifier<Record<string, OfflineMediaItem>
     if (!item || item.type !== 'manga') return null;
     const files: Array<{ name: string; data: Uint8Array }> = [];
     const totalPages = Math.max(item.pageUrls.length, item.downloadedPages ?? 0);
+    let mangaCache: Cache | null = null;
+    try {
+      mangaCache = await caches.open(MANGA_CACHE);
+    } catch {
+      mangaCache = null;
+    }
     for (let i = 1; i <= totalPages; i++) {
       let bytes: Uint8Array | null = null;
-      try {
-        const cache = await caches.open(MANGA_CACHE);
-        const res = await cache.match(cacheKey(`${itemId}_p_${i}`, true));
-        if (res) {
-          const buf = await res.arrayBuffer();
-          if (buf.byteLength > 0) bytes = new Uint8Array(buf);
+      if (mangaCache) {
+        try {
+          const res = await mangaCache.match(cacheKey(`${itemId}_p_${i}`, true));
+          if (res) {
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength > 0) bytes = new Uint8Array(buf);
+          }
+        } catch {
+          bytes = null;
         }
-      } catch {
-        bytes = null;
       }
       if (!bytes && item.pageUrls[i - 1]) {
         try {
           const rawUrl = item.pageUrls[i - 1];
-          const res = await fetch(rawUrl.startsWith('assets/') ? `/${rawUrl}` : rawUrl);
+          const res = await fetch(rawUrl.startsWith('assets/') ? `/${rawUrl}` : rawUrl, {
+            signal: AbortSignal.timeout(15_000),
+          });
           if (res.ok) {
             const buf = await res.arrayBuffer();
             if (buf.byteLength > 0) bytes = new Uint8Array(buf);
