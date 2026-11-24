@@ -546,6 +546,8 @@ export function AnimeXBrowsePage({
           marginTop: 16,
           overflowX: 'auto',
           paddingBottom: 2,
+          paddingRight: 24,
+          boxSizing: 'border-box',
           maskImage: 'linear-gradient(to right, #000 92%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to right, #000 92%, transparent 100%)',
         }}

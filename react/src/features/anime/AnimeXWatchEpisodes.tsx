@@ -240,7 +240,8 @@ function DownloadButton({
               coverUrl: episode.thumbnail ?? fallbackPoster,
             });
           }}
-          style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+          // 44px target: the glyph stays small, the thing she has to hit does not.
+          style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
         >
           <Icon name="download_for_offline_outlined" size={18} color={T.textMuted} />
         </button>
@@ -454,7 +455,7 @@ function MobileEpisodeRow(p: CardProps) {
           {title}
         </div>
         <div style={{ height: 2 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginLeft: 'auto' }}>
           {p.isPlaying && <span style={dmSansStyle({ size: 11, color: T.textPrimary, weight: 700 })}>Playing</span>}
           {!p.isPlaying && p.watched && (
             <>
@@ -486,9 +487,18 @@ export function MobileEpisodesSection(p: EpisodesProps) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 800, letterSpacing: 0.1 })}>EPISODES</span>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span
+            style={{
+              ...dmSansStyle({ size: 14, color: T.textPrimary, weight: 800, letterSpacing: 0.1 }),
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            EPISODES
+          </span>
           <span style={dmSansStyle({ size: 12, color: T.textSecondary, weight: 600 })}>{p.episodes.length}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -499,7 +509,9 @@ export function MobileEpisodesSection(p: EpisodesProps) {
             >
               <Icon name="layers" size={14} color={T.accentText} />
               <div style={{ width: 4 }} />
-              <span style={dmSansStyle({ size: 11.5, color: T.textPrimary, weight: 600 })}>Season</span>
+              <span style={dmSansStyle({ size: 11.5, color: T.textPrimary, weight: 600 })}>
+                {(p.seasons.find((x) => x.isCurrent) ?? p.seasons[0])?.label ?? 'Season'}
+              </span>
               <Icon name="keyboard_arrow_down" size={14} color={T.textSecondary} />
             </Pill>
           )}
@@ -521,13 +533,13 @@ export function MobileEpisodesSection(p: EpisodesProps) {
           </Pill>
           <Pill
             active={hideSpoilers}
-            label={hideSpoilers ? 'Spoilers hidden, show episode titles' : 'Hide episode titles'}
+            label={hideSpoilers ? 'Spoilers hidden, tap to show episode titles' : 'Hide spoilers'}
             onTap={() => AnimexStores.setHideSpoilers(!hideSpoilers)}
             style={{ height: 44, padding: '0 12px', justifyContent: 'center', gap: 6 }}
           >
             <Icon name={hideSpoilers ? 'visibility_off' : 'visibility'} size={16} color={hideSpoilers ? T.accentText : T.textSecondary} />
             <span style={dmSansStyle({ size: 11.5, color: hideSpoilers ? T.accentText : T.textSecondary, weight: 600 })}>
-              Spoilers
+              {hideSpoilers ? 'Spoilers hidden' : 'Hide spoilers'}
             </span>
           </Pill>
         </div>

@@ -841,9 +841,12 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
 
   // The recovery card is normally driven by a real failed probe. Agent sessions
   // can ask for it with &playerError=1 so a proof shot is reproducible.
-  const forceContentError =
-    AgentMode.isActive.value && new URLSearchParams(window.location.search).get('playerError') === '1';
+  const agentParams = AgentMode.isActive.value ? new URLSearchParams(window.location.search) : null;
+  const forceContentError = agentParams?.get('playerError') === '1';
   const contentError = st.showErrorCard || forceContentError;
+  // Proof shots of the end-of-episode card need a timeline already near the end.
+  // Applied after mount so it never influences which episode opens.
+  const agentStartAt = Number(agentParams?.get('startAt') ?? '') || 0;
 
   // One failure, one card. A dead probe and a source that never starts used to
   // say different things; they are the same problem to her.
@@ -912,9 +915,9 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         position: 'relative',
         width: '100%',
         aspectRatio: '16 / 9',
-        borderRadius: T.radiusLg,
+        borderRadius: phone ? 0 : T.radiusLg,
         overflow: 'hidden',
-        border: `1px solid ${T.border}`,
+        border: phone ? 'none' : `1px solid ${T.border}`,
       }}
     >
       {errorCard}
@@ -967,6 +970,33 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st.selectedEpisode, Boolean(st.ready)]);
+  // The last stretch of an episode is the one moment a binge needs a control on
+  // the video itself. Driven by the real timeline, never by a decorative timer.
+  const [upNextDismissed, setUpNextDismissed] = useState(false);
+  useEffect(() => {
+    setUpNextDismissed(false);
+  }, [st.selectedEpisode]);
+  const playedSeconds = st.playbackPosition ?? 0;
+  const totalSeconds = st.playbackDuration ?? 0;
+  const secondsLeft = totalSeconds > 0 && playedSeconds > 0 ? Math.ceil(totalSeconds - playedSeconds) : 0;
+  const showUpNext =
+    Boolean(next) &&
+    !st.showErrorCard &&
+    !contentError &&
+    !upNextDismissed &&
+    secondsLeft > 0 &&
+    secondsLeft <= 20;
+  useEffect(() => {
+    if (!agentStartAt || !st.ready) return;
+    const id = window.setTimeout(() => {
+      setState(() => {
+        st.playbackDuration = agentStartAt + 12;
+        st.playbackPosition = agentStartAt;
+      });
+    }, 1500);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.ready, agentStartAt]);
   // Real playback clears the message for good, including when it starts late.
   const playingNow = (st.playbackPosition ?? 0) > 0;
   useEffect(() => {
@@ -985,6 +1015,80 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       >
         {player}
         {slowStart && !contentError && <div style={{ position: 'absolute', inset: 0 }}>{errorCard}</div>}
+        {showUpNext && next && (
+          <div
+            style={{
+              position: 'absolute',
+              left: phone ? 10 : 16,
+              right: phone ? 10 : 16,
+              bottom: phone ? 10 : 16,
+              padding: phone ? '10px 12px' : '12px 14px',
+              boxSizing: 'border-box',
+              borderRadius: T.radiusCard,
+              background: 'rgba(8,7,13,0.92)',
+              border: `1px solid ${T.borderStrong}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={dmSansStyle({ size: 10.5, color: T.textSecondary, weight: 700, letterSpacing: 0.6 })}>
+                UP NEXT · IN {secondsLeft}s
+              </div>
+              <div
+                style={{
+                  ...dmSansStyle({ size: 13, color: T.textPrimary, weight: 700 }),
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {next.isSeason ? 'Next season' : `Episode ${st.selectedEpisode + 1}`}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => (next.isSeason ? openSeason(nextSeason()!) : stepEpisode(1))}
+              style={{
+                minHeight: 40,
+                padding: '0 14px',
+                borderRadius: 999,
+                background: T.accent,
+                border: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Icon name="play_arrow" size={15} color="#FFFFFF" />
+              <span style={dmSansStyle({ size: 12, color: '#FFFFFF', weight: 700 })}>Watch now</span>
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              aria-label="Cancel auto next"
+              onClick={() => {
+                setUpNextDismissed(true);
+                AnimexStores.setAutoNext(false);
+              }}
+              style={{
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+                borderRadius: 999,
+                border: `1px solid ${T.borderStrong}`,
+                background: white(0.06),
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <Icon name="close" size={16} color={T.textPrimary} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1211,6 +1315,24 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
         {[...st.failedServerIndices].some((i) => i === st.serverIndex) && (
           <span style={dmSansStyle({ size: 11.5, color: T.textMuted })}>last source didn't load</span>
         )}
+        {st.ready && (
+          <>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
+          <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
+        </div>
+        <div style={{ flex: 1, minWidth: 8 }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <EpisodeStepButton label="Prev Episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
+          <EpisodeStepButton
+            label={hasNextSeason ? 'Next Season' : 'Next Episode'}
+            icon={hasNextSeason ? 'skip_next' : undefined}
+            enabled={!isLastEpisode || hasNextSeason}
+            onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
+          />
+        </div>
+          </>
+        )}
       </div>
       {failedNote && (
         <>
@@ -1218,26 +1340,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           <div style={dmSansStyle({ size: 12, color: T.textSecondary })}>{failedNote}</div>
         </>
       )}
-      {st.ready && (
-        <>
-          <div style={{ height: isCompactPage ? 8 : 12 }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px 12px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <PrefToggle label="Auto next" value={stores.autoNext} onChanged={(v) => AnimexStores.setAutoNext(v)} />
-              <PrefToggle label="Skip intro" value={stores.skipIntro} onChanged={(v) => AnimexStores.setSkipIntro(v)} />
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              <EpisodeStepButton label="Prev Episode" enabled={st.selectedEpisode > 1} onTap={() => stepEpisode(-1)} />
-              <EpisodeStepButton
-                label={hasNextSeason ? 'Next Season' : 'Next Episode'}
-                icon={hasNextSeason ? 'skip_next' : undefined}
-                enabled={!isLastEpisode || hasNextSeason}
-                onTap={hasNextSeason ? () => openSeason(ns!) : () => stepEpisode(1)}
-              />
-            </div>
-          </div>
-        </>
-      )}
+
     </div>
   );
 
