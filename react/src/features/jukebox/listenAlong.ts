@@ -244,6 +244,7 @@ function loadSdk(): Promise<void> {
   if (w.Spotify?.Player) return Promise.resolve();
   return new Promise((resolve, reject) => {
     let settled = false;
+    let script = document.querySelector<HTMLScriptElement>('script[data-spotify-sdk]');
     const cleanup = () => {
       window.clearTimeout(pollTimer);
       window.clearTimeout(failTimer);
@@ -258,14 +259,18 @@ function loadSdk(): Promise<void> {
       if (settled) return;
       settled = true;
       cleanup();
+      script?.remove();
       reject(err);
     };
     w.onSpotifyWebPlaybackSDKReady = done;
-    if (!document.querySelector('script[data-spotify-sdk]')) {
-      const script = document.createElement('script');
+    if (!script) {
+      script = document.createElement('script');
       script.src = 'https://sdk.scdn.co/spotify-player.js';
       script.setAttribute('data-spotify-sdk', '1');
+      script.onerror = () => fail(new Error('Spotify SDK failed to load'));
       document.head.appendChild(script);
+    } else {
+      script.addEventListener('error', () => fail(new Error('Spotify SDK failed to load')), { once: true });
     }
     const pollTimer = window.setTimeout(() => {
       if (w.Spotify?.Player) done();
