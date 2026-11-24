@@ -425,7 +425,8 @@ function BrowseSelect({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
-        padding: '9px 14px',
+        padding: '0 14px',
+        minHeight: 44,
         flexShrink: 0,
         whiteSpace: 'nowrap',
         borderRadius: AnimeXTokens.radiusMd,
@@ -540,7 +541,8 @@ export function AnimeXBrowsePage({
               flexShrink: 0,
               alignItems: 'center',
               gap: 8,
-              padding: '9px 14px',
+              padding: '0 14px',
+              minHeight: 44,
               borderRadius: AnimeXTokens.radiusMd,
               whiteSpace: 'nowrap',
               background: selectedGenres.length > 0 ? 'rgba(194,24,91,0.16)' : 'rgba(255,255,255,0.05)',
@@ -1088,7 +1090,10 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
               }}
               style={{
                 flexShrink: 0,
-                padding: '6px 11px',
+                minHeight: 44,
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0 13px',
                 borderRadius: 999,
                 whiteSpace: 'nowrap',
                 background: active ? 'rgba(194,24,91,0.16)' : 'rgba(255,255,255,0.05)',
@@ -1117,8 +1122,8 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
                 onClick={() => nav.onPresetBrowse({ genre })}
                 style={{
                   flexShrink: 0,
-                  minHeight: 36,
-                  padding: '0 12px',
+                  minHeight: 44,
+                  padding: '0 14px',
                   borderRadius: 999,
                   whiteSpace: 'nowrap',
                   background: 'rgba(255,255,255,0.05)',

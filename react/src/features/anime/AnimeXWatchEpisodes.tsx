@@ -260,37 +260,6 @@ function useRevealed(episodeNumber: number, hideSpoilers: boolean) {
   return [revealed, setRevealed] as const;
 }
 
-function HideDetailsLink({ onTap, gap }: { onTap: () => void; gap: number }) {
-  return (
-    <div
-      onClick={(ev) => {
-        ev.stopPropagation();
-        onTap();
-      }}
-      style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
-    >
-      <Icon name="visibility_off_outlined" size={12} color={T.accentWarm} />
-      <div style={{ width: gap }} />
-      <span style={dmSansStyle({ size: 10.5, color: T.accentWarm, weight: 600 })}>Hide details</span>
-    </div>
-  );
-}
-
-function RevealButton({ onTap, iconSize, textStyle }: { onTap: () => void; iconSize: number; textStyle?: CSSProperties }) {
-  return (
-    <div onClick={(ev) => ev.stopPropagation()} style={{ display: 'inline-block' }}>
-      <TextButton
-        onPressed={onTap}
-        color={T.accentWarm}
-        icon={<Icon name="visibility_outlined" size={iconSize} color={T.accentWarm} />}
-        style={{ padding: 0, ...textStyle }}
-      >
-        Reveal details
-      </TextButton>
-    </div>
-  );
-}
-
 // ---------- _HideSpoilersSwitch ----------
 
 export function HideSpoilersSwitch() {
@@ -334,6 +303,8 @@ interface CardProps {
 export interface EpisodesProps {
   episodes: AniListEpisode[];
   selectedEpisode: number;
+  /** Only a show that is still airing can spoil her. */
+  airing?: boolean;
   animeTitle: string;
   animeId: number;
   fallbackPoster: string;
@@ -535,7 +506,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
           {p.seasons.length > 1 && (
             <Pill
               onTap={() => showSeasonPickerSheet({ seasons: p.seasons, onSelectSeason: (s) => p.onSelectSeason?.(s) })}
-              style={{ minHeight: 40, padding: '0 10px' }}
+              style={{ minHeight: 44, padding: '0 12px' }}
             >
               <Icon name="layers" size={14} color={T.accentText} />
               <div style={{ width: 4 }} />
@@ -549,13 +520,13 @@ export function MobileEpisodesSection(p: EpisodesProps) {
               if (showSearch) setText('');
               setShowSearch(!showSearch);
             }}
-            style={{ width: 40, height: 40, justifyContent: 'center' }}
+            style={{ width: 44, height: 44, justifyContent: 'center' }}
           >
             <Icon name="search" size={17} color={showSearch ? T.accentText : T.textSecondary} />
           </Pill>
           <Pill
             onTap={() => setAscending(!ascending)}
-            style={{ width: 40, height: 40, justifyContent: 'center' }}
+            style={{ width: 44, height: 44, justifyContent: 'center' }}
           >
             <Icon name="swap_vert" size={17} color={T.textSecondary} />
           </Pill>
@@ -563,7 +534,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
             active={hideSpoilers}
             label={hideSpoilers ? 'Spoilers hidden, show episode titles' : 'Hide episode titles'}
             onTap={() => AnimexStores.setHideSpoilers(!hideSpoilers)}
-            style={{ width: 40, height: 40, justifyContent: 'center' }}
+            style={{ width: 44, height: 44, justifyContent: 'center' }}
           >
             <Icon name={hideSpoilers ? 'visibility_off' : 'visibility'} size={17} color={hideSpoilers ? T.accentText : T.textSecondary} />
           </Pill>
@@ -695,7 +666,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
                       : undefined
                     : undefined
                 }
-                hideSpoilers={hideSpoilers && ep.number >= p.selectedEpisode}
+                hideSpoilers={Boolean(p.airing) && hideSpoilers && ep.number >= p.selectedEpisode}
                 onTap={() => p.onSelectEpisode(ep.number)}
                 onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}
               />
@@ -709,74 +680,101 @@ export function MobileEpisodesSection(p: EpisodesProps) {
 
 // ---------- _DesktopEpisodeTile ----------
 
+/** Desktop row: same density as the phone list, with room for a synopsis. */
 function DesktopEpisodeTile(p: CardProps) {
   const [hovered, setHovered] = useState(false);
-  const [revealed, setRevealed] = useRevealed(p.episode.number, p.hideSpoilers);
-  const hidden = p.hideSpoilers && !revealed;
-  const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
-  const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
-  const synopsis = ep.synopsis?.trim() ?? '';
-  const synStyle = dmSansStyle({ size: 11, color: withAlpha(T.textSecondary, 0.85), height: 1.35 });
+  const hidden = p.hideSpoilers;
+  const title = hidden || !p.episode.title ? `Episode ${p.episode.number}` : p.episode.title;
+  const synopsis = hidden ? '' : (p.episode.synopsis?.trim() ?? '');
   return (
     <div
       onClick={p.onTap}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: 8,
+        padding: 6,
         borderRadius: T.radiusMd,
         background: p.isPlaying ? withAlpha(T.accent, 0.14) : hovered ? white(0.05) : 'transparent',
         border: `1px solid ${p.isPlaying ? withAlpha(T.accent, 0.5) : hovered ? white(0.12) : 'transparent'}`,
         transition: 'background-color 140ms, border-color 140ms',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        gap: 10,
         cursor: 'pointer',
       }}
     >
-      <EpisodeThumbnail episode={p.episode} fallbackPoster={p.fallbackPoster} isPlaying={p.isPlaying} width={116} height={66} />
-      <div style={{ width: 12 }} />
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <EpisodeThumbnail
+          episode={p.episode}
+          fallbackPoster={p.fallbackPoster}
+          isPlaying={p.isPlaying}
+          width={96}
+          height={54}
+          compact
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: 3,
+            bottom: p.resumeFraction != null ? 8 : 3,
+            padding: '1px 5px',
+            borderRadius: 4,
+            background: 'rgba(0,0,0,0.75)',
+            ...dmSansStyle({ size: 10, color: '#FFFFFF', weight: 800 }),
+          }}
+        >
+          E{p.episode.number}
+        </div>
+        {p.resumeFraction != null && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 3,
+              right: 3,
+              bottom: 3,
+              height: 3,
+              borderRadius: 2,
+              background: white(0.22),
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.round(Math.min(Math.max(p.resumeFraction, 0.02), 1) * 100)}%`,
+                height: '100%',
+                background: T.accent,
+              }}
+            />
+          </div>
+        )}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            ...dmSansStyle({ size: 12.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 600, height: 1.25 }),
+            ...dmSansStyle({ size: 12.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.3 }),
             ...ellipsis(2),
           }}
         >
           {title}
         </div>
         <div style={{ height: 3 }} />
-        <div style={{ ...dmSansStyle({ size: 11, color: T.textSecondary }), ...ellipsis(1) }}>{p.animeTitle}</div>
-        <div style={{ height: 4 }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
-          {p.isPlaying && (
-            <div style={{ padding: '1.5px 6px', background: withAlpha(T.accent, 0.2), borderRadius: 3 }}>
-              <span style={dmSansStyle({ size: 10, color: T.accentWarm, weight: 700 })}>Watching</span>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {p.isPlaying && <span style={dmSansStyle({ size: 10.5, color: T.textPrimary, weight: 700 })}>Playing</span>}
+          {!p.isPlaying && p.watched && (
+            <>
+              <Icon name="check_circle" size={11} color={T.textSecondary} />
+              <span style={dmSansStyle({ size: 10.5, color: T.textSecondary })}>Watched</span>
+            </>
           )}
-          {hidden ? (
-            <RevealButton onTap={() => setRevealed(true)} iconSize={14} textStyle={dmSansStyle({ size: 11, color: T.accentWarm })} />
-          ) : revealed ? (
-            <div>
-              <div style={{ ...synStyle, ...ellipsis(4) }}>
-                {synopsis || 'No detailed synopsis is available for this episode yet.'}
-              </div>
-              <div style={{ height: 4 }} />
-              <HideDetailsLink onTap={() => setRevealed(false)} gap={3} />
-            </div>
-          ) : synopsis ? (
-            <div
-              onClick={(ev) => {
-                ev.stopPropagation();
-                p.onInfoTap();
-              }}
-              style={{ ...synStyle, ...ellipsis(3) }}
-            >
-              {synopsis}
-            </div>
-          ) : ep.airedAt ? (
-            <span style={dmSansStyle({ size: 10, color: T.textMuted })}>{ymd(ep.airedAt)}</span>
-          ) : null}
+          {!p.isPlaying && !p.watched && p.episode.duration != null && p.episode.duration > 0 && (
+            <span style={dmSansStyle({ size: 10.5, color: T.textSecondary })}>{p.episode.duration} min</span>
+          )}
         </div>
+        {synopsis && (
+          <div style={{ ...dmSansStyle({ size: 11, color: withAlpha(T.textSecondary, 0.85), height: 1.3 }), ...ellipsis(1), marginTop: 2 }}>
+            {synopsis}
+          </div>
+        )}
       </div>
       <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} desktop />
     </div>
@@ -875,6 +873,7 @@ function SeasonDropdownButton({ seasons, onSelectSeason }: { seasons: AniListSea
 
 export function DesktopEpisodesSidebar(p: EpisodesProps) {
   const hideSpoilers = useHideSpoilers();
+  const progress = useSeriesProgress(p.animeId);
   const [ascending, setAscending] = useState(true);
   const [text, setText] = useState('');
   const query = text.trim().toLowerCase();
@@ -1003,7 +1002,15 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
                   animeTitle={p.animeTitle}
                   animeId={p.animeId}
                   isPlaying={active}
-                  hideSpoilers={hideSpoilers && ep.number >= p.selectedEpisode}
+                  watched={!active && ep.number < progress.watchedThrough}
+                  resumeFraction={
+                    !active && ep.number === progress.watchedThrough && progress.resumeAt > 0
+                      ? progress.totalSeconds > 0
+                        ? progress.resumeAt / progress.totalSeconds
+                        : undefined
+                      : undefined
+                  }
+                  hideSpoilers={Boolean(p.airing) && hideSpoilers && ep.number >= p.selectedEpisode}
                   onTap={() => p.onSelectEpisode(ep.number)}
                   onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}
                 />

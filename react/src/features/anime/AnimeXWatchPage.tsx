@@ -1,7 +1,7 @@
 // Faithful port of animex_watch_page.dart (+ _sections, _widgets and the
 // playlist / share sheets). State lives in one mutable object with a
 // `setState` bump, the same shape as the Flutter State class.
-import { useEffect, useReducer, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../../core/services/auth';
 import { auth as firebaseAuth } from '../../core/services/firebase';
 import { OfflineIds, offlineMedia } from '../../core/services/offlineMedia';
@@ -821,6 +821,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   const episodesProps = {
     episodes: st.episodes,
     selectedEpisode: st.selectedEpisode,
+    airing: (st.detail?.airingStatus ?? '').toUpperCase() === 'RELEASING' || (st.detail?.nextAiringAt ?? 0) > 0,
     animeTitle: displayTitle,
     animeId,
     fallbackPoster,
@@ -919,8 +920,18 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
   );
 
   const ep = activeEpisode();
+  const [slowStart, setSlowStart] = useState(false);
+  const progressMark = `${String(st.playerEpisode)}:${String(st.serverIndex)}:${String(st.playbackPosition ?? -1)}`;
+  useEffect(() => {
+    if (!st.ready || !url) return;
+    setSlowStart(false);
+    const timer = window.setTimeout(() => setSlowStart(true), 12000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, st.selectedEpisode, progressMark]);
+
   const failedNote = (() => {
-    if (st.showErrorCard || !st.failedServerIndices.size) return '';
+    if (st.showErrorCard || slowStart || !st.failedServerIndices.size) return '';
     const failed = [...st.failedServerIndices].filter((i) => i >= 0 && i < st.servers.length).map((i) => st.servers[i]!.name);
     if (!failed.length) return '';
     const names = failed.join(', ');
@@ -1057,12 +1068,8 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
           <div style={dmSansStyle({ size: 18, color: T.textPrimary, weight: 700, height: 1.25 })}>{activeEpisodeTitle()}</div>
           <div style={{ height: 4 }} />
           <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'pre' }}>
-            <span style={dmSansStyle({ size: 12, color: T.accentText, weight: 700 })}>Episode {st.selectedEpisode}</span>
             {ep?.duration != null && ep.duration > 0 && (
-              <>
-                <span style={dmSansStyle({ size: 11, color: T.textMuted })}>{'  •  '}</span>
-                <span style={dmSansStyle({ size: 12, color: T.textSecondary })}>{ep.duration} min</span>
-              </>
+              <span style={dmSansStyle({ size: 12, color: T.textSecondary })}>{ep.duration} min</span>
             )}
             {ep?.airedAt && (
               <>
@@ -1070,6 +1077,63 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
                 <span style={dmSansStyle({ size: 12, color: T.textSecondary })}>{ymd(ep.airedAt)}</span>
               </>
             )}
+          </div>
+        </>
+      )}
+      {slowStart && !st.showErrorCard && (
+        <>
+          <div style={{ height: 10 }} />
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: T.radiusMd,
+              background: white(0.04),
+              border: `1px solid ${T.border}`,
+            }}
+          >
+            <span style={{ ...dmSansStyle({ size: 12, color: T.textSecondary, height: 1.4 }), flex: '1 1 160px', minWidth: 0 }}>
+              This source hasn't started. Give it another go, or pick another server.
+            </span>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={() => void handleRetry()}
+              style={{
+                minHeight: 40,
+                padding: '0 14px',
+                borderRadius: 999,
+                border: `1px solid ${T.borderStrong}`,
+                background: white(0.06),
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              <Icon name="refresh" size={15} color={T.textPrimary} />
+              <div style={{ width: 6 }} />
+              <span style={dmSansStyle({ size: 12, color: T.textPrimary, weight: 700 })}>Retry</span>
+            </button>
+            <button
+              type="button"
+              className="bare-button"
+              onClick={handleContentError}
+              style={{
+                minHeight: 40,
+                padding: '0 14px',
+                borderRadius: 999,
+                border: `1px solid ${withAlpha(T.accent, 0.45)}`,
+                background: withAlpha(T.accent, 0.16),
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              <Icon name="swap_horiz" size={15} color={T.accentText} />
+              <div style={{ width: 6 }} />
+              <span style={dmSansStyle({ size: 12, color: T.accentText, weight: 700 })}>Next server</span>
+            </button>
           </div>
         </>
       )}
