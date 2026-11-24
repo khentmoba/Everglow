@@ -28,11 +28,14 @@ export function CinemaSearchTab({
   height,
   trendingGlobal,
   onMediaTap,
+  onBrowse,
 }: {
   width: number;
   height: number;
   trendingGlobal: MediaItem[];
   onMediaTap: (m: MediaItem) => void;
+  /** The empty state's way out: the Browse shelves. */
+  onBrowse: () => void;
 }) {
   const isDesktop = width >= 1024;
   const h = isDesktop ? 48 : 16;
@@ -309,8 +312,32 @@ export function CinemaSearchTab({
                       color: NetflixColors.textMuted,
                     }}
                   >
-                    {state.results.length === 0 ? 'Try a different title.' : 'Clear the filters or load more titles.'}
+                    {state.results.length === 0 ? 'Try a different title, or browse the shelves.' : 'Clear the filters or load more titles.'}
                   </div>
+                  <div style={{ height: 14 }} />
+                  <button
+                    type="button"
+                    className="bare-button"
+                    onClick={() => {
+                      if (state.results.length === 0) {
+                        onBrowse();
+                      } else {
+                        setFilters(NO_FILTERS);
+                      }
+                    }}
+                    style={{
+                      height: 44,
+                      padding: '0 18px',
+                      borderRadius: 22,
+                      background: NetflixColors.textPrimary,
+                      ...AppTypography.outfitHeading,
+                      fontSize: 13,
+                      lineHeight: lineHeight(13),
+                      color: NetflixColors.background,
+                    }}
+                  >
+                    {state.results.length === 0 ? 'Browse movies' : 'Clear filters'}
+                  </button>
                 </div>
               </div>
             )}
@@ -386,7 +413,8 @@ function FilledTextButton({ children, onPressed, disabled }: { children: string;
 
 function SearchPill({ label, selected, onTap }: { label: string; selected: boolean; onTap: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const bg = selected ? NetflixColors.accent : NetflixColors.surface;
+  // One selected language everywhere: a white chip (same as My List), not a red block.
+  const bg = selected ? NetflixColors.textPrimary : NetflixColors.surface;
   return (
     <button
       type="button"
@@ -403,12 +431,12 @@ function SearchPill({ label, selected, onTap }: { label: string; selected: boole
         padding: '0 13px',
         boxSizing: 'border-box',
         borderRadius: 24,
-        border: `1px solid ${selected ? NetflixColors.accent : NetflixColors.hairline}`,
+        border: `1px solid ${selected ? NetflixColors.textPrimary : NetflixColors.hairline}`,
         background: hovered ? `linear-gradient(${withAlpha('#FFFFFF', 0.08)}, ${withAlpha('#FFFFFF', 0.08)}), ${bg}` : bg,
         ...AppTypography.outfitHeading,
         fontSize: 12,
         lineHeight: lineHeight(12),
-        color: NetflixColors.textPrimary,
+        color: selected ? NetflixColors.background : NetflixColors.textPrimary,
         whiteSpace: 'nowrap',
       }}
     >

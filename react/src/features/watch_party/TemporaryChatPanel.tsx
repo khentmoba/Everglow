@@ -131,7 +131,7 @@ export function TemporaryChatPanel({ roomId, myUid, partnerUid }: { roomId: stri
           )}
         </button>
       </div>
-      <div style={{ height: state.kind === 'error' ? 80 : 240, position: 'relative' }}>
+      <div style={{ height: state.kind === 'error' ? 150 : 240, position: 'relative' }}>
         {state.kind === 'error' ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             <ChatMessageState icon="cloud_off" text="Chat is unavailable. Check your connection." />

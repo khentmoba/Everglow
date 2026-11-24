@@ -419,7 +419,13 @@ export function CinemaPage() {
           />
         )}
         {currentTab === 1 && (
-          <CinemaSearchTab width={width} height={height} trendingGlobal={trendingGlobal} onMediaTap={setDrawerItem} />
+          <CinemaSearchTab
+            width={width}
+            height={height}
+            trendingGlobal={trendingGlobal}
+            onMediaTap={setDrawerItem}
+            onBrowse={() => handleNavSelect(2)}
+          />
         )}
         {currentTab === 2 && (
           <CinemaBrowseTab
@@ -524,15 +530,24 @@ function HomeTab({
 }) {
   const emptyCatalogue =
     !isLoading && trendingGlobal.length === 0 && topTenToday.length === 0 && newlyReleased.length === 0 && popularTV.length === 0;
-  // One title, one rail: a poster that already appeared above stays there.
-  const seen = new Set<string>();
-  const seenRow = (items: MediaItem[]) =>
-    items.filter((m) => {
-      const key = catalogKeyOf(m);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  // A title shown above stays there, but a rail is never emptied by the rule:
+  // below MIN_RAIL it refills, because a dead rail is worse than a repeat.
+  const MIN_RAIL = 6;
+  const seen = new Set<string>(
+    [...watchingList, ...savedList, ...trendingGlobal.slice(0, 1)].map((m) => catalogKeyOf(m)),
+  );
+  const seenRow = (items: MediaItem[]) => {
+    const keep = items.filter((m) => !seen.has(catalogKeyOf(m)));
+    if (keep.length < MIN_RAIL) {
+      // Refill from titles already shown above rather than render a rail of two.
+      for (const m of items) {
+        if (keep.length >= MIN_RAIL) break;
+        if (!keep.includes(m)) keep.push(m);
+      }
+    }
+    for (const m of keep) seen.add(catalogKeyOf(m));
+    return keep;
+  };
   const becauseOf = watchingList[0];
   const becauseGenre = becauseOf?.genres?.[0];
   const becauseItems =
@@ -616,7 +631,7 @@ function HomeTab({
         <NetflixRow
           title={`Because you watched ${becauseOf?.title ?? ''}`}
           reason="Same mood, different story"
-          items={becauseItems}
+          items={seenRow(becauseItems)}
           {...rowProps}
         />
       )}

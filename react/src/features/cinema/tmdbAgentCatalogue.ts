@@ -182,7 +182,7 @@ export function agentTmdbResponse(urlStr: string): Record<string, unknown> | nul
           overview: `${EPISODE_TITLES[i % EPISODE_TITLES.length]} of ${match.name}.`,
           runtime: match.episode_run_time?.[0] ?? 45,
           air_date: `${match.first_air_date.slice(0, 4)}-06-${String(i + 1).padStart(2, '0')}`,
-          still_path: RECORDS[(at + i * 3 + 1) % RECORDS.length].backdrop_path,
+          still_path: RECORDS[(at + i + 1) % RECORDS.length].backdrop_path,
         })),
       };
     }

@@ -384,7 +384,8 @@ function FlatTextButton({
 
 function BrowsePill({ label, selected, onTap }: { label: string; selected: boolean; onTap: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const bg = selected ? NetflixColors.accent : NetflixColors.surface;
+  // One selected language everywhere: a white chip (same as My List), not a red block.
+  const bg = selected ? NetflixColors.textPrimary : NetflixColors.surface;
   return (
     <button
       type="button"
@@ -400,12 +401,12 @@ function BrowsePill({ label, selected, onTap }: { label: string; selected: boole
         padding: '0 14px',
         boxSizing: 'border-box',
         borderRadius: 24,
-        border: `1px solid ${selected ? NetflixColors.accent : NetflixColors.hairline}`,
+        border: `1px solid ${selected ? NetflixColors.textPrimary : NetflixColors.hairline}`,
         background: hovered ? `linear-gradient(${withAlpha('#FFFFFF', 0.08)}, ${withAlpha('#FFFFFF', 0.08)}), ${bg}` : bg,
         ...AppTypography.outfitHeading,
         fontSize: 12,
         lineHeight: lineHeight(12),
-        color: NetflixColors.textPrimary,
+        color: selected ? NetflixColors.background : NetflixColors.textPrimary,
         whiteSpace: 'nowrap',
       }}
     >

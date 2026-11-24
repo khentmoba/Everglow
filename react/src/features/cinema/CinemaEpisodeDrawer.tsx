@@ -873,9 +873,26 @@ export function CinemaEpisodeDrawer({
                 border: `1px solid ${withAlpha(WHITE, 0.1)}`,
                 boxShadow: boxShadow([{ color: withAlpha('#000000', 0.85), blur: 48, offset: [0, 12] }]),
                 overflow: 'hidden',
+                position: 'relative',
               }}
             >
               {content}
+              {/* The panel scrolls; this says so without cutting a row mid-card. */}
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 42,
+                  pointerEvents: 'none',
+                  background: linear(['rgba(20,20,20,0)', NetflixColors.surface], {
+                    begin: Align.topCenter,
+                    end: Align.bottomCenter,
+                  }),
+                }}
+              />
             </div>
           </div>
         )}
@@ -1189,16 +1206,26 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
     gap: 8,
   };
   if (offline.isDownloaded(id)) {
+    // A saved row is still a control: tapping it removes the download.
     return (
-      <Tooltip message="Downloaded for offline viewing">
-        <div style={{ ...circle, background: withAlpha('#000000', 0.5) }}>
-          <Icon name="offline_pin" size={20} color={withAlpha(WHITE, 0.9)} />
+      <Tooltip message="Downloaded — tap to remove">
+        <button
+          type="button"
+          className="bare-button"
+          aria-label="Remove download"
+          onClick={() => {
+            void offline.deleteDownload(id);
+            showSnackBar(`Removed ${item.title} from downloads`);
+          }}
+          style={{ ...circle, background: withAlpha('#000000', 0.5), ...insetBorder(withAlpha(WHITE, 0.55), 1.5) }}
+        >
+          <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
           {wide && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
               Downloaded
             </span>
           )}
-        </div>
+        </button>
       </Tooltip>
     );
   }
@@ -1532,8 +1559,10 @@ function ExtraTabs({
               minWidth: 0,
               padding: '10px 0',
               borderRadius: 8,
-              background: on ? NetflixColors.accent : NetflixColors.surfaceElevated,
-              border: `1px solid ${on ? NetflixColors.accent : NetflixColors.hairline}`,
+              // A red underline marks the tab; a full red block would out-shout Play.
+              background: on ? NetflixColors.surfaceElevated : 'transparent',
+              border: `1px solid ${on ? withAlpha(WHITE, 0.28) : NetflixColors.hairline}`,
+              borderBottom: `2px solid ${on ? NetflixColors.accent : 'transparent'}`,
               transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
               ...AppTypography.outfitHeading,
               fontSize: 12.5,
@@ -2177,9 +2206,10 @@ function EpisodeRow({
             style={{
               ...AppTypography.outfitWhite,
               fontSize: 12,
-              fontWeight: 500,
+              fontWeight: 600,
               lineHeight: lineHeight(12),
-              color: withAlpha(WHITE, 0.55),
+              color: withAlpha(WHITE, 0.75),
+              textDecoration: 'underline',
             }}
           >
             Show synopsis

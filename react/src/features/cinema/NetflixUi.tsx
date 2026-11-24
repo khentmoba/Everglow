@@ -79,7 +79,8 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
 
 /** Poster width per breakpoint: phone, tablet, desktop (the row height follows it). */
 export function rowCardWidth(isDesktop: boolean, vw: number): number {
-  return isDesktop ? 172 : vw >= 700 ? 168 : 124;
+  // Three deliberate sizes: pocket, lap, desk.
+  return isDesktop ? 172 : vw >= 700 ? 186 : 124;
 }
 
 /** 1:43:00 — the same clock the resume sheet shows. */
