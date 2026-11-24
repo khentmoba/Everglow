@@ -655,6 +655,8 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, req) {
 
 const proxyAnime = cappedHttps(20, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;

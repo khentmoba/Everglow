@@ -34,7 +34,10 @@ const { recordMotchiTurn } = require('./motchi_sessions.js');
 const { proxyLastfmImage } = require('./media_proxy_music.js');
 const common = require('./common.js');
 const { proxyFetchHtml } = require('./media_proxy_html.js');
-const { proxyComick, proxyMangaDex } = require('./media_proxy_manga.js');
+const { proxyComick, proxyMangaDex, resolveMangaApiUrl } = require('./media_proxy_manga.js');
+const { resolveCatalogUpstream } = require('./media_proxy_catalog.js');
+const { parseStudySet } = require('./motchi_study.js');
+const { proxyAnime } = require('./anime.js');
 const { handleProxyAI } = require('./motchi_chat.js');
 const { exec_web_search } = require('./motchi_exec_insights.js');
 const { motchiStats } = require('./motchi_stats.js');
@@ -607,4 +610,48 @@ test('proxyLastfmImage still returns 415 when upstream body cancel rejects', asy
     res,
   );
   assert.equal(res.code, 415);
+});
+
+test('resolveCatalogUpstream and resolveMangaApiUrl reject encoded traversal, fragments, and bad encoding', () => {
+  for (const bad of [
+    'anime/%2e%2e/secret',
+    'anime/%2E%2E/secret',
+    'anime%2f..%2fsecret',
+    'anime/1#fragment',
+    'anime/%ZZ/bad',
+    'anime//double',
+    'anime/./same',
+  ]) {
+    assert.throws(() => resolveCatalogUpstream('jikan', bad), /Invalid path/);
+    assert.throws(() => resolveMangaApiUrl('https://api.mangadex.org', bad), /Invalid path/);
+  }
+  assert.equal(
+    resolveCatalogUpstream('jikan', 'anime/123/').toString(),
+    'https://api.jikan.moe/v4/anime/123/',
+  );
+  assert.equal(
+    resolveMangaApiUrl('https://api.mangadex.org', 'manga/abc/'),
+    'https://api.mangadex.org/manga/abc/',
+  );
+});
+
+test('parseStudySet returns structured error for null and primitive JSON payloads', () => {
+  assert.deepEqual(parseStudySet('null'), { error: 'not-an-array' });
+  assert.deepEqual(parseStudySet('42'), { error: 'not-an-array' });
+  assert.deepEqual(parseStudySet('"hello"'), { error: 'not-an-array' });
+});
+
+test('proxyAnime sets private cache and vary headers on early error responses', async () => {
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await proxyAnime({ method: 'POST', headers: {}, get: () => '', query: {} }, res);
+  assert.equal(res.code, 405);
+  assert.equal(res.headers['Cache-Control'], 'private, no-store');
+  assert.equal(res.headers.Vary, 'Origin, Authorization');
 });
