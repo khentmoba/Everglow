@@ -102,7 +102,69 @@ function proxyBase(request) {
   return `${new URL(request.url).origin}/proxyMegavidHls`;
 }
 
-async function handleProxyAnime(request, env) {
+function getEdgeCache() {
+  return typeof caches !== 'undefined' && caches && caches.default ? caches.default : null;
+}
+
+function cachePut(ctx, cache, key, response) {
+  if (!cache || !key || !response) return;
+  const p = Promise.resolve(cache.put(key, response)).catch(() => {});
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(p);
+}
+
+function withFreshCors(headers, cors) {
+  const out = new Headers(headers);
+  for (const [k, v] of Object.entries(cors)) out.set(k, v);
+  return out;
+}
+
+function resolveCacheKey(params, selfOrigin) {
+  const path =
+    params.source === 'cinema'
+      ? `cinema/${params.mediaType}/${params.tmdbId}/${params.season}/${params.ep}/${params.server || 'auto'}`
+      : `${params.source}/${params.anilistId}/${params.malId}/${params.ep}/${params.audio}/${params.server || 'auto'}`;
+  return new Request(
+    `https://cache.everglow.internal/resolve/v1/${path}?origin=${encodeURIComponent(selfOrigin)}`,
+  );
+}
+
+function hlsCacheKey(provider, selfOrigin, target) {
+  return new Request(
+    `https://cache.everglow.internal/hls/v1/${encodeURIComponent(provider)}?origin=${encodeURIComponent(selfOrigin)}&target=${encodeURIComponent(target)}`,
+  );
+}
+
+async function prewarmPlaylists(prefetched, base, selfOrigin, sealKey, edgeCache, ctx) {
+  if (!edgeCache || !sealKey || !Array.isArray(prefetched) || !prefetched.length) return;
+  const work = Promise.all(
+    prefetched.map(async (item) => {
+      if (!item || !item.url || !item.text || !item.text.includes('#EXTM3U')) return;
+      try {
+        const provider = item.provider || 'megavid';
+        const megaplay =
+          provider === 'megaplay' ||
+          (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(new URL(item.url).hostname));
+        const rewritten = megaplay
+          ? await rewritePlaylistWithHosts(item.text, item.url, base, 'megaplay', sealKey)
+          : await rewriteCinemaPlaylist(item.text, item.url, base, provider, sealKey);
+        const key = hlsCacheKey(provider, selfOrigin, item.url);
+        const res = new Response(rewritten, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/vnd.apple.mpegurl',
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Security-Policy': "default-src 'none'; sandbox",
+            'Cache-Control': 'public, max-age=45',
+          },
+        });
+        await edgeCache.put(key, res);
+      } catch {}
+    }),
+  ).catch(() => {});
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(work);
+}
+
+async function handleProxyAnime(request, env, ctx) {
   const cors = corsHeaders(request);
   if (request.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: cors });
@@ -142,57 +204,99 @@ async function handleProxyAnime(request, env) {
       : htmlResponse(failHtml('Episode unavailable', msg, { notify }), 502, request);
   };
 
+  const edgeCache = getEdgeCache();
+  const bypassCache = query.fresh === '1';
+  const resCacheKey = edgeCache && key && !bypassCache ? resolveCacheKey(params, selfOrigin) : null;
+
   try {
-    let out;
-    if (params.source === 'yumezone') {
-      out = await resolveYumeZone(
-        params.anilistId,
-        params.ep,
-        params.audio,
-        params.server,
-        base,
-        key,
-      );
-    } else if (params.source === 'megavid') {
-      out = await resolveMegavid(
-        params.anilistId,
-        params.malId,
-        params.ep,
-        params.audio,
-        base,
-        key,
-      );
-    } else if (params.source === 'megaplay') {
-      out = await resolveMegaPlay(
-        params.anilistId,
-        params.malId,
-        params.ep,
-        params.audio,
-        base,
-        key,
-      );
-    } else if (params.source === 'everglow') {
-      out = await resolveEverglow(
-        params.anilistId,
-        params.malId,
-        params.ep,
-        params.audio,
-        params.server,
-        base,
-        key,
-      );
-    } else {
-      out = await resolveCinema(
-        params.mediaType,
-        params.tmdbId,
-        params.season,
-        params.ep,
-        base,
-        key,
-        { server: params.server },
-      );
+    let out = null;
+    if (resCacheKey) {
+      try {
+        const hit = await edgeCache.match(resCacheKey);
+        if (hit && hit.ok) {
+          const parsed = await hit.json();
+          if (parsed && parsed.src) out = parsed;
+        }
+      } catch {}
     }
-    if (!out || !out.src) throw new Error('resolver returned no src');
+
+    if (!out) {
+      if (params.source === 'yumezone') {
+        out = await resolveYumeZone(
+          params.anilistId,
+          params.ep,
+          params.audio,
+          params.server,
+          base,
+          key,
+        );
+      } else if (params.source === 'megavid') {
+        out = await resolveMegavid(
+          params.anilistId,
+          params.malId,
+          params.ep,
+          params.audio,
+          base,
+          key,
+        );
+      } else if (params.source === 'megaplay') {
+        out = await resolveMegaPlay(
+          params.anilistId,
+          params.malId,
+          params.ep,
+          params.audio,
+          base,
+          key,
+        );
+      } else if (params.source === 'everglow') {
+        out = await resolveEverglow(
+          params.anilistId,
+          params.malId,
+          params.ep,
+          params.audio,
+          params.server,
+          base,
+          key,
+        );
+      } else {
+        out = await resolveCinema(
+          params.mediaType,
+          params.tmdbId,
+          params.season,
+          params.ep,
+          base,
+          key,
+          { server: params.server },
+        );
+      }
+      if (!out || !out.src) throw new Error('resolver returned no src');
+      if (edgeCache && key) {
+        prewarmPlaylists(out.prefetched, base, selfOrigin, key, edgeCache, ctx);
+        if (resCacheKey) {
+          const ttl = out.server === 'megaplay' ? 30 : 90;
+          const cachedPayload = {
+            src: out.src,
+            tracks: Array.isArray(out.tracks) ? out.tracks : [],
+            title: out.title,
+            ep: out.ep,
+            server: out.server || '',
+            servers: Array.isArray(out.servers) ? out.servers : [],
+          };
+          cachePut(
+            ctx,
+            edgeCache,
+            resCacheKey,
+            new Response(JSON.stringify(cachedPayload), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Cache-Control': `public, max-age=${ttl}`,
+              },
+            }),
+          );
+        }
+      }
+    }
     const isCinema = params.source === 'cinema';
     const named = String(query.title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
     const title = isCinema && named
@@ -336,7 +440,7 @@ async function readLimitedText(response, maxBytes) {
 const DISALLOWED_MEDIA_CT_RE =
   /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml|text\/javascript|application\/javascript|text\/ecmascript|application\/ecmascript)$/;
 
-async function handleProxyHls(request, env, _ctx) {
+async function handleProxyHls(request, env, ctx) {
   const cors = corsHeaders(request);
   if (request.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: cors });
@@ -364,6 +468,22 @@ async function handleProxyHls(request, env, _ctx) {
     return jsonResponse({ error: 'Host not allowed' }, 400, request);
   }
 
+  const range = request.headers.get('Range');
+  const edgeCache = getEdgeCache();
+  const canCache = Boolean(edgeCache && request.method === 'GET' && !range);
+  const cacheKey = canCache ? hlsCacheKey(provider, url.origin, target) : null;
+  if (cacheKey) {
+    try {
+      const hit = await edgeCache.match(cacheKey);
+      if (hit && hit.status === 200) {
+        return new Response(hit.body, {
+          status: 200,
+          headers: withFreshCors(hit.headers, cors),
+        });
+      }
+    } catch {}
+  }
+
   const megaplay =
     provider === 'megaplay' ||
     (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(parsed.hostname));
@@ -372,7 +492,6 @@ async function handleProxyHls(request, env, _ctx) {
   else if (provider === 'yumezone') headers = yumeHeaders();
   else if (megaplay) headers = megaplayHeaders();
   else headers = megavidHeaders();
-  const range = request.headers.get('Range');
   if (range) headers.Range = range;
 
   let upstream;
@@ -440,9 +559,10 @@ async function handleProxyHls(request, env, _ctx) {
           'Content-Type': 'application/vnd.apple.mpegurl',
           'X-Content-Type-Options': 'nosniff',
           'Content-Security-Policy': "default-src 'none'; sandbox",
-          'Cache-Control': 'public, max-age=30',
+          'Cache-Control': 'public, max-age=45',
         },
       });
+      if (cacheKey) cachePut(ctx, edgeCache, cacheKey, response.clone());
       return response;
     }
     consumed = text;
@@ -476,7 +596,9 @@ async function handleProxyHls(request, env, _ctx) {
       );
     }
     const cleaned = stripAdCues(text);
-    return new Response(cleaned, { status: 200, headers: vttHeaders });
+    const vttResponse = new Response(cleaned, { status: 200, headers: vttHeaders });
+    if (cacheKey) cachePut(ctx, edgeCache, cacheKey, vttResponse.clone());
+    return vttResponse;
   }
 
   const baseCt = (upstream.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
@@ -506,16 +628,21 @@ async function handleProxyHls(request, env, _ctx) {
     return new Response(null, { status: upstream.status === 206 ? 206 : 200, headers: outHeaders });
   }
 
-  return new Response(consumed !== null ? consumed : upstream.body, {
-    status: upstream.status === 206 ? 206 : 200,
+  const mediaStatus = upstream.status === 206 ? 206 : 200;
+  const mediaResponse = new Response(consumed !== null ? consumed : upstream.body, {
+    status: mediaStatus,
     headers: outHeaders,
   });
+  if (cacheKey && mediaStatus === 200) {
+    cachePut(ctx, edgeCache, cacheKey, mediaResponse.clone());
+  }
+  return mediaResponse;
 }
 
 export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
-    if (pathname === '/proxyAnime') return handleProxyAnime(request, env);
+    if (pathname === '/proxyAnime') return handleProxyAnime(request, env, ctx);
     if (pathname === '/proxyMegavidHls') return handleProxyHls(request, env, ctx);
     if (pathname === '/health') return new Response('ok', { headers: corsHeaders(request) });
     return new Response('Not found', { status: 404, headers: corsHeaders(request) });
