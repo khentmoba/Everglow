@@ -442,7 +442,6 @@ export function CinemaEpisodeDrawer({
   };
 
   const inWatchlist = status !== '';
-  const liked = status.startsWith('watched');
   // ✓ means "saved". Only a plain saved title can be un-saved; watching and
   // watched titles stay in My List, so this never erases progress.
   const toggleWatchlist = () => {
@@ -634,8 +633,6 @@ export function CinemaEpisodeDrawer({
         onPlay={isFilm ? playMovie : () => playEpisode(item.currentSeason ?? 1, item.currentEpisode ?? 1)}
         inWatchlist={inWatchlist}
         onToggleWatchlist={toggleWatchlist}
-        liked={liked}
-        onRate={() => updateStatus(liked ? '' : 'watched-self')}
         isUnreleased={isUnreleased}
         onRemindMe={() => updateStatus('to-watch')}
         onShareDiscord={isCouple ? () => void shareToDiscord(selectedSeason) : undefined}
@@ -917,8 +914,6 @@ function Hero({
   onPlay,
   inWatchlist,
   onToggleWatchlist,
-  liked,
-  onRate,
   isUnreleased,
   onRemindMe,
   onShareDiscord,
@@ -935,8 +930,6 @@ function Hero({
   onPlay: () => void;
   inWatchlist: boolean;
   onToggleWatchlist: () => void;
-  liked: boolean;
-  onRate: () => void;
   isUnreleased: boolean;
   onRemindMe: () => void;
   onShareDiscord?: () => void;
@@ -1124,18 +1117,10 @@ function Hero({
           <CircleAction
             icon={inWatchlist ? 'check' : 'add'}
             tooltip={inWatchlist ? 'In My List' : 'Add to My List'}
-            label={inWatchlist ? 'Saved' : 'List'}
+            label={inWatchlist ? 'In List' : 'My List'}
             wide={!isMobile}
             onTap={onToggleWatchlist}
             activeColor={inWatchlist ? NetflixColors.accent : undefined}
-          />
-          <CircleAction
-            icon={liked ? 'check_circle' : 'check_circle_outline'}
-            tooltip={liked ? 'Watched' : 'Mark watched'}
-            label={liked ? 'Watched' : 'Watch'}
-            wide={!isMobile}
-            onTap={onRate}
-            activeColor={liked ? NetflixColors.accent : undefined}
           />
           {onShareDiscord && (
             <CircleAction icon="share" tooltip="Share to #watch-party" label="Share" wide={!isMobile} onTap={onShareDiscord} />
@@ -1205,11 +1190,11 @@ function CircleAction({
           <span
             style={{
               ...AppTypography.outfitWhite,
-              fontSize: 9.5,
-              lineHeight: lineHeight(9.5),
-              color: withAlpha(WHITE, 0.8),
+              fontSize: 11,
+              lineHeight: lineHeight(11),
+              color: withAlpha(WHITE, 0.82),
               textAlign: 'center',
-              maxWidth: 52,
+              maxWidth: 66,
             }}
           >
             {label}
@@ -1275,7 +1260,7 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
           <Icon name="download_done" size={20} color={withAlpha(WHITE, 0.9)} />
           {wide && (
             <span style={{ ...AppTypography.outfitHeading, fontSize: 13, lineHeight: lineHeight(13), color: withAlpha(WHITE, 0.9) }}>
-              Saved
+              Downloaded
             </span>
           )}
         </button>
@@ -1290,14 +1275,14 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
             <span
               style={{
                 ...AppTypography.outfitWhite,
-                fontSize: 9.5,
-                lineHeight: lineHeight(9.5),
-                color: withAlpha(WHITE, 0.8),
+                fontSize: 11,
+                lineHeight: lineHeight(11),
+                color: withAlpha(WHITE, 0.82),
                 textAlign: 'center',
-                maxWidth: 52,
+                maxWidth: 66,
               }}
             >
-              Saved
+              Downloaded
             </span>
           </div>
         )}
@@ -1346,14 +1331,14 @@ function MovieDownloadAction({ item, wide = false }: { item: MediaItem; wide?: b
           <span
             style={{
               ...AppTypography.outfitWhite,
-              fontSize: 9.5,
-              lineHeight: lineHeight(9.5),
-              color: withAlpha(WHITE, 0.8),
+              fontSize: 11,
+              lineHeight: lineHeight(11),
+              color: withAlpha(WHITE, 0.82),
               textAlign: 'center',
-              maxWidth: 52,
+              maxWidth: 66,
             }}
           >
-            Save
+            Download
           </span>
         </div>
       )}
@@ -1504,21 +1489,18 @@ function StatusControl({
         <StatusChip
           label="Want to Watch"
           icon=""
-          activeColor={NetflixColors.accent}
           selected={intent === 'to-watch'}
           onTap={() => applyIntent('to-watch')}
         />
         <StatusChip
           label="Watching"
           icon=""
-          activeColor={AppColors.cinemaOrange}
           selected={intent === 'watching'}
           onTap={() => applyIntent('watching')}
         />
         <StatusChip
           label="Watched"
           icon=""
-          activeColor={AppColors.cinemaGreen}
           selected={intent === 'watched'}
           onTap={() => applyIntent('watched')}
         />
@@ -1560,13 +1542,13 @@ function StatusControl({
 function StatusChip({
   label,
   icon,
-  activeColor,
   selected,
   onTap,
 }: {
   label: string;
   icon: string;
-  activeColor: string;
+  /** Kept optional for call sites that still pass a colour; selection is white. */
+  activeColor?: string;
   selected: boolean;
   onTap: () => void;
 }) {
@@ -1581,8 +1563,9 @@ function StatusChip({
         padding: icon ? '10px 15px' : '10px 14px',
         borderRadius: 8,
         boxSizing: 'border-box',
-        background: selected ? withAlpha(activeColor, 0.16) : NetflixColors.surfaceElevated,
-        border: `1px solid ${selected ? withAlpha(activeColor, 0.75) : NetflixColors.hairline}`,
+        // One selected language across Cinema: a white chip, like the filters.
+        background: selected ? NetflixColors.textPrimary : NetflixColors.surfaceElevated,
+        border: `1px solid ${selected ? NetflixColors.textPrimary : NetflixColors.hairline}`,
         transition: 'background 220ms ease-in-out, border-color 220ms ease-in-out',
         display: 'flex',
         alignItems: 'center',
@@ -1590,13 +1573,13 @@ function StatusChip({
         gap: 7,
       }}
     >
-      {icon ? <Icon name={icon} size={15} color={selected ? activeColor : NetflixColors.textSecondary} /> : null}
+      {icon ? <Icon name={icon} size={15} color={selected ? NetflixColors.background : NetflixColors.textSecondary} /> : null}
       <span
         style={{
           ...AppTypography.outfitHeading,
           fontSize: 12.5,
           lineHeight: lineHeight(12.5),
-          color: selected ? WHITE : NetflixColors.textSecondary,
+          color: selected ? NetflixColors.background : NetflixColors.textSecondary,
         }}
       >
         {label}

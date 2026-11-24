@@ -122,7 +122,7 @@ export function CinemaLibraryTab({
           [
             ['all', 'All'],
             ['watching', 'Watching'],
-            ['toWatch', 'To Watch'],
+            ['toWatch', 'Want to Watch'],
             ['watched', 'Watched'],
             ['reminders', 'Reminders'],
           ] as const

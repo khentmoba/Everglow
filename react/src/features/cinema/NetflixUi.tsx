@@ -79,8 +79,12 @@ export function cinemaMobileNavItems(isCinemaOnlyUser: boolean, showDownloads = 
 
 /** Poster width per breakpoint: phone, tablet, desktop (the row height follows it). */
 export function rowCardWidth(isDesktop: boolean, vw: number): number {
-  // Three deliberate sizes: pocket, lap, desk.
-  return isDesktop ? 172 : vw >= 700 ? 186 : 124;
+  // Posters fill the row they are in: a 1440 screen should not end at 940.
+  const hPad = isDesktop ? 48 : vw >= 700 ? 32 : 16;
+  const count = isDesktop ? (vw >= 1440 ? 7 : 6) : vw >= 700 ? 4 : 3.2;
+  const gap = 8;
+  const width = (vw - hPad * 2 - gap * Math.ceil(count)) / count;
+  return Math.round(Math.max(vw < 700 ? 112 : 148, Math.min(vw < 700 ? 136 : 216, width)));
 }
 
 /** 1:43:00 — the same clock the resume sheet shows. */

@@ -77,8 +77,9 @@ export function CinemaSearchTab({
         ...cur,
         results: [...cur.results, ...added],
         page,
-        // A page that brings nothing new means there is nothing left to load.
-        hasMore: added.length > 0 && results.length > 0 && page < 500,
+        // TMDB pages hold 20: a short page is the last one, and a page with
+        // nothing new leaves nothing to promise.
+        hasMore: results.length >= 20 && added.length > 0 && page < 500,
         searching: false,
         loadingMore: false,
       });

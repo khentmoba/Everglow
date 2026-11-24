@@ -203,7 +203,9 @@ export function CinemaBrowseTab({
                 ...AppTypography.outfitHeading,
                 fontSize: 13,
                 lineHeight: lineHeight(13),
-                color: NetflixColors.accent,
+                // Clearing filters is not a destructive act; red is for the brand.
+                color: NetflixColors.textPrimary,
+                textDecoration: 'underline',
               }}
             >
               Clear

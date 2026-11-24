@@ -1,12 +1,11 @@
 // Port of lib/features/cinema/presentation/screens/cinema_screen.dart and tabs/*.dart.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../core/services/auth';
 import { useViewport } from '../../core/system/viewport';
 import { AppBreakpoint } from '../../core/theme/layout';
 import { AppTypography } from '../../core/theme/typography';
 import { useSource } from '../../core/utils/liveSource';
-import { CircularProgress } from '../../shared/widgets/CircularProgress';
 import { Icon } from '../../shared/widgets/Icon';
 import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import { showSnackBar } from '../../shared/widgets/SnackBar';
@@ -27,6 +26,7 @@ import {
   NetflixCinemaTopBar,
   NetflixRow,
   cinemaMobileNavItems,
+  rowCardWidth,
   cinemaNavLinks,
 } from './NetflixUi';
 import {
@@ -58,7 +58,7 @@ const DISCOVERY_SHELVES: DiscoveryShelf[] = [
   { title: 'Romance', type: 'movie', genre: 10749, reason: 'For a slow evening together' },
   { title: 'Edge-of-Your-Seat Thrillers', type: 'movie', genre: 53, reason: 'Lights off, heart rate up' },
   { title: 'Sci-Fi Escapes', type: 'movie', genre: 878, reason: 'Other worlds, familiar feelings' },
-  { title: 'Stories That Stay With You', type: 'movie', genre: 18, reason: 'Quiet films that linger' },
+  { title: 'Drama', type: 'movie', genre: 18, reason: 'Serious stories, big feelings' },
 ];
 
 /** "1h 4m left": the honest counterpart to the tile's progress hairline. */
@@ -69,6 +69,57 @@ function remainingLabelOf(m: MediaItem): string | null {
   const left = Math.max(1, Math.round((dur - pos) / 60));
   const hours = Math.floor(left / 60);
   return hours > 0 ? `${hours}h ${left % 60}m left` : `${left}m left`;
+}
+
+/** The first screen while the rails arrive: the shape it will have, not a spinner. */
+function HomeSkeleton({ isDesktop, viewportHeight }: { isDesktop: boolean; viewportHeight: number }) {
+  const heroHeight = isDesktop ? 560 : Math.max(380, Math.min(540, Math.round(viewportHeight * 0.58)));
+  const cardWidth = rowCardWidth(isDesktop, isDesktop ? 1440 : 390);
+  const bar = (w: number | string, h: number, extra: CSSProperties = {}): CSSProperties => ({
+    width: w,
+    height: h,
+    borderRadius: h / 2,
+    background: 'rgba(255,255,255,0.08)',
+    ...extra,
+  });
+  return (
+    <div aria-busy="true" aria-label="Loading Cinema">
+      <div style={{ height: heroHeight, background: NetflixColors.surface, padding: '0 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 40 }}>
+        <div style={bar('32%', 12)} />
+        <div style={{ height: 14 }} />
+        <div style={bar('68%', 32)} />
+        <div style={{ height: 12 }} />
+        <div style={bar('84%', 10)} />
+        <div style={{ height: 18 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={bar(104, 40)} />
+          <div style={bar(120, 40)} />
+        </div>
+      </div>
+      {[0, 1].map((rail) => (
+        <div key={rail} style={{ padding: '26px 16px 0' }}>
+          <div style={bar(160, 16)} />
+          <div style={{ height: 10 }} />
+          <div style={bar(230, 10, { background: 'rgba(255,255,255,0.05)' })} />
+          <div style={{ height: 12 }} />
+          <div style={{ display: 'flex', gap: 8, overflow: 'hidden' }}>
+            {Array.from({ length: isDesktop ? 7 : 4 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: cardWidth,
+                  height: cardWidth * 1.5,
+                  borderRadius: 6,
+                  background: 'rgba(255,255,255,0.06)',
+                  flexShrink: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function CinemaPage() {
@@ -188,9 +239,11 @@ export function CinemaPage() {
     else void loadHome();
   }, [currentTab, loadHome]);
 
+  const tabHistory = useRef<number[]>([]);
   const handleNavSelect = useCallback(
     (tab: number, browseOptionId?: string) => {
       const clamped = Math.max(0, Math.min(5, tab));
+      if (clamped !== currentTab) tabHistory.current = [...tabHistory.current.slice(-8), currentTab];
       if (browseOptionId) setBrowseSeed((n) => n + 1);
       const next = new URLSearchParams(params);
       if (browseOptionId) {
@@ -271,9 +324,18 @@ export function CinemaPage() {
       progressUpdatedAt: saved.progressUpdatedAt,
     };
   };
-  // Back means back: leave a tab for Home first, then leave Cinema.
+  // Back means back: the tab you came from, then Home, then out of Cinema.
   const handleBack = () => {
-    if (currentTab !== 0 || selectedBrowseId) {
+    const previous = tabHistory.current.pop();
+    if (selectedBrowseId) {
+      handleNavSelect(2);
+      return;
+    }
+    if (previous != null && previous !== currentTab) {
+      handleNavSelect(previous);
+      return;
+    }
+    if (currentTab !== 0) {
       handleNavSelect(0);
       return;
     }
@@ -354,7 +416,7 @@ export function CinemaPage() {
             <button
               type="button"
               className="bare-button"
-              aria-label={isCoupleUser ? 'Back' : 'Logout'}
+              aria-label={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'Exit Cinema' : 'Back to Home') : 'Logout'}
               onClick={isCoupleUser ? handleBack : () => void handleLogout()}
               style={{
                 width: 48,
@@ -368,7 +430,11 @@ export function CinemaPage() {
                 justifyContent: 'center',
               }}
             >
-              <Icon name={isCoupleUser ? 'arrow_back' : 'logout'} size={22} color="#FFFFFF" />
+              <Icon
+                name={isCoupleUser ? (currentTab === 0 && !selectedBrowseId ? 'grid_view' : 'arrow_back') : 'logout'}
+                size={22}
+                color="#FFFFFF"
+              />
             </button>
           </div>
           {isCinemaOnlyUser && (
@@ -530,22 +596,34 @@ function HomeTab({
   // A title shown above stays there, but a rail is never emptied by the rule:
   // below MIN_RAIL it refills, because a dead rail is worse than a repeat.
   const MIN_RAIL = 6;
+  // Under this many posters a rail is not a recommendation, it is a stub.
+  const MIN_RAIL_SHOWN = 4;
   const seen = new Set<string>(
     [...watchingList, ...savedList, ...trendingGlobal.slice(0, 1)].map((m) => catalogKeyOf(m)),
   );
-  // A rail identical to one already on screen is not a second recommendation.
   const railSignatures = new Set<string>();
+  let previousRail: string[] = [];
+  const overlapWithPrevious = (keys: string[]) => {
+    if (keys.length === 0 || previousRail.length === 0) return 0;
+    const shared = keys.filter((k) => previousRail.includes(k)).length;
+    return shared / Math.min(keys.length, previousRail.length);
+  };
   const seenRow = (items: MediaItem[]) => {
-    const signature = items.map((m) => catalogKeyOf(m)).sort().join('|');
-    if (railSignatures.has(signature)) return [];
     const keep = items.filter((m) => !seen.has(catalogKeyOf(m)));
     if (keep.length < MIN_RAIL) {
-      // Refill from titles already shown above rather than render a rail of two.
+      // Refill from the far end so the rail is not the one above it again.
       for (let i = items.length - 1; i >= 0 && keep.length < MIN_RAIL; i--) {
         if (!keep.includes(items[i])) keep.push(items[i]);
       }
     }
+    const keys = keep.map((m) => catalogKeyOf(m));
+    // Two adjacent rows carrying the same posters is worse than one row fewer.
+    if (keep.length < MIN_RAIL_SHOWN || overlapWithPrevious(keys) >= 0.67) return [];
+    // A rail identical to one already on screen is not a second recommendation.
+    const signature = [...keys].sort().join('|');
+    if (railSignatures.has(signature)) return [];
     railSignatures.add(signature);
+    previousRail = keys;
     for (const m of keep) seen.add(catalogKeyOf(m));
     return keep;
   };
@@ -570,17 +648,7 @@ function HomeTab({
   return (
     <div>
       {isLoading && trendingGlobal.length === 0 ? (
-        <div
-          style={{
-            height: isDesktop ? 560 : Math.max(380, Math.min(540, Math.round(viewportHeight * 0.58))),
-            background: NetflixColors.surface,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <CircularProgress size={28} strokeWidth={2.5} color={NetflixColors.accent} />
-        </div>
+        <HomeSkeleton isDesktop={isDesktop} viewportHeight={viewportHeight} />
       ) : (
         <NetflixBillboard
           items={trendingGlobal.slice(0, 5)}
@@ -605,7 +673,9 @@ function HomeTab({
           progressLabel={remainingLabelOf}
         />
       )}
-      {savedList.length > 0 && <NetflixRow title="My List" items={savedList.slice(0, 10)} {...rowProps} />}
+      {savedList.length > 0 && (
+        <NetflixRow title="My List" reason="The titles you saved" items={savedList.slice(0, 10)} {...rowProps} />
+      )}
 
       {emptyCatalogue && (
         <div style={{ padding: 'calc(76px + env(safe-area-inset-top, 0px)) 24px 24px', textAlign: 'center' }}>

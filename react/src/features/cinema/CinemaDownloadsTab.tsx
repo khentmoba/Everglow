@@ -181,9 +181,9 @@ function StorageSummary({ storage }: { storage: string }) {
   return (
     <div style={{ ...card, padding: '12px 16px', display: 'flex', alignItems: 'center' }}>
       <div
-        style={{ padding: 8, background: withAlpha(AppColors.cinemaGreen, 0.15), borderRadius: AppRadius.sm, display: 'flex' }}
+        style={{ padding: 8, background: NetflixColors.surfaceElevated, borderRadius: AppRadius.sm, display: 'flex' }}
       >
-        <Icon name="offline_pin" size={20} color={AppColors.cinemaGreen} />
+        <Icon name="offline_pin" size={20} color={NetflixColors.textPrimary} />
       </div>
       <div style={{ width: 12 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
