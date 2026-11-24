@@ -14,13 +14,17 @@ import { AgentMode } from '../../core/agent/agentMode';
 import { AgentFixtures } from '../../core/agent/fixtures';
 import { db } from '../../core/services/firebase';
 import { just, snapshots, withFirestoreTimeout, type Source } from '../../core/utils/liveSource';
+import { computeDailyAward, type XpAward } from './xpPure';
+
+export {
+  XP_PER_LEVEL,
+  levelForXp,
+  xpIntoLevel,
+  xpToNextLevel,
+  type XpAward,
+} from './xpPure';
 
 export type UserProgress = { uid: string; xpTotal: number; level: number; streak: number; lastActivity: Date };
-
-export const XP_PER_LEVEL = 200;
-export const levelForXp = (xp: number) => (xp <= 0 ? 1 : Math.floor(xp / XP_PER_LEVEL) + 1);
-export const xpIntoLevel = (xp: number) => (xp <= 0 ? 0 : xp % XP_PER_LEVEL);
-export const xpToNextLevel = (xp: number) => XP_PER_LEVEL - xpIntoLevel(xp);
 
 function fromMap(uid: string, map: Record<string, unknown>): UserProgress {
   return {
@@ -46,29 +50,11 @@ export const xpService = {
   },
 };
 
-export type XpAward = { amount: number; dailyCap: number };
 export const playAward: XpAward = { amount: 3, dailyCap: 20 };
 export const journalAward: XpAward = { amount: 30, dailyCap: 2 };
 
 const todayKey = (now = new Date()) =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-/** XPService.computeDailyAward: null once today's cap for this action is used up. */
-export function computeDailyAward(data: Record<string, unknown>, action: string, award: XpAward, today: string) {
-  const raw = data.dailyXp;
-  const counters: Record<string, unknown> = raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : {};
-  const entry = counters[today];
-  const todayCounts: Record<string, unknown> =
-    entry && typeof entry === 'object' ? { ...(entry as Record<string, unknown>) } : {};
-  const used = typeof todayCounts[action] === 'number' ? Math.trunc(todayCounts[action] as number) : 0;
-  if (used >= award.dailyCap) return null;
-  todayCounts[action] = used + 1;
-  counters[today] = todayCounts;
-  const newXp = (typeof data.xpTotal === 'number' ? Math.trunc(data.xpTotal) : 0) + award.amount;
-  const newLevel = levelForXp(newXp);
-  const storedLevel = typeof data.level === 'number' ? Math.trunc(data.level) : 1;
-  return { counters, newXp, newLevel, leveledUp: newLevel > storedLevel };
-}
 
 let lastOp: Promise<unknown> = Promise.resolve();
 

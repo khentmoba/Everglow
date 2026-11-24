@@ -46,38 +46,7 @@ export const cycleSuffix = (s: Subscription) => (s.cycle === 'monthly' ? '/mo' :
 export const payerName = (p: SubPayer) => SubPayers.find((x) => x.id === p)!.displayName;
 export const monthlyCost = (s: Subscription) => (s.cycle === 'monthly' ? s.price : s.price / 12);
 
-const dateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-function addMonths(d: Date, months: number) {
-  const m = d.getMonth() + months;
-  const y = d.getFullYear() + Math.floor(m / 12);
-  const mm = ((m % 12) + 12) % 12;
-  const lastDay = new Date(y, mm + 1, 0).getDate();
-  return new Date(y, mm, Math.min(Math.max(d.getDate(), 1), lastDay));
-}
-
-function addYears(d: Date, years: number) {
-  const lastDay = new Date(d.getFullYear() + years, d.getMonth() + 1, 0).getDate();
-  return new Date(d.getFullYear() + years, d.getMonth(), Math.min(Math.max(d.getDate(), 1), lastDay));
-}
-
-export function nextRenewal(s: Subscription, now = new Date()): Date {
-  const today = dateOnly(now);
-  let next = dateOnly(s.renewalDate);
-  let guard = 0;
-  while (next < today && guard < 1200) {
-    next = s.cycle === 'monthly' ? addMonths(next, 1) : addYears(next, 1);
-    guard++;
-  }
-  return next;
-}
-
-/** Whole days, like Dart's Duration.inDays (DST-safe via UTC dates). */
-export function daysUntilRenewal(s: Subscription, now = new Date()): number {
-  const a = dateOnly(now);
-  const b = nextRenewal(s, now);
-  return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86_400_000);
-}
+export { daysUntilRenewal } from './renewalPure';
 
 function fromMap(data: DocumentData, id: string): Subscription {
   const asDate = (v: unknown) => (v instanceof Timestamp ? v.toDate() : null);

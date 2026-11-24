@@ -3,13 +3,14 @@
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-let open: HTMLInputElement | null = null;
+let active: { input: HTMLInputElement; finish: (value: Date | null) => void } | null = null;
 
 export function pickDate({ initial, first, last }: { initial: Date; first: Date; last: Date }): Promise<Date | null> {
-  open?.remove();
+  // Opening a second picker resolves the first one instead of leaving its
+  // promise pending forever.
+  active?.finish(null);
   return new Promise((resolve) => {
     const input = document.createElement('input');
-    open = input;
     input.type = 'date';
     input.min = iso(first);
     input.max = iso(last);
@@ -20,7 +21,7 @@ export function pickDate({ initial, first, last }: { initial: Date; first: Date;
       if (done) return;
       done = true;
       input.remove();
-      if (open === input) open = null;
+      if (active?.input === input) active = null;
       resolve(v);
     };
     input.addEventListener('change', () => {
@@ -28,6 +29,7 @@ export function pickDate({ initial, first, last }: { initial: Date; first: Date;
       finish(input.value ? new Date(y, m - 1, d) : null);
     });
     input.addEventListener('cancel', () => finish(null));
+    active = { input, finish };
     document.body.appendChild(input);
     try {
       input.showPicker();
