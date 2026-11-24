@@ -279,7 +279,7 @@ function FeaturedHero({
                 style={{
                   ...KatanaType.small,
                   fontSize: 12,
-                  color: KatanaColors.link,
+                  color: KatanaColors.textMuted,
                   flexShrink: compact ? 0 : 1,
                 }}
               >
@@ -386,7 +386,7 @@ function FeaturedHero({
                 </span>
               )}
               {featured.latestChapter && (
-                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link }}>
+                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
                   · Latest: <strong>{chapterDisplayTitle(featured.latestChapter)}</strong>
                 </span>
               )}
@@ -2092,7 +2092,7 @@ export function MangaHome({
                       </span>
                     )}
                     {m.latestChapter && (
-                      <span className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.link }}>
+                      <span className="ellipsis" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
                         {chapterDisplayTitle(m.latestChapter)}
                       </span>
                     )}
@@ -2498,7 +2498,7 @@ export function MangaHome({
           : 'Latest Updates';
 
   const freshnessLabel = data.fetchedAt
-    ? `${data.fromCache ? 'Cached catalog' : 'Live catalog'} · Updated ${formatKatanaTime(new Date(data.fetchedAt))}`
+    ? `${data.fromCache ? 'Saved copy' : 'Live'} · Updated ${formatKatanaTime(new Date(data.fetchedAt))}`
     : undefined;
 
   const phoneFilterActiveCount =

@@ -518,12 +518,14 @@ export function MangaReaderView({
 
   const flashToast = useCallback(
     (msg: string, force = false) => {
+      // one onboarding surface at a time: the intro card already explains the mode
+      if (!seenOnboardingHint) return;
       if (!force && !settings.showModeToast) return;
       setToast(msg);
       window.clearTimeout(toastTimerRef.current);
       toastTimerRef.current = window.setTimeout(() => setToast(null), 1900);
     },
-    [settings.showModeToast],
+    [settings.showModeToast, seenOnboardingHint],
   );
 
   const isPageBookmarked = useCallback(
@@ -2348,6 +2350,10 @@ export function MangaReaderView({
   }, [settings.warmTint, settings.contrast, settings.grayscale, settings.invertColors]);
 
   const isCompactPhone = viewportWidth < 480;
+  const coarsePointer = useMemo(
+    () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : true),
+    [],
+  );
   const isTabletOrWide = viewportWidth >= 768;
   const showZoneGuide = !isWebtoon && (showTapHint || (settings.showTapZonesOverlay && settings.tapZoneLayout !== 'disabled'));
   const currentBookmarked = pages.length > 0 && isPageBookmarked(chapterId, pageIdx);
@@ -3568,8 +3574,10 @@ export function MangaReaderView({
           >
             <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
               {isWebtoon
-                ? 'Tap the middle of the page to show or hide the menu · Scroll to keep reading'
-                : 'Tap the middle of the page to show or hide the menu · Tap or swipe the left and right edges to turn pages'}
+                ? `${coarsePointer ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · Scroll to keep reading`
+                : `${coarsePointer ? 'Tap' : 'Click'} the middle of the page to show or hide the menu · ${
+                    coarsePointer ? 'Tap or swipe' : 'Click or drag'
+                  } the left and right edges to turn pages`}
             </span>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               {!isWebtoon && (
@@ -3653,7 +3661,7 @@ export function MangaReaderView({
               <span
                 title="Exact page and scroll position synced across phone and tablet"
                 style={{
-                  fontSize: 10,
+                  fontSize: 11.5,
                   fontWeight: 700,
                   padding: '2px 7px',
                   borderRadius: 6,

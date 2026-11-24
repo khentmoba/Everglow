@@ -145,7 +145,7 @@ export function KatanaDownloadsView({
     setRepairingAll(true);
     try {
       const count = await offlineMedia.repairAllEvictedMangaChapters(proxyKatanaImageUrl);
-      showSnackBar(`Repaired ${count} chapter(s) in offline cache`);
+      showSnackBar(`Saved ${count} chapter(s) back on this device`);
     } finally {
       setRepairingAll(false);
     }
@@ -278,17 +278,24 @@ export function KatanaDownloadsView({
             </div>
             {quotaInfo && (
               <div style={{ marginTop: 10 }}>
-                <div style={{ height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100)}%`,
-                      minWidth: (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100 >= 2 ? 6 : 0,
-                      height: '100%',
-                      background: KatanaColors.accent,
-                      borderRadius: 99,
-                    }}
-                  />
-                </div>
+                {(() => {
+                  const pct = Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100);
+                  // a 1% sliver across a wide bar reads as a rendering bug; the sentence carries it instead
+                  if (pct < 2) return null;
+                  return (
+                    <div style={{ height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          minWidth: 10,
+                          height: '100%',
+                          background: KatanaColors.accent,
+                          borderRadius: 99,
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
                 <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 5 }}>
                   {(() => {
                     const pct = (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100;
@@ -320,10 +327,10 @@ export function KatanaDownloadsView({
                     fontFamily: Fonts.body,
                     fontSize: 12,
                     fontWeight: 700,
-                    color: KatanaColors.teal,
+                    color: KatanaColors.text,
                   }}
                 >
-                  <Icon name="fact_check" size={14} color={KatanaColors.teal} />
+                  <Icon name="fact_check" size={14} color={KatanaColors.text} />
                   <span>{verifyingCache ? 'Checking…' : 'Check my downloads'}</span>
                 </button>
             </div>
@@ -375,7 +382,7 @@ export function KatanaDownloadsView({
                 <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, flex: '1 1 220px' }}>
                   Your browser may remove offline chapters when the device runs low on space.
                 </span>
-                <KatanaButton label="Keep them" icon="shield" size="sm" filled={false} color={KatanaColors.accentSoft} onClick={keepOffline} />
+                <KatanaButton label="Keep offline" icon="shield" size="sm" filled={false} color={KatanaColors.accentSoft} onClick={keepOffline} />
               </div>
             )}
           </KatanaCard>
@@ -736,8 +743,8 @@ export function KatanaDownloadsView({
                               <button
                                 type="button"
                                 className="bare-button"
-                                title="Re-download evicted pages into Cache Storage"
-                                aria-label={`Repair offline cache for ${ch.subtitle || ch.title}`}
+                                title="Download the pages this device removed"
+                                aria-label={`Download the missing pages of ${ch.subtitle || ch.title}`}
                                 onClick={async () => {
                                   showSnackBar(`Repairing ${ch.subtitle || ch.title}…`);
                                   await offlineMedia.repairMangaChapter(ch.id, proxyKatanaImageUrl);
@@ -798,7 +805,7 @@ export function KatanaDownloadsView({
                                 fontFamily: Fonts.body,
                                 fontSize: 11.5,
                                 fontWeight: 700,
-                                color: KatanaColors.link,
+                                color: KatanaColors.textMuted,
                               }}
                             >
                               <Icon name="folder_zip" size={14} color={KatanaColors.textMuted} />
@@ -841,7 +848,7 @@ export function KatanaDownloadsView({
               fontFamily: Fonts.body,
               fontSize: 12,
               fontWeight: 700,
-              color: KatanaColors.link,
+              color: KatanaColors.textMuted,
               cursor: 'pointer',
             }}
           >

@@ -2783,7 +2783,7 @@ export function MangaPage() {
                                         {isBookmarked && currentStatus
                                           ? !desktop
                                             ? STATUS_LABELS[currentStatus].label
-                                            : `Shelf: ${STATUS_LABELS[currentStatus].label}`
+                                            : `${STATUS_LABELS[currentStatus].label}`
                                           : 'Shelf'}
                                       </span>
                                       <Icon name="expand_more" size={14} color={KatanaColors.textMuted} />

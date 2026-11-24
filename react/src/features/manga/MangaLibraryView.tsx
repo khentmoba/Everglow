@@ -279,7 +279,7 @@ export function MangaLibraryCollectionView({
                       background: withAlpha(KatanaColors.background, 0.86),
                       border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
                       fontFamily: Fonts.body,
-                      fontSize: 10.5,
+                      fontSize: 11.5,
                       fontWeight: 800,
                       color: KatanaColors.accentSoft,
                     }}
