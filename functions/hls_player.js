@@ -59,9 +59,12 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="referrer" content="no-referrer">' +
     '<title>' + displayTitle + '</title>' +
+    '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>' +
+    '<link rel="preload" href="https://cdn.jsdelivr.net/npm/hls.js@1" as="script">' +
     '<link rel="preconnect" href="https://fonts.googleapis.com">' +
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">' +
+    '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media=\'all\'">' +
+    '<noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@500;600;700;800&display=swap" rel="stylesheet"></noscript>' +
     '<style>' +
     ':root{--acc:#c2185b;--acc2:#e91e63;--acc-hi:#ff8caf;--acc-soft:rgba(194,24,91,.34);' +
     '--acc-hover:rgba(255,111,145,.16);--acc-ring:rgba(255,140,175,.45);--acc-glow:rgba(194,24,91,.42);' +
@@ -1522,8 +1525,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var fatal=0;' +
     'makeHls=function(){' +
     (token
-      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x,u){try{if(new URL(u,location.href).origin===location.origin){x.setRequestHeader("Authorization","Bearer "+' + safeScriptJson(String(token)) + ');}}catch(e){}}});'
-      : 'var h=new Hls({maxBufferLength:30});') +
+      ? 'var h=new Hls({maxBufferLength:30,maxMaxBufferLength:60,backBufferLength:30,startFragPrefetch:true,lowLatencyMode:false,maxBufferHole:0.5,nudgeMaxRetry:5,fragLoadingTimeOut:20000,manifestLoadingTimeOut:15000,levelLoadingTimeOut:15000,fragLoadingMaxRetry:4,fragLoadingRetryDelay:500,xhrSetup:function(x,u){try{if(new URL(u,location.href).origin===location.origin){x.setRequestHeader("Authorization","Bearer "+' + safeScriptJson(String(token)) + ');}}catch(e){}}});'
+      : 'var h=new Hls({maxBufferLength:30,maxMaxBufferLength:60,backBufferLength:30,startFragPrefetch:true,lowLatencyMode:false,maxBufferHole:0.5,nudgeMaxRetry:5,fragLoadingTimeOut:20000,manifestLoadingTimeOut:15000,levelLoadingTimeOut:15000,fragLoadingMaxRetry:4,fragLoadingRetryDelay:500});') +
     'hlsInst=h;hlsDead=false;fatal=0;audioTracks=[];' +
     'h.on(Hls.Events.ERROR,function(ev,data){' +
     'if(!data||!data.fatal){return;}fatal++;' +

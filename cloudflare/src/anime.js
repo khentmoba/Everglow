@@ -60,7 +60,10 @@ const CINEMA_BUDGET_MS = 14500;
 const CINEMA_PICK_BUDGET_MS = 14500;
 const CINEMA_PICK_PLAYLIST_MS = 12000;
 const YUME_BUDGET_MS = 12000;
+const YUME_AUTO_SERVER_MS = 4500;
+const YUME_HEDGE_MS = 1800;
 const EVERGLOW_BUDGET_MS = 12000;
+const EVERGLOW_HEDGE_MS = 2500;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -105,15 +108,23 @@ function base64UrlToBytes(str) {
   return out;
 }
 
+const hmacKeys = new Map();
+let megaplayAesKey = null;
+
 async function hmacSha256(secret, message) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(String(secret)),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  return crypto.subtle.sign('HMAC', key, enc.encode(String(message)));
+  const raw = String(secret);
+  let key = hmacKeys.get(raw);
+  if (!key) {
+    key = crypto.subtle.importKey(
+      'raw',
+      enc.encode(raw),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    hmacKeys.set(raw, key);
+  }
+  return crypto.subtle.sign('HMAC', await key, enc.encode(String(message)));
 }
 
 function padKeyBytes(str, len) {
@@ -604,15 +615,13 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     groups.set(sp.group, token ? { t: token } : null);
   }
 
-  const emit = async (ref) => {
+  const ungrouped = new Map();
+  const emitSync = (ref) => {
     const item = items.get(ref);
     if (!item) return null;
     const sp = item.split;
     const g = sp.lossless ? groups.get(sp.group) : null;
-    if (!g) {
-      const token = await sealTarget(key, { p: provider, u: item.abs });
-      return token ? `${proxyBase}?t=${token}` : null;
-    }
+    if (!g) return ungrouped.get(ref) || null;
     if (sp.relay) {
       return (
         `${proxyBase}?t=${g.t}&rr=${encodeURIComponent(sp.rr)}` +
@@ -622,29 +631,46 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     return `${proxyBase}?t=${g.t}&r=${encodeURIComponent(sp.r)}`;
   };
 
+  const ungroupedRefs = [];
+  for (const [ref, item] of items) {
+    if (!item) continue;
+    const sp = item.split;
+    if (!sp.lossless || !groups.get(sp.group)) ungroupedRefs.push([ref, item.abs]);
+  }
+  if (ungroupedRefs.length > 0) {
+    await Promise.all(
+      ungroupedRefs.map(async ([ref, abs]) => {
+        const token = await sealTarget(key, { p: provider, u: abs });
+        if (token) ungrouped.set(ref, `${proxyBase}?t=${token}`);
+      }),
+    );
+  }
+
   const dead = `${proxyBase}?t=0`;
-  const out = [];
-  for (const line of lines) {
+  const out = new Array(lines.length);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const t = line.trim();
     if (!t) {
-      out.push(line);
+      out[i] = line;
       continue;
     }
     if (t[0] === '#') {
-      let replaced = line;
       if (t.includes('URI="')) {
-        for (const m of [...t.matchAll(/URI="([^"]+)"/g)]) {
-          const r = await emit(m[1]);
+        let replaced = line;
+        for (const m of t.matchAll(/URI="([^"]+)"/g)) {
+          const r = emitSync(m[1]);
           if (r) replaced = replaced.replace(`URI="${m[1]}"`, `URI="${r}"`);
           else if (m[1].startsWith('http')) replaced = replaced.replace(`URI="${m[1]}"`, `URI="${dead}"`);
         }
+        out[i] = replaced;
+      } else {
+        out[i] = line;
       }
-      out.push(replaced);
       continue;
     }
-    const sealed = await emit(t);
-    if (sealed) out.push(sealed);
-    else out.push(t.startsWith('http') ? dead : t);
+    const sealed = emitSync(t);
+    out[i] = sealed || (t.startsWith('http') ? dead : t);
   }
   return out.join('\n');
 }
@@ -714,10 +740,17 @@ function assertPlayableHead(chunk, url, label) {
 }
 
 function parseMediaPlaylist(text, { stopAfterSeconds = 0 } = {}) {
+  const src = String(text || '');
   let duration = 0;
   const uris = [];
-  for (const line of String(text || '').split(/\r?\n/)) {
-    const t = line.trim();
+  let pos = 0;
+  const len = src.length;
+  while (pos < len) {
+    let nl = src.indexOf('\n', pos);
+    if (nl < 0) nl = len;
+    const raw = nl > pos && src.charCodeAt(nl - 1) === 13 ? src.slice(pos, nl - 1) : src.slice(pos, nl);
+    pos = nl + 1;
+    const t = raw.trim();
     if (!t) continue;
     if (t[0] === '#') {
       if (t.startsWith('#EXTINF:')) {
@@ -751,38 +784,47 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal, opts 
   const firstParsed = parseMediaPlaylist(first.text, {
     stopAfterSeconds: MIN_MEGAVID_SECONDS,
   });
+  const checks = [];
   const keyMatch = first.text.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
   if (keyMatch) {
     const keyUrl = resolvePlaylistUrl(keyMatch[1], first.url);
-    if (keyUrl) await fetchSegmentHead(keyUrl, segmentMs, 'key', headers, signal);
+    if (keyUrl) checks.push(fetchSegmentHead(keyUrl, segmentMs, 'key', headers, signal));
   }
   const mapMatch = first.text.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
   if (mapMatch) {
     const mapUrl = resolvePlaylistUrl(mapMatch[1], first.url);
-    if (mapUrl) await fetchSegmentHead(mapUrl, segmentMs, 'init map', headers, signal);
+    if (mapUrl) checks.push(fetchSegmentHead(mapUrl, segmentMs, 'init map', headers, signal));
   }
-  await Promise.all(
-    medias.map(async ({ url: mediaUrl, text: mediaText }) => {
-      const parsed =
-        mediaText === first.text
-          ? firstParsed
-          : parseMediaPlaylist(mediaText, {
-              stopAfterSeconds: MIN_MEGAVID_SECONDS,
-            });
-      if (parsed.duration < MIN_MEGAVID_SECONDS) {
-        throw new Error(`${prefix}: playlist too short to be the episode`);
-      }
-      if (!parsed.uris.length) throw new Error(`${prefix}: playlist has no segments`);
-      const segment = resolvePlaylistUrl(parsed.uris[0], mediaUrl);
-      if (!segment) throw new Error(`${prefix}: playlist has no segments`);
-      const head = await fetchSegmentHead(segment, segmentMs, 'segment', headers, signal);
-      assertPlayableHead(head, segment, 'segment');
-      return true;
-    }),
-  );
+  for (const { url: mediaUrl, text: mediaText } of medias) {
+    const parsed =
+      mediaText === first.text
+        ? firstParsed
+        : parseMediaPlaylist(mediaText, {
+            stopAfterSeconds: MIN_MEGAVID_SECONDS,
+          });
+    if (parsed.duration < MIN_MEGAVID_SECONDS) {
+      throw new Error(`${prefix}: playlist too short to be the episode`);
+    }
+    if (!parsed.uris.length) throw new Error(`${prefix}: playlist has no segments`);
+    const segment = resolvePlaylistUrl(parsed.uris[0], mediaUrl);
+    if (!segment) throw new Error(`${prefix}: playlist has no segments`);
+    checks.push(
+      fetchSegmentHead(segment, segmentMs, 'segment', headers, signal).then((head) => {
+        assertPlayableHead(head, segment, 'segment');
+        return true;
+      }),
+    );
+  }
+  await Promise.all(checks);
+  const prefetched = [{ url: masterUrl, text: masterText }];
+  if (first.url !== masterUrl) prefetched.push({ url: first.url, text: first.text });
   return {
+    masterUrl,
+    masterText,
     variantUrl: first.url,
+    variantText: first.text,
     segmentUrl: resolvePlaylistUrl(firstParsed.uris[0], first.url),
+    prefetched,
   };
 }
 
@@ -799,14 +841,16 @@ function verifyCinemaStream(masterUrl, provider, signal, opts) {
 }
 
 async function decryptMegaPlayPayload(encStr) {
-  const keyBytes = padKeyBytes(MEGAPLAY_ENC_KEY, 32);
+  if (!megaplayAesKey) {
+    const keyBytes = padKeyBytes(MEGAPLAY_ENC_KEY, 32);
+    megaplayAesKey = crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, [
+      'decrypt',
+    ]);
+  }
   const iv = padKeyBytes(MEGAPLAY_ENC_IV, 16);
-  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, [
-    'decrypt',
-  ]);
   const plain = await crypto.subtle.decrypt(
     { name: 'AES-CBC', iv },
-    key,
+    await megaplayAesKey,
     base64UrlToBytes(encStr),
   );
   try {
@@ -840,13 +884,13 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
     },
   );
   if (data.status !== 'ok' || !data.source) throw new Error('megavid: no stream');
-  await verifyMegavidStream(data.source, opts.signal);
-  const tracks = await Promise.all(
-    (Array.isArray(data.tracks) ? data.tracks : [])
+  const verified = await verifyMegavidStream(data.source, opts.signal);
+  const [src, ...tracks] = await Promise.all([
+    sealedUrl(proxyBase, data.source, 'megavid', key),
+    ...(Array.isArray(data.tracks) ? data.tracks : [])
       .filter((t) => t && t.file)
       .map(async (t) => ({ ...t, file: await sealedUrl(proxyBase, t.file, 'megavid', key) })),
-  );
-  const src = await sealedUrl(proxyBase, data.source, 'megavid', key);
+  ]);
   if (!src) throw new Error('megavid: stream cannot be sealed');
   return {
     src,
@@ -855,6 +899,7 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
     ep,
     server: 'megavid',
     servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
+    prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: 'megavid' })),
   };
 }
 
@@ -900,20 +945,22 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts
   const token = streamPath ? await makeMegaPlayToken(streamPath) : '';
   const masterUrl = token ? `${decrypted.file}?token=${token}` : decrypted.file;
 
-  await verifyMegaPlayStream(masterUrl, opts.signal);
+  const verified = await verifyMegaPlayStream(masterUrl, opts.signal);
 
-  const tracks = await Promise.all(
-    (Array.isArray(data.tracks) ? data.tracks : [])
+  const [src, ...tracks] = await Promise.all([
+    sealedUrl(proxyBase, masterUrl, 'megaplay', key),
+    ...(Array.isArray(data.tracks) ? data.tracks : [])
       .filter((t) => t && t.file)
       .map(async (t) => ({ ...t, file: await megaplayProxyUrl(proxyBase, t.file, key) })),
-  );
+  ]);
   return {
-    src: await sealedUrl(proxyBase, masterUrl, 'megaplay', key),
+    src,
     tracks: tracks.filter((t) => t.file),
     title: `Episode ${ep}`,
     ep,
     server: 'megaplay',
     servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
+    prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: 'megaplay' })),
   };
 }
 
@@ -967,42 +1014,118 @@ async function resolveEverglow(
   const deadline = Date.now() + budgetMs;
   const ctrl = new AbortController();
   const budgetTimer = setTimeout(() => ctrl.abort(), budgetMs);
-  let lastError = null;
-  try {
-    for (const server of order) {
-      if (Date.now() >= deadline) {
-        lastError = new Error('everglow: out of time');
-        break;
-      }
-      try {
-        let out;
-        if (server.source === 'yumezone') {
-          out = await resolveYumeZone(anilistId, ep, audio, server.id, proxyBase, key, {
-            signal: ctrl.signal,
-            budgetMs: Math.max(1, deadline - Date.now()),
-          });
-        } else if (server.source === 'megavid') {
-          out = await resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, {
-            signal: ctrl.signal,
-          });
-        } else {
-          out = await resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, {
-            signal: ctrl.signal,
-          });
-        }
-        if (!out || !out.src) {
-          lastError = new Error(`everglow: ${server.id} returned no src`);
-          continue;
-        }
-        return out;
-      } catch (e) {
-        lastError = e;
-      }
+
+  const runServer = async (server, signal) => {
+    let out;
+    if (server.source === 'yumezone') {
+      out = await resolveYumeZone(anilistId, ep, audio, server.id, proxyBase, key, {
+        signal,
+        budgetMs: Math.max(1, deadline - Date.now()),
+      });
+    } else if (server.source === 'megavid') {
+      out = await resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, { signal });
+    } else {
+      out = await resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, { signal });
     }
+    if (!out || !out.src) throw new Error(`everglow: ${server.id} returned no src`);
+    return out;
+  };
+
+  try {
+    if (serverId) {
+      return await runServer(order[0], ctrl.signal);
+    }
+    const direct = order.filter((s) => s.source !== 'yumezone');
+    const hasYume = anilistId > 0 && order.some((s) => s.source === 'yumezone');
+    const hedgeMs = typeof opts.hedgeMs === 'number' ? opts.hedgeMs : EVERGLOW_HEDGE_MS;
+
+    return await new Promise((resolve, reject) => {
+      let settled = false;
+      let yumeStarted = false;
+      let pending = direct.length;
+      let lastError = null;
+      let hedgeTimer = null;
+
+      const finish = (out) => {
+        if (settled) return;
+        settled = true;
+        if (hedgeTimer) clearTimeout(hedgeTimer);
+        ctrl.abort();
+        resolve(out);
+      };
+
+      const maybeReject = () => {
+        if (settled) return;
+        if (pending === 0 && (!hasYume || yumeStarted)) {
+          settled = true;
+          if (hedgeTimer) clearTimeout(hedgeTimer);
+          reject(new Error('everglow: no playable stream', { cause: lastError }));
+        }
+      };
+
+      const startYume = () => {
+        if (settled || yumeStarted || !hasYume) return;
+        if (Date.now() >= deadline || ctrl.signal.aborted) {
+          yumeStarted = true;
+          maybeReject();
+          return;
+        }
+        yumeStarted = true;
+        if (hedgeTimer) {
+          clearTimeout(hedgeTimer);
+          hedgeTimer = null;
+        }
+        pending += 1;
+        resolveYumeZone(anilistId, ep, audio, '', proxyBase, key, {
+          signal: ctrl.signal,
+          budgetMs: Math.max(1, deadline - Date.now()),
+        }).then(
+          (out) => {
+            if (out && out.src) finish(out);
+            else {
+              lastError = new Error('everglow: yumezone returned no src');
+              pending -= 1;
+              maybeReject();
+            }
+          },
+          (e) => {
+            lastError = e;
+            pending -= 1;
+            maybeReject();
+          },
+        );
+      };
+
+      if (hasYume && hedgeMs > 0 && hedgeMs < budgetMs) {
+        hedgeTimer = setTimeout(startYume, hedgeMs);
+      }
+
+      if (direct.length === 0) {
+        startYume();
+        return;
+      }
+
+      for (const server of direct) {
+        runServer(server, ctrl.signal).then(
+          (out) => finish(out),
+          (e) => {
+            lastError = e;
+            pending -= 1;
+            if (pending === 0 && hasYume && !yumeStarted) {
+              startYume();
+            } else {
+              maybeReject();
+            }
+          },
+        );
+      }
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'everglow: no playable stream') throw e;
+    throw new Error('everglow: no playable stream', { cause: e });
   } finally {
     clearTimeout(budgetTimer);
   }
-  throw new Error('everglow: no playable stream', { cause: lastError });
 }
 
 async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, opts = {}) {
@@ -1024,50 +1147,99 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
     if (outer.aborted) ctrl.abort();
     else outer.addEventListener('abort', onAbort, { once: true });
   }
-  let lastError = null;
-  try {
-    for (const server of order) {
-      if (Date.now() >= deadline) {
-        lastError = new Error('yumezone: out of time');
-        break;
-      }
-      try {
-        const payload = await yumeSources({
-          animeId: anilistId,
-          episode: ep,
-          language: audio,
-          provider: server.provider,
-          signal: ctrl.signal,
-        });
-        if (!payload || payload.available === false) {
-          lastError = new Error(payload && payload.message ? payload.message : 'no sources');
-          continue;
-        }
-        const master = yumeMasterUrl(payload);
-        if (!master) {
-          lastError = new Error('no master playlist');
-          continue;
-        }
-        await verifyStream(master, yumeHeaders(), ctrl.signal);
-        const src = await sealedUrl(proxyBase, master, 'yumezone', key);
-        if (!src) throw new Error('yumezone: master URL cannot be sealed');
-        return {
-          src,
-          tracks: [],
-          title: `Episode ${ep}`,
-          ep,
-          server: server.id,
-          servers: everglowServerLinks(proxyBase, { anilistId, malId: 0, ep, audio }),
-        };
-      } catch (e) {
-        lastError = e;
-      }
+
+  const tryOne = async (server, timeoutMs) => {
+    const payload = await yumeSources({
+      animeId: anilistId,
+      episode: ep,
+      language: audio,
+      provider: server.provider,
+      signal: ctrl.signal,
+      timeoutMs,
+    });
+    if (!payload || payload.available === false) {
+      throw new Error(payload && payload.message ? payload.message : 'no sources');
     }
+    const master = yumeMasterUrl(payload);
+    if (!master) throw new Error('no master playlist');
+    const verified = await verifyStream(master, yumeHeaders(), ctrl.signal);
+    const src = await sealedUrl(proxyBase, master, 'yumezone', key);
+    if (!src) throw new Error('yumezone: master URL cannot be sealed');
+    return {
+      src,
+      tracks: [],
+      title: `Episode ${ep}`,
+      ep,
+      server: server.id,
+      servers: everglowServerLinks(proxyBase, { anilistId, malId: 0, ep, audio }),
+      prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: 'yumezone' })),
+    };
+  };
+
+  try {
+    if (serverId || order.length === 1) {
+      return await tryOne(order[0], Math.min(9000, Math.max(1, deadline - Date.now())));
+    }
+    const hedgeMs = typeof opts.hedgeMs === 'number' ? opts.hedgeMs : YUME_HEDGE_MS;
+    return await new Promise((resolve, reject) => {
+      let idx = 0;
+      let inFlight = 0;
+      let settled = false;
+      let lastError = null;
+      let hedgeTimer = null;
+
+      const clearHedge = () => {
+        if (hedgeTimer) {
+          clearTimeout(hedgeTimer);
+          hedgeTimer = null;
+        }
+      };
+
+      const launchNext = () => {
+        if (settled || idx >= order.length || Date.now() >= deadline || ctrl.signal.aborted) {
+          if (!settled && inFlight === 0) {
+            settled = true;
+            clearHedge();
+            reject(new Error('yumezone: no playable stream', { cause: lastError }));
+          }
+          return;
+        }
+        const server = order[idx++];
+        inFlight += 1;
+        if (inFlight === 1 && idx < order.length && hedgeMs > 0) {
+          clearHedge();
+          hedgeTimer = setTimeout(() => {
+            hedgeTimer = null;
+            if (!settled && inFlight < 2 && idx < order.length) launchNext();
+          }, hedgeMs);
+        }
+        const perTimeout = Math.min(YUME_AUTO_SERVER_MS, Math.max(1, deadline - Date.now()));
+        tryOne(server, perTimeout).then(
+          (out) => {
+            if (settled) return;
+            settled = true;
+            clearHedge();
+            ctrl.abort();
+            resolve(out);
+          },
+          (e) => {
+            lastError = e;
+            inFlight -= 1;
+            clearHedge();
+            if (!settled) launchNext();
+          },
+        );
+      };
+
+      launchNext();
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'yumezone: no playable stream') throw e;
+    throw new Error('yumezone: no playable stream', { cause: e });
   } finally {
     clearTimeout(budgetTimer);
     if (outer) outer.removeEventListener('abort', onAbort);
   }
-  throw new Error('yumezone: no playable stream', { cause: lastError });
 }
 
 function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
@@ -1114,20 +1286,37 @@ function hlsCandidates(sources, kindKey, baseOrigin) {
 }
 
 async function firstPlayable(masterUrls, provider, signal, opts) {
-  for (const masterUrl of masterUrls) {
-    try {
-      await verifyCinemaStream(masterUrl, provider, signal, opts);
-      return masterUrl;
-    } catch {}
+  if (!masterUrls.length) throw new Error(`cinema ${provider}: no playable source`);
+  if (masterUrls.length === 1) {
+    const verified = await verifyCinemaStream(masterUrls[0], provider, signal, opts);
+    return { masterUrl: masterUrls[0], verified };
   }
-  throw new Error(`cinema ${provider}: no playable source`);
+  const localCtrl = new AbortController();
+  const onAbort = () => localCtrl.abort();
+  if (signal) {
+    if (signal.aborted) localCtrl.abort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  }
+  try {
+    return await Promise.any(
+      masterUrls.map(async (masterUrl) => {
+        const verified = await verifyCinemaStream(masterUrl, provider, localCtrl.signal, opts);
+        return { masterUrl, verified };
+      }),
+    );
+  } catch {
+    throw new Error(`cinema ${provider}: no playable source`);
+  } finally {
+    localCtrl.abort();
+    if (signal) signal.removeEventListener('abort', onAbort);
+  }
 }
 
 async function resolveFmov(apiPath, srcKey, signal) {
   const data = await fetchT(
     `${FMOV_ORIGIN}/api/stream/${apiPath}?source=${srcKey}`,
     { headers: fmovHeaders({ Accept: 'application/json' }) },
-    6000,
+    10000,
     signal,
     async (res) => {
       if (!res.ok) throw new Error(`fmov ${srcKey} ${res.status}`);
@@ -1169,7 +1358,7 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
         'Sec-Fetch-Site': 'same-origin',
       }),
     },
-    6000,
+    10000,
     signal,
     async (res) => {
       if (!res.ok) throw new Error(`vidbolt ${res.status}`);
@@ -1240,60 +1429,44 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   const budgetTimer = setTimeout(() => budgetCtrl.abort(), budgetMs);
   let hit = null;
   let masterUrl = null;
-  let lastError = null;
+  let verified = null;
   try {
-    while (remaining.length > 0) {
-      const losers = new AbortController();
-      const attempts = remaining.slice(0, 6).map((srcKey) => {
-        if (srcKey === 'vidbolt') {
-          return resolveVidBolt(mediaType, tmdbId, season, ep, losers.signal);
-        }
-        return resolveFmov(apiPath, srcKey, losers.signal);
-      });
-      let candidate;
-      try {
-        candidate = await Promise.race([Promise.any(attempts), deadline]);
-      } catch (e) {
-        lastError = e;
-        break;
-      } finally {
-        losers.abort();
-        for (const a of attempts) a.catch(() => {});
-      }
-      const at = remaining.indexOf(candidate.key);
-      if (at >= 0) remaining.splice(at, 1);
-      try {
-        masterUrl = await firstPlayable(
-          candidate.masterUrls,
-          candidate.provider,
-          budgetCtrl.signal,
-          verifyOpts,
-        );
-        hit = candidate;
-        break;
-      } catch (e) {
-        lastError = e;
-      }
-    }
-    if (!hit) throw lastError || new Error('cinema: all providers missed');
+    const attempts = remaining.map(async (srcKey) => {
+      const candidate =
+        srcKey === 'vidbolt'
+          ? await resolveVidBolt(mediaType, tmdbId, season, ep, budgetCtrl.signal)
+          : await resolveFmov(apiPath, srcKey, budgetCtrl.signal);
+      const playable = await firstPlayable(
+        candidate.masterUrls,
+        candidate.provider,
+        budgetCtrl.signal,
+        verifyOpts,
+      );
+      return { candidate, masterUrl: playable.masterUrl, verified: playable.verified };
+    });
+    for (const a of attempts) a.catch(() => {});
+    const winner = await Promise.race([Promise.any(attempts), deadline]);
+    hit = winner.candidate;
+    masterUrl = winner.masterUrl;
+    verified = winner.verified;
   } catch (e) {
     throw new Error('cinema: no playable stream', { cause: e });
   } finally {
+    budgetCtrl.abort();
     clearTimeout(timer);
     clearTimeout(budgetTimer);
   }
 
-  const tracks = (
-    await Promise.all(
-      selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
-        .filter((t) => t.file.startsWith('https://'))
-        .map(async (t) => ({
-          ...t,
-          file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
-        })),
-    )
-  ).filter((t) => t.file);
-  const src = await cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key);
+  const [src, ...rawTracks] = await Promise.all([
+    cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key),
+    ...selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
+      .filter((t) => t.file.startsWith('https://'))
+      .map(async (t) => ({
+        ...t,
+        file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
+      })),
+  ]);
+  const tracks = rawTracks.filter((t) => t.file);
   if (!src) throw new Error('cinema: master URL cannot be stamped');
   return {
     src,
@@ -1302,6 +1475,7 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     ep: isTv ? ep : 1,
     servers: cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep),
     server: cinemaServerId(hit),
+    prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: hit.provider })),
   };
 }
 

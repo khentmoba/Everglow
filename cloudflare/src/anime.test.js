@@ -2808,3 +2808,257 @@ test('handleProxyHls forces octet-stream for XML and legacy ECMAScript MIME type
     globalThis.fetch = realFetch;
   }
 });
+
+test('resolveCinema races resolve+verify end-to-end without aborting playable peers', async () => {
+  const realFetch = globalThis.fetch;
+  const apiCalls = new Map();
+  const segOk = { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([0x47, 0, 0, 0]).buffer };
+  try {
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u.startsWith('https://fmov.my/api/stream/movie/603?source=')) {
+        const src = new URL(u).searchParams.get('source');
+        apiCalls.set(src, (apiCalls.get(src) || 0) + 1);
+        if (src === 'apex') {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              sources: [{ url: `/api/proxy?url=${encodeURIComponent(`${CDN}dead.m3u8`)}`, type: 'hls' }],
+            }),
+          };
+        }
+        if (src === 'orion') {
+          await new Promise((r) => setTimeout(r, 25));
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              sources: [{ url: `/api/proxy?url=${encodeURIComponent(`${CDN}live.m3u8`)}`, type: 'hls' }],
+            }),
+          };
+        }
+        return { ok: false, status: 404 };
+      }
+      if (u.includes('dead.m3u8')) {
+        await new Promise((resolve, reject) => {
+          const t = setTimeout(resolve, 200);
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(t);
+            reject(new Error('aborted'));
+          });
+        });
+        return { ok: false, status: 502 };
+      }
+      if (u.includes('live.m3u8')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => `#EXTM3U\n#EXTINF:200,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n`,
+        };
+      }
+      if (u.startsWith('https://vidbolt.xyz/')) return { ok: false, status: 403 };
+      return segOk;
+    };
+    const started = Date.now();
+    const out = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY);
+    const elapsed = Date.now() - started;
+    assert.equal(out.server, 'cine-2');
+    assert.equal(apiCalls.get('orion'), 1, 'orion was never aborted and re-fetched');
+    assert.ok(elapsed < 150, `expected parallel end-to-end win, took ${elapsed}ms`);
+    assert.equal(out.prefetched.length, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('resolveEverglow races direct servers in parallel and hedges into YumeZone when direct hangs', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const hang = (_url, init) =>
+    new Promise((_, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+    });
+  try {
+    const megavidStub = mockMegavid('https://megavid.buzz/stream/master.m3u8?token=t');
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u.startsWith('https://megaplay.buzz/')) return hang(url, init);
+      return megavidStub(url, init);
+    };
+    const t0 = realNow();
+    const directOut = await resolveEverglow(21, 21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY, {
+      budgetMs: 400,
+      hedgeMs: 120,
+    });
+    assert.equal(directOut.server, 'megavid');
+    assert.ok(realNow() - t0 < 100, 'hanging MegaPlay did not block Megavid');
+
+    const yumeStub = mockYume({ 'Karl - 3': yumeAnswer() });
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u.startsWith('https://megaplay.buzz/') || u.startsWith('https://megavid.buzz/')) {
+        return hang(url, init);
+      }
+      return yumeStub(url, init);
+    };
+    const t1 = realNow();
+    const hedgedOut = await resolveEverglow(21, 21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY, {
+      budgetMs: 500,
+      hedgeMs: 30,
+    });
+    assert.equal(hedgedOut.server, 'yume-1');
+    assert.ok(realNow() - t1 < 250, 'YumeZone hedge resolved before direct timeout');
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('resolveYumeZone hedges into the next server when the first hangs', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const yumeStub = mockYume({ Goku: yumeAnswer() });
+  try {
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u === 'https://yumezone.live/api/yume/watch/sources') {
+        const body = JSON.parse(init.body);
+        if (body.provider === 'Karl - 3') {
+          return new Promise((_, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+          });
+        }
+      }
+      return yumeStub(url, init);
+    };
+    const t0 = realNow();
+    const out = await resolveYumeZone(21, 1, 'sub', '', `${HOST}/proxyMegavidHls`, KEY, {
+      budgetMs: 500,
+      hedgeMs: 25,
+    });
+    assert.equal(out.server, 'yume-2');
+    assert.ok(realNow() - t0 < 250);
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+function mockEdgeCaches() {
+  const store = new Map();
+  const def = {
+    async match(req) {
+      const key = typeof req === 'string' ? req : req.url;
+      const hit = store.get(key);
+      return hit ? hit.clone() : undefined;
+    },
+    async put(req, res) {
+      const key = typeof req === 'string' ? req : req.url;
+      store.set(key, res.clone());
+    },
+  };
+  return { store, cachesObj: { default: def } };
+}
+
+test('edge cache serves warm /proxyAnime hits, pre-warms playlists, and bypasses Range/206', async () => {
+  const realFetch = globalThis.fetch;
+  const realCaches = globalThis.caches;
+  const { cachesObj } = mockEdgeCaches();
+  const pending = [];
+  const ctx = { waitUntil: (p) => pending.push(p) };
+  let upstreamCount = 0;
+  try {
+    globalThis.caches = cachesObj;
+    globalThis.fetch = async (url) => {
+      upstreamCount += 1;
+      const u = String(url);
+      if (u.startsWith('https://fmov.my/api/stream/movie/603?source=apex')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            sources: [{ url: `/api/proxy?url=${encodeURIComponent(`${CDN}index.m3u8`)}`, type: 'hls' }],
+          }),
+        };
+      }
+      if (u.startsWith('https://fmov.my/api/stream/') || u.startsWith('https://vidbolt.xyz/')) {
+        return { ok: false, status: 404 };
+      }
+      if (u.includes('index.m3u8')) {
+        return new Response(`#EXTM3U\n#EXTINF:200,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n`, {
+          status: 200,
+          headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+        });
+      }
+      return new Response(new Uint8Array([0x47, 1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'video/mp2t' },
+      });
+    };
+
+    const u = `${HOST}/proxyAnime?source=cinema&type=movie&tmdbId=603&format=json`;
+    const r1 = await handleProxyAnime(new Request(u), { CDN_STAMP_KEY: KEY }, ctx);
+    assert.equal(r1.status, 200);
+    await Promise.all(pending.splice(0));
+    const body1 = await r1.json();
+    const afterFirst = upstreamCount;
+
+    const r2 = await handleProxyAnime(
+      new Request(u, { headers: { Origin: 'http://localhost:5173' } }),
+      { CDN_STAMP_KEY: KEY },
+      ctx,
+    );
+    assert.equal(r2.status, 200);
+    assert.equal(r2.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+    assert.equal(upstreamCount, afterFirst, 'warm /proxyAnime hit skipped upstream');
+
+    const plRes = await handleProxyHls(
+      new Request(body1.src, { headers: { Origin: 'https://everglow-1c6db.web.app' } }),
+      { CDN_STAMP_KEY: KEY },
+      ctx,
+    );
+    assert.equal(plRes.status, 200);
+    assert.equal(plRes.headers.get('access-control-allow-origin'), 'https://everglow-1c6db.web.app');
+    assert.equal(upstreamCount, afterFirst, 'pre-warmed playlist hit edge cache with zero upstream fetches');
+    const plText = await plRes.text();
+    const segUrl = plText.split('\n').find((l) => l.startsWith('https://'));
+
+    const seg1 = await handleProxyHls(new Request(segUrl), { CDN_STAMP_KEY: KEY }, ctx);
+    assert.equal(seg1.status, 200);
+    await Promise.all(pending.splice(0));
+    const afterSeg = upstreamCount;
+
+    const seg2 = await handleProxyHls(
+      new Request(segUrl, { headers: { Origin: 'http://localhost:5173' } }),
+      { CDN_STAMP_KEY: KEY },
+      ctx,
+    );
+    assert.equal(seg2.status, 200);
+    assert.equal(seg2.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+    assert.equal(upstreamCount, afterSeg, 'full segment served from edge cache');
+
+    globalThis.fetch = async () => {
+      upstreamCount += 1;
+      return new Response(new Uint8Array([0x47, 9]), {
+        status: 206,
+        headers: { 'content-type': 'video/mp2t', 'content-range': 'bytes 0-1/4' },
+      });
+    };
+    const ranged = await handleProxyHls(
+      new Request(segUrl, { headers: { Range: 'bytes=0-1' } }),
+      { CDN_STAMP_KEY: KEY },
+      ctx,
+    );
+    assert.equal(ranged.status, 206);
+    assert.equal(upstreamCount, afterSeg + 1, 'Range request bypassed edge cache');
+  } finally {
+    globalThis.fetch = realFetch;
+    globalThis.caches = realCaches;
+  }
+});
