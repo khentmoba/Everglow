@@ -312,7 +312,7 @@ export async function showAnimexTrailer(o: { youtubeId?: string; anilistId?: num
 }
 
 export function AnimeXTrailerModal({ title, youtubeId, onClose }: { title: string; youtubeId: string; onClose: () => void }) {
-  const url = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0&color=white`;
+  const url = `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?autoplay=1&rel=0&color=white`;
   return (
     <div
       style={{

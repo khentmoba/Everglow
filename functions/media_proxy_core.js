@@ -8,8 +8,22 @@ function normalizeTmdbPath(value) {
 }
 
 function isAllowedTmdbPath(value) {
-  const path = normalizeTmdbPath(value);
-  return path.length > 0 && !path.includes('..') && !path.includes('//');
+  const raw = String(value || '');
+  if (/[?#\\]/.test(raw)) return false;
+  const path = normalizeTmdbPath(raw);
+  if (path.length === 0 || path.includes('..') || path.includes('//')) return false;
+  for (const segment of path.split('/')) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      return false;
+    }
+    if (!decoded || decoded === '.' || decoded === '..' || /[/?#\\]/.test(decoded)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function buildTmdbUpstream(path, query = {}, apiKey = '') {

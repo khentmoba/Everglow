@@ -76,7 +76,7 @@ function lastfmCacheTtlMs(method, period) {
 const proxyTmdb = cappedHttps(20, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
   res.set('Vary', 'Origin, Authorization');
-  res.set('Cache-Control', 'private, max-age=300');
+  res.set('Cache-Control', 'private, no-store');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
@@ -103,6 +103,7 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
       .set('Content-Type', cached.contentType)
       .set('X-Content-Type-Options', 'nosniff')
       .set('Content-Security-Policy', SANDBOX_CSP)
+      .set('Cache-Control', cached.status === 200 ? 'private, max-age=300' : 'private, no-store')
       .set('X-Cache', 'HIT')
       .send(cached.body);
     return;
@@ -118,6 +119,7 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
       .set('Content-Type', result.contentType)
       .set('X-Content-Type-Options', 'nosniff')
       .set('Content-Security-Policy', SANDBOX_CSP)
+      .set('Cache-Control', result.status === 200 ? 'private, max-age=300' : 'private, no-store')
       .set('X-Cache', 'MISS')
       .send(result.body);
   } catch (e) {

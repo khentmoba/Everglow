@@ -14,6 +14,8 @@ export class AnimationController {
   private span = 0;
   private frame = 0;
   private repeating: { reverse: boolean } | null = null;
+  private pausedForHidden = false;
+  private visibilityListener: (() => void) | null = null;
   private done: (() => void) | null = null;
   private listeners = new Set<Listener>();
 
@@ -22,7 +24,7 @@ export class AnimationController {
   }
 
   get isAnimating(): boolean {
-    return this.frame !== 0;
+    return this.frame !== 0 || this.pausedForHidden;
   }
 
   addListener(l: Listener): () => void {
@@ -33,21 +35,34 @@ export class AnimationController {
   /** Runs toward 1. Resolves when it gets there (or is stopped). */
   forward(from?: number): Promise<void> {
     if (from != null) this.value = from;
+    this.clearVisibilityGuard();
     this.repeating = null;
     return this.animateTo(1);
   }
 
   reverse(): Promise<void> {
+    this.clearVisibilityGuard();
     this.repeating = null;
     return this.animateTo(0);
   }
 
   repeat(opts: { reverse?: boolean } = {}): void {
     this.repeating = { reverse: opts.reverse ?? false };
-    void this.animateTo(this.value >= 1 && this.repeating.reverse ? 0 : 1);
+    this.installVisibilityGuard();
+    const next = this.value >= 1 && this.repeating.reverse ? 0 : 1;
+    if (typeof document !== 'undefined' && document.hidden) {
+      if (this.frame) cancelAnimationFrame(this.frame);
+      this.frame = 0;
+      this.target = next;
+      this.pausedForHidden = true;
+      return;
+    }
+    this.pausedForHidden = false;
+    void this.animateTo(next);
   }
 
   stop(): void {
+    this.clearVisibilityGuard();
     this.repeating = null;
     if (this.frame) cancelAnimationFrame(this.frame);
     this.frame = 0;
@@ -57,6 +72,32 @@ export class AnimationController {
   dispose(): void {
     this.stop();
     this.listeners.clear();
+  }
+
+  private installVisibilityGuard(): void {
+    if (typeof document === 'undefined' || this.visibilityListener) return;
+    this.visibilityListener = () => {
+      if (!this.repeating) return;
+      if (document.hidden) {
+        if (this.frame) {
+          cancelAnimationFrame(this.frame);
+          this.frame = 0;
+          this.pausedForHidden = true;
+        }
+      } else if (this.pausedForHidden) {
+        this.pausedForHidden = false;
+        void this.animateTo(this.target);
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityListener);
+  }
+
+  private clearVisibilityGuard(): void {
+    this.pausedForHidden = false;
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener);
+    }
+    this.visibilityListener = null;
   }
 
   private animateTo(target: number): Promise<void> {

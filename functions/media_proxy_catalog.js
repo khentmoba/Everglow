@@ -121,7 +121,7 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     res.set('Content-Type', contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-    res.set('Cache-Control', noStore ? 'private, no-store' : 'public, max-age=300');
+    res.set('Cache-Control', (noStore || upstream.status !== 200) ? 'private, no-store' : 'public, max-age=300');
     res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
