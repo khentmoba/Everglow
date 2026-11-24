@@ -47,7 +47,7 @@ test('partner triggers use app collection paths, authors, and navigation types',
   } }) }));
   t.mock.method(admin, 'messaging', () => ({ send: async (message) => sent.push(message) }));
   const cases = [
-    ['onNewMood', 'moods/{moodId}', { username: 'khentsgdz', moodEmoji: 'happy' }, 'mood_update'],
+    ['onNewMood', 'moods/{moodId}', { username: 'Khentsgdz', moodEmoji: 'happy' }, 'mood_update'],
     ['onNewStarDrop', 'starlight_jar/{noteId}', { author: 'khentsgdz', content: 'Demo gratitude' }, 'starlight_drop'],
     ['onNewWatchlistItem', 'watch_list/{itemId}', { userName: 'khentsgdz', title: 'Demo movie' }, 'watchlist_update'],
     ['onNewGalleryPhoto', 'gallery/{photoId}', { uploadedBy: 'khentsgdz', caption: 'Demo photo' }, 'gallery_photo'],
