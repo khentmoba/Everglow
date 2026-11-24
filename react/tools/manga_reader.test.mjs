@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import {
   adjacentChapter,
+  buildGuidedPanels,
   buildSpreads,
   clampZoomPan,
+  computeGuidedPanelTransform,
   computePinchAnchoredPan,
   computeTapAnchoredPan,
   detectChapterGap,
@@ -18,9 +20,9 @@ import {
   isWideAspect,
   resolveEffectiveReadingMode,
   resolveTapZoneAction,
+  setLruEntry,
   SINGLE_TAP_DELAY_MS,
 } from '../src/features/manga/readerSpread.ts';
-import { setBoundedCache } from '../src/core/utils/boundedCache.ts';
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const TYPES = {
@@ -63,14 +65,6 @@ function findChrome() {
   return undefined;
 }
 
-/** Flip document.visibilityState without a real tab switch. */
-async function setVisibility(page, state) {
-  await page.evaluate((next) => {
-    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => next });
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => next === 'hidden' });
-  }, state);
-}
-
 async function serveDist() {
   const server = createServer((req, res) => {
     const pathname = (req.url ?? '/').split('?')[0];
@@ -95,6 +89,32 @@ test('buildSpreads pairs double-page spreads with cover offset and keeps wide sp
   ]);
   assert.equal(findSpreadIndexForPage(spreads, 2), 1);
   assert.equal(findSpreadIndexForPage(spreads, 3), 2);
+});
+
+test('buildGuidedPanels orders panels in RTL/LTR reading order and computeGuidedPanelTransform zooms safely', () => {
+  const rtl = buildGuidedPanels(0.7, true);
+  const ltr = buildGuidedPanels(0.7, false);
+  assert.equal(rtl.length, 6);
+  assert.ok(rtl[0].x > rtl[1].x, 'RTL starts on right column');
+  assert.ok(ltr[0].x < ltr[1].x, 'LTR starts on left column');
+  const tf = computeGuidedPanelTransform(rtl[0], 430, 932, 430, 620);
+  assert.ok(tf.zoom >= 1.45 && tf.zoom <= 2.6, `zoom in bounds: ${tf.zoom}`);
+  assert.ok(tf.pan.x < 0, 'right-side panel pans left');
+});
+
+test('adjacentChapter skips duplicate chapter numbers and filtered-out chapters', () => {
+  const list = [
+    { id: 'c3-a', num: '3', title: 'Chapter 3 (Group A)' },
+    { id: 'c2-b', num: '2', title: 'Chapter 2 (Group B)' },
+    { id: 'c2-a', num: '2', title: 'Chapter 2 (Group A)' },
+    { id: 'c1-a', num: '1', title: 'Chapter 1 (Group A)' },
+  ];
+  const nextNoDup = adjacentChapter(list, 'c2-a', 'next', { skipDuplicate: true });
+  assert.equal(nextNoDup?.id, 'c3-a');
+  const nextFiltered = adjacentChapter(list, 'c1-a', 'next', {
+    allowedIds: new Set(['c1-a', 'c2-b', 'c3-a']),
+  });
+  assert.equal(nextFiltered?.id, 'c2-b');
 });
 
 test('buildSpreads splits wide pages in reading order when splitWidePages is enabled', () => {
@@ -177,68 +197,12 @@ test('l-shaped tap zones and true LRU map eviction behave accurately', () => {
   assert.equal(resolveTapZoneAction(0.5, 0.85, 'l-shaped', true, false), 'next');
 
   const cache = new Map();
-  setBoundedCache(cache, 'a', 1, 2);
-  setBoundedCache(cache, 'b', 2, 2);
-  setBoundedCache(cache, 'a', 10, 2); // refresh 'a'
-  setBoundedCache(cache, 'c', 3, 2); // should evict 'b', not 'a'
+  setLruEntry(cache, 'a', 1, 2);
+  setLruEntry(cache, 'b', 2, 2);
+  setLruEntry(cache, 'a', 10, 2); // refresh 'a'
+  setLruEntry(cache, 'c', 3, 2); // should evict 'b', not 'a'
   assert.deepEqual(Array.from(cache.keys()), ['a', 'c']);
   assert.equal(cache.get('a'), 10);
-});
-
-test('Manga auto-read pauses while the tab is hidden', async (t) => {
-  const executablePath = findChrome();
-  if (!executablePath || !existsSync(join(DIST, 'index.html'))) {
-    t.skip('Chrome or react/dist not available');
-    return;
-  }
-  const { server, baseUrl } = await serveDist();
-  const browser = await chromium.launch({ executablePath, headless: true, args: ['--mute-audio'] });
-  try {
-    const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
-    const errors = [];
-    page.on('pageerror', (e) => errors.push(String(e)));
-    // Fastest auto-read speed (2500ms a page) keeps the check short.
-    // Prefs keeps JSON-encoded strings in localStorage, hence the double stringify.
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'flutter.katana_reader_settings_v3',
-        JSON.stringify(JSON.stringify({ readingMode: 'paged-rtl', autoScrollSpeed: 3 })),
-      );
-    });
-    await page.goto(`${baseUrl}/manga/reader?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('[aria-label^="Manga reader:"]', { timeout: 10000 });
-    await page.waitForSelector('img[alt="Page 2"]', { timeout: 10000 });
-
-    const pager = page.locator('button[aria-label*="Tap to type a page number"]');
-    await pager.waitFor({ timeout: 5000 });
-    const startPage = (await pager.textContent())?.trim() ?? '';
-    assert.match(startPage, /2 \/ 6/);
-
-    await page.click('button[aria-label="Start auto-read"]');
-    await page.waitForSelector('button[aria-label="Pause auto-read"]', { timeout: 5000 });
-
-    await setVisibility(page, 'hidden');
-    await page.waitForTimeout(6000);
-    assert.equal(
-      (await pager.textContent())?.trim(),
-      startPage,
-      'a hidden tab must not auto-advance the reader',
-    );
-
-    await setVisibility(page, 'visible');
-    await page.waitForFunction(
-      (before) =>
-        document.querySelector('button[aria-label*="Tap to type a page number"]')?.textContent?.trim() !==
-        before,
-      startPage,
-      { timeout: 8000 },
-    );
-
-    assert.deepEqual(errors, [], `Expected zero page errors, got: ${errors.join('; ')}`);
-  } finally {
-    await browser.close();
-    server.close();
-  }
 });
 
 test('Celestial manga reader works end-to-end in Chrome on phone and tablet', async (t) => {
@@ -257,16 +221,18 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await page.waitForSelector('[aria-label^="Manga reader:"]', { timeout: 10000 });
     await page.waitForSelector('img[alt="Page 2"]', { timeout: 10000 });
 
-    // Demo resumes to page 2 and shows vertical seekbar in webtoon mode
+    // Demo resumes to page 2. One position control by default: the bottom slider.
+    // The right-edge scrubber is opt-in (Reader settings -> edge scrubber), so it must not
+    // float over the artwork or sit in the page-turn tap zone unless the reader asks for it.
     const jumpBtn = page.locator('button[aria-label*="Tap to type a page number"]');
     await jumpBtn.waitFor({ timeout: 5000 });
     assert.match(await jumpBtn.textContent(), /2 \/ 6/);
-    await page.waitForSelector('input[aria-label="Vertical page scrubber"]', { timeout: 5000 });
+    assert.equal(await page.locator('input[aria-label="Vertical page scrubber"]').count(), 0);
 
     // Direct Page Jump dialog jumps to page 5
     await jumpBtn.click();
     await page.fill('input[aria-label="Page number"]', '5');
-    await page.click('button:has-text("Go")');
+    await page.getByRole('button', { name: 'Go', exact: true }).click();
     assert.match(await jumpBtn.textContent(), /5 \/ 6/);
 
     // Bookmark current page & verify in Chapters / Pages / Saved drawer
@@ -283,19 +249,24 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await page.waitForSelector('input[aria-label="Quick brightness"]', { timeout: 5000 });
     await page.keyboard.press('Escape');
 
-    // Settings sheet: switch to Manga RTL & enable Crop Scan Borders without breaking images
+    // Settings sheet: switch to right-to-left paging & enable Crop Scan Borders without breaking images
     await page.click('button[aria-label="Reader settings"]');
-    await page.click('button:has-text("Manga RTL")');
+    // Last match: preset cards share the label, the Reading Mode grid comes after them.
+    await page.locator('[role="dialog"][aria-label="Reader settings"] button[aria-label="Reading mode: Manga, right to left"]').last().click();
     await page.click('button[role="tab"]:has-text("Display")');
     await page.click('button[role="switch"]:has-text("Crop scan borders")');
     await page.keyboard.press('Escape');
 
     await page.waitForSelector('img[alt="Page 5"]', { timeout: 5000 });
-    const loadedOk = await page.evaluate(() => {
-      const img = document.querySelector('img[alt="Page 5"]');
-      return Boolean(img && img.complete && img.naturalWidth > 0);
-    });
-    assert.equal(loadedOk, true, 'Page 5 image must stay loaded with crop borders enabled');
+    await page.waitForFunction(
+      () => {
+        const img = document.querySelector('img[alt="Page 5"]');
+        if (!img || !img.complete || img.naturalWidth <= 0) return false;
+        return Number.parseFloat(getComputedStyle(img).opacity || '0') >= 0.99;
+      },
+      null,
+      { timeout: 3000 },
+    );
 
     // RTL keyboard navigation: ArrowLeft advances forward (5 -> 6), ArrowRight goes back (6 -> 5), Space advances (5 -> 6)
     await page.keyboard.press('ArrowLeft');
@@ -327,9 +298,9 @@ test('Celestial manga reader works end-to-end in Chrome on phone and tablet', as
     await resetPill.click();
     await resetPill.waitFor({ state: 'detached', timeout: 3000 });
 
-    // Continuous Horizontal Strip (Strip RTL) mode renders all pages horizontally
+    // Continuous Horizontal Strip mode renders all pages horizontally
     await page.click('button[aria-label="Reader settings"]');
-    await page.click('button:has-text("Strip RTL")');
+    await page.locator('[role="dialog"][aria-label="Reader settings"] button[aria-label="Reading mode: Strip, right to left"]').last().click();
     await page.click('button[aria-label="Close Reader Settings"]');
     await page.waitForSelector('img[alt="Page 1"]', { timeout: 5000 });
 

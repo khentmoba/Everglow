@@ -7,9 +7,54 @@ import { Prefs } from '../system/prefs';
 import { app, auth, db } from './firebase';
 
 const COUPLE = new Set(['khentsgdz', 'clairjassen']);
-const TOKEN_STORAGE_KEY = 'fcm_device_token';
+export const FCM_TOKEN_STORAGE_KEY = 'fcm_device_token';
+export const IOS_PWA_PUSH_HINT_KEY = 'everglow_ios_pwa_push_hint_shown_v1';
+const TOKEN_STORAGE_KEY = FCM_TOKEN_STORAGE_KEY;
 const DEFAULT_VAPID_KEY =
   'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';
+
+/** Returns true when the web app is running as an installed Home Screen PWA (standalone display mode). */
+export function isStandalonePwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.matchMedia?.('(display-mode: standalone)').matches) return true;
+    const nav = navigator as Navigator & { standalone?: boolean };
+    return nav.standalone === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true on iPhone / iPad browsers when the app has NOT been added to the Home Screen yet.
+ * On iOS / iPadOS, Web Push notifications are only delivered to installed Home Screen web apps.
+ */
+export function needsHomeScreenInstallForPush(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  if (isStandalonePwa()) return false;
+  const ua = navigator.userAgent || '';
+  const isIosDevice =
+    /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return isIosDevice || typeof Notification === 'undefined';
+}
+
+export function getPushDeliveryGuidance(): {
+  isStandalone: boolean;
+  requiresHomeScreenInstall: boolean;
+  permission: NotificationPermission | 'unsupported';
+  steps: string;
+} {
+  const isStandalone = isStandalonePwa();
+  const requiresHomeScreenInstall = needsHomeScreenInstallForPush();
+  const permission: NotificationPermission | 'unsupported' =
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+  return {
+    isStandalone,
+    requiresHomeScreenInstall,
+    permission,
+    steps: 'On iPhone & iPad, tap Share in Safari → Add to Home Screen, then open Everglow from your Home Screen to receive instant chapter push alerts.',
+  };
+}
 
 export function routeFromNotification(data: Record<string, string> | undefined): string | null {
   switch (data?.type) {
@@ -37,6 +82,15 @@ export function routeFromNotification(data: Record<string, string> | undefined):
       return '/motchi-today';
     case 'gallery_photo':
       return '/gallery';
+    case 'manga_update': {
+      const slug = data?.slug?.trim();
+      const chapterId = data?.chapterId?.trim();
+      if (slug && chapterId) {
+        return `/manga/series/${encodeURIComponent(slug)}/${encodeURIComponent(chapterId)}`;
+      }
+      if (slug) return `/manga/series/${encodeURIComponent(slug)}`;
+      return '/manga';
+    }
     default:
       return null;
   }

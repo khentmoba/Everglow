@@ -99,8 +99,16 @@ body {
 }
 .bare-button:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; border-radius: 6px; }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; }
+.katana-input-shell:focus-within { border-color: #F59E0B !important; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.32); }
 .player-focusable:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+/* Manga downloads: one column on phones, two on wide screens instead of a stretched strip. */
+.katana-downloads-list { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 1024px) {
+  .katana-downloads-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  /* one series should not leave half the page empty beside it */
+  .katana-downloads-list > :only-child { grid-column: 1 / -1; }
+}
 
 /* animex_spotlight.dart: 700ms AnimatedSwitcher fade + 7s easeOutCubic settle. */
 @keyframes anx-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -236,12 +244,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .manga-range::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 99px;
-  background: rgba(255, 133, 179, 0.24);
+  background: color-mix(in srgb, var(--katana-accent, #F59E0B) 28%, transparent);
 }
 .manga-range::-moz-range-track {
   height: 6px;
   border-radius: 99px;
-  background: rgba(255, 133, 179, 0.24);
+  background: color-mix(in srgb, var(--katana-accent, #F59E0B) 28%, transparent);
 }
 .manga-range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -250,16 +258,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
   height: 22px;
   margin-top: -8px;
   border-radius: 50%;
-  background: #FF2E7E;
-  border: 2px solid #FFF5F8;
+  background: var(--katana-accent, #F59E0B);
+  border: 2px solid var(--katana-accent-ink, #111318);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 .manga-range::-moz-range-thumb {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #FF2E7E;
-  border: 2px solid #FFF5F8;
+  background: var(--katana-accent, #F59E0B);
+  border: 2px solid var(--katana-accent-ink, #111318);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 .manga-range--vertical {

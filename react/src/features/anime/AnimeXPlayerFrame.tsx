@@ -177,7 +177,6 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
       window.removeEventListener('message', onMessage);
       document.removeEventListener('fullscreenchange', onFullscreen);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -216,7 +215,6 @@ export function AnimeXPlayerFrame(props: AnimeXPlayerFrameProps) {
     };
     v.addEventListener('wheel', onWheel);
     return () => v.removeEventListener('wheel', onWheel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirectVideo]);
 
   const onLoad = () => {

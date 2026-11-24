@@ -1,4 +1,5 @@
 import { Prefs } from '../../core/system/prefs';
+import { KATANA_BASE_PALETTES } from './katanaTokens';
 
 export type ReadingMode =
   | 'webtoon'
@@ -12,6 +13,22 @@ export type ReadingMode =
   | 'strip-ltr';
 
 export type FitMode = 'smart-fit' | 'fit-width' | 'fit-height' | 'fit-screen' | 'stretch' | 'original';
+
+export type FitModeBucket = 'webtoon' | 'single' | 'double' | 'strip';
+
+export const FIT_MODE_BUCKET_LABEL: Record<FitModeBucket, string> = {
+  webtoon: 'Webtoon',
+  single: 'Single Page',
+  double: 'Double Page',
+  strip: 'Horizontal Strip',
+};
+
+export function getFitModeBucket(effectiveMode: ReadingMode): FitModeBucket {
+  if (effectiveMode === 'webtoon') return 'webtoon';
+  if (effectiveMode === 'double-rtl' || effectiveMode === 'double-ltr') return 'double';
+  if (effectiveMode === 'strip-rtl' || effectiveMode === 'strip-ltr') return 'strip';
+  return 'single';
+}
 
 export type ReaderBackground = 'auto' | 'oled' | 'dark' | 'gray' | 'sepia' | 'white';
 
@@ -27,9 +44,12 @@ export type WidthUnit = 'px' | 'pct';
 
 export type VerticalSeekbarSide = 'off' | 'right' | 'left';
 
+export type ZoomStartPosition = 'automatic' | 'left' | 'right' | 'center';
+
 export interface ReaderSettings {
   readingMode: ReadingMode;
   fitMode: FitMode;
+  fitByMode?: Partial<Record<FitModeBucket, FitMode>>;
   coverOffset: boolean;
   autoSpreadWide: boolean;
   splitWidePages: boolean;
@@ -42,11 +62,15 @@ export interface ReaderSettings {
   grayscale: boolean;
   invertColors: boolean;
   pageGap: number;
+  webtoonSidePadding: number;
   maxWidth: number;
   widthUnit: WidthUnit;
   maxWidthPct: number;
   doubleTapZoom: number;
+  disableZoomOut: boolean;
+  zoomStartPosition: ZoomStartPosition;
   keepZoomAcrossPages: boolean;
+  guidedPanelZoom: boolean;
   autoScrollSpeed: number;
   preloadCount: number;
   preloadWifiOnly: boolean;
@@ -54,6 +78,8 @@ export interface ReaderSettings {
   verticalSeekbar: VerticalSeekbarSide;
   tapZoneLayout: TapZoneLayout;
   invertTapZones: boolean;
+  volumeKeys: boolean;
+  invertVolumeKeys: boolean;
   showTapZonesOverlay: boolean;
   confirmChapterSwipe: boolean;
   showPageIndicator: boolean;
@@ -70,9 +96,19 @@ export interface ReaderSettings {
   alwaysShowChapterDivider: boolean;
   cropBorders: boolean;
   skipReadChapters: boolean;
+  skipDuplicateChapters: boolean;
+  skipFilteredChapters: boolean;
   dataSaver: boolean;
   haptics: boolean;
   einkFlash: boolean;
+}
+
+export interface SeriesChapterFilter {
+  lang?: string;
+  group?: string;
+  preferredGroup?: string;
+  blockedGroups?: string[];
+  waitForPreferredHours?: number;
 }
 
 export type SeriesReaderOverride = Partial<ReaderSettings>;
@@ -81,6 +117,7 @@ export interface ResumeAnchor {
   chapterId: string;
   pageIdx: number;
   offsetRatio: number;
+  updatedAt?: number;
 }
 
 export interface PageBookmark {
@@ -88,11 +125,18 @@ export interface PageBookmark {
   chapterTitle: string;
   pageIdx: number;
   createdAt: number;
+  note?: string;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
-  readingMode: 'webtoon',
-  fitMode: 'fit-width',
+  readingMode: 'auto-rtl',
+  fitMode: 'smart-fit',
+  fitByMode: {
+    webtoon: 'fit-width',
+    single: 'smart-fit',
+    double: 'fit-screen',
+    strip: 'fit-height',
+  },
   coverOffset: true,
   autoSpreadWide: true,
   splitWidePages: false,
@@ -105,18 +149,24 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   grayscale: false,
   invertColors: false,
   pageGap: 0,
+  webtoonSidePadding: 0,
   maxWidth: 850,
   widthUnit: 'px',
   maxWidthPct: 85,
   doubleTapZoom: 2,
+  disableZoomOut: false,
+  zoomStartPosition: 'automatic',
   keepZoomAcrossPages: false,
+  guidedPanelZoom: false,
   autoScrollSpeed: 1,
   preloadCount: 3,
   preloadWifiOnly: false,
   webtoonTapScroll: false,
-  verticalSeekbar: 'right',
+  verticalSeekbar: 'off',
   tapZoneLayout: 'standard',
   invertTapZones: false,
+  volumeKeys: true,
+  invertVolumeKeys: false,
   showTapZonesOverlay: false,
   confirmChapterSwipe: false,
   showPageIndicator: true,
@@ -133,6 +183,8 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   alwaysShowChapterDivider: true,
   cropBorders: false,
   skipReadChapters: false,
+  skipDuplicateChapters: true,
+  skipFilteredChapters: false,
   dataSaver: false,
   haptics: true,
   einkFlash: false,
@@ -142,11 +194,11 @@ export const READER_BACKGROUNDS: Record<
   Exclude<ReaderBackground, 'auto'>,
   { label: string; bg: string; fg: string; swatch: string }
 > = {
-  oled: { label: 'True Black', bg: '#000000', fg: '#FFF5F8', swatch: '#000000' },
-  dark: { label: 'Katana Night', bg: '#09060C', fg: '#FFF5F8', swatch: '#140C1C' },
+  oled: { label: 'True Black', bg: KATANA_BASE_PALETTES.oled.bg, fg: KATANA_BASE_PALETTES.oled.fg, swatch: KATANA_BASE_PALETTES.oled.bg },
+  dark: { label: 'Katana Night', bg: KATANA_BASE_PALETTES.dark.bg, fg: KATANA_BASE_PALETTES.dark.fg, swatch: KATANA_BASE_PALETTES.dark.surface },
   gray: { label: 'Slate', bg: '#1B1B22', fg: '#F3F2F7', swatch: '#2A2A35' },
-  sepia: { label: 'Warm Paper', bg: '#F2E7D3', fg: '#2C2218', swatch: '#E7D5B8' },
-  white: { label: 'Paper White', bg: '#F7F7F7', fg: '#16161A', swatch: '#FFFFFF' },
+  sepia: { label: 'Warm Paper', bg: KATANA_BASE_PALETTES.sepia.bg, fg: KATANA_BASE_PALETTES.sepia.fg, swatch: KATANA_BASE_PALETTES.sepia.surface },
+  white: { label: 'Paper White', bg: KATANA_BASE_PALETTES.light.bg, fg: KATANA_BASE_PALETTES.light.fg, swatch: KATANA_BASE_PALETTES.light.surface },
 };
 
 export function resolveBackgroundTheme(bg: ReaderBackground) {
@@ -192,7 +244,7 @@ export const READER_PROFILES: ReaderProfilePreset[] = [
   {
     id: 'tablet-spread',
     label: 'Tablet Spread',
-    desc: 'Auto RTL • double pages • gutter',
+    desc: 'Picks right-to-left for manga, left-to-right for comics',
     patch: { readingMode: 'auto-rtl', fitMode: 'fit-screen', background: 'dark', brightness: 1, warmTint: 0, coverOffset: true, spreadGutter: 8 },
   },
 ];
@@ -216,15 +268,15 @@ export const READING_MODE_META: Record<
     isHorizontalStrip: boolean;
   }
 > = {
-  webtoon: { label: 'Webtoon (Long Strip)', shortLabel: 'Webtoon', icon: 'view_day', isRtl: false, isDouble: false, isAuto: false, isWebtoon: true, isHorizontalStrip: false },
-  'auto-rtl': { label: 'Auto Manga (RTL)', shortLabel: 'Auto RTL', icon: 'devices', isRtl: true, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
-  'auto-ltr': { label: 'Auto Comic (LTR)', shortLabel: 'Auto LTR', icon: 'devices', isRtl: false, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
-  'paged-rtl': { label: 'Manga (Right to Left)', shortLabel: 'Manga RTL', icon: 'menu_book', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'paged-ltr': { label: 'Comic (Left to Right)', shortLabel: 'Paged LTR', icon: 'auto_stories', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'double-rtl': { label: 'Spread (Right to Left)', shortLabel: 'Spread RTL', icon: 'chrome_reader_mode', isRtl: true, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'double-ltr': { label: 'Spread (Left to Right)', shortLabel: 'Spread LTR', icon: 'import_contacts', isRtl: false, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
-  'strip-rtl': { label: 'Continuous Strip (RTL)', shortLabel: 'Strip RTL', icon: 'view_carousel', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
-  'strip-ltr': { label: 'Continuous Strip (LTR)', shortLabel: 'Strip LTR', icon: 'view_week', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
+  webtoon: { label: 'Webtoon (long strip)', shortLabel: 'Webtoon', icon: 'view_day', isRtl: false, isDouble: false, isAuto: false, isWebtoon: true, isHorizontalStrip: false },
+  'auto-rtl': { label: 'Manga, right to left', shortLabel: 'Right to left', icon: 'devices', isRtl: true, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
+  'auto-ltr': { label: 'Comic, left to right', shortLabel: 'Left to right', icon: 'devices', isRtl: false, isDouble: false, isAuto: true, isWebtoon: false, isHorizontalStrip: false },
+  'paged-rtl': { label: 'Manga, right to left', shortLabel: 'Right to left', icon: 'menu_book', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'paged-ltr': { label: 'Comic, left to right', shortLabel: 'Left to right', icon: 'auto_stories', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'double-rtl': { label: 'Two pages, right to left', shortLabel: '2 pages, right to left', icon: 'chrome_reader_mode', isRtl: true, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'double-ltr': { label: 'Two pages, left to right', shortLabel: '2 pages, left to right', icon: 'import_contacts', isRtl: false, isDouble: true, isAuto: false, isWebtoon: false, isHorizontalStrip: false },
+  'strip-rtl': { label: 'Strip, right to left', shortLabel: 'Strip, right to left', icon: 'view_carousel', isRtl: true, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
+  'strip-ltr': { label: 'Strip, left to right', shortLabel: 'Strip, left to right', icon: 'view_week', isRtl: false, isDouble: false, isAuto: false, isWebtoon: false, isHorizontalStrip: true },
 };
 
 export const READING_MODE_ORDER: ReadingMode[] = [
@@ -244,6 +296,7 @@ const SERIES_PREFIX = 'katana_reader_series_v3_';
 const RESUME_PREFIX = 'katana_reader_resume_v1_';
 const ASPECTS_PREFIX = 'katana_reader_aspects_v1_';
 const BOOKMARKS_PREFIX = 'katana_reader_page_bm_v1_';
+const CHAPTER_FILTER_PREFIX = 'katana_reader_ch_filter_v1_';
 const HINT_SEEN_KEY = 'katana_reader_hint_seen_v1';
 
 const VALID_MODES = new Set<string>(READING_MODE_ORDER);
@@ -255,6 +308,7 @@ const VALID_SENS = new Set<string>(['low', 'medium', 'high']);
 const VALID_ORIENT = new Set<string>(['auto', 'portrait', 'landscape']);
 const VALID_UNITS = new Set<string>(['px', 'pct']);
 const VALID_SEEKBAR = new Set<string>(['off', 'right', 'left']);
+const VALID_ZOOM_START = new Set<string>(['automatic', 'left', 'right', 'center']);
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -272,6 +326,18 @@ export function loadGlobalReaderSettings(): ReaderSettings {
       fitMode: VALID_FITS.has(String(parsed.fitMode))
         ? (parsed.fitMode as FitMode)
         : DEFAULT_READER_SETTINGS.fitMode,
+      fitByMode: (() => {
+        const out: Partial<Record<FitModeBucket, FitMode>> = { ...(DEFAULT_READER_SETTINGS.fitByMode ?? {}) };
+        if (parsed.fitByMode && typeof parsed.fitByMode === 'object') {
+          for (const bucket of ['webtoon', 'single', 'double', 'strip'] as const) {
+            const candidate = (parsed.fitByMode as Record<string, unknown>)[bucket];
+            if (typeof candidate === 'string' && VALID_FITS.has(candidate)) {
+              out[bucket] = candidate as FitMode;
+            }
+          }
+        }
+        return out;
+      })(),
       coverOffset: typeof parsed.coverOffset === 'boolean' ? parsed.coverOffset : DEFAULT_READER_SETTINGS.coverOffset,
       autoSpreadWide:
         typeof parsed.autoSpreadWide === 'boolean' ? parsed.autoSpreadWide : DEFAULT_READER_SETTINGS.autoSpreadWide,
@@ -304,6 +370,10 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.pageGap === 'number' && Number.isFinite(parsed.pageGap)
           ? clamp(Math.round(parsed.pageGap), 0, 24)
           : DEFAULT_READER_SETTINGS.pageGap,
+      webtoonSidePadding:
+        typeof parsed.webtoonSidePadding === 'number' && Number.isFinite(parsed.webtoonSidePadding)
+          ? clamp(Math.round(parsed.webtoonSidePadding), 0, 25)
+          : DEFAULT_READER_SETTINGS.webtoonSidePadding,
       maxWidth:
         typeof parsed.maxWidth === 'number' && Number.isFinite(parsed.maxWidth)
           ? parsed.maxWidth === 0
@@ -321,17 +391,30 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.doubleTapZoom === 'number' && Number.isFinite(parsed.doubleTapZoom)
           ? clamp(parsed.doubleTapZoom, 1.5, 3)
           : DEFAULT_READER_SETTINGS.doubleTapZoom,
+      disableZoomOut:
+        typeof parsed.disableZoomOut === 'boolean'
+          ? parsed.disableZoomOut
+          : DEFAULT_READER_SETTINGS.disableZoomOut,
+      zoomStartPosition: VALID_ZOOM_START.has(String(parsed.zoomStartPosition))
+        ? (parsed.zoomStartPosition as ZoomStartPosition)
+        : DEFAULT_READER_SETTINGS.zoomStartPosition,
       keepZoomAcrossPages:
         typeof parsed.keepZoomAcrossPages === 'boolean'
           ? parsed.keepZoomAcrossPages
           : DEFAULT_READER_SETTINGS.keepZoomAcrossPages,
+      guidedPanelZoom:
+        typeof parsed.guidedPanelZoom === 'boolean'
+          ? parsed.guidedPanelZoom
+          : DEFAULT_READER_SETTINGS.guidedPanelZoom,
       autoScrollSpeed:
         typeof parsed.autoScrollSpeed === 'number' && Number.isFinite(parsed.autoScrollSpeed)
           ? clamp(parsed.autoScrollSpeed, 0.5, 3)
           : DEFAULT_READER_SETTINGS.autoScrollSpeed,
       preloadCount:
         typeof parsed.preloadCount === 'number' && Number.isFinite(parsed.preloadCount)
-          ? clamp(Math.round(parsed.preloadCount), 1, 6)
+          ? parsed.preloadCount >= 99
+            ? 99
+            : clamp(Math.round(parsed.preloadCount), 1, 6)
           : DEFAULT_READER_SETTINGS.preloadCount,
       preloadWifiOnly:
         typeof parsed.preloadWifiOnly === 'boolean' ? parsed.preloadWifiOnly : DEFAULT_READER_SETTINGS.preloadWifiOnly,
@@ -345,6 +428,12 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         : DEFAULT_READER_SETTINGS.tapZoneLayout,
       invertTapZones:
         typeof parsed.invertTapZones === 'boolean' ? parsed.invertTapZones : DEFAULT_READER_SETTINGS.invertTapZones,
+      volumeKeys:
+        typeof parsed.volumeKeys === 'boolean' ? parsed.volumeKeys : DEFAULT_READER_SETTINGS.volumeKeys,
+      invertVolumeKeys:
+        typeof parsed.invertVolumeKeys === 'boolean'
+          ? parsed.invertVolumeKeys
+          : DEFAULT_READER_SETTINGS.invertVolumeKeys,
       showTapZonesOverlay:
         typeof parsed.showTapZonesOverlay === 'boolean'
           ? parsed.showTapZonesOverlay
@@ -396,6 +485,14 @@ export function loadGlobalReaderSettings(): ReaderSettings {
         typeof parsed.skipReadChapters === 'boolean'
           ? parsed.skipReadChapters
           : DEFAULT_READER_SETTINGS.skipReadChapters,
+      skipDuplicateChapters:
+        typeof parsed.skipDuplicateChapters === 'boolean'
+          ? parsed.skipDuplicateChapters
+          : DEFAULT_READER_SETTINGS.skipDuplicateChapters,
+      skipFilteredChapters:
+        typeof parsed.skipFilteredChapters === 'boolean'
+          ? parsed.skipFilteredChapters
+          : DEFAULT_READER_SETTINGS.skipFilteredChapters,
       dataSaver: typeof parsed.dataSaver === 'boolean' ? parsed.dataSaver : DEFAULT_READER_SETTINGS.dataSaver,
       haptics: typeof parsed.haptics === 'boolean' ? parsed.haptics : DEFAULT_READER_SETTINGS.haptics,
       einkFlash: typeof parsed.einkFlash === 'boolean' ? parsed.einkFlash : DEFAULT_READER_SETTINGS.einkFlash,
@@ -437,45 +534,75 @@ export function saveSeriesReaderOverride(slug: string, override: SeriesReaderOve
   Prefs.set(SERIES_PREFIX + slug, JSON.stringify(override));
 }
 
-export function loadResumeAnchor(slug: string, chapterId: string): ResumeAnchor | null {
-  if (!slug || !chapterId) return null;
+export interface StoredChapterResumeEntry {
+  pageIdx: number;
+  offsetRatio: number;
+  updatedAt: number;
+}
+
+/**
+ * Loads the per-chapter map of fine-grained reading positions (page index + vertical scroll ratio
+ * + timestamp). Synced across phone and tablet via Firestore `reader_state` (`hydrateMangaReaderSeriesState`
+ * / `syncMangaReaderSeriesState`) and cached locally in `Prefs` for instant offline cold-open.
+ */
+export function loadAllResumeAnchors(slug: string): Record<string, StoredChapterResumeEntry> {
+  if (!slug) return {};
   const raw = Prefs.getString(RESUME_PREFIX + slug);
-  if (!raw) return null;
+  if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as {
-      chapters?: Record<string, { pageIdx: number; offsetRatio: number }>;
+      chapters?: Record<string, { pageIdx: number; offsetRatio: number; updatedAt?: number }>;
       chapterId?: string;
       pageIdx?: number;
       offsetRatio?: number;
+      updatedAt?: number;
     };
-    const entry = parsed.chapters?.[chapterId] ?? (parsed.chapterId === chapterId ? parsed : undefined);
-    if (!entry || typeof entry.pageIdx !== 'number' || typeof entry.offsetRatio !== 'number') return null;
-    return {
-      chapterId,
-      pageIdx: Math.max(0, Math.floor(entry.pageIdx)),
-      offsetRatio: clamp(entry.offsetRatio, 0, 1),
-    };
+    const out: Record<string, StoredChapterResumeEntry> = {};
+    if (parsed.chapters && typeof parsed.chapters === 'object') {
+      for (const [chId, entry] of Object.entries(parsed.chapters)) {
+        if (entry && typeof entry.pageIdx === 'number' && typeof entry.offsetRatio === 'number') {
+          out[chId] = {
+            pageIdx: Math.max(0, Math.floor(entry.pageIdx)),
+            offsetRatio: Number(clamp(entry.offsetRatio, 0, 1).toFixed(3)),
+            updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : 0,
+          };
+        }
+      }
+    } else if (parsed.chapterId && typeof parsed.pageIdx === 'number' && typeof parsed.offsetRatio === 'number') {
+      out[parsed.chapterId] = {
+        pageIdx: Math.max(0, Math.floor(parsed.pageIdx)),
+        offsetRatio: Number(clamp(parsed.offsetRatio, 0, 1).toFixed(3)),
+        updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0,
+      };
+    }
+    return out;
   } catch {
-    return null;
+    return {};
   }
+}
+
+export function loadResumeAnchor(slug: string, chapterId: string): ResumeAnchor | null {
+  if (!slug || !chapterId) return null;
+  const all = loadAllResumeAnchors(slug);
+  const entry = all[chapterId];
+  if (!entry) return null;
+  return {
+    chapterId,
+    pageIdx: entry.pageIdx,
+    offsetRatio: entry.offsetRatio,
+    updatedAt: entry.updatedAt,
+  };
 }
 
 export function saveResumeAnchor(slug: string, anchor: ResumeAnchor): void {
   if (!slug || !anchor.chapterId) return;
-  let existing: Record<string, { pageIdx: number; offsetRatio: number }> = {};
-  try {
-    const raw = Prefs.getString(RESUME_PREFIX + slug);
-    if (raw) {
-      const parsed = JSON.parse(raw) as { chapters?: Record<string, { pageIdx: number; offsetRatio: number }> };
-      if (parsed.chapters && typeof parsed.chapters === 'object') existing = { ...parsed.chapters };
-    }
-  } catch {
-    // Reset malformed cache
-  }
+  const existing = loadAllResumeAnchors(slug);
+  const now = typeof anchor.updatedAt === 'number' && anchor.updatedAt > 0 ? anchor.updatedAt : Date.now();
   delete existing[anchor.chapterId];
   existing[anchor.chapterId] = {
     pageIdx: Math.max(0, Math.floor(anchor.pageIdx)),
     offsetRatio: Number(clamp(anchor.offsetRatio, 0, 1).toFixed(3)),
+    updatedAt: now,
   };
   const keys = Object.keys(existing);
   while (keys.length > 12) {
@@ -483,6 +610,50 @@ export function saveResumeAnchor(slug: string, anchor: ResumeAnchor): void {
     if (oldest) delete existing[oldest];
   }
   Prefs.set(RESUME_PREFIX + slug, JSON.stringify({ chapters: existing }));
+}
+
+/**
+ * Merges Firestore-synced resume anchors from another device (e.g. phone -> tablet) into the local
+ * cache using `updatedAt` timestamps so the freshest reading position always wins across devices.
+ */
+export function mergeRemoteResumeAnchors(
+  slug: string,
+  remoteResume?: ResumeAnchor | null,
+  remoteChapters?: Record<string, { pageIdx: number; offsetRatio: number; updatedAt?: number }> | null,
+  remoteDocUpdatedAt?: number,
+): { mergedChapters: Record<string, StoredChapterResumeEntry>; updatedChapterIds: Set<string> } {
+  const local = loadAllResumeAnchors(slug);
+  const updatedChapterIds = new Set<string>();
+  const applyCandidate = (chId: string, cand: { pageIdx: number; offsetRatio: number; updatedAt?: number }) => {
+    if (!chId || typeof cand.pageIdx !== 'number' || typeof cand.offsetRatio !== 'number') return;
+    const candTime =
+      typeof cand.updatedAt === 'number' && cand.updatedAt > 0
+        ? cand.updatedAt
+        : typeof remoteDocUpdatedAt === 'number' && remoteDocUpdatedAt > 0
+          ? remoteDocUpdatedAt
+          : 1;
+    const cur = local[chId];
+    if (!cur || candTime > (cur.updatedAt || 0)) {
+      local[chId] = {
+        pageIdx: Math.max(0, Math.floor(cand.pageIdx)),
+        offsetRatio: Number(clamp(cand.offsetRatio, 0, 1).toFixed(3)),
+        updatedAt: candTime,
+      };
+      updatedChapterIds.add(chId);
+    }
+  };
+  if (remoteChapters && typeof remoteChapters === 'object') {
+    for (const [chId, entry] of Object.entries(remoteChapters)) {
+      if (entry) applyCandidate(chId, entry);
+    }
+  }
+  if (remoteResume && remoteResume.chapterId) {
+    applyCandidate(remoteResume.chapterId, remoteResume);
+  }
+  if (updatedChapterIds.size > 0) {
+    Prefs.set(RESUME_PREFIX + slug, JSON.stringify({ chapters: local }));
+  }
+  return { mergedChapters: local, updatedChapterIds };
 }
 
 export function clearResumeAnchor(slug: string): void {
@@ -580,6 +751,132 @@ export function loadPageBookmarks(slug: string): PageBookmark[] {
 export function savePageBookmarks(slug: string, bookmarks: PageBookmark[]): void {
   if (!slug) return;
   Prefs.set(BOOKMARKS_PREFIX + slug, JSON.stringify(bookmarks.slice(0, 50)));
+}
+
+export function loadSeriesChapterFilter(slug: string): SeriesChapterFilter | null {
+  if (!slug) return null;
+  const raw = Prefs.getString(CHAPTER_FILTER_PREFIX + slug);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as SeriesChapterFilter;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const lang = typeof parsed.lang === 'string' && parsed.lang.trim() ? parsed.lang.trim() : undefined;
+    const group = typeof parsed.group === 'string' && parsed.group.trim() ? parsed.group.trim() : undefined;
+    const preferredGroup =
+      typeof parsed.preferredGroup === 'string' && parsed.preferredGroup.trim()
+        ? parsed.preferredGroup.trim()
+        : undefined;
+    const blockedGroups = Array.isArray(parsed.blockedGroups)
+      ? Array.from(new Set(parsed.blockedGroups.map((g) => String(g).trim()).filter(Boolean)))
+      : undefined;
+    const waitForPreferredHours =
+      typeof parsed.waitForPreferredHours === 'number' && parsed.waitForPreferredHours > 0
+        ? Math.min(168, Math.round(parsed.waitForPreferredHours))
+        : undefined;
+    return lang || group || preferredGroup || (blockedGroups && blockedGroups.length > 0) || waitForPreferredHours
+      ? {
+          lang,
+          group,
+          preferredGroup,
+          ...(blockedGroups && blockedGroups.length > 0 ? { blockedGroups } : {}),
+          ...(waitForPreferredHours ? { waitForPreferredHours } : {}),
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSeriesChapterFilter(slug: string, filter: SeriesChapterFilter | null): void {
+  if (!slug) return;
+  const blocked = Array.isArray(filter?.blockedGroups)
+    ? Array.from(new Set(filter.blockedGroups.map((g) => String(g).trim()).filter(Boolean)))
+    : [];
+  const waitHrs =
+    typeof filter?.waitForPreferredHours === 'number' && filter.waitForPreferredHours > 0
+      ? Math.min(168, Math.round(filter.waitForPreferredHours))
+      : undefined;
+  if (!filter || (!filter.lang && !filter.group && !filter.preferredGroup && blocked.length === 0 && !waitHrs)) {
+    Prefs.remove(CHAPTER_FILTER_PREFIX + slug);
+    return;
+  }
+  Prefs.set(
+    CHAPTER_FILTER_PREFIX + slug,
+    JSON.stringify({
+      ...(filter.lang ? { lang: filter.lang } : {}),
+      ...(filter.group ? { group: filter.group } : {}),
+      ...(filter.preferredGroup ? { preferredGroup: filter.preferredGroup } : {}),
+      ...(blocked.length > 0 ? { blockedGroups: blocked } : {}),
+      ...(waitHrs ? { waitForPreferredHours: waitHrs } : {}),
+    }),
+  );
+}
+
+export interface ReaderBackupBundle {
+  globalSettings: ReaderSettings;
+  seriesOverrides: Record<string, SeriesReaderOverride>;
+  pageBookmarks: Record<string, PageBookmark[]>;
+  resumeAnchors: Record<string, Record<string, { pageIdx: number; offsetRatio: number }>>;
+}
+
+/** Collects global reader settings, per-series overrides, page bookmarks, and resume anchors for full-backup export. */
+export function exportReaderBackupData(slugs: string[]): ReaderBackupBundle {
+  const uniqueSlugs = Array.from(new Set(slugs.filter(Boolean)));
+  const seriesOverrides: Record<string, SeriesReaderOverride> = {};
+  const pageBookmarks: Record<string, PageBookmark[]> = {};
+  const resumeAnchors: Record<string, Record<string, { pageIdx: number; offsetRatio: number }>> = {};
+  for (const slug of uniqueSlugs) {
+    const ov = loadSeriesReaderOverride(slug);
+    if (ov && Object.keys(ov).length > 0) seriesOverrides[slug] = ov;
+    const bms = loadPageBookmarks(slug);
+    if (bms.length > 0) pageBookmarks[slug] = bms;
+    const rawResume = Prefs.getString(RESUME_PREFIX + slug);
+    if (rawResume) {
+      try {
+        const parsed = JSON.parse(rawResume) as { chapters?: Record<string, { pageIdx: number; offsetRatio: number }> };
+        if (parsed.chapters && Object.keys(parsed.chapters).length > 0) {
+          resumeAnchors[slug] = parsed.chapters;
+        }
+      } catch {
+        // ignore malformed anchor cache
+      }
+    }
+  }
+  return {
+    globalSettings: loadGlobalReaderSettings(),
+    seriesOverrides,
+    pageBookmarks,
+    resumeAnchors,
+  };
+}
+
+/** Restores reader settings, per-series overrides, page bookmarks, and resume anchors from a full backup. */
+export function importReaderBackupData(bundle: unknown): void {
+  if (!bundle || typeof bundle !== 'object') return;
+  const rec = bundle as Partial<ReaderBackupBundle>;
+  if (rec.globalSettings && typeof rec.globalSettings === 'object') {
+    saveGlobalReaderSettings({ ...loadGlobalReaderSettings(), ...rec.globalSettings });
+  }
+  if (rec.seriesOverrides && typeof rec.seriesOverrides === 'object') {
+    for (const [slug, ov] of Object.entries(rec.seriesOverrides)) {
+      if (slug && ov && typeof ov === 'object') saveSeriesReaderOverride(slug, ov);
+    }
+  }
+  if (rec.pageBookmarks && typeof rec.pageBookmarks === 'object') {
+    for (const [slug, bms] of Object.entries(rec.pageBookmarks)) {
+      if (slug && Array.isArray(bms)) savePageBookmarks(slug, bms);
+    }
+  }
+  if (rec.resumeAnchors && typeof rec.resumeAnchors === 'object') {
+    for (const [slug, chapters] of Object.entries(rec.resumeAnchors)) {
+      if (!slug || !chapters || typeof chapters !== 'object') continue;
+      for (const [chapterId, anchor] of Object.entries(chapters)) {
+        if (chapterId && anchor && typeof anchor.pageIdx === 'number' && typeof anchor.offsetRatio === 'number') {
+          saveResumeAnchor(slug, { chapterId, pageIdx: anchor.pageIdx, offsetRatio: anchor.offsetRatio });
+        }
+      }
+    }
+  }
 }
 
 export function hasSeenReaderHint(): boolean {
