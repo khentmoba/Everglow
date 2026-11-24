@@ -3323,27 +3323,6 @@ export function MangaReaderView({
             <div className="ellipsis" style={{ ...KatanaType.title, fontSize: isCompactPhone ? 13.5 : 14 }}>
               {params.mangaTitle}
             </div>
-            {!incognitoSession && currentUser && (
-              <span
-                title="Exact page and scroll position synced across phone and tablet"
-                style={{
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  padding: '1px 5px',
-                  borderRadius: 4,
-                  background: KatanaColors.surfaceAlt,
-                  border: `1px solid ${KatanaColors.border}`,
-                  color: KatanaColors.textMuted,
-                  flexShrink: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 2,
-                }}
-              >
-                <Icon name="cloud_done" size={10} color={KatanaColors.accentSoft} />
-                <span>Synced</span>
-              </span>
-            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
             <span className="ellipsis" style={{ ...KatanaType.small, lineHeight: 1.4, paddingBottom: 1, color: KatanaColors.accentSoft }}>
@@ -3565,13 +3544,16 @@ export function MangaReaderView({
               }}
             >
               <Icon name="build" size={13} color={KatanaColors.accentInk} />
-              <span>{repairingOffline ? 'Repairing…' : 'Repair Offline Cache'}</span>
+              <span>{repairingOffline ? 'Repairing…' : 'Repair downloads'}</span>
             </button>
           </div>
         )}
         {!seenOnboardingHint && (
           <div
             style={{
+              width: '100%',
+              maxWidth: 760,
+              margin: '0 auto',
               padding: '5px 10px',
               borderRadius: 8,
               background: KatanaColors.surfaceAlt,
@@ -3666,6 +3648,27 @@ export function MangaReaderView({
                 direction: isRtl ? 'rtl' : 'ltr',
               }}
             />
+            {!incognitoSession && currentUser && (
+              <span
+                title="Exact page and scroll position synced across phone and tablet"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: 6,
+                  background: KatanaColors.surfaceAlt,
+                  border: `1px solid ${KatanaColors.border}`,
+                  color: KatanaColors.textMuted,
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
+              >
+                <Icon name="cloud_done" size={11} color={KatanaColors.accentSoft} />
+                <span>Synced</span>
+              </span>
+            )}
             {isRtl && (
               <span
                 style={{

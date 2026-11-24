@@ -2564,7 +2564,7 @@ export function MangaPage() {
                                 >
                                   <Icon name="notifications_active" size={12} color={KatanaColors.accent} />
                                   <span>
-                                    {compactCard ? 'New chapters daily' : 'New chapters usually arrive within a day — we&apos;ll notify you'}
+                                    {compactCard ? 'New chapters daily' : `New chapters usually arrive within a day — we’ll notify you`}
                                   </span>
                                 </span>
                               )}
@@ -2673,8 +2673,8 @@ export function MangaPage() {
                             )}
 
                             {detail.chapters.length > 0 && (
-                              <div style={{ marginTop: 12, maxWidth: 360 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <div style={{ marginTop: 8, maxWidth: 360 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                                   <span style={KatanaType.small}>Reading progress</span>
                                   <span style={{ ...KatanaType.small, color: KatanaColors.text, fontWeight: 700 }}>
                                     {readCount} / {detail.chapters.length} ({readPct}%)
@@ -3456,9 +3456,30 @@ export function MangaPage() {
                         </div>
 
                         {tablet && !desktop && detail.summary && (
-                          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${KatanaColors.border}` }}>
-                            <div style={{ ...KatanaType.title, fontSize: 15, marginBottom: 6 }}>Synopsis</div>
-                            <p style={{ ...KatanaType.body, margin: 0 }}>{detail.summary}</p>
+                          <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${KatanaColors.border}` }}>
+                            <p
+                              className={summaryOpen ? undefined : 'clamp-2'}
+                              style={{ ...KatanaType.body, margin: 0, fontSize: 13, lineHeight: 1.5, color: KatanaColors.textMuted }}
+                            >
+                              {detail.summary}
+                            </p>
+                            <button
+                              type="button"
+                              className="bare-button"
+                              aria-expanded={summaryOpen}
+                              onClick={() => setSummaryOpen((v) => !v)}
+                              style={{
+                                marginTop: -4,
+                                minHeight: 44,
+                                padding: 0,
+                                fontFamily: Fonts.body,
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                color: KatanaColors.accentSoft,
+                              }}
+                            >
+                              {summaryOpen ? 'Show less' : 'Read more'}
+                            </button>
                           </div>
                         )}
 
@@ -4476,22 +4497,7 @@ export function MangaPage() {
                                         {c.updateAt && (
                                           <span style={{ ...KatanaType.small, fontSize: 11.5 }}>{formatKatanaTime(c.updateAt)}</span>
                                         )}
-                                        {availableChapterGroups.length > 1 &&
-                                          (() => {
-                                            const edition = /official/i.test(c.scanlationGroup || '') ? 'Official' : 'Fan edition';
-                                            const prev = idx > 0 ? visibleChapters[idx - 1] : undefined;
-                                            const prevEdition = prev
-                                              ? /official/i.test(prev.scanlationGroup || '')
-                                                ? 'Official'
-                                                : 'Fan edition'
-                                              : '';
-                                            if (edition === prevEdition) return null;
-                                            return (
-                                              <span style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight }}>
-                                                {edition}
-                                              </span>
-                                            );
-                                          })()}
+
                                         {c.isNew && !isLastRead && !isRead && (
                                           <span
                                             style={{
@@ -4556,7 +4562,7 @@ export function MangaPage() {
                                               fontWeight: 800,
                                             }}
                                           >
-                                            {!isRead && readChapterNums.has(c.num.trim()) ? '↑ UPGRADE' : '★ PREFERRED'}
+                                            {!isRead && readChapterNums.has(c.num.trim()) ? 'Better copy' : 'Your edition'}
                                           </span>
                                         )}
                                         {preferredScanlationGroup &&
@@ -4576,7 +4582,7 @@ export function MangaPage() {
                                                 fontWeight: 800,
                                               }}
                                             >
-                                              ⏳ WAITING FOR {preferredScanlationGroup.toUpperCase()}
+                                              ⏳ Waiting for {preferredScanlationGroup}
                                             </span>
                                           )}
                                         {needsOfflineRepair ? (
@@ -4626,7 +4632,7 @@ export function MangaPage() {
                                         needsOfflineRepair
                                           ? 'This chapter lost some pages — tap to re-download it'
                                           : isOffline
-                                            ? 'Saved offline (Cache Storage verified)'
+                                            ? 'Saved offline'
                                             : isDownloading
                                               ? 'Downloading chapter…'
                                               : 'Download chapter'
@@ -4988,7 +4994,7 @@ export function MangaPage() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                     <Icon name="search" size={15} color={KatanaColors.textMuted} />
                                     <span style={{ ...KatanaType.small, fontSize: 11.5, fontWeight: 700, color: KatanaColors.textMuted }}>
-                                      Search Official Catalogs (lookup query only — official chapters not confirmed):
+                                      Check the publisher's own site:
                                     </span>
                                     {searchLookupLinks.map((pub) => (
                                       <a

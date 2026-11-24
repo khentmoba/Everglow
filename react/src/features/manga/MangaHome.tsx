@@ -375,7 +375,7 @@ function FeaturedHero({
               >
                 <Icon name="event_repeat" size={14} color={KatanaColors.accent} />
                 {bm?.releaseDay || featured.releaseDay
-                  ? `Releases ${bm?.releaseDay || featured.releaseDay}s`
+                  ? `New chapter every ${bm?.releaseDay || featured.releaseDay}`
                   : completed
                     ? 'Completed Series'
                     : 'Weekly Serialization'}
@@ -1567,7 +1567,6 @@ export function MangaHome({
   const DEFAULT_HOME_RAIL_ORDER: HomeRailId[] = [
     'reading',
     'feed',
-    'pick_back_up',
     'trending',
     'calendar',
     'recommended',

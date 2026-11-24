@@ -1258,7 +1258,6 @@ export function KatanaHeader({
               onOpenGenresPage={() => onSelectNav('genres')}
             />
             {nav('reading', desktop ? 'Currently Reading' : 'Reading', 'auto_stories')}
-            {nav('history', 'History', 'history')}
             {nav('downloads', 'Downloads', 'download_done')}
           </div>
         </div>
@@ -1683,9 +1682,7 @@ export function KatanaCoverBadges({
           }}
         >
           <Icon name="download_done" size={12} color={KatanaColors.accentInk} />
-          <span>
-            {downloadedCount} offline
-          </span>
+          <span>{downloadedCount}</span>
         </span>
       )}
     </div>

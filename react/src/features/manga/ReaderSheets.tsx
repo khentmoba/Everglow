@@ -970,7 +970,7 @@ export function ReaderSettingsSheet({
 
               {isDoubleCapable && (
                 <>
-                  <SectionLabel>Spread Center Gutter ({settings.spreadGutter}px)</SectionLabel>
+                  <SectionLabel>Gap between pages ({settings.spreadGutter}px)</SectionLabel>
                   <input
                     type="range"
                     className="manga-range"
@@ -1145,7 +1145,7 @@ export function ReaderSettingsSheet({
                 )}
               </div>
 
-              <SectionLabel>Image Source Server</SectionLabel>
+              <SectionLabel>Where pages load from</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {SERVER_OPTIONS.map((srv) => {
                   const active = server === srv.value;
@@ -1556,7 +1556,7 @@ export function ReaderSettingsSheet({
                 })}
               </div>
 
-              <SectionLabel>Long-Strip Vertical Seekbar</SectionLabel>
+              <SectionLabel>Scroll bar in long strips</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {(
                   [
@@ -1962,7 +1962,7 @@ export function PageActionSheet({
       : []),
     {
       icon: 'dns',
-      label: 'Switch Source Server',
+      label: 'Try another source',
       onClick: () => {
         onClose();
         onOpenSettings();
