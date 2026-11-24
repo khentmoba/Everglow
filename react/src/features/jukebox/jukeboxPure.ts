@@ -94,3 +94,16 @@ export function mergeRecentTracks(
   }
   return out;
 }
+
+export function resolvedSpotifyUrl(s: Pick<MusicStatus, 'spotifyTrackId' | 'spotifyUrl'>): string {
+  if (s.spotifyTrackId) {
+    return `https://open.spotify.com/track/${encodeURIComponent(s.spotifyTrackId)}`;
+  }
+  try {
+    const parsed = new URL(s.spotifyUrl);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return parsed.toString();
+  } catch {
+    // Fall through to safe default.
+  }
+  return 'https://open.spotify.com/';
+}

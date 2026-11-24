@@ -2696,3 +2696,54 @@ test('shortcuts guide, mute slider collapse, next-ep countdown, and server title
   assert.ok(renderedHtml.includes('<button type="button" id="time-lbl"'), '#time-lbl uses semantic button element');
   assert.ok(renderedHtml.includes('id="scrub" role="slider" tabindex="0"'), '#scrub carries static ARIA slider attrs');
 });
+
+test('resolveMegavid cancels unconsumed error bodies and keeps abort signal active during body read', async () => {
+  const realFetch = globalThis.fetch;
+  let cancelled = false;
+  let capturedSignal = null;
+  let signalAbortedDuringJson = false;
+  try {
+    globalThis.fetch = async (_url, init) => {
+      capturedSignal = init.signal;
+      return {
+        ok: false,
+        status: 503,
+        bodyUsed: false,
+        body: {
+          cancel: async () => {
+            cancelled = true;
+          },
+        },
+        json: async () => ({}),
+      };
+    };
+    await assert.rejects(
+      () => resolveMegavid(1, 0, 1, 'sub', 'https://w.example/proxyMegavidHls', null),
+      /megavid 503/,
+    );
+    assert.equal(cancelled, true, 'unconsumed !res.ok body must be cancelled');
+
+    const outer = new AbortController();
+    globalThis.fetch = async (_url, init) => {
+      capturedSignal = init.signal;
+      return {
+        ok: true,
+        status: 200,
+        bodyUsed: false,
+        body: { cancel: async () => {} },
+        json: async () => {
+          outer.abort();
+          signalAbortedDuringJson = capturedSignal.aborted;
+          throw new Error('aborted');
+        },
+      };
+    };
+    await assert.rejects(
+      () => resolveMegavid(1, 0, 1, 'sub', 'https://w.example/proxyMegavidHls', null, { signal: outer.signal }),
+      /aborted/,
+    );
+    assert.equal(signalAbortedDuringJson, true, 'timeout/abort signal must remain wired while reading JSON body');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

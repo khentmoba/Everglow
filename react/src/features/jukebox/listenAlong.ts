@@ -4,11 +4,11 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
+import { resolvedSpotifyUrl } from './jukeboxPure';
 import { FUNCTIONS_BASE_URL, fetchLastfmJson, getIdToken, pickLastfmImageUrl, type MusicStatus } from './jukeboxService';
 
+export { resolvedSpotifyUrl };
 export const hasSpotifyTrack = (s: MusicStatus) => !!s.spotifyTrackId;
-export const resolvedSpotifyUrl = (s: MusicStatus) =>
-  hasSpotifyTrack(s) ? `https://open.spotify.com/track/${s.spotifyTrackId}` : s.spotifyUrl;
 const validAlbum = (album: string) => album !== '' && album !== 'No Album';
 
 // ---- SpotifyResolveService ----

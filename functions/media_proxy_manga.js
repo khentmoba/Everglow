@@ -26,12 +26,23 @@ function resolveMangaApiUrl(origin, pathParam) {
   const qIndex = pathParam.indexOf('?');
   const rawPath = qIndex === -1 ? pathParam : pathParam.slice(0, qIndex);
   const rawQuery = qIndex === -1 ? '' : pathParam.slice(qIndex + 1);
-  if (/^[a-z][a-z0-9+.-]*:/i.test(rawPath) || rawPath.includes('\\') || rawPath.startsWith('//')) {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(rawPath) || /[\\#]/.test(rawPath) || rawPath.startsWith('//')) {
     throw new Error('Invalid path');
   }
-  const safePath = rawPath.replace(/^\/+/, '').replace(/\.\.+/g, '');
-  if (safePath.length === 0 || safePath.length > 400) {
+  const safePath = rawPath.replace(/^\/+/, '');
+  if (safePath.length === 0 || safePath.length > 400 || safePath.includes('//')) {
     throw new Error('Invalid path');
+  }
+  for (const segment of safePath.replace(/\/+$/, '').split('/')) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      throw new Error('Invalid path');
+    }
+    if (!decoded || decoded === '.' || decoded === '..' || /[/?#\\]/.test(decoded)) {
+      throw new Error('Invalid path');
+    }
   }
   const baseUrl = new URL(`${origin}/`);
   const targetUrl = new URL(safePath, baseUrl);

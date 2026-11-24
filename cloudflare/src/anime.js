@@ -65,7 +65,7 @@ const EVERGLOW_BUDGET_MS = 12000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-async function fetchT(url, init, ms, outer) {
+async function fetchT(url, init, ms, outer, consume) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   const onAbort = () => ctrl.abort();
@@ -73,9 +73,17 @@ async function fetchT(url, init, ms, outer) {
     if (outer.aborted) ctrl.abort();
     else outer.addEventListener('abort', onAbort, { once: true });
   }
+  let res;
   try {
-    return await fetch(url, { ...(init || {}), signal: ctrl.signal });
+    res = await fetch(url, { ...(init || {}), signal: ctrl.signal });
+    if (typeof consume === 'function') {
+      return await consume(res);
+    }
+    return res;
   } finally {
+    if (typeof consume === 'function' && res && res.body && !res.bodyUsed) {
+      await res.body.cancel().catch(() => {});
+    }
     clearTimeout(timer);
     if (outer) outer.removeEventListener('abort', onAbort);
   }
@@ -650,42 +658,45 @@ function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, provider, stampK
 }
 
 async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders(), signal) {
-  const res = await fetchT(url, { headers }, timeoutMs, signal);
   const prefix = streamHostPrefix(url);
-  if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
-  const text = await res.text();
-  if (!text || !text.includes('#EXTM3U')) {
-    throw new Error(`${prefix} ${label} is not a playlist`);
-  }
-  return text;
+  return fetchT(url, { headers }, timeoutMs, signal, async (res) => {
+    if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
+    const text = await res.text();
+    if (!text || !text.includes('#EXTM3U')) {
+      throw new Error(`${prefix} ${label} is not a playlist`);
+    }
+    return text;
+  });
 }
 
 async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(), signal) {
-  const res = await fetchT(
+  const prefix = streamHostPrefix(url);
+  return fetchT(
     url,
     { headers: { ...headers, Range: 'bytes=0-1023' } },
     timeoutMs,
     signal,
+    async (res) => {
+      if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
+      if (!res.body) {
+        const buf = await res.arrayBuffer();
+        if (!buf.byteLength) throw new Error(`${prefix} ${label} is empty`);
+        return new Uint8Array(buf.slice(0, 1024));
+      }
+      const reader = res.body.getReader();
+      try {
+        const { done, value } = await reader.read();
+        if (done || !value || !value.byteLength) {
+          throw new Error(`${prefix} ${label} is empty`);
+        }
+        return value.slice ? value.slice(0, 1024) : value;
+      } finally {
+        try {
+          await reader.cancel();
+        } catch {}
+      }
+    },
   );
-  const prefix = streamHostPrefix(url);
-  if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
-  if (!res.body) {
-    const buf = await res.arrayBuffer();
-    if (!buf.byteLength) throw new Error(`${prefix} ${label} is empty`);
-    return new Uint8Array(buf.slice(0, 1024));
-  }
-  const reader = res.body.getReader();
-  try {
-    const { done, value } = await reader.read();
-    if (done || !value || !value.byteLength) {
-      throw new Error(`${prefix} ${label} is empty`);
-    }
-    return value.slice ? value.slice(0, 1024) : value;
-  } finally {
-    try {
-      await reader.cancel();
-    } catch {}
-  }
 }
 
 function assertPlayableHead(chunk, url, label) {
@@ -818,14 +829,16 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
     anilistId > 0
       ? `https://megavid.buzz/ani/${anilistId}/${ep}/${isDub}/source`
       : `https://megavid.buzz/mal/${malId}/${ep}/${isDub}/source`;
-  const res = await fetchT(
+  const data = await fetchT(
     url,
     { headers: megavidHeaders({ Accept: 'application/json' }) },
     10000,
     opts.signal,
+    async (res) => {
+      if (!res.ok) throw new Error(`megavid ${res.status}`);
+      return res.json();
+    },
   );
-  if (!res.ok) throw new Error(`megavid ${res.status}`);
-  const data = await res.json();
   if (data.status !== 'ok' || !data.source) throw new Error('megavid: no stream');
   await verifyMegavidStream(data.source, opts.signal);
   const tracks = await Promise.all(
@@ -851,28 +864,32 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts
     anilistId > 0
       ? `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${isDub}`
       : `https://megaplay.buzz/stream/mal/${malId}/${ep}/${isDub}`;
-  const pageRes = await fetchT(
+  const html = await fetchT(
     pageUrl,
     { headers: megaplayHeaders() },
     10000,
     opts.signal,
+    async (pageRes) => {
+      if (!pageRes.ok) throw new Error(`megaplay page ${pageRes.status}`);
+      return pageRes.text();
+    },
   );
-  if (!pageRes.ok) throw new Error(`megaplay page ${pageRes.status}`);
-  const html = await pageRes.text();
   const idMatch = html.match(
     /id=["']megaplay-player["'][^>]*data-id=["']([0-9a-zA-Z_-]+)["']/i,
   );
   if (!idMatch) throw new Error('megaplay: data-id not found');
   const dataId = idMatch[1];
 
-  const sourcesRes = await fetchT(
+  const data = await fetchT(
     `https://megaplay.buzz/stream/getSources?id=${dataId}&platform=OTHER`,
     { headers: megaplayHeaders({ 'X-Requested-With': 'XMLHttpRequest' }) },
     10000,
     opts.signal,
+    async (sourcesRes) => {
+      if (!sourcesRes.ok) throw new Error(`megaplay sources ${sourcesRes.status}`);
+      return sourcesRes.json();
+    },
   );
-  if (!sourcesRes.ok) throw new Error(`megaplay sources ${sourcesRes.status}`);
-  const data = await sourcesRes.json();
   if (!data || !data.enc) throw new Error('megaplay: no enc payload');
 
   const decrypted = await decryptMegaPlayPayload(data.enc);
@@ -1107,14 +1124,16 @@ async function firstPlayable(masterUrls, provider, signal, opts) {
 }
 
 async function resolveFmov(apiPath, srcKey, signal) {
-  const res = await fetchT(
+  const data = await fetchT(
     `${FMOV_ORIGIN}/api/stream/${apiPath}?source=${srcKey}`,
     { headers: fmovHeaders({ Accept: 'application/json' }) },
     6000,
     signal,
+    async (res) => {
+      if (!res.ok) throw new Error(`fmov ${srcKey} ${res.status}`);
+      return res.json();
+    },
   );
-  if (!res.ok) throw new Error(`fmov ${srcKey} ${res.status}`);
-  const data = await res.json();
   if (!data || !data.success) throw new Error(`fmov ${srcKey} miss`);
   const sources =
     Array.isArray(data.sources) && data.sources.length > 0
@@ -1139,7 +1158,7 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
   const referer = isTv
     ? `${VIDBOLT_ORIGIN}/tv/${tmdbId}/${season}/${ep}`
     : `${VIDBOLT_ORIGIN}/movie/${tmdbId}`;
-  const res = await fetchT(
+  const data = await fetchT(
     `${VIDBOLT_ORIGIN}/api/resolve?${query}`,
     {
       headers: vidboltHeaders({
@@ -1152,9 +1171,11 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
     },
     6000,
     signal,
+    async (res) => {
+      if (!res.ok) throw new Error(`vidbolt ${res.status}`);
+      return res.json();
+    },
   );
-  if (!res.ok) throw new Error(`vidbolt ${res.status}`);
-  const data = await res.json();
   const stream = data && data.stream;
   if (!stream) throw new Error('vidbolt miss');
   return {

@@ -1103,8 +1103,10 @@ export function BookReaderPage({ startListening = false }: { startListening?: bo
                   const a = document.createElement('a');
                   a.href = url;
                   a.download = 'everglow-highlights.md';
+                  document.body.appendChild(a);
                   a.click();
-                  URL.revokeObjectURL(url);
+                  a.remove();
+                  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
                 }}
                 style={{ width: '100%', minHeight: 46, borderRadius: 14, border: `1px solid ${withAlpha(theme.fg, 0.18)}`, fontSize: 13, fontWeight: 700, color: theme.fg, marginBottom: 10 }}
               >

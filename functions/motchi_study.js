@@ -103,7 +103,7 @@ function parseStudySet(text) {
   } catch {
     return { error: 'unparseable' };
   }
-  const list = Array.isArray(raw) ? raw : raw.questions;
+  const list = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? raw.questions : null);
   if (!Array.isArray(list)) return { error: 'not-an-array' };
   const seen = new Set();
   const questions = [];

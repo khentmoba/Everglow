@@ -5,6 +5,7 @@ import {
   musicStatusToMap,
   musicStatusTrackKey,
   pickPreferredMusicStatus,
+  resolvedSpotifyUrl,
   shouldSyncPartnerStatus,
 } from '../src/features/jukebox/jukeboxPure.ts';
 import { dedupeMilestones } from '../src/features/dashboard/milestonePure.ts';
@@ -164,4 +165,19 @@ test('musicStatusToMap clears stale Spotify IDs when Last.fm overwrites a Spotif
   assert.equal(merged.spotifyTrackId, null);
   assert.equal(merged.spotifyEmbedUrl, null);
   assert.equal(merged.previewUrl, null);
+});
+
+test('resolvedSpotifyUrl encodes track IDs and rejects non-http fallback URLs', () => {
+  assert.equal(
+    resolvedSpotifyUrl(track({ spotifyTrackId: 'abc/../../evil?x=1' })),
+    'https://open.spotify.com/track/abc%2F..%2F..%2Fevil%3Fx%3D1',
+  );
+  assert.equal(
+    resolvedSpotifyUrl(track({ spotifyTrackId: null, spotifyUrl: 'javascript:alert(1)' })),
+    'https://open.spotify.com/',
+  );
+  assert.equal(
+    resolvedSpotifyUrl(track({ spotifyTrackId: null, spotifyUrl: 'https://open.spotify.com/search/test' })),
+    'https://open.spotify.com/search/test',
+  );
 });
