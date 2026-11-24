@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formattedDuration, formattedSize, offlineMedia, useOfflineMedia, type OfflineMediaItem } from '../../core/services/offlineMedia';
 import { Align, boxShadow, linear } from '../../core/theme/paint';
+import { withAlpha } from '../../core/theme/colors';
 import { AlertDialog, TextButton, showDialog } from '../../shared/widgets/Dialogs';
 import { Icon } from '../../shared/widgets/Icon';
 import { LinearProgress } from '../../shared/widgets/LinearProgress';
@@ -22,6 +23,7 @@ import {
   AnimeXBadge,
   AnimeXFooter,
   AnimeXGrid,
+  AnimeXGridSkeleton,
   AnimeXPosterRow,
   AnimeXPrimaryButton,
   AnimeXRowSkeleton,
@@ -68,6 +70,8 @@ export interface AnimeNavActions {
   continueWatching: AnimexHistoryEntry[];
   playlists: AnimexPlaylist[];
   onWatch: (item: MediaItem, episode?: number) => void;
+  /** Open the title's watch page scrolled to its about synopsis. */
+  onInfo: (item: MediaItem) => void;
   onTrailer: (item: MediaItem) => void;
   onNavigate: (page: AnimexPageKind) => void;
   onPresetBrowse: (preset: { sort?: string; status?: string; season?: string; year?: number; genre?: string }) => void;
@@ -87,7 +91,7 @@ interface HomeRowState {
   items: MediaItem[];
 }
 
-function ContinueWatchingCard({ entry, onClick }: { entry: AnimexHistoryEntry; onClick: () => void }) {
+function ContinueWatchingCard({ entry, onClick, width }: { entry: AnimexHistoryEntry; onClick: () => void; width: number }) {
   const [hovered, setHovered] = useState(false);
   const badgeLabel = entry.isMovie
     ? 'MOVIE'
@@ -110,7 +114,7 @@ function ContinueWatchingCard({ entry, onClick }: { entry: AnimexHistoryEntry; o
       onMouseLeave={() => setHovered(false)}
       style={{
         position: 'relative',
-        width: 280,
+        width,
         height: 200,
         flexShrink: 0,
         borderRadius: AnimeXTokens.radius2xl,
@@ -148,7 +152,7 @@ function ContinueWatchingCard({ entry, onClick }: { entry: AnimexHistoryEntry; o
           {entry.title}
         </div>
         <div style={{ height: 6 }} />
-        <div className="ellipsis" style={{ ...dmSansStyle({ size: 12, color: AnimeXTokens.accentWarm, weight: 600 }), maxWidth: '100%' }}>
+        <div className="ellipsis" style={{ ...dmSansStyle({ size: 12, color: '#FFFFFF', weight: 600 }), maxWidth: '100%' }}>
           {resumeLabel}
         </div>
         {entry.progress != null && (
@@ -215,6 +219,10 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
   }, [nav.titleJapanese, retryCount]);
 
   const cardWidth = nav.width < 600 ? AnimeXTokens.rowPosterWidthMobile : AnimeXTokens.rowPosterWidthDesktop;
+  // A 280px card on an 820px tablet left 500px of dead space beside it.
+  // Phone: one card plus a peek. Tablet: two across. Desktop: three.
+  const continueWidth =
+    nav.width < 600 ? 280 : nav.width < 1200 ? Math.floor((nav.width - 48 - 14) / 2) : Math.floor((nav.width - 48 - 28) / 3);
   const trending = rows[0];
   const airing = rows[1];
   const allFailed = rows.every((r) => !r.loading && r.items.length === 0);
@@ -228,15 +236,48 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
     else if (id === 'completed') nav.onPresetBrowse({ sort: 'END_DATE_DESC', status: 'FINISHED' });
   };
 
+  // So the hero can say "Resume Ep 5 · 7:05" instead of "Watch Now".
+  const resumeFor = (item: MediaItem) => {
+    const entry = nav.continueWatching.find(
+      (e) =>
+        (item.anilistId != null && e.savedItem?.anilistId === item.anilistId) ||
+        (item.tmdbId > 0 && e.savedItem?.tmdbId === item.tmdbId),
+    );
+    return entry ? { episode: entry.episode, resumeSeconds: entry.resumeSeconds } : undefined;
+  };
+
+  // One hero, one show: if she is mid-series, that series leads, so the loudest
+  // button resumes the show the hero is actually about.
+  const heroItems = (() => {
+    const base = trending.items.slice(0, 5);
+    const resume = nav.continueWatching[0]?.savedItem;
+    if (!resume) return base;
+    // One slide, no pager: a carousel would let the resume button rotate away.
+    return [resume];
+  })();
+
   return (
-    <div style={{ paddingBottom: 64 }}>
+    <div style={{ paddingBottom: 64, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <AnimeXSpotlight
-        items={trending.items.slice(0, 5)}
+        items={heroItems}
         loading={trending.loading}
         width={nav.width}
         height={nav.height}
+        resumeFor={resumeFor}
+        latestResume={
+          nav.continueWatching[0]
+            ? {
+                title: nav.continueWatching[0].title,
+                episode: nav.continueWatching[0].episode,
+                onTap: () => {
+                  const e = nav.continueWatching[0]!;
+                  if (e.savedItem) nav.onWatch(e.savedItem, e.episode);
+                },
+              }
+            : undefined
+        }
         onWatch={(it) => nav.onWatch(it)}
-        onMoreInfo={(it) => nav.onWatch(it)}
+        onMoreInfo={(it) => nav.onInfo(it)}
         onTrailer={nav.onTrailer}
       />
 
@@ -255,6 +296,7 @@ export function AnimeXHomePage({ nav }: { nav: AnimeNavActions }) {
               <ContinueWatchingCard
                 key={e.key}
                 entry={e}
+                width={continueWidth}
                 onClick={() => e.savedItem && nav.onWatch(e.savedItem, e.episode)}
               />
             ))}
@@ -407,13 +449,16 @@ function BrowseSelect({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
-        padding: '9px 14px',
+        padding: '0 14px',
+        minHeight: 44,
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
         borderRadius: AnimeXTokens.radiusMd,
         background: 'rgba(255,255,255,0.05)',
         border: `1px solid ${AnimeXTokens.border}`,
       }}
     >
-      <span style={dmSansStyle({ size: 13, color: AnimeXTokens.textPrimary, weight: 600 })}>{label}</span>
+      <span style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textPrimary, weight: 600 }), whiteSpace: 'nowrap' }}>{label}</span>
       <Icon name="keyboard_arrow_down" size={16} color={AnimeXTokens.textSecondary} />
       <select
         value={value}
@@ -484,13 +529,23 @@ export function AnimeXBrowsePage({
   const years = Array.from({ length: currentYear - 1990 + 1 }, (_, i) => String(currentYear - i));
 
   return (
-    <div style={{ padding: '20px 24px 64px', position: 'relative' }}>
+    <div style={{ padding: '20px 24px 64px', position: 'relative', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <h1 style={{ ...bebasStyle({ size: 32 }), margin: 0, textTransform: 'uppercase' }}>Browse</h1>
       <div style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }), marginTop: 2 }}>
         Explore anime
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
+      <div
+        // A scroller cut the fourth chip in half at the screen edge. Four
+        // controls fit in two tidy rows, so nothing has to be sliced.
+        style={{
+          display: 'grid',
+          gridTemplateColumns: nav.width < 600 ? '1fr 1fr' : 'repeat(4, max-content)',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 16,
+        }}
+      >
         <BrowseSelect
           value={sort}
           options={SORT_OPTIONS}
@@ -502,8 +557,8 @@ export function AnimeXBrowsePage({
         <BrowseSelect
           value={moviesOnly ? 'MOVIE' : 'ALL'}
           options={[
-            ['ALL', 'All Anime'],
-            ['MOVIE', 'Anime movies'],
+            ['ALL', 'All types'],
+            ['MOVIE', 'Movies'],
           ]}
           onChange={(v) => {
             setMoviesOnly(v === 'MOVIE');
@@ -517,16 +572,19 @@ export function AnimeXBrowsePage({
             onClick={() => setGenreMenuOpen((v) => !v)}
             style={{
               display: 'inline-flex',
+              flexShrink: 0,
               alignItems: 'center',
               gap: 8,
-              padding: '9px 14px',
+              padding: '0 14px',
+              minHeight: 44,
               borderRadius: AnimeXTokens.radiusMd,
+              whiteSpace: 'nowrap',
               background: selectedGenres.length > 0 ? 'rgba(194,24,91,0.16)' : 'rgba(255,255,255,0.05)',
               border: `1px solid ${selectedGenres.length > 0 ? AnimeXTokens.accent : AnimeXTokens.border}`,
             }}
           >
-            <span style={dmSansStyle({ size: 13, color: AnimeXTokens.textPrimary, weight: 600 })}>
-              {selectedGenres.length === 0 ? 'All Genres' : `${selectedGenres.length} Genre${selectedGenres.length === 1 ? '' : 's'}`}
+            <span style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textPrimary, weight: 600 }), whiteSpace: 'nowrap' }}>
+              {selectedGenres.length === 0 ? 'All genres' : `${selectedGenres.length} genre${selectedGenres.length === 1 ? '' : 's'}`}
             </span>
             <Icon name="keyboard_arrow_down" size={16} color={AnimeXTokens.textSecondary} />
           </button>
@@ -577,7 +635,7 @@ export function AnimeXBrowsePage({
         </div>
         <BrowseSelect
           value={year ? String(year) : 'ALL'}
-          options={[['ALL', 'All Years'], ...years.map((y): [string, string] => [y, y])]}
+          options={[['ALL', 'All years'], ...years.map((y): [string, string] => [y, y])]}
           onChange={(v) => {
             setYear(v === 'ALL' ? undefined : Number(v));
             setPage(1);
@@ -623,9 +681,7 @@ export function AnimeXBrowsePage({
 
       <div style={{ marginTop: 24 }}>
         {loading ? (
-          <div style={{ padding: '48px 0', textAlign: 'center', ...dmSansStyle({ size: 14, color: AnimeXTokens.textSecondary }) }}>
-            Loading anime…
-          </div>
+          <AnimeXGridSkeleton width={nav.width} />
         ) : (data?.items.length ?? 0) === 0 ? (
           <div style={{ padding: '48px 0', textAlign: 'center', ...dmSansStyle({ size: 14, color: AnimeXTokens.textSecondary }) }}>
             No anime matched your filters.
@@ -725,7 +781,7 @@ export function AnimeXSchedulePage({ nav }: { nav: AnimeNavActions }) {
   }, [filtered]);
 
   return (
-    <div style={{ padding: '20px 24px 64px' }}>
+    <div style={{ padding: '20px 24px 64px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <h1 style={{ ...bebasStyle({ size: 32 }), margin: 0, textTransform: 'uppercase' }}>Airing Schedule</h1>
       <div style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }), marginTop: 2 }}>
         This week&apos;s anime broadcasts
@@ -858,12 +914,37 @@ export function AnimeXSchedulePage({ nav }: { nav: AnimeNavActions }) {
           Loading schedule…
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: '24px 0', ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }) }}>
-          {onlyMyList
-            ? nav.library.length === 0
-              ? 'Add anime to My List to see their broadcast dates here.'
-              : 'No airings from your list in this day’s schedule.'
-            : 'No scheduled episodes found.'}
+        <div
+          style={{
+            padding: '26px 20px',
+            borderRadius: AnimeXTokens.radiusLg,
+            border: `1px dashed ${AnimeXTokens.border}`,
+            background: 'rgba(255,255,255,0.02)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <Icon name="event_busy" size={26} color={AnimeXTokens.textMuted} />
+          <div style={{ height: 10 }} />
+          <div style={dmSansStyle({ size: 13.5, color: AnimeXTokens.textPrimary, weight: 700 })}>
+            {onlyMyList && nav.library.length === 0 ? 'Your list is empty' : 'Nothing airs on this day'}
+          </div>
+          <div style={{ height: 4 }} />
+          <div style={dmSansStyle({ size: 12.5, color: AnimeXTokens.textSecondary })}>
+            {onlyMyList && nav.library.length === 0
+              ? 'Add a title from Browse and its broadcast day shows up here.'
+              : onlyMyList
+                ? 'Try another day above, or switch to All anime.'
+                : 'Try another day above.'}
+          </div>
+          {onlyMyList && nav.library.length === 0 && (
+            <>
+              <div style={{ height: 14 }} />
+              <AnimeXPrimaryButton label="Browse anime" icon="explore" onClick={() => nav.onNavigate('browse')} />
+            </>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -933,14 +1014,12 @@ export function AnimeXSchedulePage({ nav }: { nav: AnimeNavActions }) {
 
 export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
   const [queryText, setQueryText] = useState('');
-  const [mode, setMode] = useState<'all' | 'trending' | 'airing' | 'movies' | 'new'>('all');
+  const [mode, setMode] = useState<'all' | 'trending' | 'airing' | 'movies' | 'new'>('trending');
   const [results, setResults] = useState<MediaItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const runSearch = (q: string, targetMode: 'all' | 'trending' | 'airing' | 'movies' | 'new') => {
     setLoading(true);
-    setSearched(true);
     const opts = q
       ? { search: q, perPage: 30, japaneseTitle: nav.titleJapanese }
       : targetMode === 'trending'
@@ -965,8 +1044,15 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
     return () => window.clearTimeout(t);
   }, [queryText, nav.titleJapanese]);
 
+  // An empty search box is not a dead end: show trending immediately so she can
+  // start something without knowing a title.
+  useEffect(() => {
+    runSearch('', mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, nav.titleJapanese]);
+
   return (
-    <div style={{ padding: '20px 24px 64px' }}>
+    <div style={{ padding: '20px 24px 64px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <h1 style={{ ...bebasStyle({ size: 32 }), margin: 0, textTransform: 'uppercase' }}>Discover Anime</h1>
       <div style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }), marginTop: 2 }}>
         Search thousands of anime titles
@@ -990,12 +1076,10 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
           onChange={(e) => {
             const val = e.target.value;
             setQueryText(val);
-            if (!val.trim() && mode === 'all') {
-              setSearched(false);
-              setResults([]);
-            }
+            if (!val.trim()) runSearch('', mode);
           }}
           placeholder="Search anime..."
+          className="animex-search-input"
           style={{
             flex: 1,
             background: 'transparent',
@@ -1020,11 +1104,11 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '14px 0 24px' }}>
+      <div className="no-scrollbar" style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 8, margin: '14px 0 24px', overflowX: 'auto' }}>
         {([
           ['all', 'All'],
           ['trending', 'Trending'],
-          ['airing', 'Top Airing'],
+          ['airing', 'Airing'],
           ['movies', 'Movies'],
           ['new', 'New'],
         ] as const).map(([key, lbl]) => {
@@ -1040,13 +1124,19 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
                 runSearch('', key);
               }}
               style={{
-                padding: '7px 14px',
+                flexShrink: 0,
+                height: 44,
+                boxSizing: 'border-box',
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0 13px',
                 borderRadius: 999,
+                whiteSpace: 'nowrap',
                 background: active ? 'rgba(194,24,91,0.16)' : 'rgba(255,255,255,0.05)',
                 border: `1px solid ${active ? 'rgba(194,24,91,0.4)' : AnimeXTokens.border}`,
               }}
             >
-              <span style={dmSansStyle({ size: 12.5, color: active ? AnimeXTokens.accent : AnimeXTokens.textSecondary, weight: 600 })}>
+              <span style={dmSansStyle({ size: 12, color: active ? AnimeXTokens.accentText : AnimeXTokens.textSecondary, weight: 600 })}>
                 {lbl}
               </span>
             </button>
@@ -1054,17 +1144,89 @@ export function AnimeXSearchPage({ nav }: { nav: AnimeNavActions }) {
         })}
       </div>
 
+      {!queryText.trim() && (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ ...dmSansStyle({ size: 11, color: AnimeXTokens.textMuted, weight: 800, letterSpacing: 0.08 }), marginBottom: 8 }}>
+            BROWSE BY GENRE
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+            {(['Action', 'Romance', 'Comedy', 'Fantasy'] as const).map((genre) => (
+              <button
+                key={genre}
+                type="button"
+                className="bare-button"
+                onClick={() => nav.onPresetBrowse({ genre })}
+                style={{
+                  flexShrink: 0,
+                  minHeight: 44,
+                  padding: '0 14px',
+                  borderRadius: 999,
+                  whiteSpace: 'nowrap',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${AnimeXTokens.border}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={dmSansStyle({ size: 12.5, color: AnimeXTokens.textPrimary, weight: 600 })}>{genre}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!queryText.trim() && nav.history.length > 0 && !loading && (
+        <div style={{ marginBottom: 26 }}>
+          <AnimeXSectionHeader icon="history" title="Pick up where you stopped" />
+          <div className="no-scrollbar" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 4 }}>
+            {nav.history
+              .filter((e) => !(e.totalEpisodes > 0 && e.episode >= e.totalEpisodes))
+              .slice(0, 8)
+              .map((e) => (
+              <ContinueWatchingCard
+                key={`rec-${e.key}`}
+                entry={e}
+                width={260}
+                onClick={() => e.savedItem && nav.onWatch(e.savedItem, e.episode)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
-        <div style={{ padding: '48px 0', textAlign: 'center', ...dmSansStyle({ size: 14, color: AnimeXTokens.textSecondary }) }}>
-          Searching…
-        </div>
-      ) : !searched ? (
-        <div style={{ padding: '60px 0', textAlign: 'center', ...dmSansStyle({ size: 13, color: AnimeXTokens.textMuted }) }}>
-          Start typing to search for anime.
-        </div>
+        <AnimeXGridSkeleton width={nav.width} count={9} />
       ) : results.length === 0 ? (
-        <div style={{ padding: '60px 0', textAlign: 'center', ...dmSansStyle({ size: 14, color: AnimeXTokens.textSecondary }) }}>
-          Nothing to show
+        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+          <div style={dmSansStyle({ size: 15, color: AnimeXTokens.textPrimary, weight: 700 })}>
+            {queryText.trim() ? 'Nothing matched that title' : 'Nothing to show right now'}
+          </div>
+          <div style={{ height: 6 }} />
+          <div style={dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary })}>
+            {queryText.trim() ? 'Try a shorter title, or pick a category above.' : 'Try again in a moment.'}
+          </div>
+          <div style={{ height: 16 }} />
+          <button
+            type="button"
+            className="bare-button"
+            onClick={() => {
+              setQueryText('');
+              setMode('trending');
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              minHeight: 44,
+              padding: '0 18px',
+              borderRadius: AnimeXTokens.radiusPill,
+              background: withAlpha(AnimeXTokens.accent, 0.18),
+              border: `1px solid ${AnimeXTokens.accent}`,
+            }}
+          >
+            <Icon name="trending_up" size={16} color={AnimeXTokens.accentText} />
+            <span style={dmSansStyle({ size: 13, color: AnimeXTokens.accentText, weight: 700 })}>Show trending</span>
+          </button>
         </div>
       ) : (
         <AnimeXGrid items={results} width={nav.width} onSelect={(it) => nav.onWatch(it)} />
@@ -1081,7 +1243,7 @@ export function AnimeXHistoryPage({ nav }: { nav: AnimeNavActions }) {
   const [confirmClear, setConfirmClear] = useState(false);
 
   return (
-    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
+    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h1 style={{ ...bebasStyle({ size: 32 }), margin: 0 }}>History</h1>
@@ -1183,39 +1345,6 @@ export function AnimeXHistoryPage({ nav }: { nav: AnimeNavActions }) {
 
 // ---------- My List ----------
 
-function MyListStat({ label, count, color }: { label: string; count: number; color: string }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        padding: '14px 0',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: AnimeXTokens.radiusLg,
-        border: `1px solid ${AnimeXTokens.border}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-    >
-      <div style={bebasStyle({ size: 24, color })}>{count}</div>
-      <div style={{ height: 3 }} />
-      <div
-        style={{
-          ...dmSansStyle({ size: 10.5, color: AnimeXTokens.textSecondary }),
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          maxWidth: '100%',
-          padding: '0 4px',
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
 function MyListSectionTitle({ title, count }: { title: string; count: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -1263,7 +1392,7 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
   );
 
   return (
-    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
+    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
       <h1 style={{ ...bebasStyle({ size: 32, color: AnimeXTokens.textPrimary }), margin: 0 }}>My List</h1>
       <div style={{ ...dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary }), marginTop: 2 }}>
         {nav.library.length} anime in your collection
@@ -1309,11 +1438,20 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: nav.width < 600 ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
+          gap: 10,
+          marginTop: 12,
+        }}
+      >
         {(
           [
             ['Playlists', 'video_library', 'outlined', () => nav.onNavigate('playlists')],
             ['Seasonal', 'calendar_view_month', 'round', () => nav.onNavigate('seasonal')],
+            ['History', 'history', 'round', () => nav.onNavigate('history')],
+            ['Downloads', 'download_for_offline', 'outlined', () => nav.onNavigate('downloads')],
           ] as const
         ).map(([label, icon, variant, onTap]) => (
           <button
@@ -1322,12 +1460,15 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
             className="bare-button"
             onClick={onTap}
             style={{
-              padding: '8px 14px',
+              minHeight: 44,
+              boxSizing: 'border-box',
+              padding: '0 12px',
               background: 'rgba(255,255,255,0.05)',
               borderRadius: AnimeXTokens.radiusMd,
               border: `1px solid ${AnimeXTokens.border}`,
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: 8,
             }}
           >
@@ -1337,14 +1478,7 @@ export function AnimeXMyListPage({ nav }: { nav: AnimeNavActions }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <MyListStat label="Watching" count={watching.length} color={AnimeXTokens.success} />
-        <MyListStat label="Plan to Watch" count={toWatch.length} color={AnimeXTokens.accent} />
-        <MyListStat label="Completed" count={watched.length} color={AnimeXTokens.accentWarm} />
-        <MyListStat label="Total" count={nav.library.length} color={AnimeXTokens.textPrimary} />
-      </div>
-
-      <div style={{ height: 28 }} />
+      <div style={{ height: 24 }} />
 
       {nav.library.length === 0 ? (
         <div style={{ padding: '50px 0', textAlign: 'center' }}>
@@ -1396,7 +1530,7 @@ export function AnimeXPlaylistsPage({ nav }: { nav: AnimeNavActions }) {
 
   if (selected) {
     return (
-      <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
+      <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
         <button
           type="button"
           className="bare-button"
@@ -1432,7 +1566,7 @@ export function AnimeXPlaylistsPage({ nav }: { nav: AnimeNavActions }) {
   }
 
   return (
-    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
+    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h1 style={{ ...bebasStyle({ size: 32 }), margin: 0 }}>Playlists</h1>
@@ -1570,7 +1704,7 @@ export function AnimeXSeasonalPage({ nav }: { nav: AnimeNavActions }) {
   }, [season, year, page, nav.titleJapanese]);
 
   return (
-    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
+    <div style={{ padding: '20px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
       <h1 style={{ ...bebasStyle({ size: 32 }), margin: 0 }}>Seasonal Anime</h1>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '14px 0 24px', alignItems: 'center' }}>
         {SEASONS.map(([code, label]) => {
@@ -1692,7 +1826,7 @@ export function AnimeXDownloadsPage({ nav }: { nav: AnimeNavActions }) {
   }
 
   return (
-    <div style={{ padding: '24px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto' }}>
+    <div style={{ padding: '24px 24px 64px', maxWidth: AnimeXTokens.pageMaxWidth, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <Icon name="download_for_offline" size={26} color={AnimeXTokens.accent} />
@@ -1858,7 +1992,7 @@ export function AnimeXDownloadsPage({ nav }: { nav: AnimeNavActions }) {
 
 export function AnimeXDmcaPage({ onBack }: { onBack: () => void }) {
   return (
-    <div style={{ padding: '24px 24px 64px', maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ padding: '24px 24px 64px', maxWidth: 760, margin: '0 auto', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
       <button type="button" className="bare-button" onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
         <Icon name="arrow_back" size={18} color={AnimeXTokens.textSecondary} />
         <span style={dmSansStyle({ size: 13, color: AnimeXTokens.textSecondary })}>Back</span>

@@ -32,7 +32,7 @@ import { AnimexStores, useAnimexStores } from './animexStores';
 import { AnimeXTokens } from './animeTokens';
 import { AnimeXMobileBottomNav, AnimeXTopHeader } from './AnimeUi';
 import { showAnimexTrailer } from './AnimeXPlayerFrame';
-import { AnimeXMotchiFloatingTrigger, AnimeXMotchiSidebar } from './AnimeXMotchi';
+import { AnimeXMotchiSidebar } from './AnimeXMotchi';
 import { AnimeXWatchPage } from './AnimeXWatchPage';
 import { TvMediaNavHeader } from '../../shared/widgets/shelf/TvMediaNavHeader';
 import type { AIMessage } from '../ai/motchiDomain';
@@ -44,7 +44,7 @@ export function AnimePage() {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const [page, setPage] = useState<AnimexPageKind>('home');
-  const [watchItem, setWatchItem] = useState<{ item: MediaItem; episode?: number } | null>(null);
+  const [watchItem, setWatchItem] = useState<{ item: MediaItem; episode?: number; focus?: 'info' } | null>(null);
   const [dmcaOpen, setDmcaOpen] = useState(false);
   const [browsePreset, setBrowsePreset] = useState<{
     sort?: string;
@@ -193,8 +193,8 @@ export function AnimePage() {
     scrollerRef.current?.scrollTo({ top: 0 });
   };
 
-  const openWatch = (item: MediaItem, episode?: number) => {
-    setWatchItem({ item, episode });
+  const openWatch = (item: MediaItem, episode?: number, focus?: 'info') => {
+    setWatchItem({ item, episode, focus });
     setMotchiMessages([]);
     setDmcaOpen(false);
     setMotchiOpen(false);
@@ -211,6 +211,7 @@ export function AnimePage() {
     continueWatching,
     playlists: store.playlists,
     onWatch: openWatch,
+    onInfo: (item) => openWatch(item, undefined, 'info'),
     onTrailer: (it) =>
       void showAnimexTrailer({ youtubeId: it.trailerYoutubeId, anilistId: it.anilistId, malId: it.tmdbId, title: it.title }),
     onNavigate: goTo,
@@ -246,6 +247,9 @@ export function AnimePage() {
       }}
     >
       <TvMediaNavHeader currentRoute="/anime" />
+      {/* A watch screen owns the whole frame: two header bars meant two back
+          buttons and 70px of the player's height. */}
+      {!(watchItem && width < 600) && (
       <AnimeXTopHeader
         page={page}
         hasDetail={hasDetail}
@@ -265,6 +269,7 @@ export function AnimePage() {
         onNavigate={goTo}
         onSearch={() => goTo('search')}
       />
+      )}
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <div
@@ -299,6 +304,7 @@ export function AnimePage() {
                 controller={{
                   watchItem: watchItem.item,
                   watchEpisode: watchItem.episode,
+                  focus: watchItem.focus,
                   closeDetail: () => {
                     setWatchItem(null);
                     setDmcaOpen(false);
@@ -308,6 +314,7 @@ export function AnimePage() {
                   savedAnime,
                   goHome: () => goTo('home'),
                   openDmca: navActions.onOpenDmca,
+                  onMotchi: isCoupleUser ? () => setMotchiOpen(true) : undefined,
                 }}
               />
             ) : (
@@ -315,11 +322,6 @@ export function AnimePage() {
                 <AnimeXDmcaPage onBack={() => setDmcaOpen(false)} />
               </div>
             )}
-          </div>
-        )}
-        {isCoupleUser && watchItem && !motchiOpen && (
-          <div style={{ position: 'absolute', bottom: 20, right: 18 }}>
-            <AnimeXMotchiFloatingTrigger onTap={() => setMotchiOpen(true)} />
           </div>
         )}
         {isCoupleUser && watchItem && (

@@ -34,6 +34,17 @@ function useHideSpoilers() {
   return AnimexStores.hideSpoilers;
 }
 
+/** The furthest episode history knows about, plus where she stopped inside it. */
+function useSeriesProgress(animeId: number) {
+  useAnimexStores();
+  const entry = AnimexStores.history.find((e) => e.anilistId === animeId || e.malId === animeId);
+  const item = entry?.savedItem;
+  const watchedThrough = item?.currentEpisode ?? entry?.episode ?? 0;
+  const resumeAt = item ? (item.currentTimestamp ?? 0) : 0;
+  const totalSeconds = (item?.durationSeconds ?? 0) > 0 ? item!.durationSeconds! : 0;
+  return { watchedThrough, resumeAt, totalSeconds };
+}
+
 function smoothScroll(el: HTMLElement, axis: 'left' | 'top', target: number) {
   const max = axis === 'left' ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
   el.scrollTo({ [axis]: Math.min(Math.max(target, 0), Math.max(max, 0)), behavior: 'smooth' });
@@ -85,12 +96,15 @@ export function EpisodeThumbnail({
   isPlaying,
   width,
   height,
+  compact = false,
 }: {
   episode: AniListEpisode;
   fallbackPoster: string;
   isPlaying: boolean;
   width: number;
   height: number;
+  /** Small rail rows: labels move outside the frame so they never collide. */
+  compact?: boolean;
 }) {
   const placeholder = (
     <div style={{ position: 'absolute', inset: 0, background: T.surfaceRaised, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -135,24 +149,26 @@ export function EpisodeThumbnail({
           </div>
         </div>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          left: 6,
-          bottom: 6,
-          padding: '2.5px 6px',
-          background: T.accent,
-          borderRadius: T.radiusSm,
-          boxShadow: boxShadow([{ color: 'rgba(0,0,0,0.4)', blur: 4, offset: [0, 1] }]),
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <Icon name="play_arrow" size={10} color="#FFFFFF" />
-        <div style={{ width: 2.5 }} />
-        <span style={dmSansStyle({ size: 10.5, color: '#FFFFFF', weight: 700 })}>Episode {episode.number}</span>
-      </div>
-      {episode.duration != null && episode.duration > 0 && (
+      {!compact && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 6,
+            bottom: 6,
+            padding: '2.5px 6px',
+            background: T.accent,
+            borderRadius: T.radiusSm,
+            boxShadow: boxShadow([{ color: 'rgba(0,0,0,0.4)', blur: 4, offset: [0, 1] }]),
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <Icon name="play_arrow" size={10} color="#FFFFFF" />
+          <div style={{ width: 2.5 }} />
+          <span style={dmSansStyle({ size: 10.5, color: '#FFFFFF', weight: 700 })}>Episode {episode.number}</span>
+        </div>
+      )}
+      {!compact && episode.duration != null && episode.duration > 0 && (
         <div
           style={{
             position: 'absolute',
@@ -224,7 +240,8 @@ function DownloadButton({
               coverUrl: episode.thumbnail ?? fallbackPoster,
             });
           }}
-          style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+          // 44px target: the glyph stays small, the thing she has to hit does not.
+          style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
         >
           <Icon name="download_for_offline_outlined" size={18} color={T.textMuted} />
         </button>
@@ -244,42 +261,11 @@ function useRevealed(episodeNumber: number, hideSpoilers: boolean) {
   return [revealed, setRevealed] as const;
 }
 
-function HideDetailsLink({ onTap, gap }: { onTap: () => void; gap: number }) {
-  return (
-    <div
-      onClick={(ev) => {
-        ev.stopPropagation();
-        onTap();
-      }}
-      style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
-    >
-      <Icon name="visibility_off_outlined" size={12} color={T.accentWarm} />
-      <div style={{ width: gap }} />
-      <span style={dmSansStyle({ size: 10.5, color: T.accentWarm, weight: 600 })}>Hide details</span>
-    </div>
-  );
-}
-
-function RevealButton({ onTap, iconSize, textStyle }: { onTap: () => void; iconSize: number; textStyle?: CSSProperties }) {
-  return (
-    <div onClick={(ev) => ev.stopPropagation()} style={{ display: 'inline-block' }}>
-      <TextButton
-        onPressed={onTap}
-        color={T.accentWarm}
-        icon={<Icon name="visibility_outlined" size={iconSize} color={T.accentWarm} />}
-        style={{ padding: 0, ...textStyle }}
-      >
-        Reveal details
-      </TextButton>
-    </div>
-  );
-}
-
 // ---------- _HideSpoilersSwitch ----------
 
 export function HideSpoilersSwitch() {
   const hide = useHideSpoilers();
-  const toggle = (v: boolean) => void AnimexStores.setHideSpoilers(v);
+  const toggle = (v: boolean) => AnimexStores.setHideSpoilers(v);
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -302,98 +288,26 @@ export function HideSpoilersSwitch() {
   );
 }
 
-// ---------- _MobileEpisodeCard ----------
-
 interface CardProps {
   episode: AniListEpisode;
   fallbackPoster: string;
   animeTitle: string;
   animeId: number;
   isPlaying: boolean;
+  /** The row is the current one, but its source is not playing right now. */
+  isBroken?: boolean;
   hideSpoilers: boolean;
+  watched?: boolean;
+  resumeFraction?: number;
   onTap: () => void;
   onInfoTap: () => void;
 }
 
-function MobileEpisodeCard(p: CardProps) {
-  const [revealed, setRevealed] = useRevealed(p.episode.number, p.hideSpoilers);
-  const hidden = p.hideSpoilers && !revealed;
-  const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
-  const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
-  const synopsis = ep.synopsis?.trim() ?? '';
-  const synStyle = dmSansStyle({ size: 11.5, color: withAlpha(T.textSecondary, 0.85), height: 1.35 });
-  return (
-    <div
-      onClick={p.onTap}
-      style={{
-        width: 260,
-        height: 300,
-        flexShrink: 0,
-        boxSizing: 'border-box',
-        background: T.surface,
-        borderRadius: T.radiusLg,
-        // Chrome rounds a 1.5px border down to 1px, so the playing border is an inset shadow.
-        padding: p.isPlaying ? 1.5 : 1,
-        boxShadow: [
-          `inset 0 0 0 ${p.isPlaying ? 1.5 : 1}px ${p.isPlaying ? T.accent : T.border}`,
-          ...(p.isPlaying ? [boxShadow([{ color: withAlpha(T.accent, 0.25), blur: 12, offset: [0, 4] }])] : []),
-        ].join(', '),
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'pointer',
-      }}
-    >
-      <EpisodeThumbnail episode={p.episode} fallbackPoster={p.fallbackPoster} isPlaying={p.isPlaying} width={260 - 2 * (p.isPlaying ? 1.5 : 1)} height={145} />
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                ...dmSansStyle({ size: 13, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.25 }),
-                ...ellipsis(2),
-              }}
-            >
-              {title}
-            </div>
-            <div style={{ height: 3 }} />
-            <div style={{ ...dmSansStyle({ size: 11, color: T.textSecondary }), ...ellipsis(1) }}>{p.animeTitle}</div>
-          </div>
-          <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} />
-        </div>
-        <div style={{ height: 6 }} />
-        {hidden ? (
-          <RevealButton onTap={() => setRevealed(true)} iconSize={16} />
-        ) : revealed ? (
-          <>
-            <div style={{ ...synStyle, ...ellipsis(3) }}>
-              {synopsis || 'No detailed synopsis is available for this episode yet.'}
-            </div>
-            <div style={{ height: 4 }} />
-            <HideDetailsLink onTap={() => setRevealed(false)} gap={4} />
-          </>
-        ) : synopsis ? (
-          <div
-            onClick={(ev) => {
-              ev.stopPropagation();
-              p.onInfoTap();
-            }}
-            style={{ ...synStyle, ...ellipsis(3) }}
-          >
-            {synopsis}
-          </div>
-        ) : ep.airedAt ? (
-          <div style={dmSansStyle({ size: 10, color: T.textMuted })}>Aired: {ymd(ep.airedAt)}</div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-// ---------- _MobileEpisodesSection ----------
-
 export interface EpisodesProps {
   episodes: AniListEpisode[];
   selectedEpisode: number;
+  /** Only a show that is still airing can spoil her. */
+  airing?: boolean;
   animeTitle: string;
   animeId: number;
   fallbackPoster: string;
@@ -402,6 +316,8 @@ export interface EpisodesProps {
   seasons: AniListSeason[];
   onSelectSeason?: (s: AniListSeason) => void;
   nextSeason?: AniListSeason;
+  /** The current episode's source is not playing right now. */
+  isBroken?: boolean;
 }
 
 function infoTapFor(p: EpisodesProps, hideSpoilers: boolean, ep: AniListEpisode, active: boolean) {
@@ -420,10 +336,32 @@ function infoTapFor(p: EpisodesProps, hideSpoilers: boolean, ep: AniListEpisode,
   };
 }
 
-function Pill({ active, onTap, children, style }: { active?: boolean; onTap: () => void; children: ReactNode; style?: CSSProperties }) {
+function Pill({
+  active,
+  label,
+  onTap,
+  children,
+  style,
+}: {
+  active?: boolean;
+  label?: string;
+  onTap: () => void;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      aria-pressed={active}
       onClick={onTap}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onTap();
+        }
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -440,48 +378,151 @@ function Pill({ active, onTap, children, style }: { active?: boolean; onTap: () 
   );
 }
 
+/** One episode of a binge list: thumb, number chip, title, duration, state. */
+function MobileEpisodeRow(p: CardProps) {
+  const [revealed] = useRevealed(p.episode.number, p.hideSpoilers);
+  const hidden = p.hideSpoilers && !revealed;
+  const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
+  const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
+  return (
+    <button
+      type="button"
+      className="bare-button"
+      onClick={p.onTap}
+      aria-current={p.isPlaying ? 'true' : undefined}
+      style={{
+        width: '100%',
+        minHeight: 68,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '8px 6px',
+        boxSizing: 'border-box',
+        borderRadius: T.radiusLg,
+        background: p.isPlaying ? withAlpha(T.accent, 0.14) : 'transparent',
+        border: `1px solid ${p.isPlaying ? withAlpha(T.accent, 0.5) : 'transparent'}`,
+        textAlign: 'left',
+      }}
+    >
+      <div style={{ position: 'relative', flexShrink: 0, width: 104 }}>
+        <EpisodeThumbnail
+          episode={p.episode}
+          fallbackPoster={p.fallbackPoster}
+          isPlaying={p.isPlaying && !p.isBroken}
+          width={104}
+          height={59}
+          compact
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: 4,
+            bottom: p.resumeFraction != null ? 9 : 4,
+            padding: '1px 5px',
+            borderRadius: 4,
+            background: 'rgba(0,0,0,0.75)',
+            ...dmSansStyle({ size: 10, color: '#FFFFFF', weight: 800 }),
+          }}
+        >
+          E{p.episode.number}
+        </div>
+        {p.resumeFraction != null && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 4,
+              right: 4,
+              bottom: 4,
+              height: 3,
+              borderRadius: 2,
+              background: white(0.22),
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.round(Math.min(Math.max(p.resumeFraction, 0.02), 1) * 100)}%`,
+                height: '100%',
+                background: T.accent,
+              }}
+            />
+          </div>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            ...dmSansStyle({ size: 13.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.3 }),
+            // Three lines: the tablet's two-column row is wide enough for the
+            // full episode name, and a hard cut mid-title looks like a bug.
+            ...ellipsis(3),
+          }}
+        >
+          {title}
+        </div>
+        <div style={{ height: 2 }} />
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginLeft: 'auto' }}>
+          {p.isPlaying && (
+            <span style={dmSansStyle({ size: 11, color: p.isBroken ? T.textSecondary : T.textPrimary, weight: 700 })}>
+              {p.isBroken ? 'Not playing' : 'Playing'}
+            </span>
+          )}
+          {!p.isPlaying && p.watched && (
+            <>
+              <Icon name="check_circle" size={12} color={T.textSecondary} />
+              <span style={dmSansStyle({ size: 11.5, color: T.textSecondary })}>Watched</span>
+            </>
+          )}
+          {!p.isPlaying && !p.watched && ep.duration != null && ep.duration > 0 && (
+            <span style={dmSansStyle({ size: 11.5, color: T.textSecondary })}>{ep.duration} min</span>
+          )}
+        </div>
+      </div>
+      <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} />
+    </button>
+  );
+}
+
 export function MobileEpisodesSection(p: EpisodesProps) {
   const hideSpoilers = useHideSpoilers();
   const [showSearch, setShowSearch] = useState(false);
   const [ascending, setAscending] = useState(true);
   const [text, setText] = useState('');
   const query = text.trim().toLowerCase();
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !p.episodes.length) return;
-    const activeIndex = p.episodes.findIndex((e) => e.number === p.selectedEpisode);
-    if (activeIndex <= 0) return;
-    smoothScroll(el, 'left', activeIndex * 272 - 20);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.selectedEpisode]);
 
   const displayList = filterEpisodes(p.episodes, query, p.selectedEpisode, hideSpoilers, ascending);
+  const progress = useSeriesProgress(p.animeId);
+
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={dmSansStyle({ size: 14, color: T.textPrimary, weight: 800, letterSpacing: 0.1 })}>EPISODES</span>
-          <div style={{ width: 8 }} />
-          <span style={dmSansStyle({ size: 12, color: T.textMuted, weight: 600 })}>({p.episodes.length})</span>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span
+            style={{
+              ...dmSansStyle({ size: 14, color: T.textPrimary, weight: 800, letterSpacing: 0.1 }),
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            EPISODES
+          </span>
+          <span style={dmSansStyle({ size: 12, color: T.textSecondary, weight: 600 })}>{p.episodes.length}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {p.seasons.length > 1 && (
-            <>
-              <Pill
-                onTap={() => showSeasonPickerSheet({ seasons: p.seasons, onSelectSeason: (s) => p.onSelectSeason?.(s) })}
-                style={{ padding: '6px 10px' }}
-              >
-                <Icon name="layers" size={13} color={T.accentWarm} />
-                <div style={{ width: 4 }} />
-                <span style={dmSansStyle({ size: 11.5, color: T.textPrimary, weight: 600 })}>Season</span>
-                <div style={{ width: 2 }} />
-                <Icon name="keyboard_arrow_down" size={14} color={T.textSecondary} />
-              </Pill>
-              <div style={{ width: 8 }} />
-            </>
+            <Pill
+              onTap={() => showSeasonPickerSheet({ seasons: p.seasons, onSelectSeason: (s) => p.onSelectSeason?.(s) })}
+              style={{ minHeight: 44, padding: '0 12px' }}
+            >
+              <Icon name="layers" size={14} color={T.accentText} />
+              <div style={{ width: 4 }} />
+              <span style={dmSansStyle({ size: 11.5, color: T.textPrimary, weight: 600 })}>
+                {(p.seasons.find((x) => x.isCurrent) ?? p.seasons[0])?.label ?? 'Season'}
+              </span>
+              <Icon name="keyboard_arrow_down" size={14} color={T.textSecondary} />
+            </Pill>
           )}
           <Pill
             active={showSearch}
@@ -489,27 +530,36 @@ export function MobileEpisodesSection(p: EpisodesProps) {
               if (showSearch) setText('');
               setShowSearch(!showSearch);
             }}
-            style={{ padding: '6px 12px' }}
+            style={{ width: 44, height: 44, justifyContent: 'center' }}
           >
-            <Icon name="search" size={14} color={T.textSecondary} />
-            <div style={{ width: 4 }} />
-            <span style={dmSansStyle({ size: 11.5, color: T.textSecondary, weight: 600 })}>Search</span>
+            <Icon name="search" size={17} color={showSearch ? T.accentText : T.textSecondary} />
           </Pill>
-          <div style={{ width: 8 }} />
-          <Pill onTap={() => setAscending(!ascending)} style={{ width: 32, height: 32, justifyContent: 'center' }}>
-            <Icon name="swap_vert" size={16} color={T.textSecondary} />
+          <Pill
+            onTap={() => setAscending(!ascending)}
+            style={{ width: 44, height: 44, justifyContent: 'center' }}
+          >
+            <Icon name="swap_vert" size={17} color={T.textSecondary} />
+          </Pill>
+          <Pill
+            active={hideSpoilers}
+            label={hideSpoilers ? 'Spoilers hidden, tap to show episode titles' : 'Hide spoilers'}
+            onTap={() => AnimexStores.setHideSpoilers(!hideSpoilers)}
+            style={{ height: 44, padding: '0 12px', justifyContent: 'center', gap: 6 }}
+          >
+            <Icon name={hideSpoilers ? 'visibility_off' : 'visibility'} size={16} color={hideSpoilers ? T.accentText : T.textSecondary} />
+            <span style={dmSansStyle({ size: 11.5, color: hideSpoilers ? T.accentText : T.textSecondary, weight: 600 })}>
+              {hideSpoilers ? 'Spoilers hidden' : 'Hide spoilers'}
+            </span>
           </Pill>
         </div>
       </div>
-
-      <HideSpoilersSwitch />
 
       {showSearch && (
         <>
           <div style={{ height: 10 }} />
           <div
             style={{
-              height: 36,
+              height: 40,
               boxSizing: 'border-box',
               background: T.surface,
               borderRadius: T.radiusMd,
@@ -519,7 +569,7 @@ export function MobileEpisodesSection(p: EpisodesProps) {
               alignItems: 'center',
             }}
           >
-            <Icon name="search" size={16} color={T.textMuted} />
+            <Icon name="search" size={16} color={T.textSecondary} />
             <div style={{ width: 8 }} />
             <input
               autoFocus
@@ -539,32 +589,49 @@ export function MobileEpisodesSection(p: EpisodesProps) {
             />
             {query && (
               <div onClick={() => setText('')} style={{ cursor: 'pointer', display: 'flex' }}>
-                <Icon name="close" size={16} color={T.textMuted} />
+                <Icon name="close" size={16} color={T.textSecondary} />
               </div>
             )}
           </div>
         </>
       )}
 
-      <div style={{ height: 14 }} />
+      <div style={{ height: 12 }} />
 
       {displayList.length === 0 ? (
-        <div style={{ padding: '24px 0', textAlign: 'center', ...dmSansStyle({ size: 12.5, color: T.textMuted }) }}>
+        <div style={{ padding: '24px 0', textAlign: 'center', ...dmSansStyle({ size: 12.5, color: T.textSecondary }) }}>
           No episodes found matching "{query}"
         </div>
       ) : (
-        <div ref={scrollRef} className="no-scrollbar" style={{ height: 300, display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden' }}>
+        <div
+          style={{
+            display: 'grid',
+            // A tablet row was a phone row stretched to 780px with a dead
+            // right half; two columns use that width instead.
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: 2,
+          }}
+        >
           {displayList.map((ep) => {
             const active = ep.number === p.selectedEpisode;
             return (
-              <MobileEpisodeCard
+              <MobileEpisodeRow
                 key={ep.number}
                 episode={ep}
                 fallbackPoster={p.fallbackPoster}
                 animeTitle={p.animeTitle}
                 animeId={p.animeId}
                 isPlaying={active}
-                hideSpoilers={hideSpoilers && ep.number >= p.selectedEpisode}
+                isBroken={active && p.isBroken}
+                watched={!active && ep.number < progress.watchedThrough}
+                resumeFraction={
+                  !active && ep.number === progress.watchedThrough && progress.resumeAt > 0
+                    ? progress.totalSeconds > 0
+                      ? progress.resumeAt / progress.totalSeconds
+                      : undefined
+                    : undefined
+                }
+                hideSpoilers={Boolean(p.airing) && hideSpoilers && ep.number >= p.selectedEpisode}
                 onTap={() => p.onSelectEpisode(ep.number)}
                 onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}
               />
@@ -578,74 +645,105 @@ export function MobileEpisodesSection(p: EpisodesProps) {
 
 // ---------- _DesktopEpisodeTile ----------
 
+/** Desktop row: same density as the phone list, with room for a synopsis. */
 function DesktopEpisodeTile(p: CardProps) {
   const [hovered, setHovered] = useState(false);
-  const [revealed, setRevealed] = useRevealed(p.episode.number, p.hideSpoilers);
-  const hidden = p.hideSpoilers && !revealed;
-  const ep = hidden ? episodeWithoutSpoilers(p.episode) : p.episode;
-  const title = !hidden && ep.title ? ep.title : `Episode ${ep.number}`;
-  const synopsis = ep.synopsis?.trim() ?? '';
-  const synStyle = dmSansStyle({ size: 11, color: withAlpha(T.textSecondary, 0.85), height: 1.35 });
+  const hidden = p.hideSpoilers;
+  const title = hidden || !p.episode.title ? `Episode ${p.episode.number}` : p.episode.title;
+  const synopsis = hidden ? '' : (p.episode.synopsis?.trim() ?? '');
   return (
     <div
       onClick={p.onTap}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: 8,
+        padding: 6,
         borderRadius: T.radiusMd,
         background: p.isPlaying ? withAlpha(T.accent, 0.14) : hovered ? white(0.05) : 'transparent',
         border: `1px solid ${p.isPlaying ? withAlpha(T.accent, 0.5) : hovered ? white(0.12) : 'transparent'}`,
         transition: 'background-color 140ms, border-color 140ms',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        gap: 10,
         cursor: 'pointer',
       }}
     >
-      <EpisodeThumbnail episode={p.episode} fallbackPoster={p.fallbackPoster} isPlaying={p.isPlaying} width={116} height={66} />
-      <div style={{ width: 12 }} />
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <EpisodeThumbnail
+          episode={p.episode}
+          fallbackPoster={p.fallbackPoster}
+          isPlaying={p.isPlaying && !p.isBroken}
+          width={96}
+          height={54}
+          compact
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: 3,
+            bottom: p.resumeFraction != null ? 8 : 3,
+            padding: '1px 5px',
+            borderRadius: 4,
+            background: 'rgba(0,0,0,0.75)',
+            ...dmSansStyle({ size: 10, color: '#FFFFFF', weight: 800 }),
+          }}
+        >
+          E{p.episode.number}
+        </div>
+        {p.resumeFraction != null && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 3,
+              right: 3,
+              bottom: 3,
+              height: 3,
+              borderRadius: 2,
+              background: white(0.22),
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.round(Math.min(Math.max(p.resumeFraction, 0.02), 1) * 100)}%`,
+                height: '100%',
+                background: T.accent,
+              }}
+            />
+          </div>
+        )}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            ...dmSansStyle({ size: 12.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 600, height: 1.25 }),
+            ...dmSansStyle({ size: 12.5, color: p.isPlaying ? T.accentWarm : T.textPrimary, weight: 700, height: 1.3 }),
             ...ellipsis(2),
           }}
         >
           {title}
         </div>
         <div style={{ height: 3 }} />
-        <div style={{ ...dmSansStyle({ size: 11, color: T.textSecondary }), ...ellipsis(1) }}>{p.animeTitle}</div>
-        <div style={{ height: 4 }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {p.isPlaying && (
-            <div style={{ padding: '1.5px 6px', background: withAlpha(T.accent, 0.2), borderRadius: 3 }}>
-              <span style={dmSansStyle({ size: 10, color: T.accentWarm, weight: 700 })}>Watching</span>
-            </div>
+            <span style={dmSansStyle({ size: 10.5, color: p.isBroken ? T.textSecondary : T.textPrimary, weight: 700 })}>
+              {p.isBroken ? 'Not playing' : 'Playing'}
+            </span>
           )}
-          {hidden ? (
-            <RevealButton onTap={() => setRevealed(true)} iconSize={14} textStyle={dmSansStyle({ size: 11, color: T.accentWarm })} />
-          ) : revealed ? (
-            <div>
-              <div style={{ ...synStyle, ...ellipsis(4) }}>
-                {synopsis || 'No detailed synopsis is available for this episode yet.'}
-              </div>
-              <div style={{ height: 4 }} />
-              <HideDetailsLink onTap={() => setRevealed(false)} gap={3} />
-            </div>
-          ) : synopsis ? (
-            <div
-              onClick={(ev) => {
-                ev.stopPropagation();
-                p.onInfoTap();
-              }}
-              style={{ ...synStyle, ...ellipsis(3) }}
-            >
-              {synopsis}
-            </div>
-          ) : ep.airedAt ? (
-            <span style={dmSansStyle({ size: 10, color: T.textMuted })}>{ymd(ep.airedAt)}</span>
-          ) : null}
+          {!p.isPlaying && p.watched && (
+            <>
+              <Icon name="check_circle" size={11} color={T.textSecondary} />
+              <span style={dmSansStyle({ size: 10.5, color: T.textSecondary })}>Watched</span>
+            </>
+          )}
+          {!p.isPlaying && !p.watched && p.episode.duration != null && p.episode.duration > 0 && (
+            <span style={dmSansStyle({ size: 10.5, color: T.textSecondary })}>{p.episode.duration} min</span>
+          )}
         </div>
+        {synopsis && p.isPlaying && (
+          <div style={{ ...dmSansStyle({ size: 11, color: withAlpha(T.textSecondary, 0.85), height: 1.3 }), ...ellipsis(1), marginTop: 2 }}>
+            {synopsis}
+          </div>
+        )}
       </div>
       <DownloadButton animeId={p.animeId} episode={p.episode} animeTitle={p.animeTitle} fallbackPoster={p.fallbackPoster} desktop />
     </div>
@@ -744,6 +842,7 @@ function SeasonDropdownButton({ seasons, onSelectSeason }: { seasons: AniListSea
 
 export function DesktopEpisodesSidebar(p: EpisodesProps) {
   const hideSpoilers = useHideSpoilers();
+  const progress = useSeriesProgress(p.animeId);
   const [ascending, setAscending] = useState(true);
   const [text, setText] = useState('');
   const query = text.trim().toLowerCase();
@@ -811,12 +910,16 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         </div>
         <div style={{ height: 5 }} />
         <div style={{ ...dmSansStyle({ size: 11.5, color: T.textSecondary }), ...ellipsis(1) }}>
-          {hideSpoilers ? `Playing Episode ${p.selectedEpisode}` : `Playing Episode ${p.selectedEpisode} - ${currentTitle}`}
+          {p.isBroken
+            ? `Episode ${p.selectedEpisode} isn't playing`
+            : hideSpoilers
+              ? `Playing Episode ${p.selectedEpisode}`
+              : `Playing Episode ${p.selectedEpisode} - ${currentTitle}`}
         </div>
         {nextTitle != null && (
           <>
             <div style={{ height: 2 }} />
-            <div style={{ ...dmSansStyle({ size: 11, color: T.accentWarm, weight: 500 }), ...ellipsis(1) }}>Up next: {nextTitle}</div>
+            <div style={{ ...dmSansStyle({ size: 11, color: T.textSecondary, weight: 500 }), ...ellipsis(1) }}>Up next: {nextTitle}</div>
           </>
         )}
         <HideSpoilersSwitch />
@@ -855,13 +958,31 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
         </div>
       </div>
       <div style={{ height: 1, background: T.border, flexShrink: 0 }} />
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {displayList.length === 0 ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...dmSansStyle({ size: 12.5, color: T.textMuted }) }}>
             No episodes found
           </div>
         ) : (
-          <div ref={listRef} style={{ height: '100%', overflowY: 'auto', padding: 8, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div
+            ref={listRef}
+            style={{
+              height: '100%',
+              overflowY: 'auto',
+              padding: 8,
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              // The rail scrolls to the playing episode and ends mid-row at
+              // both edges; the fades say "there is more" instead of looking
+              // like a cut-off bug.
+              maskImage:
+                'linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 28px), transparent 100%)',
+              WebkitMaskImage:
+                'linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 28px), transparent 100%)',
+            }}
+          >
             {displayList.map((ep) => {
               const active = ep.number === p.selectedEpisode;
               return (
@@ -872,13 +993,37 @@ export function DesktopEpisodesSidebar(p: EpisodesProps) {
                   animeTitle={p.animeTitle}
                   animeId={p.animeId}
                   isPlaying={active}
-                  hideSpoilers={hideSpoilers && ep.number >= p.selectedEpisode}
+                  isBroken={active && p.isBroken}
+                  watched={!active && ep.number < progress.watchedThrough}
+                  resumeFraction={
+                    !active && ep.number === progress.watchedThrough && progress.resumeAt > 0
+                      ? progress.totalSeconds > 0
+                        ? progress.resumeAt / progress.totalSeconds
+                        : undefined
+                      : undefined
+                  }
+                  hideSpoilers={Boolean(p.airing) && hideSpoilers && ep.number >= p.selectedEpisode}
                   onTap={() => p.onSelectEpisode(ep.number)}
                   onInfoTap={infoTapFor(p, hideSpoilers, ep, active)}
                 />
               );
             })}
           </div>
+        )}
+        {/* A cut row should look like "there is more", not like a broken layout. */}
+        {displayList.length > 3 && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 26,
+              background: linear(['transparent', T.surface], { begin: Align.topCenter, end: Align.bottomCenter }),
+              pointerEvents: 'none',
+            }}
+          />
         )}
       </div>
     </div>

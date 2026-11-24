@@ -129,6 +129,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'body.idle .h-top{transform:translateY(-14px)}body.idle .h-bot{transform:translateY(14px)}' +
     '.h-top{padding:18px 26px;display:flex;justify-content:space-between;align-items:center;gap:12px}' +
     '.h-top-l{display:flex;align-items:center;gap:9px;min-width:0;max-width:62%;flex:0 1 auto;background:rgba(14,8,18,.54);backdrop-filter:blur(8px);padding:4px 12px 4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12)}' +
+    '@media (max-width:640px){.h-top-l{max-width:82%;padding:3px 10px 3px 6px}.h-top{padding:12px 12px}}' +
     'body.is-cinema .h-top-l{background:rgba(12,12,16,.58);padding:4px 14px}' +
     '.h-title-wrap{display:flex;align-items:baseline;min-width:0;flex:0 1 auto}' +
     '#hud-title{display:block;min-width:0;max-width:100%;font-size:16px;font-weight:800;letter-spacing:.01em;color:#fff;' +
