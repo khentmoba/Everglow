@@ -5,7 +5,7 @@ const { promisify } = require('node:util');
 
 const scryptAsync = promisify(crypto.scrypt);
 
-const { getAdmin, clientIp, cappedHttps, applyCors, requireAuth } = require('./common.js');
+const { getAdmin, clientIp, cappedHttps, applyCors, requireAuth, isSafeDocId } = require('./common.js');
 const {
   normalizeUsername,
   isValidUsername,
@@ -221,6 +221,10 @@ const loginAccount = cappedHttps(10, async (req, res) => {
 
   if (!username || !password) {
     res.status(400).json({ error: 'Username and password are required' });
+    return;
+  }
+  if (!isValidUsername(username)) {
+    res.status(400).json({ error: 'Invalid username format' });
     return;
   }
 
@@ -527,7 +531,7 @@ const communityWatchPartyAccess = cappedHttps(10, async (req, res) => {
     }
     const roomId = String(body.roomId || '').trim();
     const password = String(body.password || '').trim();
-    if (!roomId || roomId.includes('/') || roomId.length > 128) {
+    if (!isSafeDocId(roomId)) {
       res.status(400).json({ error: 'Invalid room id' });
       return;
     }

@@ -1976,6 +1976,11 @@ export function MangaReaderView({
     let active = false;
 
     const poll = () => {
+      rafId = 0;
+      if (document.hidden) {
+        active = false;
+        return;
+      }
       const pads = navigator.getGamepads?.() ?? [];
       let anyConnected = false;
       const now = performance.now();
@@ -2009,7 +2014,7 @@ export function MangaReaderView({
     };
 
     const startIfConnected = () => {
-      if (active) return;
+      if (active || document.hidden) return;
       const pads = navigator.getGamepads?.() ?? [];
       if (Array.from(pads).some(Boolean)) {
         active = true;
@@ -2017,11 +2022,25 @@ export function MangaReaderView({
       }
     };
 
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (rafId) {
+          window.cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+        active = false;
+      } else {
+        startIfConnected();
+      }
+    };
+
     startIfConnected();
     window.addEventListener('gamepadconnected', startIfConnected);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('gamepadconnected', startIfConnected);
-      window.cancelAnimationFrame(rafId);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [activeSheet, pageAction, isRtl, stepPage]);
 

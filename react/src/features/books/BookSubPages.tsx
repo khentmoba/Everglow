@@ -152,7 +152,7 @@ export function BookDetailPage() {
   const inOurBooks = Boolean(ourBooksKey) && ourBooks.some((b) => b.workKey === ourBooksKey);
   const hasReadable = buildReadCandidates(item).length > 0 || Boolean(item.iaId) || result.gutenbergId > 0;
   const metaLine = [result.filetype || result.year, result.language || result.sourceLabel].filter(Boolean).join(' · ');
-  const downloads = Object.entries(result.downloadUrls ?? {});
+  const downloads = Object.entries(result.downloadUrls ?? {}).filter(([, url]) => /^https?:\/\//i.test(url));
   const detailRows: [string, string][] = [
     ['Category', result.categories[0] || result.subjects.slice(0, 2).join(' · ')],
     ['Reading', hasReadable ? 'Available in app' : 'External edition'],
@@ -306,7 +306,7 @@ export function BookDetailPage() {
               className="bare-button"
               onClick={() => {
                 void recordBookDownload(item, downloads[0][0], userName);
-                window.open(downloads[0][1], '_blank', 'noopener');
+                window.open(downloads[0][1], '_blank', 'noopener,noreferrer');
               }}
               style={{
                 width: '100%',

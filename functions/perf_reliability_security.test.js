@@ -12,7 +12,26 @@ const {
 const {
   exec_plan_date_night,
   exec_get_weather,
+  exec_complete_habit,
+  exec_cancel_reminder,
+  exec_update_calendar_event,
+  exec_delete_calendar_event,
+  exec_complete_bucket_item,
+  exec_delete_bucket_item,
+  exec_add_trip_pin,
+  exec_edit_trip,
 } = require('./motchi_exec_planning.js');
+const {
+  exec_pin_memory,
+  exec_delete_memory,
+  exec_edit_memory,
+  exec_read_journal_entry,
+  exec_edit_journal_entry,
+  exec_delete_journal_entry,
+} = require('./motchi_exec_memory.js');
+const { loginAccount, communityWatchPartyAccess } = require('./accounts.js');
+const { recordMotchiTurn } = require('./motchi_sessions.js');
+const { proxyLastfmImage } = require('./media_proxy_music.js');
 const common = require('./common.js');
 const { proxyFetchHtml } = require('./media_proxy_html.js');
 const { proxyComick, proxyMangaDex } = require('./media_proxy_manga.js');
@@ -410,4 +429,182 @@ test('proxyMegavidHls marks 206 partial responses private, no-store with Vary: O
   assert.equal(res.code, 206);
   assert.equal(res.headers['Cache-Control'], 'private, no-store');
   assert.equal(res.headers['Vary'], 'Origin, Range');
+});
+
+test('isSafeDocId accepts normal Firestore IDs and rejects traversal, reserved, and control chars', () => {
+  assert.equal(common.isSafeDocId('abc123_-XYZ'), true);
+  assert.equal(common.isSafeDocId('sess_1700000000_khent_ab12'), true);
+  for (const bad of ['', '.', '..', 'a/b', '../users/khentsgdz', '__reserved__', 'bad\nid', 'a\x00b', 'x'.repeat(129), null, 42]) {
+    assert.equal(common.isSafeDocId(bad), false, `expected ${JSON.stringify(bad)} to be rejected`);
+  }
+});
+
+test('loginAccount rejects path-traversal usernames before touching Firestore', async (t) => {
+  let touchedDb = false;
+  t.mock.method(common.getAdmin(), 'firestore', () => {
+    touchedDb = true;
+    throw new Error('Firestore should not be called');
+  });
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await loginAccount(
+    {
+      method: 'POST',
+      headers: {},
+      get: () => '',
+      ip: '203.0.113.41',
+      body: { username: '../users/khentsgdz', password: 'password123' },
+    },
+    res,
+  );
+  assert.equal(res.code, 400);
+  assert.equal(touchedDb, false);
+});
+
+test('communityWatchPartyAccess unlockRoom rejects reserved dot and double-underscore roomIds', async (t) => {
+  t.mock.method(common.getAdmin(), 'auth', () => ({
+    verifyIdToken: async () => ({
+      uid: 'u-room-id',
+      username: 'clairjassen',
+      firebase: { sign_in_provider: 'custom' },
+    }),
+  }));
+  let touchedDoc = false;
+  t.mock.method(common.getAdmin(), 'firestore', () => ({
+    collection: () => ({
+      doc: () => {
+        touchedDoc = true;
+        throw new Error('doc() should not be called');
+      },
+    }),
+  }));
+  for (const badId of ['.', '..', '__internal__', 'a/b']) {
+    const res = {
+      code: 200,
+      headers: {},
+      set(k, v) { this.headers[k] = v; return this; },
+      status(n) { this.code = n; return this; },
+      send(b) { this.body = b; return this; },
+      json(b) { this.body = b; return this; },
+    };
+    await communityWatchPartyAccess(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer tok' },
+        get: (h) => (String(h).toLowerCase() === 'authorization' ? 'Bearer tok' : ''),
+        ip: '203.0.113.42',
+        body: { action: 'unlockRoom', roomId: badId, password: 'pw' },
+      },
+      res,
+    );
+    assert.equal(res.code, 400, `expected 400 for roomId ${badId}`);
+  }
+  assert.equal(touchedDoc, false);
+});
+
+test('recordMotchiTurn ignores unsafe sessionId traversal and generates a safe session id', async (t) => {
+  const docIds = [];
+  t.mock.method(common, 'getDb', () => ({
+    collection: () => ({
+      where: () => ({
+        where: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => ({ get: async () => ({ empty: true, docs: [] }) }),
+            }),
+          }),
+        }),
+      }),
+      doc: (id) => {
+        docIds.push(id);
+        return {
+          get: async () => ({ exists: false }),
+          set: async () => {},
+        };
+      },
+    }),
+  }));
+  const returned = await recordMotchiTurn({
+    sessionId: '../users/khentsgdz',
+    caller: 'khentsgdz',
+    userMessage: 'hello',
+    assistantReply: 'hi',
+  });
+  assert.equal(docIds.length, 1);
+  assert.match(docIds[0], /^sess_\d+_khentsgdz_/);
+  assert.equal(returned, docIds[0]);
+});
+
+test('motchi memory and planning executors reject unsafe Firestore doc IDs without calling .doc()', async () => {
+  let docCalled = false;
+  const ctx = makeCtx({
+    db: {
+      collection: () => ({
+        doc: () => {
+          docCalled = true;
+          throw new Error('.doc() must not be called for invalid id');
+        },
+      }),
+    },
+  });
+  const calls = [
+    exec_pin_memory(ctx, { memory_id: 'a/b/c', pinned: true }),
+    exec_delete_memory(ctx, { memory_id: '..', confirm: true }),
+    exec_edit_memory(ctx, { memory_id: '__reserved__', fact: 'hi' }),
+    exec_read_journal_entry(ctx, { id: 'a/b/c' }),
+    exec_edit_journal_entry(ctx, { id: '../secret', new_title: 'x' }),
+    exec_delete_journal_entry(ctx, { id: '__bad__', confirm: true }),
+    exec_complete_habit(ctx, { habit_id: 'a/b/c' }),
+    exec_cancel_reminder(ctx, { id: '..' }),
+    exec_update_calendar_event(ctx, { id: 'a/b', new_title: 'x' }),
+    exec_delete_calendar_event(ctx, { id: '__x__', confirm: true }),
+    exec_complete_bucket_item(ctx, { id: 'a/b/c' }),
+    exec_delete_bucket_item(ctx, { id: '..', confirm: true }),
+    exec_add_trip_pin(ctx, { title: 'Cafe', trip_id: 'a/b/c' }),
+    exec_edit_trip(ctx, { id: 'a/b/c', new_title: 'x' }),
+  ];
+  const results = await Promise.all(calls);
+  for (const raw of results) {
+    const parsed = JSON.parse(raw);
+    assert.ok(parsed.error, `expected error for unsafe doc id, got ${raw}`);
+  }
+  assert.equal(docCalled, false);
+});
+
+test('proxyLastfmImage still returns 415 when upstream body cancel rejects', async (t) => {
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'text/html' }),
+    body: {
+      cancel: async () => {
+        throw new Error('stream already closed');
+      },
+    },
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await proxyLastfmImage(
+    {
+      method: 'GET',
+      headers: {},
+      get: () => '',
+      ip: '203.0.113.43',
+      query: { url: 'https://lastfm.freetls.fastly.net/i/u/300x300/demo.jpg' },
+    },
+    res,
+  );
+  assert.equal(res.code, 415);
 });

@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const { isSafeDocId } = require('./common.js');
 const { parseReminderDate, phtDateString } = require('./motchi_core.js');
 const { getCalendarEvents } = require('./calendar_core.js');
 
@@ -150,6 +151,7 @@ async function exec_add_trip_pin(ctx, args) {
       }
     }
     if (!tripId) return JSON.stringify({ error: 'trip_id or trip_title required and not found' });
+    if (!isSafeDocId(tripId)) return JSON.stringify({ error: 'Invalid trip_id' });
     const ref = ctx.db.collection('travel_trips').doc(tripId);
     const pin = {
       id: randomUUID(),
@@ -209,6 +211,7 @@ async function exec_complete_habit(ctx, args) {
     let docRef;
     let docSnap;
     if (hid) {
+      if (!isSafeDocId(hid)) return JSON.stringify({ error: 'Invalid habit_id' });
       docRef = ctx.db.collection('habits').doc(hid);
       docSnap = await docRef.get();
     } else {
@@ -343,6 +346,7 @@ async function exec_cancel_reminder(ctx, args) {
     cancelledAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
   });
   if (id) {
+    if (!isSafeDocId(id)) return JSON.stringify({ error: 'Invalid reminder id' });
     const ref = ctx.db.collection('reminders').doc(id);
     const snap = await ref.get();
     if (!snap.exists) return JSON.stringify({ error: `Reminder ${id} not found` });
@@ -381,6 +385,7 @@ async function exec_update_calendar_event(ctx, args) {
   const id = String(args.id || '').trim();
   const title = String(args.title || '').trim();
   if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  if (id && !isSafeDocId(id)) return JSON.stringify({ error: 'Invalid calendar event id' });
   let ref = id ? ctx.db.collection('calendar_events').doc(id) : null;
   if (!ref) {
     const snap = await ctx.db.collection('calendar_events').limit(30).get();
@@ -434,6 +439,7 @@ async function exec_delete_calendar_event(ctx, args) {
   const id = String(args.id || '').trim();
   const title = String(args.title || '').trim();
   if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  if (id && !isSafeDocId(id)) return JSON.stringify({ error: 'Invalid calendar event id' });
   let ref = id ? ctx.db.collection('calendar_events').doc(id) : null;
   if (!ref) {
     const snap = await ctx.db.collection('calendar_events').limit(30).get();
@@ -473,6 +479,7 @@ async function exec_complete_bucket_item(ctx, args) {
   const id = String(args.id || '').trim();
   const title = String(args.title || '').trim();
   if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  if (id && !isSafeDocId(id)) return JSON.stringify({ error: 'Invalid bucket item id' });
   let ref = id ? ctx.db.collection('bucket_list').doc(id) : null;
   if (!ref) {
     const snap = await ctx.db.collection('bucket_list').limit(30).get();
@@ -505,6 +512,7 @@ async function exec_delete_bucket_item(ctx, args) {
   const id = String(args.id || '').trim();
   const title = String(args.title || '').trim();
   if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  if (id && !isSafeDocId(id)) return JSON.stringify({ error: 'Invalid bucket item id' });
   let ref = id ? ctx.db.collection('bucket_list').doc(id) : null;
   if (!ref) {
     const snap = await ctx.db.collection('bucket_list').limit(30).get();
@@ -542,6 +550,7 @@ async function _lookupByIdOrTitle(ctx, collection, id, title, label) {
   const cleanId = String(id || '').trim();
   const cleanTitle = String(title || '').trim();
   if (!cleanId && !cleanTitle) return { error: 'Provide id or title' };
+  if (cleanId && !isSafeDocId(cleanId)) return { error: `Invalid ${label} id` };
   let ref = cleanId ? ctx.db.collection(collection).doc(cleanId) : null;
   if (!ref) {
     const snap = await ctx.db.collection(collection).limit(30).get();
