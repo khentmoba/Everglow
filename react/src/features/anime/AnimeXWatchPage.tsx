@@ -1559,7 +1559,7 @@ function showShareSheet(title: string, siteUrl?: string) {
             leading={<Icon name={icon} size={20} color={T.textPrimary} />}
             title={label}
             onTap={() => {
-              window.open(link, '_blank', 'noopener');
+              window.open(link, '_blank', 'noopener,noreferrer');
               close(null);
             }}
           />
