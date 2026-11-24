@@ -44,7 +44,9 @@ const { resolveCatalogUpstream } = require('./media_proxy_catalog.js');
 const { parseStudySet } = require('./motchi_study.js');
 const { proxyAnime } = require('./anime.js');
 const { handleProxyAI } = require('./motchi_chat.js');
-const { exec_web_search } = require('./motchi_exec_insights.js');
+const { exec_web_search, exec_read_web_page, exec_browse_web } = require('./motchi_exec_insights.js');
+const { deleteGalleryDocs } = require('./media_proxy_gallery.js');
+const { loadMemoryFacts, serverExtractAndSaveMemory, invalidateMemoryCache } = require('./motchi_memory.js');
 const { motchiStats } = require('./motchi_stats.js');
 const { handleGenerateStudySet } = require('./motchi_study.js');
 const { proxyBookText, proxyBookFile } = require('./media_proxy_books.js');
@@ -518,6 +520,13 @@ test('communityWatchPartyAccess unlockRoom rejects reserved dot and double-under
 
 test('recordMotchiTurn ignores unsafe sessionId traversal and generates a safe session id', async (t) => {
   const docIds = [];
+  const docRef = (id) => {
+    docIds.push(id);
+    return {
+      get: async () => ({ exists: false }),
+      set: async () => {},
+    };
+  };
   t.mock.method(common, 'getDb', () => ({
     collection: () => ({
       where: () => ({
@@ -529,14 +538,14 @@ test('recordMotchiTurn ignores unsafe sessionId traversal and generates a safe s
           }),
         }),
       }),
-      doc: (id) => {
-        docIds.push(id);
-        return {
-          get: async () => ({ exists: false }),
-          set: async () => {},
-        };
-      },
+      doc: (id) => docRef(id),
     }),
+    runTransaction: (fn) =>
+      fn({
+        get: (ref) => ref.get(),
+        set: (ref, data) => ref.set(data),
+        update: (ref, data) => ref.update(data),
+      }),
   }));
   const returned = await recordMotchiTurn({
     sessionId: '../users/khentsgdz',
@@ -1142,4 +1151,227 @@ test('manageAccounts enforces per-uid rate limiting', async (t) => {
     lastCode = res.code;
   }
   assert.equal(lastCode, 429);
+});
+
+test('recordMotchiTurn records turns inside a Firestore transaction', async () => {
+  let txUsed = false;
+  let stored = null;
+  const fakeDocRef = { id: 'sess_tx_test' };
+  const fakeDb = {
+    collection: () => ({ doc: () => fakeDocRef }),
+    runTransaction: async (fn) => {
+      txUsed = true;
+      await fn({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            id: 'sess_tx_test',
+            caller: 'khentsgdz',
+            turnCount: 2,
+            turns: [{ userMessage: 'hi', assistantReply: 'hello' }],
+            toolsUsedTotal: 1,
+          }),
+        }),
+        set: () => { throw new Error('unexpected set'); },
+        update: (_ref, data) => { stored = data; },
+      });
+    },
+  };
+  const origGetDb = common.getDb;
+  const origGetAdmin = common.getAdmin;
+  common.getDb = () => fakeDb;
+  common.getAdmin = () => ({ firestore: { FieldValue: { serverTimestamp: () => 'TS' } } });
+  try {
+    const id = await recordMotchiTurn({
+      sessionId: 'sess_tx_test',
+      caller: 'khentsgdz',
+      userMessage: 'follow up',
+      assistantReply: 'got it',
+      tools: [{ name: 't1' }],
+    });
+    assert.equal(id, 'sess_tx_test');
+    assert.equal(txUsed, true);
+    assert.equal(stored.turnCount, 3);
+    assert.equal(stored.turns.length, 2);
+    assert.equal(stored.toolsUsedTotal, 2);
+  } finally {
+    common.getDb = origGetDb;
+    common.getAdmin = origGetAdmin;
+  }
+});
+
+test('deleteGalleryDocs removes both full image and thumbnail from Storage', async () => {
+  const deletedFiles = [];
+  let docsDeleted = 0;
+  const docs = [
+    {
+      data: () => ({
+        imageUrl: 'https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.firebasestorage.app/o/gallery%2Fu1%2Fphoto_full.jpg?alt=media&token=abc',
+        thumbUrl: 'https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.firebasestorage.app/o/gallery%2Fu1%2Fphoto_thumb.jpg?alt=media&token=def',
+      }),
+      ref: { delete: async () => { docsDeleted++; } },
+    },
+  ];
+  const res = await deleteGalleryDocs(docs, async (path) => { deletedFiles.push(path); }, 2);
+  assert.deepEqual(res, { deleted: 1, failed: 0 });
+  assert.equal(docsDeleted, 1);
+  assert.deepEqual(deletedFiles.sort(), [
+    'gallery/u1/photo_full.jpg',
+    'gallery/u1/photo_thumb.jpg',
+  ]);
+});
+
+test('read_web_page truncates an oversized page instead of failing it', async (t) => {
+  const origKey = process.env.TINYFISH_API_KEY;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  const bigText = 'Title: Big page\nMarkdown Content:\n' + 'a'.repeat(1_500_000);
+  t.mock.method(globalThis, 'fetch', async () => {
+    let sent = false;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (sent) {
+          controller.close();
+          return;
+        }
+        sent = true;
+        controller.enqueue(new TextEncoder().encode(bigText));
+      },
+    });
+    return { ok: true, status: 200, body };
+  });
+  try {
+    const out = JSON.parse(await exec_read_web_page(makeCtx(), { urls: ['https://example.com/long'] }));
+    assert.equal(out.pages.length, 1, JSON.stringify(out.errors));
+    assert.equal(out.pages[0].title, 'Big page');
+    assert.equal(out.pages[0].content.length, 4000);
+    assert.deepEqual(out.errors, []);
+  } finally {
+    if (origKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = origKey;
+  }
+});
+
+test('exec_read_web_page and exec_browse_web reject private/localhost/credentialed URLs', async (t) => {
+  const origKey = process.env.TINYFISH_API_KEY;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    assert.fail('must not fetch blocked internal URLs');
+  });
+  const ctx = makeCtx();
+  try {
+    const readOut = JSON.parse(await exec_read_web_page(ctx, {
+      urls: [
+        'http://127.0.0.1/admin',
+        'http://169.254.169.254/latest/meta-data/',
+        'https://user:pass@example.com/secret',
+        'http://localhost:8080/internal',
+      ],
+    }));
+    assert.match(readOut.error, /No valid public/);
+
+    const browseOut = JSON.parse(await exec_browse_web(ctx, {
+      url: 'http://169.254.169.254/latest/meta-data/',
+      goal: 'read metadata',
+    }));
+    assert.match(browseOut.error, /No valid public/);
+    assert.equal(fetchMock.mock.callCount(), 0);
+  } finally {
+    if (origKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = origKey;
+  }
+});
+
+test('exec_browse_web stops polling immediately when ctx.signal aborts and drains error bodies', async (t) => {
+  const origKey = process.env.TINYFISH_API_KEY;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  let cancelled = false;
+  const ctrl = new AbortController();
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    if (calls === 1) {
+      return { ok: false, status: 500, body: { cancel: async () => { cancelled = true; } } };
+    }
+    assert.fail('should not poll after abort');
+  });
+  try {
+    const errOut = JSON.parse(await exec_browse_web(makeCtx(), {
+      url: 'https://example.com',
+      goal: 'check title',
+    }));
+    assert.match(errOut.error, /HTTP 500/);
+    assert.equal(cancelled, true);
+
+    ctrl.abort();
+    const abortedOut = JSON.parse(await exec_browse_web(makeCtx({ signal: ctrl.signal }), {
+      run_id: 'run_123',
+      url: 'https://example.com',
+      goal: 'check title',
+    }));
+    assert.equal(abortedOut.status, 'RUNNING');
+    assert.equal(calls, 1);
+  } finally {
+    if (origKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = origKey;
+  }
+});
+
+test('serverExtractAndSaveMemory does not mutate shared facts cache when Firestore write fails', async (t) => {
+  const origKey = process.env.AGNES_API_KEY;
+  process.env.AGNES_API_KEY = 'test-key';
+  invalidateMemoryCache();
+  const fakeDb = {
+    collection: () => ({
+      doc: () => ({
+        collection: () => ({
+          orderBy: () => ({
+            limit: () => ({
+              get: async () => ({
+                docs: [{ id: 'f1', data: () => ({ fact: 'Khent loves coffee' }) }],
+              }),
+            }),
+          }),
+          where: () => ({
+            limit: () => ({
+              get: async () => ({ docs: [] }),
+            }),
+          }),
+          add: async () => { throw new Error('firestore unavailable'); },
+          doc: () => ({ update: async () => { throw new Error('firestore unavailable'); } }),
+        }),
+      }),
+    }),
+  };
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'firestore', () => fakeDb);
+  t.mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      choices: [{
+        message: {
+          content: JSON.stringify([{
+            fact: 'Khent loves matcha lattes on rainy days',
+            category: 'preference',
+            quote: 'I really love matcha lattes on rainy days',
+          }]),
+        },
+      }],
+    }),
+  }));
+  try {
+    const before = await loadMemoryFacts(fakeDb);
+    assert.equal(before.length, 1);
+    await serverExtractAndSaveMemory(
+      'I really love matcha lattes on rainy days so much!',
+      'Noted, Dada!',
+      'khentsgdz_cache_test',
+    );
+    const after = await loadMemoryFacts(fakeDb);
+    assert.equal(after.length, 1);
+    assert.equal(after[0].fact, 'Khent loves coffee');
+  } finally {
+    invalidateMemoryCache();
+    if (origKey === undefined) delete process.env.AGNES_API_KEY;
+    else process.env.AGNES_API_KEY = origKey;
+  }
 });
