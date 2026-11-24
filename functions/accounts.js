@@ -116,6 +116,7 @@ function serializeAccount(id, data) {
 const registerAccount = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS', 'Content-Type');
   res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;
@@ -203,6 +204,7 @@ const registerAccount = cappedHttps(10, async (req, res) => {
 const loginAccount = cappedHttps(10, async (req, res) => {
   applyCors(req, res, 'POST, OPTIONS', 'Content-Type');
   res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Origin, Authorization');
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
     return;

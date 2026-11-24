@@ -14,38 +14,41 @@ function isChunkLoadError(err: unknown): boolean {
   );
 }
 
+export async function loadNamedModule<T extends Record<string, unknown>, K extends keyof T>(
+  loader: ModuleLoader<T>,
+  exportName: K,
+): Promise<{ default: ComponentType<any> }> {
+  try {
+    const module = await loader();
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      } catch {
+        // sessionStorage unavailable
+      }
+    }
+    return { default: module[exportName] as ComponentType<any> };
+  } catch (err: unknown) {
+    if (typeof window !== 'undefined' && isChunkLoadError(err)) {
+      const target = `${window.location.pathname}${window.location.search}`;
+      try {
+        if (window.sessionStorage.getItem(CHUNK_RELOAD_KEY) !== target) {
+          window.sessionStorage.setItem(CHUNK_RELOAD_KEY, target);
+          globalThis.setTimeout(() => window.location.reload(), 0);
+        }
+      } catch {
+        // sessionStorage unavailable
+      }
+    }
+    throw err;
+  }
+}
+
 function lazyNamed<T extends Record<string, unknown>, K extends keyof T>(
   loader: ModuleLoader<T>,
   exportName: K,
 ) {
-  return lazy(() =>
-    loader()
-      .then((m) => {
-        if (typeof window !== 'undefined') {
-          try {
-            window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
-          } catch {
-            // sessionStorage unavailable
-          }
-        }
-        return { default: m[exportName] as ComponentType<any> };
-      })
-      .catch((err: unknown) => {
-        if (typeof window !== 'undefined' && isChunkLoadError(err)) {
-          const target = `${window.location.pathname}${window.location.search}`;
-          try {
-            if (window.sessionStorage.getItem(CHUNK_RELOAD_KEY) !== target) {
-              window.sessionStorage.setItem(CHUNK_RELOAD_KEY, target);
-              window.location.reload();
-              return new Promise<never>(() => {});
-            }
-          } catch {
-            // sessionStorage unavailable
-          }
-        }
-        throw err;
-      }),
-  );
+  return lazy(() => loadNamedModule(loader, exportName));
 }
 
 export const routeLoaders = {
