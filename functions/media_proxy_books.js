@@ -1,6 +1,7 @@
 'use strict';
 
-const { applyCors, cappedHttps, enforceRateLimit, fetchPublicUrl, isAllowedBookTextUrl, requireAuth } = require('./common.js');
+const common = require('./common.js');
+const { applyCors, cappedHttps, enforceRateLimit, isAllowedBookTextUrl, requireAuth } = common;
 
 const MAX_URLS = 10;
 const MAX_TEXT_BYTES = 5 * 1024 * 1024;
@@ -65,7 +66,7 @@ const proxyBookText = cappedHttps(10, async (req, res) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.min(12000, remaining));
     try {
-      const response = await fetchPublicUrl(url, {
+      const response = await common.fetchPublicUrl(url, {
         headers: { 'Accept': 'text/plain' },
         signal: controller.signal,
         httpsOnly: true,
@@ -143,7 +144,7 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.min(20000, remaining));
     try {
-      const response = await fetchPublicUrl(url, {
+      const response = await common.fetchPublicUrl(url, {
         headers: { 'Accept': 'application/epub+zip, application/octet-stream, */*' },
         signal: controller.signal,
         httpsOnly: true,
@@ -174,6 +175,8 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
       if (buf[0] !== 0x50 || buf[1] !== 0x4b) continue;
       if (String(req.get('Accept') || '').includes('application/epub+zip')) {
         res.set('Content-Type', 'application/epub+zip');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('Content-Security-Policy', "default-src 'none'; sandbox");
         res.set('X-Book-Source', encodeURIComponent(url));
         res.send(buf);
       } else {

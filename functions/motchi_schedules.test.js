@@ -24,7 +24,7 @@ test('failed reminders stay pending and retry only the recipient that failed', a
       docs: data.fired ? [] : [{ id: 'demo-reminder', data: () => data, ref }] }) };
   t.mock.method(admin.firestore.FieldValue, 'arrayUnion', (value) => [value]);
   t.mock.method(admin, 'firestore', () => ({ collection: (name) => name === 'reminders' ? query : {
-    doc: (username) => ({ collection: () => ({ get: async () => ({ docs: [
+    doc: (username) => ({ collection: () => ({ limit() { return this; }, get: async () => ({ docs: [
       { data: () => ({ token: username }) },
     ] }) }) }),
   } }));

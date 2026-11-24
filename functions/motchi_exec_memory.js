@@ -458,8 +458,8 @@ async function exec_edit_journal_entry(ctx, args) {
     const snap = await ctx.db.collection('journal_entries').limit(20).get();
     const qLower = title.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return JSON.stringify({ error: `No journal entry found for "${title}"` });
     if (matches.length > 1) {
@@ -517,8 +517,8 @@ async function exec_delete_journal_entry(ctx, args) {
     const snap = await ctx.db.collection('journal_entries').limit(20).get();
     const qLower = title.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return JSON.stringify({ error: `No journal entry found for "${title}"` });
     if (matches.length > 1) {

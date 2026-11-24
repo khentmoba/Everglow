@@ -60,8 +60,8 @@ async function exec_add_to_watchlist(ctx, args) {
     const qLower = queryRaw.toLowerCase();
     const exact = results.find(r => (r.title || r.name || '').toLowerCase() === qLower);
     const substringMatches = results.filter(r => {
-      const t = (r.title || r.name || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (r.title || r.name || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     }).slice(0, 3);
     const isAmbiguous = !exact && substringMatches.length >= 2;
     if (isAmbiguous) {
@@ -93,16 +93,18 @@ async function exec_add_to_watchlist(ctx, args) {
 }
 
 async function exec_search_movies(ctx, args) {
+    const queryRaw = String(args.query || '').trim();
+    if (!queryRaw) return JSON.stringify({ results: [] });
     const rawMediaType = String(args.media_type || 'multi').toLowerCase();
     const endpoint = ['movie', 'tv', 'multi'].includes(rawMediaType) ? rawMediaType : 'multi';
-    const cacheKey = `tmdb:search:${endpoint}:${String(args.query || '').toLowerCase().trim()}`;
+    const cacheKey = `tmdb:search:${endpoint}:${queryRaw.toLowerCase()}`;
     let tmdbData;
     const cached = ctx.cacheGet(cacheKey, ctx.cacheTTLs.tmdb);
     if (cached) {
       tmdbData = cached;
     } else {
       const tmdbRes = await fetch(
-        `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(args.query)}&api_key=${ctx.getTmdbKey()}`,
+        `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(queryRaw)}&api_key=${ctx.getTmdbKey()}`,
         { signal: AbortSignal.timeout(10000) },
       );
       if (!tmdbRes.ok) return JSON.stringify({ error: `TMDB search failed (HTTP ${tmdbRes.status})` });
@@ -147,9 +149,10 @@ async function exec_mark_watchlist_item_watched(ctx, args) {
     const title = (args.title || '').trim();
     if (!title) return JSON.stringify({ error: 'No title provided' });
     const snapshot = await ctx.db.collection('our_cinema').limit(200).get();
+    const titleLower = title.toLowerCase();
     const matches = snapshot.docs.filter(d => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(title.toLowerCase()) || title.toLowerCase().includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(titleLower) || titleLower.includes(t));
     });
     if (matches.length === 0) {
       return JSON.stringify({ error: `No watchlist item found for "${title}"` });
@@ -184,8 +187,8 @@ async function exec_remove_from_watchlist(ctx, args) {
     if (!tid) {
       const qLower = title.toLowerCase();
       matches = snap.docs.filter(d => {
-        const t = (d.data().title || '').toLowerCase();
-        return t.includes(qLower) || qLower.includes(t);
+        const t = (d.data().title || '').trim().toLowerCase();
+        return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
       });
     }
     if (matches.length === 0) return JSON.stringify({ error: `No watchlist item found for "${title || tid}"` });
@@ -300,14 +303,16 @@ async function exec_search_anime(ctx, args) {
 }
 
 async function exec_search_books(ctx, args) {
-    const bKey = `books:search:${String(args.query || '').toLowerCase().trim()}`;
+    const queryRaw = String(args.query || '').trim();
+    if (!queryRaw) return JSON.stringify({ results: [] });
+    const bKey = `books:search:${queryRaw.toLowerCase()}`;
     let searchData;
     const cachedBooks = ctx.cacheGet(bKey, ctx.cacheTTLs.books);
     if (cachedBooks) {
       searchData = cachedBooks;
     } else {
       const searchRes = await fetch(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(args.query)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`,
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(queryRaw)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`,
         { signal: AbortSignal.timeout(10000) },
       );
       if (!searchRes.ok) return JSON.stringify({ error: `Book search failed (HTTP ${searchRes.status})` });
@@ -352,8 +357,8 @@ async function exec_add_book_to_our_books(ctx, args) {
       const qLower = queryRaw.toLowerCase();
       const exact = docs.find(d => (d.title || '').toLowerCase() === qLower);
       const subMatches = docs.filter(d => {
-        const t = (d.title || '').toLowerCase();
-        return t.includes(qLower) || qLower.includes(t);
+        const t = (d.title || '').trim().toLowerCase();
+        return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
       }).slice(0, 3);
       const isAmbiguous = !exact && subMatches.length >= 2;
       if (isAmbiguous) {
@@ -402,10 +407,11 @@ async function exec_update_book_progress(ctx, args) {
     const title = (args.title || '').trim();
     const progress = Math.min(Math.max(Number(args.progress) || 0, 0), 100);
     if (!title) return JSON.stringify({ error: 'No title provided' });
-    const snapshot = await ctx.db.collection('our_books').get();
+    const snapshot = await ctx.db.collection('our_books').limit(200).get();
+    const titleLower = title.toLowerCase();
     const matches = snapshot.docs.filter(d => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(title.toLowerCase()) || title.toLowerCase().includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(titleLower) || titleLower.includes(t));
     });
     if (matches.length === 0) {
       return JSON.stringify({ error: `No book found for "${title}"` });

@@ -10,7 +10,7 @@ async function sendFCMToUser(uid, payload) {
     const db = getDb();
     const ref = db.collection('fcm_tokens').doc(uid);
     const type = payload.data?.type || 'nudge';
-    const devices = await ref.collection('devices').get();
+    const devices = await ref.collection('devices').limit(50).get();
     if (!devices.docs.length) return true;
     if (payload.motchi && !type.startsWith('reminder')) {
       const allowed = await db.runTransaction(async (tx) => {

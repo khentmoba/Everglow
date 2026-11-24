@@ -304,23 +304,25 @@ async function exec_get_date_ideas(ctx, args) {
 }
 
 async function exec_get_weather(ctx, args) {
-    const wKey = `weather:${String(args.location || '').toLowerCase().trim()}`;
+    const location = String(args.location || '').trim();
+    if (!location) return JSON.stringify({ error: 'No location provided' });
+    const wKey = `weather:${location.toLowerCase()}`;
     const cachedWeather = ctx.cacheGet(wKey, ctx.cacheTTLs.weather);
-    if (cachedWeather) return JSON.stringify({ location: args.location, weather: cachedWeather });
+    if (cachedWeather) return JSON.stringify({ location, weather: cachedWeather });
     const weatherRes = await fetch(
-      `https://wttr.in/${encodeURIComponent(args.location)}?format=%C+%t+%h+%w`,
+      `https://wttr.in/${encodeURIComponent(location)}?format=%C+%t+%h+%w`,
       {
         headers: { 'User-Agent': 'curl/8.5.0' },
         signal: AbortSignal.timeout(8000),
       },
     );
     if (!weatherRes.ok) {
-      return JSON.stringify({ location: args.location, weather: 'Weather unavailable', error: `Weather service returned HTTP ${weatherRes.status}` });
+      return JSON.stringify({ location, weather: 'Weather unavailable', error: `Weather service returned HTTP ${weatherRes.status}` });
     }
     const weatherText = await weatherRes.text();
     const trimmed = weatherText.trim();
     if (trimmed) ctx.cacheSet(wKey, trimmed);
-    return JSON.stringify({ location: args.location, weather: trimmed || 'Weather unavailable' });
+    return JSON.stringify({ location, weather: trimmed || 'Weather unavailable' });
 }
 
 async function exec_list_reminders(ctx, _args) {
@@ -369,8 +371,8 @@ async function exec_cancel_reminder(ctx, args) {
   const snap = await ctx.db.collection('reminders').where('fired', '==', false).limit(50).get();
   const qLower = title.toLowerCase();
   const matches = snap.docs.filter((d) => {
-    const t = (d.data().title || '').toLowerCase();
-    return t.includes(qLower) || qLower.includes(t);
+    const t = (d.data().title || '').trim().toLowerCase();
+    return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
   });
   if (matches.length === 0) return JSON.stringify({ error: `No pending reminder found for "${title}"` });
   const preview = matches.slice(0, 3).map((d) => ({ id: d.id, title: d.data().title || '' }));
@@ -398,8 +400,8 @@ async function exec_update_calendar_event(ctx, args) {
     const snap = await ctx.db.collection('calendar_events').limit(30).get();
     const qLower = title.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return JSON.stringify({ error: `No calendar event found for "${title}"` });
     if (matches.length > 1) {
@@ -452,8 +454,8 @@ async function exec_delete_calendar_event(ctx, args) {
     const snap = await ctx.db.collection('calendar_events').limit(30).get();
     const qLower = title.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return JSON.stringify({ error: `No calendar event found for "${title}"` });
     if (matches.length > 1) {
@@ -492,8 +494,8 @@ async function exec_complete_bucket_item(ctx, args) {
     const snap = await ctx.db.collection('bucket_list').limit(30).get();
     const qLower = title.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return JSON.stringify({ error: `No bucket item found for "${title}"` });
     if (matches.length > 1) {
@@ -525,8 +527,8 @@ async function exec_delete_bucket_item(ctx, args) {
     const snap = await ctx.db.collection('bucket_list').limit(30).get();
     const qLower = title.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return JSON.stringify({ error: `No bucket item found for "${title}"` });
     if (matches.length > 1) {
@@ -563,8 +565,8 @@ async function _lookupByIdOrTitle(ctx, collection, id, title, label) {
     const snap = await ctx.db.collection(collection).limit(30).get();
     const qLower = cleanTitle.toLowerCase();
     const matches = snap.docs.filter((d) => {
-      const t = (d.data().title || '').toLowerCase();
-      return t.includes(qLower) || qLower.includes(t);
+      const t = (d.data().title || '').trim().toLowerCase();
+      return t.length > 0 && (t.includes(qLower) || qLower.includes(t));
     });
     if (matches.length === 0) return { error: `No ${label} found for "${cleanTitle}"` };
     if (matches.length > 1) {
