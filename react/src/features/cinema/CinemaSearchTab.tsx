@@ -154,7 +154,6 @@ export function CinemaSearchTab({
               lineHeight: lineHeight(11.5),
               color: NetflixColors.textSecondary,
               display: 'flex',
-              gap: 3,
               overflow: 'hidden',
               whiteSpace: 'nowrap',
             }}

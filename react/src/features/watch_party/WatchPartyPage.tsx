@@ -714,8 +714,11 @@ export function useOpenWatchPartyRoom() {
   return (roomId: string) => navigate(`/watch-party?room=${encodeURIComponent(roomId)}`);
 }
 
-/** `WatchPartyLobby`: the create button and room list; `embedded` drops the big header. */
-export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
+/**
+ * `WatchPartyLobby`: the create button and room list; `embedded` drops the big
+ * header, and `accent` lets the host page keep one accent (Cinema is red).
+ */
+export function WatchPartyLobby({ embedded = false, accent }: { embedded?: boolean; accent?: string }) {
   const auth = useAuth();
   const openRoom = useOpenWatchPartyRoom();
   const myUid = auth.uid ?? '';
@@ -779,9 +782,13 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
             onClick={() => setCreateOpen(true)}
             style={{
               padding: '14px 16px',
-              background: linear([AppColors.deepRose, AppColors.rosePressed]),
+              // Two primaries on one screen is one too many: a host page can pass
+              // its own accent so the lobby does not introduce a second brand.
+              background: accent ?? linear([AppColors.deepRose, AppColors.rosePressed]),
               borderRadius: AppRadius.md,
-              boxShadow: boxShadow([{ offset: [0, 6], blur: 16, color: withAlpha(AppColors.deepRose, 0.35) }]),
+              boxShadow: boxShadow([
+                { offset: [0, 6], blur: 16, color: withAlpha(accent ?? AppColors.deepRose, 0.35) },
+              ]),
               display: 'flex',
               alignItems: 'center',
               gap: 10,
@@ -920,8 +927,10 @@ export function WatchPartyLobby({ embedded = false }: { embedded?: boolean }) {
                           {hosting ? 'You are hosting' : `${room.hostName} is hosting`}
                         </div>
                       </div>
+                      {/* One row, one affordance: the LIVE badge carries the state,
+                          the arrow always means 'open this room'. */}
                       <Icon
-                        name={live ? 'play_arrow' : 'chevron_right'}
+                        name="chevron_right"
                         size={22}
                         color={live ? AppColors.roseQuartz : Derived.textMuted}
                       />

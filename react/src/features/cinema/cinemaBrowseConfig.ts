@@ -22,7 +22,7 @@ export interface BrowseCategoryOption {
 }
 
 export const BROWSE_GROUP_META: Record<BrowseCategoryGroup, { title: string; subtitle: string; icon: string; tint: string }> = {
-  collection: { title: 'Collections', subtitle: 'CURATED PICKS', icon: 'local_fire_department', tint: AppColors.cinemaRed },
+  collection: { title: 'Type', subtitle: 'MOVIES OR SHOWS', icon: 'local_fire_department', tint: AppColors.cinemaRed },
   genre: { title: 'Genres', subtitle: 'EXPLORE BY CATEGORY', icon: 'category', tint: AppColors.cinemaRed },
   decade: { title: 'Decades', subtitle: 'TIME CAPSULE', icon: 'timeline', tint: '#26A69A' },
   language: { title: 'Languages', subtitle: 'WORLD CINEMA', icon: 'language', tint: '#42A5F5' },

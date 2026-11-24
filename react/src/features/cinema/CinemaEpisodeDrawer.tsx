@@ -935,6 +935,25 @@ export function CinemaEpisodeDrawer({
 // hero it used to scroll away and leave a long page with no exit.
 function CloseButton({ onClose }: { onClose: () => void }) {
   return (
+    <>
+      {/* The close floats above the scroller; a short top scrim stops a pill or
+          a poster edge sliding under the tap target and reading as part of it. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          zIndex: 4,
+          pointerEvents: 'none',
+          background: linear(['rgba(20,20,20,0.55)', 'rgba(20,20,20,0)'], {
+            begin: Align.topCenter,
+            end: Align.bottomCenter,
+          }),
+        }}
+      />
     <button
       type="button"
       className="bare-button"
@@ -959,6 +978,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
     >
       <Icon name="close" size={20} color={WHITE} />
     </button>
+    </>
   );
 }
 
@@ -1841,7 +1861,7 @@ function Reviews({
   if (!reviews.length)
     return (
       <div>
-        <EmptyLine text="No reviews yet" hint="Reviews come from TMDB, and nobody has rated this one." />
+        <EmptyLine text="No reviews yet" hint="Reviews come from TMDB, and nobody has written one for this yet." />
         {onSeeSimilar && (
           <div style={{ padding: '4px 20px 8px' }}>
             <button

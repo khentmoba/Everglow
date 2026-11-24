@@ -326,7 +326,6 @@ export function CinemaPage() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20 }}>
           <NetflixCinemaTopBar
             currentIndex={currentTab}
-            currentBrowseId={selectedBrowseId ?? (currentTab === 2 ? 'collection-movies' : null)}
             links={links}
             scrolled={scrolled}
             userName={userName}
@@ -481,7 +480,6 @@ export function CinemaPage() {
       {!isWide && (
         <NetflixBottomNav
           currentIndex={currentTab}
-          currentBrowseId={selectedBrowseId ?? (currentTab === 2 ? 'collection-movies' : null)}
           items={cinemaMobileNavItems(isCinemaOnlyUser)}
           onSelect={handleNavSelect}
           onAnimeTap={() => navigate('/anime')}
@@ -568,6 +566,9 @@ function HomeTab({
     heroTitles,
   );
 
+  // '#N in Top 10' is a promise about this page. Without a ranked row underneath
+  // it, the badge is a rank with nothing to hold it, so it is not printed.
+  const rankedRailOnPage = rails.some((rail) => rail.ranked);
   const rowProps = {
     isDesktop,
     onTapItem,
@@ -587,7 +588,7 @@ function HomeTab({
           items={heroTitles}
           isDesktop={isDesktop}
           viewportHeight={viewportHeight}
-          rankOf={rankOf}
+          rankOf={rankedRailOnPage ? rankOf : undefined}
           resumeOf={(m) => {
             const saved = watchingList.find((w) => catalogKeyOf(w) === catalogKeyOf(m));
             return saved?.currentTimestamp && saved.currentTimestamp > 0 ? saved.currentTimestamp : null;

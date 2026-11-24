@@ -83,7 +83,7 @@ export function CinemaWatchTogetherTab({
         )}
       </div>
       <div style={{ padding: `18px ${h}px 0` }}>
-        <WatchPartyLobby embedded />
+        <WatchPartyLobby embedded accent={NetflixColors.accent} />
       </div>
       {isCouple && (
         <div style={{ padding: `18px ${h}px 0` }}>

@@ -405,7 +405,7 @@ function NetflixHoverPreview({
               />
             </div>
             <span style={{ ...AppTypography.outfitMedium, fontSize: 11.5, color: 'rgba(255,255,255,0.75)' }}>
-              {`Resume at ${clockOf(item.currentTimestamp ?? 0)}`}
+              {`Left off at ${clockOf(item.currentTimestamp ?? 0)}`}
             </span>
           </div>
         )}
@@ -705,7 +705,6 @@ export function NetflixPosterCard({
           style={{
             paddingTop: 6,
             display: 'flex',
-            gap: 3,
             ...AppTypography.outfitWhite,
             fontSize: 11.5,
             lineHeight: '15px',
@@ -1287,13 +1286,11 @@ export function NetflixBillboard({
 
 export function NetflixBottomNav({
   currentIndex,
-  currentBrowseId,
   items,
   onSelect,
   onAnimeTap,
 }: {
   currentIndex: number;
-  currentBrowseId?: string | null;
   items: NetflixMobileItem[];
   onSelect: (tab: number, browseOptionId?: string) => void;
   onAnimeTap: () => void;
@@ -1314,10 +1311,9 @@ export function NetflixBottomNav({
       }}
     >
       {items.map((item) => {
-        const active =
-          !item.isAnimeLink &&
-          item.tab === currentIndex &&
-          (item.browseOptionId ? item.browseOptionId === currentBrowseId : !currentBrowseId);
+        // One tab is always lit: a collection picked inside the Movies tab is
+        // still the Movies tab, so the bar never goes dark on a sub-choice.
+        const active = !item.isAnimeLink && item.tab === currentIndex;
         // The Anime door is a link out, never the current tab: one thing looks selected.
         const color = active ? '#FFFFFF' : 'rgba(255,255,255,0.55)';
         // The Anime door links out, so it wears the same grey as every other tab.
