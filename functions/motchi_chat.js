@@ -906,7 +906,11 @@ ${HTML_GAME_GUIDE}
             });
 
             if (streamResp.ok) break;
-            if (![429, 502, 503].includes(streamResp.status)) break;
+            if (![429, 502, 503].includes(streamResp.status)) {
+              await streamResp.body?.cancel?.().catch(() => {});
+              break;
+            }
+            await streamResp.body?.cancel?.().catch(() => {});
             lastFetchError = `Agnes HTTP ${streamResp.status}`;
             lastWas429 = streamResp.status === 429;
           } catch (fetchErr) {
@@ -970,6 +974,7 @@ ${HTML_GAME_GUIDE}
         const decoder = new TextDecoder();
         let buffer = '';
         let roundFinished = false;
+        try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -1028,6 +1033,9 @@ ${HTML_GAME_GUIDE}
               }
             } catch (_) {}
           }
+        }
+        } finally {
+          await reader.cancel?.().catch(() => {});
         }
 
         if (!roundFinished) throw new Error('Model stream ended before confirming completion');

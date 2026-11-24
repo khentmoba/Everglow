@@ -218,3 +218,50 @@ test('importMangaChapterCbz preserves existing cached chapter if re-import hits 
     globalThis.caches = origCaches;
   }
 });
+
+test('exportMangaChapterCbz opens Cache Storage once across all pages', async () => {
+  const store = new Map();
+  let openCalls = 0;
+  const origCaches = globalThis.caches;
+  const id = OfflineIds.mangaChapterId('cache-once-slug', 'c1');
+  const origin = window.location.origin;
+  store.set(`${origin}/offline-manga/${encodeURIComponent(`${id}_p_1`)}`, new Response(new Uint8Array([1, 2, 3])));
+  store.set(`${origin}/offline-manga/${encodeURIComponent(`${id}_p_2`)}`, new Response(new Uint8Array([4, 5, 6])));
+  store.set(`${origin}/offline-manga/${encodeURIComponent(`${id}_p_3`)}`, new Response(new Uint8Array([7, 8, 9])));
+  globalThis.caches = {
+    open: async () => {
+      openCalls++;
+      return {
+        match: async (k) => {
+          const res = store.get(k);
+          return res ? res.clone() : undefined;
+        },
+      };
+    },
+  };
+  offlineMedia.value = {
+    ...offlineMedia.value,
+    [id]: {
+      id,
+      type: 'manga',
+      mediaId: 'cache-once-slug',
+      chapterId: 'c1',
+      title: 'Cache Once Test',
+      subtitle: 'Chapter 1',
+      coverUrl: '',
+      status: 'completed',
+      progress: 1,
+      pageUrls: ['https://a/1.jpg', 'https://a/2.jpg', 'https://a/3.jpg'],
+      downloadedPages: 3,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  };
+  try {
+    const exported = await offlineMedia.exportMangaChapterCbz(id);
+    assert.ok(exported);
+    assert.equal(openCalls, 1);
+  } finally {
+    globalThis.caches = origCaches;
+  }
+});

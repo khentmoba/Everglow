@@ -147,21 +147,31 @@ async function streamSse(
   let lineBuffer = '';
   const pending: string[] = [];
   let drainScheduled = false;
+  let rafId: number | null = null;
   let streamDone = false;
   let paintedFirstToken = false;
   let settle: { resolve: (v: string) => void; reject: (e: unknown) => void } | null = null;
   const done = new Promise<string>((resolve, reject) => (settle = { resolve, reject }));
   let finished = false;
+  const cleanupDrain = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    drainScheduled = false;
+    document.removeEventListener('visibilitychange', onVisible);
+  };
   const complete = () => {
     if (finished) return;
     finished = true;
-    document.removeEventListener('visibilitychange', onVisible);
+    cleanupDrain();
     settle!.resolve(full);
   };
   const fail = (e: unknown) => {
     if (finished) return;
     finished = true;
-    document.removeEventListener('visibilitychange', onVisible);
+    pending.length = 0;
+    cleanupDrain();
     settle!.reject(e);
   };
 
@@ -198,11 +208,13 @@ async function streamSse(
     while (pending.length > 0) process(pending.shift()!);
   };
   const drain = () => {
+    if (finished) return;
     let budget = 4;
     while (pending.length > 0 && budget-- > 0) process(pending.shift()!);
     if (pending.length === 0 && streamDone) complete();
   };
   const startDrain = (): void => {
+    if (finished) return;
     if (document.hidden) {
       drainScheduled = false;
       drainAll();
@@ -217,8 +229,10 @@ async function streamSse(
       return;
     }
     drainScheduled = true;
-    requestAnimationFrame(() => {
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
       drainScheduled = false;
+      if (finished) return;
       drain();
       if (pending.length > 0) startDrain();
     });
@@ -251,11 +265,10 @@ async function streamSse(
   };
 
   const timer = setTimeout(() => {
-    signal.abort();
     fail(new TimeoutError('AI request timed out'));
+    signal.abort();
   }, timeoutMs);
   const onAbort = () => {
-    pending.length = 0;
     fail(new Error('Reply stopped'));
   };
   signal.signal.addEventListener('abort', onAbort, { once: true });

@@ -519,6 +519,12 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
     ].join('\n');
     return { text: demoText, usedUrl: 'demo://frankenstein' };
   }
+  for (const url of candidates) {
+    const cached = await readBookTextCache(url);
+    if (cached) {
+      return { text: cached, usedUrl: url };
+    }
+  }
   try {
     const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
     const resp = await fetch(BOOK_TEXT_PROXY, {
@@ -541,12 +547,6 @@ export async function fetchBookText(candidates: string[]): Promise<{ text: strin
     }
   } catch (e) {
     Logger.w(`proxyBookText failed: ${String(e)}`);
-  }
-  for (const url of candidates) {
-    const cached = await readBookTextCache(url);
-    if (cached) {
-      return { text: cached, usedUrl: url };
-    }
   }
   return { text: '', usedUrl: '', error: 'We couldn’t load the text right now.' };
 }

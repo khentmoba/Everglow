@@ -134,3 +134,59 @@ test('clear skips deleting when auth changes during archive', async () => {
     aiChat.resetForAuthChange();
   }
 });
+
+test('timed-out callStream classifies as TimeoutError and retries once', { timeout: 10_000 }, async () => {
+  const oldFetch = globalThis.fetch;
+  const oldDocument = globalThis.document;
+  const oldSetTimeout = globalThis.setTimeout;
+  const oldClearTimeout = globalThis.clearTimeout;
+  let requests = 0;
+  globalThis.document = { hidden: true, addEventListener() {}, removeEventListener() {} };
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay >= 30_000) {
+      return oldSetTimeout(callback, 15, ...args);
+    }
+    if (delay === 1000) {
+      return oldSetTimeout(callback, 5, ...args);
+    }
+    return oldSetTimeout(callback, delay, ...args);
+  };
+  globalThis.clearTimeout = (id) => oldClearTimeout(id);
+  globalThis.fetch = async (_url, opts) => {
+    requests++;
+    if (requests === 1) {
+      return await new Promise((_resolve, reject) => {
+        opts?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    }
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"content":"recovered"}\n\ndata: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+  };
+
+  try {
+    let seen = '';
+    const reply = await aiChat.callStream(
+      [],
+      'study',
+      'test',
+      { onChunk(c) { seen += c; } },
+      { enableThinking: false, canvasEnabled: false, artifactExpected: false },
+      () => true,
+    );
+    assert.equal(requests, 2);
+    assert.equal(reply, 'recovered');
+    assert.equal(seen, 'recovered');
+  } finally {
+    globalThis.fetch = oldFetch;
+    globalThis.document = oldDocument;
+    globalThis.setTimeout = oldSetTimeout;
+    globalThis.clearTimeout = oldClearTimeout;
+    aiChat.resetForAuthChange();
+  }
+});

@@ -86,7 +86,7 @@ const motchiStats = cappedHttps(5, async (req, res) => {
     });
   } catch (e) {
     console.warn('[motchiStats] failed:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Could not load stats' });
   }
 });
 

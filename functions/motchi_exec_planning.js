@@ -153,13 +153,20 @@ async function exec_add_trip_pin(ctx, args) {
     if (!tripId) return JSON.stringify({ error: 'trip_id or trip_title required and not found' });
     if (!isSafeDocId(tripId)) return JSON.stringify({ error: 'Invalid trip_id' });
     const ref = ctx.db.collection('travel_trips').doc(tripId);
+    const parseCoord = (v, maxAbs) => {
+      if (v === null || v === undefined || String(v).trim() === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) && Math.abs(n) <= maxAbs ? n : null;
+    };
+    const lat = parseCoord(args.lat, 90);
+    const lng = parseCoord(args.lng, 180);
     const pin = {
       id: randomUUID(),
       name: title,
       note: String(args.note || ''),
       done: false,
-      ...(Number.isFinite(Number(args.lat)) ? { lat: Number(args.lat) } : {}),
-      ...(Number.isFinite(Number(args.lng)) ? { lng: Number(args.lng) } : {}),
+      ...(lat !== null ? { lat } : {}),
+      ...(lng !== null ? { lng } : {}),
       category: ['stay', 'eat', 'sight', 'activity', 'transit'].includes(args.category) ? args.category : 'sight',
     };
     await ctx.db.runTransaction(async (tx) => {

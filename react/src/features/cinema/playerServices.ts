@@ -93,7 +93,7 @@ export function selectableSources(shared: VideoSourceConfig[], isAnime: boolean)
 export function trustsCinesrcEpisodeEvent(providerId: string, origin: string): boolean {
   if (providerId === 'flux-cinesrc') return origin === 'https://cinesrc.st';
   if (providerId === 'everglow-shell') return origin === WRAPPER_ORIGIN;
-  return providerId === 'everglow-embed';
+  return providerId === 'everglow-embed' && (origin === PROXY_CINEMA_ORIGIN || origin === WRAPPER_ORIGIN);
 }
 
 export function trustsCinesrcProgressEvent(providerId: string, origin: string): boolean {

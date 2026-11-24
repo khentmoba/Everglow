@@ -857,7 +857,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
         const stampKey = megaplay ? await cdnKey().catch(() => null) : null;
         const rewritten = rewritePlaylistWithHosts(
           text,
-          targetUrl,
+          upstream.url || targetUrl,
           proxyBase,
           isAllowed,
           stampKey,

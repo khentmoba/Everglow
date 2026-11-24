@@ -7,6 +7,8 @@ const {
   exec_add_to_watchlist,
   exec_search_movies,
   exec_get_watchlist,
+  exec_mark_watchlist_item_watched,
+  exec_remove_from_watchlist,
   exec_search_books,
 } = require('./motchi_exec_media.js');
 const {
@@ -793,4 +795,124 @@ test('spotifyExchange sanitizes upstream error bodies and rejects missing access
     if (prevClientId === undefined) delete process.env.SPOTIFY_CLIENT_ID;
     else process.env.SPOTIFY_CLIENT_ID = prevClientId;
   }
+});
+
+test('exec_add_trip_pin ignores null, empty, and out-of-range coordinates instead of writing 0', async () => {
+  let savedPlaces = null;
+  const ctx = makeCtx({
+    db: {
+      collection: () => ({
+        doc: () => ({ id: 'trip-1' }),
+      }),
+      runTransaction: async (fn) =>
+        fn({
+          get: async () => ({ exists: true, data: () => ({ places: [] }) }),
+          update: (_ref, data) => { savedPlaces = data.places; },
+        }),
+    },
+  });
+  const out = JSON.parse(await exec_add_trip_pin(ctx, { trip_id: 'trip-1', title: 'Cafe', lat: null, lng: '' }));
+  assert.equal(out.success, true);
+  assert.equal(savedPlaces.length, 1);
+  assert.equal('lat' in savedPlaces[0], false);
+  assert.equal('lng' in savedPlaces[0], false);
+
+  const out2 = JSON.parse(await exec_add_trip_pin(ctx, { trip_id: 'trip-1', title: 'Far', lat: 95, lng: -200 }));
+  assert.equal(out2.success, true);
+  assert.equal('lat' in savedPlaces[0], false);
+  assert.equal('lng' in savedPlaces[0], false);
+});
+
+test('watchlist mutation tools bound our_cinema scans with .limit()', async () => {
+  const limits = [];
+  const makeDb = () => ({
+    collection: () => ({
+      limit(n) {
+        limits.push(n);
+        return { get: async () => ({ docs: [] }) };
+      },
+      get: async () => {
+        throw new Error('unbounded collection scan');
+      },
+    }),
+  });
+  await exec_mark_watchlist_item_watched(makeCtx({ db: makeDb() }), { title: 'Spirited Away' });
+  await exec_remove_from_watchlist(makeCtx({ db: makeDb() }), { title: 'Spirited Away' });
+  assert.deepEqual(limits, [200, 200]);
+});
+
+test('proxyMegavidHls resolves relative playlist entries against redirected upstream.url', async (t) => {
+  const authInstance = common.getAdmin().auth();
+  t.mock.method(authInstance, 'verifyIdToken', async () => ({
+    uid: 'khent-uid',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  t.mock.method(common, 'isPublicDnsHost', async () => true);
+  t.mock.method(common, 'fetchPublicUrl', async () => ({
+    ok: true,
+    status: 200,
+    url: 'https://cdn.megavid.buzz/edge-2/nested/master.m3u8',
+    headers: new Headers({ 'content-type': 'application/vnd.apple.mpegurl' }),
+    body: new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('#EXTM3U\n#EXTINF:6,\nseg01.ts\n'));
+        c.close();
+      },
+    }),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await proxyMegavidHls(
+    {
+      method: 'GET',
+      protocol: 'https',
+      headers: { authorization: 'Bearer tok', host: 'us-central1-everglow-1c6db.cloudfunctions.net' },
+      get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer tok' : h.toLowerCase() === 'host' ? 'us-central1-everglow-1c6db.cloudfunctions.net' : ''),
+      ip: '203.0.113.59',
+      query: { u: 'https://megavid.buzz/start.m3u8' },
+    },
+    res,
+  );
+  assert.equal(res.code, 200);
+  assert.ok(String(res.body).includes(encodeURIComponent('https://cdn.megavid.buzz/edge-2/nested/seg01.ts')));
+});
+
+test('motchiStats returns generic 500 error without leaking internal error details', async (t) => {
+  const admin = common.getAdmin();
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'khent-uid',
+    username: 'khentsgdz',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  t.mock.method(admin, 'firestore', () => {
+    throw new Error('secret-internal-firestore-details');
+  });
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await motchiStats(
+    {
+      method: 'GET',
+      headers: { authorization: 'Bearer tok' },
+      get: (h) => (h.toLowerCase() === 'authorization' ? 'Bearer tok' : ''),
+      ip: '203.0.113.60',
+      query: {},
+    },
+    res,
+  );
+  assert.equal(res.code, 500);
+  assert.equal(res.body.error, 'Could not load stats');
+  assert.ok(!String(res.body.error).includes('secret-internal-firestore-details'));
 });

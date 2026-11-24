@@ -146,7 +146,7 @@ async function exec_get_watchlist(ctx, args) {
 async function exec_mark_watchlist_item_watched(ctx, args) {
     const title = (args.title || '').trim();
     if (!title) return JSON.stringify({ error: 'No title provided' });
-    const snapshot = await ctx.db.collection('our_cinema').get();
+    const snapshot = await ctx.db.collection('our_cinema').limit(200).get();
     const matches = snapshot.docs.filter(d => {
       const t = (d.data().title || '').toLowerCase();
       return t.includes(title.toLowerCase()) || title.toLowerCase().includes(t);
@@ -178,7 +178,7 @@ async function exec_remove_from_watchlist(ctx, args) {
     if (tid) {
       snap = await ctx.db.collection('our_cinema').where('tmdbId', '==', tid).limit(5).get();
     } else {
-      snap = await ctx.db.collection('our_cinema').get();
+      snap = await ctx.db.collection('our_cinema').limit(200).get();
     }
     let matches = snap.docs;
     if (!tid) {
