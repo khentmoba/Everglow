@@ -2789,3 +2789,22 @@ test('handleProxyHls sanitizes upstream fetch error details in 502 responses', a
     globalThis.fetch = realFetch;
   }
 });
+
+test('handleProxyHls forces octet-stream for XML and legacy ECMAScript MIME types', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    const proxyUrl = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, 'https://cache.vdrk.site/v1/seg.bin', 'fmov', KEY);
+    for (const ct of ['application/xml; charset=utf-8', 'text/xml', 'application/ecmascript', 'text/ecmascript']) {
+      globalThis.fetch = async () =>
+        new Response('<svg xmlns="http://www.w3.org/2000/svg"/>', {
+          status: 200,
+          headers: { 'Content-Type': ct },
+        });
+      const resp = await handleProxyHls(new Request(proxyUrl), { CDN_STAMP_KEY: KEY });
+      assert.equal(resp.status, 200);
+      assert.equal(resp.headers.get('content-type'), 'application/octet-stream');
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -142,8 +142,12 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
         baseCt === 'text/html' ||
         baseCt === 'application/xhtml+xml' ||
         baseCt === 'image/svg+xml' ||
+        baseCt === 'text/xml' ||
+        baseCt === 'application/xml' ||
         baseCt === 'text/javascript' ||
-        baseCt === 'application/javascript'
+        baseCt === 'application/javascript' ||
+        baseCt === 'text/ecmascript' ||
+        baseCt === 'application/ecmascript'
       ) {
         await upstream.body?.cancel().catch(() => {});
         res.status(415).json({ error: 'Unsupported media content type' });

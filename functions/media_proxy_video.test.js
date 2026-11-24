@@ -18,8 +18,10 @@ common.requireAuth = async (req, res) => {
 };
 let fetched;
 let segment = false;
+let customFetch = null;
 common.fetchPublicUrl = async (url, options) => {
   fetched = { url, options };
+  if (customFetch) return customFetch(url, options);
   if (segment) return { ok: true, status: 206, url,
     headers: new Headers({ 'content-type': 'video/mp2t', 'content-range': 'bytes 0-3/8',
       'content-length': '4', 'accept-ranges': 'bytes' }), body: new Response('DEMO').body };
@@ -95,4 +97,28 @@ test('authenticated issuance lets headerless native media load rewritten playlis
   assert.equal(res.headers['content-range'], 'bytes 0-3/8');
   assert.equal(Buffer.concat(res.chunks).toString(), 'DEMO');
   assert.equal(keyReads, 1);
+});
+
+test('proxyWatchStream rejects XML and legacy ECMAScript MIME types with 415 and drains body', async () => {
+  let cancelled = false;
+  customFetch = async (url) => ({
+    ok: true,
+    status: 200,
+    url,
+    headers: new Headers({ 'content-type': 'application/xml; charset=utf-8' }),
+    body: { cancel: async () => { cancelled = true; } },
+  });
+  try {
+    const media = signedStreamUrl('https://media.example/payload.bin', {
+      uid: 'demo-user',
+      expires: Date.now() + STREAM_LIFETIME_MS,
+      secret: keys.get('demo-user').secret,
+    });
+    const res = new ResponseSink();
+    await proxyWatchStream(request(media), res);
+    assert.equal(res.code, 415);
+    assert.equal(cancelled, true);
+  } finally {
+    customFetch = null;
+  }
 });

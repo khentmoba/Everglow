@@ -91,7 +91,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       const { fact, category } = item;
       let isDup = false;
       for (const existing of recentDocs) {
-        if (existing.fact.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
+        if (String(existing.fact || '').toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
         try { if (isNearDuplicate(existing.fact, fact, 0.85)) { isDup = true; break; } } catch (_) {}
       }
       if (isDup) continue;
@@ -167,6 +167,10 @@ async function checkHallucinations(replyText, rand = Math.random) {
       if (exists === null) {
         try {
           const res = await fetch(`https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(title)}&api_key=${apiKey}`, { signal: AbortSignal.timeout(8000) });
+          if (!res.ok) {
+            await res.body?.cancel?.().catch(() => {});
+            continue;
+          }
           const data = await res.json();
           const results = data.results || [];
           exists = results.some(r => {
@@ -236,9 +240,10 @@ async function selectRelevantMemoryFacts(userMessage, maxResults = 10, db = getD
       return c;
     }).filter((m) => m.pinned || (m.confidence ?? 1) >= 0.15);
     const ranked = selectPromptMemories(decayed, userMessage || '', maxResults);
+    const accessed = _factsCache.accessed;
     for (const m of ranked) {
-      if (_factsCache.accessed.has(m.id)) continue;
-      _factsCache.accessed.add(m.id);
+      if (accessed?.has(m.id)) continue;
+      accessed?.add(m.id);
       db.collection('ai_memories').doc('shared').collection('facts').doc(m.id).update({
         accessCount: getAdmin().firestore.FieldValue.increment(1),
         lastAccessed: getAdmin().firestore.FieldValue.serverTimestamp(),
