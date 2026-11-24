@@ -17,6 +17,8 @@ const { _pcLockoutAttempt } = require('./passcode.js');
 const MIN_PASSWORD_LEN = 6;
 const MAX_PASSWORD_LEN = 128;
 const SCRYPT_KEYLEN = 64;
+const DUMMY_PASSWORD_SALT = '00000000000000000000000000000000';
+const DUMMY_PASSWORD_HASH = '0'.repeat(SCRYPT_KEYLEN * 2);
 
 const _acctAttempts = new Map();
 function _acctHit(ip, maxPerMinute = 10) {
@@ -248,7 +250,12 @@ const loginAccount = cappedHttps(10, async (req, res) => {
     const ref = db.collection('member_accounts').doc(key);
     const snap = await ref.get();
     const data = snap.exists ? snap.data() || {} : null;
-    const validPassword = Boolean(data && await verifyPasswordAsync(password, data.passwordSalt, data.passwordHash));
+    let validPassword = false;
+    if (data) {
+      validPassword = await verifyPasswordAsync(password, data.passwordSalt, data.passwordHash);
+    } else {
+      await verifyPasswordAsync(password, DUMMY_PASSWORD_SALT, DUMMY_PASSWORD_HASH);
+    }
 
     let lock;
     try {

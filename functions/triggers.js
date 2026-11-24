@@ -98,6 +98,7 @@ const onNewChatMessage = functions.firestore
   .document('sanctuary_messages/{messageId}')
   .onCreate(async (snap) => {
     const data = snap.data();
+    if (data.via === 'motchi') return;
     const sender = (data.sender || '').toLowerCase();
     if (!sender || !PARTNER_UID[sender]) return;
 

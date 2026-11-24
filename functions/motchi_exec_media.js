@@ -127,7 +127,7 @@ async function exec_get_watchlist(ctx, args) {
     const snapshots = await Promise.all(
       usernames.map((username) =>
         ctx.db.collection('our_cinema')
-          .where('userId', '==', username)
+          .where('addedBy', '==', username)
           .orderBy('addedAt', 'desc')
           .limit(limit)
           .get(),

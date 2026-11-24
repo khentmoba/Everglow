@@ -56,6 +56,10 @@ const { proxyTmdb } = require('./catalog.js');
 const { proxyCatalog } = require('./media_proxy_catalog.js');
 const { isAllowedTmdbPath } = require('./media_proxy_core.js');
 const { proxyMegavidHls } = require('./anime.js');
+const { exec_get_gallery } = require('./motchi_exec_social.js');
+const { getMoodContext, getWatchContext, getRecentChatContext } = require('./motchi_context.js');
+const { onNewChatMessage } = require('./triggers.js');
+const crypto = require('node:crypto');
 
 function makeCtx(overrides = {}) {
   const cache = new Map();
@@ -1374,4 +1378,226 @@ test('serverExtractAndSaveMemory does not mutate shared facts cache when Firesto
     if (origKey === undefined) delete process.env.AGNES_API_KEY;
     else process.env.AGNES_API_KEY = origKey;
   }
+});
+
+test('exec_get_gallery orders by uploadedAt desc and uses uploadedAt for createdAt', async () => {
+  const orderCalls = [];
+  const uploadedDate = new Date('2026-06-01T12:00:00Z');
+  const ctx = makeCtx({
+    db: {
+      collection: (name) => {
+        assert.equal(name, 'gallery');
+        return {
+          orderBy: (field, dir) => {
+            orderCalls.push([field, dir]);
+            return {
+              limit: () => ({
+                get: async () => ({
+                  empty: false,
+                  docs: [
+                    {
+                      data: () => ({
+                        caption: 'Beach sunset',
+                        uploadedBy: 'clairjassen',
+                        imageUrl: 'https://example.com/photo.jpg',
+                        uploadedAt: { toDate: () => uploadedDate },
+                      }),
+                    },
+                  ],
+                }),
+              }),
+            };
+          },
+        };
+      },
+    },
+  });
+  const out = JSON.parse(await exec_get_gallery(ctx, { limit: 5 }));
+  assert.deepEqual(orderCalls, [['uploadedAt', 'desc']]);
+  assert.equal(out.count, 1);
+  assert.equal(out.photos[0].createdAt, uploadedDate.toISOString());
+});
+
+test('getMoodContext queries moods by timestamp desc in parallel and getRecentChatContext reads sender', async (t) => {
+  const moodOrderFields = [];
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'firestore', () => ({
+    collection: (name) => {
+      if (name === 'moods') {
+        return {
+          where: (_field, _op, user) => ({
+            orderBy: (field, dir) => {
+              moodOrderFields.push([user, field, dir]);
+              return {
+                limit: () => ({
+                  get: async () => ({
+                    empty: false,
+                    docs: [{ data: () => ({ moodEmoji: '😊', mood: 'happy' }) }],
+                  }),
+                }),
+              };
+            },
+          }),
+        };
+      }
+      if (name === 'sanctuary_messages') {
+        return {
+          orderBy: () => ({
+            limit: () => ({
+              get: async () => ({
+                empty: false,
+                docs: [
+                  { data: () => ({ sender: 'clairjassen', text: 'Good morning!' }) },
+                  { data: () => ({ sender: 'khentsgdz', text: 'Morning love' }) },
+                ],
+              }),
+            }),
+          }),
+        };
+      }
+      if (name === 'our_cinema') {
+        return {
+          where: (field, _op, user) => {
+            assert.equal(field, 'addedBy');
+            return {
+              orderBy: (orderField, dir) => {
+                assert.equal(orderField, 'addedAt');
+                assert.equal(dir, 'desc');
+                return {
+                  limit: () => ({
+                    get: async () => ({
+                      empty: false,
+                      docs: [{ data: () => ({ title: `Pick for ${user}`, mediaType: 'movie', status: 'plan_to_watch' }) }],
+                    }),
+                  }),
+                };
+              },
+            };
+          },
+        };
+      }
+      throw new Error(`unexpected collection ${name}`);
+    },
+  }));
+
+  const moodsText = await getMoodContext();
+  assert.deepEqual(moodOrderFields, [
+    ['khentsgdz', 'timestamp', 'desc'],
+    ['clairjassen', 'timestamp', 'desc'],
+  ]);
+  assert.match(moodsText, /khentsgdz: 😊 happy/);
+  assert.match(moodsText, /clairjassen: 😊 happy/);
+
+  const chatText = await getRecentChatContext();
+  assert.match(chatText, /clairjassen: Good morning!/);
+  assert.match(chatText, /khentsgdz: Morning love/);
+
+  const watchText = await getWatchContext();
+  assert.match(watchText, /Pick for khentsgdz/);
+  assert.match(watchText, /Pick for clairjassen/);
+});
+
+test('exec_get_watchlist queries our_cinema by addedBy/addedAt backed by firestore.indexes.json', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const indexes = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', 'firestore.indexes.json'), 'utf8'),
+  ).indexes;
+  assert.ok(
+    indexes.some(
+      (idx) =>
+        idx.collectionGroup === 'our_cinema' &&
+        idx.fields?.length === 2 &&
+        idx.fields[0].fieldPath === 'addedBy' &&
+        idx.fields[0].order === 'ASCENDING' &&
+        idx.fields[1].fieldPath === 'addedAt' &&
+        idx.fields[1].order === 'DESCENDING',
+    ),
+    'firestore.indexes.json must declare our_cinema (addedBy ASC, addedAt DESC)',
+  );
+
+  const queries = [];
+  const ctx = makeCtx({
+    db: {
+      collection: (name) => {
+        assert.equal(name, 'our_cinema');
+        return {
+          where: (field, op, value) => ({
+            orderBy: (orderField, dir) => {
+              queries.push([field, op, value, orderField, dir]);
+              return {
+                limit: () => ({
+                  get: async () => ({
+                    docs: [{ data: () => ({ title: `Saved by ${value}`, mediaType: 'movie', status: 'plan_to_watch' }) }],
+                  }),
+                }),
+              };
+            },
+          }),
+        };
+      },
+    },
+  });
+  const out = JSON.parse(await exec_get_watchlist(ctx, { limit: 10 }));
+  assert.deepEqual(queries, [
+    ['addedBy', '==', 'khentsgdz', 'addedAt', 'desc'],
+    ['addedBy', '==', 'clairjassen', 'addedAt', 'desc'],
+  ]);
+  assert.match(out.watchlist, /Saved by khentsgdz/);
+  assert.match(out.watchlist, /Saved by clairjassen/);
+});
+
+test('loginAccount runs dummy scrypt verification when account does not exist', async (t) => {
+  let timingEqualCalls = 0;
+  const origTimingSafeEqual = crypto.timingSafeEqual;
+  t.mock.method(crypto, 'timingSafeEqual', (...args) => {
+    timingEqualCalls += 1;
+    return origTimingSafeEqual(...args);
+  });
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'firestore', () => ({
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({ exists: false }),
+      }),
+    }),
+    runTransaction: async (fn) => fn({
+      get: async () => ({ exists: false }),
+      set: () => {},
+      delete: () => {},
+    }),
+  }));
+  const res = {
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    send(b) { this.body = b; return this; },
+    json(b) { this.body = b; return this; },
+  };
+  await loginAccount(
+    {
+      method: 'POST',
+      headers: {},
+      get: () => '',
+      ip: '203.0.113.71',
+      body: { username: 'nonexistentuser99', password: 'wrongpassword' },
+    },
+    res,
+  );
+  assert.equal(res.code, 401);
+  assert.equal(timingEqualCalls, 1);
+});
+
+test('onNewChatMessage skips duplicate push notification when via is motchi', async (t) => {
+  let firestoreCalled = false;
+  const admin = common.getAdmin();
+  t.mock.method(admin, 'firestore', () => {
+    firestoreCalled = true;
+    throw new Error('should not query fcm_tokens for motchi-sent messages');
+  });
+  await onNewChatMessage.run({
+    data: () => ({ sender: 'khentsgdz', text: 'hello from motchi', via: 'motchi' }),
+  });
+  assert.equal(firestoreCalled, false);
 });
