@@ -70,8 +70,10 @@ import {
   fetchKatanaChapterPages,
   fetchKatanaDetail,
   fetchKatanaHome,
+  filterHomeCatalogByType,
   formatCompactNumber,
   formatKatanaTime,
+  getCachedKatanaByType,
   importKatanaLibraryJson,
   importKatanaLibraryMalXml,
   isBookmarkCaughtUp,
@@ -963,12 +965,30 @@ export function MangaPage() {
   }, [homeRefreshTick]);
 
   useEffect(() => {
-    if (typeFilter === 'all') return;
+    if (typeFilter === 'all') {
+      setTypeLoading(false);
+      return;
+    }
     let alive = true;
+    const cached = getCachedKatanaByType(typeFilter, typePage);
+    if (cached) {
+      setTypeItems(cached.items);
+      setTypeHasNext(cached.hasNext);
+      setTypeTotalPages(cached.totalPages);
+      setTypeTotalResults(cached.totalResults);
+      setTypeLoading(false);
+      return;
+    }
+    // Seed immediately from loaded home catalog on page 1 so switching tabs never freezes on the old tab's items.
+    const seeded = typePage === 1 ? filterHomeCatalogByType(homeData, typeFilter) : [];
+    setTypeItems(seeded);
+    setTypeHasNext(false);
+    setTypeTotalPages(undefined);
+    setTypeTotalResults(undefined);
     setTypeLoading(true);
     void fetchKatanaByType(typeFilter, typePage).then((res) => {
       if (!alive) return;
-      setTypeItems(res.items);
+      setTypeItems(res.items.length > 0 ? res.items : seeded);
       setTypeHasNext(res.hasNext);
       setTypeTotalPages(res.totalPages);
       setTypeTotalResults(res.totalResults);
@@ -977,7 +997,7 @@ export function MangaPage() {
     return () => {
       alive = false;
     };
-  }, [typeFilter, typePage]);
+  }, [typeFilter, typePage, homeData]);
 
   useEffect(() => {
     if (detailSlug) return;
@@ -2278,6 +2298,7 @@ export function MangaPage() {
 
   return (
     <div
+      className="katana-scope"
       data-katana-theme={themeMode}
       style={{
         ...(KATANA_THEME_VARS[themeMode] as React.CSSProperties),
@@ -2456,12 +2477,13 @@ export function MangaPage() {
                     <div>
                       <KatanaBreadcrumb items={['Manga', detail.title]} onHome={() => handleNav('home')} />
 
-                      <KatanaCard
-                        padding={tablet ? 20 : 14}
+                      <div
                         style={{
                           position: 'relative',
                           overflow: 'hidden',
-                          backgroundImage: `radial-gradient(ellipse 70% 55% at 15% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.16 : 0.12)}, transparent 70%)`,
+                          margin: desktop ? '0 0 20px' : '-16px -16px 12px',
+                          padding: tablet ? '22px 24px 20px' : '16px 16px 18px',
+                          backgroundImage: `radial-gradient(ellipse 85% 75% at 22% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.22 : 0.14)}, transparent 72%)`,
                         }}
                       >
                         <div
@@ -2488,105 +2510,48 @@ export function MangaPage() {
                               width: desktop ? 200 : tablet ? 160 : 112,
                               height: desktop ? 290 : tablet ? 232 : 162,
                               borderRadius: 10,
-                              border: `1px solid ${KatanaColors.borderStrong}`,
+                              border: `1px solid ${withAlpha(KatanaColors.text, 0.12)}`,
                               overflow: 'hidden',
                               flexShrink: 0,
                               background: KatanaColors.surfaceAlt,
                             }}
                           >
-                            <KatanaCoverImage url={detail.coverUrl} title={detail.title} iconSize={34} />
+                            <KatanaCoverImage url={detail.coverUrl} title={detail.title} iconSize={34} priority />
                             <KatanaCoverBadges unreadCount={isBookmarked ? unreadCount : undefined} downloadedCount={downloadedCounts[detail.slug]} />
                           </div>
 
                           <div style={compactCard ? { display: 'contents' } : { flex: 1, minWidth: 200 }}>
                             <div style={compactCard ? { gridColumn: 2, minWidth: 0 } : undefined}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                              <span
-                                style={{
-                                  padding: '2px 9px',
-                                  borderRadius: 99,
-                                  background: withAlpha(detail.status === 'completed' ? KatanaColors.green : KatanaColors.teal, 0.16),
-                                  fontFamily: Fonts.body,
-                                  fontSize: 11.5,
-                                  fontWeight: 700,
-                                  color: detail.status === 'completed' ? KatanaColors.green : KatanaColors.teal,
-                                }}
-                              >
-                                {detail.status === 'completed' ? 'Finished Publishing' : 'Ongoing'}
+                            <div
+                              className="katana-tabular"
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 7,
+                                flexWrap: 'wrap',
+                                marginBottom: 6,
+                                fontFamily: Fonts.body,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: KatanaColors.textMuted,
+                              }}
+                            >
+                              <span style={{ color: detail.status === 'completed' ? KatanaColors.green : KatanaColors.teal }}>
+                                {detail.status === 'completed' ? 'Completed' : 'Ongoing'}
                               </span>
                               {detail.rating != null && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                  <Icon name="star" size={14} color={KatanaColors.accent} />
-                                  <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
-                                    {detail.rating.toFixed(1)}
-                                  </span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: KatanaColors.text }}>
+                                  <Icon name="star" size={13} color={KatanaColors.accent} />
+                                  {detail.rating.toFixed(1)}
                                 </span>
                               )}
-                              {detail.follows != null && detail.follows > 0 && (
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: KatanaColors.surfaceAlt,
-                                    border: `1px solid ${KatanaColors.border}`,
-                                    ...KatanaType.small,
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  {formatCompactNumber(detail.follows)} readers
-                                </span>
+                              <span>{detail.chapters.length} ch</span>
+                              {detail.demographic && <span>{detail.demographic}</span>}
+                              {!compactCard && detail.follows != null && detail.follows > 0 && (
+                                <span style={{ color: KatanaColors.textLight }}>{formatCompactNumber(detail.follows)} readers</span>
                               )}
-                              {detail.demographic && (
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: KatanaColors.surfaceAlt,
-                                    border: `1px solid ${KatanaColors.border}`,
-                                    ...KatanaType.small,
-                                    fontSize: 12,
-                                    color: KatanaColors.textMuted,
-                                  }}
-                                >
-                                  {detail.demographic}
-                                </span>
-                              )}
-                              <span
-                                style={{
-                                  padding: '2px 8px',
-                                  borderRadius: 99,
-                                  background: KatanaColors.surfaceAlt,
-                                  border: `1px solid ${KatanaColors.border}`,
-                                  ...KatanaType.small,
-                                  fontSize: 12,
-                                }}
-                              >
-                                {detail.chapters.length} ch
-                              </span>
                               {detail.updateText && (
-                                <span style={{ ...KatanaType.small, fontSize: 12 }}>{detail.updateText}</span>
-                              )}
-                              {isBookmarked && alertsEnabled && detail.status !== 'completed' && !detailBm?.ignoreUpdates && (
-                                <span
-                                  title={`Smart Updates active · last checked ${detailBm?.lastCheckedAt ? formatKatanaTime(new Date(detailBm.lastCheckedAt)) : 'recently'} (~${detailBm?.cadenceHours ?? 12}h cadence)`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: withAlpha(KatanaColors.accent, 0.14),
-                                    border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
-                                    ...KatanaType.small,
-                                    fontSize: 11.5,
-                                    color: KatanaColors.accentSoft,
-                                  }}
-                                >
-                                  <Icon name="notifications_active" size={12} color={KatanaColors.accent} />
-                                  <span>
-                                    {compactCard ? 'New chapters daily' : `New chapters usually arrive within a day — we’ll notify you`}
-                                  </span>
-                                </span>
+                                <span style={{ color: KatanaColors.textLight }}>{detail.updateText}</span>
                               )}
                             </div>
 
@@ -2634,8 +2599,8 @@ export function MangaPage() {
                                 style={{
                                   display: 'flex',
                                   flexWrap: 'wrap',
-                                  gap: 6,
-                                  marginTop: 10,
+                                  gap: '2px 10px',
+                                  marginTop: 8,
                                 }}
                               >
                                 {detail.genres.map((g) => (
@@ -2645,15 +2610,13 @@ export function MangaPage() {
                                     className="bare-button"
                                     onClick={() => handleSelectGenre(g)}
                                     style={{
-                                      minHeight: compactCard ? 36 : 44,
-                                      padding: compactCard ? '5px 10px' : '6px 12px',
-                                      borderRadius: 8,
+                                      minHeight: 32,
+                                      padding: 0,
                                       display: 'inline-flex',
                                       alignItems: 'center',
-                                      border: `1px solid ${KatanaColors.borderStrong}`,
-                                      background: KatanaColors.surfaceAlt,
                                       ...KatanaType.small,
-                                      color: KatanaColors.text,
+                                      fontSize: 12.5,
+                                      color: KatanaColors.textMuted,
                                     }}
                                   >
                                     {g.name}
@@ -2741,28 +2704,25 @@ export function MangaPage() {
                                   style={{
                                     flex: compactCard ? '0 0 auto' : undefined,
                                     minWidth: 0,
-                                    minHeight: compactCard ? 44 : 40,
-                                    padding: compactCard ? '0 12px' : '0 12px',
-                                    borderRadius: 8,
-                                    background: KatanaColors.surfaceAlt,
-                                    border: `1px solid ${isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+                                    minHeight: 40,
+                                    padding: '0 8px',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: 4,
+                                    gap: 5,
                                     fontFamily: Fonts.body,
-                                    fontSize: compactCard ? 11.5 : 12,
-                                    fontWeight: 700,
-                                    color: KatanaColors.text,
+                                    fontSize: 13,
+                                    fontWeight: isBookmarked ? 700 : 600,
+                                    color: isBookmarked ? KatanaColors.accentSoft : KatanaColors.textMuted,
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                   }}
                                 >
-                                  <Icon name={isBookmarked ? 'bookmark' : 'bookmark_border'} size={14} color={isBookmarked ? KatanaColors.green : KatanaColors.textMuted} />
+                                  <Icon name={isBookmarked ? 'bookmark' : 'bookmark_border'} size={17} color={isBookmarked ? KatanaColors.accent : KatanaColors.textMuted} />
                                   <span className="ellipsis">{isBookmarked ? 'Saved' : 'Save'}</span>
                                 </button>
                                 {userName && (
-                                  <div style={{ position: 'relative', flex: compactCard ? '1 1 auto' : undefined, minWidth: 0 }}>
+                                  <div style={{ position: 'relative', flex: compactCard ? '0 1 auto' : undefined, minWidth: 0 }}>
                                     <button
                                       type="button"
                                       className="bare-button"
@@ -2773,21 +2733,17 @@ export function MangaPage() {
                                         setStatusMenuOpen((v) => !v);
                                       }}
                                       style={{
-                                        width: compactCard ? '100%' : undefined,
                                         minWidth: 0,
-                                        minHeight: compactCard ? 44 : 40,
-                                        padding: compactCard ? '0 10px' : '0 12px',
-                                        borderRadius: 8,
-                                        background: statusMenuOpen || isBookmarked ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                        border: `1px solid ${statusMenuOpen || isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+                                        minHeight: 40,
+                                        padding: '0 8px',
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         gap: 4,
                                         fontFamily: Fonts.body,
-                                        fontSize: compactCard ? 12 : 12,
+                                        fontSize: 13,
                                         fontWeight: 600,
-                                        color: KatanaColors.text,
+                                        color: statusMenuOpen || isBookmarked ? KatanaColors.text : KatanaColors.textMuted,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                       }}
@@ -2795,18 +2751,16 @@ export function MangaPage() {
                                       {!compactCard && (
                                         <Icon
                                           name={currentStatus ? STATUS_LABELS[currentStatus].icon : 'shelves'}
-                                          size={14}
+                                          size={16}
                                           color={currentStatus ? STATUS_LABELS[currentStatus].color : KatanaColors.textMuted}
                                         />
                                       )}
                                       <span className="ellipsis">
                                         {isBookmarked && currentStatus
-                                          ? !desktop
-                                            ? STATUS_LABELS[currentStatus].label
-                                            : `${STATUS_LABELS[currentStatus].label}`
+                                          ? STATUS_LABELS[currentStatus].label
                                           : 'Shelf'}
                                       </span>
-                                      <Icon name="expand_more" size={14} color={KatanaColors.textMuted} />
+                                      <Icon name="expand_more" size={16} color={KatanaColors.textMuted} />
                                     </button>
                                     {statusMenuOpen && (
                                       <div
@@ -3028,17 +2982,14 @@ export function MangaPage() {
                                       setDetailOverflowOpen((v) => !v);
                                     }}
                                     style={{
-                                      width: compactCard ? 44 : 40,
-                                      height: compactCard ? 44 : 40,
-                                      borderRadius: 8,
-                                      background: detailOverflowOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                      border: `1px solid ${KatanaColors.borderStrong}`,
+                                      width: 40,
+                                      height: 40,
                                       display: 'grid',
                                       placeItems: 'center',
                                       flexShrink: 0,
                                     }}
                                   >
-                                    <Icon name="more_horiz" size={18} color={KatanaColors.textMuted} />
+                                    <Icon name="more_horiz" size={20} color={detailOverflowOpen ? KatanaColors.accent : KatanaColors.textMuted} />
                                   </button>
                                   {detailOverflowOpen && (
                                     <div
@@ -3335,7 +3286,7 @@ export function MangaPage() {
                                 </div>
                               </div>
                               {compactCard && (detail.chapters.length > 0 || userName) && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 2, flexWrap: 'wrap', borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.7)}`, paddingTop: 6 }}>
                                   {detail.chapters.length > 0 && (
                                     <button
                                       type="button"
@@ -3344,25 +3295,20 @@ export function MangaPage() {
                                       disabled={batchProgress != null}
                                       onClick={() => void downloadNextUnread(detail, readSet, 3)}
                                       style={{
-                                        flex: 1,
-                                        minHeight: 44,
-                                        padding: '0 10px',
-                                        borderRadius: 8,
-                                        background: KatanaColors.surfaceAlt,
-                                        border: `1px solid ${KatanaColors.borderStrong}`,
+                                        minHeight: 38,
+                                        padding: '0 4px',
                                         display: 'inline-flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: 5,
+                                        gap: 6,
                                         fontFamily: Fonts.body,
-                                        fontSize: 12,
+                                        fontSize: 13,
                                         fontWeight: 600,
-                                        color: KatanaColors.text,
+                                        color: KatanaColors.textMuted,
                                         whiteSpace: 'nowrap',
                                         opacity: batchProgress != null ? 0.6 : 1,
                                       }}
                                     >
-                                      <Icon name="download" size={15} color={KatanaColors.accent} />
+                                      <Icon name="download" size={16} color={KatanaColors.accent} />
                                       <span>{batchProgress ? `${batchProgress.done} of ${batchProgress.total}` : 'Download'}</span>
                                     </button>
                                   )}
@@ -3374,26 +3320,21 @@ export function MangaPage() {
                                       aria-pressed={alertsEnabled}
                                       onClick={() => void toggleSeriesAlerts(detail, alertsEnabled)}
                                       style={{
-                                        flex: 1,
-                                        minHeight: 44,
-                                        padding: '0 10px',
-                                        borderRadius: 8,
-                                        background: KatanaColors.surfaceAlt,
-                                        border: `1px solid ${alertsEnabled && isBookmarked ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+                                        minHeight: 38,
+                                        padding: '0 4px',
                                         display: 'inline-flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: 5,
+                                        gap: 6,
                                         fontFamily: Fonts.body,
-                                        fontSize: 12,
+                                        fontSize: 13,
                                         fontWeight: 600,
-                                        color: KatanaColors.text,
+                                        color: alertsEnabled && isBookmarked ? KatanaColors.text : KatanaColors.textMuted,
                                         whiteSpace: 'nowrap',
                                       }}
                                     >
                                       <Icon
                                         name={alertsEnabled ? 'notifications_active' : 'notifications_off'}
-                                        size={15}
+                                        size={16}
                                         color={alertsEnabled && isBookmarked ? KatanaColors.accent : KatanaColors.textMuted}
                                       />
                                       <span>{alertsEnabled ? 'Alerts On' : 'Alerts Off'}</span>
@@ -3515,7 +3456,7 @@ export function MangaPage() {
                         }}
                       >
                         <div style={{ flex: 1, minWidth: 0, maxWidth: desktop ? 860 : undefined }}>
-                          <KatanaCard padding={16}>
+                          <section style={{ paddingTop: 18, borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.78)}` }}>
                             {batchProgress && (
                               <div
                                 role="status"
@@ -3623,11 +3564,8 @@ export function MangaPage() {
                                   }, 60);
                                 }}
                                 style={{
-                                  minHeight: 44,
-                                  padding: '6px 10px',
-                                  borderRadius: 8,
-                                  background: withAlpha(KatanaColors.accent, 0.14),
-                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.45)}`,
+                                  minHeight: 36,
+                                  padding: '4px 6px',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 5,
@@ -3646,18 +3584,15 @@ export function MangaPage() {
                               className="bare-button"
                               onClick={() => setChapterSortAsc((v) => !v)}
                               style={{
-                                minHeight: 44,
-                                padding: '6px 10px',
-                                borderRadius: 8,
-                                background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${KatanaColors.border}`,
+                                minHeight: 36,
+                                padding: '4px 6px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 5,
                                 fontFamily: Fonts.body,
                                 fontSize: 12.5,
                                 fontWeight: 600,
-                                color: KatanaColors.text,
+                                color: KatanaColors.textMuted,
                               }}
                             >
                               <Icon name="swap_vert" size={15} color={KatanaColors.textMuted} />
@@ -3670,18 +3605,15 @@ export function MangaPage() {
                                 aria-expanded={chapterToolsOpen}
                                 onClick={() => setChapterToolsOpen((v) => !v)}
                                 style={{
-                                  minHeight: 44,
-                                  padding: '6px 10px',
-                                  borderRadius: 8,
-                                  background: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                  border: `1px solid ${chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                  minHeight: 36,
+                                  padding: '4px 6px',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 4,
                                   fontFamily: Fonts.body,
                                   fontSize: 12.5,
                                   fontWeight: 600,
-                                  color: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                  color: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted,
                                 }}
                               >
                                 <Icon name="tune" size={15} color={chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted} />
@@ -4394,7 +4326,7 @@ export function MangaPage() {
                           </div>
                         )}
 
-                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.72)}` }}>
                           {visibleChapters.map((c, idx) => {
                             const isRead = readSet.has(c.id);
                             const isLastRead = detailBm?.lastReadChapterId === c.id;
@@ -4443,19 +4375,12 @@ export function MangaPage() {
                               <div
                                 data-chapter-id={c.id}
                                 style={{
-                                  borderRadius: 9,
                                   background: isChecked
                                     ? KatanaColors.chipSelectedBg
                                     : isLastRead
-                                      ? withAlpha(KatanaColors.accent, 0.1)
-                                      : KatanaColors.surfaceAlt,
-                                  border: `1px solid ${
-                                    isChecked
-                                      ? KatanaColors.chipSelectedBorder
-                                      : isLastRead
-                                        ? withAlpha(KatanaColors.accent, 0.45)
-                                        : KatanaColors.border
-                                  }`,
+                                      ? withAlpha(KatanaColors.accent, 0.08)
+                                      : 'transparent',
+                                  borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.65)}`,
                                   overflow: 'hidden',
                                 }}
                               >
@@ -4463,8 +4388,8 @@ export function MangaPage() {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 8,
-                                    padding: compactCard ? '9px 8px 9px 10px' : '8px 10px',
+                                    gap: 10,
+                                    padding: compactCard ? '11px 4px' : '11px 6px',
                                   }}
                                 >
                                   {selectMode && (
@@ -4823,7 +4748,7 @@ export function MangaPage() {
                             />
                           </div>
                         )}
-                          </KatanaCard>
+                          </section>
                         </div>
 
                         {tablet && similarToDetail.length > 0 && (
@@ -5666,7 +5591,7 @@ export function MangaPage() {
                             </div>
                           </div>
                         )}
-                      </KatanaCard>
+                      </div>
 
                       {partnerDetailBm && (partnerDetailBm.userScore || partnerDetailBm.trackerNote || partnerDetailBm.lastReadChapterTitle) && (
                         <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>
@@ -5897,17 +5822,14 @@ export function MangaPage() {
                         onClick={() => void handleRefreshLibrary()}
                         aria-label="Refresh library updates"
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 9,
-                          background: KatanaColors.surfaceAlt,
-                          border: `1px solid ${KatanaColors.border}`,
+                          width: 40,
+                          height: 40,
                           display: 'grid',
                           placeItems: 'center',
                           opacity: libraryRefreshing ? 0.6 : 1,
                         }}
                       >
-                        <Icon name="refresh" size={17} color={KatanaColors.accent} />
+                        <Icon name="refresh" size={18} color={KatanaColors.accent} />
                       </button>
                       <button
                         type="button"
@@ -5915,26 +5837,23 @@ export function MangaPage() {
                         aria-expanded={libraryToolsOpen}
                         onClick={() => setLibraryToolsOpen((v) => !v)}
                         style={{
-                          minHeight: 44,
-                          padding: '0 12px',
-                          borderRadius: 9,
-                          background: libraryToolsOpen || librarySelectMode ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                          border: `1px solid ${libraryToolsOpen || librarySelectMode ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+                          minHeight: 40,
+                          padding: '0 4px',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 5,
                           fontFamily: Fonts.body,
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          color: libraryToolsOpen || librarySelectMode ? KatanaColors.chipSelectedText : KatanaColors.text,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: libraryToolsOpen || librarySelectMode ? KatanaColors.accentSoft : KatanaColors.textMuted,
                         }}
                       >
-                        <Icon name="tune" size={16} color={KatanaColors.accentSoft} />
+                        <Icon name="tune" size={16} color={libraryToolsOpen || librarySelectMode ? KatanaColors.accent : KatanaColors.textMuted} />
                         <span>Tools & Sort</span>
                       </button>
                     </div>
                   ) : (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="bare-button"
@@ -5942,17 +5861,14 @@ export function MangaPage() {
                       onClick={() => void handleRefreshLibrary()}
                       aria-label="Refresh library updates"
                       style={{
-                        padding: '6px 11px',
-                        minHeight: 44,
-                        borderRadius: 8,
-                        background: KatanaColors.surfaceAlt,
-                        border: `1px solid ${KatanaColors.border}`,
+                        padding: '0 4px',
+                        minHeight: 38,
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 5,
                         fontFamily: Fonts.body,
-                        fontSize: 12,
-                        fontWeight: 700,
+                        fontSize: 12.5,
+                        fontWeight: 600,
                         color: KatanaColors.textMuted,
                         opacity: libraryRefreshing ? 0.6 : 1,
                       }}
@@ -5967,21 +5883,18 @@ export function MangaPage() {
                         onClick={() => setLibraryStatsOpen((v) => !v)}
                         aria-expanded={libraryStatsOpen}
                         style={{
-                          padding: '6px 11px',
-                        minHeight: 44,
-                          borderRadius: 8,
-                          background: libraryStatsOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                          border: `1px solid ${libraryStatsOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                          padding: '0 4px',
+                          minHeight: 38,
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 5,
                           fontFamily: Fonts.body,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: libraryStatsOpen ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: libraryStatsOpen ? KatanaColors.accentSoft : KatanaColors.textMuted,
                         }}
                       >
-                        <Icon name="bar_chart" size={16} color={libraryStatsOpen ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                        <Icon name="bar_chart" size={16} color={libraryStatsOpen ? KatanaColors.accent : KatanaColors.textMuted} />
                         <span>Stats</span>
                       </button>
                     )}
@@ -5991,25 +5904,22 @@ export function MangaPage() {
                       onClick={() => setBackupPanelOpen((v) => !v)}
                       aria-expanded={backupPanelOpen}
                       style={{
-                        padding: '6px 11px',
-                        minHeight: 44,
-                        borderRadius: 8,
-                        background: backupPanelOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                        border: `1px solid ${backupPanelOpen ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                        padding: '0 4px',
+                        minHeight: 38,
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 5,
                         fontFamily: Fonts.body,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: backupPanelOpen ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: backupPanelOpen ? KatanaColors.accentSoft : KatanaColors.textMuted,
                       }}
                     >
-                      <Icon name="backup" size={16} color={backupPanelOpen ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                      <Icon name="backup" size={16} color={backupPanelOpen ? KatanaColors.accent : KatanaColors.textMuted} />
                       <span>Backup</span>
                     </button>
                   {savedBookmarks.length > 0 && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                       <button
                         type="button"
                         className="bare-button"
@@ -6018,24 +5928,21 @@ export function MangaPage() {
                           setSelectedLibrarySlugs(new Set());
                         }}
                         style={{
-                          padding: '6px 11px',
-                        minHeight: 44,
-                          borderRadius: 8,
-                          background: librarySelectMode ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                          border: `1px solid ${librarySelectMode ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                          padding: '0 4px',
+                          minHeight: 38,
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 5,
                           fontFamily: Fonts.body,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: librarySelectMode ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: librarySelectMode ? KatanaColors.accentSoft : KatanaColors.textMuted,
                         }}
                       >
-                        <Icon name="checklist" size={16} color={librarySelectMode ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                        <Icon name="checklist" size={16} color={librarySelectMode ? KatanaColors.accent : KatanaColors.textMuted} />
                         <span>{librarySelectMode ? 'Done' : 'Select'}</span>
                       </button>
-                      <div style={{ display: 'inline-flex', padding: 3, borderRadius: 8, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                         {(
                           [
                             ['list', 'view_agenda', 'List view'],
@@ -6053,16 +5960,13 @@ export function MangaPage() {
                               title={label}
                               onClick={() => setLibraryViewMode(mode)}
                               style={{
-                                width: 44,
-                                height: 44,
-                                borderRadius: 6,
-                                background: active ? KatanaColors.chipSelectedBg : 'transparent',
-                                border: active ? `1px solid ${KatanaColors.chipSelectedBorder}` : '1px solid transparent',
+                                width: 38,
+                                height: 38,
                                 display: 'grid',
                                 placeItems: 'center',
                               }}
                             >
-                              <Icon name={icon} size={16} color={active ? KatanaColors.chipSelectedText : KatanaColors.textMuted} />
+                              <Icon name={icon} size={17} color={active ? KatanaColors.accent : KatanaColors.textLight} />
                             </button>
                           );
                         })}
@@ -6825,16 +6729,13 @@ export function MangaPage() {
 
                 {!compactCard && savedBookmarks.length > 0 && (
                   <div
+                    className="katana-tabular"
                     style={{
-                      marginTop: 10,
+                      marginTop: 6,
                       display: 'flex',
                       alignItems: 'center',
                       flexWrap: 'wrap',
-                      gap: '6px 14px',
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      background: KatanaColors.surface,
-                      border: `1px solid ${KatanaColors.border}`,
+                      gap: '4px 16px',
                       fontFamily: Fonts.body,
                       fontSize: 12.5,
                       color: KatanaColors.textMuted,
@@ -6844,13 +6745,13 @@ export function MangaPage() {
                       <strong style={{ color: KatanaColors.text }}>{savedBookmarks.length}</strong> saved
                     </span>
                     <span>
-                      <strong style={{ color: KatanaColors.accent }}>{libraryCounts.reading}</strong> reading
+                      <strong style={{ color: KatanaColors.accentSoft }}>{libraryCounts.reading}</strong> reading
                     </span>
                     <span>
                       <strong style={{ color: KatanaColors.green }}>{libraryCounts.completed}</strong> completed
                     </span>
                     <span>
-                      <strong style={{ color: KatanaColors.link }}>{totalChaptersRead}</strong> chapters read
+                      <strong style={{ color: KatanaColors.text }}>{totalChaptersRead}</strong> chapters read
                     </span>
                   </div>
                 )}
@@ -6901,10 +6802,10 @@ export function MangaPage() {
                 <div
                   className="no-scrollbar"
                   style={{
-                    marginTop: 10,
+                    marginTop: 8,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 14,
                     overflowX: 'auto',
                     paddingBottom: 2,
                     maskImage: 'linear-gradient(to right, black 92%, transparent 100%)',
@@ -6917,14 +6818,11 @@ export function MangaPage() {
                     onClick={() => setLibraryCategory('all')}
                     style={{
                       flexShrink: 0,
-                      padding: '5px 11px',
-                      borderRadius: 99,
-                      background: libraryCategory === 'all' ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                      border: `1px solid ${libraryCategory === 'all' ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                      padding: '4px 0',
                       fontFamily: Fonts.body,
-                      fontSize: 12,
+                      fontSize: 12.5,
                       fontWeight: libraryCategory === 'all' ? 700 : 500,
-                      color: libraryCategory === 'all' ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                      color: libraryCategory === 'all' ? KatanaColors.accentSoft : KatanaColors.textMuted,
                     }}
                   >
                     All Shelves
@@ -6940,14 +6838,11 @@ export function MangaPage() {
                         onClick={() => setLibraryCategory(active ? 'all' : cat)}
                         style={{
                           flexShrink: 0,
-                          padding: '5px 11px',
-                          borderRadius: 99,
-                          background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                          border: `1px solid ${active ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                          padding: '4px 0',
                           fontFamily: Fonts.body,
-                          fontSize: 12,
+                          fontSize: 12.5,
                           fontWeight: active ? 700 : 500,
-                          color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                          color: active ? KatanaColors.accentSoft : KatanaColors.textMuted,
                         }}
                       >
                         {cat} ({count})
@@ -6961,20 +6856,17 @@ export function MangaPage() {
                     aria-label="Manage custom categories"
                     style={{
                       flexShrink: 0,
-                      padding: '5px 10px',
-                      borderRadius: 99,
-                      background: categoryManagerOpen ? KatanaColors.chipSelectedBg : 'transparent',
-                      border: `1px dashed ${KatanaColors.borderStrong}`,
+                      padding: '4px 0',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
                       fontFamily: Fonts.body,
-                      fontSize: 12,
+                      fontSize: 12.5,
                       fontWeight: 600,
-                      color: KatanaColors.textMuted,
+                      color: categoryManagerOpen ? KatanaColors.accentSoft : KatanaColors.textLight,
                     }}
                   >
-                    <Icon name="add" size={14} color={KatanaColors.accentSoft} />
+                    <Icon name="add" size={14} color={KatanaColors.accent} />
                     <span>Categories</span>
                   </button>
                 </div>
@@ -7075,7 +6967,7 @@ export function MangaPage() {
                 )}
 
                 {/* Status buckets */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.85)}` }}>
                 <div
                   ref={shelfChipsRef}
                   className="no-scrollbar"
@@ -7083,12 +6975,11 @@ export function MangaPage() {
                     flex: 1,
                     minWidth: 0,
                     display: 'flex',
-                    gap: 8,
+                    gap: 18,
                     overflowX: 'auto',
-                    paddingBottom: 2,
                     paddingRight: 18,
-                    maskImage: 'linear-gradient(to right, black 86%, transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to right, black 86%, transparent 100%)',
+                    maskImage: 'linear-gradient(to right, black 88%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to right, black 88%, transparent 100%)',
                   }}
                 >
                   {(['all', 'reading', 'caught_up', 'downloaded', 'on_hold', 'completed', 'planned', 'dropped'] as const).map((bucket) => {
@@ -7110,15 +7001,14 @@ export function MangaPage() {
                         aria-pressed={active}
                         style={{
                           flexShrink: 0,
-                          minHeight: 44,
-                          padding: '7px 13px',
-                          borderRadius: 99,
-                          background: active ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                          border: `1px solid ${active ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                          minHeight: 40,
+                          padding: '6px 0',
+                          borderBottom: `2px solid ${active ? KatanaColors.accent : 'transparent'}`,
+                          marginBottom: -1,
                           fontFamily: Fonts.body,
-                          fontSize: 12.5,
+                          fontSize: 13.5,
                           fontWeight: active ? 700 : 500,
-                          color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                          color: active ? KatanaColors.text : KatanaColors.textMuted,
                         }}
                       >
                         {label} ({libraryCounts[bucket]})
@@ -7134,33 +7024,28 @@ export function MangaPage() {
                     onClick={() => shelfChipsRef.current?.scrollBy({ left: 160, behavior: 'smooth' })}
                     style={{
                       flexShrink: 0,
-                      width: 44,
-                      height: 44,
-                      borderRadius: 99,
-                      background: KatanaColors.surface,
-                      border: `1px solid ${KatanaColors.borderStrong}`,
+                      width: 34,
+                      height: 34,
                       display: 'grid',
                       placeItems: 'center',
                     }}
                   >
-                    <Icon name="chevron_right" size={18} color={KatanaColors.text} />
+                    <Icon name="chevron_right" size={18} color={KatanaColors.textMuted} />
                   </button>
                 )}
                 </div>
 
                 {/* Search & Sort */}
                 {savedBookmarks.length > 0 && (
-                  <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ marginTop: 12, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
                     <div
                       className="katana-input-shell"
                       style={{
                         flex: 1,
                         minWidth: 180,
-                        height: 44,
-                        padding: '0 12px',
-                        borderRadius: 9,
-                        background: KatanaColors.surface,
-                        border: `1px solid ${KatanaColors.border}`,
+                        height: 40,
+                        padding: '0 2px',
+                        borderBottom: `1px solid ${withAlpha(KatanaColors.borderStrong, 0.85)}`,
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
@@ -7178,13 +7063,13 @@ export function MangaPage() {
                           border: 'none',
                           outline: 'none',
                           fontFamily: Fonts.body,
-                          fontSize: 13,
+                          fontSize: 13.5,
                           color: KatanaColors.text,
                         }}
                       />
                     </div>
                     {!compactCard && (
-                    <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
                       {(
                         [
                           ['last_read', 'Last Read'],
@@ -7199,14 +7084,13 @@ export function MangaPage() {
                           className="bare-button"
                           onClick={() => setLibrarySort(id)}
                           style={{
-                            padding: '7px 11px',
-                            borderRadius: 8,
-                            background: librarySort === id ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                            border: `1px solid ${librarySort === id ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                            minHeight: 36,
+                            padding: '4px 0',
+                            borderBottom: `2px solid ${librarySort === id ? KatanaColors.accent : 'transparent'}`,
                             fontFamily: Fonts.body,
-                            fontSize: 12,
+                            fontSize: 12.5,
                             fontWeight: librarySort === id ? 700 : 500,
-                            color: librarySort === id ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                            color: librarySort === id ? KatanaColors.text : KatanaColors.textMuted,
                           }}
                         >
                           {label}
@@ -7413,14 +7297,12 @@ export function MangaPage() {
                   <div
                     style={{
                       width: tablet ? 240 : '100%',
-                      height: 36,
-                      padding: '0 10px',
-                      borderRadius: 9,
-                      background: KatanaColors.surface,
-                      border: `1px solid ${KatanaColors.border}`,
+                      height: 40,
+                      padding: '0 2px',
+                      borderBottom: `1px solid ${withAlpha(KatanaColors.borderStrong, 0.85)}`,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 6,
+                      gap: 8,
                     }}
                   >
                     <Icon name="search" size={16} color={KatanaColors.textLight} />
@@ -7429,33 +7311,40 @@ export function MangaPage() {
                       onChange={(e) => setGenreFilterText(e.target.value)}
                       placeholder="Filter genres..."
                       aria-label="Filter genres"
-                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontFamily: Fonts.body, fontSize: 13, color: KatanaColors.text }}
+                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontFamily: Fonts.body, fontSize: 13.5, color: KatanaColors.text }}
                     />
                   </div>
                 </div>
                 <div style={{ height: 12 }} />
-                <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(4, minmax(0, 1fr))' : tablet ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(4, minmax(0, 1fr))' : tablet ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', columnGap: 20 }}>
                   {filteredGenres.map((g) => (
-                    <KatanaCard key={g.slug} padding={12}>
-                      <button
-                        type="button"
-                        className="bare-button"
-                        onClick={() => handleSelectGenre(g)}
-                        style={{ width: '100%', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6 }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ ...KatanaType.title, color: KatanaColors.link, fontSize: 14.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {g.name}
+                    <button
+                      key={g.slug}
+                      type="button"
+                      className="bare-button"
+                      onClick={() => handleSelectGenre(g)}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        padding: '13px 0',
+                        borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.72)}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: 14.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {g.name}
+                        </span>
+                        {g.count > 0 && (
+                          <span className="katana-tabular" style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textLight, flexShrink: 0 }}>
+                            {g.count}
                           </span>
-                          {g.count > 0 && (
-                            <span style={{ padding: '2px 7px', borderRadius: 10, background: KatanaColors.surfaceAlt, ...KatanaType.small, fontSize: 11 }}>
-                              {g.count}
-                            </span>
-                          )}
-                        </div>
-                        {g.description && <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 12 }}>{g.description}</div>}
-                      </button>
-                    </KatanaCard>
+                        )}
+                      </div>
+                      {g.description && <div className="clamp-2" style={{ ...KatanaType.small, fontSize: 12, lineHeight: 1.4 }}>{g.description}</div>}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -7487,83 +7376,29 @@ export function MangaPage() {
                     }
                     badge={catTotalResults != null ? `${catTotalResults} series` : undefined}
                   />
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {(catalogMode === 'directory' || catalogMode === 'search') && (
-                      <div
-                        role="group"
-                        aria-label="Catalog source"
-                        className="no-scrollbar"
-                        style={{
-                          display: 'inline-flex',
-                          padding: 3,
-                          borderRadius: 99,
-                          background: KatanaColors.surfaceAlt,
-                          border: `1px solid ${KatanaColors.border}`,
-                          maxWidth: '100%',
-                          overflowX: 'auto',
-                        }}
-                      >
-                        {(['all', 'mangakatana', 'mangadex', 'comick', 'bato'] as const).map((src) => {
-                          const label = src === 'all' ? 'Everything' : getSourceBadgeInfo(src).choice;
-                          const active = catalogSource === src;
-                          const tip =
-                            src === 'all'
-                              ? 'Search every source at once · closest title matches first'
-                              : getSourceBadgeInfo(src).tooltip;
-                          return (
-                            <button
-                              key={src}
-                              type="button"
-                              className="bare-button"
-                              aria-pressed={active}
-                              title={tip}
-                              onClick={() => setCatalogSource(src)}
-                              style={{
-                                minHeight: 44,
-                                padding: '0 12px',
-                                borderRadius: 99,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                whiteSpace: 'nowrap',
-                                flexShrink: 0,
-                                background: active ? KatanaColors.chipSelectedBg : 'transparent',
-                                fontFamily: Fonts.body,
-                                fontSize: 12,
-                                fontWeight: active ? 700 : 500,
-                                color: active ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
-                              }}
-                            >
-                              {compactCard && src === 'all' ? 'All' : label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     {(catalogMode === 'directory' || catalogMode === 'genre' || catalogMode === 'search') && (
                       <button
                         type="button"
                         className="bare-button"
                         onClick={() => setFilterOpen((o) => !o)}
                         style={{
-                          minHeight: 44,
-                          padding: '0 14px',
-                          borderRadius: 99,
-                          background: filterOpen || activeFilterCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                          border: `1px solid ${filterOpen || activeFilterCount > 0 ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+                          minHeight: 38,
+                          padding: '0 4px',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
                           fontFamily: Fonts.body,
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          color: filterOpen || activeFilterCount > 0 ? KatanaColors.chipSelectedText : KatanaColors.text,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: filterOpen || activeFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted,
                         }}
                       >
-                        <Icon name="tune" size={15} color={filterOpen || activeFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                        <Icon name="tune" size={16} color={filterOpen || activeFilterCount > 0 ? KatanaColors.accent : KatanaColors.textMuted} />
                         <span>Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
                       </button>
                     )}
-                    <div style={{ display: 'inline-flex', padding: 3, borderRadius: 10, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                       {(['grid', 'list'] as const).map((mode) => {
                         const active = effectiveCatView === mode;
                         return (
@@ -7574,16 +7409,13 @@ export function MangaPage() {
                             aria-label={mode === 'grid' ? 'Grid view' : 'List view'}
                             onClick={() => setCatViewMode(mode)}
                             style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 8,
-                              background: active ? KatanaColors.chipSelectedBg : 'transparent',
-                              border: active ? `1px solid ${KatanaColors.chipSelectedBorder}` : '1px solid transparent',
+                              width: 38,
+                              height: 38,
                               display: 'grid',
                               placeItems: 'center',
                             }}
                           >
-                            <Icon name={mode === 'grid' ? 'grid_view' : 'view_agenda'} size={17} color={active ? KatanaColors.chipSelectedText : KatanaColors.textMuted} />
+                            <Icon name={mode === 'grid' ? 'grid_view' : 'view_agenda'} size={18} color={active ? KatanaColors.accent : KatanaColors.textLight} />
                           </button>
                         );
                       })}
@@ -7593,12 +7425,59 @@ export function MangaPage() {
 
                 {(catalogMode === 'directory' || catalogMode === 'search') && (
                   <div
+                    role="group"
+                    aria-label="Catalog source"
+                    className="no-scrollbar"
                     style={{
-                      marginTop: 6,
-                      padding: '6px 10px',
-                      borderRadius: 8,
-                      background: withAlpha(KatanaColors.surfaceAlt, 0.72),
-                      border: `1px solid ${KatanaColors.border}`,
+                      marginTop: 8,
+                      display: 'flex',
+                      gap: 18,
+                      borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.85)}`,
+                      maxWidth: '100%',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    {(['all', 'mangakatana', 'mangadex', 'comick', 'bato'] as const).map((src) => {
+                      const label = src === 'all' ? 'Everything' : getSourceBadgeInfo(src).choice;
+                      const active = catalogSource === src;
+                      const tip =
+                        src === 'all'
+                          ? 'Search every source at once · closest title matches first'
+                          : getSourceBadgeInfo(src).tooltip;
+                      return (
+                        <button
+                          key={src}
+                          type="button"
+                          className="bare-button"
+                          aria-pressed={active}
+                          title={tip}
+                          onClick={() => setCatalogSource(src)}
+                          style={{
+                            minHeight: 40,
+                            padding: '6px 0',
+                            borderBottom: `2px solid ${active ? KatanaColors.accent : 'transparent'}`,
+                            marginBottom: -1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            fontFamily: Fonts.body,
+                            fontSize: 13,
+                            fontWeight: active ? 700 : 500,
+                            color: active ? KatanaColors.text : KatanaColors.textMuted,
+                          }}
+                        >
+                          {compactCard && src === 'all' ? 'All' : label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {(catalogMode === 'directory' || catalogMode === 'search') && (
+                  <div
+                    style={{
+                      marginTop: 8,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -7606,18 +7485,13 @@ export function MangaPage() {
                       gap: 6,
                     }}
                   >
-                    <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.textMuted }}>
+                    <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.textLight }}>
                       {catalogSource === 'all' ? (
-                        <>
-                          <strong style={{ color: KatanaColors.text }}>Searching every source at once.</strong> Closest
-                          title match first, official releases above fan uploads.
-                        </>
+                        <>Searching every source · closest title match first</>
                       ) : (
                         (() => {
                           const info = getSourceBadgeInfo(catalogSource);
-                          return (
-                            <>{info.signals.specialty}.</>
-                          );
+                          return <>{info.signals.specialty}.</>;
                         })()
                       )}
                     </span>
@@ -7627,13 +7501,13 @@ export function MangaPage() {
                         alignItems: 'center',
                         gap: 4,
                         fontFamily: Fonts.body,
-                        fontSize: 11,
-                        fontWeight: 700,
+                        fontSize: 11.5,
+                        fontWeight: 600,
                         color: KatanaColors.green,
                       }}
                     >
                       <Icon name="verified" size={13} color={KatanaColors.green} />
-                      <span>Official releases first</span>
+                      <span>Official first</span>
                     </span>
                   </div>
                 )}

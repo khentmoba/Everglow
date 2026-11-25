@@ -1,9 +1,22 @@
 'use strict';
 
 const common = require('./common.js');
-const { applyCors, cappedHttps, enforceRateLimit, getAdmin } = common;
+const {
+  applyCors,
+  cappedHttps,
+  enforceRateLimit,
+  getAdmin,
+  _getExternalCache,
+  _setExternalCache,
+} = common;
 const { resolveKatanaServerCookie } = require('./media_proxy_core.js');
 const { resolveRasterImageStream, streamMediaBody } = require('./stream_media_body');
+
+const HTML_PROXY_CACHE_TTL_MS = 60 * 1000;
+const HTML_PROXY_MAX_CACHE_BYTES = 512 * 1024;
+const IMAGE_PROXY_CACHE_CONTROL = 'public, max-age=86400, stale-while-revalidate=604800';
+const IMAGE_PROXY_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const proxyScanlation = cappedHttps(30, async (req, res) => {
   applyCors(req, res, 'GET, OPTIONS');
@@ -89,10 +102,11 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
   try {
     const upstream = await common.fetchPublicUrl(targetUrl, {
       headers: {
-        'Accept': 'image/*,*/*;q=0.8',
+        'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
         'Referer': parsed.origin + '/',
+        'User-Agent': IMAGE_PROXY_USER_AGENT,
       },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(12000),
       httpsOnly: true,
       isAllowedUrl: isAllowedScanlationUrl,
     });
@@ -111,7 +125,7 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-    res.set('Cache-Control', 'public, max-age=600');
+    res.set('Cache-Control', IMAGE_PROXY_CACHE_CONTROL);
     await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyScanlation failed (${targetUrl}):`, e.message);
@@ -205,6 +219,22 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     req.query.cookie,
   );
 
+  const cacheable = !serverCookie;
+  const cacheKey = `html:proxy:${targetUrl}`;
+  if (cacheable) {
+    const cached = _getExternalCache(cacheKey, HTML_PROXY_CACHE_TTL_MS);
+    if (cached) {
+      res.status(200);
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      res.set('Cache-Control', 'private, max-age=60');
+      res.set('X-Cache', 'HIT');
+      res.send(cached.body);
+      return;
+    }
+  }
+
   try {
     let body = '';
     let status = 502;
@@ -217,7 +247,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
           Referer: parsed.origin + '/',
           ...(serverCookie ? { Cookie: serverCookie } : {}),
         },
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(15000),
         httpsOnly: true,
         isAllowedUrl: isAllowedHtmlUrl,
       });
@@ -226,11 +256,15 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
       if (status !== 200 || body.length > 0) break;
       await new Promise((r) => setTimeout(r, 350));
     }
+    if (cacheable && status === 200 && body.length > 0 && Buffer.byteLength(body, 'utf8') <= HTML_PROXY_MAX_CACHE_BYTES) {
+      _setExternalCache(cacheKey, { body });
+    }
     res.status(status);
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', body.length > 0 ? 'private, max-age=60' : 'private, no-store');
+    if (cacheable) res.set('X-Cache', 'MISS');
     res.send(body);
   } catch (e) {
     console.warn(`proxyFetchHtml failed (${targetUrl}):`, e.message);

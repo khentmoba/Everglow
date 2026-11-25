@@ -360,15 +360,45 @@ export function resolveCorsProxyImageUrl(url: string): string {
 }
 
 const CDN_HOSTS = ['i1', 'i6', 'i7', 'i5', 'i2'];
-export function katanaCdnFallback(url: string, step: number): string {
-  if (step <= 0) return url;
+
+function unwrapProxiedImageUrl(url: string): string {
   try {
     const parsed = new URL(url);
+    if (
+      parsed.pathname.includes('proxyMangaKatana') ||
+      parsed.pathname.includes('proxyMangaImage') ||
+      parsed.pathname.includes('proxyScanlation')
+    ) {
+      const inner = parsed.searchParams.get('url');
+      if (inner) return inner;
+    }
+  } catch {
+    // keep raw url
+  }
+  return url;
+}
+
+export function katanaCdnFallback(url: string, step: number): string {
+  if (step <= 0) return url;
+  const raw = unwrapProxiedImageUrl(url);
+  try {
+    const parsed = new URL(raw);
     const m = /^(i\d+)\./.exec(parsed.host);
-    if (!m) return url;
-    const others = CDN_HOSTS.filter((h) => h !== m[1]);
-    if (step > others.length) return url;
-    return url.replace(`${m[1]}.`, `${others[step - 1]}.`);
+    if (m) {
+      const others = CDN_HOSTS.filter((h) => h !== m[1]);
+      if (step <= others.length) {
+        return raw.replace(`${m[1]}.`, `${others[step - 1]}.`);
+      }
+      // Final fallback step: if .webp was rewritten from .avif or missing, try .jpg on primary mirror.
+      if (step === others.length + 1 && /\.webp($|[?&#])/i.test(raw)) {
+        return raw.replace(/\.webp(?=$|[?&#])/i, '.jpg');
+      }
+      return url;
+    }
+    if (step === 1 && /\.webp($|[?&#])/i.test(raw)) {
+      return raw.replace(/\.webp(?=$|[?&#])/i, '.jpg');
+    }
+    return url;
   } catch {
     return url;
   }
@@ -1412,6 +1442,17 @@ export async function fetchKatanaCatalog(opts: {
       if (opts.mode === 'search' && opts.query) {
         pool = pool.filter((m) => matchesSearch(m, opts.query!, opts.searchBy));
       }
+      if (opts.include && opts.include.length > 0) {
+        const inc = opts.include.map((s) => s.toLowerCase());
+        pool = pool.filter((m) => {
+          const slugs = m.genres.map((g) => g.slug.toLowerCase());
+          return opts.genreMode === 'or' ? inc.some((s) => slugs.includes(s)) : inc.every((s) => slugs.includes(s));
+        });
+      }
+      if (opts.exclude && opts.exclude.length > 0) {
+        const exc = new Set(opts.exclude.map((s) => s.toLowerCase()));
+        pool = pool.filter((m) => !m.genres.some((g) => exc.has(g.slug.toLowerCase())));
+      }
       const filtered = applyClientFilters(pool);
       if (filtered.length > 0) {
         return {
@@ -1463,11 +1504,83 @@ export async function fetchKatanaCatalog(opts: {
   };
 }
 
+const TYPE_CACHE_TTL_MS = 5 * 60 * 1000;
+const typeCatalogCache = new Map<string, { savedAt: number; result: KatanaPageResult }>();
+const typeCatalogInFlight = new Map<string, Promise<KatanaPageResult>>();
+clearOnLogout(typeCatalogCache);
+
+export function getCachedKatanaByType(type: string, page = 1): KatanaPageResult | null {
+  const key = `${type}:${page}`;
+  const hit = typeCatalogCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.savedAt > TYPE_CACHE_TTL_MS) {
+    typeCatalogCache.delete(key);
+    return null;
+  }
+  return hit.result;
+}
+
+export function filterHomeCatalogByType(homeData: KatanaHomeData | null, type: string): KatanaManga[] {
+  if (!homeData) return [];
+  const seen = new Set<string>();
+  const pool: KatanaManga[] = [];
+  for (const m of [...homeData.latest, ...homeData.hot, ...homeData.hotUpdates]) {
+    if (!seen.has(m.slug)) {
+      seen.add(m.slug);
+      pool.push(m);
+    }
+  }
+  if (type === 'manhwa') {
+    return pool.filter((m) => m.genres.some((g) => g.slug.toLowerCase() === 'manhwa'));
+  }
+  if (type === 'manhua') {
+    return pool.filter((m) => m.genres.some((g) => g.slug.toLowerCase() === 'manhua'));
+  }
+  if (type === 'manga') {
+    return pool.filter((m) => !m.genres.some((g) => ['manhwa', 'manhua'].includes(g.slug.toLowerCase())));
+  }
+  return pool;
+}
+
 export async function fetchKatanaByType(type: string, page = 1): Promise<KatanaPageResult> {
-  if (type === 'manga') return fetchKatanaCatalog({ mode: 'directory', page, exclude: ['manhwa', 'manhua'] });
-  if (type === 'manhwa') return fetchKatanaCatalog({ mode: 'directory', page, include: ['manhwa'] });
-  if (type === 'manhua') return fetchKatanaCatalog({ mode: 'directory', page, include: ['manhua'] });
-  return fetchKatanaCatalog({ mode: 'directory', page });
+  const cached = getCachedKatanaByType(type, page);
+  if (cached) return cached;
+
+  const key = `${type}:${page}`;
+  const pending = typeCatalogInFlight.get(key);
+  if (pending) return pending;
+
+  const work = (async (): Promise<KatanaPageResult> => {
+    const opts =
+      type === 'manga'
+        ? { mode: 'directory', page, exclude: ['manhwa', 'manhua'] }
+        : type === 'manhwa'
+          ? { mode: 'directory', page, include: ['manhwa'] }
+          : type === 'manhua'
+            ? { mode: 'directory', page, include: ['manhua'] }
+            : { mode: 'directory', page };
+
+    let res = await fetchKatanaCatalog(opts);
+    if (res.items.length === 0 && !AgentMode.demo) {
+      const mdRes = await searchMangaDexCatalog({
+        orderBy: 'latest',
+        page,
+        ...(type === 'manhwa' ? { include: ['manhwa'] } : type === 'manhua' ? { include: ['manhua'] } : type === 'manga' ? { exclude: ['manhwa', 'manhua'] } : {}),
+      }).catch(() => null);
+      if (mdRes && mdRes.items.length > 0) {
+        res = mdRes;
+      }
+    }
+    if (res.items.length > 0) {
+      setBoundedCache(typeCatalogCache, key, { savedAt: Date.now(), result: res }, 36);
+    }
+    return res;
+  })().finally(() => {
+    typeCatalogInFlight.delete(key);
+  });
+
+  typeCatalogInFlight.set(key, work);
+  return work;
 }
 
 export async function fetchKatanaSuggestions(queryText: string, searchBy = 'm_name'): Promise<KatanaManga[]> {

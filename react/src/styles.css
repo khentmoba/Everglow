@@ -99,7 +99,22 @@ body {
 }
 .bare-button:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; border-radius: 6px; }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #F0A500; outline-offset: 2px; }
-.katana-input-shell:focus-within { border-color: #F59E0B !important; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.32); }
+.katana-input-shell:focus-within { border-color: var(--katana-accent, #E8923A) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--katana-accent, #E8923A) 28%, transparent); }
+.katana-scope ::selection { background: color-mix(in srgb, var(--katana-accent, #E8923A) 32%, transparent); color: var(--katana-text, #F4F1EC); }
+.katana-tabular { font-variant-numeric: tabular-nums; }
+@keyframes katana-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.katana-cover-shimmer {
+  background-color: var(--katana-surface-alt, #1C1A22);
+  background-image: linear-gradient(
+    90deg,
+    var(--katana-surface-alt, #1C1A22) 25%,
+    var(--katana-surface-glow, #25222D) 50%,
+    var(--katana-surface-alt, #1C1A22) 75%
+  );
+  background-size: 240% 100%;
+  animation: katana-shimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .katana-cover-shimmer { animation: none; background-image: none; } }
 .player-focusable:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
 /* Manga downloads: one column on phones, two on wide screens instead of a stretched strip. */

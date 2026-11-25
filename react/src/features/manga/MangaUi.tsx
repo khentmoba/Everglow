@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { reduceAmbientMotion } from '../../core/system/device';
 import { useViewport } from '../../core/system/viewport';
 import { withAlpha } from '../../core/theme/colors';
-import { Align, boxShadow, linear, lineHeight } from '../../core/theme/paint';
+import { boxShadow, lineHeight } from '../../core/theme/paint';
 import { KatanaFonts as Fonts } from './katanaTokens';
 import { Icon } from '../../shared/widgets/Icon';
 import { MediaSectionMenuButton } from '../cinema/NetflixUi';
@@ -28,7 +28,6 @@ import {
   KatanaType,
   type KatanaThemeMode,
 } from './katanaTokens';
-import { getPrimaryVerifiedOfficialLink, getSourceBadgeInfo } from './mangaSearchAndTrust';
 
 export type KatanaNavKey = 'home' | 'latest' | 'directory' | 'newManga' | 'genres' | 'reading' | 'history' | 'downloads' | 'bookmarks';
 
@@ -64,8 +63,7 @@ export function KatanaCard({
       style={{
         background: KatanaColors.surface,
         borderRadius: radius,
-        border: `1px solid ${withAlpha(KatanaColors.border, 0.55)}`,
-        boxShadow: boxShadow([{ color: '#00000044', blur: 16, offset: [0, 5] }]),
+        border: `1px solid ${withAlpha(KatanaColors.border, 0.72)}`,
         padding,
         boxSizing: 'border-box',
         ...style,
@@ -80,7 +78,6 @@ export function KatanaSectionHeader({
   title,
   badge,
   trailing,
-  underline = KatanaColors.borderStrong,
 }: {
   title: string;
   badge?: string;
@@ -89,44 +86,16 @@ export function KatanaSectionHeader({
 }) {
   const { width } = useViewport();
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div
-        style={{
-          width: 3,
-          height: 19,
-          flexShrink: 0,
-          borderRadius: 4,
-          background: underline === KatanaColors.borderStrong
-            ? linear([KatanaColors.textMuted, KatanaColors.borderStrong], { begin: Align.topCenter, end: Align.bottomCenter })
-            : linear([underline, withAlpha(underline, 0.45)], { begin: Align.topCenter, end: Align.bottomCenter }),
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: width < 380 ? 'wrap' : 'nowrap' }}>
-        <span aria-hidden="true" style={{ color: KatanaColors.accent, fontSize: 12, lineHeight: 1, flexShrink: 0 }}>✦</span>
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: width < 380 ? 'wrap' : 'nowrap' }}>
         <h2 style={{ ...KatanaType.section, margin: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>{title}</h2>
-        <span
-          aria-hidden="true"
-          style={{
-            flex: '1 1 24px',
-            minWidth: 0,
-            height: 1,
-            background: linear([withAlpha(KatanaColors.accent, 0.55), withAlpha(KatanaColors.accent, 0)], {
-              begin: Align.centerLeft,
-              end: Align.centerRight,
-            }),
-          }}
-        />
-        {badge && width >= 430 && (
+        {badge && (
           <span
+            className="katana-tabular"
             style={{
               flexShrink: 0,
               whiteSpace: 'nowrap',
-              padding: '2px 9px',
-              borderRadius: 99,
-              background: KatanaColors.surfaceAlt,
-              border: `1px solid ${KatanaColors.borderStrong}`,
-              ...bodyText(11, 700, KatanaColors.textMuted, 1.2),
-              letterSpacing: 0.4,
+              ...bodyText(12.5, 500, KatanaColors.textLight, 1.2),
             }}
           >
             {badge}
@@ -157,9 +126,9 @@ export function KatanaButton({
 }) {
   const isPrimary = color === KatanaColors.accent && filled;
   const fg = filled ? (isPrimary ? KatanaColors.accentInk : white) : color;
-  const pad = size === 'sm' ? '7px 13px' : '10px 18px';
-  const minH = size === 'sm' ? 44 : 48;
-  const fontSize = size === 'sm' ? 12.5 : 13.5;
+  const pad = size === 'sm' ? '7px 14px' : '10px 18px';
+  const minH = size === 'sm' ? 40 : 46;
+  const fontSize = size === 'sm' ? 13 : 14;
   return (
     <button
       type="button"
@@ -173,19 +142,15 @@ export function KatanaButton({
         gap: 6,
         padding: pad,
         minHeight: minH,
-        borderRadius: 99,
+        borderRadius: 7,
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        background: isPrimary
-          ? linear([KatanaColors.accentSoft, KatanaColors.accent], { begin: Align.topLeft, end: Align.bottomRight })
-          : filled
-            ? color
-            : withAlpha(color, 0.1),
-        border: `1px solid ${filled ? color : withAlpha(color, 0.45)}`,
-        transition: 'opacity 160ms ease, transform 160ms ease',
+        background: filled ? color : 'transparent',
+        border: filled ? '1px solid transparent' : `1px solid ${withAlpha(color, 0.24)}`,
+        transition: 'opacity 160ms ease, background 160ms ease',
       }}
     >
-      {icon && <Icon name={icon} size={size === 'sm' ? 14 : 16} color={fg} />}
+      {icon && <Icon name={icon} size={size === 'sm' ? 15 : 17} color={fg} />}
       <span style={{ ...bodyText(fontSize, 700, fg, 1.2), whiteSpace: 'nowrap' }}>{label}</span>
     </button>
   );
@@ -384,8 +349,8 @@ function GenresDropdown({
             minWidth: 40,
             padding: '0 8px',
             borderRadius: 10,
-            background: active || open ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-            border: `1px solid ${active || open ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+            background: active || open ? KatanaColors.chipSelectedBg : 'transparent',
+            border: active || open ? `1px solid ${KatanaColors.chipSelectedBorder}` : '1px solid transparent',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -636,46 +601,41 @@ export function KatanaHeader({
       title="Back to Everglow"
       aria-label="Back to Everglow"
       style={{
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         flexShrink: 0,
         borderRadius: 10,
-        background: KatanaColors.surfaceAlt,
-        border: `1px solid ${KatanaColors.border}`,
+        background: 'transparent',
         display: 'grid',
         placeItems: 'center',
-        marginRight: 8,
+        marginRight: 2,
       }}
     >
-      <Icon name="arrow_back_ios_new" size={16} color={KatanaColors.textMuted} />
+      <Icon name="arrow_back_ios_new" size={17} color={KatanaColors.textMuted} />
     </button>
   );
 
-  const logoSize = narrow ? 30 : 34;
-  const logoFont = narrow ? 19 : 22;
+  const logoFont = narrow ? 20 : 23;
   const logo = (
     <button
       type="button"
       className="bare-button"
       onClick={() => onSelectNav('home')}
-      style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 9 }}
+      style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 8 }}
     >
-      <div
+      <Icon name="auto_stories" size={narrow ? 19 : 21} color={KatanaColors.accent} />
+      <span
         style={{
-          width: logoSize,
-          height: logoSize,
-          flexShrink: 0,
-          boxSizing: 'border-box',
-          borderRadius: 9,
-          background: linear([KatanaColors.accentSoft, KatanaColors.accentDark], { begin: Align.topLeft, end: Align.bottomRight }),
-          display: 'grid',
-          placeItems: 'center',
+          fontFamily: Fonts.display,
+          fontWeight: 400,
+          fontSize: logoFont + 4,
+          letterSpacing: 1.4,
+          color: KatanaColors.text,
+          whiteSpace: 'nowrap',
+          lineHeight: 1,
         }}
       >
-        <Icon name="auto_stories" size={narrow ? 17 : 19} color={KatanaColors.accentInk} />
-      </div>
-      <span style={{ fontFamily: Fonts.display, fontWeight: 400, fontSize: logoFont + 6, letterSpacing: 1.2, color: KatanaColors.text, whiteSpace: 'nowrap', lineHeight: 1 }}>
-        Manga<span style={{ color: KatanaColors.accent }}>Celestia</span>
+        MANGA CELESTIA
       </span>
     </button>
   );
@@ -849,12 +809,16 @@ export function KatanaHeader({
         aria-haspopup={onSelectTheme ? 'menu' : undefined}
         aria-expanded={onSelectTheme ? themeMenuOpen : undefined}
         style={{
-          height: 44,
-          minWidth: 44,
+          height: 40,
+          minWidth: 40,
           padding: desktop ? '0 10px' : '0 8px',
           borderRadius: 10,
-          background: themeMenuOpen ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-          border: `1px solid ${themeMenuOpen ? KatanaColors.chipSelectedBorder : KatanaColors.borderStrong}`,
+          background: themeMenuOpen ? KatanaColors.chipSelectedBg : desktop ? KatanaColors.surfaceAlt : 'transparent',
+          border: themeMenuOpen
+            ? `1px solid ${KatanaColors.chipSelectedBorder}`
+            : desktop
+              ? `1px solid ${KatanaColors.border}`
+              : '1px solid transparent',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1025,10 +989,10 @@ export function KatanaHeader({
                 style={{
                   height: 40,
                   minWidth: 40,
-                  padding: '0 9px',
+                  padding: '0 8px',
                   borderRadius: 10,
-                  background: hasText ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                  border: `1px solid ${hasText ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                  background: hasText ? KatanaColors.chipSelectedBg : 'transparent',
+                  border: hasText ? `1px solid ${KatanaColors.chipSelectedBorder}` : '1px solid transparent',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1332,9 +1296,7 @@ export function KatanaBottomBar({
             <div
               style={{
                 position: 'relative',
-                padding: '3px 14px',
-                borderRadius: 99,
-                background: isActive ? withAlpha(KatanaColors.accent, 0.16) : 'transparent',
+                padding: '3px 10px',
                 display: 'grid',
                 placeItems: 'center',
               }}
@@ -1345,7 +1307,7 @@ export function KatanaBottomBar({
                   style={{
                     position: 'absolute',
                     top: -2,
-                    right: 4,
+                    right: 0,
                     minWidth: 16,
                     height: 16,
                     padding: '0 4px',
@@ -1381,6 +1343,7 @@ export function KatanaCoverImage({
   emptyIcon = 'menu_book',
   iconSize = 32,
   fill = KatanaColors.surfaceAlt,
+  priority = false,
 }: {
   url: string;
   title?: string;
@@ -1388,193 +1351,107 @@ export function KatanaCoverImage({
   errorIcon?: string;
   iconSize?: number;
   fill?: string;
+  priority?: boolean;
 }) {
   const [step, setStep] = useState(0);
   const [failed, setFailed] = useState(false);
+  const resolved = url ? proxyKatanaImageUrl(katanaCdnFallback(url, step)) : '';
+  const isInlineSrc = resolved.startsWith('data:') || resolved.startsWith('blob:');
+  const [loaded, setLoaded] = useState(isInlineSrc);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setStep(0);
     setFailed(false);
   }, [url]);
 
-  const resolved = url ? proxyKatanaImageUrl(katanaCdnFallback(url, step)) : '';
+  useEffect(() => {
+    if (isInlineSrc) {
+      setLoaded(true);
+      return;
+    }
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
+  }, [resolved, isInlineSrc]);
+
   if (!resolved || failed) {
     const cleanTitle = (title ?? '').trim();
-    const words = cleanTitle.split(/\s+/).filter(Boolean);
-    const monogram =
-      words.length >= 2
-        ? `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase()
-        : cleanTitle.slice(0, 2).toUpperCase();
     const palette = getSeriesVisualAccent(cleanTitle || 'manga');
-    let hash = 0;
-    for (let i = 0; i < cleanTitle.length; i++) hash = (hash * 31 + cleanTitle.charCodeAt(i)) >>> 0;
-    const motifIdx = hash % 6;
     return (
       <div
         role={cleanTitle ? 'img' : undefined}
-        aria-label={cleanTitle ? `${cleanTitle} cover artwork${failed ? ' (cover unavailable)' : ''}` : undefined}
+        aria-label={cleanTitle ? `${cleanTitle} cover` : undefined}
         aria-hidden={!cleanTitle ? true : undefined}
         style={{
           position: 'absolute',
           inset: 0,
           backgroundColor: fill,
-          background: `linear-gradient(${135 + (hash % 45)}deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
+          background: `linear-gradient(155deg, ${palette.bgStart} 0%, ${palette.bgEnd} 100%)`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          padding: '10px 10px 10px 14px',
+          padding: iconSize >= 24 ? '12px' : '6px',
           textAlign: 'left',
           overflow: 'hidden',
         }}
       >
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 5,
-            background: `linear-gradient(180deg, ${palette.accent}, ${palette.secondary})`,
-          }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: 5,
-            top: 0,
-            bottom: 0,
-            width: 2,
-            background: 'rgba(0,0,0,0.38)',
-          }}
-        />
-        {/* Hash-varied geometric SVG artwork motif so fallback covers never look identical */}
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 200 300"
-          preserveAspectRatio="xMidYMid slice"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.24, pointerEvents: 'none' }}
-        >
-          {motifIdx === 0 && (
-            <>
-              <polygon points="100,24 172,150 100,276 28,150" fill="none" stroke={palette.accent} strokeWidth="3" />
-              <circle cx="100" cy="150" r="46" fill={palette.secondary} fillOpacity="0.28" stroke={palette.accent} strokeWidth="2" />
-              <line x1="20" y1="260" x2="180" y2="40" stroke={palette.accent} strokeWidth="2" strokeDasharray="6 6" />
-            </>
-          )}
-          {motifIdx === 1 && (
-            <>
-              <polygon points="18,280 95,70 170,280" fill={palette.accent} fillOpacity="0.24" stroke={palette.accent} strokeWidth="2.5" />
-              <polygon points="65,280 138,105 192,280" fill={palette.secondary} fillOpacity="0.28" />
-              <circle cx="62" cy="72" r="24" fill={palette.accent} fillOpacity="0.55" />
-            </>
-          )}
-          {motifIdx === 2 && (
-            <>
-              <path d="M132,48 A62,62 0 1,0 156,162 A48,48 0 1,1 132,48 Z" fill={palette.accent} fillOpacity="0.5" />
-              <line x1="24" y1="210" x2="176" y2="210" stroke={palette.secondary} strokeWidth="2.5" />
-              <line x1="42" y1="232" x2="158" y2="232" stroke={palette.accent} strokeWidth="2" />
-            </>
-          )}
-          {motifIdx === 3 && (
-            <>
-              <rect x="28" y="34" width="144" height="106" rx="8" fill="none" stroke={palette.accent} strokeWidth="2.5" />
-              <rect x="28" y="152" width="68" height="114" rx="8" fill={palette.secondary} fillOpacity="0.22" stroke={palette.secondary} strokeWidth="2" />
-              <rect x="106" y="152" width="66" height="114" rx="8" fill={palette.accent} fillOpacity="0.22" stroke={palette.accent} strokeWidth="2" />
-            </>
-          )}
-          {motifIdx === 4 && (
-            <>
-              <polygon points="100,36 168,196 32,196" fill="none" stroke={palette.accent} strokeWidth="3" />
-              <polygon points="100,244 168,84 32,84" fill="none" stroke={palette.secondary} strokeWidth="2.5" />
-              <circle cx="100" cy="140" r="22" fill={palette.accent} fillOpacity="0.45" />
-            </>
-          )}
-          {motifIdx === 5 && (
-            <>
-              <path d="M20,220 Q100,60 180,140" fill="none" stroke={palette.accent} strokeWidth="5" strokeLinecap="round" />
-              <path d="M20,255 Q100,115 180,185" fill="none" stroke={palette.secondary} strokeWidth="3" strokeLinecap="round" />
-              <circle cx="144" cy="78" r="28" fill="none" stroke={palette.accent} strokeWidth="2.5" />
-            </>
-          )}
-        </svg>
-        <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-          <div
-            aria-hidden="true"
-            style={{
-              minWidth: Math.max(26, iconSize),
-              height: Math.max(26, iconSize),
-              padding: '0 6px',
-              borderRadius: 7,
-              background: withAlpha(palette.accent, 0.22),
-              border: `1px solid ${withAlpha(palette.accent, 0.55)}`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: Fonts.display,
-              fontWeight: 400,
-              fontSize: Math.max(12, Math.round(iconSize * 0.46)),
-              letterSpacing: 0.6,
-              color: palette.accent,
-            }}
-          >
-            {monogram || <Icon name={emptyIcon} size={Math.max(14, iconSize - 10)} color={palette.accent} />}
-          </div>
-          {iconSize >= 24 && (
-            <span
-              style={{
-                padding: '2px 5px',
-                borderRadius: 4,
-                background: withAlpha(KatanaColors.background, 0.78),
-                border: `1px solid ${withAlpha(palette.accent, 0.35)}`,
-                fontFamily: Fonts.body,
-                fontSize: 9.5,
-                fontWeight: 700,
-                color: KatanaColors.textMuted,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {failed ? 'Cover offline' : 'Edition'}
-            </span>
-          )}
-        </div>
-        {cleanTitle ? (
+        <Icon name={emptyIcon} size={Math.max(14, Math.min(20, iconSize - 6))} color={withAlpha(palette.accent, 0.72)} />
+        {cleanTitle && iconSize >= 20 && (
           <div
             className="clamp-3"
             style={{
               position: 'relative',
               fontFamily: Fonts.heading,
-              fontWeight: 800,
-              fontSize: iconSize >= 30 ? 12.5 : 11,
-              lineHeight: 1.2,
+              fontWeight: 700,
+              fontSize: iconSize >= 30 ? 13 : 11.5,
+              lineHeight: 1.25,
               letterSpacing: -0.2,
               color: KatanaColors.text,
-              textShadow: '0 1px 6px rgba(0,0,0,0.65)',
             }}
           >
             {cleanTitle}
           </div>
-        ) : (
-          <Icon name={emptyIcon} size={iconSize} color={KatanaColors.textLight} />
         )}
       </div>
     );
   }
   return (
-    <img
-      src={resolved}
-      alt={title ? `${title} cover` : ''}
-      loading="lazy"
-      onError={() => {
-        const currentUrl = katanaCdnFallback(url, step);
-        const nextUrl = step < 4 ? katanaCdnFallback(url, step + 1) : currentUrl;
-        if (step < 4 && nextUrl !== currentUrl) setStep((s) => s + 1);
-        else setFailed(true);
-      }}
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-    />
+    <>
+      {!loaded && <div aria-hidden="true" className="katana-cover-shimmer" style={{ position: 'absolute', inset: 0 }} />}
+      <img
+        ref={imgRef}
+        src={resolved}
+        alt={title ? `${title} cover` : ''}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        fetchPriority={priority ? 'high' : 'auto'}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          const currentUrl = katanaCdnFallback(url, step);
+          const nextUrl = step < 5 ? katanaCdnFallback(url, step + 1) : currentUrl;
+          if (step < 5 && nextUrl !== currentUrl) {
+            setStep((s) => s + 1);
+          } else {
+            setFailed(true);
+          }
+        }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+          opacity: loaded ? 1 : 0,
+          transition: 'opacity 180ms ease-out',
+        }}
+      />
+    </>
   );
 }
 
@@ -2010,13 +1887,9 @@ export function KatanaPosterCard({
 }) {
   const viewport = useViewport();
   const [hovered, setHovered] = useState(false);
-  const [sourceDetailOpen, setSourceDetailOpen] = useState(false);
   const interactive = !reduceAmbientMotion(viewport);
   const lit = interactive && hovered;
   const completed = manga.status === 'completed';
-  const totalCh = manga.chapterCount ?? (manga.chapters.length > 0 ? manga.chapters.length : undefined);
-  const verifiedOfficial = getPrimaryVerifiedOfficialLink(manga);
-  const srcInfo = manga.source ? getSourceBadgeInfo(manga.source, manga.slug) : null;
 
   return (
     <article
@@ -2025,10 +1898,9 @@ export function KatanaPosterCard({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: 12,
         background: 'transparent',
-        transform: lit ? 'translateY(-3px)' : undefined,
-        transition: interactive ? 'transform 180ms ease' : undefined,
+        transform: lit ? 'translateY(-2px)' : undefined,
+        transition: interactive ? 'transform 160ms ease' : undefined,
       }}
     >
       <div
@@ -2041,203 +1913,78 @@ export function KatanaPosterCard({
           position: 'relative',
           width: '100%',
           aspectRatio: '2 / 3',
-          borderRadius: 11,
+          borderRadius: 6,
           background: KatanaColors.surfaceAlt,
           cursor: 'pointer',
           overflow: 'hidden',
-          boxShadow: lit
-            ? boxShadow([{ color: '#00000088', blur: 20, offset: [0, 8] }])
-            : boxShadow([{ color: '#00000048', blur: 12, offset: [0, 4] }]),
-          outline: lit ? `1.5px solid ${withAlpha(KatanaColors.accent, 0.55)}` : 'none',
-          transition: interactive ? 'box-shadow 180ms ease, outline-color 180ms ease' : undefined,
+          boxShadow: lit ? boxShadow([{ color: '#00000080', blur: 20, offset: [0, 10] }]) : '0 4px 14px rgba(0,0,0,0.35)',
+          transition: interactive ? 'box-shadow 160ms ease' : undefined,
         }}
       >
         <KatanaCoverImage url={manga.coverUrl} title={manga.title} iconSize={28} />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 'auto 0 0 0',
-            height: '46%',
-            background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.94)} 0%, ${withAlpha(KatanaColors.background, 0.48)} 54%, transparent 100%)`,
-            pointerEvents: 'none',
-          }}
-        />
-        <div style={{ position: 'absolute', top: 7, left: 7, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 'calc(100% - 58px)' }}>
-          {completed && (
-            <span
-              style={{
-                padding: '2px 7px',
-                borderRadius: 6,
-                background: withAlpha(KatanaColors.green, 0.96),
-                border: `1px solid ${withAlpha(KatanaColors.background, 0.35)}`,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
-                ...bodyText(12, 800, KatanaColors.accentInk, 1.2),
-              }}
-            >
-              Completed
-            </span>
-          )}
-          {manga.rating != null && (
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                padding: '2px 7px',
-                borderRadius: 6,
-                background: withAlpha(KatanaColors.background, 0.92),
-                border: `1px solid ${withAlpha(KatanaColors.text, 0.2)}`,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
-                ...bodyText(12, 800, KatanaColors.text, 1.2),
-              }}
-            >
-              <Icon name="star" size={11} color={KatanaColors.accent} />
-              <span>{manga.rating.toFixed(1)}</span>
-            </span>
-          )}
-        </div>
-        {sourceDetailOpen && manga.source && (() => {
-          const srcInfo = getSourceBadgeInfo(manga.source, manga.slug);
-          return (
-            <div
-              role="dialog"
-              aria-label={`${srcInfo.name} source provenance`}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'absolute',
-                top: 34,
-                left: 6,
-                right: 6,
-                zIndex: 4,
-                padding: '8px 10px',
-                borderRadius: 9,
-                background: withAlpha(KatanaColors.background, 0.96),
-                border: `1px solid ${KatanaColors.borderStrong}`,
-                boxShadow: '0 8px 20px rgba(0,0,0,0.75)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                <span style={{ ...bodyText(12, 800, KatanaColors.text, 1.2) }}>
-                  {srcInfo.name} ({srcInfo.badge})
-                </span>
-                <button
-                  type="button"
-                  className="bare-button"
-                  aria-label="Close source info"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSourceDetailOpen(false);
-                  }}
-                  style={{ padding: 2, color: KatanaColors.textLight, display: 'inline-flex' }}
-                >
-                  <Icon name="close" size={13} color={KatanaColors.textLight} />
-                </button>
-              </div>
-              <span style={{ ...bodyText(11, 600, '#CBD5E1', 1.3) }}>{srcInfo.signals.provenance}</span>
-              <span style={{ ...bodyText(10.5, 500, KatanaColors.textLight, 1.3) }}>{srcInfo.signals.specialty}</span>
-              {verifiedOfficial && (
-                <a
-                  href={verifiedOfficial.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    marginTop: 2,
-                    padding: '4px 8px',
-                    borderRadius: 6,
-                    background: withAlpha(KatanaColors.green, 0.18),
-                    border: `1px solid ${withAlpha(KatanaColors.green, 0.55)}`,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    textDecoration: 'none',
-                    ...bodyText(11, 700, '#6EE7B7', 1.2),
-                  }}
-                >
-                  <Icon name="verified" size={12} color="#34D399" />
-                  <span style={{ ...ellipsis }}>Official release</span>
-                  <Icon name="open_in_new" size={11} color="#34D399" />
-                </a>
-              )}
-            </div>
-          );
-        })()}
+        {(manga.rating != null || completed) && (
+          <div style={{ position: 'absolute', bottom: 7, left: 7, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            {manga.rating != null && (
+              <span
+                className="katana-tabular"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '2px 6px',
+                  borderRadius: 5,
+                  background: 'rgba(12, 11, 14, 0.78)',
+                  ...bodyText(11.5, 700, '#F4F1EC', 1.2),
+                }}
+              >
+                <Icon name="star" size={11} color={KatanaColors.accent} />
+                <span>{manga.rating.toFixed(1)}</span>
+              </span>
+            )}
+            {completed && (
+              <span
+                style={{
+                  padding: '2px 6px',
+                  borderRadius: 5,
+                  background: 'rgba(12, 11, 14, 0.78)',
+                  ...bodyText(10.5, 700, KatanaColors.green, 1.2),
+                }}
+              >
+                Done
+              </span>
+            )}
+          </div>
+        )}
         <KatanaCoverBadges unreadCount={unreadCount} downloadedCount={downloadedCount} />
       </div>
-      <div style={{ padding: '6px 2px 2px' }}>
-        <button
-          type="button"
-          className="bare-button"
-          title={manga.title}
-          onClick={onSelect}
-          style={{
-            textAlign: 'left',
-            width: '100%',
-            minHeight: 44,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-start',
-            gap: 3,
-            padding: '2px 0',
-          }}
+      <button
+        type="button"
+        className="bare-button"
+        title={manga.title}
+        onClick={onSelect}
+        style={{
+          textAlign: 'left',
+          width: '100%',
+          minHeight: 44,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          gap: 2,
+          padding: '8px 2px 2px',
+        }}
+      >
+        <div className="clamp-2" style={bodyText(13.5, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.28)}>
+          {manga.title}
+        </div>
+        <span
+          className="ellipsis katana-tabular"
+          style={{ ...bodyText(12, 500, KatanaColors.textLight, 1.3), display: 'block' }}
         >
-          <div className="clamp-2" style={bodyText(13.5, 600, lit ? KatanaColors.accentSoft : KatanaColors.text, 1.25)}>
-            {manga.title}
-          </div>
-          {manga.latestChapter && (
-            <span
-              className="ellipsis"
-              style={{ ...bodyText(11.5, 600, KatanaColors.textLight, 1.2), display: 'block' }}
-            >
-              {chapterDisplayTitle(manga.latestChapter)}
-              {manga.latestChapter.updateAt ? ` · ${formatKatanaTime(manga.latestChapter.updateAt)}` : ''}
-            </span>
-          )}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              flexWrap: 'wrap',
-              ...KatanaType.small,
-              fontSize: 11,
-            }}
-          >
-            <span className="clamp-2" style={{ fontSize: 12.5, lineHeight: 1.3 }}>
-              {manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
-            </span>
-            {srcInfo && (
-              <button
-                type="button"
-                className="bare-button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSourceDetailOpen((v) => !v);
-                }}
-                title={srcInfo.tooltip}
-                aria-label={`Where this comes from: ${srcInfo.tooltip}`}
-                aria-expanded={sourceDetailOpen}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: KatanaColors.textLight }}
-              >
-                {verifiedOfficial ? (
-                  <span style={{ ...bodyText(11, 700, KatanaColors.green, 1.2) }}>Official</span>
-                ) : (
-                  <span style={{ ...bodyText(11, 600, KatanaColors.textLight, 1.2) }}>Fan</span>
-                )}
-              </button>
-            )}
-            {manga.follows != null && manga.follows > 0 && (
-              <span style={{ whiteSpace: 'nowrap' }}>{formatCompactNumber(manga.follows)} readers</span>
-            )}
-            {!(manga.follows != null && manga.follows > 0) && totalCh != null && totalCh > 0 && (
-              <span style={{ whiteSpace: 'nowrap' }}>{totalCh} chapters</span>
-            )}
-          </div>
-        </button>
-      </div>
+          {manga.latestChapter
+            ? `${manga.latestChapter.num ? `Ch. ${manga.latestChapter.num}` : chapterDisplayTitle(manga.latestChapter)}${manga.latestChapter.updateAt ? ` · ${formatKatanaTime(manga.latestChapter.updateAt)}` : ''}`
+            : manga.genres.slice(0, 2).map((g) => g.name).join(' · ') || 'Manga'}
+        </span>
+      </button>
     </article>
   );
 }
