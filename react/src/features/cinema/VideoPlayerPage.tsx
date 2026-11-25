@@ -385,7 +385,7 @@ class PlayerController {
     });
     this.restartLoadTimer();
     this.applySandbox(this.selectedProvider);
-    this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+    this.loadProvider(this.selectedProvider);
   }
 
   // --- timers ---
@@ -503,11 +503,7 @@ class PlayerController {
         this.mountOnlineIframe(host);
         this.restartLoadTimer();
         if (this.p.isAnime) void this.bootstrapAnime();
-        else if (!this.originalLanguage && this.p.tmdbId > 0 && this.selectedProvider.id === 'everglow-embed') {
-          void this.bootstrapCinema();
-        } else {
-          this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
-        }
+        else this.loadProvider(this.selectedProvider);
       }
     });
     host.replaceChildren(video);
@@ -554,6 +550,14 @@ class PlayerController {
 
   // --- anime ---
 
+  private loadProvider(provider: VideoSourceConfig) {
+    if (!this.p.isAnime && !this.originalLanguage && this.p.tmdbId > 0 && provider.id === 'everglow-embed') {
+      void this.bootstrapCinema();
+    } else {
+      this.iframe.src = this.buildPlayerUrl(provider);
+    }
+  }
+
   private async bootstrapCinema() {
     const startRev = this.restoreRevision;
     const detailsPromise = fetchMediaDetails(this.p.tmdbId, this.p.mediaType).catch((e) => {
@@ -564,7 +568,7 @@ class PlayerController {
       detailsPromise,
       new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1200)),
     ]);
-    if (!this.mounted) return;
+    if (!this.mounted || this.restoreRevision !== startRev || this.selectedProvider.id !== 'everglow-embed') return;
     const applyDetails = (d: Record<string, unknown> | null): boolean => {
       if (!d || !this.mounted) return false;
       let langAdded = false;
@@ -642,7 +646,7 @@ class PlayerController {
       });
       this.startLoadTimer();
       this.applySandbox(next);
-      this.iframe.src = this.buildPlayerUrl(next);
+      this.loadProvider(next);
     } else {
       this.setState(() => (this.iframeFailed = true));
     }
@@ -665,11 +669,7 @@ class PlayerController {
     });
     this.restartLoadTimer();
     this.applySandbox(provider);
-    if (!this.p.isAnime && !this.originalLanguage && this.p.tmdbId > 0 && provider.id === 'everglow-embed') {
-      void this.bootstrapCinema();
-    } else {
-      this.iframe.src = this.buildPlayerUrl(provider);
-    }
+    this.loadProvider(provider);
     this.persistPlayerMemory();
     this.syncExitButton();
   }
@@ -765,7 +765,7 @@ class PlayerController {
     if (this.tryPlayOfflineEpisode(season, episode)) return;
     this.startLoadTimer();
     this.applySandbox(this.selectedProvider);
-    this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+    this.loadProvider(this.selectedProvider);
     void this.resolveNext();
     this.persistPlayerMemory(true);
   }
@@ -1035,7 +1035,7 @@ class PlayerController {
     if (this.tryPlayOfflineEpisode(next.season, next.episode)) return;
     this.startLoadTimer();
     this.applySandbox(this.selectedProvider);
-    this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+    this.loadProvider(this.selectedProvider);
     void this.resolveNext();
   };
 
@@ -1104,7 +1104,7 @@ class PlayerController {
     }
     if (!needsReload) return;
     this.setState();
-    if (this.iframe.src && this.iframe.src !== 'about:blank') this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+    if (this.iframe.src && this.iframe.src !== 'about:blank') this.loadProvider(this.selectedProvider);
   }
 
   private persistPlayerMemory(resetPosition = false) {

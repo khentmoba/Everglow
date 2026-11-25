@@ -1224,6 +1224,7 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
     title: `Episode ${ep}`,
     ep,
     server: 'megavid',
+    hardsub: false,
     servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
     prefetched: (verified?.prefetched || []).map((p) => ({
       ...p,
@@ -1292,6 +1293,7 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts
     title: `Episode ${ep}`,
     ep,
     server: 'megaplay',
+    hardsub: false,
     servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
     prefetched: (verified?.prefetched || []).map((p) => ({
       ...p,
@@ -1521,6 +1523,7 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
       title: `Episode ${ep}`,
       ep,
       server: server.id,
+      hardsub: Boolean(server.hardsub),
       servers: everglowServerLinks(proxyBase, { anilistId, malId: opts.malId || 0, ep, audio }),
       prefetched: (verified?.prefetched || []).map((p) => ({
         ...p,
@@ -1614,7 +1617,7 @@ function selectAnimeSubtitleTracks(rawTracks, baseOrigin = '') {
     const rawLabel = String(t.label || t.language || t.lang || 'Subtitles').trim();
     const norm = rawLabel.toLowerCase();
     let rank = 2;
-    if (norm === 'english' || norm === 'en') rank = 0;
+    if (norm === 'english' || norm === 'en' || norm === 'eng') rank = 0;
     else if (/^english\b|^en[-_]/i.test(norm)) rank = 1;
     const formatRank = isSrt ? 1 : 0;
     const defaultRank = t.default === true ? 0 : 1;
@@ -1639,10 +1642,14 @@ function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
   if (!Array.isArray(rawTracks)) return [];
   const candidates = [];
   for (const t of rawTracks) {
-    if (!t) continue;
+    if (!t || typeof t !== 'object') continue;
+    const kind = String(t.kind || '').trim().toLowerCase();
+    if (kind && kind !== 'captions' && kind !== 'subtitles') continue;
+    if (t.is_ass === true) continue;
+    const type = String(t.format || t.type || '').trim().toLowerCase();
+    if (type === 'ass' || type === 'ssa') continue;
     const abs = resolvePlaylistUrl(t.file || t.url || t.src || '', baseOrigin);
     if (!abs) continue;
-    const type = String(t.type || '').toLowerCase();
     const path = abs.split('?')[0].toLowerCase();
     if (path.endsWith('.ass') || path.endsWith('.ssa')) continue;
     const isVtt = type === 'vtt' || path.endsWith('.vtt');
@@ -1655,13 +1662,16 @@ function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
     const rawLabel = String(t.label || t.lang || t.language || 'Subtitles').trim();
     const norm = rawLabel.toLowerCase();
     let rank = 2;
-    if (norm === 'english' || norm === 'en') rank = 0;
+    if (norm === 'english' || norm === 'en' || norm === 'eng') rank = 0;
     else if (/^english\b|^en[-_]/i.test(norm)) rank = 1;
     const formatRank = isVtt ? 0 : 1;
+    const defaultRank = t.default === true ? 0 : 1;
     const dedupeKey = norm.replace(/\s*\d+$/, '').replace(/\s+/g, ' ').trim();
-    candidates.push({ file: abs, label: rawLabel, rank, formatRank, dedupeKey });
+    candidates.push({ file: abs, label: rawLabel, rank, formatRank, defaultRank, dedupeKey });
   }
-  candidates.sort((a, b) => a.rank - b.rank || a.formatRank - b.formatRank);
+  candidates.sort(
+    (a, b) => a.rank - b.rank || a.formatRank - b.formatRank || a.defaultRank - b.defaultRank,
+  );
   const seen = new Set();
   const out = [];
   for (const c of candidates) {
