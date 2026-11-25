@@ -3,7 +3,7 @@ import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { createBrowserRouter, Outlet, redirect, RouterProvider, useLocation, useNavigate, type LoaderFunctionArgs } from 'react-router';
 import { AgentMode } from './core/agent/agentMode';
 import { LazyPages } from './core/router/routeChunks';
-import { agentJumpLocation, cinemaOnlyRedirect, sanitizeInternalPath } from './core/router/routeHelpers';
+import { agentJumpLocation, cinemaOnlyRedirect, sanitizeInternalPath, startupLandingRedirect } from './core/router/routeHelpers';
 import { RouteMemory } from './core/router/routeMemory';
 import { authService } from './core/services/auth';
 import { notificationService } from './core/services/notifications';
@@ -158,10 +158,11 @@ async function guard({ request }: LoaderFunctionArgs) {
   if (!authed && !isPublic) {
     return redirect(`/?${new URLSearchParams({ from: loc + url.search })}`);
   }
-  if (loc === '/' && authed && !AgentMode.isActive.value && target == null) {
-    const remembered = RouteMemory.load();
-    if (remembered && (!authService.isCinemaOnlyUser || cinemaOnlyRedirect(remembered) == null)) {
-      return redirect(remembered);
+  if (loc === '/' && !AgentMode.isActive.value && target == null) {
+    const landing = startupLandingRedirect(loc, authed, authService.currentUser != null, authService.isCinemaOnlyUser);
+    if (landing != null) {
+      RouteMemory.clear();
+      return redirect(landing);
     }
   }
   if (authed && authService.isCinemaOnlyUser && !AgentMode.isActive.value) {
@@ -175,8 +176,8 @@ function RootLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    RouteMemory.remember(location.pathname + location.search);
-  }, [location.pathname, location.search]);
+    RouteMemory.clear();
+  }, []);
   useEffect(() => {
     const checkSession = () => {
       if (

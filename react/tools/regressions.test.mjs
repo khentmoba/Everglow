@@ -630,3 +630,57 @@ test('Journal search waits for typing to settle before it scans', async () => {
     server.close();
   }
 });
+
+test('Startup skips route restoration and always opens Dashboard at the top', async () => {
+  const { startupLandingRedirect } = await import('../src/core/router/routeHelpers.ts');
+  assert.equal(startupLandingRedirect('/', true, true, false), '/dashboard');
+  assert.equal(startupLandingRedirect('/', true, true, true), '/cinema');
+  assert.equal(startupLandingRedirect('/', false, true, false), null);
+  assert.equal(startupLandingRedirect('/', true, false, false), null);
+  assert.equal(startupLandingRedirect('/cinema', true, true, false), null);
+
+  const { server, baseUrl } = await startDistServer();
+  const browser = await chromium.launch({ headless: true, executablePath: findChrome(), args: ['--mute-audio'] });
+  try {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    await context.addInitScript(() => {
+      if (!sessionStorage.getItem('seeded_stale_startup_state')) {
+        sessionStorage.setItem('seeded_stale_startup_state', '1');
+        localStorage.setItem('flutter.scroll:dashboard', JSON.stringify('480'));
+        localStorage.setItem('flutter.route_memory:last_location', JSON.stringify('/cinema'));
+      }
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/dashboard?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Quick Access', { timeout: 10_000 });
+    await page.waitForTimeout(300);
+
+    const state = await page.evaluate(() => {
+      const scroller = Array.from(document.querySelectorAll('div')).find(
+        (d) => getComputedStyle(d).overflowY === 'auto' && d.scrollHeight > d.clientHeight,
+      );
+      return {
+        scrollTop: scroller ? scroller.scrollTop : -1,
+        routeMemory: localStorage.getItem('flutter.route_memory:last_location'),
+        scrollPref: localStorage.getItem('flutter.scroll:dashboard'),
+      };
+    });
+    assert.equal(state.scrollTop, 0, `expected Dashboard to open at top, got scrollTop=${state.scrollTop}`);
+    assert.equal(state.routeMemory, null, 'stale route memory must be cleared');
+    assert.equal(state.scrollPref, null, 'stale dashboard scroll offset must be cleared');
+
+    await page.goto(`${baseUrl}/cinema?agent=1&hud=0`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('button[aria-label="Exit Cinema"]', { timeout: 10_000 });
+    const afterCinema = await page.evaluate(() => localStorage.getItem('flutter.route_memory:last_location'));
+    assert.equal(afterCinema, null, 'visiting /cinema must not write route memory');
+
+    assert.deepEqual(errors, [], `unexpected page errors: ${errors.join('; ')}`);
+    await context.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

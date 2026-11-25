@@ -1,5 +1,15 @@
 // Port of lib/core/router/route_helpers.dart and AppErrorPage.cinemaOnlyRedirect.
 
+export function startupLandingRedirect(
+  loc: string,
+  hasActiveSession: boolean,
+  hasCurrentUser: boolean,
+  isCinemaOnlyUser: boolean,
+): string | null {
+  if (loc !== '/' || !hasActiveSession || !hasCurrentUser) return null;
+  return isCinemaOnlyUser ? '/cinema' : '/dashboard';
+}
+
 export function cinemaOnlyRedirect(loc: string): string | null {
   const path = new URL(loc, 'http://x').pathname;
   if (path === '/') return null;

@@ -75,7 +75,7 @@ export function DashboardPage() {
   const [requestedZone, setRequestedZone] = useState<string | null>(null);
   const zoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pendingJumpRef = useRef<string | null>(null);
-  useRememberedScroll('dashboard', scrollRef, auth.isReady);
+  useRememberedScroll('dashboard', scrollRef, auth.isReady, { persist: false });
 
   const registerZone = useCallback((id: string, el: HTMLDivElement | null) => {
     zoneRefs.current[id] = el;
