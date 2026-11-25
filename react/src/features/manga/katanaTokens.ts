@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { lineHeight } from '../../core/theme/paint';
-import { setBoundedCache } from '../../core/utils/boundedCache';
+import { clearOnLogout, setBoundedCache } from '../../core/utils/boundedCache';
 
 /** Dedicated typography for Manga Celestia (distinct from Everglow's Cormorant Garamond + Outfit couple theme). */
 export const KatanaFonts = {
@@ -228,6 +228,7 @@ export function getSeriesVisualAccent(title: string, genres?: readonly string[])
 }
 
 const coverAccentCache = new Map<string, SeriesVisualAccent>();
+clearOnLogout(coverAccentCache);
 
 function toHexByte(n: number): string {
   return Math.max(0, Math.min(255, Math.round(n)))

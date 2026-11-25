@@ -1,10 +1,11 @@
 // Reusable PR proof screenshot CLI for Everglow.
 // Usage:
-//   node tool/capture_proof.mjs --route "/books?agent=1&hud=0" --viewport phone --out docs/pr-proof/pr-123/shot.png
+//   node tool/capture_proof.mjs --route "/books" --viewport phone --out docs/pr-proof/pr-123/shot.png
 //   node tool/capture_proof.mjs --pack pack-manifest.json
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { launch, serve, sleep, stop } from './perf/_harness.mjs';
 
@@ -19,14 +20,16 @@ export const HELP_TEXT = `Usage:
   node tool/capture_proof.mjs --pack <manifest.json> [options]
 
 Options:
-  --route <path>       App route to capture (e.g. "/books?agent=1&hud=0")
-  --out <file.png>     Output PNG path (parent dirs created automatically)
-  --pack <file.json>   JSON array of { route, out, viewport?, selector?, wait?, fullPage? } shots (one Chrome launch)
+  --route <path>       App route to capture (auto-adds ?agent=1&hud=0 unless --no-agent)
+  --out <file.png>     Output PNG path (e.g. docs/pr-proof/pr-123/shot.png)
+  --pack <file.json>   JSON array of { route, out, viewport?, selector?, wait?, fullPage?, noAgent? } shots
   --viewport <preset>  phone (430x932, default) | tablet (820x1180) | desktop (1280x800) | WxH
   --dist <dir>         Built web dist directory (default: react/dist)
   --selector <css>     Optional CSS selector to wait for before capturing
   --wait <ms>          Extra settle wait after mount in ms (default: 1200)
   --full-page          Capture full scrollable page height
+  --no-agent           Do not auto-append agent=1&hud=0 or block passcode-screen captures
+  --allow-duplicates   Allow byte-identical screenshots within a --pack run
   --skip-dist-check    Skip react/tools/check_dist.mjs freshness check
   --help, -h           Show this help`;
 
@@ -40,6 +43,35 @@ export function parseViewport(spec = 'phone') {
   return { width, height, deviceScaleFactor: width <= 900 ? 2 : 1, mobile: width <= 900 };
 }
 
+export function applyAgentParams(route, noAgent = false) {
+  const normalized = route.startsWith('/') ? route : `/${route}`;
+  if (noAgent) return normalized;
+  const url = new URL(normalized, 'http://127.0.0.1');
+  if (!url.searchParams.has('agent')) url.searchParams.set('agent', '1');
+  if (!url.searchParams.has('hud')) url.searchParams.set('hud', '0');
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function isPasscodeGate({ hasPasscodeSelector = false, bodyText = '' } = {}) {
+  return Boolean(hasPasscodeSelector) || /sign in with your passcode/i.test(String(bodyText));
+}
+
+export function detectDuplicateShots(entries) {
+  const seen = new Map();
+  const errors = [];
+  for (const entry of entries) {
+    const prev = seen.get(entry.sha256);
+    if (prev) {
+      errors.push(
+        `Duplicate screenshot hash (${entry.sha256.slice(0, 12)}): "${prev}" and "${entry.out}" are byte-identical (pass --allow-duplicates to override).`,
+      );
+    } else {
+      seen.set(entry.sha256, entry.out);
+    }
+  }
+  return errors;
+}
+
 export function normalizeShot(raw, defaults = {}) {
   if (!raw || typeof raw !== 'object') throw new Error('Pack entry must be an object.');
   const route = String(raw.route ?? '').trim();
@@ -50,13 +82,15 @@ export function normalizeShot(raw, defaults = {}) {
   if (!Number.isFinite(wait) || wait < 0) throw new Error(`Invalid --wait: ${wait}`);
   const viewport = raw.viewport ?? defaults.viewport ?? 'phone';
   parseViewport(viewport);
+  const noAgent = Boolean(raw.noAgent ?? defaults.noAgent ?? false);
   return {
-    route: route.startsWith('/') ? route : `/${route}`,
+    route: applyAgentParams(route, noAgent),
     out,
     viewport,
     selector: String(raw.selector ?? defaults.selector ?? ''),
     wait,
     fullPage: Boolean(raw.fullPage ?? defaults.fullPage ?? false),
+    noAgent,
   };
 }
 
@@ -70,6 +104,8 @@ export function parseArgs(argv) {
     selector: '',
     wait: 1200,
     fullPage: false,
+    noAgent: false,
+    allowDuplicates: false,
     skipDistCheck: false,
     help: false,
   };
@@ -77,6 +113,8 @@ export function parseArgs(argv) {
     const a = argv[i];
     if (a === '--help' || a === '-h') opts.help = true;
     else if (a === '--full-page') opts.fullPage = true;
+    else if (a === '--no-agent') opts.noAgent = true;
+    else if (a === '--allow-duplicates') opts.allowDuplicates = true;
     else if (a === '--skip-dist-check') opts.skipDistCheck = true;
     else if (a === '--route') opts.route = argv[++i] ?? '';
     else if (a === '--out') opts.out = argv[++i] ?? '';
@@ -139,14 +177,29 @@ async function captureOne(cdp, port, shot) {
   }
   if (shot.wait > 0) await sleep(shot.wait);
 
+  if (!shot.noAgent) {
+    const gate = await cdp.eval(`(() => ({
+      hasPasscodeSelector: Boolean(document.querySelector('[aria-label="Passcode entry for Khent and Clair"], [aria-label="Passcode progress"], [aria-label="Switch to passcode door"]')),
+      bodyText: (document.body?.innerText || '').slice(0, 800),
+    }))()`);
+    if (isPasscodeGate(gate)) {
+      throw new Error(
+        `Refusing to save proof of the passcode/sign-in gate for ${shot.route}. Use an agent-mode route (or pass --no-agent if intentionally capturing the gateway).`,
+      );
+    }
+  }
+
   const img = await cdp.send('Page.captureScreenshot', {
     format: 'png',
     captureBeyondViewport: shot.fullPage,
   });
+  const pngBuf = Buffer.from(img.result.data, 'base64');
+  const sha256 = createHash('sha256').update(pngBuf).digest('hex');
   const outPath = resolve(shot.out);
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, Buffer.from(img.result.data, 'base64'));
+  writeFileSync(outPath, pngBuf);
   console.log(`[proof] saved ${outPath} (${vp.width}x${vp.height} @${vp.deviceScaleFactor}x, route=${shot.route})`);
+  return { out: shot.out, route: shot.route, viewport: vp, sha256 };
 }
 
 async function capture(opts) {
@@ -164,8 +217,21 @@ async function capture(opts) {
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
     const port = server.address().port;
+    const results = [];
     for (const shot of shots) {
-      await captureOne(cdp, port, shot);
+      results.push(await captureOne(cdp, port, shot));
+    }
+    if (opts.pack) {
+      const metaPath = join(dirname(resolve(shots[0].out)), 'pack-meta.json');
+      writeFileSync(
+        metaPath,
+        `${JSON.stringify({ generatedAt: new Date().toISOString(), shots: results }, null, 2)}\n`,
+      );
+      console.log(`[proof] wrote metadata ${metaPath}`);
+      if (!opts.allowDuplicates) {
+        const dupes = detectDuplicateShots(results);
+        if (dupes.length) throw new Error(dupes.join('\n'));
+      }
     }
   } finally {
     server.closeAllConnections?.();

@@ -146,12 +146,21 @@ export function findMechanicalViolations({
     }
   }
   for (const { path, content } of functionsFiles) {
-    if (content.includes('ci:skip-revocation-check')) continue;
-    for (const m of content.matchAll(/\.verifyIdToken\s*\(([^)]*)\)/g)) {
-      if (!/,\s*true\s*$/.test(m[1])) {
-        errors.push(`${path}: verifyIdToken() without checkRevoked=true (pass literal true as 2nd arg or // ci:skip-revocation-check).`);
-        break;
+    if (!content.includes('ci:skip-revocation-check')) {
+      for (const m of content.matchAll(/\.verifyIdToken\s*\(([^)]*)\)/g)) {
+        if (!/,\s*true\s*$/.test(m[1])) {
+          errors.push(`${path}: verifyIdToken() without checkRevoked=true (pass literal true as 2nd arg or // ci:skip-revocation-check).`);
+          break;
+        }
       }
+    }
+    if (
+      path !== 'functions/common.js' &&
+      /\b(?:requireAuth|requireCoupleAuth)\s*\(/.test(content) &&
+      !/private,\s*no-store/i.test(content) &&
+      !content.includes('ci:public-cache-ok')
+    ) {
+      errors.push(`${path}: auth-gated Cloud Function without Cache-Control: private, no-store (set private, no-store or // ci:public-cache-ok).`);
     }
   }
   const outlineNoneFiles = [];
@@ -167,11 +176,18 @@ export function findMechanicalViolations({
     }
     if (
       path.startsWith('react/src/features/') &&
-      /^const\s+\w*Cache\s*=\s*new\s+Map\b/m.test(content) &&
-      !content.includes('setBoundedCache') &&
-      !content.includes('ci:unbounded-cache')
+      /^const\s+\w*Cache\s*=\s*new\s+Map\b/m.test(content)
     ) {
-      errors.push(`${path}: module-level *Cache Map without setBoundedCache() (use react/src/core/utils/boundedCache.ts or // ci:unbounded-cache).`);
+      if (!content.includes('setBoundedCache') && !content.includes('ci:unbounded-cache')) {
+        errors.push(`${path}: module-level *Cache Map without setBoundedCache() (use react/src/core/utils/boundedCache.ts or // ci:unbounded-cache).`);
+      }
+      if (
+        !content.includes('clearOnLogout') &&
+        !content.includes('everglow:logout') &&
+        !content.includes('ci:logout-safe-cache')
+      ) {
+        errors.push(`${path}: module-level *Cache Map without clearOnLogout()/everglow:logout cleanup (use react/src/core/utils/boundedCache.ts or // ci:logout-safe-cache).`);
+      }
     }
   }
   if (outlineNoneFiles.length > outlineNoneMax) {

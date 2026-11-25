@@ -21,9 +21,9 @@ export function checkPrContract({body = '', draft = false, paths = []}, exists =
   if (!visual && shots.length === 0 && !/Proof:\s*N\/A\s*[-—:]\s*\S/i.test(body)) errors.push('Provide proof or Proof: N/A — reason.');
   for (const shot of shots) if (!exists(shot[3], shot[2])) errors.push(`Proof is missing from its pinned commit: ${shot[3]}. ${DRAFT_FIRST}`);
   for (const label of ['Analysis', 'Tests', 'Guards', 'Browser']) {
-    if (!new RegExp(`^${label}:\\s*(passed|N/A\\s*[-—:]\\s*\\S).+`, 'mi').test(body)) errors.push(`Record ${label}: passed (details), or N/A — reason.`);
+    if (!new RegExp(`^${label}:\\s*(passed|N/A\\s*[-—:]\\s*\\S).+`, 'mi').test(body)) errors.push(`Record ${label}: passed (details), or N/A — reason (plain line at column 1, no bullet or bold).`);
   }
-  if (!/^Review:\s*(?:independent|self)\s*[-—:]\s*\S/im.test(body)) errors.push('Record Review: independent — reviewer, or self — why no independent review ran.');
+  if (!/^Review:\s*(?:independent|self)\s*[-—:]\s*\S/im.test(body)) errors.push('Record Review: independent — reviewer, or self — why no independent review ran (plain line at column 1, no bullet or bold).');
   if (/^- \[ \]/m.test(body) || /^(?:Blocked|Unverified):\s*(?!none\b)\S/im.test(body)) errors.push('Incomplete verification belongs in a draft.');
   return errors;
 }

@@ -199,12 +199,19 @@ async function saveStreamToCache(
 async function getBlobUrl(key: string, isManga: boolean): Promise<string | null> {
   try {
     const cache = await caches.open(isManga ? MANGA_CACHE : MEDIA_CACHE);
-    const res = await cache.match(cacheKey(key, isManga));
+    const reqKey = cacheKey(key, isManga);
+    let res = await cache.match(reqKey);
     if (!res) return null;
-    const blob = await res.blob();
+    let blob = await res.blob();
     if (!blob || blob.size <= 0) {
-      await cache.delete(cacheKey(key, isManga)).catch(() => {});
-      return null;
+      await new Promise((r) => setTimeout(r, 120));
+      res = await cache.match(reqKey);
+      if (!res) return null;
+      blob = await res.blob();
+      if (!blob || blob.size <= 0) {
+        await cache.delete(reqKey).catch(() => {});
+        return null;
+      }
     }
     const url = URL.createObjectURL(blob);
     objectUrls.add(url);
