@@ -15,6 +15,9 @@ const { resolveRasterImageStream, streamMediaBody } = require('./stream_media_bo
 const SANDBOX_CSP = "default-src 'none'; sandbox";
 const MANGA_API_CACHE_TTL_MS = 60 * 1000;
 const MANGA_API_MAX_CACHE_BYTES = 256 * 1024;
+const IMAGE_PROXY_CACHE_CONTROL = 'public, max-age=86400, stale-while-revalidate=604800';
+const IMAGE_PROXY_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 function resolveMangaApiUrl(origin, pathParam) {
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
@@ -118,8 +121,11 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
 
   try {
     const upstream = await common.fetchPublicUrl(targetUrl, {
-      headers: { 'Accept': 'image/*,*/*;q=0.8' },
-      signal: AbortSignal.timeout(20000),
+      headers: {
+        'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
+        'User-Agent': IMAGE_PROXY_USER_AGENT,
+      },
+      signal: AbortSignal.timeout(12000),
       httpsOnly: true,
       isAllowedUrl: isAllowedMangaDex,
     });
@@ -138,7 +144,7 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'public, max-age=600');
+    res.set('Cache-Control', IMAGE_PROXY_CACHE_CONTROL);
     await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyMangaImage failed (${targetUrl}):`, e.message);
@@ -209,8 +215,12 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
 
   try {
     const upstream = await common.fetchPublicUrl(targetUrl, {
-      headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakakalot.com/' },
-      signal: AbortSignal.timeout(20000),
+      headers: {
+        'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
+        'Referer': 'https://mangakakalot.com/',
+        'User-Agent': IMAGE_PROXY_USER_AGENT,
+      },
+      signal: AbortSignal.timeout(12000),
       httpsOnly: true,
       isAllowedUrl: isAllowedKakalot,
     });
@@ -229,7 +239,7 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'public, max-age=600');
+    res.set('Cache-Control', IMAGE_PROXY_CACHE_CONTROL);
     await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyMangaKakalotImage failed (${targetUrl}):`, e.message);
@@ -302,8 +312,12 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
 
   try {
     const upstream = await common.fetchPublicUrl(targetUrl, {
-      headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakatana.com/' },
-      signal: AbortSignal.timeout(20000),
+      headers: {
+        'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
+        'Referer': 'https://mangakatana.com/',
+        'User-Agent': IMAGE_PROXY_USER_AGENT,
+      },
+      signal: AbortSignal.timeout(12000),
       httpsOnly: true,
       isAllowedUrl: isAllowedKatana,
     });
@@ -322,7 +336,7 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
     res.set('Content-Type', resolved.contentType);
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Content-Security-Policy', SANDBOX_CSP);
-    res.set('Cache-Control', 'public, max-age=600');
+    res.set('Cache-Control', IMAGE_PROXY_CACHE_CONTROL);
     await streamMediaBody(resolved.body, res);
   } catch (e) {
     console.warn(`proxyMangaKatana failed (${targetUrl}):`, e.message);

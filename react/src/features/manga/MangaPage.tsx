@@ -70,8 +70,10 @@ import {
   fetchKatanaChapterPages,
   fetchKatanaDetail,
   fetchKatanaHome,
+  filterHomeCatalogByType,
   formatCompactNumber,
   formatKatanaTime,
+  getCachedKatanaByType,
   importKatanaLibraryJson,
   importKatanaLibraryMalXml,
   isBookmarkCaughtUp,
@@ -963,12 +965,30 @@ export function MangaPage() {
   }, [homeRefreshTick]);
 
   useEffect(() => {
-    if (typeFilter === 'all') return;
+    if (typeFilter === 'all') {
+      setTypeLoading(false);
+      return;
+    }
     let alive = true;
+    const cached = getCachedKatanaByType(typeFilter, typePage);
+    if (cached) {
+      setTypeItems(cached.items);
+      setTypeHasNext(cached.hasNext);
+      setTypeTotalPages(cached.totalPages);
+      setTypeTotalResults(cached.totalResults);
+      setTypeLoading(false);
+      return;
+    }
+    // Seed immediately from loaded home catalog on page 1 so switching tabs never freezes on the old tab's items.
+    const seeded = typePage === 1 ? filterHomeCatalogByType(homeData, typeFilter) : [];
+    setTypeItems(seeded);
+    setTypeHasNext(false);
+    setTypeTotalPages(undefined);
+    setTypeTotalResults(undefined);
     setTypeLoading(true);
     void fetchKatanaByType(typeFilter, typePage).then((res) => {
       if (!alive) return;
-      setTypeItems(res.items);
+      setTypeItems(res.items.length > 0 ? res.items : seeded);
       setTypeHasNext(res.hasNext);
       setTypeTotalPages(res.totalPages);
       setTypeTotalResults(res.totalResults);
@@ -977,7 +997,7 @@ export function MangaPage() {
     return () => {
       alive = false;
     };
-  }, [typeFilter, typePage]);
+  }, [typeFilter, typePage, homeData]);
 
   useEffect(() => {
     if (detailSlug) return;
@@ -2278,6 +2298,7 @@ export function MangaPage() {
 
   return (
     <div
+      className="katana-scope"
       data-katana-theme={themeMode}
       style={{
         ...(KATANA_THEME_VARS[themeMode] as React.CSSProperties),
@@ -2456,12 +2477,15 @@ export function MangaPage() {
                     <div>
                       <KatanaBreadcrumb items={['Manga', detail.title]} onHome={() => handleNav('home')} />
 
-                      <KatanaCard
-                        padding={tablet ? 20 : 14}
+                      <div
                         style={{
                           position: 'relative',
                           overflow: 'hidden',
-                          backgroundImage: `radial-gradient(ellipse 70% 55% at 15% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.16 : 0.12)}, transparent 70%)`,
+                          borderRadius: 14,
+                          padding: tablet ? 20 : 14,
+                          backgroundColor: KatanaColors.surface,
+                          border: `1px solid ${withAlpha(KatanaColors.border, 0.72)}`,
+                          backgroundImage: `radial-gradient(ellipse 75% 60% at 12% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.14 : 0.1)}, transparent 72%)`,
                         }}
                       >
                         <div
@@ -2488,105 +2512,48 @@ export function MangaPage() {
                               width: desktop ? 200 : tablet ? 160 : 112,
                               height: desktop ? 290 : tablet ? 232 : 162,
                               borderRadius: 10,
-                              border: `1px solid ${KatanaColors.borderStrong}`,
+                              border: `1px solid ${withAlpha(KatanaColors.text, 0.12)}`,
                               overflow: 'hidden',
                               flexShrink: 0,
                               background: KatanaColors.surfaceAlt,
                             }}
                           >
-                            <KatanaCoverImage url={detail.coverUrl} title={detail.title} iconSize={34} />
+                            <KatanaCoverImage url={detail.coverUrl} title={detail.title} iconSize={34} priority />
                             <KatanaCoverBadges unreadCount={isBookmarked ? unreadCount : undefined} downloadedCount={downloadedCounts[detail.slug]} />
                           </div>
 
                           <div style={compactCard ? { display: 'contents' } : { flex: 1, minWidth: 200 }}>
                             <div style={compactCard ? { gridColumn: 2, minWidth: 0 } : undefined}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                              <span
-                                style={{
-                                  padding: '2px 9px',
-                                  borderRadius: 99,
-                                  background: withAlpha(detail.status === 'completed' ? KatanaColors.green : KatanaColors.teal, 0.16),
-                                  fontFamily: Fonts.body,
-                                  fontSize: 11.5,
-                                  fontWeight: 700,
-                                  color: detail.status === 'completed' ? KatanaColors.green : KatanaColors.teal,
-                                }}
-                              >
-                                {detail.status === 'completed' ? 'Finished Publishing' : 'Ongoing'}
+                            <div
+                              className="katana-tabular"
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 7,
+                                flexWrap: 'wrap',
+                                marginBottom: 6,
+                                fontFamily: Fonts.body,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: KatanaColors.textMuted,
+                              }}
+                            >
+                              <span style={{ color: detail.status === 'completed' ? KatanaColors.green : KatanaColors.teal }}>
+                                {detail.status === 'completed' ? 'Completed' : 'Ongoing'}
                               </span>
                               {detail.rating != null && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                  <Icon name="star" size={14} color={KatanaColors.accent} />
-                                  <span style={{ fontFamily: Fonts.body, fontSize: 12.5, fontWeight: 700, color: KatanaColors.text }}>
-                                    {detail.rating.toFixed(1)}
-                                  </span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: KatanaColors.text }}>
+                                  <Icon name="star" size={13} color={KatanaColors.accent} />
+                                  {detail.rating.toFixed(1)}
                                 </span>
                               )}
-                              {detail.follows != null && detail.follows > 0 && (
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: KatanaColors.surfaceAlt,
-                                    border: `1px solid ${KatanaColors.border}`,
-                                    ...KatanaType.small,
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  {formatCompactNumber(detail.follows)} readers
-                                </span>
+                              <span>{detail.chapters.length} ch</span>
+                              {detail.demographic && <span>{detail.demographic}</span>}
+                              {!compactCard && detail.follows != null && detail.follows > 0 && (
+                                <span style={{ color: KatanaColors.textLight }}>{formatCompactNumber(detail.follows)} readers</span>
                               )}
-                              {detail.demographic && (
-                                <span
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: KatanaColors.surfaceAlt,
-                                    border: `1px solid ${KatanaColors.border}`,
-                                    ...KatanaType.small,
-                                    fontSize: 12,
-                                    color: KatanaColors.textMuted,
-                                  }}
-                                >
-                                  {detail.demographic}
-                                </span>
-                              )}
-                              <span
-                                style={{
-                                  padding: '2px 8px',
-                                  borderRadius: 99,
-                                  background: KatanaColors.surfaceAlt,
-                                  border: `1px solid ${KatanaColors.border}`,
-                                  ...KatanaType.small,
-                                  fontSize: 12,
-                                }}
-                              >
-                                {detail.chapters.length} ch
-                              </span>
                               {detail.updateText && (
-                                <span style={{ ...KatanaType.small, fontSize: 12 }}>{detail.updateText}</span>
-                              )}
-                              {isBookmarked && alertsEnabled && detail.status !== 'completed' && !detailBm?.ignoreUpdates && (
-                                <span
-                                  title={`Smart Updates active · last checked ${detailBm?.lastCheckedAt ? formatKatanaTime(new Date(detailBm.lastCheckedAt)) : 'recently'} (~${detailBm?.cadenceHours ?? 12}h cadence)`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    padding: '2px 8px',
-                                    borderRadius: 99,
-                                    background: withAlpha(KatanaColors.accent, 0.14),
-                                    border: `1px solid ${withAlpha(KatanaColors.accent, 0.38)}`,
-                                    ...KatanaType.small,
-                                    fontSize: 11.5,
-                                    color: KatanaColors.accentSoft,
-                                  }}
-                                >
-                                  <Icon name="notifications_active" size={12} color={KatanaColors.accent} />
-                                  <span>
-                                    {compactCard ? 'New chapters daily' : `New chapters usually arrive within a day — we’ll notify you`}
-                                  </span>
-                                </span>
+                                <span style={{ color: KatanaColors.textLight }}>{detail.updateText}</span>
                               )}
                             </div>
 
@@ -5666,7 +5633,7 @@ export function MangaPage() {
                             </div>
                           </div>
                         )}
-                      </KatanaCard>
+                      </div>
 
                       {partnerDetailBm && (partnerDetailBm.userScore || partnerDetailBm.trackerNote || partnerDetailBm.lastReadChapterTitle) && (
                         <KatanaCard padding={12} radius={10} style={{ marginTop: 10 }}>

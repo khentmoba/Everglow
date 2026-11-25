@@ -61,6 +61,7 @@ test('proxyMangaKatana streams application/octet-stream JPEG pages with sniffed 
   assert.equal(res.headers['Content-Type'], 'image/jpeg');
   assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(res.headers['Content-Security-Policy'], "default-src 'none'; sandbox");
+  assert.match(res.headers['Cache-Control'], /max-age=86400/);
   assert.deepEqual(Buffer.concat(res.chunks), Buffer.concat([chunk1, chunk2]));
 });
 

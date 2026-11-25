@@ -5,6 +5,50 @@ import test from 'node:test';
 register('./ai_chat_ts_loader.mjs', import.meta.url);
 
 const { fetchFallbackChapterPages } = await import('../src/features/manga/mangaFallbackProviders.ts');
+const { katanaCdnFallback, filterHomeCatalogByType } = await import('../src/features/manga/katanaService.ts');
+
+test('katanaCdnFallback unwraps proxied MangaKatana cover URLs, rotates shards, and falls back from webp to jpg', () => {
+  const proxied =
+    'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=' +
+    encodeURIComponent('https://i1.mangakatana.com/token/demo/cover.webp');
+  const step1 = katanaCdnFallback(proxied, 1);
+  assert.equal(step1, 'https://i6.mangakatana.com/token/demo/cover.webp');
+  const step4 = katanaCdnFallback(proxied, 4);
+  assert.equal(step4, 'https://i2.mangakatana.com/token/demo/cover.webp');
+  const step5 = katanaCdnFallback(proxied, 5);
+  assert.equal(step5, 'https://i1.mangakatana.com/token/demo/cover.jpg');
+});
+
+test('filterHomeCatalogByType separates manga, manhwa, and manhua instantly from home catalog', () => {
+  const make = (slug, genres) => ({
+    slug,
+    id: slug,
+    title: slug,
+    coverUrl: '',
+    status: 'ongoing',
+    updateText: '',
+    summary: '',
+    genres: genres.map((g) => ({ slug: g, name: g, count: 0, description: '' })),
+    recentChapters: [],
+    altNames: [],
+    authors: [],
+    artists: [],
+    chapters: [],
+  });
+  const home = {
+    hotUpdates: [],
+    hot: [],
+    genres: [],
+    latest: [
+      make('jp-series', ['action', 'fantasy']),
+      make('kr-series', ['manhwa', 'action']),
+      make('cn-series', ['manhua', 'fantasy']),
+    ],
+  };
+  assert.deepEqual(filterHomeCatalogByType(home, 'manga').map((m) => m.slug), ['jp-series']);
+  assert.deepEqual(filterHomeCatalogByType(home, 'manhwa').map((m) => m.slug), ['kr-series']);
+  assert.deepEqual(filterHomeCatalogByType(home, 'manhua').map((m) => m.slug), ['cn-series']);
+});
 
 test('ComicK fallback routes meo.comick.pictures images through proxyScanlation', async (t) => {
   t.mock.method(globalThis, 'fetch', async (url) => {

@@ -139,3 +139,51 @@ test('proxyScanlation rejects non-raster HTML/SVG content types', async (t) => {
   );
   assert.equal(res.code, 415);
 });
+
+test('proxyFetchHtml caches cookie-less 200 responses in memory', async (t) => {
+  t.mock.method(common, 'requireAuth', async () => ({
+    uid: 'u-cache',
+    username: 'clairjassen',
+    firebase: { sign_in_provider: 'custom' },
+  }));
+  let fetches = 0;
+  t.mock.method(common, 'fetchPublicUrl', async () => {
+    fetches += 1;
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'text/html' }),
+      body: new ReadableStream({
+        start(c) { c.enqueue(Buffer.from('<html><body>catalog</body></html>')); c.close(); },
+      }),
+    };
+  });
+  const url = `https://mangakatana.com/manga?filter=1&include=manhwa&t=${Date.now()}`;
+  const makeReq = () => ({
+    method: 'GET',
+    headers: { authorization: 'Bearer ok' },
+    get: (k) => (k === 'Authorization' ? 'Bearer ok' : ''),
+    ip: '8.8.8.8',
+    query: { url },
+  });
+  const makeRes = () => ({
+    code: 200,
+    headers: {},
+    set(k, v) { this.headers[k] = v; return this; },
+    status(n) { this.code = n; return this; },
+    json(b) { this.body = b; },
+    send(b) { this.body = b; },
+  });
+  const res1 = makeRes();
+  await html.proxyFetchHtml(makeReq(), res1);
+  assert.equal(res1.code, 200);
+  assert.equal(res1.headers['X-Cache'], 'MISS');
+  assert.equal(fetches, 1);
+
+  const res2 = makeRes();
+  await html.proxyFetchHtml(makeReq(), res2);
+  assert.equal(res2.code, 200);
+  assert.equal(res2.headers['X-Cache'], 'HIT');
+  assert.equal(res2.body, res1.body);
+  assert.equal(fetches, 1);
+});
