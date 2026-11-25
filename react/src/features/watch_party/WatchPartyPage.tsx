@@ -1369,7 +1369,7 @@ function WatchPartyRoomView({
   const everglowEmbed = BUILTIN_WATCH_PARTY_SERVERS.find((s) => s.type === 'embed');
   const embedSrc = hasMedia
     ? room.isAnime
-      ? `https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime?source=everglow&malId=${room.malId ?? room.tmdbId}&ep=${room.episode ?? 1}&audio=sub`
+      ? `https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime?source=everglow&malId=${room.malId ?? room.tmdbId}&ep=${room.mediaType === 'movie' ? 1 : (room.episode ?? 1)}&audio=sub`
       : `https://everglow-1c6db.web.app/embed.html?source=cinema&type=${room.mediaType}&tmdbId=${room.tmdbId}${room.mediaType === 'tv' ? `&s=${room.season ?? 1}&e=${room.episode ?? 1}` : ''}&title=${encodeURIComponent(room.title)}`
     : '';
 

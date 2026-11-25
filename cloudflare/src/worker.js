@@ -130,10 +130,11 @@ function resolveCacheKey(params, selfOrigin) {
   );
 }
 
-function hlsCacheKey(provider, selfOrigin, target, audioLang = '') {
+function hlsCacheKey(provider, selfOrigin, target, audioLang = '', isSub = false) {
   const a = audioLang ? `&a=${encodeURIComponent(audioLang)}` : '';
+  const s = isSub ? '&sub=1' : '';
   return new Request(
-    `https://cache.everglow.internal/hls/v1/${encodeURIComponent(provider)}?origin=${encodeURIComponent(selfOrigin)}&target=${encodeURIComponent(target)}${a}`,
+    `https://cache.everglow.internal/hls/v1/${encodeURIComponent(provider)}?origin=${encodeURIComponent(selfOrigin)}&target=${encodeURIComponent(target)}${a}${s}`,
   );
 }
 
@@ -233,6 +234,7 @@ async function handleProxyAnime(request, env, ctx) {
           params.server,
           base,
           key,
+          { malId: params.malId },
         );
       } else if (params.source === 'megavid') {
         out = await resolveMegavid(
@@ -284,6 +286,7 @@ async function handleProxyAnime(request, env, ctx) {
             title: out.title,
             ep: out.ep,
             server: out.server || '',
+            ...(typeof out.hardsub === 'boolean' ? { hardsub: out.hardsub } : {}),
             servers: Array.isArray(out.servers) ? out.servers : [],
           };
           cachePut(
@@ -316,6 +319,7 @@ async function handleProxyAnime(request, env, ctx) {
           hasEpisodes: isCinema && params.mediaType === 'tv',
           servers: Array.isArray(out.servers) ? out.servers : [],
           current: out.server || '',
+          ...(typeof out.hardsub === 'boolean' ? { hardsub: out.hardsub } : {}),
         }),
         {
           status: 200,
@@ -477,7 +481,7 @@ async function handleProxyHls(request, env, ctx) {
   const range = request.headers.get('Range');
   const edgeCache = getEdgeCache();
   const canCache = Boolean(edgeCache && request.method === 'GET' && !range);
-  const cacheKey = canCache ? hlsCacheKey(provider, url.origin, target, audioLang) : null;
+  const cacheKey = canCache ? hlsCacheKey(provider, url.origin, target, audioLang, isSub) : null;
   if (cacheKey) {
     try {
       const hit = await edgeCache.match(cacheKey);

@@ -1292,7 +1292,7 @@ test('only the default subtitle track drives the captions (no random language)',
   assert.equal(tracks[1].oncuechange, null, 'Icelandic can no longer overwrite English');
 });
 
-function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true, servers = [], current = '', fetchImpl = null, kind = 'cinema' } = {}) {
+function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true, servers = [], current = '', fetchImpl = null, kind = 'cinema', nativeHls = false } = {}) {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
     title: 'Movie',
@@ -1377,7 +1377,7 @@ function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePoint
     this.destroyed = false;
     instances.push(this);
   }
-  Hls.isSupported = () => true;
+  Hls.isSupported = () => !nativeHls;
   Hls.Events = { ERROR: 'e', MANIFEST_PARSED: 'm' };
   Hls.ErrorTypes = {};
   const handlers = {};
@@ -3381,4 +3381,78 @@ test('player matches saved subtitle language by label across titles and keeps Ci
   els['sv-menu'].children[1].onclick();
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(v.children.length, 1, 'Cinema keeps existing captions when switched server has none');
+});
+
+test('selectCinemaSubtitleTracks filters thumbnails and ASS tracks and ranks eng first', () => {
+  const tracks = selectCinemaSubtitleTracks([
+    { label: 'Arabic', url: 'https://cdn.example/subs/ar.vtt', kind: 'captions' },
+    { label: 'eng', url: 'https://cdn.example/subs/en.vtt', kind: 'captions', default: true },
+    { url: 'https://cdn.example/preview/thumbnails.vtt', kind: 'thumbnails' },
+    { label: 'English (ASS)', url: 'https://cdn.example/subs/en.vtt', format: 'ass', is_ass: true },
+  ]);
+  assert.deepEqual(
+    tracks.map((t) => ({ label: t.label, file: t.file })),
+    [
+      { label: 'eng', file: 'https://cdn.example/subs/en.vtt' },
+      { label: 'Arabic', file: 'https://cdn.example/subs/ar.vtt' },
+    ],
+  );
+});
+
+test('anime softsub server switch keeps existing captions while hardsub server clears them', async () => {
+  const oldTrack = { kind: 'captions', label: 'English', src: 'https://x/English.vtt' };
+  const responses = [
+    { src: 'https://w/proxyMegavidHls?t=soft', tracks: [], hardsub: false },
+    { src: 'https://w/proxyMegavidHls?t=hard', tracks: [], hardsub: true },
+  ];
+  let call = 0;
+  const { els, v } = runPlayerDom({
+    kind: 'anime',
+    tracks: [],
+    trackEls: [oldTrack],
+    current: 'megaplay',
+    servers: [
+      { id: 'megaplay', label: 'Nova', url: 'https://w/p?server=megaplay' },
+      { id: 'yume-6', label: 'Comet', url: 'https://w/p?server=yume-6' },
+      { id: 'yume-1', label: 'Dawn', url: 'https://w/p?server=yume-1' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => responses[call++],
+    }),
+  });
+  v.children.push(oldTrack);
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(v.children.length, 1, 'softsub server with empty tracks keeps existing captions');
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[2].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(v.children.length, 0, 'hardsub server clears existing captions to avoid double-rendering');
+});
+
+test('native HLS player exposes v.audioTracks in CC menu and toggles enabled on click', () => {
+  const { els, v } = runPlayerDom({
+    kind: 'anime',
+    nativeHls: true,
+    tracks: ['English'],
+    trackEls: [{ kind: 'captions', label: 'English', src: 'https://x/English.vtt' }],
+  });
+  const nativeTracks = [
+    { label: 'Japanese', language: 'jpn', enabled: true },
+    { label: 'English', language: 'eng', enabled: false },
+  ];
+  v.audioTracks = nativeTracks;
+  for (const h of v.listeners.loadedmetadata || []) h();
+
+  els['btn-cc'].dispatch('click');
+  const walk = (n) => (n ? [n, ...(n.children || []).flatMap(walk)] : []);
+  const buttons = walk(els['cc-menu']);
+  const engAudBtn = buttons.find((b) => b.textContent === 'English' && !b.className.includes('on'));
+  assert.ok(engAudBtn, 'native English audio track button is rendered in CC menu');
+  engAudBtn.onclick();
+  assert.equal(nativeTracks[0].enabled, false);
+  assert.equal(nativeTracks[1].enabled, true);
 });
