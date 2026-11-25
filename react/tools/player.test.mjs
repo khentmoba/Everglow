@@ -276,7 +276,17 @@ test('OfflineVideoHud mounts over cached offline video and drives playback, sett
     const hasNativeControls = await page.evaluate(() => Boolean(document.querySelector('video')?.controls));
     assert.equal(hasNativeControls, false, 'offline <video> should disable native browser controls when OfflineVideoHud is active');
 
+    // Keep the auto-hiding HUD awake under slow CI/parallel load before clicking controls.
+    const ensureHudVisible = async () => {
+      const seek = page.locator('div[role="slider"][aria-label="Seek"]');
+      if (!(await seek.isVisible())) {
+        await page.locator('video').click({ position: { x: 120, y: 120 }, force: true });
+        await seek.waitFor({ state: 'visible', timeout: 5_000 });
+      }
+    };
+
     // Cycle playback speed chip (1x -> 1.25x) and verify time readout button works.
+    await ensureHudVisible();
     const timeBtn = page.locator('button[aria-label="Toggle elapsed or remaining time"]');
     await timeBtn.click();
     const speedBtn = page.locator('button[aria-label="1x"]');
@@ -284,6 +294,7 @@ test('OfflineVideoHud mounts over cached offline video and drives playback, sett
     await page.locator('button[aria-label="1.25x"]').waitFor({ state: 'visible', timeout: 5_000 });
 
     // Open Settings -> Shortcuts (?) -> Escape closes.
+    await ensureHudVisible();
     await page.locator('button[aria-label="Settings"]').click();
     await page.waitForSelector('div[role="dialog"][aria-label="Player settings"]', { timeout: 5_000 });
     await page.getByRole('button', { name: 'Shortcuts (?)' }).click();
@@ -296,8 +307,12 @@ test('OfflineVideoHud mounts over cached offline video and drives playback, sett
     await page.waitForSelector('text=Buffer', { timeout: 5_000 });
 
     // Lock screen and unlock.
+    await ensureHudVisible();
     await page.locator('button[aria-label="Lock screen"]').click();
     const unlockBtn = page.locator('button[aria-label="Tap to unlock"]');
+    if (!(await unlockBtn.isVisible())) {
+      await page.locator('video').click({ position: { x: 120, y: 120 }, force: true });
+    }
     await unlockBtn.waitFor({ state: 'visible', timeout: 5_000 });
     await unlockBtn.click();
     await page.locator('button[aria-label="Settings"]').waitFor({ state: 'visible', timeout: 5_000 });

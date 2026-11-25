@@ -134,7 +134,7 @@ export function OfflineVideoHud({
     clearTimer(hideTimer);
     if (video.paused || lockedRef.current || openMenuRef.current) return;
     hideTimer.current = window.setTimeout(() => {
-      if (!video.paused && !openMenuRef.current) setHudVisible(false);
+      if (!video.paused && !openMenuRef.current && !lockedRef.current) setHudVisible(false);
     }, 3000);
   }, [video]);
 
@@ -841,6 +841,7 @@ export function OfflineVideoHud({
               tooltip="Lock screen"
               onTap={() => {
                 clearTimer(hideTimer);
+                lockedRef.current = true;
                 setLocked(true);
                 setSettingsOpen(false);
                 setCcOpen(false);
