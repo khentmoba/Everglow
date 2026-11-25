@@ -1819,15 +1819,17 @@ test('a stream that dies before any pick still reports the source dead', () => {
   assert.ok(posted.includes('animex-content-error'), 'the app can advance servers');
 });
 
-test('CC is hidden when the source has no subtitles', () => {
-  const none = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
-  assert.match(none, /id="btn-cc"[^>]*hidden/, 'no tracks, so no CC button');
+test('CC is hidden in Anime when the source has no subtitles, and visible in Cinema', () => {
+  const animeNone = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Ep 1', kind: 'anime' });
+  assert.match(animeNone, /id="btn-cc"[^>]*hidden/, 'no tracks in Anime, so no CC button');
+  const cinemaNone = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
+  assert.doesNotMatch(cinemaNone, /id="btn-cc"[^>]*hidden/, 'Cinema keeps CC button visible');
   const some = hlsPlayerHtml({
     src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema',
     tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
   });
   assert.doesNotMatch(some, /id="btn-cc"[^>]*hidden/);
-  const { els } = runPlayerDom({ tracks: [], trackEls: [] });
+  const { els } = runPlayerDom({ kind: 'anime', tracks: [], trackEls: [] });
   assert.equal(els['btn-cc'].hidden, true);
 });
 
@@ -2617,8 +2619,8 @@ test('mobile settings falls back to Auto quality on native HLS and desktop setti
 });
 
 test('CC menu exposes Audio track switching when subtitles are absent and labels Subtitles accurately', () => {
-  const { els, instances } = runPlayerDom({ tracks: [], trackEls: [] });
-  assert.equal(els['btn-cc'].hidden, true, 'no subs and no multi-audio hides button');
+  const { els, instances } = runPlayerDom({ kind: 'anime', tracks: [], trackEls: [] });
+  assert.equal(els['btn-cc'].hidden, true, 'no subs and no multi-audio hides button in Anime');
 
   instances[0].audioTracks = [{ name: 'Japanese' }, { name: 'English' }];
   instances[0]._handlers.m();
