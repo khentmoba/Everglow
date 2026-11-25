@@ -37,6 +37,7 @@ import {
   parseTsAudioTracks,
   filterTsPmtAudio,
   sealTarget,
+  selectAnimeSubtitleTracks,
   selectCinemaSubtitleTracks,
   validateAnimeParams,
   verifyStream,
@@ -1291,11 +1292,11 @@ test('only the default subtitle track drives the captions (no random language)',
   assert.equal(tracks[1].oncuechange, null, 'Icelandic can no longer overwrite English');
 });
 
-function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true, servers = [], current = '', fetchImpl = null } = {}) {
+function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true, servers = [], current = '', fetchImpl = null, kind = 'cinema' } = {}) {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
     title: 'Movie',
-    kind: 'cinema',
+    kind,
     servers,
     current,
     tracks: tracks.map((t) => {
@@ -1517,6 +1518,7 @@ test('picking a server swaps the source and keeps the playhead', async () => {
 test('a pick swaps the captions with the source, never leaving stale tracks', async () => {
   const oldTrack = { kind: 'captions', label: 'English', src: 'https://x/English.vtt' };
   const { els, v } = runPlayerDom({
+    kind: 'anime',
     tracks: [],
     trackEls: [oldTrack],
     current: 'megaplay',
@@ -3211,4 +3213,172 @@ test('selectCinemaSubtitleTracks accepts untyped subtitle proxy URLs as fallback
   ]);
   assert.equal(tracks.length, 1);
   assert.equal(tracks[0].label, 'English');
+});
+
+test('selectAnimeSubtitleTracks ranks English first, drops thumbnails and ASS, and resolves relative YumeZone paths', () => {
+  const tracks = selectAnimeSubtitleTracks(
+    [
+      { label: 'Arabic', file: 'https://s-90.megavid.se/sub/ara/asset.txt', kind: 'captions' },
+      { label: 'English', file: 'https://s-90.megavid.se/sub/eng/asset.txt', kind: 'captions', default: true },
+      { file: 'https://cdn.example/preview/thumbnails.vtt', kind: 'thumbnails' },
+      { label: 'English (Full)', file: '/p/ass-token', format: 'ass', is_ass: true },
+      { label: 'English (Dubtitle)', file: '/p/srt-token', format: 'srt', is_ass: false },
+    ],
+    'https://yumezone.live',
+  );
+  assert.deepEqual(
+    tracks.map((t) => ({ label: t.label, file: t.file })),
+    [
+      { label: 'English', file: 'https://s-90.megavid.se/sub/eng/asset.txt' },
+      { label: 'English (Dubtitle)', file: 'https://yumezone.live/p/srt-token' },
+      { label: 'Arabic', file: 'https://s-90.megavid.se/sub/ara/asset.txt' },
+    ],
+  );
+});
+
+test('resolveYumeZone keeps softsub VTT/SRT tracks on softsub servers and rewrites Rudra multi-audio defaults', async () => {
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  Date.now = () => YUME_TS * 1000;
+  const rudraMaster = [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="jpn",NAME="Japanese",DEFAULT=NO,AUTOSELECT=YES,URI="/p/aud_jpn.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="eng",NAME="English",DEFAULT=NO,AUTOSELECT=YES,URI="/p/aud_eng.m3u8"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=2000000,AUDIO="audio"',
+    'v.m3u8',
+  ].join('\n');
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    if (u === 'https://yumezone.live/api/yume/watch/sources') {
+      const body = JSON.parse(init.body);
+      const sig = await yumeSig(body.anime_id, body.episode_number, body.ts);
+      const payload =
+        body.provider === 'Rin'
+          ? yumeAnswer({
+              subtitles: [
+                { label: 'English', file: '/p/sub-vtt-token', format: 'vtt', default: true },
+                { label: 'English (ASS)', file: '/p/sub-ass-token', format: 'ass', is_ass: true },
+              ],
+            })
+          : yumeAnswer({ hls_sources: [{ url: 'https://yumezone.live/p/rudra/master.m3u8' }] });
+      return new Response(JSON.stringify({ ct: yumeEncrypt(payload, sig) }), { status: 200 });
+    }
+    if (u.includes('rudra/master.m3u8')) {
+      return new Response(rudraMaster, { status: 200 });
+    }
+    if (u.includes('master.m3u8')) {
+      return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv.m3u8\n', { status: 200 });
+    }
+    if (u.includes('v.m3u8')) {
+      const segs = Array.from({ length: 25 }, (_, i) => `#EXTINF:6,\nseg-${i}.ts`).join('\n');
+      return new Response(`#EXTM3U\n#EXT-X-TARGETDURATION:6\n${segs}\n`, { status: 200 });
+    }
+    return new Response(new Uint8Array([0x47, 1, 2, 3]), { status: 200 });
+  };
+  try {
+    const soft = await resolveYumeZone(154587, 1, 'sub', 'yume-6', `${HOST}/proxyMegavidHls`, KEY, { malId: 52991 });
+    assert.equal(soft.tracks.length, 1);
+    assert.equal(soft.tracks[0].label, 'English');
+    const subSealed = await scopedTarget(new URL(soft.tracks[0].file).searchParams, KEY);
+    assert.equal(subSealed.isSub, true);
+    assert.equal(subSealed.target, 'https://yumezone.live/p/sub-vtt-token');
+    assert.ok(soft.servers.every((s) => new URL(s.url).searchParams.get('malId') === '52991'));
+
+    const multiSub = await resolveYumeZone(154587, 1, 'sub', 'yume-9', `${HOST}/proxyMegavidHls`, KEY);
+    const subMasterSeal = await scopedTarget(new URL(multiSub.src).searchParams, KEY);
+    assert.equal(subMasterSeal.audioLang, 'jpn');
+
+    const multiDub = await resolveYumeZone(154587, 1, 'dub', 'yume-9', `${HOST}/proxyMegavidHls`, KEY);
+    const dubMasterSeal = await scopedTarget(new URL(multiDub.src).searchParams, KEY);
+    assert.equal(dubMasterSeal.audioLang, 'eng');
+  } finally {
+    globalThis.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
+test('handleProxyHls converts opaque sealed subtitle URLs and filters 206 byte-range TS audio', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    const opaqueSub = await cinemaProxyUrl(
+      `${HOST}/proxyMegavidHls`,
+      'https://yumezone.live/p/opaque-sub-token',
+      'yumezone',
+      KEY,
+      '',
+      { isSub: true },
+    );
+    globalThis.fetch = async () =>
+      new Response('1\n00:00:01,000 --> 00:00:02,500\nOpaque SRT\n', {
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream' },
+      });
+    const subRes = await handleProxyHls(new Request(opaqueSub), { CDN_STAMP_KEY: KEY }, {});
+    assert.equal(subRes.status, 200);
+    assert.equal(subRes.headers.get('content-type'), 'text/vtt; charset=utf-8');
+    const vtt = await subRes.text();
+    assert.ok(vtt.startsWith('WEBVTT\n\n'));
+    assert.ok(vtt.includes('00:00:01.000 --> 00:00:02.500'));
+
+    const tsBytes = buildTestTsWithPmt([
+      { pid: 0x101, lang: 'eng' },
+      { pid: 0x102, lang: 'kor' },
+    ]);
+    const proxiedSeg = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, 'https://cdn.example/hls/seg0.ts', 'fmov', KEY, 'kor');
+    globalThis.fetch = async () =>
+      new Response(tsBytes, {
+        status: 206,
+        headers: {
+          'content-type': 'video/mp2t',
+          'content-range': `bytes 0-${tsBytes.length - 1}/${tsBytes.length}`,
+          'content-length': String(tsBytes.length),
+        },
+      });
+    const segRes = await handleProxyHls(
+      new Request(proxiedSeg, { headers: { Range: `bytes=0-${tsBytes.length - 1}` } }),
+      { CDN_STAMP_KEY: KEY },
+      {},
+    );
+    assert.equal(segRes.status, 206);
+    const outBytes = new Uint8Array(await segRes.arrayBuffer());
+    assert.deepEqual(
+      parseTsAudioTracks(outBytes).map((t) => t.lang),
+      ['kor'],
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('player matches saved subtitle language by label across titles and keeps Cinema captions on empty server switch', async () => {
+  const store = new Map([['everglow.player.prefs', JSON.stringify({ cc: true, lang: 1, langLabel: 'english' })]]);
+  const { els, v } = runPlayerDom({
+    kind: 'cinema',
+    store,
+    tracks: ['English', 'Arabic'],
+    trackEls: [
+      { kind: 'captions', label: 'English', src: 'https://x/English.vtt' },
+      { kind: 'captions', label: 'Arabic', src: 'https://x/Arabic.vtt' },
+    ],
+    current: 'cine-1',
+    servers: [
+      { id: 'cine-1', label: 'Reel', url: 'https://w/p?server=cine-1' },
+      { id: 'cine-2', label: 'Matinee', url: 'https://w/p?server=cine-2' },
+    ],
+    fetchImpl: async () => ({
+      json: async () => ({ src: 'https://w/proxyMegavidHls?t=swapped', tracks: [] }),
+    }),
+  });
+  v.children.push({ kind: 'captions', label: 'English', src: 'https://x/English.vtt' });
+
+  els['btn-cc'].dispatch('click');
+  const walk = (n) => (n ? [n, ...(n.children || []).flatMap(walk)] : []);
+  const activeBtn = walk(els['cc-menu']).find((b) => b.textContent === 'English');
+  assert.ok(activeBtn && activeBtn.className.includes('on'), 'English is selected by label, not stale index 1');
+
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(v.children.length, 1, 'Cinema keeps existing captions when switched server has none');
 });

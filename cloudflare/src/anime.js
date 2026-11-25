@@ -1,5 +1,6 @@
 import { hlsPlayerHtml } from '../../functions/hls_player.js';
 import {
+  YUME_ORIGIN,
   YUME_SERVER_IDS,
   yumeHeaders,
   yumeMasterUrl,
@@ -345,14 +346,15 @@ function safeRemainder(rel) {
   return rel;
 }
 
-async function sealedUrl(proxyBase, absUrl, provider, key, audioLang = '') {
+async function sealedUrl(proxyBase, absUrl, provider, key, audioLang = '', opts = {}) {
   const parts = stampParts(absUrl);
   if (!parts) return null;
   const audioField = audioLang ? { a: audioLang } : {};
+  const subField = opts && opts.isSub ? { sub: 1 } : {};
   const sp = splitForTransport(absUrl);
   if (!sp) {
     if (parts.relay) return null;
-    const whole = await sealTarget(key, { p: provider, u: parts.inner, ...audioField });
+    const whole = await sealTarget(key, { p: provider, u: parts.inner, ...audioField, ...subField });
     return whole ? `${proxyBase}?t=${whole}` : null;
   }
   let scope;
@@ -361,7 +363,7 @@ async function sealedUrl(proxyBase, absUrl, provider, key, audioLang = '') {
   } catch {
     return null;
   }
-  const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '', ...audioField });
+  const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '', ...audioField, ...subField });
   if (!token) return null;
   if (sp.relay) {
     return (
@@ -372,12 +374,12 @@ async function sealedUrl(proxyBase, absUrl, provider, key, audioLang = '') {
   return `${proxyBase}?t=${token}&r=${encodeURIComponent(sp.r)}`;
 }
 
-async function scopedUrl(proxyBase, absUrl, provider, key, audioLang = '') {
-  return sealedUrl(proxyBase, absUrl, provider, key, audioLang);
+async function scopedUrl(proxyBase, absUrl, provider, key, audioLang = '', opts = {}) {
+  return sealedUrl(proxyBase, absUrl, provider, key, audioLang, opts);
 }
 
-function cinemaProxyUrl(proxyBase, absUrl, provider, key, audioLang = '') {
-  return scopedUrl(proxyBase, absUrl, provider, key, audioLang);
+function cinemaProxyUrl(proxyBase, absUrl, provider, key, audioLang = '', opts = {}) {
+  return scopedUrl(proxyBase, absUrl, provider, key, audioLang, opts);
 }
 
 function srtToVtt(text) {
@@ -713,8 +715,8 @@ function stripAdCues(vtt) {
   return `${kept.join('\n\n')}\n`;
 }
 
-async function megaplayProxyUrl(proxyBase, absUrl, key) {
-  return scopedUrl(proxyBase, absUrl, 'megaplay', key);
+async function megaplayProxyUrl(proxyBase, absUrl, key, opts = {}) {
+  return scopedUrl(proxyBase, absUrl, 'megaplay', key, '', opts);
 }
 
 async function scopedTarget(params, key) {
@@ -751,7 +753,8 @@ async function scopedTarget(params, key) {
   const audioLang = typeof sealed.a === 'string' && /^[a-z]{2,3}$/i.test(sealed.a)
     ? sealed.a.toLowerCase()
     : '';
-  return { provider, target, relay: parts.relay, scope, audioLang };
+  const isSub = Boolean(sealed.sub);
+  return { provider, target, relay: parts.relay, scope, audioLang, isSub };
 }
 
 function normalizeHref(url) {
@@ -1205,11 +1208,14 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
   );
   if (data.status !== 'ok' || !data.source) throw new Error('megavid: no stream');
   const verified = await verifyMegavidStream(data.source, opts.signal);
+  const audioLang = selectPreferredTsAudioLang(verified, isDub === 'dub' ? 'en' : 'ja');
+  const selectedSubs = selectAnimeSubtitleTracks(data.tracks, MEGAVID_ORIGIN);
   const [src, ...tracks] = await Promise.all([
-    sealedUrl(proxyBase, data.source, 'megavid', key),
-    ...(Array.isArray(data.tracks) ? data.tracks : [])
-      .filter((t) => t && t.file)
-      .map(async (t) => ({ ...t, file: await sealedUrl(proxyBase, t.file, 'megavid', key) })),
+    sealedUrl(proxyBase, data.source, 'megavid', key, audioLang),
+    ...selectedSubs.map(async (t) => ({
+      ...t,
+      file: await sealedUrl(proxyBase, t.file, 'megavid', key, '', { isSub: true }),
+    })),
   ]);
   if (!src) throw new Error('megavid: stream cannot be sealed');
   return {
@@ -1219,7 +1225,11 @@ async function resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, opts 
     ep,
     server: 'megavid',
     servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
-    prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: 'megavid' })),
+    prefetched: (verified?.prefetched || []).map((p) => ({
+      ...p,
+      provider: 'megavid',
+      audioLang,
+    })),
   };
 }
 
@@ -1266,12 +1276,15 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts
   const masterUrl = token ? `${decrypted.file}?token=${token}` : decrypted.file;
 
   const verified = await verifyMegaPlayStream(masterUrl, opts.signal);
+  const audioLang = selectPreferredTsAudioLang(verified, isDub === 'dub' ? 'en' : 'ja');
+  const selectedSubs = selectAnimeSubtitleTracks(data.tracks, MEGAPLAY_ORIGIN);
 
   const [src, ...tracks] = await Promise.all([
-    sealedUrl(proxyBase, masterUrl, 'megaplay', key),
-    ...(Array.isArray(data.tracks) ? data.tracks : [])
-      .filter((t) => t && t.file)
-      .map(async (t) => ({ ...t, file: await megaplayProxyUrl(proxyBase, t.file, key) })),
+    sealedUrl(proxyBase, masterUrl, 'megaplay', key, audioLang),
+    ...selectedSubs.map(async (t) => ({
+      ...t,
+      file: await megaplayProxyUrl(proxyBase, t.file, key, { isSub: true }),
+    })),
   ]);
   return {
     src,
@@ -1280,7 +1293,11 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, proxyBase, key, opts
     ep,
     server: 'megaplay',
     servers: everglowServerLinks(proxyBase, { anilistId, malId, ep, audio }),
-    prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: 'megaplay' })),
+    prefetched: (verified?.prefetched || []).map((p) => ({
+      ...p,
+      provider: 'megaplay',
+      audioLang,
+    })),
   };
 }
 
@@ -1341,6 +1358,7 @@ async function resolveEverglow(
       out = await resolveYumeZone(anilistId, ep, audio, server.id, proxyBase, key, {
         signal,
         budgetMs: Math.max(1, deadline - Date.now()),
+        malId,
       });
     } else if (server.source === 'megavid') {
       out = await resolveMegavid(anilistId, malId, ep, audio, proxyBase, key, { signal });
@@ -1399,6 +1417,7 @@ async function resolveEverglow(
         resolveYumeZone(anilistId, ep, audio, '', proxyBase, key, {
           signal: ctrl.signal,
           budgetMs: Math.max(1, deadline - Date.now()),
+          malId,
         }).then(
           (out) => {
             if (out && out.src) finish(out);
@@ -1483,16 +1502,31 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
     const master = yumeMasterUrl(payload);
     if (!master) throw new Error('no master playlist');
     const verified = await verifyStream(master, yumeHeaders(), ctrl.signal);
-    const src = await sealedUrl(proxyBase, master, 'yumezone', key);
+    const preferredLang = String(audio || 'sub').toLowerCase() === 'dub' ? 'en' : 'ja';
+    const audioLang = selectPreferredTsAudioLang(verified, preferredLang);
+    const selectedSubs = server.hardsub
+      ? []
+      : selectAnimeSubtitleTracks(payload.subtitles || payload.tracks, YUME_ORIGIN);
+    const [src, ...rawTracks] = await Promise.all([
+      sealedUrl(proxyBase, master, 'yumezone', key, audioLang),
+      ...selectedSubs.map(async (t) => ({
+        ...t,
+        file: await sealedUrl(proxyBase, t.file, 'yumezone', key, '', { isSub: true }),
+      })),
+    ]);
     if (!src) throw new Error('yumezone: master URL cannot be sealed');
     return {
       src,
-      tracks: [],
+      tracks: rawTracks.filter((t) => t.file),
       title: `Episode ${ep}`,
       ep,
       server: server.id,
-      servers: everglowServerLinks(proxyBase, { anilistId, malId: 0, ep, audio }),
-      prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: 'yumezone' })),
+      servers: everglowServerLinks(proxyBase, { anilistId, malId: opts.malId || 0, ep, audio }),
+      prefetched: (verified?.prefetched || []).map((p) => ({
+        ...p,
+        provider: 'yumezone',
+        audioLang,
+      })),
     };
   };
 
@@ -1560,6 +1594,45 @@ async function resolveYumeZone(anilistId, ep, audio, serverId, proxyBase, key, o
     clearTimeout(budgetTimer);
     if (outer) outer.removeEventListener('abort', onAbort);
   }
+}
+
+function selectAnimeSubtitleTracks(rawTracks, baseOrigin = '') {
+  if (!Array.isArray(rawTracks)) return [];
+  const candidates = [];
+  for (const t of rawTracks) {
+    if (!t || typeof t !== 'object') continue;
+    const kind = String(t.kind || '').trim().toLowerCase();
+    if (kind && kind !== 'captions' && kind !== 'subtitles') continue;
+    if (t.is_ass === true) continue;
+    const fmt = String(t.format || t.type || '').trim().toLowerCase();
+    if (fmt === 'ass' || fmt === 'ssa') continue;
+    const abs = resolvePlaylistUrl(t.file || t.url || t.src || '', baseOrigin);
+    if (!abs || !abs.startsWith('https://')) continue;
+    const path = abs.split('?')[0].toLowerCase();
+    if (path.endsWith('.ass') || path.endsWith('.ssa')) continue;
+    const isSrt = fmt === 'srt' || path.endsWith('.srt') || /(?:^|[?&%])format(?:=|%3d)srt\b/i.test(abs);
+    const rawLabel = String(t.label || t.language || t.lang || 'Subtitles').trim();
+    const norm = rawLabel.toLowerCase();
+    let rank = 2;
+    if (norm === 'english' || norm === 'en') rank = 0;
+    else if (/^english\b|^en[-_]/i.test(norm)) rank = 1;
+    const formatRank = isSrt ? 1 : 0;
+    const defaultRank = t.default === true ? 0 : 1;
+    const dedupeKey = norm.replace(/\s*\d+$/, '').replace(/\s+/g, ' ').trim();
+    candidates.push({ file: abs, label: rawLabel, rank, formatRank, defaultRank, dedupeKey });
+  }
+  candidates.sort(
+    (a, b) => a.rank - b.rank || a.formatRank - b.formatRank || a.defaultRank - b.defaultRank,
+  );
+  const seen = new Set();
+  const out = [];
+  for (const c of candidates) {
+    if (seen.has(c.dedupeKey)) continue;
+    seen.add(c.dedupeKey);
+    out.push({ file: c.file, label: c.label });
+    if (out.length >= 16) break;
+  }
+  return out;
 }
 
 function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
@@ -1826,7 +1899,7 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
       .filter((t) => t.file.startsWith('https://'))
       .map(async (t) => ({
         ...t,
-        file: await cinemaProxyUrl(proxyBase, t.file, subProvider, key),
+        file: await cinemaProxyUrl(proxyBase, t.file, subProvider, key, '', { isSub: true }),
       })),
   ]);
   const tracks = rawTracks.filter((t) => t.file);
@@ -1991,6 +2064,7 @@ export {
   verifyCinemaStream,
   decryptMegaPlayPayload,
   makeMegaPlayToken,
+  selectAnimeSubtitleTracks,
   selectCinemaSubtitleTracks,
   everglowServerList,
   everglowServerLinks,

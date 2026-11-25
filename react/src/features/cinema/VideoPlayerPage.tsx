@@ -503,7 +503,11 @@ class PlayerController {
         this.mountOnlineIframe(host);
         this.restartLoadTimer();
         if (this.p.isAnime) void this.bootstrapAnime();
-        else this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+        else if (!this.originalLanguage && this.p.tmdbId > 0 && this.selectedProvider.id === 'everglow-embed') {
+          void this.bootstrapCinema();
+        } else {
+          this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+        }
       }
     });
     host.replaceChildren(video);
@@ -661,7 +665,11 @@ class PlayerController {
     });
     this.restartLoadTimer();
     this.applySandbox(provider);
-    this.iframe.src = this.buildPlayerUrl(provider);
+    if (!this.p.isAnime && !this.originalLanguage && this.p.tmdbId > 0 && provider.id === 'everglow-embed') {
+      void this.bootstrapCinema();
+    } else {
+      this.iframe.src = this.buildPlayerUrl(provider);
+    }
     this.persistPlayerMemory();
     this.syncExitButton();
   }
