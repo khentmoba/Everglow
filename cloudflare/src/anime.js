@@ -1697,16 +1697,10 @@ function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
     const type = String(t.format || t.type || '').trim().toLowerCase();
     if (type === 'ass' || type === 'ssa') continue;
     const abs = resolvePlaylistUrl(t.file || t.url || t.src || '', baseOrigin);
-    if (!abs) continue;
+    if (!abs || !abs.startsWith('https://')) continue;
     const path = abs.split('?')[0].toLowerCase();
     if (path.endsWith('.ass') || path.endsWith('.ssa')) continue;
-    const isVtt = type === 'vtt' || path.endsWith('.vtt');
-    const isSrt =
-      type === 'srt' ||
-      path.endsWith('.srt') ||
-      /(?:^|[?&%])format(?:=|%3d)srt\b/i.test(abs) ||
-      (!type && path.includes('/subtitles/'));
-    if (!isVtt && !isSrt) continue;
+    const isVtt = type === 'vtt' || type === 'webvtt' || path.endsWith('.vtt');
     const rawLabel = String(t.label || t.lang || t.language || 'Subtitles').trim();
     const norm = rawLabel.toLowerCase();
     let rank = 2;
@@ -1792,7 +1786,7 @@ async function resolveFmov(apiPath, srcKey, signal) {
     key: srcKey,
     provider: 'fmov',
     masterUrls: hlsCandidates(sources, 'type', FMOV_ORIGIN),
-    subtitles: data.subtitles,
+    subtitles: Array.isArray(data.subtitles) && data.subtitles.length > 0 ? data.subtitles : data.tracks,
     baseOrigin: FMOV_ORIGIN,
   };
 }

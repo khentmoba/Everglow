@@ -3579,3 +3579,46 @@ test('hlsPlayerHtml caps failed VTT fetches to stop timeupdate retry storms and 
   for (const h of v.listeners.playing || []) h();
   assert.equal(els.dead.hidden, true, 'dead overlay clears once playback starts on the switched server');
 });
+
+test('Cinema player keeps CC button visible when server has no tracks and offers server switch', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://w.example/proxyMegavidHls?t=abc',
+    title: 'Movie',
+    kind: 'cinema',
+    tracks: [],
+    servers: [
+      { id: 'cine-1', label: 'Reel', url: 'https://w/p?server=cine-1' },
+      { id: 'cine-2', label: 'Matinee', url: 'https://w/p?server=cine-2' },
+    ],
+    current: 'cine-1',
+  });
+  assert.doesNotMatch(html, /id="btn-cc"[^>]*hidden/, 'Cinema keeps CC button visible even with 0 tracks');
+
+  const { els } = runPlayerDom({
+    kind: 'cinema',
+    tracks: [],
+    trackEls: [],
+    current: 'cine-1',
+    servers: [
+      { id: 'cine-1', label: 'Reel', url: 'https://w/p?server=cine-1' },
+      { id: 'cine-2', label: 'Matinee', url: 'https://w/p?server=cine-2' },
+    ],
+  });
+  assert.equal(els['btn-cc'].hidden, false, 'CC button stays visible in Cinema with 0 tracks');
+  els['btn-cc'].dispatch('click');
+  const walk = (n) => (n ? [n, ...(n.children || []).flatMap(walk)] : []);
+  const texts = walk(els['cc-menu']).map((n) => n.textContent || '');
+  assert.ok(texts.some((t) => t.includes('No subtitles on this server')), 'shows empty-subtitles notice');
+  assert.ok(texts.some((t) => t === 'Switch server'), 'offers one-tap server switch');
+});
+
+test('selectCinemaSubtitleTracks accepts untyped proxied https subtitle URLs', () => {
+  const tracks = selectCinemaSubtitleTracks([
+    { label: 'English', url: 'https://sub.wyzie.ru/c/abc123' },
+    { label: 'Spanish', url: 'https://sub.wyzie.ru/c/def456', type: 'captions' },
+  ]);
+  assert.deepEqual(
+    tracks.map((t) => t.label),
+    ['English', 'Spanish'],
+  );
+});

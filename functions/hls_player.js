@@ -494,8 +494,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
       ? '<button type="button" class="ib" id="btn-eps" aria-label="Episodes" title="Episodes">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M4 11h11M4 16h7"/><polygon points="15 13 20 16.5 15 20" fill="currentColor" stroke="none"/></svg></button>'
       : '') +
-    '<button type="button" class="ib on" id="btn-cc" aria-label="Subtitles" title="Subtitles & Audio (C)" aria-haspopup="true"' +
-    (trackTags ? '' : ' hidden') + '>' +
+    '<button type="button" class="ib' + (trackTags ? ' on' : '') + '" id="btn-cc" aria-label="Subtitles" title="Subtitles & Audio (C)" aria-haspopup="true"' +
+    (trackTags || isCinema ? '' : ' hidden') + '>' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h3M13 9.5h3M8 12.5h6" stroke-linecap="round"/></svg></button>' +
     '<button type="button" class="chip" id="btn-speed" aria-label="Playback speed" title="Speed ([ / ])" aria-haspopup="true">1x</button>' +
     '<button type="button" class="chip" id="btn-q" aria-label="Quality" title="Video quality">Auto</button>' +
@@ -1148,11 +1148,13 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'function setCc(on){ccOn=!!on;prefs.cc=ccOn;savePrefs();' +
     'if(btnCc)btnCc.classList.toggle("on",ccOn);syncCues();buildCcMenu();}' +
     'function buildCcMenu(){var n=trackCount(),hasAud=audioTracks.length>1;' +
-    'if(btnCc)btnCc.hidden=(n===0&&!hasAud);' +
-    'if(n===0&&!hasAud){if(ccMenu)ccMenu.hidden=true;placeSubs();return;}' +
+    'if(btnCc){btnCc.hidden=(!isCinema&&n===0&&!hasAud);btnCc.classList.toggle("on",ccOn&&n>0);}' +
+    'if(!isCinema&&n===0&&!hasAud){if(ccMenu)ccMenu.hidden=true;placeSubs();return;}' +
     'if(subPick>=n)subPick=0;' +
     'if(!ccMenu)return;ccMenu.innerHTML="";' +
     'addMenuHeader(ccMenu,hasAud?(n>0?"Subtitles & Audio":"Audio track"):"Subtitles");' +
+    'if(n===0&&!hasAud){var em=document.createElement("div");em.className="cc-h";em.style.textTransform="none";em.style.letterSpacing="0";em.style.fontSize="11px";em.textContent="No subtitles on this server.";ccMenu.appendChild(em);' +
+    'if(servers.length>1){var swr=ccRow();swr.appendChild(ccBtn("Switch server",false,function(){openOnlyMenu(svMenu,btnSv,buildSvMenu);}));ccMenu.appendChild(swr);}return;}' +
     'var twoCol=n>1||(n>0&&hasAud);' +
     'var c1=ccMenu,c2=ccMenu;' +
     'if(twoCol){var grid=document.createElement("div");grid.className="more-grid";c1=mkCol();c2=mkCol();grid.appendChild(c1);grid.appendChild(c2);ccMenu.appendChild(grid);}' +

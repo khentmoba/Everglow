@@ -194,6 +194,7 @@ class PlayerController {
   userName: string;
 
   selectedProvider: VideoSourceConfig;
+  private userSelectedProvider = false;
   resolvedStartSeconds: number | undefined;
   private restoreDone: Promise<void> = Promise.resolve();
   private readonly failedProviderIds = new Set<string>();
@@ -418,6 +419,7 @@ class PlayerController {
   }
 
   private startContentCheck() {
+    if (this.userSelectedProvider) return;
     const id = this.selectedProvider.id;
     const timeout =
       id === 'vidlink' ? CONTENT_CHECK : id === 'everglow-shell' || id === 'flux-cinesrc' ? CINESRC_CONTENT_CHECK : null;
@@ -660,6 +662,7 @@ class PlayerController {
 
   selectProvider(provider: VideoSourceConfig, retry = false) {
     if (provider.id === this.selectedProvider.id && !retry) return;
+    this.userSelectedProvider = true;
     ++this.restoreRevision;
     this.resolvedStartSeconds = this.positionSeconds;
     this.cancelUpNext();
