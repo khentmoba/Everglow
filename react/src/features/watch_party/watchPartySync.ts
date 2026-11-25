@@ -5,6 +5,7 @@ import { NetworkQualityService } from '../../core/network/networkQuality';
 import { auth, db } from '../../core/services/firebase';
 import { Logger } from '../../core/system/logger';
 import { Prefs } from '../../core/system/prefs';
+import { fetchMediaDetails } from '../cinema/tmdbService';
 import type { WatchPartyRoom } from './watchPartyService';
 
 const FUNCTIONS_BASE = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
@@ -234,6 +235,15 @@ export async function resolveWatchPartyStream(room: WatchPartyRoom): Promise<Wat
     params.set('s', String(room.season ?? 1));
     params.set('e', String(room.episode ?? 1));
     if (room.title) params.set('title', room.title);
+    const details = await Promise.race([
+      fetchMediaDetails(room.tmdbId, room.mediaType).catch(() => null),
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1200)),
+    ]);
+    const origLang =
+      typeof details?.original_language === 'string'
+        ? details.original_language.trim().toLowerCase()
+        : '';
+    if (/^[a-z]{2,3}$/.test(origLang)) params.set('lang', origLang);
   }
   const url = `${PROXY_CINEMA_ORIGIN}/proxyAnime?${params.toString()}`;
   const resp = await fetch(url, { signal: AbortSignal.timeout(NetworkQualityService.timeoutMs(22000)) });

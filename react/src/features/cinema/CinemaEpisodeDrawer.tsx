@@ -537,10 +537,15 @@ export function CinemaEpisodeDrawer({
 
   const posterParam = item.posterPath ? `&poster=${encodeURIComponent(item.posterPath)}` : '';
   const malIdParam = isAnimeSourced ? `&malId=${malId}` : '';
+  const rawLang =
+    typeof details?.original_language === 'string' && details.original_language.trim()
+      ? details.original_language.trim().toLowerCase()
+      : (item.originalLanguage ?? '');
+  const langParam = !isAnimeSourced && rawLang ? `&lang=${encodeURIComponent(rawLang)}` : '';
   const playId = isAnimeSourced ? malId : item.tmdbId;
   const playMovie = () =>
     navigate(
-      `/cinema/video/${playId}?type=movie&title=${encodeURIComponent(item.title)}&anime=${isAnimeSourced}${malIdParam}${posterParam}`,
+      `/cinema/video/${playId}?type=movie&title=${encodeURIComponent(item.title)}&anime=${isAnimeSourced}${malIdParam}${posterParam}${langParam}`,
     );
   const playEpisode = (season: number, episode: number) => {
     const watchedParam = !isAnimeSourced && isWatched(item) ? '&watched=true' : '';
@@ -554,7 +559,7 @@ export function CinemaEpisodeDrawer({
         ? '&completed=true'
         : '';
     navigate(
-      `/cinema/video/${playId}?type=tv&title=${encodeURIComponent(cleanTitle(item.title))}&season=${season}&episode=${episode}&anime=${isAnimeSourced}${watchedParam}${completedParam}${malIdParam}${posterParam}`,
+      `/cinema/video/${playId}?type=tv&title=${encodeURIComponent(cleanTitle(item.title))}&season=${season}&episode=${episode}&anime=${isAnimeSourced}${watchedParam}${completedParam}${malIdParam}${posterParam}${langParam}`,
     );
   };
 

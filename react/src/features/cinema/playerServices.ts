@@ -134,6 +134,7 @@ interface UrlOpts {
   episode: number;
   startSeconds?: number | null;
   title?: string;
+  originalLanguage?: string;
 }
 
 function cinemaUrl(p: VideoSourceConfig, o: UrlOpts): string | null {
@@ -141,9 +142,11 @@ function cinemaUrl(p: VideoSourceConfig, o: UrlOpts): string | null {
   if (p.id === 'everglow-embed') {
     const name = (o.title ?? '').trim();
     const titleParam = name ? `&title=${encodeURIComponent(name).replace(/%20/g, '+')}` : '';
+    const rawLang = (o.originalLanguage ?? '').trim().toLowerCase();
+    const langParam = /^[a-z]{2,3}$/.test(rawLang) ? `&lang=${rawLang}` : '';
     return o.mediaType === 'tv'
-      ? `${PROXY_CINEMA_BASE}?source=cinema&type=tv&tmdbId=${o.id}&s=${o.season}&e=${o.episode}${titleParam}`
-      : `${PROXY_CINEMA_BASE}?source=cinema&type=movie&tmdbId=${o.id}${titleParam}`;
+      ? `${PROXY_CINEMA_BASE}?source=cinema&type=tv&tmdbId=${o.id}&s=${o.season}&e=${o.episode}${titleParam}${langParam}`
+      : `${PROXY_CINEMA_BASE}?source=cinema&type=movie&tmdbId=${o.id}${titleParam}${langParam}`;
   }
   if (p.id === 'everglow-shell') {
     return o.mediaType === 'tv'

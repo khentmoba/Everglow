@@ -47,6 +47,7 @@ export interface MediaItem {
   progressUpdatedAt?: Date;
   remindMe: boolean;
   trailerYoutubeId?: string;
+  originalLanguage?: string;
 }
 
 export function catalogKeyOf(item: Pick<MediaItem, 'tmdbId' | 'anilistId' | 'mediaType' | 'source'>): string {
