@@ -107,6 +107,14 @@ test('repair rounds detach tools so the model must answer in text', () => {
   assert.equal(textOnlyRepairs, 2);
 });
 
+test('non-streaming model body reads tolerate an aborted response', async () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  assert.match(src, /readJsonOrAbort:\s*readModelJson/);
+  for (const name of ['response', 'finalResp', 'repairResp', 'danglingResp']) {
+    assert.match(src, new RegExp(`await readModelJson\\(${name}\\)`));
+  }
+});
+
 test('missing-block repair is wired on both answer paths', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
   const uses = src.split('ARTIFACT_REPAIR_NUDGE').length - 1;

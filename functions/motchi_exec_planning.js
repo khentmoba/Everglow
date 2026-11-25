@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { isSafeDocId } = require('./common.js');
+const { isSafeDocId, readTextOrAbort: readWeatherText } = require('./common.js');
 const { parseReminderDate, phtDateString } = require('./motchi_core.js');
 const { getCalendarEvents } = require('./calendar_core.js');
 
@@ -319,7 +319,7 @@ async function exec_get_weather(ctx, args) {
     if (!weatherRes.ok) {
       return JSON.stringify({ location, weather: 'Weather unavailable', error: `Weather service returned HTTP ${weatherRes.status}` });
     }
-    const weatherText = await weatherRes.text();
+    const weatherText = await readWeatherText(weatherRes);
     const trimmed = weatherText.trim();
     if (trimmed) ctx.cacheSet(wKey, trimmed);
     return JSON.stringify({ location, weather: trimmed || 'Weather unavailable' });

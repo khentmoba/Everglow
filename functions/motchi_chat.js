@@ -22,6 +22,7 @@ const {
   enforceRateLimit,
   checkDailyCap,
   getVerifiedUsername,
+  readJsonOrAbort: readModelJson,
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
@@ -1396,7 +1397,8 @@ ${HTML_GAME_GUIDE}
       nonStreamError(response ? response.status : 502, 'No response from the model');
       return;
     }
-    const data = await response.json();
+    const data = await readModelJson(response);
+    if (!data) break;
     nsModel = data.model || nsModel;
     const message = data.choices?.[0]?.message || {};
     if (message.reasoning) nsReasoning += message.reasoning;
@@ -1502,8 +1504,8 @@ ${HTML_GAME_GUIDE}
       const synthesizeOnly = true;
       const finalResp = await callLlmOnce(nsMessages, synthesizeOnly);
       if (finalResp && finalResp.ok) {
-        const finalData = await finalResp.json();
-        const finalMsg = finalData.choices?.[0]?.message || {};
+        const finalData = await readModelJson(finalResp);
+        const finalMsg = finalData?.choices?.[0]?.message || {};
         if (finalMsg.content) {
           nsReply += finalMsg.content;
           nsInterrupted = false;
@@ -1519,8 +1521,8 @@ ${HTML_GAME_GUIDE}
     try {
       const repairResp = await callLlmOnce(nsMessages, true);
       if (repairResp && repairResp.ok) {
-        const repairData = await repairResp.json();
-        const repairMsg = repairData.choices?.[0]?.message || {};
+        const repairData = await readModelJson(repairResp);
+        const repairMsg = repairData?.choices?.[0]?.message || {};
         if (repairMsg.content) nsReply += repairMsg.content;
       }
     } catch (_) {}
@@ -1533,8 +1535,8 @@ ${HTML_GAME_GUIDE}
     try {
       const danglingResp = await callLlmOnce(nsMessages, true);
       if (danglingResp && danglingResp.ok) {
-        const danglingData = await danglingResp.json();
-        const danglingMsg = danglingData.choices?.[0]?.message || {};
+        const danglingData = await readModelJson(danglingResp);
+        const danglingMsg = danglingData?.choices?.[0]?.message || {};
         if (danglingMsg.content) nsReply += danglingMsg.content;
       }
     } catch (_) {}

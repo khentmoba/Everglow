@@ -6,6 +6,7 @@ const {
   _getExternalCache,
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
+  readJsonOrAbort: readModelJson,
 } = require('./common.js');
 const {
   parseFactStructure,
@@ -71,7 +72,8 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       await resp.body?.cancel?.().catch(() => {});
       return;
     }
-    const data = await resp.json();
+    const data = await readModelJson(resp);
+    if (!data) return;
     const raw = (data.choices?.[0]?.message?.content || '').trim();
     if (!raw) return;
     let candidates;

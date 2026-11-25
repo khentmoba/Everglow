@@ -6,6 +6,7 @@ const {
   enforceRateLimit,
   checkDailyCap,
   getVerifiedUsername,
+  readJsonOrAbort: readModelJson,
 } = require('./common.js');
 
 const AGNES_URL = 'https://apihub.agnes-ai.com/v1/chat/completions';
@@ -143,7 +144,8 @@ async function callLlm({ apiKey, messages, maxTokens, timeoutMs }) {
     err.status = resp.status;
     throw err;
   }
-  const body = await resp.json();
+  const body = await readModelJson(resp);
+  if (!body) return '';
   return (body.choices?.[0]?.message?.content || '').trim();
 }
 
