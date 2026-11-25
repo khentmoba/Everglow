@@ -462,6 +462,7 @@ async function handleProxyHls(request, env, ctx) {
   const target = sealed.target;
   const provider = sealed.provider;
   const audioLang = sealed.audioLang || '';
+  const isSub = Boolean(sealed.isSub);
 
   let parsed;
   try {
@@ -575,6 +576,7 @@ async function handleProxyHls(request, env, ctx) {
 
   const lowerPath = parsed.pathname.toLowerCase();
   const looksLikeVtt =
+    isSub ||
     upstreamCt.includes('text/vtt') ||
     upstreamCt.includes('application/x-subrip') ||
     lowerPath.endsWith('.vtt') ||
@@ -639,7 +641,7 @@ async function handleProxyHls(request, env, ctx) {
 
   const mediaStatus = upstream.status === 206 ? 206 : 200;
   let body = consumed !== null ? consumed : upstream.body;
-  if (audioLang && consumed === null && mediaStatus === 200) {
+  if (audioLang && consumed === null && (mediaStatus === 200 || mediaStatus === 206)) {
     try {
       const bytes = new Uint8Array(await upstream.arrayBuffer());
       body = filterTsPmtAudio(bytes, audioLang);

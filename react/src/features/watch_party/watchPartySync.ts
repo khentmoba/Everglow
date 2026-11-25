@@ -223,7 +223,7 @@ export async function resolveWatchPartyStream(room: WatchPartyRoom): Promise<Wat
   if (room.isAnime) {
     const malId = room.malId ?? room.tmdbId;
     if (malId <= 0) throw new Error('Anime room has no MAL id');
-    params.set('source', 'megaplay');
+    params.set('source', 'everglow');
     params.set('malId', String(malId));
     params.set('ep', String(room.mediaType === 'movie' ? 1 : (room.episode ?? 1)));
     params.set('audio', 'sub');
