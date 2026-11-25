@@ -595,15 +595,19 @@ class PlayerController {
           !this.mounted ||
           this.isOfflinePlayback ||
           this.restoreRevision !== startRev ||
-          this.selectedProvider.id !== 'everglow-embed'
+          this.selectedProvider.id !== 'everglow-embed' ||
+          this.originalLanguage === 'en' ||
+          this.positionSeconds > 3
         ) {
           return;
         }
         this.resolvedStartSeconds = this.positionSeconds || this.resolvedStartSeconds;
+        this.setState(() => (this.isLoading = true));
         this.restartLoadTimer();
         this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
       });
     }
+    this.restartLoadTimer();
     this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
   }
 
@@ -616,6 +620,7 @@ class PlayerController {
       return;
     }
     this.externalTmdbId = tmdbId;
+    this.restartLoadTimer();
     this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
     void this.resolveNext();
   }
@@ -1103,8 +1108,12 @@ class PlayerController {
       needsReload = true;
     }
     if (!needsReload) return;
+    ++this.restoreRevision;
     this.setState();
-    if (this.iframe.src && this.iframe.src !== 'about:blank') this.loadProvider(this.selectedProvider);
+    if (!this.isOfflinePlayback) {
+      this.restartLoadTimer();
+      this.loadProvider(this.selectedProvider);
+    }
   }
 
   private persistPlayerMemory(resetPosition = false) {

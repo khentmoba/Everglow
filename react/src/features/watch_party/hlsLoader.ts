@@ -1,7 +1,10 @@
 export type HlsInstance = {
   loadSource(url: string): void;
   attachMedia(video: HTMLVideoElement): void;
-  on(event: string, cb: (_ev: unknown, data?: { fatal?: boolean }) => void): void;
+  on(event: string, cb: (_ev: unknown, data?: { fatal?: boolean; type?: string }) => void): void;
+  startLoad?(): void;
+  recoverMediaError?(): void;
+  swapAudioCodec?(): void;
   destroy(): void;
 };
 
@@ -9,6 +12,7 @@ export type HlsConstructor = {
   new (opts?: Record<string, unknown>): HlsInstance;
   isSupported(): boolean;
   Events: { ERROR: string };
+  ErrorTypes?: { NETWORK_ERROR?: string; MEDIA_ERROR?: string };
 };
 
 const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';

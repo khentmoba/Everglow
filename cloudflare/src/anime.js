@@ -385,10 +385,11 @@ function cinemaProxyUrl(proxyBase, absUrl, provider, key, audioLang = '', opts =
 function srtToVtt(text) {
   if (typeof text !== 'string' || !text.includes('-->')) return text;
   const cleaned = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
-  if (/^\s*WEBVTT\b/.test(cleaned)) return text;
+  if (/^\s*WEBVTT\b/.test(cleaned)) return cleaned;
   const body = cleaned.replace(
-    /^(\s*\d{1,2}:\d{2}:\d{2}),(\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}),(\d{3})/gm,
-    '$1.$2.$3',
+    /^(\s*)(\d{1,2}):(\d{2}:\d{2}),(\d{3})(\s*-->\s*)(\d{1,2}):(\d{2}:\d{2}),(\d{3})/gm,
+    (_m, lead, h1, m1, ms1, arrow, h2, m2, ms2) =>
+      `${lead}${h1.padStart(2, '0')}:${m1}.${ms1}${arrow}${h2.padStart(2, '0')}:${m2}.${ms2}`,
   );
   return `WEBVTT\n\n${body}`;
 }
@@ -495,32 +496,76 @@ function hasMultiAudioMaster(text) {
   return false;
 }
 
-function rewriteMasterAudioDefaults(lines, targetLang) {
-  if (!targetLang) return lines;
-  const audioIdx = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (/^#EXT-X-MEDIA:.*TYPE=AUDIO\b/i.test(lines[i].trim())) audioIdx.push(i);
+const LANG_NAME_TO_CODE = {
+  korean: 'ko',
+  japanese: 'ja',
+  english: 'en',
+  chinese: 'zh',
+  mandarin: 'zh',
+  cantonese: 'cn',
+  spanish: 'es',
+  french: 'fr',
+  german: 'de',
+  italian: 'it',
+  portuguese: 'pt',
+  russian: 'ru',
+  arabic: 'ar',
+  hindi: 'hi',
+  thai: 'th',
+  vietnamese: 'vi',
+  indonesian: 'id',
+  tagalog: 'tl',
+  filipino: 'tl',
+  turkish: 'tr',
+  polish: 'pl',
+  dutch: 'nl',
+  swedish: 'sv',
+};
+
+function audioLineMatchesLang(line, targetLang) {
+  const langMatch = line.match(/LANGUAGE="([^"]+)"/i);
+  if (langMatch && langMatch[1].toLowerCase() !== 'und' && audioLangMatches(langMatch[1], targetLang)) {
+    return true;
   }
-  if (audioIdx.length < 2) return lines;
-  let matchIdx = -1;
-  for (const idx of audioIdx) {
-    const m = lines[idx].match(/LANGUAGE="([^"]+)"/i);
-    if (m && audioLangMatches(m[1], targetLang)) {
-      matchIdx = idx;
-      break;
+  const nameMatch = line.match(/NAME="([^"]+)"/i);
+  if (nameMatch) {
+    const words = nameMatch[1].toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    for (const w of words) {
+      const code = LANG_NAME_TO_CODE[w] || (w.length <= 3 ? w : '');
+      if (code && audioLangMatches(code, targetLang)) return true;
     }
   }
-  if (matchIdx < 0) return lines;
+  return false;
+}
+
+function rewriteMasterAudioDefaults(lines, targetLang) {
+  if (!targetLang) return lines;
+  const groups = new Map();
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!/^#EXT-X-MEDIA:.*TYPE=AUDIO\b/i.test(trimmed)) continue;
+    const gm = trimmed.match(/GROUP-ID="([^"]+)"/i);
+    const gid = gm ? gm[1] : '';
+    if (!groups.has(gid)) groups.set(gid, []);
+    groups.get(gid).push(i);
+  }
   const out = [...lines];
   const setAttr = (line, attr, val) => {
     const re = new RegExp(`(${attr}=)(?:YES|NO)`, 'i');
     return re.test(line) ? line.replace(re, `$1${val}`) : `${line},${attr}=${val}`;
   };
-  for (const idx of audioIdx) {
-    const on = idx === matchIdx ? 'YES' : 'NO';
-    out[idx] = setAttr(setAttr(out[idx], 'DEFAULT', on), 'AUTOSELECT', on);
+  let changed = false;
+  for (const audioIdx of groups.values()) {
+    if (audioIdx.length < 2) continue;
+    const matchIdx = audioIdx.find((idx) => audioLineMatchesLang(lines[idx], targetLang));
+    if (matchIdx === undefined) continue;
+    changed = true;
+    for (const idx of audioIdx) {
+      const on = idx === matchIdx ? 'YES' : 'NO';
+      out[idx] = setAttr(setAttr(out[idx], 'DEFAULT', on), 'AUTOSELECT', on);
+    }
   }
-  return out;
+  return changed ? out : lines;
 }
 
 const TS_AUDIO_STREAM_TYPES = new Set([0x03, 0x04, 0x0f, 0x11, 0x81, 0x87]);
@@ -898,8 +943,11 @@ function splitForTransport(abs) {
 async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, audioLang = '') {
   const ctx = baseContext(playlistUrl);
   const rawLines = String(text || '').split(/\r?\n/);
+  const isMultiAudioMaster = hasMultiAudioMaster(text);
   const lines = audioLang ? rewriteMasterAudioDefaults(rawLines, audioLang) : rawLines;
-  const audioField = audioLang ? { a: audioLang } : {};
+  // Multi-audio master playlists already separate audio into #EXT-X-MEDIA renditions,
+  // so child playlists/segments do not need TS PMT filtering (which would buffer every segment in Worker RAM).
+  const audioField = audioLang && !isMultiAudioMaster ? { a: audioLang } : {};
 
   const items = new Map();
   const consider = (ref) => {

@@ -936,6 +936,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'function hideBoot(){boot.style.display="none";}' +
     'var awaitingPlay=false;' +
     'function showPausedReady(){hideBoot();awaitingPlay=true;' +
+    'if(dead){dead.hidden=true;dead.style.paddingRight="";}' +
     'if(playP)playP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
     'if(cplayP)cplayP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
     'if(document.body&&document.body.classList){document.body.classList.add("is-paused");}' +
@@ -1037,7 +1038,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var pickSeq=0;' +
     'function setTracks(list){var old=v.querySelectorAll?v.querySelectorAll("track"):[];' +
     'for(var i=old.length-1;i>=0;i--){try{v.removeChild(old[i]);}catch(e){}}' +
-    'cueList=[];cueTrack=-1;cueFetching=-1;cueFetchSeq++;' +
+    'cueList=[];cueTrack=-1;cueFetching=-1;cueFails={};cueFetchSeq++;' +
     'var arr=Array.isArray(list)?list:[],added=0;' +
     'for(var k=0;k<arr.length&&added<40;k++){var t=arr[k];if(!t||!t.file)continue;' +
     'var el=document.createElement("track");el.kind="captions";el.src=String(t.file);' +
@@ -1059,20 +1060,25 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'function pickServer(s){if(!s||!s.url)return;' +
     'var seq=++pickSeq;picking=true;' +
     'if(btnSv)btnSv.textContent="Loading\u2026";' +
-    'fetch(s.url,{credentials:"omit"}).then(function(r){return r.json();}).then(function(d){' +
+    'var ac=typeof AbortController==="function"?new AbortController():null;' +
+    'var ft=ac&&typeof setTimeout==="function"?setTimeout(function(){try{ac.abort();}catch(e){}},16000):null;' +
+    'var fo=ac?{credentials:"omit",signal:ac.signal}:{credentials:"omit"};' +
+    'fetch(s.url,fo).then(function(r){if(ft&&typeof clearTimeout==="function")clearTimeout(ft);if(!r||r.ok===false)throw new Error("bad status");return r.json();}).then(function(d){' +
     'if(seq!==pickSeq)return;' +
     'if(!d||!d.src)throw new Error("no src");' +
     'currentServer=s.id;' +
     'activeSrc=d.src;if(typeof resetPreview==="function")resetPreview();' +
     'var at=Number.isFinite(v.currentTime)?v.currentTime:0;' +
     'pendingSeek=at>0?at:null;hasMetadata=false;' +
+    'if(qMenu)qMenu.innerHTML="";if(btnQ)btnQ.textContent="Auto";' +
     'if(window.Hls&&Hls.isSupported()){' +
     'if(!hlsInst||hlsDead){hlsInst=makeHls();hlsInst.attachMedia(v);}' +
+    'else{fatal=0;audioTracks=[];buildCcMenu();}' +
     'hlsInst.loadSource(d.src);' +
-    '}else{v.src=d.src;}' +
+    '}else{audioTracks=[];buildCcMenu();v.src=d.src;}' +
     'if(Array.isArray(d.tracks)&&(d.tracks.length>0||d.hardsub===true||(!isCinema&&d.hardsub!==false)))setTracks(d.tracks);' +
     'if(btnSv)btnSv.textContent="Servers";buildSvMenu();' +
-    '}).catch(function(){if(seq!==pickSeq)return;pickFailed();});}' +
+    '}).catch(function(){if(ft&&typeof clearTimeout==="function")clearTimeout(ft);if(seq!==pickSeq)return;pickFailed();});}' +
     'if(btnSv&&svMenu)btnSv.addEventListener("click",function(){openOnlyMenu(svMenu,btnSv,buildSvMenu);});' +
     'syncSvHint();' +
     'function pipSupported(){return !!(document.pictureInPictureEnabled||' +
@@ -1197,7 +1203,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'c2.appendChild(ccHead("Position"));' +
     'var ps=ccRow();["Low","Mid","High","Top"].forEach(function(lbl,idx){ps.appendChild(ccBtn(lbl,idx===prefs.subPos,function(){setSubPos(idx);}));});' +
     'c2.appendChild(ps);}' +
-    'var cueList=[],cueTrack=-1,cueFetching=-1,cueFetchSeq=0;' +
+    'var cueList=[],cueTrack=-1,cueFetching=-1,cueFetchSeq=0,cueFails={};' +
     'function cleanCueText(s){return String(s||"").replace(/\\{\\\\[^}]*\\}/g,"").replace(/<(?!\\/?(i|b)\\b)[^>]+>/gi,"").trim();}' +
     'function stripRich(s){return String(s||"").replace(/<\\/?(i|b)\\b[^>]*>/gi,"");}' +
     'function paintCueText(next){if(!subTxt)return;' +
@@ -1219,6 +1225,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var body=cleanCueText(lines.slice(ti+1).join("\\n"));' +
     'if(body)out.push({s:s,e:e,t:body});}return out;}' +
     'function fetchVtt(pick){if(typeof fetch!=="function")return;' +
+    'if((cueFails[pick]||0)>=2)return;' +
     'var el=trackEls()[pick];var src=el&&(el.src||(el.getAttribute&&el.getAttribute("src")));' +
     'if(!src||cueFetching===pick)return;cueFetching=pick;var seq=++cueFetchSeq;' +
     (token
@@ -1227,8 +1234,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
       : 'fetch(src)') +
     '.then(function(r){return r&&r.ok?r.text():"";}).then(function(txt){' +
     'if(seq!==cueFetchSeq||subPick!==pick){if(cueFetching===pick)cueFetching=-1;return;}' +
-    'var parsed=parseVtt(txt);if(parsed.length){cueList=parsed;cueTrack=pick;renderCues();}else{cueFetching=-1;}' +
-    '}).catch(function(){if(cueFetching===pick)cueFetching=-1;});}' +
+    'var parsed=parseVtt(txt);if(parsed.length){cueFails[pick]=0;cueList=parsed;cueTrack=pick;renderCues();}else{cueFails[pick]=(cueFails[pick]||0)+1;cueFetching=-1;}' +
+    '}).catch(function(){if(seq===cueFetchSeq){cueFails[pick]=(cueFails[pick]||0)+1;}if(cueFetching===pick)cueFetching=-1;});}' +
     'function readCues(){var n=trackCount();if(!n)return;' +
     'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
     'if(cueTrack===pick&&cueList.length)return;var out=[];' +
@@ -1248,7 +1255,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'paintCueText(next);}' +
     'function syncCues(){var n=trackCount();' +
     'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
-    'cueList=[];cueTrack=-1;cueFetching=-1;cueFetchSeq++;' +
+    'cueList=[];cueTrack=-1;cueFetching=-1;cueFails={};cueFetchSeq++;' +
     'if(v.textTracks){for(var i=0;i<v.textTracks.length;i++){var tr=v.textTracks[i];' +
     'if(i!==pick){tr.mode="disabled";tr.oncuechange=null;continue;}' +
     'tr.mode=ccOn?"hidden":"disabled";tr.oncuechange=renderCues;}}' +
@@ -1540,6 +1547,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'audioTracks=list;buildCcMenu();if(moreMenu&&!moreMenu.hidden)buildMoreMenu();}' +
     'if(window.Hls&&Hls.isSupported()){' +
     'var fatal=0;' +
+    'v.addEventListener("playing",function(){fatal=0;});' +
     'makeHls=function(){' +
     (token
       ? 'var h=new Hls({maxBufferLength:30,maxMaxBufferLength:60,backBufferLength:30,startFragPrefetch:true,lowLatencyMode:false,maxBufferHole:0.5,nudgeMaxRetry:5,fragLoadingTimeOut:20000,manifestLoadingTimeOut:15000,levelLoadingTimeOut:15000,fragLoadingMaxRetry:4,fragLoadingRetryDelay:500,xhrSetup:function(x,u){try{if(new URL(u,location.href).origin===location.origin){x.setRequestHeader("Authorization","Bearer "+' + safeScriptJson(String(token)) + ');}}catch(e){}}});'
@@ -1551,7 +1559,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind, servers, cu
     'var ET=Hls.ErrorTypes||{};' +
     'try{' +
     'if(data.type===ET.NETWORK_ERROR){h.startLoad();}' +
-    'else if(data.type===ET.MEDIA_ERROR){h.recoverMediaError();}' +
+    'else if(data.type===ET.MEDIA_ERROR){if(fatal===2&&typeof h.swapAudioCodec==="function"){h.swapAudioCodec();}h.recoverMediaError();}' +
     'else if(fatal<3){h.startLoad();}' +
     'else{hlsDead=true;h.destroy();giveUp();}' +
     '}catch(e){hlsDead=true;try{h.destroy();}catch(x){}giveUp();}});' +

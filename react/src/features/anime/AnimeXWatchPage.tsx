@@ -36,6 +36,7 @@ import {
   buildEpisodeList,
   buildServers,
   defaultServerIndex,
+  isAnimeXProxyPlayerUrl,
   isProviderErrorPage,
   mapPlayerEpisodeToMal,
   nextUp,
@@ -145,7 +146,7 @@ interface WatchState {
   servers: AnimeServerOption[];
   failedServerIndices: Set<number>;
   showErrorCard: boolean;
-  probingServer: boolean;
+  probeSeq: number;
   offlineBlobUrl?: string;
   mounted: boolean;
 }
@@ -189,7 +190,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
       servers: [],
       failedServerIndices: new Set(),
       showErrorCard: false,
-      probingServer: false,
+      probeSeq: 0,
       mounted: true,
     };
     s.current = init;
@@ -463,18 +464,16 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
 
   const probeCurrentServer = async (autoAdvance = true) => {
     const url = playerUrl();
-    if (!url || st.probingServer || url.startsWith('blob:')) return;
-    setState(() => (st.probingServer = true));
+    if (!url || url.startsWith('blob:') || isAnimeXProxyPlayerUrl(url)) return;
+    const seq = ++st.probeSeq;
     try {
       const body = await fetchProbeBody(url);
-      if (st.mounted && url === playerUrl() && body != null && isProviderErrorPage(body)) {
+      if (st.mounted && seq === st.probeSeq && url === playerUrl() && body != null && isProviderErrorPage(body)) {
         if (autoAdvance) handleContentError();
         else setState(() => (st.showErrorCard = true));
       }
     } catch {
       // Network errors are ambiguous; leave the iframe up.
-    } finally {
-      if (st.mounted) setState(() => (st.probingServer = false));
     }
   };
 
@@ -540,6 +539,7 @@ export function AnimeXWatchPage({ controller }: { controller: AnimexWatchControl
     recordHistory(episode);
     if (st.ready) saveWatchProgress({ episode, positionSeconds: 0 });
     void fetchSkips();
+    void probeCurrentServer();
     // The player scrolls away on a phone; choosing an episode has to bring it
     // back, or she is listening to a screen she cannot see.
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
