@@ -11,8 +11,6 @@ import {
 } from './katanaService';
 import { getKatanaGridColumns, KatanaColors, KatanaType } from './katanaTokens';
 import {
-  KatanaButton,
-  KatanaCard,
   KatanaCoverBadges,
   KatanaCoverImage,
   KatanaEmptyState,
@@ -92,12 +90,10 @@ export function MangaLibraryCollectionView({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: desktop
-            ? 'repeat(3, minmax(0, 1fr))'
-            : tablet
-              ? 'repeat(2, minmax(0, 1fr))'
-              : '1fr',
-          gap: 12,
+          gridTemplateColumns: desktop || tablet
+            ? 'repeat(2, minmax(0, 1fr))'
+            : '1fr',
+          columnGap: 24,
         }}
       >
         {filteredLibrary.map((bm) => {
@@ -115,16 +111,15 @@ export function MangaLibraryCollectionView({
                 ? 'Read'
                 : 'Resume';
           return (
-            <KatanaCard
+            <div
               key={bm.slug}
-              padding={12}
-              style={
-                selected
-                  ? { borderColor: KatanaColors.accent, background: withAlpha(KatanaColors.accent, 0.06) }
-                  : undefined
-              }
+              style={{
+                padding: '12px 0',
+                borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.75)}`,
+                background: selected ? withAlpha(KatanaColors.accent, 0.08) : 'transparent',
+              }}
             >
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 {librarySelectMode && (
                   <button
                     type="button"
@@ -137,7 +132,6 @@ export function MangaLibraryCollectionView({
                       display: 'grid',
                       placeItems: 'center',
                       flexShrink: 0,
-                      marginTop: 2,
                     }}
                   >
                     <Icon
@@ -154,9 +148,9 @@ export function MangaLibraryCollectionView({
                   onClick={() => (librarySelectMode ? onToggleSelectSlug(bm.slug) : onOpenDetail(bm.slug))}
                   style={{
                     position: 'relative',
-                    width: 72,
-                    height: 104,
-                    borderRadius: 8,
+                    width: 58,
+                    height: 84,
+                    borderRadius: 6,
                     overflow: 'hidden',
                     flexShrink: 0,
                     background: KatanaColors.surfaceAlt,
@@ -172,47 +166,57 @@ export function MangaLibraryCollectionView({
                     onClick={() => (librarySelectMode ? onToggleSelectSlug(bm.slug) : onOpenDetail(bm.slug))}
                     style={{ textAlign: 'left', width: '100%' }}
                   >
-                    <div className="clamp-2" style={KatanaType.title}>
+                    <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 14.5, fontWeight: 600, color: KatanaColors.text, lineHeight: 1.25 }}>
                       {bm.title}
                     </div>
                   </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                     <span
                       style={{
-                        padding: '2px 8px',
-                        borderRadius: 99,
-                        background: withAlpha(meta.color, 0.16),
                         fontFamily: Fonts.body,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: meta.color,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: caughtUp ? KatanaColors.green : meta.color,
                       }}
                     >
                       {caughtUp ? 'Caught Up' : meta.label}
                     </span>
                     {bm.readChapterIds.length > 0 && (
-                      <span style={KatanaType.small}>{bm.readChapterIds.length} ch read</span>
+                      <span className="katana-tabular" style={{ ...KatanaType.small, fontSize: 11.5 }}>· {bm.readChapterIds.length} ch read</span>
                     )}
                   </div>
                   {resumeLabel && (
-                    <div style={{ ...KatanaType.small, color: KatanaColors.link, marginTop: 6 }}>
+                    <div className="ellipsis" style={{ ...KatanaType.small, color: KatanaColors.textMuted, marginTop: 3 }}>
                       {resumeLabel}
-                      {bm.latestChapterTitle ? ` · Latest: ${bm.latestChapterTitle}` : ''}
-                    </div>
-                  )}
-                  {!librarySelectMode && (
-                    <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-                      <KatanaButton
-                        label={actionLabel}
-                        icon="play_arrow"
-                        size="sm"
-                        onClick={() => onResumeBookmark(bm)}
-                      />
+                      {bm.latestChapterTitle ? ` · ${bm.latestChapterTitle}` : ''}
                     </div>
                   )}
                 </div>
+                {!librarySelectMode && (
+                  <button
+                    type="button"
+                    className="bare-button"
+                    aria-label={`${actionLabel} ${bm.title}`}
+                    onClick={() => onResumeBookmark(bm)}
+                    style={{
+                      minHeight: 38,
+                      padding: '0 10px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontFamily: Fonts.body,
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: KatanaColors.accentSoft,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon name="play_arrow" size={16} color={KatanaColors.accent} />
+                    <span>{actionLabel}</span>
+                  </button>
+                )}
               </div>
-            </KatanaCard>
+            </div>
           );
         })}
       </div>
@@ -224,12 +228,15 @@ export function MangaLibraryCollectionView({
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${getKatanaGridColumns(width, libraryViewMode === 'compact')}, minmax(0, 1fr))`,
-        gap: libraryViewMode === 'compact' ? 10 : 14,
+        columnGap: libraryViewMode === 'compact' ? 10 : 14,
+        rowGap: libraryViewMode === 'compact' ? 14 : 20,
       }}
     >
       {filteredLibrary.map((bm) => {
         const unread = estimateUnreadCount(bm);
         const readCount = bm.readChapterIds.length;
+        const totalCount = readCount + unread;
+        const progressPct = totalCount > 0 ? Math.min(100, Math.round((readCount / totalCount) * 100)) : 0;
         const dlCount = downloadedCounts[bm.slug] ?? 0;
         const selected = selectedLibrarySlugs.has(bm.slug);
         const resumeLabel = formatResumeProgressLabel(bm);
@@ -238,53 +245,67 @@ export function MangaLibraryCollectionView({
             key={bm.slug}
             style={{
               position: 'relative',
-              borderRadius: 11,
-              overflow: 'hidden',
-              background: KatanaColors.surface,
-              border: `2px solid ${selected ? KatanaColors.accent : KatanaColors.border}`,
               display: 'flex',
               flexDirection: 'column',
             }}
           >
-            <button
-              type="button"
-              className="bare-button"
-              onClick={() => (librarySelectMode ? onToggleSelectSlug(bm.slug) : onOpenDetail(bm.slug))}
+            <div
               style={{
-                textAlign: 'left',
-                display: 'flex',
-                flexDirection: 'column',
-                flex: 1,
+                position: 'relative',
                 width: '100%',
+                aspectRatio: '2 / 3',
+                borderRadius: 6,
+                overflow: 'hidden',
+                background: KatanaColors.surfaceAlt,
+                boxShadow: selected
+                  ? `0 0 0 2px ${KatanaColors.accent}, 0 6px 18px rgba(0,0,0,0.45)`
+                  : '0 6px 18px rgba(0,0,0,0.38)',
               }}
             >
-              <div
+              <button
+                type="button"
+                className="bare-button"
+                aria-label={`Open ${bm.title}`}
+                onClick={() => (librarySelectMode ? onToggleSelectSlug(bm.slug) : onOpenDetail(bm.slug))}
                 style={{
                   position: 'relative',
                   width: '100%',
-                  aspectRatio: '2 / 3',
-                  background: KatanaColors.surfaceAlt,
+                  height: '100%',
+                  display: 'block',
+                  textAlign: 'left',
                 }}
               >
                 <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={24} />
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    inset: 'auto 0 0 0',
+                    height: '36%',
+                    background: 'linear-gradient(to top, rgba(8,8,10,0.88) 0%, transparent 100%)',
+                    pointerEvents: 'none',
+                  }}
+                />
                 <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
                 {bm.userScore != null && !librarySelectMode && (
                   <span
+                    className="katana-tabular"
                     style={{
                       position: 'absolute',
-                      top: 6,
-                      left: 6,
-                      padding: '2px 6px',
-                      borderRadius: 6,
-                      background: withAlpha(KatanaColors.background, 0.86),
-                      border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
+                      bottom: 9,
+                      left: 7,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 3,
                       fontFamily: Fonts.body,
                       fontSize: 11.5,
-                      fontWeight: 800,
-                      color: KatanaColors.accentSoft,
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      textShadow: '0 1px 4px rgba(0,0,0,0.85)',
                     }}
                   >
-                    ★ {bm.userScore.toFixed(1)}
+                    <Icon name="star" size={11} color={KatanaColors.accent} />
+                    {bm.userScore.toFixed(1)}
                   </span>
                 )}
                 {librarySelectMode && (
@@ -313,7 +334,7 @@ export function MangaLibraryCollectionView({
                     style={{
                       position: 'absolute',
                       inset: 'auto 0 0 0',
-                      padding: '22px 44px 8px 8px',
+                      padding: '22px 38px 8px 8px',
                       background: `linear-gradient(to top, ${withAlpha(KatanaColors.background, 0.94)}, transparent)`,
                     }}
                   >
@@ -322,7 +343,7 @@ export function MangaLibraryCollectionView({
                       style={{
                         fontFamily: Fonts.body,
                         fontSize: 12.5,
-                        fontWeight: 700,
+                        fontWeight: 600,
                         color: KatanaColors.text,
                         lineHeight: 1.2,
                       }}
@@ -331,80 +352,98 @@ export function MangaLibraryCollectionView({
                     </div>
                   </div>
                 )}
-              </div>
-              {libraryViewMode === 'grid' && (
-                <div style={{ padding: '8px 10px 10px', paddingRight: 58 }}>
+                {progressPct > 0 && (
                   <div
-                    className="clamp-2"
+                    aria-hidden="true"
                     style={{
-                      fontFamily: Fonts.body,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: KatanaColors.text,
-                      lineHeight: 1.25,
-                      minHeight: 32.5,
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 2.5,
+                      background: 'rgba(255,255,255,0.16)',
                     }}
                   >
-                    {bm.title}
+                    <div style={{ width: `${progressPct}%`, height: '100%', background: KatanaColors.accent }} />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-                    <span
-                      style={{
-                        ...KatanaType.small,
-                        fontSize: 11.5,
-                        fontWeight: 700,
-                        color: unread > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {readCount} / {readCount + unread}
-                    </span>
-                    {unread > 0 && (
-                      <span
-                        aria-label={`${unread} unread`}
-                        style={{ width: 6, height: 6, borderRadius: 99, background: KatanaColors.accent, flexShrink: 0 }}
-                      />
-                    )}
-                    {(() => {
-                      // Where she stopped inside the chapter, so the tile answers
-                      // "how far in" without opening the reader.
-                      const anchor = bm.lastReadChapterId ? loadResumeAnchor(bm.slug, bm.lastReadChapterId) : null;
-                      const pageNum = anchor ? anchor.pageIdx + 1 : bm.lastReadPage;
-                      return pageNum && pageNum > 1 ? (
-                        <span style={{ ...KatanaType.small, fontSize: 11, whiteSpace: 'nowrap' }}>p.{pageNum}</span>
-                      ) : null;
-                    })()}
-                  </div>
-                  <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
-                  </div>
-                </div>
+                )}
+              </button>
+              {!librarySelectMode && (
+                <button
+                  type="button"
+                  className="bare-button"
+                  aria-label={`Resume ${bm.title}`}
+                  title={resumeLabel ? `Resume ${resumeLabel}` : `Start ${bm.title}`}
+                  onClick={() => onResumeBookmark(bm)}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    width: 44,
+                    height: 44,
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 99,
+                      background: 'rgba(8,8,10,0.82)',
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    <Icon name="play_arrow" size={17} color="#FFFFFF" />
+                  </span>
+                </button>
               )}
-            </button>
-            {!librarySelectMode && (
+            </div>
+            {libraryViewMode === 'grid' && (
               <button
                 type="button"
                 className="bare-button"
-                aria-label={`Resume ${bm.title}`}
-                title={resumeLabel ? `Resume ${resumeLabel}` : `Start ${bm.title}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onResumeBookmark(bm);
-                }}
-                style={{
-                  position: 'absolute',
-                  right: 8,
-                  bottom: libraryViewMode === 'grid' ? 40 : 8,
-                  width: 44,
-                  height: 44,
-                  borderRadius: 99,
-                  background: KatanaColors.accent,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.55)',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
+                onClick={() => (librarySelectMode ? onToggleSelectSlug(bm.slug) : onOpenDetail(bm.slug))}
+                style={{ textAlign: 'left', paddingTop: 7, width: '100%' }}
               >
-                <Icon name="play_arrow" size={22} color={KatanaColors.accentInk} />
+                <div
+                  className="clamp-2"
+                  style={{
+                    fontFamily: Fonts.body,
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    color: KatanaColors.text,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {bm.title}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                  <span
+                    className="katana-tabular"
+                    style={{
+                      ...KatanaType.small,
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color: unread > 0 ? KatanaColors.accentSoft : KatanaColors.textLight,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {readCount}/{totalCount} ch
+                  </span>
+                  {(() => {
+                    const anchor = bm.lastReadChapterId ? loadResumeAnchor(bm.slug, bm.lastReadChapterId) : null;
+                    const pageNum = anchor ? anchor.pageIdx + 1 : bm.lastReadPage;
+                    return pageNum && pageNum > 1 ? (
+                      <span className="katana-tabular" style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight, whiteSpace: 'nowrap' }}>· p.{pageNum}</span>
+                    ) : null;
+                  })()}
+                </div>
+                <div style={{ ...KatanaType.small, fontSize: 11, color: KatanaColors.textLight, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {formatKatanaTime(bm.lastReadAt) || STATUS_LABELS[resolveLibraryStatus(bm)].label}
+                </div>
               </button>
             )}
           </div>

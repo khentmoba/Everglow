@@ -90,11 +90,8 @@ function SheetHeader({ title, subtitle, onClose }: { title: string; subtitle?: s
         style={{
           width: 44,
           height: 44,
-          borderRadius: 99,
           display: 'grid',
           placeItems: 'center',
-          background: KatanaColors.surfaceAlt,
-          border: `1px solid ${KatanaColors.border}`,
         }}
       >
         <Icon name="close" size={20} color={KatanaColors.textMuted} />
@@ -289,8 +286,7 @@ export function ChapterDrawerSheet({
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 6,
-            padding: '8px 16px',
+            padding: '0 16px',
             borderBottom: `1px solid ${KatanaColors.border}`,
           }}
         >
@@ -311,12 +307,12 @@ export function ChapterDrawerSheet({
                 className="bare-button player-focusable"
                 onClick={() => setDrawerTab(id)}
                 style={{
-                  minHeight: 40,
-                  borderRadius: 10,
-                  background: active ? KatanaColors.accent : KatanaColors.surfaceAlt,
-                  color: active ? '#FFFFFF' : KatanaColors.textMuted,
+                  minHeight: 42,
+                  borderBottom: `2px solid ${active ? KatanaColors.accent : 'transparent'}`,
+                  marginBottom: -1,
+                  color: active ? KatanaColors.text : KatanaColors.textMuted,
                   fontSize: 12.5,
-                  fontWeight: 600,
+                  fontWeight: active ? 700 : 500,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -641,11 +637,10 @@ export function ChapterDrawerSheet({
                       <div
                         style={{
                           padding: '6px 10px',
-                          borderRadius: 8,
+                          borderRadius: 6,
                           background: KatanaColors.surface,
-                          borderLeft: `2px solid ${KatanaColors.accent}`,
                           fontSize: 12.5,
-                          color: KatanaColors.text,
+                          color: KatanaColors.textMuted,
                           fontStyle: 'italic',
                         }}
                       >

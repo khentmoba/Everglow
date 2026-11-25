@@ -21,8 +21,6 @@ import {
 import { KatanaColors, KatanaFonts as Fonts, KatanaType } from './katanaTokens';
 import {
   KatanaBreadcrumb,
-  KatanaButton,
-  KatanaCard,
   KatanaCoverBadges,
   KatanaCoverImage,
   KatanaEmptyState,
@@ -89,72 +87,111 @@ export function MangaReadingHistoryView({
     <div>
       <KatanaBreadcrumb items={[tab === 'history' ? 'History' : 'Currently Reading']} onHome={() => onNav('home')} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <KatanaSectionHeader
-            title={
-              tab === 'history'
-                ? historySubView === 'updates'
-                  ? 'Chapter Updates Inbox'
-                  : 'Reading History'
-                : 'Currently Reading'
-            }
-            badge={String(
-              tab === 'history'
-                ? historySubView === 'updates'
-                  ? savedBookmarks.filter((b) => estimateUnreadCount(b) > 0).length
-                  : historyEntries.length
-                : currentlyReading.length,
-            )}
-          />
-          <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
-            {(
-              [
-                ['reading', 'Reading'],
-                ['history', 'History'],
-                ['updates', `Updates (${savedBookmarks.filter((b) => estimateUnreadCount(b) > 0).length})`],
-              ] as const
-            ).map(([k, lbl]) => {
-              const active =
-                k === 'reading'
-                  ? tab === 'reading'
-                  : k === 'history'
-                    ? tab === 'history' && historySubView === 'history'
-                    : tab === 'history' && historySubView === 'updates';
+        <KatanaSectionHeader
+          title={
+            tab === 'history'
+              ? historySubView === 'updates'
+                ? 'Chapter Updates Inbox'
+                : 'Reading History'
+              : 'Currently Reading'
+          }
+          badge={String(
+            tab === 'history'
+              ? historySubView === 'updates'
+                ? savedBookmarks.filter((b) => estimateUnreadCount(b) > 0).length
+                : historyEntries.length
+              : currentlyReading.length,
+          )}
+        />
+        {tab === 'reading' && isCoupleUser && partnerUsername ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            {[false, true].map((partner) => {
+              const active = showPartnerReading === partner;
+              const label = partner ? partnerDisplayLabel : 'Mine';
               return (
                 <button
-                  key={k}
+                  key={label}
                   type="button"
                   className="bare-button"
-                  onClick={() => {
-                    if (k === 'reading') {
-                      onNav('reading');
-                    } else if (k === 'history') {
-                      setHistorySubView('history');
-                      if (tab !== 'history') onNav('history');
-                    } else {
-                      setHistorySubView('updates');
-                      if (tab !== 'history') onNav('history');
-                    }
-                  }}
+                  onClick={() => setShowPartnerReading(partner)}
                   style={{
-                    minHeight: 44,
-                    padding: '4px 12px',
-                    borderRadius: 99,
-                    background: active ? KatanaColors.accent : 'transparent',
+                    minHeight: 36,
+                    padding: '4px 0',
+                    borderBottom: `2px solid ${active ? KatanaColors.accent : 'transparent'}`,
                     fontFamily: Fonts.body,
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                    color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
+                    fontSize: 13,
+                    fontWeight: active ? 700 : 500,
+                    color: active ? KatanaColors.text : KatanaColors.textMuted,
                   }}
                 >
-                  {lbl}
+                  {label}
                 </button>
               );
             })}
           </div>
+        ) : null}
+      </div>
+
+      <div
+        style={{
+          marginTop: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 10,
+          borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.85)}`,
+        }}
+      >
+        <div role="group" aria-label="Reading views" style={{ display: 'inline-flex', gap: 20 }}>
+          {(
+            [
+              ['reading', 'Reading'],
+              ['history', 'History'],
+              ['updates', `Updates (${savedBookmarks.filter((b) => estimateUnreadCount(b) > 0).length})`],
+            ] as const
+          ).map(([k, lbl]) => {
+            const active =
+              k === 'reading'
+                ? tab === 'reading'
+                : k === 'history'
+                  ? tab === 'history' && historySubView === 'history'
+                  : tab === 'history' && historySubView === 'updates';
+            return (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={active}
+                className="bare-button"
+                onClick={() => {
+                  if (k === 'reading') {
+                    onNav('reading');
+                  } else if (k === 'history') {
+                    setHistorySubView('history');
+                    if (tab !== 'history') onNav('history');
+                  } else {
+                    setHistorySubView('updates');
+                    if (tab !== 'history') onNav('history');
+                  }
+                }}
+                style={{
+                  minHeight: 44,
+                  padding: '6px 0',
+                  borderBottom: `2px solid ${active ? KatanaColors.accent : 'transparent'}`,
+                  marginBottom: -1,
+                  fontFamily: Fonts.body,
+                  fontSize: 13.5,
+                  fontWeight: active ? 700 : 500,
+                  color: active ? KatanaColors.text : KatanaColors.textMuted,
+                }}
+              >
+                {lbl}
+              </button>
+            );
+          })}
         </div>
-        {tab === 'history' && historySubView === 'history' ? (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {tab === 'history' && historySubView === 'history' && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingBottom: 4 }}>
             <button
               type="button"
               className="bare-button"
@@ -170,22 +207,19 @@ export function MangaReadingHistoryView({
                 );
               }}
               style={{
-                minHeight: 44,
-                padding: '5px 11px',
-                borderRadius: 99,
-                background: incognitoSession ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                border: `1px solid ${incognitoSession ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                minHeight: 36,
+                padding: '0 2px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
                 fontFamily: Fonts.body,
-                fontSize: 12,
-                fontWeight: 700,
-                color: incognitoSession ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: incognitoSession ? KatanaColors.accentSoft : KatanaColors.textMuted,
               }}
             >
               <Icon name="policy" size={15} color={incognitoSession ? KatanaColors.accent : KatanaColors.textMuted} />
-              <span>{incognitoSession ? 'Incognito Session On' : 'Incognito Session'}</span>
+              <span>{incognitoSession ? 'Incognito On' : 'Incognito'}</span>
             </button>
             <button
               type="button"
@@ -198,30 +232,24 @@ export function MangaReadingHistoryView({
                 showSnackBar(next ? 'History logging paused across sessions' : 'History logging resumed');
               }}
               style={{
-                minHeight: 44,
-                padding: '5px 11px',
-                borderRadius: 99,
-                background: historyPaused ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                border: `1px solid ${historyPaused ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                minHeight: 36,
+                padding: '0 2px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
                 fontFamily: Fonts.body,
-                fontSize: 12,
-                fontWeight: 700,
-                color: historyPaused ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: historyPaused ? KatanaColors.accentSoft : KatanaColors.textMuted,
               }}
             >
               <Icon name={historyPaused ? 'visibility_off' : 'history_toggle_off'} size={15} color={historyPaused ? KatanaColors.accent : KatanaColors.textMuted} />
-              <span>{historyPaused ? 'History Paused' : 'Pause History'}</span>
+              <span>{historyPaused ? 'Paused' : 'Pause'}</span>
             </button>
             {historyEntries.length > 0 && (
-              <KatanaButton
-                label="Clear History"
-                icon="delete_sweep"
-                size="sm"
-                filled={false}
-                color={KatanaColors.textMuted}
+              <button
+                type="button"
+                className="bare-button"
                 onClick={() =>
                   void showDialog<void>((close) => (
                     <AlertDialog
@@ -248,37 +276,24 @@ export function MangaReadingHistoryView({
                     />
                   ))
                 }
-              />
+                style={{
+                  minHeight: 36,
+                  padding: '0 2px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontFamily: Fonts.body,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: KatanaColors.textLight,
+                }}
+              >
+                <Icon name="delete_sweep" size={15} color={KatanaColors.textLight} />
+                <span>Clear</span>
+              </button>
             )}
           </div>
-        ) : tab === 'reading' && isCoupleUser && partnerUsername ? (
-          <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}` }}>
-            {[false, true].map((partner) => {
-              const active = showPartnerReading === partner;
-              const label = partner ? partnerDisplayLabel : 'Mine';
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  className="bare-button"
-                  onClick={() => setShowPartnerReading(partner)}
-                  style={{
-                    minHeight: 44,
-                    padding: '5px 12px',
-                    borderRadius: 99,
-                    background: active ? KatanaColors.accent : 'transparent',
-                    fontFamily: Fonts.body,
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                    color: active ? KatanaColors.accentInk : KatanaColors.textMuted,
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+        )}
       </div>
       <div style={{ height: 14 }} />
       {tab === 'history' && historySubView === 'updates' ? (
@@ -299,25 +314,25 @@ export function MangaReadingHistoryView({
             );
           }
           return (
-            <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', columnGap: 24 }}>
               {updatedSeries.map((bm) => {
                 const unread = estimateUnreadCount(bm);
                 return (
-                  <KatanaCard key={bm.slug} padding={compactCard ? 9 : 11}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <div key={bm.slug} style={{ padding: '12px 0', borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.75)}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                       <button
                         type="button"
                         className="bare-button"
                         onClick={() => onOpenDetail(bm.slug)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
                       >
-                        <div style={{ position: 'relative', width: 46, height: 66, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                        <div style={{ position: 'relative', width: 48, height: 68, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
                           <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={18} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="ellipsis" style={{ ...KatanaType.title, fontSize: compactCard ? 13.5 : 14.5 }}>{bm.title}</div>
-                          <div className="ellipsis" style={{ ...KatanaType.accent, fontSize: 12, marginTop: 2 }}>
-                            {unread} new {unread === 1 ? 'chapter' : 'chapters'}
+                          <div className="ellipsis" style={{ fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: compactCard ? 14 : 14.5 }}>{bm.title}</div>
+                          <div className="ellipsis" style={{ ...KatanaType.accent, fontSize: 12.5, marginTop: 2 }}>
+                            +{unread} new {unread === 1 ? 'chapter' : 'chapters'}
                             {bm.latestChapterTitle ? ` · ${bm.latestChapterTitle}` : ''}
                           </div>
                           <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 12, marginTop: 2 }}>
@@ -325,14 +340,25 @@ export function MangaReadingHistoryView({
                           </div>
                         </div>
                       </button>
-                      <KatanaButton
-                        label="Read"
-                        icon="play_arrow"
-                        size="sm"
+                      <button
+                        type="button"
+                        className="bare-button"
+                        aria-label={`Read ${bm.title}`}
                         onClick={() => void onResumeBookmark(bm)}
-                      />
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 99,
+                          background: withAlpha(KatanaColors.accent, 0.14),
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Icon name="play_arrow" size={20} color={KatanaColors.accent} />
+                      </button>
                     </div>
-                  </KatanaCard>
+                  </div>
                 );
               })}
             </div>
@@ -355,33 +381,33 @@ export function MangaReadingHistoryView({
                 <div style={{ ...KatanaType.small, fontWeight: 700, color: KatanaColors.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 }}>
                   {group.label} ({group.items.length})
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', columnGap: 24 }}>
                   {group.items.map((entry) => (
-                    <KatanaCard key={`${entry.slug}-${entry.chapterId}-${entry.readAt}`} padding={compactCard ? 8 : 10}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: compactCard ? 8 : 12, minWidth: 0 }}>
+                    <div key={`${entry.slug}-${entry.chapterId}-${entry.readAt}`} style={{ padding: '11px 0', borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.75)}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                         <button
                           type="button"
                           className="bare-button"
                           onClick={() => onOpenDetail(entry.slug)}
-                          style={{ display: 'flex', alignItems: 'center', gap: compactCard ? 9 : 12, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
                         >
-                          <div style={{ position: 'relative', width: compactCard ? 42 : 48, height: compactCard ? 60 : 68, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                          <div style={{ position: 'relative', width: 46, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
                             <KatanaCoverImage url={entry.coverUrl} title={entry.title} iconSize={18} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="ellipsis" style={{ ...KatanaType.title, fontSize: compactCard ? 13.5 : 14.5 }}>{entry.title}</div>
-                            <div className="ellipsis" style={{ ...KatanaType.accent, fontSize: 12, marginTop: 2 }}>{entry.chapterTitle}</div>
+                            <div className="ellipsis" style={{ fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: compactCard ? 14 : 14.5 }}>{entry.title}</div>
+                            <div className="ellipsis" style={{ ...KatanaType.accent, fontSize: 12.5, marginTop: 2 }}>{entry.chapterTitle}</div>
                             <div className="ellipsis" style={{ ...KatanaType.small, fontSize: 12, marginTop: 2 }}>
                               {formatKatanaTime(new Date(entry.readAt))}
                               {entry.page && entry.page > 1 ? ` · Page ${entry.page}` : ''}
                             </div>
                           </div>
                         </button>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                          <KatanaButton
-                            label="Read"
-                            icon="play_arrow"
-                            size="sm"
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="bare-button"
+                            aria-label={`Read ${entry.title} ${entry.chapterTitle}`}
                             onClick={() => {
                               void (async () => {
                                 const loaded = await fetchKatanaDetail(entry.slug);
@@ -392,19 +418,22 @@ export function MangaReadingHistoryView({
                                 }
                               })();
                             }}
-                          />
+                            style={{ width: 40, height: 40, borderRadius: 99, background: withAlpha(KatanaColors.accent, 0.14), display: 'grid', placeItems: 'center' }}
+                          >
+                            <Icon name="play_arrow" size={20} color={KatanaColors.accent} />
+                          </button>
                           <button
                             type="button"
                             className="bare-button"
                             aria-label={`Remove ${entry.title} ${entry.chapterTitle} from history`}
                             onClick={() => setHistoryEntries(removeKatanaHistoryEntry(userName, entry.slug, entry.chapterId))}
-                            style={{ width: 44, height: 44, borderRadius: 8, background: KatanaColors.surfaceAlt, border: `1px solid ${KatanaColors.border}`, display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                            style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', flexShrink: 0 }}
                           >
-                            <Icon name="close" size={16} color={KatanaColors.textMuted} />
+                            <Icon name="close" size={17} color={KatanaColors.textLight} />
                           </button>
                         </div>
                       </div>
-                    </KatanaCard>
+                    </div>
                   ))}
                 </div>
               </section>
@@ -421,13 +450,13 @@ export function MangaReadingHistoryView({
           onAction={() => onNav('home')}
         />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: tablet ? 'repeat(2, minmax(0, 1fr))' : '1fr', columnGap: 24 }}>
           {currentlyReading.map((bm) => {
             const unread = estimateUnreadCount(bm);
             const dlCount = downloadedCounts[bm.slug] ?? 0;
             const caughtUp = isBookmarkCaughtUp(bm);
             return (
-              <KatanaCard key={bm.slug} padding={12}>
+              <div key={bm.slug} style={{ padding: '12px 0', borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.75)}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <button
                     type="button"
@@ -435,19 +464,19 @@ export function MangaReadingHistoryView({
                     onClick={() => onOpenDetail(bm.slug)}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left' }}
                   >
-                    <div style={{ position: 'relative', width: 58, height: 84, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
+                    <div style={{ position: 'relative', width: 56, height: 82, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: KatanaColors.surfaceAlt }}>
                       <KatanaCoverImage url={bm.coverUrl} title={bm.title} iconSize={20} />
                       <KatanaCoverBadges unreadCount={unread} downloadedCount={dlCount} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="clamp-2" style={KatanaType.title}>{bm.title}</div>
+                      <div className="clamp-2" style={{ fontFamily: Fonts.body, fontSize: 14.5, fontWeight: 600, color: KatanaColors.text, lineHeight: 1.25 }}>{bm.title}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                        <span style={{ ...KatanaType.small, color: KatanaColors.link }}>
+                        <span style={{ ...KatanaType.small, color: KatanaColors.accentSoft, fontWeight: 600 }}>
                           {bm.lastReadChapterTitle} · Page {bm.lastReadPage || 1}
                         </span>
                         {caughtUp && (
-                          <span style={{ padding: '1px 6px', borderRadius: 4, background: withAlpha(KatanaColors.green, 0.16), color: KatanaColors.green, fontSize: 12, fontWeight: 700 }}>
-                            Caught Up
+                          <span style={{ fontFamily: Fonts.body, color: KatanaColors.green, fontSize: 11.5, fontWeight: 600 }}>
+                            · Caught Up
                           </span>
                         )}
                       </div>
@@ -459,16 +488,16 @@ export function MangaReadingHistoryView({
                     aria-label={`Resume ${bm.title}`}
                     onClick={() => void onResumeBookmark(bm)}
                     style={{
-                      width: 44,
-                      height: 44,
+                      width: 40,
+                      height: 40,
                       borderRadius: '50%',
-                      background: KatanaColors.accent,
+                      background: withAlpha(KatanaColors.accent, 0.14),
                       display: 'grid',
                       placeItems: 'center',
                       flexShrink: 0,
                     }}
                   >
-                    <Icon name={resumingSlug === bm.slug ? 'hourglass_top' : 'play_arrow'} size={20} color={KatanaColors.accentInk} />
+                    <Icon name={resumingSlug === bm.slug ? 'hourglass_top' : 'play_arrow'} size={20} color={KatanaColors.accent} />
                   </button>
                   {!showPartnerReading && (
                     <button
@@ -478,21 +507,18 @@ export function MangaReadingHistoryView({
                       title="Remove from Currently Reading"
                       onClick={() => void onRemoveFromReading(bm.slug, bm.title)}
                       style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: KatanaColors.surfaceAlt,
-                        border: `1px solid ${KatanaColors.border}`,
+                        width: 40,
+                        height: 40,
                         display: 'grid',
                         placeItems: 'center',
                         flexShrink: 0,
                       }}
                     >
-                      <Icon name="close" size={18} color={KatanaColors.textMuted} />
+                      <Icon name="close" size={18} color={KatanaColors.textLight} />
                     </button>
                   )}
                 </div>
-              </KatanaCard>
+              </div>
             );
           })}
         </div>

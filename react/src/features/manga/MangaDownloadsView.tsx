@@ -264,12 +264,12 @@ export function KatanaDownloadsView({
         />
       ) : (
         <>
-          <KatanaCard padding={12} style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ padding: '12px 0 14px', borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.75)}`, borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.75)}`, marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 220px' }}>
-                <Icon name="storage" size={18} color={KatanaColors.accent} />
+                <Icon name="storage" size={17} color={KatanaColors.accent} />
                 <span style={KatanaType.small}>
-                  Downloads are using <strong style={{ color: KatanaColors.text }}>{storage}</strong>
+                  Downloads are using <strong className="katana-tabular" style={{ color: KatanaColors.text }}>{storage}</strong>
                   {quotaInfo
                     ? (() => {
                         const quotaLabel =
@@ -278,7 +278,7 @@ export function KatanaDownloadsView({
                             : `${Math.max(1, Math.round(quotaInfo.quota / 1e6))} MB`;
                         const pct = (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100;
                         const pctText = pct < 1 ? 'under 1%' : `${Math.round(pct)}%`;
-                        return ` of ${quotaLabel} (${pctText} used)`;
+                        return ` of ${quotaLabel} (${pctText})`;
                       })()
                     : ''}
                 </span>
@@ -290,30 +290,27 @@ export function KatanaDownloadsView({
                 onClick={() => void handleVerifyCache()}
                 title="Make sure every downloaded page is still on this device"
                 style={{
-                  minHeight: 40,
-                  padding: '6px 12px',
-                  borderRadius: 7,
-                  background: KatanaColors.surfaceAlt,
-                  border: `1px solid ${KatanaColors.borderStrong}`,
+                  minHeight: 36,
+                  padding: '0 4px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 5,
                   fontFamily: Fonts.body,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: KatanaColors.text,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: KatanaColors.accentSoft,
                   flexShrink: 0,
                 }}
               >
-                <Icon name="fact_check" size={14} color={KatanaColors.text} />
-                <span>{verifyingCache ? 'Checking…' : 'Check my downloads'}</span>
+                <Icon name="fact_check" size={15} color={KatanaColors.accent} />
+                <span>{verifyingCache ? 'Checking…' : 'Check downloads'}</span>
               </button>
             </div>
             {quotaInfo && (() => {
               const pct = Math.min(100, (quotaInfo.usage / Math.max(1, quotaInfo.quota)) * 100);
               if (pct < 2) return null;
               return (
-                <div style={{ marginTop: 8, height: 6, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
+                <div style={{ marginTop: 8, height: 3, borderRadius: 99, background: KatanaColors.surfaceAlt, overflow: 'hidden' }}>
                   <div
                     style={{
                       width: `${pct}%`,
@@ -326,17 +323,12 @@ export function KatanaDownloadsView({
                 </div>
               );
             })()}
-            <div style={{ ...KatanaType.small, fontSize: 11, marginTop: 6 }}>
-              Downloads stay here until you remove them or clear browser site data.
-            </div>
             {evictedItems.length > 0 && (
               <div
                 style={{
                   marginTop: 10,
-                  padding: '10px 12px',
-                  borderRadius: 8,
-                  background: withAlpha(KatanaColors.accent, 0.14),
-                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.5)}`,
+                  paddingTop: 10,
+                  borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.6)}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -345,10 +337,9 @@ export function KatanaDownloadsView({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px' }}>
-                  <Icon name="warning_amber" size={18} color={KatanaColors.accent} />
-                  <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.text, fontWeight: 600 }}>
-                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter is' : 'chapters are'} missing some
-                    pages. Repair to read offline again.
+                  <Icon name="warning_amber" size={16} color={KatanaColors.accent} />
+                  <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.text, fontWeight: 500 }}>
+                    {evictedItems.length} downloaded {evictedItems.length === 1 ? 'chapter is' : 'chapters are'} missing pages.
                   </span>
                 </div>
                 <KatanaButton
@@ -362,11 +353,7 @@ export function KatanaDownloadsView({
             {persisted === false && (
               <div
                 style={{
-                  marginTop: 10,
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  background: withAlpha(KatanaColors.accent, 0.08),
-                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.3)}`,
+                  marginTop: 8,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -374,13 +361,31 @@ export function KatanaDownloadsView({
                   gap: 8,
                 }}
               >
-                <span style={{ ...KatanaType.small, fontSize: 11.5, color: KatanaColors.text, flex: '1 1 220px' }}>
-                  Your browser may remove offline chapters when the device runs low on space.
+                <span style={{ ...KatanaType.small, fontSize: 12, color: KatanaColors.textLight, flex: '1 1 220px' }}>
+                  Browser may clear chapters when low on space.
                 </span>
-                <KatanaButton label="Keep offline" icon="shield" size="sm" filled={false} color={KatanaColors.accentSoft} onClick={keepOffline} />
+                <button
+                  type="button"
+                  className="bare-button"
+                  onClick={keepOffline}
+                  style={{
+                    minHeight: 40,
+                    padding: '0 2px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    fontFamily: Fonts.body,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: KatanaColors.accentSoft,
+                  }}
+                >
+                  <Icon name="shield" size={14} color={KatanaColors.accent} />
+                  <span>Keep offline</span>
+                </button>
               </div>
             )}
-          </KatanaCard>
+          </div>
 
           {dlSelectMode && (
             <KatanaCard padding={10} radius={10} style={{ marginBottom: 12 }}>
@@ -598,16 +603,15 @@ export function KatanaDownloadsView({
           </div>
         )}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.8)}`, paddingBottom: 6, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon name="download_done" size={16} color={KatanaColors.green} />
-              <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Downloaded</span>
-              <span style={{ ...KatanaType.small }}>
+              <span style={{ ...KatanaType.title, fontSize: 14 }}>Downloaded</span>
+              <span className="katana-tabular" style={{ ...KatanaType.small }}>
                 {grouped.length} {grouped.length === 1 ? 'series' : 'series'} · {items.length}{' '}
                 {items.length === 1 ? 'chapter' : 'chapters'}
               </span>
             </div>
-            <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', gap: 14, flexWrap: 'wrap' }}>
               {(
                 [
                   ['recent', 'Recent'],
@@ -622,15 +626,14 @@ export function KatanaDownloadsView({
                   aria-pressed={sortBy === id}
                   onClick={() => setSortBy(id)}
                   style={{
-                    minHeight: 44,
-                    padding: '0 12px',
-                    borderRadius: 8,
-                    background: sortBy === id ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                    border: `1px solid ${sortBy === id ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                    minHeight: 40,
+                    padding: '4px 0',
+                    borderBottom: `2px solid ${sortBy === id ? KatanaColors.accent : 'transparent'}`,
+                    marginBottom: -7,
                     fontFamily: Fonts.body,
                     fontSize: 12.5,
                     fontWeight: sortBy === id ? 700 : 500,
-                    color: sortBy === id ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                    color: sortBy === id ? KatanaColors.text : KatanaColors.textMuted,
                   }}
                 >
                   {label}
@@ -642,8 +645,8 @@ export function KatanaDownloadsView({
             {grouped.map((chapters) => {
               const head = chapters[0];
               return (
-                <KatanaCard key={head.mediaId} padding={0} style={{ overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: `1px solid ${KatanaColors.border}` }}>
+                <section key={head.mediaId} style={{ marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0 12px', borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.8)}` }}>
                     <div
                       onClick={() => onOpenSeries(head.mediaId)}
                       role="link"
@@ -660,8 +663,8 @@ export function KatanaDownloadsView({
                         <KatanaCoverImage url={head.coverUrl} title={head.title} iconSize={18} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="ellipsis" style={KatanaType.title}>{head.title}</div>
-                        <div style={KatanaType.small}>
+                        <div className="ellipsis" style={{ fontFamily: Fonts.body, fontSize: 15, fontWeight: 600, color: KatanaColors.text }}>{head.title}</div>
+                        <div className="katana-tabular" style={{ ...KatanaType.small, marginTop: 2 }}>
                           {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'} offline
                           {seriesBytes(chapters) ? ` · ${seriesBytes(chapters)}` : ''}
                           {seriesStillDownloading(chapters) > 0
@@ -672,7 +675,7 @@ export function KatanaDownloadsView({
                     </div>
                     <KatanaButton label="Resume" icon="play_arrow" size="sm" onClick={() => onOpen(head)} />
                   </div>
-                  {chapters.map((ch, idx) => {
+                  {chapters.map((ch) => {
                     const checked = selectedIds.has(ch.id);
                     const missingPages = ch.cacheMissingPages ?? 0;
                     const totalPages = ch.pageUrls.length;
@@ -685,12 +688,12 @@ export function KatanaDownloadsView({
                           display: 'flex',
                           alignItems: 'center',
                           gap: 10,
-                          padding: '10px 12px',
-                          borderTop: idx > 0 ? `1px solid ${KatanaColors.border}` : undefined,
+                          padding: '10px 0',
+                          borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.55)}`,
                           background: checked
                             ? withAlpha(KatanaColors.accent, 0.08)
                             : needsRepair
-                              ? withAlpha(KatanaColors.accent, 0.06)
+                              ? withAlpha(KatanaColors.accent, 0.05)
                               : 'transparent',
                         }}
                       >
@@ -711,29 +714,24 @@ export function KatanaDownloadsView({
                           onClick={() => (dlSelectMode ? toggleSelect(ch.id) : onOpen(ch))}
                           style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
                         >
-                          <Icon
-                            name={needsRepair ? 'warning_amber' : 'menu_book'}
-                            size={18}
-                            color={needsRepair ? KatanaColors.accent : KatanaColors.accentSoft}
-                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ ...KatanaType.title, fontSize: 13.5 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
-                            <div style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: '2px 8px', flexWrap: 'wrap', marginTop: 2 }}>
+                            <div style={{ fontFamily: Fonts.body, fontWeight: 600, color: KatanaColors.text, fontSize: 13.5 }}>{ch.subtitle || `Chapter ${ch.chapterId ?? ''}`}</div>
+                            <div className="katana-tabular" style={{ ...KatanaType.small, display: 'flex', alignItems: 'center', gap: '2px 8px', flexWrap: 'wrap', marginTop: 2 }}>
                               <span>{formattedSize(ch)}</span>
                               {needsRepair ? (
-                                <span style={{ color: KatanaColors.accentSoft, fontWeight: 700 }}>
-                                  Needs repair ({cachedPages} of {totalPages} pages)
+                                <span style={{ color: KatanaColors.accentSoft, fontWeight: 600 }}>
+                                  · Needs repair ({cachedPages}/{totalPages})
                                 </span>
                               ) : totalPages > 0 ? (
                                 <span style={{ color: KatanaColors.green, fontWeight: 600 }}>
-                                  Ready offline · {cachedPages} {cachedPages === 1 ? 'page' : 'pages'}
+                                  · Ready offline · {cachedPages} {cachedPages === 1 ? 'page' : 'pages'}
                                 </span>
                               ) : null}
                             </div>
                           </div>
                         </button>
                         {!dlSelectMode && (
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                             {needsRepair && (
                               <button
                                 type="button"
@@ -751,21 +749,18 @@ export function KatanaDownloadsView({
                                   );
                                 }}
                                 style={{
-                                  minHeight: 44,
-                                  padding: '0 11px',
-                                  borderRadius: 7,
-                                  background: withAlpha(KatanaColors.accent, 0.18),
-                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.55)}`,
+                                  minHeight: 40,
+                                  padding: '0 8px',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 4,
                                   fontFamily: Fonts.body,
-                                  fontSize: 11.5,
-                                  fontWeight: 800,
+                                  fontSize: 12,
+                                  fontWeight: 700,
                                   color: KatanaColors.accentSoft,
                                 }}
                               >
-                                <Icon name="build" size={14} color={KatanaColors.accentSoft} />
+                                <Icon name="build" size={14} color={KatanaColors.accent} />
                                 <span>Repair</span>
                               </button>
                             )}
@@ -789,29 +784,26 @@ export function KatanaDownloadsView({
                                 showSnackBar(`Exported ${res.filename}`);
                               }}
                               style={{
-                                minHeight: 44,
-                                padding: '0 11px',
-                                borderRadius: 7,
-                                background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${KatanaColors.border}`,
+                                minHeight: 40,
+                                padding: '0 8px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 4,
                                 fontFamily: Fonts.body,
-                                fontSize: 11.5,
-                                fontWeight: 700,
+                                fontSize: 12,
+                                fontWeight: 600,
                                 color: KatanaColors.textMuted,
                               }}
                             >
-                              <Icon name="folder_zip" size={14} color={KatanaColors.textMuted} />
-                              <span>Export as file</span>
+                              <Icon name="folder_zip" size={15} color={KatanaColors.textMuted} />
+                              <span>Export</span>
                             </button>
                             <button
                               type="button"
                               className="bare-button"
                               aria-label={`Delete ${ch.subtitle || ch.title}`}
                               onClick={() => onDelete(ch.id)}
-                              style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}
+                              style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}
                             >
                               <Icon name="delete_outline" size={18} color={KatanaColors.textLight} />
                             </button>
@@ -820,34 +812,31 @@ export function KatanaDownloadsView({
                       </div>
                     );
                   })}
-                </KatanaCard>
+                </section>
               );
             })}
           </div>
-      <KatanaCard padding={12} radius={10} style={{ marginBottom: 12 }}>
+      <div style={{ paddingTop: 14, borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.75)}`, marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span style={{ ...KatanaType.title, fontSize: 13 }}>Add your own files</span>
+          <span style={{ ...KatanaType.title, fontSize: 13.5 }}>Add your own files</span>
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
           <label
             title="Add downloaded chapter files from this device"
             style={{
-              minHeight: 40,
-              padding: '6px 12px',
-              borderRadius: 8,
-              background: KatanaColors.surfaceAlt,
-              border: `1px solid ${KatanaColors.borderStrong}`,
+              minHeight: 38,
+              padding: '4px 0',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5,
+              gap: 6,
               fontFamily: Fonts.body,
-              fontSize: 12,
-              fontWeight: 700,
+              fontSize: 12.5,
+              fontWeight: 600,
               color: KatanaColors.textMuted,
               cursor: 'pointer',
             }}
           >
-            <Icon name="folder_zip" size={15} color={KatanaColors.textMuted} />
+            <Icon name="folder_zip" size={16} color={KatanaColors.accent} />
             <span>Add files</span>
             <input
               type="file"
@@ -884,22 +873,19 @@ export function KatanaDownloadsView({
           <label
             title="Add a whole folder of chapter files"
             style={{
-              minHeight: 40,
-              padding: '6px 12px',
-              borderRadius: 8,
-              background: KatanaColors.surfaceAlt,
-              border: `1px solid ${KatanaColors.border}`,
+              minHeight: 38,
+              padding: '4px 0',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5,
+              gap: 6,
               fontFamily: Fonts.body,
-              fontSize: 12,
-              fontWeight: 700,
+              fontSize: 12.5,
+              fontWeight: 600,
               color: KatanaColors.textMuted,
               cursor: 'pointer',
             }}
           >
-            <Icon name="create_new_folder" size={15} color={KatanaColors.textMuted} />
+            <Icon name="create_new_folder" size={16} color={KatanaColors.textMuted} />
             <span>Add a folder</span>
             <input
               type="file"
@@ -962,21 +948,18 @@ export function KatanaDownloadsView({
                   setSelectedIds(new Set());
                 }}
                 style={{
-                  minHeight: 40,
-                  padding: '6px 11px',
-                  borderRadius: 8,
-                  background: dlSelectMode ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                  border: `1px solid ${dlSelectMode ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                  minHeight: 38,
+                  padding: '0 4px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 5,
                   fontFamily: Fonts.body,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: dlSelectMode ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: dlSelectMode ? KatanaColors.accentSoft : KatanaColors.textMuted,
                 }}
               >
-                <Icon name="checklist" size={16} color={dlSelectMode ? KatanaColors.accentSoft : KatanaColors.textMuted} />
+                <Icon name="checklist" size={16} color={dlSelectMode ? KatanaColors.accent : KatanaColors.textMuted} />
                 <span>{dlSelectMode ? 'Done' : 'Select'}</span>
               </button>
               <button
@@ -1184,7 +1167,7 @@ export function KatanaDownloadsView({
             })}
           </div>
         )}
-      </KatanaCard>
+      </div>
         </>
       )}
     </div>
