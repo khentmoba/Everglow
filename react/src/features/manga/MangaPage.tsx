@@ -2481,11 +2481,9 @@ export function MangaPage() {
                         style={{
                           position: 'relative',
                           overflow: 'hidden',
-                          borderRadius: 14,
-                          padding: tablet ? 20 : 14,
-                          backgroundColor: KatanaColors.surface,
-                          border: `1px solid ${withAlpha(KatanaColors.border, 0.72)}`,
-                          backgroundImage: `radial-gradient(ellipse 75% 60% at 12% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.14 : 0.1)}, transparent 72%)`,
+                          margin: desktop ? '0 0 20px' : '-16px -16px 12px',
+                          padding: tablet ? '22px 24px 20px' : '16px 16px 18px',
+                          backgroundImage: `radial-gradient(ellipse 85% 75% at 22% 0%, ${withAlpha(seriesAccent.accent, themeMode === 'dark' ? 0.22 : 0.14)}, transparent 72%)`,
                         }}
                       >
                         <div
@@ -2601,8 +2599,8 @@ export function MangaPage() {
                                 style={{
                                   display: 'flex',
                                   flexWrap: 'wrap',
-                                  gap: 6,
-                                  marginTop: 10,
+                                  gap: '2px 10px',
+                                  marginTop: 8,
                                 }}
                               >
                                 {detail.genres.map((g) => (
@@ -2612,15 +2610,13 @@ export function MangaPage() {
                                     className="bare-button"
                                     onClick={() => handleSelectGenre(g)}
                                     style={{
-                                      minHeight: compactCard ? 36 : 44,
-                                      padding: compactCard ? '5px 10px' : '6px 12px',
-                                      borderRadius: 8,
+                                      minHeight: 32,
+                                      padding: 0,
                                       display: 'inline-flex',
                                       alignItems: 'center',
-                                      border: `1px solid ${KatanaColors.borderStrong}`,
-                                      background: KatanaColors.surfaceAlt,
                                       ...KatanaType.small,
-                                      color: KatanaColors.text,
+                                      fontSize: 12.5,
+                                      color: KatanaColors.textMuted,
                                     }}
                                   >
                                     {g.name}
@@ -3482,7 +3478,7 @@ export function MangaPage() {
                         }}
                       >
                         <div style={{ flex: 1, minWidth: 0, maxWidth: desktop ? 860 : undefined }}>
-                          <KatanaCard padding={16}>
+                          <section style={{ paddingTop: 18, borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.78)}` }}>
                             {batchProgress && (
                               <div
                                 role="status"
@@ -3590,11 +3586,8 @@ export function MangaPage() {
                                   }, 60);
                                 }}
                                 style={{
-                                  minHeight: 44,
-                                  padding: '6px 10px',
-                                  borderRadius: 8,
-                                  background: withAlpha(KatanaColors.accent, 0.14),
-                                  border: `1px solid ${withAlpha(KatanaColors.accent, 0.45)}`,
+                                  minHeight: 36,
+                                  padding: '4px 6px',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 5,
@@ -3613,18 +3606,15 @@ export function MangaPage() {
                               className="bare-button"
                               onClick={() => setChapterSortAsc((v) => !v)}
                               style={{
-                                minHeight: 44,
-                                padding: '6px 10px',
-                                borderRadius: 8,
-                                background: KatanaColors.surfaceAlt,
-                                border: `1px solid ${KatanaColors.border}`,
+                                minHeight: 36,
+                                padding: '4px 6px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 5,
                                 fontFamily: Fonts.body,
                                 fontSize: 12.5,
                                 fontWeight: 600,
-                                color: KatanaColors.text,
+                                color: KatanaColors.textMuted,
                               }}
                             >
                               <Icon name="swap_vert" size={15} color={KatanaColors.textMuted} />
@@ -3637,18 +3627,15 @@ export function MangaPage() {
                                 aria-expanded={chapterToolsOpen}
                                 onClick={() => setChapterToolsOpen((v) => !v)}
                                 style={{
-                                  minHeight: 44,
-                                  padding: '6px 10px',
-                                  borderRadius: 8,
-                                  background: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBg : KatanaColors.surfaceAlt,
-                                  border: `1px solid ${chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedBorder : KatanaColors.border}`,
+                                  minHeight: 36,
+                                  padding: '4px 6px',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 4,
                                   fontFamily: Fonts.body,
                                   fontSize: 12.5,
                                   fontWeight: 600,
-                                  color: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.chipSelectedText : KatanaColors.textMuted,
+                                  color: chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted,
                                 }}
                               >
                                 <Icon name="tune" size={15} color={chapterToolsOpen || selectMode || chapterGrouped || activeChapterFilterCount > 0 ? KatanaColors.accentSoft : KatanaColors.textMuted} />
@@ -4361,7 +4348,7 @@ export function MangaPage() {
                           </div>
                         )}
 
-                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', borderTop: `1px solid ${withAlpha(KatanaColors.border, 0.72)}` }}>
                           {visibleChapters.map((c, idx) => {
                             const isRead = readSet.has(c.id);
                             const isLastRead = detailBm?.lastReadChapterId === c.id;
@@ -4410,19 +4397,12 @@ export function MangaPage() {
                               <div
                                 data-chapter-id={c.id}
                                 style={{
-                                  borderRadius: 9,
                                   background: isChecked
                                     ? KatanaColors.chipSelectedBg
                                     : isLastRead
-                                      ? withAlpha(KatanaColors.accent, 0.1)
-                                      : KatanaColors.surfaceAlt,
-                                  border: `1px solid ${
-                                    isChecked
-                                      ? KatanaColors.chipSelectedBorder
-                                      : isLastRead
-                                        ? withAlpha(KatanaColors.accent, 0.45)
-                                        : KatanaColors.border
-                                  }`,
+                                      ? withAlpha(KatanaColors.accent, 0.08)
+                                      : 'transparent',
+                                  borderBottom: `1px solid ${withAlpha(KatanaColors.border, 0.65)}`,
                                   overflow: 'hidden',
                                 }}
                               >
@@ -4430,8 +4410,8 @@ export function MangaPage() {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 8,
-                                    padding: compactCard ? '9px 8px 9px 10px' : '8px 10px',
+                                    gap: 10,
+                                    padding: compactCard ? '11px 4px' : '11px 6px',
                                   }}
                                 >
                                   {selectMode && (
@@ -4790,7 +4770,7 @@ export function MangaPage() {
                             />
                           </div>
                         )}
-                          </KatanaCard>
+                          </section>
                         </div>
 
                         {tablet && similarToDetail.length > 0 && (

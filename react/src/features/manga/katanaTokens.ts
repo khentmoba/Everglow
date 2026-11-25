@@ -11,9 +11,9 @@ export const KatanaFonts = {
 
 /** Shared base palette hex values used by both the Manga Celestia shell and the reader canvas. */
 export const KATANA_BASE_PALETTES = {
-  dark: { bg: '#0C0B0E', surface: '#141318', fg: '#F4F1EC' },
-  oled: { bg: '#000000', surface: '#0B0A0D', fg: '#F7F4EF' },
-  light: { bg: '#F7F5F0', surface: '#FFFFFF', fg: '#17151C' },
+  dark: { bg: '#08080A', surface: '#111115', fg: '#F7F5F0' },
+  oled: { bg: '#000000', surface: '#09090C', fg: '#F7F5F0' },
+  light: { bg: '#F7F5F0', surface: '#FFFFFF', fg: '#15141A' },
   sepia: { bg: '#F2EAE0', surface: '#FAF5EC', fg: '#2A2118' },
 } as const;
 
@@ -62,18 +62,18 @@ export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> 
   dark: {
     '--katana-bg': KATANA_BASE_PALETTES.dark.bg,
     '--katana-surface': KATANA_BASE_PALETTES.dark.surface,
-    '--katana-surface-alt': '#1C1A22',
-    '--katana-surface-glow': '#25222D',
-    '--katana-border': '#26242E',
-    '--katana-border-strong': '#383444',
+    '--katana-surface-alt': '#18181E',
+    '--katana-surface-glow': '#22222B',
+    '--katana-border': '#22222B',
+    '--katana-border-strong': '#343442',
     '--katana-text': KATANA_BASE_PALETTES.dark.fg,
-    '--katana-text-muted': '#A6A0B0',
-    '--katana-text-light': '#8A8496',
+    '--katana-text-muted': '#A09DA8',
+    '--katana-text-light': '#757280',
     '--katana-accent': '#E8923A',
     '--katana-accent-dark': '#C97522',
     '--katana-accent-soft': '#F5B873',
-    '--katana-accent-ink': '#120E0A',
-    '--katana-chip-selected-bg': '#2A1F14',
+    '--katana-accent-ink': '#100C08',
+    '--katana-chip-selected-bg': '#261C12',
     '--katana-chip-selected-border': '#8C5926',
     '--katana-chip-selected-text': '#F7C992',
     '--katana-link': '#7AB0FA',
@@ -81,8 +81,8 @@ export const KATANA_THEME_VARS: Record<KatanaThemeMode, Record<string, string>> 
     '--katana-orange': '#F08C4B',
     '--katana-crimson': '#E05A5A',
     '--katana-teal': '#38BDB0',
-    '--katana-header-dark': '#0F0E12',
-    '--katana-switch-off': '#2A2733',
+    '--katana-header-dark': '#08080A',
+    '--katana-switch-off': '#252530',
   },
   oled: {
     '--katana-bg': KATANA_BASE_PALETTES.oled.bg,

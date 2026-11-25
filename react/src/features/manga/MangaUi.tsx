@@ -142,11 +142,11 @@ export function KatanaButton({
         gap: 6,
         padding: pad,
         minHeight: minH,
-        borderRadius: 10,
+        borderRadius: 7,
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        background: filled ? color : withAlpha(color, 0.08),
-        border: filled ? '1px solid transparent' : `1px solid ${withAlpha(color, 0.28)}`,
+        background: filled ? color : 'transparent',
+        border: filled ? '1px solid transparent' : `1px solid ${withAlpha(color, 0.24)}`,
         transition: 'opacity 160ms ease, background 160ms ease',
       }}
     >
@@ -1296,9 +1296,7 @@ export function KatanaBottomBar({
             <div
               style={{
                 position: 'relative',
-                padding: '3px 14px',
-                borderRadius: 99,
-                background: isActive ? withAlpha(KatanaColors.accent, 0.16) : 'transparent',
+                padding: '3px 10px',
                 display: 'grid',
                 placeItems: 'center',
               }}
@@ -1309,7 +1307,7 @@ export function KatanaBottomBar({
                   style={{
                     position: 'absolute',
                     top: -2,
-                    right: 4,
+                    right: 0,
                     minWidth: 16,
                     height: 16,
                     padding: '0 4px',
@@ -1915,13 +1913,12 @@ export function KatanaPosterCard({
           position: 'relative',
           width: '100%',
           aspectRatio: '2 / 3',
-          borderRadius: 10,
+          borderRadius: 6,
           background: KatanaColors.surfaceAlt,
-          border: `1px solid ${lit ? withAlpha(KatanaColors.accent, 0.5) : withAlpha(KatanaColors.border, 0.65)}`,
           cursor: 'pointer',
           overflow: 'hidden',
-          boxShadow: lit ? boxShadow([{ color: '#00000070', blur: 18, offset: [0, 8] }]) : undefined,
-          transition: interactive ? 'border-color 160ms ease, box-shadow 160ms ease' : undefined,
+          boxShadow: lit ? boxShadow([{ color: '#00000080', blur: 20, offset: [0, 10] }]) : '0 4px 14px rgba(0,0,0,0.35)',
+          transition: interactive ? 'box-shadow 160ms ease' : undefined,
         }}
       >
         <KatanaCoverImage url={manga.coverUrl} title={manga.title} iconSize={28} />
