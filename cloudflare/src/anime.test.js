@@ -3179,3 +3179,36 @@ test('handleProxyHls converts proxied SRT subtitles to WebVTT and filters TS aud
     globalThis.fetch = realFetch;
   }
 });
+
+test('rewriteCinemaPlaylist flips HLS master EXT-X-MEDIA audio defaults to the original language', async () => {
+  const master = [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="en-US",DEFAULT=YES,AUTOSELECT=YES,URI="https://cdn.example/hls/aud_en.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Korean",LANGUAGE="ko-KR",DEFAULT=NO,AUTOSELECT=NO,URI="https://cdn.example/hls/aud_ko.m3u8"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=2000000,AUDIO="aud"',
+    'https://cdn.example/hls/video.m3u8',
+  ].join('\n');
+  const rewritten = await rewriteCinemaPlaylist(
+    master,
+    'https://cdn.example/hls/master.m3u8',
+    `${HOST}/proxyMegavidHls`,
+    'fmov',
+    KEY,
+    'kor',
+  );
+  const enLine = rewritten.split('\n').find((l) => l.includes('NAME="English"')) || '';
+  const koLine = rewritten.split('\n').find((l) => l.includes('NAME="Korean"')) || '';
+  assert.ok(enLine.includes('DEFAULT=NO') && enLine.includes('AUTOSELECT=NO'), enLine);
+  assert.ok(koLine.includes('DEFAULT=YES') && koLine.includes('AUTOSELECT=YES'), koLine);
+  assert.equal(audioLangMatches('ko-KR', 'ko'), true);
+  assert.equal(audioLangMatches('zh-TW', 'zh'), true);
+});
+
+test('selectCinemaSubtitleTracks accepts untyped subtitle proxy URLs as fallback', () => {
+  const tracks = selectCinemaSubtitleTracks([
+    { label: 'English', file: '/api/subtitles/proxy?url=https%3A%2F%2Fsub.wyzie.io%2Fc%2F1%2Fid%2F1' },
+  ]);
+  assert.equal(tracks.length, 1);
+  assert.equal(tracks[0].label, 'English');
+});

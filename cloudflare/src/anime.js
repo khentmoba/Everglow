@@ -392,8 +392,13 @@ function srtToVtt(text) {
 }
 
 const ISO639_1_TO_2 = {
+  af: ['afr'],
   ar: ['ara'],
+  az: ['aze'],
+  bg: ['bul'],
   bn: ['ben'],
+  bs: ['bos'],
+  ca: ['cat'],
   cn: ['zho', 'chi', 'yue'],
   cs: ['ces', 'cze'],
   da: ['dan'],
@@ -401,31 +406,60 @@ const ISO639_1_TO_2 = {
   el: ['ell', 'gre'],
   en: ['eng'],
   es: ['spa'],
+  et: ['est'],
   fa: ['fas', 'per'],
   fi: ['fin'],
   fr: ['fra', 'fre'],
+  ga: ['gle'],
+  gu: ['guj'],
   he: ['heb'],
   hi: ['hin'],
+  hr: ['hrv'],
   hu: ['hun'],
+  hy: ['hye', 'arm'],
   id: ['ind'],
+  is: ['isl', 'ice'],
   it: ['ita'],
   ja: ['jpn'],
+  ka: ['kat', 'geo'],
+  kk: ['kaz'],
+  km: ['khm'],
+  kn: ['kan'],
   ko: ['kor'],
+  lo: ['lao'],
+  lt: ['lit'],
+  lv: ['lav'],
+  mk: ['mkd', 'mac'],
   ml: ['mal'],
+  mn: ['mon'],
+  mr: ['mar'],
   ms: ['msa', 'may'],
+  my: ['mya', 'bur'],
+  nb: ['nob', 'nor'],
+  ne: ['nep'],
   nl: ['nld', 'dut'],
+  nn: ['nno', 'nor'],
   no: ['nor', 'nob', 'nno'],
+  pa: ['pan'],
   pl: ['pol'],
   pt: ['por'],
   ro: ['ron', 'rum'],
   ru: ['rus'],
+  si: ['sin'],
+  sk: ['slk', 'slo'],
+  sl: ['slv'],
+  sq: ['sqi', 'alb'],
+  sr: ['srp'],
   sv: ['swe'],
+  sw: ['swa'],
   ta: ['tam'],
   te: ['tel'],
   th: ['tha'],
   tl: ['tgl', 'fil'],
   tr: ['tur'],
   uk: ['ukr'],
+  ur: ['urd'],
+  uz: ['uzb'],
   vi: ['vie'],
   zh: ['zho', 'chi', 'cmn'],
 };
@@ -433,7 +467,7 @@ const ISO639_1_TO_2 = {
 const ISO639_2_GROUPS = Object.values(ISO639_1_TO_2);
 
 function audioLangCodes(raw) {
-  const code = String(raw || '').trim().toLowerCase();
+  const code = String(raw || '').trim().toLowerCase().split(/[-_]/)[0];
   if (!/^[a-z]{2,3}$/.test(code)) return [];
   if (ISO639_1_TO_2[code]) return ISO639_1_TO_2[code];
   const group = ISO639_2_GROUPS.find((g) => g.includes(code));
@@ -441,10 +475,50 @@ function audioLangCodes(raw) {
 }
 
 function audioLangMatches(trackLang, targetLang) {
-  const a = String(trackLang || '').trim().toLowerCase();
+  const a = String(trackLang || '').trim().toLowerCase().split(/[-_]/)[0];
   if (!a) return false;
+  const aCodes = audioLangCodes(a);
   const targets = audioLangCodes(targetLang);
-  return targets.includes(a);
+  return aCodes.some((c) => targets.includes(c));
+}
+
+function hasMultiAudioMaster(text) {
+  let count = 0;
+  for (const line of String(text || '').split(/\r?\n/)) {
+    if (/^#EXT-X-MEDIA:.*TYPE=AUDIO\b/i.test(line.trim())) {
+      count += 1;
+      if (count >= 2) return true;
+    }
+  }
+  return false;
+}
+
+function rewriteMasterAudioDefaults(lines, targetLang) {
+  if (!targetLang) return lines;
+  const audioIdx = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^#EXT-X-MEDIA:.*TYPE=AUDIO\b/i.test(lines[i].trim())) audioIdx.push(i);
+  }
+  if (audioIdx.length < 2) return lines;
+  let matchIdx = -1;
+  for (const idx of audioIdx) {
+    const m = lines[idx].match(/LANGUAGE="([^"]+)"/i);
+    if (m && audioLangMatches(m[1], targetLang)) {
+      matchIdx = idx;
+      break;
+    }
+  }
+  if (matchIdx < 0) return lines;
+  const out = [...lines];
+  const setAttr = (line, attr, val) => {
+    const re = new RegExp(`(${attr}=)(?:YES|NO)`, 'i');
+    return re.test(line) ? line.replace(re, `$1${val}`) : `${line},${attr}=${val}`;
+  };
+  for (const idx of audioIdx) {
+    const on = idx === matchIdx ? 'YES' : 'NO';
+    out[idx] = setAttr(setAttr(out[idx], 'DEFAULT', on), 'AUTOSELECT', on);
+  }
+  return out;
 }
 
 const TS_AUDIO_STREAM_TYPES = new Set([0x03, 0x04, 0x0f, 0x11, 0x81, 0x87]);
@@ -580,8 +654,9 @@ function filterTsPmtAudio(buf, targetLang) {
     if (!parsed) continue;
     const audioEntries = parsed.entries.filter((e) => e.isAudio);
     if (audioEntries.length < 2) continue;
-    const match = audioEntries.find((e) => audioLangMatches(e.lang, targetLang));
-    if (!match) continue;
+    const matching = audioEntries.filter((e) => audioLangMatches(e.lang, targetLang));
+    if (!matching.length) continue;
+    const match = matching.find((e) => e.streamType === 0x0f) || matching[0];
     for (const e of audioEntries) {
       if (e !== match) droppedPids.add(e.pid);
     }
@@ -819,7 +894,8 @@ function splitForTransport(abs) {
 
 async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, audioLang = '') {
   const ctx = baseContext(playlistUrl);
-  const lines = String(text || '').split(/\r?\n/);
+  const rawLines = String(text || '').split(/\r?\n/);
+  const lines = audioLang ? rewriteMasterAudioDefaults(rawLines, audioLang) : rawLines;
   const audioField = audioLang ? { a: audioLang } : {};
 
   const items = new Map();
@@ -1497,11 +1573,12 @@ function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
     const path = abs.split('?')[0].toLowerCase();
     if (path.endsWith('.ass') || path.endsWith('.ssa')) continue;
     const isVtt = type === 'vtt' || path.endsWith('.vtt');
-    const isSrt = type === 'srt' || path.endsWith('.srt') || /(?:^|[?&%])format(?:=|%3d)srt\b/i.test(abs);
-    if (!isVtt && !isSrt) {
-      if (type) continue;
-      continue;
-    }
+    const isSrt =
+      type === 'srt' ||
+      path.endsWith('.srt') ||
+      /(?:^|[?&%])format(?:=|%3d)srt\b/i.test(abs) ||
+      (!type && path.includes('/subtitles/'));
+    if (!isVtt && !isSrt) continue;
     const rawLabel = String(t.label || t.lang || t.language || 'Subtitles').trim();
     const norm = rawLabel.toLowerCase();
     let rank = 2;
@@ -1661,10 +1738,18 @@ function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep, lang = '') 
   }));
 }
 
-function selectPreferredTsAudioLang(audioTracks, preferredLang) {
-  if (!preferredLang || !Array.isArray(audioTracks) || audioTracks.length < 2) return '';
-  const match = audioTracks.find((t) => t && audioLangMatches(t.lang, preferredLang));
-  return match ? match.lang : '';
+function selectPreferredTsAudioLang(verified, preferredLang) {
+  if (!preferredLang) return '';
+  const audioTracks = verified?.audioTracks;
+  if (Array.isArray(audioTracks) && audioTracks.length >= 2) {
+    const match = audioTracks.find((t) => t && audioLangMatches(t.lang, preferredLang));
+    if (match) return match.lang;
+  }
+  if (verified?.masterText && hasMultiAudioMaster(verified.masterText)) {
+    const codes = audioLangCodes(preferredLang);
+    return codes[0] || preferredLang;
+  }
+  return '';
 }
 
 async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts = {}) {
@@ -1699,11 +1784,13 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
           ? await resolveVidBolt(mediaType, tmdbId, season, ep, budgetCtrl.signal)
           : await resolveFmov(apiPath, srcKey, budgetCtrl.signal);
       if (!fallbackSubs && Array.isArray(candidate.subtitles) && candidate.subtitles.length > 0) {
-        fallbackSubs = {
-          subtitles: candidate.subtitles,
-          baseOrigin: candidate.baseOrigin,
-          provider: candidate.provider,
-        };
+        const usable = selectCinemaSubtitleTracks(candidate.subtitles, candidate.baseOrigin);
+        if (usable.length > 0) {
+          fallbackSubs = {
+            tracks: usable,
+            provider: candidate.provider,
+          };
+        }
       }
       const playable = await firstPlayable(
         candidate.masterUrls,
@@ -1726,11 +1813,11 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     clearTimeout(budgetTimer);
   }
 
-  const audioLang = selectPreferredTsAudioLang(verified?.audioTracks, preferredLang);
+  const audioLang = selectPreferredTsAudioLang(verified, preferredLang);
   let selectedSubs = selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin);
   let subProvider = hit.provider;
   if (!selectedSubs.length && fallbackSubs) {
-    selectedSubs = selectCinemaSubtitleTracks(fallbackSubs.subtitles, fallbackSubs.baseOrigin);
+    selectedSubs = fallbackSubs.tracks;
     subProvider = fallbackSubs.provider;
   }
   const [src, ...rawTracks] = await Promise.all([
