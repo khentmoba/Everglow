@@ -4,7 +4,7 @@ const { getCalendarEvents } = require('./calendar_core.js');
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-const { getAdmin, getDb } = require('./common.js');
+const { getAdmin, getDb, readJsonOrAbort: readModelJson } = require('./common.js');
 const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, findDuplicateGroups, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser: sendPushToUser, sendFCMToBoth: sendPushToBoth } = require('./triggers.js');
 const sendFCMToUser = (uid, payload) => sendPushToUser(uid, { ...payload, motchi: true });
@@ -120,8 +120,8 @@ const motchiDailyDigest = onSchedule({
         signal: AbortSignal.timeout(30000),
       });
       if (resp.ok) {
-        const body = await resp.json();
-        const text = (body.choices?.[0]?.message?.content || '').trim();
+        const body = await readModelJson(resp);
+        const text = (body?.choices?.[0]?.message?.content || '').trim();
         if (text) digest = text;
       } else {
         await resp.body?.cancel?.().catch(() => {});
@@ -367,8 +367,8 @@ const motchiWeeklyRecap = onSchedule({
           signal: AbortSignal.timeout(30000),
         });
         if (resp.ok) {
-          const body = await resp.json();
-          const text = (body.choices?.[0]?.message?.content || '').trim();
+          const body = await readModelJson(resp);
+          const text = (body?.choices?.[0]?.message?.content || '').trim();
           if (text) recap = text;
         } else {
           await resp.body?.cancel?.().catch(() => {});

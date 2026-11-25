@@ -354,6 +354,28 @@ function isSafeDocId(id) {
   return true;
 }
 
+function isAbortError(error) {
+  return error?.name === 'TimeoutError' || error?.name === 'AbortError';
+}
+
+async function readJsonOrAbort(resp) {
+  try {
+    return await resp.json();
+  } catch (error) {
+    if (isAbortError(error)) return null;
+    throw error;
+  }
+}
+
+async function readTextOrAbort(resp) {
+  try {
+    return await resp.text();
+  } catch (error) {
+    if (isAbortError(error)) return '';
+    throw error;
+  }
+}
+
 function cappedHttps(maxInstances, handler, opts = {}) {
   const functions = require('firebase-functions/v1');
   return functions.runWith({ maxInstances, ...opts }).https.onRequest(handler);
@@ -379,6 +401,8 @@ module.exports = {
   isPublicDnsHost,
   fetchPublicUrl,
   readLimitedText,
+  readJsonOrAbort,
+  readTextOrAbort,
   isAllowedBookTextUrl,
   isSafeDocId,
   _getExternalCache,

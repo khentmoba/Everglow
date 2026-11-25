@@ -33,6 +33,7 @@ async function journey(stream, { interrupt = false, recall = false, enableThinki
       enforceRateLimit: () => false,
       checkDailyCap: async () => ({ allowed: true }),
       getAdmin: () => { throw new Error('no persona in this fixture'); },
+      readJsonOrAbort: require('../common.js').readJsonOrAbort,
     },
     './motchi_memory.js': {
       selectRelevantMemoryFacts: async () => recall ? [] : facts,
