@@ -215,7 +215,7 @@ export async function authorizeWatchStreamUrl(url: string): Promise<string> {
   return decoded.url || url;
 }
 
-export async function resolveWatchPartyStream(room: WatchPartyRoom): Promise<WatchPartyStream> {
+export async function resolveWatchPartyStream(room: WatchPartyRoom, signal?: AbortSignal): Promise<WatchPartyStream> {
   if (!ConnectivityService.isOnline) {
     throw new Error('Offline — cannot resolve stream');
   }
@@ -245,8 +245,19 @@ export async function resolveWatchPartyStream(room: WatchPartyRoom): Promise<Wat
         : '';
     if (/^[a-z]{2,3}$/.test(origLang)) params.set('lang', origLang);
   }
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), NetworkQualityService.timeoutMs(22000));
+  const onAbort = () => ctrl.abort();
+  signal?.addEventListener('abort', onAbort, { once: true });
   const url = `${PROXY_CINEMA_ORIGIN}/proxyAnime?${params.toString()}`;
-  const resp = await fetch(url, { signal: AbortSignal.timeout(NetworkQualityService.timeoutMs(22000)) });
+  let resp: Response;
+  try {
+    resp = await fetch(url, { signal: ctrl.signal });
+  } finally {
+    window.clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
+  }
   if (!resp.ok) {
     let detail = `Stream resolver returned ${resp.status}`;
     try {

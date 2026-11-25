@@ -31,10 +31,11 @@ export function HlsServerPlayer({
 
   useEffect(() => {
     let alive = true;
+    const ctrl = new AbortController();
     setLoading(true);
     setError(null);
     setStream(null);
-    void resolveWatchPartyStream(room)
+    void resolveWatchPartyStream(room, ctrl.signal)
       .then((s) => {
         if (!alive) return;
         setStream(s);
@@ -47,6 +48,7 @@ export function HlsServerPlayer({
       });
     return () => {
       alive = false;
+      ctrl.abort();
     };
   }, [mediaKey]);
 
@@ -55,6 +57,11 @@ export function HlsServerPlayer({
     if (!video || !stream) return;
     let alive = true;
     let hls: HlsInstance | null = null;
+    let fatalCount = 0;
+    const resetFatal = () => {
+      fatalCount = 0;
+    };
+    video.addEventListener('playing', resetFatal);
 
     const nativeHls = Boolean(video.canPlayType('application/vnd.apple.mpegurl'));
     const hasMse =
@@ -71,13 +78,35 @@ export function HlsServerPlayer({
         if (Hls && Hls.isSupported()) {
           video.removeAttribute('src');
           hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
-          hls.on(Hls.Events.ERROR, (_ev, data) => {
-            if (data?.fatal && alive) {
-              setError('Video playback failed on this browser — try Embed Sync.');
+          const inst = hls;
+          const errTypes = Hls.ErrorTypes ?? {};
+          inst.on(Hls.Events.ERROR, (_ev, data) => {
+            if (!data?.fatal || !alive) return;
+            fatalCount += 1;
+            if (fatalCount <= 3) {
+              try {
+                if (data.type === errTypes.NETWORK_ERROR && typeof inst.startLoad === 'function') {
+                  inst.startLoad();
+                  return;
+                }
+                if (data.type === errTypes.MEDIA_ERROR && typeof inst.recoverMediaError === 'function') {
+                  if (fatalCount === 2 && typeof inst.swapAudioCodec === 'function') inst.swapAudioCodec();
+                  inst.recoverMediaError();
+                  return;
+                }
+              } catch {
+                // Fall through to terminal error UI.
+              }
             }
+            try {
+              inst.destroy();
+            } catch {
+              // ignore
+            }
+            setError('Video playback failed on this browser — try Embed Sync.');
           });
-          hls.loadSource(stream.src);
-          hls.attachMedia(video);
+          inst.loadSource(stream.src);
+          inst.attachMedia(video);
         } else if (nativeHls) {
           video.src = stream.src;
         } else {
@@ -90,6 +119,7 @@ export function HlsServerPlayer({
     void attach();
     return () => {
       alive = false;
+      video.removeEventListener('playing', resetFatal);
       if (hls) {
         try {
           hls.destroy();

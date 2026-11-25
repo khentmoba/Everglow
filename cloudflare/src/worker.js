@@ -193,7 +193,7 @@ async function handleProxyAnime(request, env, ctx) {
   const query = Object.fromEntries(new URL(request.url).searchParams);
   const wantsJson = String(query.format || '').toLowerCase() === 'json';
   const params = validateAnimeParams(query);
-  const notify = String(query.source || '').toLowerCase() === 'cinema';
+  const notify = true;
   if (params.error) {
     return wantsJson
       ? jsonResponse({ error: params.error }, 400, request)
@@ -610,9 +610,16 @@ async function handleProxyHls(request, env, ctx) {
         request,
       );
     }
+    if (upstreamCt.includes('text/html') || /^\s*(?:<!doctype\b|<html\b)/i.test(text)) {
+      return jsonResponse({ error: 'Upstream returned HTML instead of subtitles' }, 502, request);
+    }
     const cleaned = stripAdCues(srtToVtt(text));
-    const vttResponse = new Response(cleaned, { status: 200, headers: vttHeaders });
-    if (cacheKey) cachePut(ctx, edgeCache, cacheKey, vttResponse.clone());
+    const hasCues = cleaned.includes('-->') || /^\s*WEBVTT\b/.test(cleaned);
+    const vttResponse = new Response(cleaned, {
+      status: 200,
+      headers: hasCues ? vttHeaders : { ...vttHeaders, 'Cache-Control': 'no-store' },
+    });
+    if (cacheKey && hasCues) cachePut(ctx, edgeCache, cacheKey, vttResponse.clone());
     return vttResponse;
   }
 
@@ -645,7 +652,10 @@ async function handleProxyHls(request, env, ctx) {
 
   const mediaStatus = upstream.status === 206 ? 206 : 200;
   let body = consumed !== null ? consumed : upstream.body;
-  if (audioLang && consumed === null && (mediaStatus === 200 || mediaStatus === 206)) {
+  const rawCl = Number.parseInt(upstream.headers.get('content-length') || '', 10);
+  const isMp4Ct = baseCt === 'video/mp4' || baseCt === 'audio/mp4';
+  const sizeAllowsTsFilter = !Number.isFinite(rawCl) || (rawCl >= 376 && rawCl <= 16 * 1024 * 1024);
+  if (audioLang && consumed === null && !isMp4Ct && sizeAllowsTsFilter && (mediaStatus === 200 || mediaStatus === 206)) {
     try {
       const bytes = new Uint8Array(await upstream.arrayBuffer());
       body = filterTsPmtAudio(bytes, audioLang);

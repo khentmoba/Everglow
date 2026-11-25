@@ -1819,15 +1819,17 @@ test('a stream that dies before any pick still reports the source dead', () => {
   assert.ok(posted.includes('animex-content-error'), 'the app can advance servers');
 });
 
-test('CC is hidden when the source has no subtitles', () => {
-  const none = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
-  assert.match(none, /id="btn-cc"[^>]*hidden/, 'no tracks, so no CC button');
+test('CC is hidden in Anime when the source has no subtitles, and visible in Cinema', () => {
+  const animeNone = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Ep 1', kind: 'anime' });
+  assert.match(animeNone, /id="btn-cc"[^>]*hidden/, 'no tracks in Anime, so no CC button');
+  const cinemaNone = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
+  assert.doesNotMatch(cinemaNone, /id="btn-cc"[^>]*hidden/, 'Cinema keeps CC button visible');
   const some = hlsPlayerHtml({
     src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema',
     tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
   });
   assert.doesNotMatch(some, /id="btn-cc"[^>]*hidden/);
-  const { els } = runPlayerDom({ tracks: [], trackEls: [] });
+  const { els } = runPlayerDom({ kind: 'anime', tracks: [], trackEls: [] });
   assert.equal(els['btn-cc'].hidden, true);
 });
 
@@ -2617,8 +2619,8 @@ test('mobile settings falls back to Auto quality on native HLS and desktop setti
 });
 
 test('CC menu exposes Audio track switching when subtitles are absent and labels Subtitles accurately', () => {
-  const { els, instances } = runPlayerDom({ tracks: [], trackEls: [] });
-  assert.equal(els['btn-cc'].hidden, true, 'no subs and no multi-audio hides button');
+  const { els, instances } = runPlayerDom({ kind: 'anime', tracks: [], trackEls: [] });
+  assert.equal(els['btn-cc'].hidden, true, 'no subs and no multi-audio hides button in Anime');
 
   instances[0].audioTracks = [{ name: 'Japanese' }, { name: 'English' }];
   instances[0]._handlers.m();
@@ -3455,4 +3457,170 @@ test('native HLS player exposes v.audioTracks in CC menu and toggles enabled on 
   engAudBtn.onclick();
   assert.equal(nativeTracks[0].enabled, false);
   assert.equal(nativeTracks[1].enabled, true);
+});
+
+test('rewriteCinemaPlaylist handles per-group audio defaults, NAME fallback, and omits audioLang on multi-audio master children', async () => {
+  const master = [
+    '#EXTM3U',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="aud-en.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="Korean",DEFAULT=NO,AUTOSELECT=NO,URI="aud-ko.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="ac3",LANGUAGE="eng",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="ac3-en.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="ac3",LANGUAGE="kor",NAME="Korean",DEFAULT=NO,AUTOSELECT=NO,URI="ac3-ko.m3u8"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=2000000,AUDIO="aac"',
+    'video.m3u8',
+  ].join('\n');
+  const rewritten = await rewriteCinemaPlaylist(
+    master,
+    'https://cdn.example/stream/master.m3u8',
+    'https://w.example/proxyMegavidHls',
+    'fmov',
+    KEY,
+    'ko',
+  );
+  const lines = rewritten.split('\n');
+  assert.ok(lines[1].includes('DEFAULT=NO') && lines[1].includes('AUTOSELECT=NO'), 'aac English turned off');
+  assert.ok(lines[2].includes('DEFAULT=YES') && lines[2].includes('AUTOSELECT=YES'), 'aac Korean matched by NAME');
+  assert.ok(lines[3].includes('DEFAULT=NO') && lines[3].includes('AUTOSELECT=NO'), 'ac3 English turned off');
+  assert.ok(lines[4].includes('DEFAULT=YES') && lines[4].includes('AUTOSELECT=YES'), 'ac3 Korean matched per-group');
+  const childLine = lines[6];
+  const childUrl = new URL(childLine);
+  const opened = await scopedTarget(childUrl.searchParams, KEY);
+  assert.equal(opened.audioLang, '', 'multi-audio master children omit audioLang to avoid Worker RAM buffering');
+});
+
+test('srtToVtt pads single-digit hours to valid two-digit WebVTT timestamps', () => {
+  const srt = '\uFEFF1\r\n0:01:23,456 --> 0:01:25,789\r\nHello Clair\r\n';
+  const vtt = srtToVtt(srt);
+  assert.ok(vtt.startsWith('WEBVTT\n\n'));
+  assert.ok(vtt.includes('00:01:23.456 --> 00:01:25.789'));
+});
+
+test('handleProxyHls rejects HTML error pages on subtitle requests and does not poison edge cache', async () => {
+  const subUrl = await cinemaProxyUrl(
+    'https://w.example/proxyMegavidHls',
+    'https://cdn.example/subs/en.vtt',
+    'fmov',
+    KEY,
+    '',
+    { isSub: true },
+  );
+  const cacheStore = new Map();
+  const prevCaches = globalThis.caches;
+  const prevFetch = globalThis.fetch;
+  globalThis.caches = {
+    default: {
+      match: async (k) => cacheStore.get(k.url) || null,
+      put: async (k, v) => cacheStore.set(k.url, v),
+    },
+  };
+  globalThis.fetch = async () =>
+    new Response('<!DOCTYPE html><html><body>Just a moment...</body></html>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  try {
+    const res = await handleProxyHls(new Request(subUrl), { CDN_STAMP_KEY: KEY });
+    assert.equal(res.status, 502);
+    assert.equal(cacheStore.size, 0, 'HTML error page must never be cached as a subtitle');
+  } finally {
+    globalThis.caches = prevCaches;
+    globalThis.fetch = prevFetch;
+  }
+});
+
+test('handleProxyAnime notifies parent frame on anime 502 failure so failover triggers', async () => {
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('down', { status: 503 });
+  try {
+    const res = await handleProxyAnime(
+      new Request('https://w.example/proxyAnime?source=megavid&anilistId=21&ep=2&audio=sub'),
+      { CDN_STAMP_KEY: KEY },
+    );
+    assert.equal(res.status, 502);
+    const body = await res.text();
+    assert.ok(body.includes('animex-content-error'), 'anime failure HTML notifies parent for instant failover');
+  } finally {
+    globalThis.fetch = prevFetch;
+  }
+});
+
+test('hlsPlayerHtml caps failed VTT fetches to stop timeupdate retry storms and hides dead overlay when autoplay blocks', async () => {
+  let subFetches = 0;
+  const { els, v } = runPlayerDom({
+    kind: 'cinema',
+    tracks: [],
+    trackEls: [{ kind: 'captions', label: 'English', src: 'https://x/broken.vtt' }],
+    current: 'cine-1',
+    servers: [
+      { id: 'cine-1', label: 'Reel', url: 'https://w/p?server=cine-1' },
+      { id: 'cine-2', label: 'Matinee', url: 'https://w/p?server=cine-2' },
+    ],
+    fetchImpl: async (url) => {
+      if (String(url).includes('broken.vtt')) {
+        subFetches += 1;
+        return { ok: false, text: async () => '' };
+      }
+      return { ok: true, json: async () => ({ src: 'https://w/proxyMegavidHls?t=next', tracks: [] }) };
+    },
+  });
+  await new Promise((r) => setTimeout(r, 0));
+  v.currentTime = 5;
+  for (let i = 0; i < 8; i++) {
+    for (const h of v.listeners.timeupdate || []) h();
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  assert.ok(subFetches <= 3, `failed VTT fetch stops retrying (got ${subFetches} fetches across 8 timeupdates)`);
+
+  els.dead.hidden = false;
+  v.play = () => Promise.reject(new Error('NotAllowedError'));
+  for (const h of v.listeners.loadedmetadata || []) h();
+  await new Promise((r) => setTimeout(r, 0));
+  els['btn-sv'].dispatch('click');
+  els['sv-menu'].children[1].onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  for (const h of v.listeners.playing || []) h();
+  assert.equal(els.dead.hidden, true, 'dead overlay clears once playback starts on the switched server');
+});
+
+test('Cinema player keeps CC button visible when server has no tracks and offers server switch', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://w.example/proxyMegavidHls?t=abc',
+    title: 'Movie',
+    kind: 'cinema',
+    tracks: [],
+    servers: [
+      { id: 'cine-1', label: 'Reel', url: 'https://w/p?server=cine-1' },
+      { id: 'cine-2', label: 'Matinee', url: 'https://w/p?server=cine-2' },
+    ],
+    current: 'cine-1',
+  });
+  assert.doesNotMatch(html, /id="btn-cc"[^>]*hidden/, 'Cinema keeps CC button visible even with 0 tracks');
+
+  const { els } = runPlayerDom({
+    kind: 'cinema',
+    tracks: [],
+    trackEls: [],
+    current: 'cine-1',
+    servers: [
+      { id: 'cine-1', label: 'Reel', url: 'https://w/p?server=cine-1' },
+      { id: 'cine-2', label: 'Matinee', url: 'https://w/p?server=cine-2' },
+    ],
+  });
+  assert.equal(els['btn-cc'].hidden, false, 'CC button stays visible in Cinema with 0 tracks');
+  els['btn-cc'].dispatch('click');
+  const walk = (n) => (n ? [n, ...(n.children || []).flatMap(walk)] : []);
+  const texts = walk(els['cc-menu']).map((n) => n.textContent || '');
+  assert.ok(texts.some((t) => t.includes('No subtitles on this server')), 'shows empty-subtitles notice');
+  assert.ok(texts.some((t) => t === 'Switch server'), 'offers one-tap server switch');
+});
+
+test('selectCinemaSubtitleTracks accepts untyped proxied https subtitle URLs', () => {
+  const tracks = selectCinemaSubtitleTracks([
+    { label: 'English', url: 'https://sub.wyzie.ru/c/abc123' },
+    { label: 'Spanish', url: 'https://sub.wyzie.ru/c/def456', type: 'captions' },
+  ]);
+  assert.deepEqual(
+    tracks.map((t) => t.label),
+    ['English', 'Spanish'],
+  );
 });

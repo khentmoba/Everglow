@@ -1236,6 +1236,7 @@ function WatchPartyRoomView({
       return;
     }
     const expected = clock.expectedPosition(room);
+    suppressEmbedEventsUntil.current = Date.now() + 900;
     try {
       win.postMessage(cinesrcCommand('seek', [expected]), targetOrigin);
       win.postMessage(cinesrcCommand(room.state === 'playing' ? 'play' : 'pause'), targetOrigin);
