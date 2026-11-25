@@ -77,6 +77,8 @@ test('every PR records its review, or why no independent review ran', () => {
   assert.deepEqual(checkPrContract(pr, () => true), []);
   assert.ok(checkPrContract({...pr, body: body.replace(/^Review:.*\n/m, '')}).some(e => e.includes('Review:')));
   assert.ok(checkPrContract({...pr, body: body.replace(/^Review:.*$/m, 'Review:')}).length);
+  assert.ok(checkPrContract({...pr, body: body.replace(/^Tests:/m, '- Tests:')}).some(e => e.includes('plain line at column 1')));
+  assert.ok(checkPrContract({...pr, body: body.replace(/^Review:/m, '**Review:**')}).some(e => e.includes('plain line at column 1')));
   assert.deepEqual(checkPrContract({...pr, body: body.replace(/^Review:.*$/m,
     'Review: self — delegate reviewer hit a provider quota (429)')}), []);
 });

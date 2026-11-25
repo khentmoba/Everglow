@@ -128,9 +128,10 @@ function startRemote(port) {
   const cwd = fileURLToPath(new URL('..', import.meta.url));
   const child = spawn(`npx wrangler dev --remote --port ${Number(port)} --var CDN_STAMP_KEY:smoke-only-key`,
     {cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe']});
-  let output = '';
-  child.stdout.on('data', (d) => { output += d; });
-  child.stderr.on('data', (d) => { output += d; });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.stderr.on('data', (d) => { stderr += d; });
   const stop = () => {
     if (child.exitCode != null) return;
     if (process.platform === 'win32') {
@@ -141,14 +142,26 @@ function startRemote(port) {
   };
   const ready = (async () => {
     const origin = `http://127.0.0.1:${port}`;
+    let lastHealthErr = '';
     for (let i = 0; i < 90; i++) {
-      if (child.exitCode != null) throw new Error(`wrangler dev exited:\n${output.slice(-2000)}`);
+      if (child.exitCode != null) {
+        throw new Error(
+          `wrangler dev exited (${child.exitCode}):\nstderr:\n${stderr.slice(-1500) || '(empty)'}\nstdout:\n${stdout.slice(-1000) || '(empty)'}`,
+        );
+      }
       try {
-        if ((await fetch(`${origin}/health`, {signal: AbortSignal.timeout(3000)})).ok) return origin;
-      } catch {}
+        const res = await fetch(`${origin}/health`, {signal: AbortSignal.timeout(3000)});
+        if (res.ok) return origin;
+        lastHealthErr = `HTTP ${res.status}`;
+      } catch (e) {
+        lastHealthErr = e?.message || String(e);
+      }
       await new Promise((r) => setTimeout(r, 1000));
     }
-    throw new Error(`wrangler dev --remote never became ready:\n${output.slice(-2000)}`);
+    throw new Error(
+      `wrangler dev --remote never became ready after 90s (last health check: ${lastHealthErr || 'no response'}):\n` +
+      `stderr:\n${stderr.slice(-1500) || '(empty)'}\nstdout:\n${stdout.slice(-1000) || '(empty)'}`,
+    );
   })();
   return {ready, stop};
 }

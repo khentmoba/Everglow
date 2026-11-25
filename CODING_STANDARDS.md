@@ -22,3 +22,7 @@ Judgement-call rules enforced during code review. Mechanical rules live in `tool
 
 - **Keep couple framing on couple pages.** Couple-space pages (everything outside the media worlds) own the romantic rose framing and couple copy. Cinema, Anime, Books, and Manga Celestia keep their own world looks (`DESIGN.md`); do not default new media surfaces to couple pink/rose.
 - **Cinema copy stays neutral.** Family guests share Cinema, so keep all Cinema text free of couple or romance framing.
+
+## Tests
+
+- **Use per-module backend test files.** Put new Cloud Functions unit tests in `functions/<module>.test.js` instead of appending to `functions/perf_reliability_security.test.js`, so concurrent PRs do not collide on one test file.

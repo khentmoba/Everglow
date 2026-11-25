@@ -77,13 +77,43 @@ test('mechanical guards flag banned rules, proxy, React, and Playwright patterns
   );
   assert.equal(
     findMechanicalViolations({
-      reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();' }],
+      functionsFiles: [{ path: 'functions/private_route.js', content: 'const u = await requireAuth(req, res); res.json({ ok: true });' }],
     }).length,
     1,
   );
   assert.equal(
     findMechanicalViolations({
+      functionsFiles: [{ path: 'functions/private_route.js', content: "const u = await requireAuth(req, res); res.set('Cache-Control', 'private, no-store');" }],
+    }).length,
+    0,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      functionsFiles: [{ path: 'functions/public_route.js', content: 'const u = await requireAuth(req, res); // ci:public-cache-ok' }],
+    }).length,
+    0,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();' }],
+    }).length,
+    2,
+  );
+  assert.equal(
+    findMechanicalViolations({
       reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();\nsetBoundedCache(detailCache, k, v, 50);' }],
+    }).length,
+    1,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();\nsetBoundedCache(detailCache, k, v, 50);\nclearOnLogout(detailCache);' }],
+    }).length,
+    0,
+  );
+  assert.equal(
+    findMechanicalViolations({
+      reactFiles: [{ path: 'react/src/features/books/x.ts', content: 'const detailCache = new Map<string, string>();\nsetBoundedCache(detailCache, k, v, 50); // ci:logout-safe-cache' }],
     }).length,
     0,
   );

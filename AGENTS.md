@@ -53,8 +53,8 @@ Three rules never bend, even if the skill is not loaded:
   and `node --test tool/ci/*.test.mjs`).
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data. Capture with
-  `node tool/capture_proof.mjs --route "<route>" --viewport phone --out <path>`
-  (or `--pack <manifest.json>` for multi-shot packs) instead of ad-hoc Playwright scripts.
+  `node tool/capture_proof.mjs --route "<route>" --viewport phone --out docs/pr-proof/pr-<number>/<name>.png`
+  (or `--pack <manifest.json>` for multi-shot packs; `agent=1&hud=0` is auto-added unless `--no-agent`) instead of ad-hoc Playwright scripts.
 
 ### Agent mode (testing without logins)
 
@@ -107,7 +107,7 @@ no bump does nothing.
 - **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-pr` skill.
 - **Hidden contracts** (stream proxies removed on purpose, legacy photo paths, the desktop bridge, OAuth scopes, the low-end motion gate): `docs/ARCHITECTURE.md` §6.5.
 - **Redesigns keep the identity:** read `DESIGN.md` first. Improve page bodies, not just shared headers, and show the difference in before/after shots.
-- **Score loops stop:** an AI score alone never means done — follow `rate-loop`'s plateau stop and include a code review early.
+- **Score loops stop:** an AI score alone never means done — run an independent diff review by round 5 (before polishing past 8.5) and stop after 3 flat rounds within ±0.3 instead of pushing to 18–20 rounds.
 
 ## Shell
 
