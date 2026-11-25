@@ -19,7 +19,7 @@ Order: the screens Clair uses most come first.
 - [x] Router guard (agent mode, `?jump`, sign-in redirect, cinema-only bounce)
 - [x] Auth session, passcode check, offline remembered login
 - [x] Agent HUD (floating dev toolbar)
-- [x] Route memory (reopen where you left off)
+- [x] Route memory (retired — startup now always lands at `/dashboard`, or `/cinema` for cinema-only users)
 - [x] Update prompt + service worker / offline — `appUpdate.ts` + `AppUpdatePrompt.tsx` + Vite `dist/sw.js` / `dist/version.json` (preserving offline media/photo/manga caches, precaching entry bundle, offline SPA navigation fallback, verified in headless Chromium)
 - [x] Push notifications sync — `notifications.ts` wired into `auth.ts` (`fcm_tokens/{user}/devices/{sha256(token)}`, foreground banner routing, logout revocation, SW background notifications)
 - [x] Error page (real one, not the placeholder)

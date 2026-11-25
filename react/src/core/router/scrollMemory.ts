@@ -4,9 +4,10 @@ import { Prefs } from '../system/prefs';
 const PREFIX = 'scroll:';
 const memoryOffsets = new Map<string, number>();
 
-function readOffset(key: string): number {
+function readOffset(key: string, persist = true): number {
   const cached = memoryOffsets.get(key);
   if (cached != null) return cached;
+  if (!persist) return 0;
   const raw = Prefs.getString(`${PREFIX}${key}`);
   if (!raw) return 0;
   const parsed = Number.parseFloat(raw);
@@ -15,7 +16,7 @@ function readOffset(key: string): number {
   return parsed;
 }
 
-function writeOffset(key: string, offset: number): void {
+function writeOffset(key: string, offset: number, persist = true): void {
   const clamped = Math.max(0, Math.round(offset));
   if (clamped <= 0) {
     memoryOffsets.delete(key);
@@ -23,7 +24,8 @@ function writeOffset(key: string, offset: number): void {
     return;
   }
   memoryOffsets.set(key, clamped);
-  Prefs.set(`${PREFIX}${key}`, String(clamped));
+  if (persist) Prefs.set(`${PREFIX}${key}`, String(clamped));
+  else Prefs.remove(`${PREFIX}${key}`);
 }
 
 export const ScrollMemory = {
@@ -44,7 +46,9 @@ export function useRememberedScroll(
   key: string,
   ref: RefObject<HTMLDivElement | null>,
   ready = true,
+  options?: { persist?: boolean },
 ): void {
+  const persist = options?.persist ?? true;
   const restoringRef = useRef(false);
   const lastKnownScrollRef = useRef(0);
 
@@ -55,15 +59,16 @@ export function useRememberedScroll(
       const offset = el && el.isConnected && el.scrollHeight > el.clientHeight
         ? el.scrollTop
         : lastKnownScrollRef.current;
-      writeOffset(key, offset);
+      writeOffset(key, offset, persist);
     };
-  }, [key, ref, ready]);
+  }, [key, ref, ready, persist]);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || !ready) return;
+    if (!persist) Prefs.remove(`${PREFIX}${key}`);
 
-    const target = readOffset(key);
+    const target = readOffset(key, persist);
     let restoring = target > 0;
     restoringRef.current = restoring;
     let userTouched = false;
@@ -120,7 +125,9 @@ export function useRememberedScroll(
       if (clamped <= 0) memoryOffsets.delete(key);
       else memoryOffsets.set(key, clamped);
       window.clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => writeOffset(key, el.scrollTop), 180);
+      if (persist) {
+        saveTimer = window.setTimeout(() => writeOffset(key, el.scrollTop, true), 180);
+      }
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
@@ -138,5 +145,5 @@ export function useRememberedScroll(
       el.removeEventListener('touchstart', cancelRestore);
       el.removeEventListener('pointerdown', cancelRestore);
     };
-  }, [key, ref, ready]);
+  }, [key, ref, ready, persist]);
 }
