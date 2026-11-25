@@ -228,6 +228,10 @@ function mapResult(item: Record<string, unknown>, forcedType?: string): MediaIte
       : [],
     score: typeof item.vote_average === 'number' ? item.vote_average : undefined,
     remindMe: false,
+    originalLanguage:
+      typeof item.original_language === 'string' && item.original_language.trim()
+        ? item.original_language.trim().toLowerCase()
+        : undefined,
   };
 }
 

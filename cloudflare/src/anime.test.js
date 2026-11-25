@@ -31,7 +31,11 @@ import {
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
   scopedTarget,
+  srtToVtt,
   stripAdCues,
+  audioLangMatches,
+  parseTsAudioTracks,
+  filterTsPmtAudio,
   sealTarget,
   selectCinemaSubtitleTracks,
   validateAnimeParams,
@@ -328,16 +332,19 @@ test('assertPlayableHead rejects images and HTML posing as segments', () => {
   assert.throws(() => assertPlayableHead(new Uint8Array([0xff]), 'https://x.example/seg.jpg', 'segment'));
 });
 
-test('selectCinemaSubtitleTracks ranks English first, dedupes mirrors, skips srt', () => {
+test('selectCinemaSubtitleTracks ranks English first, prefers vtt over srt, keeps srt fallback, skips ass', () => {
   const tracks = selectCinemaSubtitleTracks([
     { label: 'Arabic', file: 'https://cache.vdrk.site/v1/ar.vtt', type: 'vtt' },
     { label: 'Brazilian2', file: 'https://cache.vdrk.site/v1/br2.vtt', type: 'vtt' },
     { label: 'Brazilian3', file: 'https://cache.vdrk.site/v1/br3.vtt', type: 'vtt' },
     { label: 'English Hi3', file: 'https://cache.vdrk.site/v1/en_hi.vtt', type: 'vtt' },
+    { label: 'English', file: '/api/subtitles/proxy?url=https%3A%2F%2Fsub.wyzie.io%2F1%3Fformat%3Dsrt', type: 'srt' },
     { label: 'English', file: 'https://cache.vdrk.site/v1/en.vtt', type: 'vtt' },
     { label: 'French', file: 'https://cache.vdrk.site/v1/fr.srt', type: 'srt' },
+    { label: 'German', file: 'https://cache.vdrk.site/v1/de.ass', type: 'ass' },
   ]);
-  assert.deepEqual(tracks.map((t) => t.label), ['English', 'English Hi3', 'Arabic', 'Brazilian2']);
+  assert.deepEqual(tracks.map((t) => t.label), ['English', 'English Hi3', 'Arabic', 'Brazilian2', 'French']);
+  assert.equal(tracks[0].file, 'https://cache.vdrk.site/v1/en.vtt', 'prefers vtt over srt for the same language');
 });
 
 test('failHtml notifies only when asked, and stays marker-clean for Anime', () => {
@@ -3060,5 +3067,115 @@ test('edge cache serves warm /proxyAnime hits, pre-warms playlists, and bypasses
   } finally {
     globalThis.fetch = realFetch;
     globalThis.caches = realCaches;
+  }
+});
+
+function buildTestTsWithPmt(audioSpecs) {
+  const buf = new Uint8Array(188 * 2);
+  buf.fill(0xff);
+  // Packet 0: PAT (PID 0x0000) -> program 1 -> PMT PID 0x1000
+  buf[0] = 0x47;
+  buf[1] = 0x40;
+  buf[2] = 0x00;
+  buf[3] = 0x10;
+  buf[4] = 0x00; // pointer_field
+  const pat = [0x00, 0xb0, 0x0d, 0x00, 0x01, 0xc1, 0x00, 0x00, 0x00, 0x01, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00];
+  buf.set(pat, 5);
+
+  // Packet 1: PMT (PID 0x1000) -> video 0x100 + audioSpecs
+  const p = 188;
+  buf[p] = 0x47;
+  buf[p + 1] = 0x50;
+  buf[p + 2] = 0x00;
+  buf[p + 3] = 0x10;
+  buf[p + 4] = 0x00; // pointer_field
+  const es = [0x1b, 0xe1, 0x00, 0xf0, 0x00]; // H.264 video PID 0x100
+  for (const { pid, lang } of audioSpecs) {
+    const desc = lang ? [0x0a, 0x04, lang.charCodeAt(0), lang.charCodeAt(1), lang.charCodeAt(2), 0x00] : [];
+    es.push(0x0f, 0xe0 | ((pid >> 8) & 0x1f), pid & 0xff, 0xf0, desc.length, ...desc);
+  }
+  const secLen = 9 + es.length + 4;
+  const header = [0x02, 0xb0 | ((secLen >> 8) & 0x0f), secLen & 0xff, 0x00, 0x01, 0xc1, 0x00, 0x00, 0xe1, 0x00, 0xf0, 0x00];
+  buf.set([...header, ...es, 0x00, 0x00, 0x00, 0x00], p + 5);
+  return buf;
+}
+
+test('srtToVtt converts SRT timestamps to WebVTT and leaves existing WebVTT intact', () => {
+  const srt = '\uFEFF1\r\n00:00:37,287 --> 00:00:40,666\r\nTHE REMARRIED EMPRESS\r\n\r\n2\r\n00:00:48,674 --> 00:00:51,385\r\nHello\r\n';
+  const vtt = srtToVtt(srt);
+  assert.ok(vtt.startsWith('WEBVTT\n\n'));
+  assert.ok(vtt.includes('00:00:37.287 --> 00:00:40.666'));
+  assert.ok(vtt.includes('00:00:48.674 --> 00:00:51.385'));
+
+  const existing = 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHi\n';
+  assert.equal(srtToVtt(existing), existing);
+});
+
+test('parseTsAudioTracks and filterTsPmtAudio isolate the original audio track by language', () => {
+  const ts = buildTestTsWithPmt([
+    { pid: 0x101, lang: 'eng' },
+    { pid: 0x102, lang: 'kor' },
+  ]);
+  const before = parseTsAudioTracks(ts);
+  assert.deepEqual(
+    before.map((t) => ({ pid: t.pid, lang: t.lang })),
+    [
+      { pid: 0x101, lang: 'eng' },
+      { pid: 0x102, lang: 'kor' },
+    ],
+  );
+  assert.equal(audioLangMatches('kor', 'ko'), true);
+  assert.equal(audioLangMatches('eng', 'ko'), false);
+
+  const origLen = ts.length;
+  filterTsPmtAudio(ts, 'ko');
+  assert.equal(ts.length, origLen, 'TS packet byte length stays unchanged');
+  const after = parseTsAudioTracks(ts);
+  assert.deepEqual(
+    after.map((t) => ({ pid: t.pid, lang: t.lang })),
+    [{ pid: 0x102, lang: 'kor' }],
+  );
+});
+
+test('handleProxyHls converts proxied SRT subtitles to WebVTT and filters TS audio when sealed', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    const srtUrl = 'https://fmov.my/api/subtitles/proxy?url=https%3A%2F%2Fsub.wyzie.io%2Fc%2F1%2Fid%2F99%3Fformat%3Dsrt';
+    const proxiedSrt = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, srtUrl, 'fmov', KEY);
+    assert.ok(proxiedSrt);
+
+    globalThis.fetch = async () =>
+      new Response('1\n00:00:01,000 --> 00:00:03,000\nHello\n\n2\n00:00:04,000 --> 00:00:06,000\nVisit spam.com\n', {
+        status: 200,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      });
+    const subRes = await handleProxyHls(new Request(proxiedSrt), { CDN_STAMP_KEY: KEY }, {});
+    assert.equal(subRes.status, 200);
+    assert.equal(subRes.headers.get('content-type'), 'text/vtt; charset=utf-8');
+    const subText = await subRes.text();
+    assert.ok(subText.startsWith('WEBVTT\n\n'));
+    assert.ok(subText.includes('00:00:01.000 --> 00:00:03.000'));
+    assert.ok(!subText.includes('spam.com'), 'ad cues stripped after SRT conversion');
+
+    const segUrl = 'https://cdn.example/hls/seg0.jpg';
+    const proxiedSeg = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, segUrl, 'fmov', KEY, 'kor');
+    const tsBytes = buildTestTsWithPmt([
+      { pid: 0x101, lang: 'eng' },
+      { pid: 0x102, lang: 'kor' },
+    ]);
+    globalThis.fetch = async () =>
+      new Response(tsBytes, {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    const segRes = await handleProxyHls(new Request(proxiedSeg), { CDN_STAMP_KEY: KEY }, {});
+    assert.equal(segRes.status, 200);
+    const outBytes = new Uint8Array(await segRes.arrayBuffer());
+    assert.deepEqual(
+      parseTsAudioTracks(outBytes).map((t) => t.lang),
+      ['kor'],
+    );
+  } finally {
+    globalThis.fetch = realFetch;
   }
 });

@@ -66,6 +66,7 @@ interface PlayerProps {
   posterPath: string;
   allEpisodesWatched: boolean;
   currentEpisodeCompleted: boolean;
+  originalLanguage?: string;
 }
 
 const intParam = (v: string | null) => {
@@ -91,6 +92,7 @@ export function VideoPlayerPage() {
     posterPath: params.get('poster') ?? '',
     allEpisodesWatched: params.get('watched') === 'true',
     currentEpisodeCompleted: params.get('completed') === 'true',
+    originalLanguage: params.get('lang')?.trim().toLowerCase() || undefined,
   };
   return <VideoPlayerScreen key={location.pathname + location.search} {...props} />;
 }
@@ -209,6 +211,7 @@ class PlayerController {
   private exitWakeListener: (() => void) | null = null;
   private bodyOverflowPrev: string | null = null;
   private externalTmdbId: number | undefined;
+  private originalLanguage: string | undefined;
   private unsubscribers: Array<() => void> = [];
   onShowEpisodesSheet?: () => void;
   onShowProviderSheet?: () => void;
@@ -238,6 +241,7 @@ class PlayerController {
     this.currentEpisode = p.episode ?? 1;
     this.currentEpisodeCompleted = p.currentEpisodeCompleted;
     this.positionSeconds = p.startSeconds ?? 0;
+    this.originalLanguage = p.originalLanguage;
 
     const f = document.createElement('iframe');
     f.allow =
@@ -286,6 +290,7 @@ class PlayerController {
       episode: this.currentEpisode,
       startSeconds: this.resolvedStartSeconds,
       title: playerDisplayTitle(this.p.title),
+      originalLanguage: this.originalLanguage,
     });
   }
 
@@ -330,10 +335,16 @@ class PlayerController {
     this.unsubscribers.push(() => document.removeEventListener('visibilitychange', onHide));
 
     void this.resolveNext();
-    void this.resolveExpectedRuntime();
     if (!this.isOfflinePlayback) {
       if (this.p.isAnime) void this.bootstrapAnime();
-      else this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+      else if (!this.originalLanguage && this.p.tmdbId > 0 && this.selectedProvider.id === 'everglow-embed') {
+        void this.bootstrapCinema();
+      } else {
+        void this.resolveExpectedRuntime();
+        this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+      }
+    } else {
+      void this.resolveExpectedRuntime();
     }
   }
 
@@ -538,6 +549,55 @@ class PlayerController {
   }
 
   // --- anime ---
+
+  private async bootstrapCinema() {
+    const startRev = this.restoreRevision;
+    const detailsPromise = fetchMediaDetails(this.p.tmdbId, this.p.mediaType).catch((e) => {
+      Logger.e('Cinema: metadata lookup failed', e);
+      return null;
+    });
+    const details = await Promise.race([
+      detailsPromise,
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1200)),
+    ]);
+    if (!this.mounted) return;
+    const applyDetails = (d: Record<string, unknown> | null): boolean => {
+      if (!d || !this.mounted) return false;
+      let langAdded = false;
+      const lang = typeof d.original_language === 'string' ? d.original_language.trim().toLowerCase() : '';
+      if (lang && !this.originalLanguage) {
+        this.originalLanguage = lang;
+        langAdded = true;
+      }
+      if (this.p.mediaType === 'movie') {
+        const rt = d.runtime;
+        if (typeof rt === 'number' && Number.isFinite(rt) && rt > 0) {
+          this.expectedRuntimeMinutes = rt;
+          if (this.durationSeconds > 0) this.handleMovieDuration(this.durationSeconds);
+        }
+      }
+      return langAdded;
+    };
+    if (details) {
+      applyDetails(details);
+    } else {
+      void detailsPromise.then((d) => {
+        if (!applyDetails(d)) return;
+        if (
+          !this.mounted ||
+          this.isOfflinePlayback ||
+          this.restoreRevision !== startRev ||
+          this.selectedProvider.id !== 'everglow-embed'
+        ) {
+          return;
+        }
+        this.resolvedStartSeconds = this.positionSeconds || this.resolvedStartSeconds;
+        this.restartLoadTimer();
+        this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+      });
+    }
+    this.iframe.src = this.buildPlayerUrl(this.selectedProvider);
+  }
 
   private async bootstrapAnime() {
     const tmdbId = await fetchAniZipTmdbId(this.p.malId ?? this.p.tmdbId);

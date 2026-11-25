@@ -345,13 +345,14 @@ function safeRemainder(rel) {
   return rel;
 }
 
-async function sealedUrl(proxyBase, absUrl, provider, key) {
+async function sealedUrl(proxyBase, absUrl, provider, key, audioLang = '') {
   const parts = stampParts(absUrl);
   if (!parts) return null;
+  const audioField = audioLang ? { a: audioLang } : {};
   const sp = splitForTransport(absUrl);
   if (!sp) {
     if (parts.relay) return null;
-    const whole = await sealTarget(key, { p: provider, u: parts.inner });
+    const whole = await sealTarget(key, { p: provider, u: parts.inner, ...audioField });
     return whole ? `${proxyBase}?t=${whole}` : null;
   }
   let scope;
@@ -360,7 +361,7 @@ async function sealedUrl(proxyBase, absUrl, provider, key) {
   } catch {
     return null;
   }
-  const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '' });
+  const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '', ...audioField });
   if (!token) return null;
   if (sp.relay) {
     return (
@@ -371,12 +372,248 @@ async function sealedUrl(proxyBase, absUrl, provider, key) {
   return `${proxyBase}?t=${token}&r=${encodeURIComponent(sp.r)}`;
 }
 
-async function scopedUrl(proxyBase, absUrl, provider, key) {
-  return sealedUrl(proxyBase, absUrl, provider, key);
+async function scopedUrl(proxyBase, absUrl, provider, key, audioLang = '') {
+  return sealedUrl(proxyBase, absUrl, provider, key, audioLang);
 }
 
-function cinemaProxyUrl(proxyBase, absUrl, provider, key) {
-  return scopedUrl(proxyBase, absUrl, provider, key);
+function cinemaProxyUrl(proxyBase, absUrl, provider, key, audioLang = '') {
+  return scopedUrl(proxyBase, absUrl, provider, key, audioLang);
+}
+
+function srtToVtt(text) {
+  if (typeof text !== 'string' || !text.includes('-->')) return text;
+  const cleaned = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  if (/^\s*WEBVTT\b/.test(cleaned)) return text;
+  const body = cleaned.replace(
+    /^(\s*\d{1,2}:\d{2}:\d{2}),(\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}),(\d{3})/gm,
+    '$1.$2.$3',
+  );
+  return `WEBVTT\n\n${body}`;
+}
+
+const ISO639_1_TO_2 = {
+  ar: ['ara'],
+  bn: ['ben'],
+  cn: ['zho', 'chi', 'yue'],
+  cs: ['ces', 'cze'],
+  da: ['dan'],
+  de: ['deu', 'ger'],
+  el: ['ell', 'gre'],
+  en: ['eng'],
+  es: ['spa'],
+  fa: ['fas', 'per'],
+  fi: ['fin'],
+  fr: ['fra', 'fre'],
+  he: ['heb'],
+  hi: ['hin'],
+  hu: ['hun'],
+  id: ['ind'],
+  it: ['ita'],
+  ja: ['jpn'],
+  ko: ['kor'],
+  ml: ['mal'],
+  ms: ['msa', 'may'],
+  nl: ['nld', 'dut'],
+  no: ['nor', 'nob', 'nno'],
+  pl: ['pol'],
+  pt: ['por'],
+  ro: ['ron', 'rum'],
+  ru: ['rus'],
+  sv: ['swe'],
+  ta: ['tam'],
+  te: ['tel'],
+  th: ['tha'],
+  tl: ['tgl', 'fil'],
+  tr: ['tur'],
+  uk: ['ukr'],
+  vi: ['vie'],
+  zh: ['zho', 'chi', 'cmn'],
+};
+
+const ISO639_2_GROUPS = Object.values(ISO639_1_TO_2);
+
+function audioLangCodes(raw) {
+  const code = String(raw || '').trim().toLowerCase();
+  if (!/^[a-z]{2,3}$/.test(code)) return [];
+  if (ISO639_1_TO_2[code]) return ISO639_1_TO_2[code];
+  const group = ISO639_2_GROUPS.find((g) => g.includes(code));
+  return group ? group : [code];
+}
+
+function audioLangMatches(trackLang, targetLang) {
+  const a = String(trackLang || '').trim().toLowerCase();
+  if (!a) return false;
+  const targets = audioLangCodes(targetLang);
+  return targets.includes(a);
+}
+
+const TS_AUDIO_STREAM_TYPES = new Set([0x03, 0x04, 0x0f, 0x11, 0x81, 0x87]);
+
+function isTsAudioEntry(streamType, desc) {
+  if (TS_AUDIO_STREAM_TYPES.has(streamType)) return true;
+  if (streamType !== 0x06 || !desc || desc.length < 2) return false;
+  for (let i = 0; i + 2 <= desc.length; ) {
+    const tag = desc[i];
+    const len = desc[i + 1];
+    if (tag === 0x6a || tag === 0x7a || tag === 0x81) return true;
+    i += 2 + len;
+  }
+  return false;
+}
+
+function parseIso639Descriptor(desc) {
+  for (let i = 0; i + 2 <= desc.length; ) {
+    const tag = desc[i];
+    const len = desc[i + 1];
+    if (tag === 0x0a && len >= 3 && i + 5 <= desc.length) {
+      return String.fromCharCode(desc[i + 2], desc[i + 3], desc[i + 4]).toLowerCase();
+    }
+    i += 2 + len;
+  }
+  return '';
+}
+
+function parsePatPmtPid(buf) {
+  for (let off = 0; off + 188 <= buf.length; off += 188) {
+    if (buf[off] !== 0x47) continue;
+    const pid = ((buf[off + 1] & 0x1f) << 8) | buf[off + 2];
+    if (pid !== 0 || (buf[off + 1] & 0x40) === 0) continue;
+    const afc = (buf[off + 3] >> 4) & 0x3;
+    let p = off + 4;
+    if (afc === 2) continue;
+    if (afc === 3) p += 1 + buf[p];
+    if (p >= off + 188) continue;
+    p += 1 + buf[p];
+    if (p + 8 > off + 188 || buf[p] !== 0x00) continue;
+    const secLen = ((buf[p + 1] & 0x0f) << 8) | buf[p + 2];
+    const end = Math.min(off + 188, p + 3 + secLen - 4);
+    for (let i = p + 8; i + 4 <= end; i += 4) {
+      const progNum = (buf[i] << 8) | buf[i + 1];
+      if (progNum !== 0) return ((buf[i + 2] & 0x1f) << 8) | buf[i + 3];
+    }
+  }
+  return -1;
+}
+
+function parsePmtEntries(buf, p, pktEnd) {
+  if (p + 12 > pktEnd || buf[p] !== 0x02) return null;
+  const secLen = ((buf[p + 1] & 0x0f) << 8) | buf[p + 2];
+  const sectionEnd = p + 3 + secLen;
+  if (sectionEnd > pktEnd || secLen < 13) return null;
+  const progInfoLen = ((buf[p + 10] & 0x0f) << 8) | buf[p + 11];
+  const entriesStart = p + 12 + progInfoLen;
+  const crcStart = sectionEnd - 4;
+  if (entriesStart > crcStart) return null;
+  const entries = [];
+  let i = entriesStart;
+  while (i + 5 <= crcStart) {
+    const streamType = buf[i];
+    const elemPid = ((buf[i + 1] & 0x1f) << 8) | buf[i + 2];
+    const esInfoLen = ((buf[i + 3] & 0x0f) << 8) | buf[i + 4];
+    const entryEnd = i + 5 + esInfoLen;
+    if (entryEnd > crcStart) return null;
+    const desc = buf.subarray(i + 5, entryEnd);
+    entries.push({
+      start: i,
+      end: entryEnd,
+      streamType,
+      pid: elemPid,
+      isAudio: isTsAudioEntry(streamType, desc),
+      lang: parseIso639Descriptor(desc),
+    });
+    i = entryEnd;
+  }
+  return { entries, entriesStart, sectionEnd };
+}
+
+function parseTsAudioTracks(buf) {
+  if (!buf || buf.length < 376) return [];
+  const pmtPid = parsePatPmtPid(buf);
+  if (pmtPid < 0) return [];
+  for (let off = 0; off + 188 <= buf.length; off += 188) {
+    if (buf[off] !== 0x47) continue;
+    const pid = ((buf[off + 1] & 0x1f) << 8) | buf[off + 2];
+    if (pid !== pmtPid || (buf[off + 1] & 0x40) === 0) continue;
+    const afc = (buf[off + 3] >> 4) & 0x3;
+    let p = off + 4;
+    if (afc === 2) continue;
+    if (afc === 3) p += 1 + buf[p];
+    if (p >= off + 188) continue;
+    p += 1 + buf[p];
+    const parsed = parsePmtEntries(buf, p, off + 188);
+    if (!parsed) continue;
+    return parsed.entries
+      .filter((e) => e.isAudio)
+      .map((e) => ({ pid: e.pid, streamType: e.streamType, lang: e.lang }));
+  }
+  return [];
+}
+
+function mpeg2Crc32(bytes, start, end) {
+  let crc = 0xffffffff;
+  for (let i = start; i < end; i++) {
+    crc ^= bytes[i] << 24;
+    for (let b = 0; b < 8; b++) {
+      crc = (crc & 0x80000000) !== 0 ? ((crc << 1) ^ 0x04c11db7) >>> 0 : (crc << 1) >>> 0;
+    }
+  }
+  return crc >>> 0;
+}
+
+function filterTsPmtAudio(buf, targetLang) {
+  if (!buf || !targetLang || buf.length < 376) return buf;
+  const pmtPid = parsePatPmtPid(buf);
+  if (pmtPid < 0) return buf;
+  const droppedPids = new Set();
+  for (let off = 0; off + 188 <= buf.length; off += 188) {
+    if (buf[off] !== 0x47) continue;
+    const pid = ((buf[off + 1] & 0x1f) << 8) | buf[off + 2];
+    if (pid !== pmtPid || (buf[off + 1] & 0x40) === 0) continue;
+    const afc = (buf[off + 3] >> 4) & 0x3;
+    let p = off + 4;
+    if (afc === 2) continue;
+    if (afc === 3) p += 1 + buf[p];
+    if (p >= off + 188) continue;
+    p += 1 + buf[p];
+    const pktEnd = off + 188;
+    const parsed = parsePmtEntries(buf, p, pktEnd);
+    if (!parsed) continue;
+    const audioEntries = parsed.entries.filter((e) => e.isAudio);
+    if (audioEntries.length < 2) continue;
+    const match = audioEntries.find((e) => audioLangMatches(e.lang, targetLang));
+    if (!match) continue;
+    for (const e of audioEntries) {
+      if (e !== match) droppedPids.add(e.pid);
+    }
+    const kept = parsed.entries.filter((e) => !e.isAudio || e === match);
+    const chunks = kept.map((e) => buf.slice(e.start, e.end));
+    let cursor = parsed.entriesStart;
+    for (const chunk of chunks) {
+      buf.set(chunk, cursor);
+      cursor += chunk.length;
+    }
+    const newSecLen = (cursor - (p + 3)) + 4;
+    buf[p + 1] = (buf[p + 1] & 0xf0) | ((newSecLen >> 8) & 0x0f);
+    buf[p + 2] = newSecLen & 0xff;
+    const crc = mpeg2Crc32(buf, p, cursor);
+    buf[cursor] = (crc >>> 24) & 0xff;
+    buf[cursor + 1] = (crc >>> 16) & 0xff;
+    buf[cursor + 2] = (crc >>> 8) & 0xff;
+    buf[cursor + 3] = crc & 0xff;
+    buf.fill(0xff, cursor + 4, pktEnd);
+  }
+  if (droppedPids.size > 0) {
+    for (let off = 0; off + 188 <= buf.length; off += 188) {
+      if (buf[off] !== 0x47) continue;
+      const pid = ((buf[off + 1] & 0x1f) << 8) | buf[off + 2];
+      if (!droppedPids.has(pid)) continue;
+      buf[off + 1] = 0x1f;
+      buf[off + 2] = 0xff;
+      buf[off + 3] = 0x10;
+      buf.fill(0xff, off + 4, off + 188);
+    }
+  }
+  return buf;
 }
 
 const AD_URL_RE =
@@ -436,7 +673,10 @@ async function scopedTarget(params, key) {
   }
   if (scope && !innerHref.startsWith(normalizeHref(scope))) return null;
   if (relay && parts.relay !== relay) return null;
-  return { provider, target, relay: parts.relay, scope };
+  const audioLang = typeof sealed.a === 'string' && /^[a-z]{2,3}$/i.test(sealed.a)
+    ? sealed.a.toLowerCase()
+    : '';
+  return { provider, target, relay: parts.relay, scope, audioLang };
 }
 
 function normalizeHref(url) {
@@ -577,9 +817,10 @@ function splitForTransport(abs) {
   return { relay: '', group: `|${folder}`, folder, r: clean.slice(slash + 1), lossless: hash < 0 };
 }
 
-async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key) {
+async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, audioLang = '') {
   const ctx = baseContext(playlistUrl);
   const lines = String(text || '').split(/\r?\n/);
+  const audioField = audioLang ? { a: audioLang } : {};
 
   const items = new Map();
   const consider = (ref) => {
@@ -611,7 +852,7 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
       groups.set(sp.group, null);
       continue;
     }
-    const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '' });
+    const token = await sealTarget(key, { p: provider, s: scope, r: sp.relay || '', ...audioField });
     groups.set(sp.group, token ? { t: token } : null);
   }
 
@@ -640,7 +881,7 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
   if (ungroupedRefs.length > 0) {
     await Promise.all(
       ungroupedRefs.map(async ([ref, abs]) => {
-        const token = await sealTarget(key, { p: provider, u: abs });
+        const token = await sealTarget(key, { p: provider, u: abs, ...audioField });
         if (token) ungrouped.set(ref, `${proxyBase}?t=${token}`);
       }),
     );
@@ -675,12 +916,12 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
   return out.join('\n');
 }
 
-function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key) {
-  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key);
+function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key, audioLang = '') {
+  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, audioLang);
 }
 
-function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, provider, stampKey) {
-  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, stampKey);
+function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, provider, stampKey, audioLang = '') {
+  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, stampKey, audioLang);
 }
 
 async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders(), signal) {
@@ -795,6 +1036,7 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal, opts 
     const mapUrl = resolvePlaylistUrl(mapMatch[1], first.url);
     if (mapUrl) checks.push(fetchSegmentHead(mapUrl, segmentMs, 'init map', headers, signal));
   }
+  let audioTracks = [];
   for (const { url: mediaUrl, text: mediaText } of medias) {
     const parsed =
       mediaText === first.text
@@ -811,6 +1053,7 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal, opts 
     checks.push(
       fetchSegmentHead(segment, segmentMs, 'segment', headers, signal).then((head) => {
         assertPlayableHead(head, segment, 'segment');
+        if (!audioTracks.length) audioTracks = parseTsAudioTracks(head);
         return true;
       }),
     );
@@ -825,6 +1068,7 @@ async function verifyStream(masterUrl, headers = megavidHeaders(), signal, opts 
     variantText: first.text,
     segmentUrl: resolvePlaylistUrl(firstParsed.uris[0], first.url),
     prefetched,
+    audioTracks,
   };
 }
 
@@ -1251,17 +1495,23 @@ function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
     if (!abs) continue;
     const type = String(t.type || '').toLowerCase();
     const path = abs.split('?')[0].toLowerCase();
-    if (type && type !== 'vtt' && !path.endsWith('.vtt')) continue;
-    if (path.endsWith('.srt') || path.endsWith('.ass') || path.endsWith('.ssa')) continue;
+    if (path.endsWith('.ass') || path.endsWith('.ssa')) continue;
+    const isVtt = type === 'vtt' || path.endsWith('.vtt');
+    const isSrt = type === 'srt' || path.endsWith('.srt') || /(?:^|[?&%])format(?:=|%3d)srt\b/i.test(abs);
+    if (!isVtt && !isSrt) {
+      if (type) continue;
+      continue;
+    }
     const rawLabel = String(t.label || t.lang || t.language || 'Subtitles').trim();
     const norm = rawLabel.toLowerCase();
     let rank = 2;
     if (norm === 'english' || norm === 'en') rank = 0;
     else if (/^english\b|^en[-_]/i.test(norm)) rank = 1;
+    const formatRank = isVtt ? 0 : 1;
     const dedupeKey = norm.replace(/\s*\d+$/, '').replace(/\s+/g, ' ').trim();
-    candidates.push({ file: abs, label: rawLabel, rank, dedupeKey });
+    candidates.push({ file: abs, label: rawLabel, rank, formatRank, dedupeKey });
   }
-  candidates.sort((a, b) => a.rank - b.rank);
+  candidates.sort((a, b) => a.rank - b.rank || a.formatRank - b.formatRank);
   const seen = new Set();
   const out = [];
   for (const c of candidates) {
@@ -1392,7 +1642,7 @@ function cinemaServerId(hit) {
   return row ? row.id : '';
 }
 
-function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep) {
+function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep, lang = '') {
   let origin;
   try {
     origin = new URL(proxyBase).origin;
@@ -1403,11 +1653,18 @@ function cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep) {
     mediaType === 'tv'
       ? `&type=tv&tmdbId=${tmdbId}&s=${season}&e=${ep}`
       : `&type=movie&tmdbId=${tmdbId}`;
+  const langParam = lang ? `&lang=${encodeURIComponent(lang)}` : '';
   return CINEMA_SERVERS.map((server) => ({
     id: server.id,
     label: server.label,
-    url: `${origin}/proxyAnime?source=cinema&format=json${tail}&server=${server.id}`,
+    url: `${origin}/proxyAnime?source=cinema&format=json${tail}${langParam}&server=${server.id}`,
   }));
+}
+
+function selectPreferredTsAudioLang(audioTracks, preferredLang) {
+  if (!preferredLang || !Array.isArray(audioTracks) || audioTracks.length < 2) return '';
+  const match = audioTracks.find((t) => t && audioLangMatches(t.lang, preferredLang));
+  return match ? match.lang : '';
 }
 
 async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts = {}) {
@@ -1416,6 +1673,10 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   const apiPath = isTv ? `tv/${tmdbId}/${season}/${ep}` : `movie/${tmdbId}`;
   const picked = opts.server ? cinemaServer(opts.server) : null;
   if (opts.server && !picked) throw new Error('cinema: unknown server');
+  const preferredLang =
+    typeof opts.lang === 'string' && /^[a-z]{2,3}$/i.test(opts.lang.trim())
+      ? opts.lang.trim().toLowerCase()
+      : '';
   const budgetMs = opts.budgetMs || (picked ? CINEMA_PICK_BUDGET_MS : CINEMA_BUDGET_MS);
   const verifyOpts = picked ? { playlistMs: CINEMA_PICK_PLAYLIST_MS } : undefined;
   const remaining = picked
@@ -1430,12 +1691,20 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   let hit = null;
   let masterUrl = null;
   let verified = null;
+  let fallbackSubs = null;
   try {
     const attempts = remaining.map(async (srcKey) => {
       const candidate =
         srcKey === 'vidbolt'
           ? await resolveVidBolt(mediaType, tmdbId, season, ep, budgetCtrl.signal)
           : await resolveFmov(apiPath, srcKey, budgetCtrl.signal);
+      if (!fallbackSubs && Array.isArray(candidate.subtitles) && candidate.subtitles.length > 0) {
+        fallbackSubs = {
+          subtitles: candidate.subtitles,
+          baseOrigin: candidate.baseOrigin,
+          provider: candidate.provider,
+        };
+      }
       const playable = await firstPlayable(
         candidate.masterUrls,
         candidate.provider,
@@ -1457,13 +1726,20 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     clearTimeout(budgetTimer);
   }
 
+  const audioLang = selectPreferredTsAudioLang(verified?.audioTracks, preferredLang);
+  let selectedSubs = selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin);
+  let subProvider = hit.provider;
+  if (!selectedSubs.length && fallbackSubs) {
+    selectedSubs = selectCinemaSubtitleTracks(fallbackSubs.subtitles, fallbackSubs.baseOrigin);
+    subProvider = fallbackSubs.provider;
+  }
   const [src, ...rawTracks] = await Promise.all([
-    cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key),
-    ...selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
+    cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key, audioLang),
+    ...selectedSubs
       .filter((t) => t.file.startsWith('https://'))
       .map(async (t) => ({
         ...t,
-        file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
+        file: await cinemaProxyUrl(proxyBase, t.file, subProvider, key),
       })),
   ]);
   const tracks = rawTracks.filter((t) => t.file);
@@ -1473,9 +1749,13 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     tracks,
     title: isTv ? `S${season} E${ep}` : 'Movie',
     ep: isTv ? ep : 1,
-    servers: cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep),
+    servers: cinemaServerLinks(proxyBase, mediaType, tmdbId, season, ep, preferredLang),
     server: cinemaServerId(hit),
-    prefetched: (verified?.prefetched || []).map((p) => ({ ...p, provider: hit.provider })),
+    prefetched: (verified?.prefetched || []).map((p) => ({
+      ...p,
+      provider: hit.provider,
+      audioLang,
+    })),
   };
 }
 
@@ -1539,7 +1819,9 @@ function validateAnimeParams(query) {
     if (rawServer && !CINEMA_SERVER_IDS.has(rawServer)) {
       return { error: 'unknown server' };
     }
-    return { source, mediaType, tmdbId, season, ep, server: rawServer };
+    const rawLang = String(query.lang || '').trim().toLowerCase();
+    const lang = /^[a-z]{2,3}$/.test(rawLang) ? rawLang : '';
+    return { source, mediaType, tmdbId, season, ep, server: rawServer, lang };
   }
   const anilistId = Number.parseInt(String(query.anilistId || '0'), 10) || 0;
   const malId = Number.parseInt(String(query.malId || '0'), 10) || 0;
@@ -1607,7 +1889,11 @@ export {
   scopedTarget,
   isRelayHost,
   cinemaProxyUrl,
+  srtToVtt,
   stripAdCues,
+  audioLangMatches,
+  parseTsAudioTracks,
+  filterTsPmtAudio,
   megaplayProxyUrl,
   rewritePlaylistWithHosts,
   rewriteCinemaPlaylist,

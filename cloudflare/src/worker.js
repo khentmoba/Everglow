@@ -14,7 +14,9 @@ import {
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
   scopedTarget,
+  srtToVtt,
   stripAdCues,
+  filterTsPmtAudio,
   validateAnimeParams,
 } from './anime.js';
 import { yumeHeaders } from './yumezone.js';
@@ -121,16 +123,17 @@ function withFreshCors(headers, cors) {
 function resolveCacheKey(params, selfOrigin) {
   const path =
     params.source === 'cinema'
-      ? `cinema/${params.mediaType}/${params.tmdbId}/${params.season}/${params.ep}/${params.server || 'auto'}`
+      ? `cinema/${params.mediaType}/${params.tmdbId}/${params.season}/${params.ep}/${params.server || 'auto'}/${params.lang || ''}`
       : `${params.source}/${params.anilistId}/${params.malId}/${params.ep}/${params.audio}/${params.server || 'auto'}`;
   return new Request(
     `https://cache.everglow.internal/resolve/v1/${path}?origin=${encodeURIComponent(selfOrigin)}`,
   );
 }
 
-function hlsCacheKey(provider, selfOrigin, target) {
+function hlsCacheKey(provider, selfOrigin, target, audioLang = '') {
+  const a = audioLang ? `&a=${encodeURIComponent(audioLang)}` : '';
   return new Request(
-    `https://cache.everglow.internal/hls/v1/${encodeURIComponent(provider)}?origin=${encodeURIComponent(selfOrigin)}&target=${encodeURIComponent(target)}`,
+    `https://cache.everglow.internal/hls/v1/${encodeURIComponent(provider)}?origin=${encodeURIComponent(selfOrigin)}&target=${encodeURIComponent(target)}${a}`,
   );
 }
 
@@ -141,13 +144,14 @@ async function prewarmPlaylists(prefetched, base, selfOrigin, sealKey, edgeCache
       if (!item || !item.url || !item.text || !item.text.includes('#EXTM3U')) return;
       try {
         const provider = item.provider || 'megavid';
+        const audioLang = item.audioLang || '';
         const megaplay =
           provider === 'megaplay' ||
           (!CINEMA_PROVIDERS.has(provider) && isMegaPlayHost(new URL(item.url).hostname));
         const rewritten = megaplay
-          ? await rewritePlaylistWithHosts(item.text, item.url, base, 'megaplay', sealKey)
-          : await rewriteCinemaPlaylist(item.text, item.url, base, provider, sealKey);
-        const key = hlsCacheKey(provider, selfOrigin, item.url);
+          ? await rewritePlaylistWithHosts(item.text, item.url, base, 'megaplay', sealKey, audioLang)
+          : await rewriteCinemaPlaylist(item.text, item.url, base, provider, sealKey, audioLang);
+        const key = hlsCacheKey(provider, selfOrigin, item.url, audioLang);
         const res = new Response(rewritten, {
           status: 200,
           headers: {
@@ -266,7 +270,7 @@ async function handleProxyAnime(request, env, ctx) {
           params.ep,
           base,
           key,
-          { server: params.server },
+          { server: params.server, lang: params.lang },
         );
       }
       if (!out || !out.src) throw new Error('resolver returned no src');
@@ -457,6 +461,7 @@ async function handleProxyHls(request, env, ctx) {
   if (!sealed) return jsonResponse({ error: 'Host not allowed' }, 400, request);
   const target = sealed.target;
   const provider = sealed.provider;
+  const audioLang = sealed.audioLang || '';
 
   let parsed;
   try {
@@ -471,7 +476,7 @@ async function handleProxyHls(request, env, ctx) {
   const range = request.headers.get('Range');
   const edgeCache = getEdgeCache();
   const canCache = Boolean(edgeCache && request.method === 'GET' && !range);
-  const cacheKey = canCache ? hlsCacheKey(provider, url.origin, target) : null;
+  const cacheKey = canCache ? hlsCacheKey(provider, url.origin, target, audioLang) : null;
   if (cacheKey) {
     try {
       const hit = await edgeCache.match(cacheKey);
@@ -550,8 +555,8 @@ async function handleProxyHls(request, env, ctx) {
       const sealKey = env.CDN_STAMP_KEY || null;
       const finalUrl = upstream.url || target;
       const rewritten = megaplay
-        ? await rewritePlaylistWithHosts(text, finalUrl, base, 'megaplay', sealKey)
-        : await rewriteCinemaPlaylist(text, finalUrl, base, provider, sealKey);
+        ? await rewritePlaylistWithHosts(text, finalUrl, base, 'megaplay', sealKey, audioLang)
+        : await rewriteCinemaPlaylist(text, finalUrl, base, provider, sealKey, audioLang);
       const response = new Response(rewritten, {
         status: 200,
         headers: {
@@ -568,10 +573,14 @@ async function handleProxyHls(request, env, ctx) {
     consumed = text;
   }
 
+  const lowerPath = parsed.pathname.toLowerCase();
   const looksLikeVtt =
     upstreamCt.includes('text/vtt') ||
     upstreamCt.includes('application/x-subrip') ||
-    parsed.pathname.toLowerCase().endsWith('.vtt');
+    lowerPath.endsWith('.vtt') ||
+    lowerPath.endsWith('.srt') ||
+    lowerPath.includes('/subtitles/') ||
+    (upstreamCt.includes('text/plain') && /(?:format(?:=|%3d)srt|\.srt|\.vtt)/i.test(parsed.search));
   if (looksLikeVtt) {
     const vttHeaders = {
       ...cors,
@@ -595,7 +604,7 @@ async function handleProxyHls(request, env, ctx) {
         request,
       );
     }
-    const cleaned = stripAdCues(text);
+    const cleaned = stripAdCues(srtToVtt(text));
     const vttResponse = new Response(cleaned, { status: 200, headers: vttHeaders });
     if (cacheKey) cachePut(ctx, edgeCache, cacheKey, vttResponse.clone());
     return vttResponse;
@@ -629,7 +638,17 @@ async function handleProxyHls(request, env, ctx) {
   }
 
   const mediaStatus = upstream.status === 206 ? 206 : 200;
-  const mediaResponse = new Response(consumed !== null ? consumed : upstream.body, {
+  let body = consumed !== null ? consumed : upstream.body;
+  if (audioLang && consumed === null && mediaStatus === 200) {
+    try {
+      const bytes = new Uint8Array(await upstream.arrayBuffer());
+      body = filterTsPmtAudio(bytes, audioLang);
+    } catch (e) {
+      console.warn(`[proxyMegavidHls] ts audio filter failed (${parsed.hostname}):`, e.message);
+      return jsonResponse({ error: 'Upstream read failed' }, 502, request);
+    }
+  }
+  const mediaResponse = new Response(body, {
     status: mediaStatus,
     headers: outHeaders,
   });

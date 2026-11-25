@@ -237,6 +237,7 @@ export function CinemaPage() {
       qs.set('episode', String(episode ?? item.currentEpisode ?? 1));
     }
     if (resume != null && resume > 0) qs.set('start', String(resume));
+    if (item.originalLanguage) qs.set('lang', item.originalLanguage);
     navigate(`/cinema/video/${item.tmdbId}?${qs.toString()}`);
   };
 
